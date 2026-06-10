@@ -1,4 +1,5 @@
 import Foundation
+import WalletCoreTypes
 
 public struct TonConnectConnectRequest: Codable, Sendable {
     public var manifestUrl: String

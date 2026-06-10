@@ -80,7 +80,7 @@ struct SelectCardEmptyView: View {
                 WUIAnimatedSticker("duck_no-data", size: 100, loop: false, playTrigger: playTrigger)
                 Text(lang("You don’t have any cards to customize yet"))
                     .font(.system(size: 14, weight: .semibold))
-                Text(lang("MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list."))
+                Text(lang("My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list."))
                     .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(.secondary)
             }

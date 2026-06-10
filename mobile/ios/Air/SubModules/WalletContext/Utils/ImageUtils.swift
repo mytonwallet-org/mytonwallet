@@ -41,4 +41,8 @@ extension Image {
     public static func airBundle(_ name: String) -> Image {
         Image(name, bundle: AirBundle)
     }
+
+    public static func mainBundle(_ name: String) -> Image {
+        Image(name, bundle: .main)
+    }
 }

@@ -1,5 +1,6 @@
 
 import WalletContext
+import WalletCoreTypes
 
 extension ApiUpdate {
     

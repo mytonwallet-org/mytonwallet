@@ -1,4 +1,5 @@
 import SwiftUI
+import WalletCoreTypes
 
 struct ChangeView: View {
     var changePercent: Double?

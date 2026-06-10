@@ -1,0 +1,120 @@
+$title: ส่วนขยาย MFA
+$confirmation-title: โปรดยืนยันการดำเนินการ
+$confirmed: ยืนยันแล้ว!
+$install-confirmation-title: ยืนยันการติดตั้งส่วนขยาย
+Go Back: กลับ
+Confirm: ยืนยัน
+Is it all ok?: ทุกอย่างเรียบร้อยดีใช่ไหม?
+Connect Wallet: เชื่อมต่อวอลเล็ต
+Confirm Connection: ยืนยันการเชื่อมต่อ
+Confirm Unlinking: ยืนยันการยกเลิกการเชื่อมโยง
+My Telegram Account: บัญชี Telegram ของฉัน
+Without username: ไม่มีชื่อผู้ใช้
+My Wallet: กระเป๋าของฉัน
+We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.: เราจะขอให้คุณยืนยันการดำเนินการใน Telegram หลังจากป้อนรหัสผ่านใน %app_name%.
+2FA applies only to actions involving TON assets.: 2FA ใช้กับการดำเนินการที่เกี่ยวข้องกับสินทรัพย์ TON เท่านั้น.
+Action Confirmed: ยืนยันการดำเนินการแล้ว
+Almost Ready!: เกือบพร้อมแล้ว!
+Your wallet is now connected to your Telegram account.: กระเป๋าเงินของคุณเชื่อมต่อกับบัญชี Telegram แล้ว.
+Return to the app to pay fee and complete the final confirmation.: กลับไปที่แอปเพื่อชำระค่าธรรมเนียมและยืนยันขั้นสุดท้ายให้เสร็จสมบูรณ์.
+Back to %app_name%: กลับไปที่ %app_name%
+Preview: แสดงตัวอย่าง
+$preview_not_guaranteed: ผลลัพธ์ของการแสดงตัวอย่าง **ไม่ได้รับการรับประกัน** และ
+  **อาจถูกปลอมแปลง** โดยบริการ
+$fee_value: ค่าธรรมเนียม %fee%
+$fee_value_with_colon: "ค่าธรรมเนียม: %fee%"
+Fee: ค่าธรรมเนียม
+Details: รายละเอียด
+Transaction ID: รหัสธุรกรรม
+Transaction ID Copied: คัดลอกรหัสธุรกรรมแล้ว
+Encrypted Message: ข้อความที่ถูกเข้ารหัส
+Failed: ไม่สำเร็จ
+$transaction_on: บน %address%
+$transaction_from: จาก %address%
+$transaction_to: ถึง %address%
+at %annual_yield%: ที่ %annual_yield%
+Scam: สแกม
+Staked: สเต็กแล้ว
+Staking: สเต็ก
+$stake_action: สเต็ก
+Unstaked: ถอนการสเต็กแล้ว
+Unstaking: ถอนการสเต็ก
+$unstake_action: ถอนการสเต็ก
+Requested Unstake: ขอถอน Unstake
+Requesting Unstake: กำลังขอยกเลิกการวางเดิมพัน
+$request_unstake_action: การร้องขอถอนเดิมพัน
+Called Contract: เรียกใช้สัญญา
+Calling Contract: กำลังเรียกสัญญา
+$call_contract_action: การเรียกสัญญา
+Excess: เงินส่วนเกิน
+Deployed Contract: สัญญาที่ใช้งาน
+Deploying Contract: กำลังปรับใช้สัญญา
+$deploy_contract_action: การปรับใช้สัญญา
+Bounced: ตีกลับ
+Bouncing: กำลังตีกลับ
+$bounce_action: การตีกลับ
+Minted: มิ้นท์แล้ว
+Minting: การมิ้นท์
+$mint_action: การมิ้นท์
+Burned: เผาแล้ว
+Burning: กำลังเผา
+$burn_action: การเผา
+NFT Auction Bid: การประมูล NFT
+Bidding at NFT Auction: กำลังประมูล NFT
+"NFT Auction Bid ": การประมูล NFT
+Updated Address: อัพเดทที่อยู่แล้ว
+Updating Address: กำลังอัปเดตที่อยู่
+$update_address_action: การอัปเดตที่อยู่
+Updated Site: อัพเดทเว็บไซต์แล้ว
+Updating Site: กำลังอัปเดตเว็บไซต์
+$update_site_action: การอัปเดตเว็บไซต์
+Updated Subdomains: อัพเดทซับโดเมนแล้ว
+Updating Subdomains: กำลังอัปเดตโดเมนย่อย
+$update_subdomains_action: การอัปเดตโดเมนย่อย
+Updated Storage: อัพเดทที่เก็บแล้ว
+Updating Storage: กำลังอัปเดตพื้นที่เก็บข้อมูล
+$update_storage_action: การอัปเดตพื้นที่เก็บข้อมูล
+Deleted Domain Record: ลบระเบียนโดเมนแล้ว
+Deleting Domain Record: กำลังลบบันทึกโดเมน
+$delete_domain_record_action: การลบบันทึกโดเมน
+Renewed Domain: ต่ออายุโดเมนแล้ว
+Renewing Domain: กำลังต่ออายุโดเมน
+$renew_domain_action: การต่ออายุโดเมน
+Provided Liquidity: จัดเตรียมสภาพคล่องแล้ว
+Providing Liquidity: กำลังจัดหาสภาพคล่อง
+$provide_liquidity_action: การให้สภาพคล่อง
+Withdrawn Liquidity: ถอนสภาพคล่องแล้ว
+Withdrawing Liquidity: กำลังถอนสภาพคล่อง
+$withdraw_liquidity_action: การถอนสภาพคล่อง
+Sold NFT: ขาย NFT แล้ว
+Selling NFT: กำลังขาย NFT
+$sell_nft_action: ขาย NFT
+Bought NFT: ซื้อ NFT แล้ว
+Buying NFT: กำลังซื้อ NFT
+$buy_nft_action: การซื้อ NFT
+Minted NFT: มิ้นท์ NFT แล้ว
+Minting NFT: กำลังมิ้นท์ NFT
+$mint_nft_action: การมิ้นท์ NFT
+Burned NFT: เผา NFT แล้ว
+Burning NFT: กำลังเผา NFT
+$burn_nft_action: การเผา NFT
+Received NFT: ได้รับ NFT แล้ว
+Receiving NFT: กำลังรับ NFT
+$receive_nft_action: การรับ NFT
+Sent NFT: ส่ง NFT แล้ว
+Sending NFT: กำลังส่ง NFT
+$send_nft_action: การส่ง NFT
+Received: ได้รับ
+Receiving: กำลังรับ
+$receive_action: การรับ
+Sent: ส่ง
+Sending: กำลังส่ง
+$send_action: การส่ง
+Expired: หมดอายุ
+Refunded: คืนเงินแล้ว
+On Hold: หยุดชั่วคราว
+Waiting for Payment: กำลังรอการชำระ
+In Progress: กำลังดำเนินการ
+$swap_action: สับเปลี่ยน
+Swapping: กำลังสับเปลี่ยน
+Swapped: สับเปลี่ยนแล้ว

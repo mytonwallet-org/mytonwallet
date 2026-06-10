@@ -14,7 +14,8 @@ public struct MultisigWalletWarning: View {
             header: lang("Multisig Wallet Detected"),
             text: lang(
                 "$multisig_warning_text",
-                arg1: "[\(lang("$multisig_warning_link"))](\(helpUrl.absoluteString))"
+                arg1: APP_NAME,
+                arg2: "[\(lang("$multisig_warning_link"))](\(helpUrl.absoluteString))"
             ),
             kind: .error
         )

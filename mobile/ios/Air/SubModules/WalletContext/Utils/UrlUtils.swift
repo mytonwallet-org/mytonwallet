@@ -26,7 +26,7 @@ extension URL {
         guard let host = self.host?.lowercased() else {
             return false
         }
-        if host.hasSuffix(".mytonwallet.io") {
+        if APP_ROOT_URL_DOMAINS.contains(where: { domain in host.hasSuffix(".\(domain)") }) {
             return true
         }
         guard host == "localhost", let port = self.port else {

@@ -33,6 +33,7 @@ enum class WColor {
     DIVIDER,
     Error,
     Green,
+    PositiveBalance,
     Red,
     Purple,
     Orange,

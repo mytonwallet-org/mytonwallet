@@ -10,6 +10,7 @@ import WalletContext
 import OrderedCollections
 import Dependencies
 import Perception
+import WalletCoreTypes
 
 private let log = Log("NftStore")
 private let DEBUG_SHOW_TEST_NFTS = true

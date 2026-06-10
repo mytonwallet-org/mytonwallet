@@ -8,7 +8,6 @@
 import Foundation
 import UIKit
 import struct os.OSAllocatedUnfairLock
-import GRDB
 
 public typealias UnfairLock = OSAllocatedUnfairLock
 
@@ -52,7 +51,30 @@ public class WalletContextManager {
 }
 
 #if SWIFT_PACKAGE
-public let AirBundle = Bundle.module
+public let AirBundle = {
+    let bundleName = "AirModules_WalletResources"
+    let candidates = [
+        Bundle.main.resourceURL,
+        Bundle(for: WalletContextManager.self).resourceURL,
+        Bundle.main.bundleURL,
+        Bundle(for: WalletContextManager.self).bundleURL,
+    ]
+
+    for candidate in candidates {
+        guard let bundleURL = candidate?.appendingPathComponent("\(bundleName).bundle") else {
+            continue
+        }
+        if let bundle = Bundle(url: bundleURL) {
+            return bundle
+        }
+    }
+
+    if let bundle = Bundle.allBundles.first(where: { $0.bundleURL.lastPathComponent == "\(bundleName).bundle" }) {
+        return bundle
+    }
+
+    return Bundle.main
+}()
 #else
 public let AirBundle = Bundle(for: WalletContextManager.self)
 #endif

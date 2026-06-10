@@ -460,8 +460,8 @@ function Settings({
           {IS_CORE_WALLET && (
             <div className={styles.block}>
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallApp}>
-                <img className={styles.menuIcon} src={upgradeImg} alt={lang('Upgrade to MyTonWallet')} />
-                <span className={styles.itemTitle}>{lang('Upgrade to MyTonWallet')}</span>
+                <img className={styles.menuIcon} src={upgradeImg} alt={lang('Upgrade to My Wallet')} />
+                <span className={styles.itemTitle}>{lang('Upgrade to My Wallet')}</span>
 
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
@@ -655,8 +655,8 @@ function Settings({
                   rel="noopener noreferrer"
                   className={buildClassName(styles.item, styles.itemMenu)}
                 >
-                  <img className={styles.menuIcon} src={tipsImg} alt={lang('MyTonWallet Features')} />
-                  <span className={styles.itemTitle}>{lang('MyTonWallet Features')}</span>
+                  <img className={styles.menuIcon} src={tipsImg} alt={lang('My Wallet Features')} />
+                  <span className={styles.itemTitle}>{lang('My Wallet Features')}</span>
 
                   <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                 </a>
@@ -681,8 +681,8 @@ function Settings({
                     rel="noopener noreferrer"
                     className={buildClassName(styles.item, styles.itemMenu)}
                   >
-                    <img className={styles.menuIcon} src={mtwCardsImg} alt={lang('MyTonWallet Cards NFT')} />
-                    <span className={styles.itemTitle}>{lang('MyTonWallet Cards NFT')}</span>
+                    <img className={styles.menuIcon} src={mtwCardsImg} alt={lang('My Wallet Cards NFT')} />
+                    <span className={styles.itemTitle}>{lang('My Wallet Cards NFT')}</span>
 
                     <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                   </a>

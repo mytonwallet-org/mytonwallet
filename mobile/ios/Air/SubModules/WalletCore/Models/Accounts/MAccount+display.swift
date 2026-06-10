@@ -2,6 +2,7 @@
 import UIKit
 import WalletContext
 import SwiftUI
+import WalletCoreTypes
 
 public extension MAccount {
     var displayName: String {

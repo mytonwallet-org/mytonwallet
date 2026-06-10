@@ -47,7 +47,7 @@ struct IntroView: View {
             WUISpeedingDiamondWithParticles()
                 .offset(y: -32)
         } else {
-            Image.airBundle("IntroLogo")
+            Image.mainBundle("IntroLogo")
                 .highlightScale(isTouching, scale: 0.9, isEnabled: true)
                 .touchGesture($isTouching)
                 .frame(width: 124, height: 124)

@@ -7,8 +7,10 @@ import org.mytonwallet.app_air.walletcore.moshi.DeviceInfo
 import java.security.SecureRandom
 
 object TonConnectHelper {
-    const val TON_CONNECT_WALLET_JS_BRIDGE_KEY = "mytonwallet"
     const val TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE = "_mytonwallet"
+
+    private val tonConnectWalletJsBridgeKey: String
+        get() = if (ApplicationContextHolder.isGramApp) "gramwallet" else "mytonwallet"
 
     val deviceInfo: DeviceInfo
         get() = DeviceInfo(
@@ -117,7 +119,7 @@ object TonConnectHelper {
 
         return """
         (function() {
-            if (window.$TON_CONNECT_WALLET_JS_BRIDGE_KEY) return;
+            if (window.$tonConnectWalletJsBridgeKey) return;
             function listen(cb) {
                 window._mtwAir_eventListeners.push(cb);
                 return function() {
@@ -128,7 +130,7 @@ object TonConnectHelper {
                 };
             }
 
-            window.$TON_CONNECT_WALLET_JS_BRIDGE_KEY = {
+            window.$tonConnectWalletJsBridgeKey = {
                 tonconnect: Object.assign(
                     {
                         deviceInfo: ${deviceInfoJson},

@@ -69,6 +69,7 @@ public struct AccountIcon: View {
             if let avatarUrl = account.telegramAvatarUrl, !remoteAvatarState.isUnavailable(for: avatarUrl) {
                 let requestKey = avatarRetryKey
                 KFImage(avatarUrl)
+                    .setProcessor(SVGImageProcessor.default)
                     .resizable()
                     .onSuccess { result in
                         guard activeAvatarUrl == avatarUrl, avatarRetryKey == requestKey else { return }

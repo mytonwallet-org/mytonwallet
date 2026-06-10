@@ -2,6 +2,7 @@ import Dependencies
 import Foundation
 import GRDB
 import WalletContext
+import WalletCoreTypes
 
 private let log = Log("SettingsStore")
 

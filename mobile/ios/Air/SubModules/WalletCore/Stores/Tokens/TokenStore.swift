@@ -9,6 +9,7 @@ import Foundation
 import WalletContext
 import Perception
 import Dependencies
+import WalletCoreTypes
 
 public var TokenStore: _TokenStore { _TokenStore.shared }
 private let HISTORY_DATA_STALENESS = 120.0

@@ -33,6 +33,8 @@ const Toast: FC<OwnProps> = ({
   const [isOpen, setIsOpen] = useState(true);
   const timerRef = useRef<number | undefined>();
 
+  const withAction = Boolean(onAction);
+
   const { ref } = useShowTransition({ isOpen });
 
   const closeAndDismiss = useLastCallback(() => {
@@ -71,11 +73,13 @@ const Toast: FC<OwnProps> = ({
     closeAndDismiss();
   });
 
-  const hasAction = Boolean(onAction);
-
   return (
     <Portal
-      className={buildClassName(styles.container, IS_ELECTRON && styles.container_electron)}
+      className={buildClassName(
+        styles.container,
+        IS_ELECTRON && styles.container_electron,
+        withAction && styles.container_withAction,
+      )}
       containerId={containerId}
     >
       <div
@@ -85,11 +89,11 @@ const Toast: FC<OwnProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className={buildClassName(styles.content, hasAction && styles.content_withAction)}>
+        <div className={buildClassName(styles.content, withAction && styles.content_withAction)}>
           {icon && <i className={buildClassName(styles.icon, icon)} aria-hidden />}
           {message}
         </div>
-        {hasAction && (
+        {withAction && (
           <button type="button" className={styles.action} onClick={handleActionClick}>
             {actionText}
           </button>

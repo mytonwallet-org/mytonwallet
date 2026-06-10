@@ -1,5 +1,6 @@
 
 import WalletContext
+import WalletCoreTypes
 
 extension ApiUpdate {
     public struct UpdateCurrencyRates: Equatable, Hashable, Sendable, Codable {

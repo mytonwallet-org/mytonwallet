@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import WalletContext
+import WalletCoreTypes
 
 private let log = Log("AppStorageHelper")
 

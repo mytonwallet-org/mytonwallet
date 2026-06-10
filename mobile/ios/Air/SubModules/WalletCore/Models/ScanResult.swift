@@ -1,4 +1,5 @@
 import Foundation
+import WalletCoreTypes
 
 public enum ScanResult: Sendable {
     case url(url: URL)

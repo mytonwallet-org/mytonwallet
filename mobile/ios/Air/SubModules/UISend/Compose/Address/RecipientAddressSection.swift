@@ -134,17 +134,22 @@ struct ResolvedAddressView: View {
                 EmptyView()
             } else {
                 let display = model.displayComponents()
-                HStack(spacing: 4) {
-                    if let primary = display.primary {
-                        Text(primary)
-                            .foregroundStyle(Color.air.primaryLabel)
-                            .truncationMode(.middle)
-                    }
-                    if let secondary = display.secondary {
-                        Text("·")
-                            .foregroundStyle(Color.air.secondaryLabel)
-                        Text(secondary)
-                            .foregroundStyle(Color.air.secondaryLabel)
+                
+                HStack(spacing: 4) { 
+                    if let primary = display.primary, display.secondary == nil {
+                        MiddleTruncatedText(primary, textColor: .air.primaryLabel, separatorColor: .air.secondaryLabel)
+                    } else {
+                        if let primary = display.primary {
+                            Text(primary)
+                                .foregroundStyle(Color.air.primaryLabel)
+                                .truncationMode(.middle)
+                        }
+                        if let secondary = display.secondary {
+                            Text("·")
+                                .foregroundStyle(Color.air.secondaryLabel)
+                            Text(secondary)
+                                .foregroundStyle(Color.air.secondaryLabel)
+                        }
                     }
                 }
                 .animation(.default, value: display.primary)

@@ -132,7 +132,13 @@ private class AppActionsImpl: AppActionsProtocol {
                         AppActions.showError(error: BridgeCallError.customMessage(lang("Earn is not supported on this account."), nil))
                         return
                     }
-                    AppActions.showEarn(accountContext: accountContext, tokenSlug: transaction.slug)
+                    let tokenSlug = stakingTokenSlug(for: transaction, accountContext: accountContext)
+                    switch transaction.type {
+                    case .unstake, .unstakeRequest:
+                        showEarn(accountContext: accountContext, tokenSlug: tokenSlug, initialAction: .unstake)
+                    default:
+                        AppActions.showEarn(accountContext: accountContext, tokenSlug: tokenSlug)
+                    }
                 } else if transaction.type == nil && transaction.nft == nil && !transaction.isIncoming {
                     AppActions.showSend(accountContext: accountContext, prefilledValues: .init(
                         address: transaction.toAddress,
@@ -160,6 +166,54 @@ private class AppActionsImpl: AppActionsProtocol {
         } else {
             action()
         }
+    }
+
+    private static func stakingTokenSlug(for transaction: ApiTransactionActivity, accountContext: AccountContext) -> String {
+        if let tokenSlug = stakingTokenSlugMatchingTransactionAddress(for: transaction, stakingData: accountContext.stakingData) {
+            return tokenSlug
+        }
+        return StakingConfig.config(forTokenSlug: transaction.slug)?.baseTokenSlug ?? transaction.slug
+    }
+
+    private static func stakingTokenSlugMatchingTransactionAddress(for transaction: ApiTransactionActivity, stakingData: MStakingData?) -> String? {
+        guard let stakingData else { return nil }
+        let addresses = Set([transaction.fromAddress, transaction.toAddress, transaction.normalizedAddress]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty })
+        guard !addresses.isEmpty else { return nil }
+        let states = stakingData.stateById.values
+        if let state = states.first(where: { $0.tokenSlug != TONCOIN_SLUG && stakingState($0, matchesAny: addresses) }) {
+            return state.tokenSlug
+        }
+        if StakingConfig.config(forTokenSlug: transaction.slug) == nil,
+           let state = states.first(where: { stakingState($0, matchesAny: addresses) }) {
+            return state.tokenSlug
+        }
+        return nil
+    }
+
+    private static func stakingState(_ state: ApiStakingState, matchesAny addresses: Set<String>) -> Bool {
+        return switch state {
+        case .liquid(let liquid):
+            contains(liquid.pool, in: addresses)
+        case .nominators(let nominators):
+            contains(nominators.pool, in: addresses)
+        case .jetton(let jetton):
+            contains(jetton.pool, in: addresses) ||
+            contains(jetton.stakeWalletAddress, in: addresses) ||
+            contains(jetton.tokenAddress, in: addresses) ||
+            (jetton.poolWallets?.contains { addresses.contains($0) } ?? false)
+        case .ethena(let ethena):
+            contains(ethena.pool, in: addresses) ||
+            contains(ethena.tsUsdeWalletAddress, in: addresses) ||
+            contains(ApiToken.TON_TSUSDE.tokenAddress, in: addresses)
+        case .unknown:
+            false
+        }
+    }
+
+    private static func contains(_ address: String?, in addresses: Set<String>) -> Bool {
+        address.map { addresses.contains($0) } ?? false
     }
     
     static func scanQR() async -> ScanResult? {
@@ -327,12 +381,20 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
 
+    static func showDeleteSelectedAccounts(accountIds: [String]) {
+        showDeleteSelectedAccountsAlert(accountsIdsToDelete: accountIds)
+    }
+
     static func showAgent() {
         rootContainerRouter.showAgent()
     }
     
     static func showEarn(accountContext: AccountContext, tokenSlug: String?) {
-        let earnVC = EarnRootVC(accountContext: accountContext, tokenSlug: tokenSlug)
+        showEarn(accountContext: accountContext, tokenSlug: tokenSlug, initialAction: nil)
+    }
+
+    private static func showEarn(accountContext: AccountContext, tokenSlug: String?, initialAction: EarnInitialAction?) {
+        let earnVC = EarnRootVC(accountContext: accountContext, tokenSlug: tokenSlug, initialAction: initialAction)
         topViewController()?.present(WNavigationController(rootViewController: earnVC), animated: true)
     }
     

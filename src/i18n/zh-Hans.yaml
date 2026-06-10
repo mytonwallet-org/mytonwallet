@@ -17,6 +17,7 @@ Sign transfers and important actions with your passcode, then confirm them in Te
 This helps protect your funds even if your recovery phrase or keys are compromised.: 即使你的助记词或密钥泄露，这也有助于保护你的资金。
 "Connection Fee:": "连接费用："
 Connect Telegram: 连接 Telegram
+Add in Gram Wallet: 在 Gram Wallet 中添加
 Telegram will be used to confirm transfers and important actions.: Telegram 将用于确认转账和重要操作。
 My Telegram Account: 我的 Telegram 账户
 Without username: 无用户名
@@ -768,7 +769,7 @@ Toggle fullscreen: 切换全屏模式
 Request is sent!: 请求已发送！
 Transaction ID: 交易ID
 Help Center: 帮助中心
-MyTonWallet Tips: MyTonWallet 提示
+"%app_name% Tips": "%app_name% 提示"
 Open %nft_marketplace%: 打开 %nft_marketplace%
 Link Copied: 链接已复制
 Share Link: 分享链接
@@ -836,7 +837,7 @@ $receive_action: 接收
 Change Palette: 更改调色板
 Palette: 调色板
 Unlock New Palettes: 解锁新调色板
-Get a unique MyTonWallet Card to unlock new palettes.: 获取独特的 MyTonWallet 卡片以解锁新的调色板。
+Get a unique My Wallet Card to unlock new palettes.: 获取独特的 My Wallet 卡片以解锁新的调色板。
 Mint Cards: 铸造卡片
 Card has been upgraded!: 卡片已升级！
 $mint_card_result: NFT 卡片将在一分钟内**铸造**并**自动安装**。
@@ -871,9 +872,9 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: 请使用 MyTonWallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
+$reopen_in_iab: 请使用 My Wallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
 $reopen_in_iab_explore: 浏览应用时，请使用 %exploreTab% 栏目以避免此警告。
-MyTonWallet Browser: MyTonWallet 浏览器
+My Wallet Browser: My Wallet 浏览器
 mobile app: 移动应用
 browser extension: 浏览器扩展
 Exit all wallets: 退出所有钱包
@@ -980,7 +981,7 @@ $domain_like_scam_warning: |
 Allow Suspicious Actions: 允许可疑操作
 $allow_suspicious_actions_description: 允许发送至可疑地址并与潜在不安全的合约交互。
 Multisig Wallet Detected: 检测到多重签名钱包
-$multisig_warning_text: 通过 MyTonWallet **提取资金**是**不可能的**。请确认这真的是您的钱包——否则可能是诈骗。%multisig_warning_link%
+$multisig_warning_text: 通过 %app_name% **提取资金**是**不可能的**。请确认这真的是您的钱包——否则可能是诈骗。%multisig_warning_link%
 $multisig_warning_link: 点击了解更多
 Multisig sending disabled: 无法从多签发送
 $try_new_air_version: 尝试原生应用体验 — 更轻量、更快速，专为您的设备打造。您可以随时切换回来。
@@ -1052,9 +1053,9 @@ Customize Wallet: 自定义钱包
 "Select the card stored in this wallet:": 选择此钱包中存储的卡片：
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: 该卡片将安装到此钱包中，并显示在主屏幕和钱包列表中。
 Get More Cards: 获取更多卡片
-Browse MyTonWallet Cards available for purchase.: 浏览可购买的 MyTonWallet 卡片。
+Browse My Wallet Cards available for purchase.: 浏览可购买的 My Wallet 卡片。
 You don’t have any cards to customize yet: 您还没有可自定义的卡片。
-MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet 卡片可以安装到钱包中，并显示在主屏幕和钱包列表中。
+My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: My Wallet 卡片可以安装到钱包中，并显示在主屏幕和钱包列表中。
 Get First Card: 获取第一张卡片
 Palette and Card: 调色板与卡片
 Customize the wallet's home screen and color accents the way you like.: 按照您的喜好自定义钱包主屏幕和颜色。
@@ -1088,7 +1089,7 @@ Adding wallets is not available in explorer mode: 在浏览器模式下无法添
 $explorer_mode_warning: "浏览器模式：正在等待查看深层链接以打开地址"
 This command is not supported in explorer mode: 此命令在浏览器模式下不受支持
 $saved_addresses_header: 已保存
-confirm an action in MyTonWallet: 在 MyTonWallet 中确认操作
+confirm an action in My Wallet: 在 My Wallet 中确认操作
 Timed out waiting for account to be ready: 等待账户准备就绪超时
 $connected_apps:
   otherValue: "%1$d 已连接"
@@ -1151,7 +1152,7 @@ $agent_consent_debug_reset_button: 重置助手同意状态
 $agent_consent_debug_reset_footer: 下次打开助手标签页时再次显示助手同意屏幕。
 Clear Chat: 清空聊天
 Unsupported link: 此链接不受支持
-MyTonWallet Features: MyTonWallet 功能
+My Wallet Features: My Wallet 功能
 Notifications: 通知
 Wrong passcode, please try again: 密码错误，请重试。
 Use biometric authentication or create a passcode to protect it.: 使用生物识别认证或创建密码进行保护。
@@ -1242,7 +1243,6 @@ Connect your hardware wallet: 连接您的硬件钱包
 Watch wallet in read-only mode: 以只读模式查看钱包
 More: 更多
 at: 于
-MyTonWallet: MyTonWallet
 I agree to %term%: 我同意 %term%
 See Words: 查看助记词
 Wrong Phrase: 助记词顺序错误
@@ -1344,7 +1344,7 @@ Swap is not supported on this account.: 此账户不支持兑换。
 "%1$@ will be returned": "%1$@ 将被退回"
 Connecting your wallet: 正在连接你的钱包
 Action is not possible on a view-only wallet.: 只读钱包无法执行此操作。
-Logged in with MyTonWallet: 已通过 MyTonWallet 登录
+Logged in with My Wallet: 已通过 My Wallet 登录
 You have no apps connected to this wallet.: 尚无应用连接到此钱包。
 Asset: 资产
 Sent to: 已发送至
@@ -1391,7 +1391,7 @@ Confirm Actions:
 "Install Palette": 安装调色板
 Ledger: Ledger
 "Moving to staking balance": 正转入质押余额
-MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet 使用生物识别来解锁并授权交易
+My Wallet uses biometric authentication to unlock and authorize transactions: My Wallet 使用生物识别来解锁并授权交易
 "Network error": 网络错误
 "No Camera Access": 无法访问相机
 "Not all transactions were sent successfully.": 并非所有交易都发送成功。
@@ -1490,7 +1490,7 @@ Use 6-digit Passcode: 使用 6 位 PIN 码
 Authorize %token% Fee: 授权 %token% 手续费
 Awaiting Previous Fee: 等待上一笔手续费
 Lock: 锁定
-MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet 卡片可安装到钱包，并在主屏和钱包列表中显示。
+My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: My Wallet 卡片可安装到钱包，并在主屏和钱包列表中显示。
 Receive: 接收
 Scan: 扫描
 

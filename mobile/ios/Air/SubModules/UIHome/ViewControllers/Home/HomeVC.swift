@@ -294,7 +294,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             updateNavigationItem()
         }
 
-        let spacing: CGFloat = IOS_26_MODE_ENABLED ? -124 : -100
+        let spacing: CGFloat = IOS_26_MODE_ENABLED ? -112 : -100
         NSLayoutConstraint.activate([
             balanceHeaderView.updateStatusView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor,
                                                 constant: spacing)

@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import WalletContext
+import WalletCoreTypes
 
 public struct MAccountBalances: Equatable, Hashable, Codable, Sendable, FetchableRecord, PersistableRecord {
     public let accountId: String

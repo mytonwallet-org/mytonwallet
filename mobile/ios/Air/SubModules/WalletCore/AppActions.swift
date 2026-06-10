@@ -2,6 +2,7 @@
 import UIKit
 import SwiftUI
 import WalletContext
+import WalletCoreTypes
 
 // Please keep methods in alphabetical order
 
@@ -41,6 +42,7 @@ import WalletContext
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?)
     static func showCustomizeWallet(accountId: String?)
     static func showDeleteAccount(accountId: String)
+    static func showDeleteSelectedAccounts(accountIds: [String])
     static func showEarn(accountContext: AccountContext, tokenSlug: String?)
     static func showError(error: Error?)
     static func showExplore()
@@ -159,6 +161,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?) { }
     static func showCustomizeWallet(accountId: String?) { }
     static func showDeleteAccount(accountId: String) { }
+    static func showDeleteSelectedAccounts(accountIds: [String]) { }
     static func showEarn(accountContext: AccountContext, tokenSlug: String?) { }
     static func showError(error: Error?) { }
     static func showExplore() { }

@@ -4,6 +4,7 @@ import WalletContext
 import Perception
 import Dependencies
 import SwiftNavigation
+import WalletCoreTypes
 
 @Perceptible @propertyWrapper @MainActor
 public final class AccountContext: Sendable {

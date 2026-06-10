@@ -13,6 +13,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.inputmethod.EditorInfo
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -29,8 +30,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.WWordInput
+import org.mytonwallet.app_air.uicomponents.widgets.segmentedControlGroup.WSegmentedControlGroup
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.suggestion.WSuggestionView
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
@@ -129,6 +132,32 @@ class ImportWalletVC(
         }
     }
 
+    private var activeWordCount = 12
+
+    private val wordCountSwitcher: WSegmentedControlGroup by lazy {
+        WSegmentedControlGroup(context).apply {
+            listOf("12 Words", "24 Words").forEach { title ->
+                addView(
+                    WLabel(context).apply {
+                        layoutParams = ViewGroup.LayoutParams(WRAP_CONTENT, MATCH_PARENT)
+                        setStyle(16f, WFont.DemiBold)
+                        text = LocaleController.getString(title)
+                        gravity = Gravity.CENTER
+                        setPaddingDp(16, 0, 16, 0)
+                    }
+                )
+            }
+            setSelectedIndex(0)
+            setOnSelectedOptionChangeCallback { index ->
+                val count = if (index == 0) 12 else 24
+                if (activeWordCount != count) {
+                    activeWordCount = count
+                    applyWordInputConstraints(scrollingContentView)
+                }
+            }
+        }
+    }
+
     private val continueButton: WButton by lazy {
         val btn = WButton(context, WButton.Type.PRIMARY)
         btn.text = LocaleController.getString("Continue")
@@ -162,6 +191,7 @@ class ImportWalletVC(
         v.addView(titleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(subtitleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         v.addView(pasteButton, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        v.addView(wordCountSwitcher, ViewGroup.LayoutParams(WRAP_CONTENT, 38.dp))
         for (wordNumber in 1..24) {
             val wordInputView = WWordInput(context, wordNumber, this)
             wordInputViews.lastOrNull()?.textField?.nextFocusView =
@@ -169,11 +199,20 @@ class ImportWalletVC(
             v.addView(wordInputView, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
             wordInputViews.add(wordInputView)
             wordInputView.textField.setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_NEXT) {
-                    wordInputViews.getOrNull(wordNumber)?.textField?.requestFocus()
-                    return@setOnEditorActionListener true
+                when (actionId) {
+                    EditorInfo.IME_ACTION_NEXT -> {
+                        wordInputViews.getOrNull(wordNumber)?.textField?.requestFocus()
+                        true
+                    }
+
+                    EditorInfo.IME_ACTION_DONE -> {
+                        wordInputView.textField.clearFocus()
+                        importPressed()
+                        true
+                    }
+
+                    else -> false
                 }
-                false
             }
             wordInputView.textField.onFocusChangeListener = OnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
@@ -181,17 +220,6 @@ class ImportWalletVC(
                 } else {
                     wordInputView.checkValue()
                 }
-            }
-        }
-        wordInputViews.last().textField.apply {
-            setImeOptions(EditorInfo.IME_ACTION_DONE)
-            setOnEditorActionListener { _, actionId, _ ->
-                clearFocus()
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    importPressed()
-                    return@setOnEditorActionListener true
-                }
-                false
             }
         }
         v.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -212,17 +240,43 @@ class ImportWalletVC(
             topToBottom(pasteButton, subtitleLabel, 1f)
             toCenterX(pasteButton)
 
-            val containerWidth = (navigationController?.width?.takeIf { it > 0 }
-                ?: ApplicationContextHolder.screenWidth)
-            val wordInputWidth = (containerWidth - 64.dp - 16.dp) / 2
+            topToBottom(wordCountSwitcher, pasteButton, 22f)
+            toCenterX(wordCountSwitcher)
+        }
+        applyWordInputConstraints(v)
+        v
+    }
+
+    private fun applyWordInputConstraints(container: WView) {
+        val columnCount = activeWordCount / 2
+        val containerWidth = (navigationController?.width?.takeIf { it > 0 }
+            ?: ApplicationContextHolder.screenWidth)
+        val wordInputWidth = (containerWidth - 64.dp - 16.dp) / 2
+
+        wordInputViews.forEachIndexed { i, wordInput ->
+            wordInput.visibility = if (i < activeWordCount) View.VISIBLE else View.GONE
+            wordInput.textField.setImeOptions(
+                if (i == activeWordCount - 1)
+                    EditorInfo.IME_ACTION_DONE
+                else
+                    EditorInfo.IME_ACTION_NEXT
+            )
+        }
+
+        container.setConstraints {
+            wordInputViews.forEach {
+                clear(it.id, ConstraintSet.TOP)
+                clear(it.id, ConstraintSet.START)
+                clear(it.id, ConstraintSet.END)
+            }
 
             var prevLeftWordInput: WWordInput? = null
-            for (i in 0..11) {
+            for (i in 0 until columnCount) {
                 val wordInput = wordInputViews[i]
                 topToBottom(
                     wordInput,
-                    prevLeftWordInput ?: pasteButton,
-                    if (prevLeftWordInput == null) 29f else 10f
+                    prevLeftWordInput ?: wordCountSwitcher,
+                    if (prevLeftWordInput == null) 24f else 10f
                 )
                 toStart(wordInput, 32f)
                 constrainWidth(wordInput.id, wordInputWidth)
@@ -230,12 +284,12 @@ class ImportWalletVC(
             }
 
             var prevRightWordInput: WWordInput? = null
-            for (i in 12..23) {
+            for (i in columnCount until activeWordCount) {
                 val wordInput = wordInputViews[i]
                 topToBottom(
                     wordInput,
-                    prevRightWordInput ?: pasteButton,
-                    if (prevRightWordInput == null) 29f else 10f
+                    prevRightWordInput ?: wordCountSwitcher,
+                    if (prevRightWordInput == null) 24f else 10f
                 )
                 toEnd(wordInput, 32f)
                 constrainWidth(wordInput.id, wordInputWidth)
@@ -249,7 +303,14 @@ class ImportWalletVC(
                 48.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
         }
-        v
+    }
+
+    private fun setActiveWordCount(count: Int) {
+        if (activeWordCount == count)
+            return
+        activeWordCount = count
+        wordCountSwitcher.setSelectedIndex(if (count == 12) 0 else 1)
+        applyWordInputConstraints(scrollingContentView)
     }
 
     private val scrollView: WScrollView by lazy {
@@ -314,11 +375,14 @@ class ImportWalletVC(
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.PrimaryText.color)
         pasteButton.addRippleEffect(WColor.TintRipple.color, 10f.dp)
+        wordCountSwitcher.updateTheme()
+        wordCountSwitcher.setBackgroundColor(WColor.ThumbBackground.color, 19f.dp)
     }
 
     private fun importPressed() {
         val words =
             wordInputViews
+                .take(activeWordCount)
                 .map { it.textField.text.toString().trim().lowercase() }
                 .filter { it.isNotEmpty() }
                 .toTypedArray()
@@ -337,7 +401,7 @@ class ImportWalletVC(
                 return
             }
         }
-        if (words.size != 12 && words.size != 24) {
+        if (words.size != activeWordCount) {
             showMnemonicAlert()
             return
         }
@@ -369,7 +433,14 @@ class ImportWalletVC(
             continueButton.isLoading = false
             view.unlockView()
             push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
-                importWalletVM.finalizeAccount(window!!, network, words, passcode, biometricsActivated, 0)
+                importWalletVM.finalizeAccount(
+                    window!!,
+                    network,
+                    words,
+                    passcode,
+                    biometricsActivated,
+                    0
+                )
             }, onCompletion = {
                 navigationController?.removePrevViewControllers()
             })
@@ -445,8 +516,12 @@ class ImportWalletVC(
                 .map { it.textField.text.toString().trim().lowercase() }
                 .filter { it.isNotEmpty() }
                 .toTypedArray()
-        if (words.size == 12 || words.size == 24 || PrivateKeyHelper.isMnemonicPrivateKey(words))
+        if (words.size == 12 || words.size == 24) {
+            setActiveWordCount(words.size)
             importPressed()
+        } else if (PrivateKeyHelper.isMnemonicPrivateKey(words)) {
+            importPressed()
+        }
     }
 
     private fun pasteFromClipboard() {

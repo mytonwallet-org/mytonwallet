@@ -5,11 +5,12 @@ import type { AbstractWebsocketClient, BalanceUpdate, WalletWatcher } from './ab
 
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { createCallbackManager } from '../../../util/callbacks';
-import { getChainConfig } from '../../../util/chain';
+import { getChainConfig, getSupportedChains } from '../../../util/chain';
 import Deferred from '../../../util/Deferred';
 import { pick } from '../../../util/iteratees';
 import { logDebug } from '../../../util/logs';
 import { throttle } from '../../../util/schedulers';
+import { getChainBySlug } from '../../../util/tokens';
 import { FallbackPollingScheduler } from '../../common/polling/fallbackPollingScheduler';
 import { buildTokenSlug, getTokenByAddress, tokensPreload } from '../../common/tokens';
 
@@ -28,6 +29,8 @@ export type BalanceUpdateCallback = (update: BalanceUpdate) => void;
 const VIRTUAL_ADDRESS = '@VIRTUAL';
 
 const SOCKET_THROTTLE_DELAY = 100;
+
+const crosschainAssetsByChain = new Map<ApiChain, ApiBalanceBySlug>();
 
 type BalanceStreamOptions = {
   chain: ApiChain;
@@ -150,10 +153,19 @@ export class BalanceStream {
 
   public async getBalances() {
     await this.#balancesDeferred.promise;
+
     if (!this.#balances) {
       throw new Error('Unexpected missing balances');
     }
-    return this.#balances;
+
+    const config = getChainConfig(this.#chain);
+    let chainBalances = this.#balances;
+
+    if (config.chainStandard && config.chainStandard !== this.#chain) {
+      chainBalances = crosschainAssetsByChain.get(this.#chain) || {};
+    }
+
+    return chainBalances;
   }
 
   /**
@@ -219,15 +231,26 @@ export class BalanceStream {
       this.#fallbackPollingScheduler.forceImmediatePoll();
     }
 
+    const config = getChainConfig(this.#chain);
+
+    let chainBalances = this.#balances;
+
+    if (config.chainStandard && config.chainStandard !== this.#chain) {
+      chainBalances = crosschainAssetsByChain.get(this.#chain);
+    }
+
     // Normally `this.#balances` must contain all balances before applying partial socket deltas.
     // For a wallet just activated by the socket, the delta is the only fresh source until HTTP APIs catch up.
-    if (!this.#balances && !wasInactive) return;
+    if (!chainBalances && !wasInactive) return;
 
     const tokenAddresses = await splitKnownAndUnknownTokens(newBalances);
+
     this.#setBalancesPartially(pick(newBalances, tokenAddresses.known));
 
     await this.#importUnknownTokens?.(this.#network, tokenAddresses.unknown, this.#sendUpdateTokens);
+
     if (this.#isDestroyed) return;
+
     this.#setBalancesPartially(pick(newBalances, tokenAddresses.unknown));
   };
 
@@ -261,6 +284,21 @@ export class BalanceStream {
         = await this.#fetchCrosschainBalancesCb?.(this.#network, this.#address, this.#sendUpdateTokens);
 
         if (crosschainBalances) {
+          const knownChains = getSupportedChains();
+
+          for (const [slug, balance] of Object.entries(crosschainBalances)) {
+            const assetChain = getChainBySlug(slug);
+
+            if (!knownChains.includes(assetChain)) {
+              continue;
+            }
+
+            crosschainAssetsByChain.set(assetChain, {
+              ...crosschainAssetsByChain.get(assetChain),
+              [slug]: balance,
+            });
+          }
+
           this.#setAllBalances(crosschainBalances);
           this.#balancesDeferred.resolve();
         }

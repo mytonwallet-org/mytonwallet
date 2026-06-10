@@ -110,13 +110,16 @@ let package = Package(
         airLibrary("UITransaction"),
         airLibrary("WReachability"),
         airLibrary("WalletContext"),
+        airLibrary("WalletCoreTypes"),
         airLibrary("WalletCore", type: .dynamic),
+        airLibrary("WalletResources"),
         airLibrary("YUVConversion"),
     ],
     dependencies: [
         .package(path: "../Packages/ContextMenuKit"),
         .package(path: "../Packages/GraphKit"),
         .package(path: "../Packages/LottieKit"),
+        .package(path: "../Packages/SwiftSVG"),
         .package(
             url: "https://github.com/airbnb/lottie-spm.git",
             exact: "4.5.2"
@@ -188,14 +191,8 @@ let package = Package(
             swiftSettings: sharedSwiftSettings
         ),
         .target(
-            name: "WalletContext",
-            dependencies: [
-                .product(name: "BigInt", package: "swift-bigint"),
-                .product(name: "ColorThiefSwift", package: "colorthiefswift"),
-                .product(name: "GRDB", package: "grdb.swift"),
-                .product(name: "OrderedCollections", package: "swift-collections"),
-            ],
-            path: "SubModules/WalletContext",
+            name: "WalletResources",
+            path: "SubModules/WalletResources",
             exclude: [
                 "Resources/Strings/Localizable.xcstrings",
             ],
@@ -210,9 +207,20 @@ let package = Package(
             swiftSettings: sharedSwiftSettings
         ),
         .target(
+            name: "WalletContext",
+            dependencies: [
+                .product(name: "BigInt", package: "swift-bigint"),
+                .product(name: "ColorThiefSwift", package: "colorthiefswift"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
+            ],
+            path: "SubModules/WalletContext",
+            swiftSettings: sharedSwiftSettings
+        ),
+        .target(
             name: "WalletCore",
             dependencies: [
                 "WalletContext",
+                "WalletCoreTypes",
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "GRDB", package: "grdb.swift"),
                 .product(name: "Kingfisher", package: "kingfisher"),
@@ -221,6 +229,14 @@ let package = Package(
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
             ],
             path: "SubModules/WalletCore",
+            swiftSettings: sharedSwiftSettings
+        ),
+        .target(
+            name: "WalletCoreTypes",
+            dependencies: [
+                "WalletContext",
+            ],
+            path: "SubModules/WalletCoreTypes",
             swiftSettings: sharedSwiftSettings
         ),
         .target(
@@ -249,6 +265,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Lottie", package: "lottie-spm"),
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
+                .product(name: "SwiftSVG", package: "SwiftSVG"),
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
                 "YUVConversion",
             ]
@@ -298,6 +315,7 @@ let package = Package(
                 "WalletCore",
                 "UIComponents",
                 "Ledger",
+                .product(name: "Kingfisher", package: "kingfisher"),
                 .product(name: "Perception", package: "swift-perception"),
             ]
         ),

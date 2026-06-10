@@ -302,11 +302,13 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             let favicon = (result as? String) ?? ""
             Task { @MainActor in
                 guard let accountId = AccountStore.accountId else { return }
-                BrowserHistoryStore.shared.saveVisit(accountId: accountId,
-                                                     url: url.absoluteString,
-                                                     title: title,
-                                                     favicon: favicon,
-                                                     tag: tag)
+                BrowserHistoryStore.shared.saveVisit(
+                    accountId: accountId,
+                    url: url.absoluteString,
+                    title: title,
+                    favicon: favicon,
+                    tag: tag
+                )
             }
         }
     }

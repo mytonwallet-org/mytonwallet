@@ -141,10 +141,11 @@ platform :ios do
     )
 
     changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
+    external_beta_enabled = false
     upload_to_testflight(
       app_identifier: $app_identifier,
-      distribute_external: true,
-      groups: $testflight_group,
+      distribute_external: external_beta_enabled,
+      groups: external_beta_enabled ? $testflight_group : nil,
       beta_app_description: "Bug fixes and performance improvements"
     )
   end

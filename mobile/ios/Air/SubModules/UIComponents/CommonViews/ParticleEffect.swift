@@ -23,8 +23,7 @@ public final class ParticleBackgroundView: UIView {
         }
     }
 
-    private lazy var circleImage: CGImage = Self.renderParticle(size: 20, cornerRadius: 10, color: .white)
-    private lazy var roundedSquareImage: CGImage = Self.renderParticle(size: 24, cornerRadius: 6, color: .white)
+    private lazy var sparkleStarImage: CGImage = Self.renderSparkleStar(size: 32)
     
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -66,10 +65,10 @@ public final class ParticleBackgroundView: UIView {
     }
 
     private func rebuildCells(_ emitterLayer: CAEmitterLayer) {
-        let c1 = makeCell(image: circleImage,  scale: 0.20, scaleRange: 0.08, alpha: 0.45)
-        let c2 = makeCell(image: circleImage,  scale: 0.10, scaleRange: 0.05, alpha: 0.30)
-        let s1 = makeCell(image: roundedSquareImage, scale: 0.22, scaleRange: 0.10, alpha: 0.35)
-        let s2 = makeCell(image: roundedSquareImage, scale: 0.12, scaleRange: 0.06, alpha: 0.28)
+        let c1 = makeCell(image: sparkleStarImage, scale: 0.20, scaleRange: 0.08, alpha: 0.45)
+        let c2 = makeCell(image: sparkleStarImage, scale: 0.10, scaleRange: 0.05, alpha: 0.30)
+        let s1 = makeCell(image: sparkleStarImage, scale: 0.22, scaleRange: 0.10, alpha: 0.35)
+        let s2 = makeCell(image: sparkleStarImage, scale: 0.12, scaleRange: 0.06, alpha: 0.28)
         emitterLayer.emitterCells = [c1, c2, s1, s2]
     }
 
@@ -92,16 +91,16 @@ public final class ParticleBackgroundView: UIView {
         return cell
     }
     
-    private static func renderParticle(size: CGFloat, cornerRadius: CGFloat, color: UIColor) -> CGImage {
+    private static func renderSparkleStar(size: CGFloat) -> CGImage {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
         let image = renderer.image { context in
             let cgContext = context.cgContext
             cgContext.clear(CGRect(x: 0, y: 0, width: size, height: size))
-            
-            let rect = CGRect(x: 0, y: 0, width: size, height: size)
-            let path = UIBezierPath(roundedRect: rect, cornerRadius: cornerRadius)
-            color.setFill()
-            path.fill()
+            cgContext.translateBy(x: size / 2, y: size / 2)
+            let path = makeSparkleStarPath(size: size * 0.875)
+            cgContext.addPath(path)
+            UIColor.white.setFill()
+            cgContext.fillPath()
         }
         return image.cgImage!
     }
@@ -128,7 +127,42 @@ public final class ParticleBackgroundView: UIView {
     }
 }
 
+public struct ParticleBackground: UIViewRepresentable {
+    
+    public var color: UIColor = .systemBlue
+    public var burstDuration: CFTimeInterval = 0.15
+    @Binding public var burstTrigger: Int
 
+    public final class Coordinator {
+        var lastTriggerValue: Int = 0
+    }
+
+    public func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    public init(color: UIColor = .systemBlue, burstDuration: CFTimeInterval = 0.15, burstTrigger: Binding<Int> = .constant(0)) {
+        self.color = color
+        self.burstDuration = burstDuration
+        self._burstTrigger = burstTrigger
+    }
+
+    public func makeUIView(context: Context) -> ParticleBackgroundView {
+        let v = ParticleBackgroundView()
+        v.baseColor = color
+        return v
+    }
+
+    public func updateUIView(_ uiView: ParticleBackgroundView, context: Context) {
+        uiView.baseColor = color
+        if context.coordinator.lastTriggerValue != burstTrigger {
+            context.coordinator.lastTriggerValue = burstTrigger
+            uiView.burst(duration: burstDuration)
+        }
+    }
+}
+
+#if DEBUG
 @MainActor
 final class ParticleDemoViewController: UIViewController {
 
@@ -188,43 +222,9 @@ final class ParticleDemoViewController: UIViewController {
     }
 }
 
-public struct ParticleBackground: UIViewRepresentable {
-    
-    public var color: UIColor = .systemBlue
-    public var burstDuration: CFTimeInterval = 0.15
-    @Binding public var burstTrigger: Int
-
-    public final class Coordinator {
-        var lastTriggerValue: Int = 0
-    }
-
-    public func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    public init(color: UIColor = .systemBlue, burstDuration: CFTimeInterval = 0.15, burstTrigger: Binding<Int> = .constant(0)) {
-        self.color = color
-        self.burstDuration = burstDuration
-        self._burstTrigger = burstTrigger
-    }
-
-    public func makeUIView(context: Context) -> ParticleBackgroundView {
-        let v = ParticleBackgroundView()
-        v.baseColor = color
-        return v
-    }
-
-    public func updateUIView(_ uiView: ParticleBackgroundView, context: Context) {
-        uiView.baseColor = color
-        if context.coordinator.lastTriggerValue != burstTrigger {
-            context.coordinator.lastTriggerValue = burstTrigger
-            uiView.burst(duration: burstDuration)
-        }
-    }
-}
-
-
 @available(iOS 18, *)
 #Preview {
     ParticleDemoViewController()
 }
+#endif
+

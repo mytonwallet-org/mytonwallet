@@ -1,3 +1,123 @@
-$title: MFA Extension
-
-$confirmation-title: Please confirm action
+$title: Расширение MFA
+$confirmation-title: Подтвердите действие
+$confirmed: Подтверждено!
+$install-confirmation-title: Подтвердите установку расширения
+Go Back: Назад
+Confirm: Подтвердить
+Is it all ok?: Всё верно?
+Connect Wallet: Подключить кошелёк
+Confirm Connection: Подтвердить подключение
+Confirm Unlinking: Подтвердить отвязку
+My Telegram Account: Мой аккаунт Telegram
+Without username: Без username
+My Wallet: Мой кошелёк
+We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.:
+  Мы попросим подтвердить действия в Telegram после ввода кода доступа в
+  %app_name%.
+2FA applies only to actions involving TON assets.: 2FA применяется только к действиям с TON-активами.
+Action Confirmed: Действие подтверждено
+Almost Ready!: Почти готово!
+Your wallet is now connected to your Telegram account.: Ваш кошелёк теперь подключён к аккаунту Telegram.
+Return to the app to pay fee and complete the final confirmation.:
+  Вернитесь в приложение, чтобы оплатить комиссию и завершить финальное
+  подтверждение.
+Back to %app_name%: Назад в %app_name%
+Preview: Предпросмотр
+$preview_not_guaranteed: Предпросмотр **не гарантирует** результат и **может быть подделан** сервисом.
+$fee_value: Комиссия %fee%
+$fee_value_with_colon: "Комиссия: %fee%"
+Fee: Комиссия
+Details: Инфо
+Transaction ID: ID транзакции
+Transaction ID Copied: Идентификатор транзакции скопирован
+Encrypted Message: Зашифрованное сообщение
+Failed: Ошибка
+$transaction_on: на %address%
+$transaction_from: от %address%
+$transaction_to: на %address%
+at %annual_yield%: при %annual_yield%
+Scam: Скам
+Staked: Стейкинг
+Staking: Стейкинг
+$stake_action: Стейкинг
+Unstaked: Вывод стейка
+Unstaking: Вывод стейка
+$unstake_action: Вывод стейка
+Requested Unstake: Запрошен вывод стейка
+Requesting Unstake: Запрос вывода стейка
+$request_unstake_action: Запрос вывода стейка
+Called Contract: Вызван контракт
+Calling Contract: Вызов контракта
+$call_contract_action: Вызов контракта
+Excess: Сдача
+Deployed Contract: Развёрнут контракт
+Deploying Contract: Развёртывание контракта
+$deploy_contract_action: Развёртывание контракта
+Bounced: Отскок
+Bouncing: Отскок
+$bounce_action: Отскок
+Minted: Сминчено
+Minting: Минтинг
+$mint_action: Минтинг
+Burned: Сожжено
+Burning: Сжигание
+$burn_action: Сжигание
+NFT Auction Bid: Ставка на аукционе NFT
+Bidding at NFT Auction: Ставка на аукционе NFT
+"NFT Auction Bid ": Ставка на аукционе NFT
+Updated Address: Обновлён адрес
+Updating Address: Обновление адреса
+$update_address_action: Обновление адреса
+Updated Site: Обновлён сайт
+Updating Site: Обновление сайта
+$update_site_action: Обновление сайта
+Updated Subdomains: Обновлены поддомены
+Updating Subdomains: Обновление поддоменов
+$update_subdomains_action: Обновление поддоменов
+Updated Storage: Обновлено хранилище
+Updating Storage: Обновление хранилища
+$update_storage_action: Обновление хранилища
+Deleted Domain Record: Удалена запись домена
+Deleting Domain Record: Удаление записи домена
+$delete_domain_record_action: Удаление записи домена
+Renewed Domain: Продлён домен
+Renewing Domain: Продление домена
+$renew_domain_action: Продление домена
+Provided Liquidity: Предоставление ликвидности
+Providing Liquidity: Предоставление ликвидности
+$provide_liquidity_action: Предоставление ликвидности
+Withdrawn Liquidity: Вывод ликвидности
+Withdrawing Liquidity: Вывод ликвидности
+$withdraw_liquidity_action: Вывод ликвидности
+Sold NFT: Продан NFT
+Selling NFT: Продажа NFT
+$sell_nft_action: Продажа NFT
+Bought NFT: Куплен NFT
+Buying NFT: Покупка NFT
+$buy_nft_action: Покупка NFT
+Minted NFT: Сминчен NFT
+Minting NFT: Минтинг NFT
+$mint_nft_action: Минтинг NFT
+Burned NFT: Сожжён NFT
+Burning NFT: Сжигание NFT
+$burn_nft_action: Сжигание NFT
+Received NFT: Получен NFT
+Receiving NFT: Получение NFT
+$receive_nft_action: Получение NFT
+Sent NFT: Отправлен NFT
+Sending NFT: Отправка NFT
+$send_nft_action: Отправка NFT
+Received: Получено
+Receiving: Получение
+$receive_action: Получение
+Sent: Отправлено
+Sending: Отправка
+$send_action: Отправка
+Expired: Истёк
+Refunded: Возвращено
+On Hold: Удержан
+Waiting for Payment: Ожидание оплаты
+In Progress: В процессе
+$swap_action: Обмен
+Swapping: Идёт обмен
+Swapped: Обмен

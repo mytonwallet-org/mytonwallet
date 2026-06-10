@@ -20,6 +20,12 @@ $safeZone: 1.5rem;
     top: 2rem !important;
   }
 
+  &_withAction {
+    :global(html.is-password-form-visible) & {
+      display: none;
+    }
+  }
+
   @media (min-width: 1276px) {
     transition: transform var(--layer-transition);
 

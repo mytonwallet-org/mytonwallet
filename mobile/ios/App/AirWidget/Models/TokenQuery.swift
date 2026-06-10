@@ -1,6 +1,7 @@
 import AppIntents
+import WalletCoreTypes
 
-extension ApiToken: AppEntity {
+extension ApiToken: @retroactive AppEntity {
     public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: LocalizedStringResource("Token"))
 
     public var displayRepresentation: DisplayRepresentation {

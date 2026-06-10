@@ -1,6 +1,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 public struct ApiStakingStateNominators: MBaseStakingState, Equatable, Hashable, Codable, Sendable {
     // base staking state

@@ -8,6 +8,7 @@
 import UIKit
 import WalletContext
 import GRDB
+import WalletCoreTypes
 
 public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view, byChain: [.ton: .init(address: " ")])
 

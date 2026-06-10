@@ -1,6 +1,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 public struct NftCollection: Equatable, Hashable, Codable, Identifiable, Sendable, Comparable {
     public var chain: ApiChain

@@ -34,6 +34,7 @@ struct WalletSettingsEmptyCell: View {
                 }
                 .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .offset(y: -16)
             .onChange(of: viewModel.segmentedControllerDidSwitchTrigger) { _ in
                 if viewModel.currentFilter == filter {

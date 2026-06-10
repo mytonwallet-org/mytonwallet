@@ -124,13 +124,6 @@ private struct _BalanceViewContent: View, Equatable {
             .backportGeometryGroup()
     }
     
-    public static func ==(lhs: Self, rhs: Self) -> Bool {
-        lhs.balance == rhs.balance &&
-        lhs.nft == rhs.nft &&
-        lhs.isCurrent == rhs.isCurrent &&
-        lhs.cardWidth == rhs.cardWidth &&
-        lhs.minimumHomeCardFontScale == rhs.minimumHomeCardFontScale
-    }
 }
 
 private struct _BalanceChange: View {

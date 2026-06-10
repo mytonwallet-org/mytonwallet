@@ -1,0 +1,122 @@
+$title: Rozszerzenie MFA
+$confirmation-title: Potwierdź działanie
+$confirmed: Potwierdzono!
+$install-confirmation-title: Potwierdź instalację rozszerzenia
+Go Back: Wróć
+Confirm: Potwierdzenie
+Is it all ok?: Czy wszystko jest w porządku?
+Connect Wallet: Połącz portfel
+Confirm Connection: Potwierdź połączenie
+Confirm Unlinking: Potwierdź odłączenie
+My Telegram Account: Moje konto Telegram
+Without username: Bez nazwy użytkownika
+My Wallet: Mój portfel
+We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.:
+  Poprosimy o potwierdzanie działań w Telegramie po wpisaniu kodu dostępu w
+  %app_name%.
+2FA applies only to actions involving TON assets.: 2FA dotyczy tylko działań z aktywami TON.
+Action Confirmed: Działanie potwierdzone
+Almost Ready!: Prawie gotowe!
+Your wallet is now connected to your Telegram account.: Twój portfel jest teraz połączony z kontem Telegram.
+Return to the app to pay fee and complete the final confirmation.: Wróć do aplikacji, aby zapłacić opłatę i ukończyć końcowe potwierdzenie.
+Back to %app_name%: Wróć do %app_name%
+Preview: Podgląd
+$preview_not_guaranteed: Wynik podglądu **nie jest gwarantowany** i **może
+  zostać sfałszowany** przez usługę.
+$fee_value: Opłata %fee%
+$fee_value_with_colon: "Opłata: %fee%"
+Fee: Opłata
+Details: Szczegóły
+Transaction ID: ID transakcji
+Transaction ID Copied: Identyfikator transakcji został skopiowany
+Encrypted Message: Zaszyfrowana Wiadomość
+Failed: Nieudane
+$transaction_on: na %address%
+$transaction_from: od %address%
+$transaction_to: do %address%
+at %annual_yield%: przy %annual_yield%
+Scam: Oszustwo
+Staked: Zastawione
+Staking: Staking
+$stake_action: Stakowanie
+Unstaked: Odzastawione
+Unstaking: Odzastawianie
+$unstake_action: Odzastawianie
+Requested Unstake: Wypłata zażądana
+Requesting Unstake: Żądanie odzastaw
+$request_unstake_action: Żądanie odzastaw
+Called Contract: Wywołany kontrakt
+Calling Contract: Wywoływanie kontraktu
+$call_contract_action: Wywołanie kontraktu
+Excess: Reszta
+Deployed Contract: Wdrożony kontrakt
+Deploying Contract: Wdrażanie kontraktu
+$deploy_contract_action: Wdrażanie kontraktu
+Bounced: Odbity
+Bouncing: Odbijanie
+$bounce_action: Odbicie
+Minted: Zmintowane
+Minting: Minting
+$mint_action: Minting
+Burned: Spalone
+Burning: Palenie
+$burn_action: Palenie
+NFT Auction Bid: Oferta w aukcji NFT
+Bidding at NFT Auction: Licytacja w aukcji NFT
+"NFT Auction Bid ": Oferta na aukcji NFT
+Updated Address: Adres zaktualizowany
+Updating Address: Aktualizowanie adresu
+$update_address_action: Aktualizacja adresu
+Updated Site: Strona zaktualizowana
+Updating Site: Aktualizowanie strony
+$update_site_action: Aktualizacja strony
+Updated Subdomains: Subdomeny zaktualizowane
+Updating Subdomains: Aktualizowanie subdomen
+$update_subdomains_action: Aktualizacja subdomen
+Updated Storage: Przechowywanie zaktualizowane
+Updating Storage: Aktualizowanie magazynu
+$update_storage_action: Aktualizacja magazynu
+Deleted Domain Record: Rekord domeny usunięty
+Deleting Domain Record: Usuwanie rekordu domeny
+$delete_domain_record_action: Usunięcie rekordu domeny
+Renewed Domain: Domena odnowiona
+Renewing Domain: Odnawianie domeny
+$renew_domain_action: Odnowienie domeny
+Provided Liquidity: Płynność zapewniona
+Providing Liquidity: Zapewnianie płynności
+$provide_liquidity_action: Zapewnianie płynności
+Withdrawn Liquidity: Płynność wycofana
+Withdrawing Liquidity: Wycofywanie płynności
+$withdraw_liquidity_action: Wycofanie płynności
+Sold NFT: NFT sprzedane
+Selling NFT: Sprzedaż NFT
+$sell_nft_action: Sprzedaż NFT
+Bought NFT: NFT kupione
+Buying NFT: Kupowanie NFT
+$buy_nft_action: Zakup NFT
+Minted NFT: NFT zmintowane
+Minting NFT: Minting NFT
+$mint_nft_action: Minting NFT
+Burned NFT: NFT spalone
+Burning NFT: Palenie NFT
+$burn_nft_action: Spalenie NFT
+Received NFT: NFT odebrane
+Receiving NFT: Odbieranie NFT
+$receive_nft_action: Odbiór NFT
+Sent NFT: NFT wysłane
+Sending NFT: Wysyłanie NFT
+$send_nft_action: Wysłanie NFT
+Received: Otrzymano
+Receiving: Otrzymywanie
+$receive_action: Odbieranie
+Sent: Wysłany
+Sending: Wysyłanie
+$send_action: Wysyłanie
+Expired: Wygasłe
+Refunded: Zwrócone
+On Hold: Wstrzymane
+Waiting for Payment: Oczekiwanie na płatność
+In Progress: W trakcie
+$swap_action: Wymieniać
+Swapping: Wymienianie
+Swapped: Wymienione

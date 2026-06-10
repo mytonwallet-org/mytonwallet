@@ -1,4 +1,5 @@
 import WalletContext
+import WalletCoreTypes
 
 public struct ExplainSwapFeeInput {
     public var swapType: SwapType

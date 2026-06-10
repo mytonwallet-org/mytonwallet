@@ -50,7 +50,7 @@ function Confirmed({ isActive, isTransaction, walletApp }: OwnProps) {
       />
 
       <div className={buildClassName(commonStyles.title, styles.title)}>
-        {isTransaction ? lang('Transaction sent!') : lang('Almost Ready!')}
+        {isTransaction ? lang('Action Confirmed') : lang('Almost Ready!')}
       </div>
 
       {!isTransaction && (
@@ -65,7 +65,7 @@ function Confirmed({ isActive, isTransaction, walletApp }: OwnProps) {
         isActive={isActive}
         onClick={onClick}
       >
-        {`Back to ${walletAppInfo.name}`}
+        {lang('Back to %app_name%', { app_name: walletAppInfo.name })}
       </UniversalButton>
     </div>
   );

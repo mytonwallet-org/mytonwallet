@@ -126,7 +126,7 @@ private struct MfaConfirmationView: View {
                         .frame(width: 64, height: 64)
                         .scaleEffect(1.6)
                         .frame(width: 64, height: 64)
-                    MfaUserAvatarView(user: user, size: 64)
+                    MfaUserAvatarView(user: user, size: 64, showsOuterStroke: true)
                 }
                 .padding(.top, 4)
 
@@ -192,62 +192,6 @@ private struct MfaConfirmationView: View {
             return "\(name) · @\(username)"
         }
         return name
-    }
-}
-
-private struct MfaUserAvatarView: View {
-    let user: AccountMfa.User?
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            telegramFallback
-
-            if let avatarUrl {
-                AsyncImage(url: avatarUrl) { phase in
-                    if case .success(let image) = phase {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        EmptyView()
-                    }
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-    }
-
-    private var telegramFallback: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(UIColor(hex: "EAF8FF")),
-                            Color(UIColor(hex: "CFEFFF")),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            Image.airBundle("TelegramLogo20")
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: size * 0.5, height: size * 0.5)
-        }
-    }
-
-    private var avatarUrl: URL? {
-        guard let avatarUrlString = user?.avatarUrl?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfEmpty
-        else {
-            return nil
-        }
-        return URL(string: avatarUrlString)
     }
 }
 
