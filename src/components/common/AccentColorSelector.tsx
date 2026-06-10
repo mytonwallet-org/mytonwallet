@@ -77,7 +77,7 @@ function AccentColorSelector({
     const isLocked = colorIndex !== undefined ? !availableAccentColorIds.includes(colorIndex) : false;
 
     if (isLocked) {
-      showToast({ message: lang('Get a unique My Wallet Card to unlock new palettes.') });
+      showToast({ message: lang('Get a unique MyTonWallet Card to unlock new palettes.') });
     } else if (colorIndex === undefined) {
       clearAccentColorFromNft();
     } else {

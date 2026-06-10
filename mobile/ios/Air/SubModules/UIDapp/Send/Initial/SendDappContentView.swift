@@ -77,7 +77,7 @@ struct SendDappContentView: View {
     }
     
     @ViewBuilder
-    var totalAmountSection: some View {
+    private var totalAmountSection: some View {
         if transactionsCount > 1 && hasAmount {
             InsetSection {
                 TotalAmountRow(info: request.combinedInfo)
@@ -88,7 +88,7 @@ struct SendDappContentView: View {
         }
     }
     
-    var transfersSection: some View {
+    private var transfersSection: some View {
         InsetSection {
             ForEach(sortedTransactions, id: \.self) { tx in
                 TransferRow(
@@ -104,7 +104,7 @@ struct SendDappContentView: View {
     }
     
     @ViewBuilder
-    var previewSection: some View {
+    private var previewSection: some View {
         if let emulation = request.emulation, !emulation.activities.isEmpty {
             let visibleActivities = emulation.activities.filter { $0.shouldHide != true }
             InsetSection {

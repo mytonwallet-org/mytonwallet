@@ -103,7 +103,7 @@ struct PaletteSection: View {
             } header: {
                 Text(lang("Palette"))
             } footer: {
-                Text(lang("Get a unique My Wallet Card to unlock new palettes."))
+                Text(lang("Get a unique MyTonWallet Card to unlock new palettes."))
             }
         }
     }
@@ -201,7 +201,7 @@ struct PaletteGrid: View {
                     state: .locked,
                     onTap: { _ in
                         AppActions.showToast(
-                            message: lang("Get a unique My Wallet Card to unlock new palettes."),
+                            message: lang("Get a unique MyTonWallet Card to unlock new palettes."),
                             action: AppActions.showUpgradeCard
                         )
                         Haptics.play(.lightTap)

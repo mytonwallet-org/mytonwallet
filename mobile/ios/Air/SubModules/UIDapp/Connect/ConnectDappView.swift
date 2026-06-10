@@ -8,11 +8,6 @@ import Perception
 
 private let topMargin = 40.0
 
-enum ConnectDappViewOrPlaceholderContent {
-    case placeholder(TonConnectPlaceholder)
-    case connectDapp(ConnectDappView)
-}
-
 struct ConnectDappViewOrPlaceholder: View {
 
     let viewModel: ConnectViewModel
@@ -35,20 +30,26 @@ struct ConnectDappViewOrPlaceholder: View {
         }
     }
 
-    var content: ConnectDappViewOrPlaceholderContent {
-        if let update = viewModel.update {
-            return .connectDapp(ConnectDappView(viewModel: viewModel, update: update))
-        } else {
+    private enum Content {
+        case placeholder(TonConnectPlaceholder)
+        case connectDapp(ConnectDappView)
+    }
+
+    private var content: Content {
+       if let update = viewModel.update {
+           return .connectDapp(ConnectDappView(viewModel: viewModel, update: update))
+       } else {
             return .placeholder(TonConnectPlaceholder(
                 account: viewModel.accountContext.account,
                 connectionType: .connect,
+                extraBottomPadding: viewModel.extraBottomPadding
             ))
         }
     }
 }
 
-struct ConnectDappView: View {
-
+private struct ConnectDappView: View {
+    
     let viewModel: ConnectViewModel
     var update: ApiUpdate.DappConnect
 

@@ -3,7 +3,10 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
+import type { TabWithProperties } from '../ui/TabList';
+
 import { ANIMATED_STICKER_SMALL_SIZE_PX, MNEMONIC_COUNT, MNEMONIC_COUNTS, PRIVATE_KEY_HEX_LENGTH } from '../../config';
+import { requestMeasure } from '../../lib/fasterdom/fasterdom';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
@@ -12,7 +15,6 @@ import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { compact } from '../../util/iteratees';
 import { formatEnumeration } from '../../util/langProvider';
 import { IS_CLIPBOARDS_SUPPORTED } from '../../util/windowEnvironment';
-import { callApi } from '../../api';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useClipboardPaste from '../../hooks/useClipboardPaste';
@@ -24,6 +26,7 @@ import useScrolledState from '../../hooks/useScrolledState';
 import InputMnemonic from '../common/InputMnemonic';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
+import TabList from '../ui/TabList';
 import Header from './Header';
 
 import styles from './Auth.module.scss';
@@ -41,6 +44,7 @@ const MNEMONIC_INPUTS = [...Array(MNEMONIC_COUNT)].map((_, index) => ({
   id: index,
   label: `${index + 1}`,
 }));
+const HAS_MODE_SWITCHER = MNEMONIC_COUNTS.length > 1;
 const MAX_LENGTH = PRIVATE_KEY_HEX_LENGTH;
 const SLIDE_ANIMATION_DURATION_MS = 250;
 
@@ -57,6 +61,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
   const headerRef = useRef<HTMLDivElement>();
   const [shouldRenderPasteButton, setShouldRenderPasteButton] = useState(IS_CLIPBOARDS_SUPPORTED);
   const [mnemonic, setMnemonic] = useState<Record<number, string>>({});
+  const [selectedMnemonicCount, setSelectedMnemonicCount] = useState(MNEMONIC_COUNTS[0]);
 
   const {
     isAtEnd: noButtonsSeparator,
@@ -73,6 +78,12 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
   const handleMnemonicSet = useLastCallback((pastedMnemonic: string[]) => {
     if (!MNEMONIC_COUNTS.includes(pastedMnemonic.length) && !isMnemonicPrivateKey(pastedMnemonic)) {
       return;
+    }
+
+    cleanAuthError();
+
+    if (MNEMONIC_COUNTS.includes(pastedMnemonic.length)) {
+      setSelectedMnemonicCount(pastedMnemonic.length);
     }
 
     // RAF is a workaround for several Android browsers (e.g. Vivaldi)
@@ -117,11 +128,14 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
     }
   });
   const isSubmitDisabled = useMemo(() => {
-    const mnemonicValues = compact(Object.values(mnemonic));
+    const filledCount = MNEMONIC_INPUTS
+      .slice(0, selectedMnemonicCount)
+      .filter(({ id }) => Boolean(mnemonic[id]))
+      .length;
+    const isPrivateKey = isMnemonicPrivateKey(compact(Object.values(mnemonic)));
 
-    return (!MNEMONIC_COUNTS.includes(mnemonicValues.length) && !isMnemonicPrivateKey(mnemonicValues))
-      || !!error;
-  }, [mnemonic, error]);
+    return (filledCount !== selectedMnemonicCount && !isPrivateKey) || !!error;
+  }, [mnemonic, selectedMnemonicCount, error]);
 
   const handleSetWord = useLastCallback((value: string, index: number) => {
     cleanAuthError();
@@ -137,23 +151,37 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
     });
   });
 
+  const handleSwitchMode = useLastCallback((index: number) => {
+    const nextCount = MNEMONIC_COUNTS[index];
+    if (nextCount === selectedMnemonicCount) return;
+
+    cleanAuthError();
+    setSelectedMnemonicCount(nextCount);
+
+    // Refocus the first empty field within the new range (parity with native iOS)
+    requestMeasure(() => {
+      requestMeasure(() => {
+        const firstEmpty = MNEMONIC_INPUTS.slice(0, nextCount).find(({ id }) => !mnemonic[id]?.trim());
+        const targetId = firstEmpty ? firstEmpty.id : 0;
+        document.getElementById(`import-mnemonic-${targetId}`)?.focus();
+      });
+    });
+  });
+
   const handleCancel = useLastCallback(() => {
     setTimeout(() => {
       resetAuth();
     }, SLIDE_ANIMATION_DURATION_MS);
   });
 
-  const handleSubmit = useLastCallback(async () => {
+  const handleSubmit = useLastCallback(() => {
     if (isSubmitDisabled) return;
 
-    const mnemonicValues = compact(Object.values(mnemonic))
-      .map((word) => word.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (mnemonicValues.length === 12) {
-      const isShortMnemonicValid = await callApi('validateMnemonic', mnemonicValues);
-      if (!isShortMnemonicValid) return;
-    }
+    const mnemonicValues = MNEMONIC_INPUTS
+      .slice(0, selectedMnemonicCount)
+      .map(({ id }) => mnemonic[id])
+      .filter(Boolean)
+      .map((word) => word.trim().toLowerCase());
 
     afterImportMnemonic({ mnemonic: mnemonicValues });
   });
@@ -169,7 +197,14 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
       : captureKeyboardListeners({
         onEnter: { handler: handleSubmit, noStopPropagation: true },
       });
-  }, [handleSubmit, isLoading, isSubmitDisabled, mnemonic]);
+  }, [handleSubmit, isLoading, isSubmitDisabled, mnemonic, selectedMnemonicCount]);
+
+  const modeTabs = useMemo<TabWithProperties[]>(() => MNEMONIC_COUNTS.map((count, index) => ({
+    id: index,
+    title: count === 12 ? lang('12 Words') : lang('24 Words'),
+    className: styles.modeTab,
+  })), [lang]);
+  const activeModeIndex = MNEMONIC_COUNTS.indexOf(selectedMnemonicCount);
 
   return (
     <div className={styles.wrapper}>
@@ -210,17 +245,34 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
           </Button>
         )}
 
-        <div className={styles.importingContent}>
-          {MNEMONIC_INPUTS.map(({ id, label }, i) => (
+        {HAS_MODE_SWITCHER && (
+          <div className={styles.modeSwitchRoot}>
+            <TabList
+              tabs={modeTabs}
+              activeTab={activeModeIndex}
+              className={styles.modeSwitch}
+              overlayClassName={styles.modeSwitchOverlay}
+              onSwitchTab={handleSwitchMode}
+            />
+          </div>
+        )}
+
+        <div className={buildClassName(
+          styles.importingContent,
+          selectedMnemonicCount === 12 && styles.importingContent_short,
+          error && styles.importingContent_withError,
+        )}
+        >
+          {MNEMONIC_INPUTS.slice(0, selectedMnemonicCount).map(({ id, label }, i) => (
             <InputMnemonic
               key={id}
               id={`import-mnemonic-${id}`}
-              nextId={id + 1 < MNEMONIC_COUNT ? `import-mnemonic-${id + 1}` : undefined}
+              nextId={id + 1 < selectedMnemonicCount ? `import-mnemonic-${id + 1}` : undefined}
               labelText={label}
               value={mnemonic[id]}
               inputArg={id}
               onInput={handleSetWord}
-              onEnter={i === MNEMONIC_COUNT - 1 ? handleSubmit : undefined}
+              onEnter={i === selectedMnemonicCount - 1 ? handleSubmit : undefined}
             />
           ))}
         </div>

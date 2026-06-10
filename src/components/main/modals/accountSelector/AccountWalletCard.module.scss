@@ -41,20 +41,21 @@
   color: var(--main-text, var(--color-card-text));
   text-align: left;
 
-  background-image: url('../../../../assets/account_button_bg.jpg'), linear-gradient(125deg, #{v.$defaultCardGradient});
   background-clip: padding-box, padding-box;
   background-origin: border-box;
   background-size: cover, cover;
+
+  @include mixins.card-image("../../../../assets/", "account_button_bg", v.$defaultCardGradient);
+
+  &:global(.gram) {
+    @include mixins.card-image("../../../../assets/", "account_button_gram_bg", v.$gramCardGradient);
+  }
 
   &.current {
     cursor: default;
     box-shadow: 0 0 0 0.046875rem var(--color-accent),
                 inset 0 0 0 0.046875rem var(--color-accent),
                 inset 0 0 0 0.140625rem var(--color-background-drop-down);
-  }
-
-  @media (min-resolution: 1.5dppx) {
-    background-image: url('../../../../assets/account_button_bg@2x.jpg'), linear-gradient(125deg, #{v.$defaultCardGradient});
   }
 
   &.customCard {

@@ -19,14 +19,13 @@ import styles from './NftInfo.module.scss';
 
 interface OwnProps {
   nft?: NftTransfer;
-  isStatic?: boolean;
   withTonExplorer?: boolean;
   // Currently, MediaViewer can only display NFTs that are owned by the user
   withMediaViewer?: boolean;
 }
 
 function NftInfo({
-  nft, isStatic, withTonExplorer, withMediaViewer,
+  nft, withTonExplorer, withMediaViewer,
 }: OwnProps) {
   const { openMediaViewer } = getActions();
   const lang = useLang();
@@ -57,7 +56,7 @@ function NftInfo({
 
   if (!nft) {
     return (
-      <div className={buildClassName(styles.root, isStatic && styles.rootStatic)}>
+      <div className={styles.root}>
         <AnimatedIconWithPreview
           play
           noLoop={false}
@@ -109,7 +108,7 @@ function NftInfo({
 
   if (!withMediaViewer) {
     return (
-      <div className={buildClassName(styles.root, isStatic && styles.rootStatic)}>
+      <div className={styles.root}>
         {renderContent()}
       </div>
     );
@@ -120,7 +119,7 @@ function NftInfo({
       role="button"
       tabIndex={0}
       aria-label={lang('NFT')}
-      className={buildClassName(styles.root, styles.interactive, isStatic && styles.rootStatic)}
+      className={buildClassName(styles.root, styles.interactive)}
       onClick={handleClick}
     >
       {renderContent()}

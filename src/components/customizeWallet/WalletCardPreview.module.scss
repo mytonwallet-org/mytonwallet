@@ -46,10 +46,11 @@ $previewCardHeight: 11rem;
   height: 100%;
   border-radius: var(--border-radius-card);
 
-  background-image: url("../../assets/cards/card.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
   background-clip: border-box, padding-box, padding-box;
   background-origin: border-box;
   background-size: cover, cover;
+
+  @include mixins.card-image("../../assets/cards/", "card", v.$defaultCardGradient);
 
   &.left, &.right {
     &::before {
@@ -116,31 +117,31 @@ $previewCardHeight: 11rem;
   }
 
   &:global(.tegro) {
-    background-image: url("../../assets/cards/card_tegro.jpg"), linear-gradient(125deg, #5E95DD 0, #4469D4 100%);
+    @include mixins.card-image("../../assets/cards/", "card_tegro", v.$tegroCardGradient);
   }
 
   &:global(.red) {
-    background-image: url("../../assets/cards/card_red.jpg"), linear-gradient(125deg, #C46D63 0, #A54C4E 100%);
+    @include mixins.card-image("../../assets/cards/", "card_red", v.$redCardGradient);
   }
 
   &:global(.orange) {
-    background-image: url("../../assets/cards/card_orange.jpg"), linear-gradient(125deg, #C49D5B 0, #B67C47 100%);
+    @include mixins.card-image("../../assets/cards/", "card_orange", v.$orangeCardGradient);
   }
 
   &:global(.green) {
-    background-image: url("../../assets/cards/card_green.jpg"), linear-gradient(125deg, #72AB78 0, #609554 100%);
+    @include mixins.card-image("../../assets/cards/", "card_green", v.$greenCardGradient);
   }
 
   &:global(.sea) {
-    background-image: url("../../assets/cards/card_sea.jpg"), linear-gradient(125deg, #6097C1 0, #4583A3 100%);
+    @include mixins.card-image("../../assets/cards/", "card_sea", v.$seaCardGradient);
   }
 
   &:global(.purple) {
-    background-image: url("../../assets/cards/card_purple.jpg"), linear-gradient(125deg, #7A6DD8 0, #634CBB 100%);
+    @include mixins.card-image("../../assets/cards/", "card_purple", v.$purpleCardGradient);
   }
 
   &:global(.pink) {
-    background-image: url("../../assets/cards/card_pink.jpg"), linear-gradient(125deg, #AD6691 0, #A14F8F 100%);
+    @include mixins.card-image("../../assets/cards/", "card_pink", v.$pinkCardGradient);
   }
 }
 

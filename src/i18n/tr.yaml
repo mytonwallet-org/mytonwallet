@@ -841,7 +841,7 @@ $receive_action: Alım
 Change Palette: Paleti Değiştir
 Palette: Palet
 Unlock New Palettes: Yeni Paletleri Aç
-Get a unique My Wallet Card to unlock new palettes.: Yeni paletleri açmak için benzersiz bir My Wallet Kartı al.
+Get a unique MyTonWallet Card to unlock new palettes.: Yeni paletleri açmak için benzersiz bir MyTonWallet Kartı al.
 Mint Cards: Kart Bas
 Card has been upgraded!: Kart yükseltildi!
 $mint_card_result: NFT kartı **basılacak** ve **bir dakika içinde otomatik olarak yüklenecektir**.
@@ -876,9 +876,9 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: Lütfen bu uyarıdan kaçınmak için My Wallet %mobileAppButton% veya %browserExtensionButton% kullanın.
+$reopen_in_iab: Lütfen bu uyarıdan kaçınmak için MyTonWallet %mobileAppButton% veya %browserExtensionButton% kullanın.
 $reopen_in_iab_explore: Bu uyarıdan kaçınmak için uygulamalara göz atarken lütfen %exploreTab% bölümünü kullanın.
-My Wallet Browser: My Wallet Tarayıcısı
+MyTonWallet Browser: MyTonWallet Tarayıcısı
 mobile app: mobil uygulama
 browser extension: tarayıcı uzantısı
 Exit all wallets: Tüm cüzdanlardan çık
@@ -1058,9 +1058,9 @@ Customize Wallet: Cüzdanı özelleştir
 "Select the card stored in this wallet:": "Bu cüzdanda saklanan kartı seçin:"
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Bu kart bu cüzdan için yüklenecek ve ana ekranda ve cüzdanlar listesinde görüntülenecektir.
 Get More Cards: Daha fazla kart al
-Browse My Wallet Cards available for purchase.: Satın alınabilecek My Wallet Kartlarına göz atın.
+Browse MyTonWallet Cards available for purchase.: Satın alınabilecek MyTonWallet Kartlarına göz atın.
 You don’t have any cards to customize yet: Henüz özelleştirebileceğiniz kartınız yok.
-My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: My Wallet Kartları cüzdanlara yüklenebilir ve ana ekranda ile cüzdan listesinde görüntülenebilir.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet Kartları cüzdanlara yüklenebilir ve ana ekranda ile cüzdan listesinde görüntülenebilir.
 Get First Card: İlk kartı al
 Palette and Card: Palet ve Kart
 Customize the wallet's home screen and color accents the way you like.: Cüzdanın ana ekranını ve renk vurgularını istediğiniz gibi özelleştirin.
@@ -1094,7 +1094,7 @@ Adding wallets is not available in explorer mode: Cüzdan eklemek, kaşif modund
 $explorer_mode_warning: "Kaşif modu: bir adres açmak için View deeplink'i bekleniyor"
 This command is not supported in explorer mode: Bu komut kaşif modunda desteklenmiyor
 $saved_addresses_header: Kaydedildi
-confirm an action in My Wallet: My Wallet'da bir işlemi onaylayın
+confirm an action in MyTonWallet: MyTonWallet'da bir işlemi onaylayın
 Timed out waiting for account to be ready: Hesabın hazır olması beklenirken zaman aşımı
 $connected_apps:
   otherValue: "%1$d bağlı"
@@ -1157,7 +1157,7 @@ $agent_consent_debug_reset_button: Asistan onay durumunu sıfırla
 $agent_consent_debug_reset_footer: Asistan sekmesi açıldığında Asistan onay ekranını tekrar gösterir.
 Clear Chat: Sohbeti temizle
 Unsupported link: Bu bağlantı desteklenmiyor
-My Wallet Features: My Wallet Özellikleri
+MyTonWallet Features: MyTonWallet Özellikleri
 Notifications: Bildirimler
 Wrong passcode, please try again: Kod hatalı, lütfen tekrar deneyin.
 Use biometric authentication or create a passcode to protect it.: Biyometrik kimlik doğrulama kullanın veya bir şifre oluşturun.
@@ -1268,7 +1268,7 @@ Screen Recording: Ekran kaydı
 Disable Screen Record Warning: Ekran kaydı uyarısını devre dışı bırak
 I Understand, Proceed: Anladım, devam et
 Waiting for Network: Ağ bekleniyor
-My Wallet: Cüzdanım
+MyTonWallet: MyTonWallet
 $no_activity_history: |
   Bu cüzdanda henüz
   işlem geçmişi yok.
@@ -1349,7 +1349,7 @@ Swap is not supported on this account.: Bu hesapta takas desteklenmiyor.
 "%1$@ will be returned": "%1$@ iade edilecek"
 Connecting your wallet: Cüzdanınız bağlanıyor
 Action is not possible on a view-only wallet.: Salt okunur cüzdanda bu işlem yapılamaz.
-Logged in with My Wallet: My Wallet ile giriş yapıldı
+Logged in with MyTonWallet: MyTonWallet ile giriş yapıldı
 You have no apps connected to this wallet.: Bu cüzdana bağlı uygulama yok.
 Asset: Varlık
 Sent to: Şuraya gönderildi
@@ -1396,7 +1396,7 @@ Confirm Actions:
 "Install Palette": Paleti yükle
 Ledger: Ledger
 "Moving to staking balance": Stake bakiyesine aktarılıyor
-My Wallet uses biometric authentication to unlock and authorize transactions: My Wallet, biyometrik doğrulamayla kilidi açar ve işlemleri onaylar
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet, biyometrik doğrulamayla kilidi açar ve işlemleri onaylar
 "Network error": Ağ hatası
 "No Camera Access": Kamera erişimi yok
 "Not all transactions were sent successfully.": Tüm işlemler başarıyla gönderilemedi.
@@ -1495,7 +1495,7 @@ Use 6-digit Passcode: 6 haneli geçiş kodu kullan
 Authorize %token% Fee: "%token% ücretini onayla"
 Awaiting Previous Fee: Önceki ücret bekleniyor
 Lock: Kilitle
-My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: My Wallet kartları cüzdanlara yüklenebilir ve ana ekranda ve cüzdan listesinde gösterilebilir.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet kartları cüzdanlara yüklenebilir ve ana ekranda ve cüzdan listesinde gösterilebilir.
 Receive: Al
 Scan: Tara
 

@@ -102,7 +102,7 @@ function AddressMenuButton({
           {shouldRenderAddress && (
             <span className={styles.multichainAddress}>
               {title}
-              {index < chainsLength - 1 && index < ADDRESS_CHAINS_COUNT - 1 && ','}
+              {index < chainsLength - 1 && index < ADDRESS_CHAINS_COUNT && ','}
             </span>
           )}
         </span>,

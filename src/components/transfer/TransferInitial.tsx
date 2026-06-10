@@ -54,11 +54,6 @@ import SentTabs from './SentTabs';
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Transfer.module.scss';
 
-interface OwnProps {
-  isStatic?: boolean;
-  slideClassName?: string;
-}
-
 interface StateProps {
   toAddress?: string;
   resolvedAddress?: string;
@@ -96,8 +91,6 @@ const AUTHORIZE_DIESEL_INTERVAL_MS = SECOND;
 const runDebounce = debounce((cb) => cb(), 500, false);
 
 function TransferInitial({
-  isStatic,
-  slideClassName,
   tokenSlug,
   toAddress = '',
   resolvedAddress,
@@ -125,7 +118,7 @@ function TransferInitial({
   isAllowSuspiciousActions,
   isTransferReadonly,
   explainedFee,
-}: OwnProps & StateProps) {
+}: StateProps) {
   const {
     submitTransferInitial,
     fetchTransferFee,
@@ -182,7 +175,7 @@ function TransferInitial({
   });
 
   const shouldDisableClearButton = !toAddress && !(comment || binPayload) && !shouldEncrypt
-    && !(isNftTransfer ? isStatic : amount !== undefined);
+    && (isNftTransfer || amount === undefined);
 
   const safeExplainedFee = useMemo(() => {
     return explainedFee ?? {
@@ -300,11 +293,7 @@ function TransferInitial({
   }
 
   const handleClear = useLastCallback(() => {
-    if (isStatic) {
-      cancelTransfer({ shouldReset: true });
-    } else {
-      clearForm();
-    }
+    clearForm();
   });
 
   const handleCloseClick = useLastCallback(() => {
@@ -313,12 +302,7 @@ function TransferInitial({
 
   const handleScamWarningModalClose = useLastCallback(() => {
     dismissTransferScamWarning();
-
-    if (isStatic) {
-      clearForm();
-    } else {
-      cancelTransfer({ shouldReset: true });
-    }
+    cancelTransfer({ shouldReset: true });
   });
 
   const handleAmountChange = (amount?: bigint, isValueReplaced?: boolean) => {
@@ -467,7 +451,6 @@ function TransferInitial({
 
     return (
       <FeeLine
-        isStatic={isStatic}
         terms={terms}
         token={transferToken}
         precision={precision}
@@ -479,38 +462,35 @@ function TransferInitial({
   return (
     <>
       <form
-        className={isStatic ? undefined : modalStyles.transitionContent}
+        className={modalStyles.transitionContent}
         onSubmit={handleSubmit}
         onPaste={handlePaste}
       >
         <Transition
           activeKey={transitionKey}
           name="semiFade"
-          direction={isStatic && !doesSupportComment ? 'inverse' : undefined}
           shouldCleanup
-          slideClassName={buildClassName(styles.formSlide, isStatic && styles.formSlide_static, slideClassName)}
+          slideClassName={styles.formSlide}
         >
-          {!isStatic && (
-            <Button
-              isRound
-              className={buildClassName(modalStyles.closeButton, styles.closeButton)}
-              ariaLabel={lang('Close')}
-              onClick={handleCloseClick}
-            >
-              <i className={buildClassName(modalStyles.closeIcon, 'icon-close')} aria-hidden />
-            </Button>
-          )}
+          <Button
+            isRound
+            className={buildClassName(modalStyles.closeButton, styles.closeButton)}
+            ariaLabel={lang('Close')}
+            onClick={handleCloseClick}
+          >
+            <i className={buildClassName(modalStyles.closeIcon, 'icon-close')} aria-hidden />
+          </Button>
 
           {isNftTransfer ? (
-            <div className={buildClassName(styles.transferTitle, isStatic && styles.transferTitle_small)}>
+            <div className={styles.transferTitle}>
               {lang(nfts.length > 1 ? 'Send Collectibles' : 'Send Collectible')}
             </div>
           ) : (
             <SentTabs />
           )}
 
-          {nfts?.length === 1 && <NftInfo nft={nfts[0]} isStatic={isStatic} withMediaViewer />}
-          {Boolean(nfts?.length) && nfts.length > 1 && <NftChips nfts={nfts} isStatic={isStatic} />}
+          {nfts?.length === 1 && <NftInfo nft={nfts[0]} withMediaViewer />}
+          {Boolean(nfts?.length) && nfts.length > 1 && <NftChips nfts={nfts} />}
 
           <AddressInput
             label={lang('Recipient Address')}
@@ -520,7 +500,6 @@ function TransferInitial({
             addressBookChain={chain}
             savedAddresses={savedAddresses}
             validateAddress={checkTransferAddress}
-            isStatic={isStatic}
             isReadonly={isTransferReadonly}
             withQrScan
             address={resolvedAddress || toAddress}
@@ -537,7 +516,6 @@ function TransferInitial({
               maxAmount={maxAmount}
               token={transferToken}
               allTokens={tokensToSelect}
-              isStatic={isStatic}
               hasError={hasAmountError}
               withChainIcon
               isMaxAmountLoading={maxAmount === undefined}
@@ -554,7 +532,6 @@ function TransferInitial({
               binPayload={binPayload}
               stateInit={stateInit}
               chain={chain}
-              isStatic={isStatic}
               isReadonly={isTransferReadonly}
               isCommentRequired={isCommentRequired}
               isEncryptedCommentSupported={doesSupportCommentEncryption}
@@ -562,7 +539,7 @@ function TransferInitial({
             />
           )}
 
-          <div className={buildClassName(styles.footer, isStatic && !doesSupportComment && styles.footer_shifted)}>
+          <div className={styles.footer}>
             {renderFee()}
 
             <div className={styles.buttons}>
@@ -634,7 +611,7 @@ function TransferInitial({
 }
 
 export default memo(
-  withGlobal<OwnProps>(
+  withGlobal(
     (global): StateProps => {
       const {
         toAddress,

@@ -158,14 +158,11 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   padding-top: v.$cardAspectRatioPortrait;
   border-radius: var(--border-radius-card);
 
-  background-image: url("../../assets/cards/card.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
   background-clip: border-box, padding-box, padding-box;
   background-origin: border-box;
   background-size: cover, cover;
 
-  @media (min-resolution: 1.5dppx) {
-    background-image: url("../../assets/cards/card@2x.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
-  }
+  @include mixins.card-image("../../assets/cards/", "card", v.$defaultCardGradient);
 }
 
 .cardInner {

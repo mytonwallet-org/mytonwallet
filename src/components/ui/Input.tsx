@@ -29,6 +29,7 @@ type OwnProps = {
   error?: string;
   className?: string;
   wrapperClassName?: string;
+  errorClassName?: string;
   autoCapitalize?: string;
   autoComplete?: string;
   autoCorrect?: boolean;
@@ -61,6 +62,7 @@ function Input({
   inputArg,
   className,
   wrapperClassName,
+  errorClassName,
   autoCapitalize,
   autoComplete,
   autoCorrect,
@@ -201,7 +203,10 @@ function Input({
       )}
       {children}
       {error && !label && (
-        <label className={buildClassName(styles.label, styles.label_errorBottom, styles.error)} htmlFor={id}>
+        <label
+          className={buildClassName(styles.label, styles.label_errorBottom, styles.error, errorClassName)}
+          htmlFor={id}
+        >
           {error}
         </label>
       )}

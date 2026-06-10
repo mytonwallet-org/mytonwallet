@@ -54,7 +54,7 @@ struct GetMoreCardsSection: View {
                     .backportGeometryGroup()
                 }
             } footer: {
-                Text(lang("Browse My Wallet Cards available for purchase."))
+                Text(lang("Browse MyTonWallet Cards available for purchase."))
             }
         }
     }
