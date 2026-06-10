@@ -1,11 +1,13 @@
 import React, { memo, useEffect, useMemo } from '../../lib/teact/teact';
 
 import type { ApiInstallRequest } from '../types';
+import type { MfaWalletApp } from '../utils/startParam';
 
 import buildClassName from '../../util/buildClassName';
 import { shortenAddress } from '../../util/shortenAddress';
 import { getTelegramApp } from '../../util/telegram';
 import { confirmInstallRequest } from '../utils/installRequest';
+import { getMfaWalletAppInfo } from '../utils/startParam';
 
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
@@ -20,12 +22,15 @@ import styles from './InstallConfirmation.module.scss';
 interface OwnProps {
   isActive: boolean;
   installRequest?: ApiInstallRequest;
+  walletApp: MfaWalletApp;
   reqId?: string;
   onConfirm: () => void;
 }
 
-function InstallConfirmation({ installRequest, isActive, reqId, onConfirm }: OwnProps) {
+function InstallConfirmation({ installRequest, isActive, walletApp, reqId, onConfirm }: OwnProps) {
   const lang = useLang();
+  const walletAppInfo = getMfaWalletAppInfo(walletApp);
+  const appName = walletAppInfo.name;
 
   const [isLoading, setLoading, unsetLoading] = useFlag(true);
 
@@ -36,8 +41,7 @@ function InstallConfirmation({ installRequest, isActive, reqId, onConfirm }: Own
   const onConfirmClicked = useLastCallback(() => {
     setLoading();
 
-    const { id, first_name, username, photo_url } = getTelegramApp()!.initDataUnsafe.user!;
-    confirmInstallRequest(reqId!, { id: String(id), name: first_name, username, avatarUrl: photo_url }).then(() => {
+    confirmInstallRequest(reqId!, getTelegramApp()!.initData).then(() => {
       onConfirm();
     }).catch((err) => {
       alert(`ERROR: ${err}`);
@@ -63,11 +67,11 @@ function InstallConfirmation({ installRequest, isActive, reqId, onConfirm }: Own
         ) : <WalletAvatar title={firstName} className={styles.avatar} />}
       </div>
 
-      <div className={buildClassName(commonStyles.title, styles.title)}>Connect Wallet</div>
+      <div className={buildClassName(commonStyles.title, styles.title)}>{lang('Confirm Connection')}</div>
 
       <div className={buildClassName(styles.block, styles.accounts)}>
         <div className={styles.account}>
-          <span className={styles.accountDescription}>My Telegram Account</span>
+          <span className={styles.accountDescription}>{lang('My Telegram Account')}</span>
           <div className={styles.accountCard}>
             {avatarUrl ? (
               <img src={avatarUrl} alt="User Avatar" className={styles.accountAvatar} />
@@ -78,20 +82,20 @@ function InstallConfirmation({ installRequest, isActive, reqId, onConfirm }: Own
                 {firstName}{' '}{lastName}
               </div>
               <div className={styles.accountAddress}>
-                {username ? `@${username}` : 'Without username'}
+                {username ? `@${username}` : lang('Without username')}
               </div>
             </div>
           </div>
         </div>
 
         <div className={styles.account}>
-          <span className={styles.accountDescription}>My Wallet</span>
+          <span className={styles.accountDescription}>{lang('My Wallet')}</span>
           <div className={styles.accountCard}>
             <WalletAvatar title="M" className={styles.accountAvatar} />
 
             <div className={styles.accountInfo}>
               <div className={styles.accountName}>
-                MyTonWallet
+                {appName}
               </div>
               <div className={styles.accountAddress}>
                 {shortenAddress(installRequest?.address || '')}
@@ -106,7 +110,9 @@ function InstallConfirmation({ installRequest, isActive, reqId, onConfirm }: Own
           <i className={buildClassName('icon-key', styles.benefitIcon)} aria-hidden />
 
           <div className={styles.benefitText}>
-            {lang('We’ll ask you to confirm actions with Telegram after entering your passcode in MyTonWallet.')}
+            {lang('We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.', {
+              app_name: appName,
+            })}
           </div>
         </div>
 

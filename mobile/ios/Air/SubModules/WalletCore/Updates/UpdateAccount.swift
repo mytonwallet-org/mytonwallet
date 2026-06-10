@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import WalletCoreTypes
 
 //accountId: string;
 //chain: ApiChain;

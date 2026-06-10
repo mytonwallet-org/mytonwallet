@@ -8,12 +8,10 @@ import WalletCore
 let exploreHistoryTag = "explore"
 
 public final class ExploreVC: WViewController {
-    // MARK: Public properties / Dependencies
-
     let exploreVM: ExploreVM = .init()
     var onSelectAny: () -> () = {}
-
-    // MARK: - Private
+    var onSubmitSearch: (String) -> () = { _ in }
+    var onInsertToSearchString: (String) -> () = { _ in }
 
     private let viewOutput = ViewOutput()
     private let externalEvents = ExternalEvents()
@@ -21,6 +19,10 @@ public final class ExploreVC: WViewController {
 
     private var trimmedSearchString: String = "" // Improvement: move searchBar to this screen
     private var isSearchActive: Bool = false
+
+    private var searchCoordinator: ExploreSearchCoordinator?
+    private var currentSearchResult: ComposedSearchResult?
+    private var lastSearchQuery: SearchQuery?
 
     private var cancelBag = Set<AnyCancellable>()
 
@@ -41,8 +43,6 @@ public final class ExploreVC: WViewController {
     @available(*, unavailable)
     required init?(coder _: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    // MARK: Overriden
-
     public override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -55,8 +55,6 @@ public final class ExploreVC: WViewController {
     public override func scrollToTop(animated _: Bool) {
         observedViewState.scrollToTop()
     }
-
-    // MARK: - Initial Setup
 
     private func initialSetup() -> NavBarTitleFixingScrollView? {
         let titleFixingScrollView: NavBarTitleFixingScrollView? = if #available(iOS 26.0, *) {
@@ -89,10 +87,15 @@ public final class ExploreVC: WViewController {
     }
 
     private func bind(titleFixingScrollView: NavBarTitleFixingScrollView?) {
+        setupSearchCoordinator()
         bindViewOutput(titleFixingScrollView: titleFixingScrollView)
 
-        BrowserHistoryStore.shared.onLoaded = { [weak self] in self?.updateViewState() }
-        RecentSearchStore.shared.onLoaded = { [weak self] in self?.updateViewState() }
+        BrowserHistoryStore.shared.onLoaded
+            .sink(withUnretained: self) { uSelf, _ in uSelf.updateViewState(forceSearch: true) }
+            .store(in: &cancelBag)
+        RecentSearchStore.shared.onLoaded
+            .sink(withUnretained: self) { uSelf, _ in uSelf.updateViewState(forceSearch: true) }
+            .store(in: &cancelBag)
 
         externalEvents.searchStringDidChange
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -107,7 +110,7 @@ public final class ExploreVC: WViewController {
             .removeDuplicates()
             .sink(withUnretained: self) { uSelf, isActive in
                 uSelf.isSearchActive = isActive
-                uSelf.updateViewState()
+                uSelf.updateViewState(forceSearch: true)
             }.store(in: &cancelBag)
     }
 
@@ -144,38 +147,9 @@ public final class ExploreVC: WViewController {
                     }
                 },
 
-            viewOutput.searchResultItemDidTap
-                .sink(withUnretained: self) { uSelf, item in
-                    uSelf.view.window?.endEditing(true)
-                    uSelf.onSelectAny()
-                    guard let url = URL(string: item.url) else {
-                        return Log.shared.error("URL from string failed: \(item.url)")
-                    }
-                    switch item.source {
-                    case .site(let site):
-                        if site.shouldOpenExternally {
-                            UIApplication.shared.open(url)
-                        } else {
-                            AppActions.openInBrowser(url, title: site.name, injectDappConnect: true, historyTag: exploreHistoryTag)
-                        }
-                    case .connectedDapp(let dapp):
-                        AppActions.openInBrowser(url, title: dapp.name, injectDappConnect: true, historyTag: exploreHistoryTag)
-                    case .history(let historyItem):
-                        AppActions.openInBrowser(url, title: historyItem.title, injectDappConnect: true, historyTag: exploreHistoryTag)
-                    }
-                },
-
             viewOutput.dappCategoryDidTap.sink(withUnretained: self) { uSelf, categoryId in
                 let exploreVC = ExploreCategoryVC(exploreVM: uSelf.exploreVM, categoryId: categoryId)
                 uSelf.navigationController?.pushViewController(exploreVC, animated: true)
-            },
-
-            viewOutput.recentSearchDidTap.sink(withUnretained: self) { uSelf, text in
-                uSelf.externalEvents.recentSearchDidTap.send(text)
-            },
-
-            viewOutput.clearRecentSearchesDidTap.sink(withUnretained: self) { uSelf, tag in
-                uSelf.externalEvents.clearRecentSearchesDidTap.send(tag)
             },
         ])
 
@@ -186,16 +160,117 @@ public final class ExploreVC: WViewController {
         }
     }
 
-    private func updateViewState() {
-        let (sections, shouldShowWhiteBackground) =
-            Self.makeViewStateSnapshot(exploreVM: exploreVM,
-                                       shouldRestrictSites: ConfigStore.shared.shouldRestrictSites,
-                                       isSearchActive: isSearchActive,
-                                       trimmedSearchString: trimmedSearchString,
-                                       isLockdownModeEnabled: WalletCoreData.isLockdownModeEnabled,
-                                       historyItems: BrowserHistoryStore.shared.items.filter { $0.tag == exploreHistoryTag },
-                                       recentSearchItems: RecentSearchStore.shared.items.filter { $0.tag == exploreHistoryTag })
-        observedViewState.update(sections: sections, shouldShowWhiteBackground: shouldShowWhiteBackground)
+    private func updateViewState(forceSearch: Bool = false) {
+        let shouldRestrictSites = ConfigStore.shared.shouldRestrictSites
+        if isSearchActive {
+            let query = SearchQuery(text: trimmedSearchString, shouldRestrictSites: shouldRestrictSites)
+            if forceSearch || query != lastSearchQuery {
+                lastSearchQuery = query
+                searchCoordinator?.search(query)
+            }
+            return
+        }
+        
+        searchCoordinator?.cancel()
+        lastSearchQuery = nil
+        currentSearchResult = nil
+        let sections = Self.makeBrowsingSections(
+            exploreVM: exploreVM,
+            shouldRestrictSites: shouldRestrictSites,
+            isLockdownModeEnabled: WalletCoreData.isLockdownModeEnabled
+        )
+        observedViewState.updateBrowsing(sections: sections)
+    }
+
+    private func setupSearchCoordinator() {
+        let actions = ExploreSearchActions(
+            openSite: { [weak self] site in
+                self?.openSearchURL(site.url, title: site.name, externally: site.shouldOpenExternally)
+            },
+            openDapp: { [weak self] dapp in
+                self?.openSearchURL(dapp.url, title: dapp.name)
+            },
+            openHistory: { [weak self] item in
+                self?.openSearchURL(item.url, title: item.title)
+            },
+            openWallet: { [weak self] account in
+                self?.view.window?.endEditing(true)
+                self?.onSelectAny()
+                Task {
+                    do {
+                        _ = try await AccountStore.activateAccount(accountId: account.id)
+                        AppActions.showHome(popToRoot: true)
+                    } catch {
+                        AppActions.showError(error: error)
+                    }
+                }
+            },
+            openExternalURL: { [weak self] url, appUrl in
+                self?.openSearchURL(url, appUrlString: appUrl, title: nil, externally: true)
+            },
+            showTemporaryViewAccount: { [weak self] network, addressOrDomainByChain in
+                self?.view.window?.endEditing(true)
+                self?.onSelectAny()
+                AppActions.showTemporaryViewAccount(network: network, addressOrDomainByChain: addressOrDomainByChain)
+            },
+            insertToSearchString: { [weak self] text in
+                self?.onInsertToSearchString(text)
+            },
+            searchGoogle: { [weak self] text in
+                self?.onSubmitSearch(text)
+            },
+            clearRecentSearches: { [weak self] tag in
+                self?.clearRecentSearches(tag: tag)
+            }
+        )
+
+        searchCoordinator = ExploreSearchCoordinator(
+            providers: [
+                SuggestedSearchProvider(actions: actions),
+                WalletSearchProvider(actions: actions),
+                SitesAndDappsSearchProvider(exploreVM: exploreVM, actions: actions),
+                HistorySearchProvider(tag: exploreHistoryTag, actions: actions),
+            ],
+            actions: actions,
+            recentSearchTag: exploreHistoryTag
+        )
+            
+        searchCoordinator?.onUpdate = { [weak self] result in
+            self?.currentSearchResult = result
+            self?.observedViewState.updateSearch(result)
+        }
+    }
+
+    func performTopMatchActionIfPresent() -> Bool {
+        guard isSearchActive, let topMatch = currentSearchResult?.topMatch else { return false }
+        topMatch.performDefaultAction()
+        return true
+    }
+
+    private func clearRecentSearches(tag: String) {
+        guard let accountId = AccountStore.accountId else { return }
+        RecentSearchStore.shared.clear(accountId: accountId, tag: tag)
+        updateViewState(forceSearch: true)
+    }
+
+    private func openSearchURL(_ urlString: String, appUrlString: String? = nil, title: String?, externally: Bool = false) {
+        view.window?.endEditing(true)
+        onSelectAny()
+        
+        // trying to open installed app, if requested and available
+        if let appUrlString, let appUrl = URL(string: appUrlString), UIApplication.shared.canOpenURL(appUrl) {
+            UIApplication.shared.open(appUrl)
+            return 
+        }
+        
+        guard let url = URL(string: urlString) else {
+            return Log.shared.error("URL from string failed: \(urlString)")
+        }
+        if externally {
+            UIApplication.shared.open(url)
+        } else {
+            AppActions.openInBrowser(url, title: title, injectDappConnect: true, historyTag: exploreHistoryTag)
+        }
     }
 }
 
@@ -204,9 +279,6 @@ public final class ExploreVC: WViewController {
 extension ExploreVC {
     func searchTextDidChange(_ searchString: String) { externalEvents.searchStringDidChange.send(searchString) }
     func searchActiveDidChange(_ isActive: Bool) { externalEvents.searchActiveDidChange.send(isActive) }
-
-    var onRecentSearchDidTap: AnyPublisher<String, Never> { externalEvents.recentSearchDidTap.eraseToAnyPublisher() }
-    var onClearRecentSearchesDidTap: AnyPublisher<String, Never> { externalEvents.clearRecentSearchesDidTap.eraseToAnyPublisher() }
 }
 
 extension ExploreVC: ExploreVMDelegate {
@@ -218,8 +290,6 @@ extension ExploreVC {
     private struct ExternalEvents {
         let searchStringDidChange = PassthroughSubject<String, Never>()
         let searchActiveDidChange = PassthroughSubject<Bool, Never>()
-        let recentSearchDidTap = PassthroughSubject<String, Never>()
-        let clearRecentSearchesDidTap = PassthroughSubject<String, Never>()
     }
 }
 

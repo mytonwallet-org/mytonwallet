@@ -5,11 +5,17 @@ import UIComponents
 import WalletCore
 import WalletContext
 
+public enum EarnInitialAction: Sendable {
+    case unstake
+}
+
 
 @MainActor
 public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendable {
     
     public let tokenSlug: String?
+    private var initialAction: EarnInitialAction?
+    private var isReadyForInitialAction = false
     
     private var tonVC: EarnVC!
     private var mycoinVC: EarnVC!
@@ -50,9 +56,10 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         return items
     }
     
-    public init(accountContext: AccountContext, tokenSlug: String?) {
+    public init(accountContext: AccountContext, tokenSlug: String?, initialAction: EarnInitialAction? = nil) {
         self._account = accountContext
-        self.tokenSlug = tokenSlug ?? TONCOIN_SLUG
+        self.tokenSlug = StakingConfig.config(forTokenSlug: tokenSlug)?.baseTokenSlug ?? tokenSlug ?? TONCOIN_SLUG
+        self.initialAction = initialAction
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -63,6 +70,12 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+    }
+
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        isReadyForInitialAction = true
+        performInitialActionIfPossible()
     }
     
     private func setupViews() {
@@ -103,12 +116,8 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         
         updateWithStakingState()
         
-        // Select the correct tab after replace() async completes
         DispatchQueue.main.async { [self] in
-            let currentItems = segmentedControlItems
-            let idx = currentItems.firstIndex(where: { $0.id == tokenSlug }) ?? 0
-            segmentedController.switchTo(tabIndex: idx)
-            segmentedController.handleSegmentChange(to: idx, animated: false)
+            selectRequestedToken(allowFallback: true)
         }
 
         segmentedController.segmentedControl?.embed(in: navigationItem)
@@ -126,6 +135,34 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         segmentedController.scrollView.isScrollEnabled = items.count > 1
         segmentedController.segmentedControl?.isHidden = items.count < 2
         segmentedController.replace(items: items)
+        if initialAction != nil {
+            DispatchQueue.main.async { [self] in
+                performInitialActionIfPossible()
+            }
+        }
+    }
+
+    @discardableResult
+    private func selectRequestedToken(allowFallback: Bool) -> EarnVC? {
+        let currentItems = segmentedControlItems
+        let requestedIndex = currentItems.firstIndex { $0.id == tokenSlug }
+        let index = requestedIndex ?? (allowFallback ? 0 : nil)
+        guard let index else { return nil }
+        segmentedController.switchTo(tabIndex: index)
+        segmentedController.handleSegmentChange(to: index, animated: false)
+        guard requestedIndex != nil else { return nil }
+        return currentItems[index].viewController as? EarnVC
+    }
+
+    private func performInitialActionIfPossible() {
+        guard isReadyForInitialAction, let initialAction else { return }
+        guard let earnVC = selectRequestedToken(allowFallback: false) else { return }
+        switch initialAction {
+        case .unstake:
+            if earnVC.openUnstakeFlow(animated: true) {
+                self.initialAction = nil
+            }
+        }
     }
     
     private func updateTheme() {

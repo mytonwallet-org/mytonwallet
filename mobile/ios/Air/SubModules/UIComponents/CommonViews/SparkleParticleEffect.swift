@@ -426,7 +426,7 @@ private func positiveModulo(_ value: Int, _ divisor: Int) -> Int {
     return remainder >= 0 ? remainder : remainder + divisor
 }
 
-private func makeSparkleStarPath(size: CGFloat) -> CGPath {
+internal func makeSparkleStarPath(size: CGFloat) -> CGPath {
     let scale = size
     let innerSize = 0.12 * scale
     let armLength = 0.45 * scale

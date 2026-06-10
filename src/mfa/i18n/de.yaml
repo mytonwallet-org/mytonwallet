@@ -1,0 +1,124 @@
+$title: MFA-Erweiterung
+$confirmation-title: Bitte Aktion bestätigen
+$confirmed: Bestätigt!
+$install-confirmation-title: Installation der Erweiterung bestätigen
+Go Back: Zurück
+Confirm: Bestätigen
+Is it all ok?: Ist alles in Ordnung?
+Connect Wallet: Wallet verbinden
+Confirm Connection: Verbindung bestätigen
+Confirm Unlinking: Entknüpfung bestätigen
+My Telegram Account: Mein Telegram-Konto
+Without username: Ohne Benutzernamen
+My Wallet: Meine Wallet
+We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.:
+  Wir bitten Sie, Aktionen nach Eingabe Ihres Passcodes in %app_name% in
+  Telegram zu bestätigen.
+2FA applies only to actions involving TON assets.: 2FA gilt nur für Aktionen mit TON-Assets.
+Action Confirmed: Aktion bestätigt
+Almost Ready!: Fast fertig!
+Your wallet is now connected to your Telegram account.: Ihre Wallet ist jetzt mit Ihrem Telegram-Konto verbunden.
+Return to the app to pay fee and complete the final confirmation.:
+  Kehren Sie zur App zurück, um die Gebühr zu bezahlen und die endgültige
+  Bestätigung abzuschließen.
+Back to %app_name%: Zurück zu %app_name%
+Preview: Vorschau
+$preview_not_guaranteed: Das Vorschauergebnis ist **nicht garantiert** und kann
+  **vom Dienst manipuliert** werden.
+$fee_value: Gebühr %fee%
+$fee_value_with_colon: "Gebühr: %fee%"
+Fee: Gebühr
+Details: Details
+Transaction ID: Transaktions-ID
+Transaction ID Copied: Transaktions-ID wurde kopiert
+Encrypted Message: Verschlüsselte Nachricht
+Failed: Fehlgeschlagen
+$transaction_on: auf %address%
+$transaction_from: von %address%
+$transaction_to: an %address%
+at %annual_yield%: bei %annual_yield%
+Scam: Betrug
+Staked: Gestakt
+Staking: Staking
+$stake_action: Stake
+Unstaked: Ungestakt
+Unstaking: Entstaken
+$unstake_action: Entstaken
+Requested Unstake: Unstake beantragt
+Requesting Unstake: Unstake wird angefordert
+$request_unstake_action: Unstake anfordern
+Called Contract: Vertrag aufgerufen
+Calling Contract: Vertrag wird aufgerufen
+$call_contract_action: Vertrag aufrufen
+Excess: Überschuss
+Deployed Contract: Vertrag bereitgestellt
+Deploying Contract: Vertrag wird bereitgestellt
+$deploy_contract_action: Vertrag bereitstellen
+Bounced: Zurückgesendet
+Bouncing: Zurückspringen
+$bounce_action: Zurücksenden
+Minted: Gemintet
+Minting: Minting
+$mint_action: Minten
+Burned: Verbrannt
+Burning: Verbrennen
+$burn_action: Verbrennen
+NFT Auction Bid: NFT-Auktionsgebot
+Bidding at NFT Auction: Bieten bei NFT-Auktion
+"NFT Auction Bid ": NFT-Auktionsgebot
+Updated Address: Adresse aktualisiert
+Updating Address: Adresse wird aktualisiert
+$update_address_action: Adresse aktualisieren
+Updated Site: Website aktualisiert
+Updating Site: Webseite wird aktualisiert
+$update_site_action: Website aktualisieren
+Updated Subdomains: Subdomains aktualisiert
+Updating Subdomains: Subdomains werden aktualisiert
+$update_subdomains_action: Subdomains aktualisieren
+Updated Storage: Speicher aktualisiert
+Updating Storage: Speicher wird aktualisiert
+$update_storage_action: Speicher aktualisieren
+Deleted Domain Record: Domain-Eintrag gelöscht
+Deleting Domain Record: Domain-Eintrag wird gelöscht
+$delete_domain_record_action: Domain-Eintrag gelöschen
+Renewed Domain: Domain verlängert
+Renewing Domain: Domain wird erneuert
+$renew_domain_action: Domain erneuern
+Provided Liquidity: Liquidität bereitgestellt
+Providing Liquidity: Liquidität wird bereitgestellt
+$provide_liquidity_action: Liquidität bereitstellen
+Withdrawn Liquidity: Liquidität entnommen
+Withdrawing Liquidity: Liquidität wird abgezogen
+$withdraw_liquidity_action: Liquidität abziehen
+Sold NFT: NFT verkauft
+Selling NFT: NFT wird verkauft
+$sell_nft_action: NFT verkaufen
+Bought NFT: NFT gekauft
+Buying NFT: NFT wird gekauft
+$buy_nft_action: NFT kaufen
+Minted NFT: NFT gemintet
+Minting NFT: NFT wird gemintet
+$mint_nft_action: NFT minten
+Burned NFT: NFT verbrannt
+Burning NFT: NFT wird verbrannt
+$burn_nft_action: NFT verbrennen
+Received NFT: NFT empfangen
+Receiving NFT: NFT wird empfangen
+$receive_nft_action: NFT empfangen
+Sent NFT: NFT gesendet
+Sending NFT: NFT wird gesendet
+$send_nft_action: NFT senden
+Received: Empfangen
+Receiving: Empfangen
+$receive_action: Empfangen
+Sent: Gesendet
+Sending: Senden
+$send_action: Senden
+Expired: Abgelaufen
+Refunded: Erstattet
+On Hold: In Wartestellung
+Waiting for Payment: Auf Zahlung warten
+In Progress: In Bearbeitung
+$swap_action: Tausch
+Swapping: Tausch läuft
+Swapped: Getauscht

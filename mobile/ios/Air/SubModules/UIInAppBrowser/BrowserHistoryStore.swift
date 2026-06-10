@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import GRDB
 import WalletContext
@@ -12,7 +13,11 @@ public final class BrowserHistoryStore: WalletCoreData.EventsObserver {
 
     private static let maxItemsPerTag = 100
 
-    public var onLoaded: (() -> Void)?
+    private let onLoadedSubject = PassthroughSubject<Void, Never>()
+    
+    public var onLoaded: AnyPublisher<Void, Never> {
+        onLoadedSubject.eraseToAnyPublisher()
+    }
 
     private var cachedAccountId: String?
     private var isLoaded: Bool = false
@@ -129,7 +134,7 @@ public final class BrowserHistoryStore: WalletCoreData.EventsObserver {
                 if self.cachedAccountId == accountId {
                     self.items = loaded
                     self.isLoaded = true
-                    self.onLoaded?()
+                    self.onLoadedSubject.send()
                 }
             } catch {
                 log.error("loadForAccount failed: \(error, .public)")

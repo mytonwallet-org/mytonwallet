@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import WalletCoreTypes
 import UIKit
 
 public struct TokenWithChartWidget: Widget {

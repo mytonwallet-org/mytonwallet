@@ -584,6 +584,9 @@ class WalletCardView(
     }
 
     fun updateBalanceChange(balance: Double?, balance24h: Double?, animated: Boolean) {
+        isBalanceChangePositive =
+            balance != null && balance24h != null &&
+                balance > 0 && balance24h > 0 && balance > balance24h
         var balanceChangeString: String? = null
         balance?.let {
             balance24h?.let {
@@ -622,6 +625,7 @@ class WalletCardView(
         balanceChangeLabel.visibility =
             if (balanceChangeLabel.contentView.text.isNullOrEmpty()) INVISIBLE else VISIBLE
         balanceChangeBlurView?.visibility = balanceChangeLabel.visibility
+        applyBalanceChangeColors()
     }
 
     fun animateBalance(animateConfig: WBalanceView.AnimateConfig) {
@@ -829,6 +833,7 @@ class WalletCardView(
         walletTypeView.alpha = actionsAlpha
     }
 
+    private var isBalanceChangePositive = false
     private var _primaryColor: Int? = null
     private var _secondaryColor: Int? = null
     private var _drawGradient: Boolean? = null
@@ -867,22 +872,36 @@ class WalletCardView(
                 it.colorWithAlpha(25),
                 it.colorWithAlpha(204)
             )
-            balanceChangeLabel.contentView.setTextColor(it.colorWithAlpha(204))
-            balanceChangeChevron?.setTint(it.colorWithAlpha(204))
-            if (balanceChangeBlurView == null)
-                balanceChangeLabel.contentView.setBackgroundColor(it.colorWithAlpha(25), 13f.dp)
         } ?: run {
             walletTypeView.setColor(
                 secondaryColor.colorWithAlpha(41),
                 secondaryColor.colorWithAlpha(191)
             )
+        }
+        applyBalanceChangeColors()
+    }
+
+    private fun applyBalanceChangeColors() {
+        cardNft?.metadata?.overlayLabelBackground?.let { it ->
+            balanceChangeLabel.contentView.setTextColor(it.colorWithAlpha(204))
+            balanceChangeChevron?.setTint(it.colorWithAlpha(204))
+            balanceChangeLabel.contentView.setBackgroundColor(
+                if (balanceChangeBlurView == null) it.colorWithAlpha(25) else Color.TRANSPARENT,
+                13f.dp
+            )
+        } ?: run {
+            val secondaryColor = _secondaryColor ?: Color.WHITE.colorWithAlpha(191)
             balanceChangeLabel.contentView.setTextColor(secondaryColor.colorWithAlpha(191))
             balanceChangeChevron?.setTint(secondaryColor.colorWithAlpha(191))
-            if (balanceChangeBlurView == null)
-                balanceChangeLabel.contentView.setBackgroundColor(
-                    secondaryColor.colorWithAlpha(41),
-                    13f.dp
-                )
+            balanceChangeLabel.contentView.setBackgroundColor(
+                if (balanceChangeBlurView == null) secondaryColor.colorWithAlpha(41) else Color.TRANSPARENT,
+                13f.dp
+            )
+        }
+        if (isBalanceChangePositive) {
+            val positiveColor = WColor.PositiveBalance.color
+            balanceChangeLabel.contentView.setTextColor(positiveColor)
+            balanceChangeChevron?.setTint(positiveColor)
         }
     }
 

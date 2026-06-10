@@ -22,7 +22,7 @@ struct LedgerSignView<HeaderView: View>: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .ignoresSafeArea()
                     VStack(spacing: 0) {
-                        Image.airBundle("LedgerConnect")
+                        Image.mainBundle("LedgerConnect")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .padding(.horizontal, 60)

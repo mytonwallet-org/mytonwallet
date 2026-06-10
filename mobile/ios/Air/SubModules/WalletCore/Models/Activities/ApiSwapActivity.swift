@@ -1,6 +1,7 @@
 
 import UIKit
 import WalletContext
+import WalletCoreTypes
 
 public struct ApiSwapActivity: BaseActivity, Codable, Equatable, Hashable, Sendable {
     

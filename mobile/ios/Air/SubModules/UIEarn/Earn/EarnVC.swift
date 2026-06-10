@@ -259,6 +259,16 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         }
     }
     
+    @discardableResult
+    func openUnstakeFlow(animated: Bool) -> Bool {
+        guard let stakingState = earnVM.stakingState else {
+            return false
+        }
+        let vc = UnstakeVC(config: config, stakingState: stakingState, accountContext: accountContext)
+        navigationController?.pushViewController(vc, animated: animated)
+        return true
+    }
+
     func stakeUnstakePressed(isStake: Bool) {
         if let stakingState = earnVM.stakingState {
             if isStake {
@@ -269,8 +279,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
                 if config.readyToUnstakeAmount(stakingData: stakingData) != nil {
                     claimRewardsViewModel.onClaim()
                 } else {
-                    let vc = UnstakeVC(config: config, stakingState: stakingState, accountContext: accountContext)
-                    navigationController?.pushViewController(vc, animated: true)
+                    openUnstakeFlow(animated: true)
                 }
             }
         }

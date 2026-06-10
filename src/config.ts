@@ -75,7 +75,7 @@ export const DEBUG_ALERT_MSG = 'Shoot!\nSomething went wrong, please see the err
 export const PIN_LENGTH = 4;
 export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet';
 export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
-export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in MyTonWallet';
+export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in My Wallet';
 
 /** If `true`, the app supports only TON-specific mnemonics */
 export const IS_TON_MNEMONIC_ONLY = IS_CORE_WALLET;

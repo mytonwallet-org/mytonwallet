@@ -117,7 +117,7 @@ class MfaActionConfirmVC(
         AccountIconView.Usage.ViewItem(28f.dp),
     ).apply {
         id = View.generateViewId()
-        AccountStore.activeAccount?.let { config(it, useTelegramAvatar = true) }
+        AccountStore.activeAccount?.let { config(it, useTelegramAvatar = false) }
     }
 
     private val userAvatar: View = buildUserAvatar()

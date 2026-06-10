@@ -1,0 +1,121 @@
+$title: MFA Uzantısı
+$confirmation-title: Lütfen işlemi onaylayın
+$confirmed: Onaylandı!
+$install-confirmation-title: Uzantı kurulumunu onayla
+Go Back: Geri Dön
+Confirm: Onayla
+Is it all ok?: Herşey tamam mı?
+Connect Wallet: Cüzdanı bağla
+Confirm Connection: Bağlantıyı onayla
+Confirm Unlinking: Bağlantıyı kaldırmayı onayla
+My Telegram Account: Telegram Hesabım
+Without username: Kullanıcı adı yok
+My Wallet: Cüzdanım
+We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.:
+  "%app_name% içinde şifrenizi girdikten sonra işlemleri Telegram’da
+  onaylamanızı isteyeceğiz."
+2FA applies only to actions involving TON assets.: 2FA yalnızca TON varlıklarını içeren işlemler için geçerlidir.
+Action Confirmed: Eylem onaylandı
+Almost Ready!: Neredeyse hazır!
+Your wallet is now connected to your Telegram account.: Cüzdanınız artık Telegram hesabınıza bağlı.
+Return to the app to pay fee and complete the final confirmation.: Ücreti ödemek ve son onayı tamamlamak için uygulamaya geri dönün.
+Back to %app_name%: "%app_name% uygulamasına dön"
+Preview: Önizleme
+$preview_not_guaranteed: Önizleme sonucu **garanti edilmez** ve hizmet tarafından **sahte olabilir**.
+$fee_value: Ücret %fee%
+$fee_value_with_colon: "Ücret: %fee%"
+Fee: Ücret
+Details: Detaylar
+Transaction ID: İşlem Kimliği
+Transaction ID Copied: İşlem kimliği kopyalandı
+Encrypted Message: Şifrelenmiş Mesaj
+Failed: Başarısız
+$transaction_on: "%address%'ta"
+$transaction_from: bu adresten = %address%
+$transaction_to: bu adrese = %address%
+at %annual_yield%: "%annual_yield% ile"
+Scam: Sahtekarlık
+Staked: Stake edildi
+Staking: Staking
+$stake_action: Stake işlemi
+Unstaked: Unstake gerçekleşti
+Unstaking: Unstaking gerçekleşiyor
+$unstake_action: Unstake işlemi
+Requested Unstake: Unstake talep edildi
+Requesting Unstake: Unstake talep ediliyor
+$request_unstake_action: Unstake talebi
+Called Contract: Kontrat çağrıldı
+Calling Contract: Sözleşme çağrılıyor
+$call_contract_action: Sözleşme çağrısı
+Excess: Fazlalık
+Deployed Contract: Kontrat dağıtıldı
+Deploying Contract: Sözleşme dağıtılıyor
+$deploy_contract_action: Sözleşme dağıtımı
+Bounced: Geri döndü
+Bouncing: Geri dönüyor
+$bounce_action: Geri dönüş
+Minted: Mintlendi
+Minting: Mintleme
+$mint_action: Mint
+Burned: Yakıldı
+Burning: Yakma
+$burn_action: Yakma
+NFT Auction Bid: NFT müzayede teklifi
+Bidding at NFT Auction: NFT müzayedesinde teklif verme
+"NFT Auction Bid ": NFT Açık Artırma Teklifi
+Updated Address: Adres güncellendi
+Updating Address: Adres güncelleniyor
+$update_address_action: Adres güncelleme
+Updated Site: Site güncellendi
+Updating Site: Site güncelleniyor
+$update_site_action: Site güncelleme
+Updated Subdomains: Alt alan adları güncellendi
+Updating Subdomains: Alt alan adları güncelleniyor
+$update_subdomains_action: Alt alan adı güncelleme
+Updated Storage: Depolama güncellendi
+Updating Storage: Depolama alanı güncelleniyor
+$update_storage_action: Depolama güncelleme
+Deleted Domain Record: Alan adı kaydı silindi
+Deleting Domain Record: Alan adı kaydı siliniyor
+$delete_domain_record_action: Alan adı kaydını silme
+Renewed Domain: Alan adı yenilendi
+Renewing Domain: Alan adı yenileniyor
+$renew_domain_action: Alan adı yenileme
+Provided Liquidity: Likidite sağlandı
+Providing Liquidity: Likidite sağlanıyor
+$provide_liquidity_action: Likidite sağlama
+Withdrawn Liquidity: Likidite çekildi
+Withdrawing Liquidity: Likidite çekiliyor
+$withdraw_liquidity_action: Likidite çekme
+Sold NFT: NFT satıldı
+Selling NFT: NFT satılıyor
+$sell_nft_action: NFT sat
+Bought NFT: NFT satın alındı
+Buying NFT: NFT satın alınıyor
+$buy_nft_action: NFT satın alma
+Minted NFT: NFT mintlendi
+Minting NFT: NFT mintleniyor
+$mint_nft_action: NFT mintle
+Burned NFT: NFT yakıldı
+Burning NFT: NFT yakılıyor
+$burn_nft_action: NFT yak
+Received NFT: NFT alındı
+Receiving NFT: NFT alınıyor
+$receive_nft_action: NFT al
+Sent NFT: NFT gönderildi
+Sending NFT: NFT gönderiliyor
+$send_nft_action: NFT gönder
+Received: Alındı
+Receiving: Alınıyor
+$receive_action: Alım
+Sent: Gönder
+Sending: Gönderiliyor
+$send_action: Gönderim
+Expired: Süresi doldu
+Refunded: İade edildi
+On Hold: Beklemede
+Waiting for Payment: Ödeme bekleniyor
+In Progress: Devam etmekte
+$swap_action: Takas
+Swapping: Takas devam ediyor
+Swapped: Takas gerçekleşti

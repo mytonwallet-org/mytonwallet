@@ -13,6 +13,7 @@ import OrderedCollections
 import GRDB
 import Dependencies
 import Perception
+import WalletCoreTypes
 
 private let log = Log("AccountStore")
 private let _popularWalletVersionTitles: Set<String> = ["v3R1", "v3R2", "v4R2", "W5"]
@@ -543,7 +544,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             return APP_NAME
         }
         let mnemonicCount = accountsById.values.filter { $0.type == .mnemonic }.count
-        return "\(lang("My Wallet")) \(mnemonicCount + 1)"
+        let title = IS_GRAM_WALLET ? "Wallet" : "My Wallet"
+        return "\(title) \(mnemonicCount + 1)"
     }
 
     private func _baseSubwalletTitle(from title: String) -> String {
@@ -828,20 +830,12 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     
     // MARK: - Reordering accounts
     
-    public func reorderAccounts(newOrder: OrderedSet<String>) {
+    public func reorderAccounts(newOrderHint: OrderedSet<String>) {
         withMutation(keyPath: \._orderedAccountIds) {
             _orderedAccountIds.withLock {
-                
                 let oldItems = $0
-                let newItems = newOrder.union(oldItems)
-                
-                guard newItems.count == oldItems.count else {
-                    log.fault("Unable to reorder accounts, updated count (\(newOrder.count)) != old one (\(oldItems.count))")
-                    assertionFailure()
-                    return
-                }
-                
-                $0 = newItems
+                let hintedOrder = OrderedSet(newOrderHint.filter { oldItems.contains($0) })
+                $0 = hintedOrder.union(oldItems)
             }
         }
         saveOrderedAccountIds()
@@ -1180,7 +1174,7 @@ extension _AccountStore: DependencyKey {
         accountStore.accountsById = [
             MAccount(
                 id: "0-mainnet",
-                title: "MyTonWallet",
+                title: "My Wallet",
                 type: .mnemonic,
                 byChain: [
                     .ton: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34Aef3dsdaQ8N", domain: nil),

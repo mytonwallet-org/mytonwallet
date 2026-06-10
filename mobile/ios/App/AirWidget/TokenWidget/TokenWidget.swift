@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import WalletCoreTypes
 
 public struct TokenWidget: Widget {
     public let kind: String = "TokenWidget"

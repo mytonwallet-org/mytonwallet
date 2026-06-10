@@ -7,6 +7,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 extension Api {
     public static func fetchToken(accountId: String, chain: ApiChain, tokenAddress: String) async throws -> ApiToken {

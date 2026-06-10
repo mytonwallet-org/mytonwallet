@@ -1,4 +1,5 @@
 import Foundation
+import WalletCoreTypes
 
 struct AccountNftAvailabilityValidationContext: Equatable, Sendable {
     let reason: String

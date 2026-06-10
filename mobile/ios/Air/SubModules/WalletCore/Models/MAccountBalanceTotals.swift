@@ -1,4 +1,5 @@
 import Foundation
+import WalletCoreTypes
 
 public struct MAccountBalanceTotals: Equatable, Sendable {
     public let totalBalance: BaseCurrencyAmount

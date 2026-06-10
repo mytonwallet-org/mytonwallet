@@ -10,6 +10,7 @@ import WalletContext
 import UIKit
 import GRDB
 import Dependencies
+import WalletCoreTypes
 
 private let log = Log("WalletCoreData")
 

@@ -1,5 +1,6 @@
 import Testing
 @testable import WalletCore
+import WalletCoreTypes
 
 @Suite("Account NFT Availability")
 struct AccountNftAvailabilityValidatorTests {

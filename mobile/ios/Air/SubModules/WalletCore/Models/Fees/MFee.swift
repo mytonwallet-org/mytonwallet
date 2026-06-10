@@ -6,6 +6,7 @@
 //
 
 import WalletContext
+import WalletCoreTypes
 
 
 public struct MFee: Equatable, Hashable, Codable, Sendable {
@@ -35,22 +36,7 @@ public struct MFee: Equatable, Hashable, Codable, Sendable {
         }
     }
 
-    public enum FeePrecision: String, Codable, Sendable {
-        case exact = "exact"
-        case approximate = "approximate"
-        case lessThan = "lessThan"
-        
-        var prefix: String {
-            switch self {
-            case .exact:
-                return ""
-            case .approximate:
-                return "~"
-            case .lessThan:
-                return "< "
-            }
-        }
-    }
+    public typealias FeePrecision = DecimalAmountFormatPrecision
 
     public init(precision: MFee.FeePrecision, terms: MFee.FeeTerms, nativeSum: BigInt?) {
         self.precision = precision

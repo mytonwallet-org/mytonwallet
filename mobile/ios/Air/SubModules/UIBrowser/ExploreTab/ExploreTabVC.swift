@@ -1,4 +1,3 @@
-import Combine
 import UIKit
 import UIComponents
 import WalletCore
@@ -8,24 +7,6 @@ import UIDapp
 public class ExploreTabVC: WViewController {
     private let exploreVC = ExploreVC()
     private let searchView = ExploreSearch()
-    private var cancelBag = Set<AnyCancellable>()
-
-    private lazy var closeSearchBarButton: UIBarButtonItem = {
-        let config = UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
-            .applying(UIImage.SymbolConfiguration(paletteColors: [.secondaryLabel, .secondarySystemFill]))
-        let image = UIImage(systemName: "xmark.circle.fill", withConfiguration: config)
-
-        let button = UIButton(type: .custom)
-        button.setImage(image, for: .normal)
-        button.backgroundColor = .clear
-        button.addTarget(self, action: #selector(closeSearchButtonTapped), for: .touchUpInside)
-
-        let item = UIBarButtonItem(customView: button)
-        if #available(iOS 26.0, *) {
-            item.hidesSharedBackground = true
-        }
-        return item
-    }()
 
     private static let deeplinkSchemes: Set<String> = ["ton", "tc", TONCONNECT_PROTOCOL_SCHEME, "wc", SELF_PROTOCOL_SCHEME]
     private static var deeplinkUniversalHosts: Set<String> {
@@ -39,6 +20,11 @@ public class ExploreTabVC: WViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        view.endEditing(true)
     }
     
     func setupViews() {
@@ -89,29 +75,25 @@ public class ExploreTabVC: WViewController {
         ])
 
         searchView.viewModel.onChange = { [weak self] in self?.onChange($0) }
-        searchView.viewModel.onSubmit = { [weak self] in self?.onSubmit($0) }
+        searchView.viewModel.onSubmit = { [weak self] text in
+            guard let self else { return }
+            if !self.exploreVC.performTopMatchActionIfPresent() {
+                self.onSubmit(text)
+            }
+        }
         searchView.viewModel.onActiveChange = { [weak self] isActive in
             guard let self else { return }
             self.navigationItem.title = isActive ? nil : lang("Explore")
-            self.navigationItem.setRightBarButton(isActive ? self.closeSearchBarButton : nil, animated: true)
             self.exploreVC.searchActiveDidChange(isActive)
         }
 
-        exploreVC.onRecentSearchDidTap
-            .receive(on: DispatchQueue.main)
-            .sink(withUnretained: self) { uSelf, text in
-                uSelf.onSubmit(text)
-            }
-            .store(in: &cancelBag)
+        exploreVC.onSubmitSearch = { [weak self] text in
+            self?.onSubmit(text)
+        }
 
-        exploreVC.onClearRecentSearchesDidTap
-            .receive(on: DispatchQueue.main)
-            .sink(withUnretained: self) { uSelf, tag in
-                guard let accountId = AccountStore.accountId else { return }
-                RecentSearchStore.shared.clear(accountId: accountId, tag: tag)
-                uSelf.exploreVC.didUpdateViewModelData()
-            }
-            .store(in: &cancelBag)
+        exploreVC.onInsertToSearchString = { [weak self] text in
+            self?.searchView.viewModel.string = text
+        }
         
         updateTheme()
     }
@@ -126,10 +108,6 @@ public class ExploreTabVC: WViewController {
     
     private func onChange(_ text: String) {
         exploreVC.searchTextDidChange(text)
-    }
-
-    @objc private func closeSearchButtonTapped() {
-        searchView.close()
     }
 
     private static func deeplinkURLCandidate(from text: String) -> URL? {

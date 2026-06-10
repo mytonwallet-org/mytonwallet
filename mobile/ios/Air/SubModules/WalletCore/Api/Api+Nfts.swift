@@ -2,6 +2,7 @@
 import Foundation
 import WebKit
 import WalletContext
+import WalletCoreTypes
 
 extension Api {
 

@@ -18,6 +18,7 @@ Sign transfers and important actions with your passcode, then confirm them in Te
 This helps protect your funds even if your recovery phrase or keys are compromised.: Dies hilft, Ihre Gelder zu schützen, selbst wenn Ihre Wiederherstellungsphrase oder Schlüssel kompromittiert wurden.
 "Connection Fee:": "Verbindungsgebühr:"
 Connect Telegram: Telegram verbinden
+Add in Gram Wallet: In Gram Wallet hinzufügen
 Telegram will be used to confirm transfers and important actions.: Telegram wird verwendet, um Überweisungen und wichtige Aktionen zu bestätigen.
 My Telegram Account: Mein Telegram-Konto
 Without username: Ohne Benutzernamen
@@ -776,7 +777,7 @@ Toggle fullscreen: Vollbildmodus umschalten
 Request is sent!: Anfrage gesendet!
 Transaction ID: Transaktions-ID
 Help Center: Hilfezentrum
-MyTonWallet Tips: MyTonWallet-Tipps
+"%app_name% Tips": "%app_name%-Tipps"
 Open %nft_marketplace%: "%nft_marketplace% öffnen"
 Link Copied: Link wurde kopiert
 Share Link: Link teilen
@@ -844,7 +845,7 @@ $receive_action: Empfangen
 Change Palette: Palette ändern
 Palette: Palette
 Unlock New Palettes: Neue Paletten freischalten
-Get a unique MyTonWallet Card to unlock new palettes.: Erhalte eine einzigartige MyTonWallet-Karte, um neue Paletten freizuschalten.
+Get a unique My Wallet Card to unlock new palettes.: Erhalte eine einzigartige My Wallet-Karte, um neue Paletten freizuschalten.
 Mint Cards: Karten prägen
 Card has been upgraded!: Karte wurde aktualisiert!
 $mint_card_result: Die NFT-Karte wird **geprägt** und **innerhalb einer Minute automatisch installiert**.
@@ -879,9 +880,9 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: Bitte verwenden Sie MyTonWallet %mobileAppButton% oder %browserExtensionButton%, um diese Warnung zu vermeiden.
+$reopen_in_iab: Bitte verwenden Sie My Wallet %mobileAppButton% oder %browserExtensionButton%, um diese Warnung zu vermeiden.
 $reopen_in_iab_explore: Bitte verwenden Sie beim Durchsuchen von Apps den Bereich %exploreTab%, um diese Warnung zu vermeiden.
-MyTonWallet Browser: MyTonWallet Browser
+My Wallet Browser: My Wallet Browser
 mobile app: mobile App
 browser extension: Browser-Erweiterung
 Exit all wallets: Alle Wallets schließen
@@ -989,7 +990,7 @@ $domain_like_scam_warning: |
 Allow Suspicious Actions: Verdächtige Aktionen erlauben
 $allow_suspicious_actions_description: Erlaubt das Senden an verdächtige Adressen und die Interaktion mit potenziell unsicheren Verträgen.
 Multisig Wallet Detected: Multisig-Wallet erkannt
-$multisig_warning_text: "**Geld abheben** aus dieser Wallet über MyTonWallet ist **nicht möglich**. Stellen Sie sicher, dass es wirklich Ihre ist — andernfalls könnte es ein Betrug sein. %multisig_warning_link%"
+$multisig_warning_text: "**Geld abheben** aus dieser Wallet über %app_name% ist **nicht möglich**. Stellen Sie sicher, dass es wirklich Ihre ist — andernfalls könnte es ein Betrug sein. %multisig_warning_link%"
 $multisig_warning_link: Klicken Sie, um mehr zu erfahren
 Multisig sending disabled: Kein Senden von Multisig
 $try_new_air_version: Probieren Sie die native App-Erfahrung — leichter, schneller und für Ihr Gerät entwickelt. Sie können jederzeit zurückwechseln.
@@ -1061,9 +1062,9 @@ Customize Wallet: Wallet anpassen
 "Select the card stored in this wallet:": "Wählen Sie die Karte aus, die in dieser Wallet gespeichert ist:"
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Diese Karte wird für diese Wallet installiert und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt.
 Get More Cards: Weitere Karten erhalten
-Browse MyTonWallet Cards available for purchase.: Durchsuchen Sie die verfügbaren MyTonWallet-Karten zum Kauf.
+Browse My Wallet Cards available for purchase.: Durchsuchen Sie die verfügbaren My Wallet-Karten zum Kauf.
 You don’t have any cards to customize yet: Sie haben noch keine Karten zum Anpassen.
-MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet-Karten können für Wallets installiert und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt werden.
+My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: My Wallet-Karten können für Wallets installiert und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt werden.
 Get First Card: Erste Karte erhalten
 Palette and Card: Palette und Karte
 Customize the wallet's home screen and color accents the way you like.: Passen Sie den Startbildschirm und die Farbakzente Ihrer Wallet nach Ihrem Geschmack an.
@@ -1097,7 +1098,7 @@ Adding wallets is not available in explorer mode: Das Hinzufügen von Wallets is
 $explorer_mode_warning: "Explorer-Modus: Warten auf einen View-Deeplink zum Öffnen einer Adresse"
 This command is not supported in explorer mode: Dieser Befehl wird im Explorer-Modus nicht unterstützt
 $saved_addresses_header: Gespeichert
-confirm an action in MyTonWallet: eine Aktion in MyTonWallet bestätigen
+confirm an action in My Wallet: eine Aktion in My Wallet bestätigen
 Timed out waiting for account to be ready: Timeout beim Warten auf die Bereitschaft des Kontos
 $connected_apps:
   otherValue: "%1$d verbunden"
@@ -1160,7 +1161,7 @@ $agent_consent_debug_reset_button: Agent-Zustimmung zurücksetzen
 $agent_consent_debug_reset_footer: Zeigt den Agent-Zustimmungsbildschirm beim Öffnen des Agent-Tabs erneut an.
 Clear Chat: Chat löschen
 Unsupported link: Dieser Link wird nicht unterstützt
-MyTonWallet Features: MyTonWallet-Funktionen
+My Wallet Features: My Wallet-Funktionen
 Notifications: Benachrichtigungen
 Wrong passcode, please try again.: Falscher Passcode, bitte versuchen Sie es erneut.
 Use biometric authentication or create a passcode to protect it.: Verwenden Sie die biometrische Authentifizierung oder erstellen Sie ein Passwort zum Schutz.
@@ -1255,7 +1256,6 @@ Connect your hardware wallet: Verbinden Sie Ihre Hardware-Wallet
 Watch wallet in read-only mode: Wallet im schreibgeschützten Modus beobachten
 More: Mehr
 at: um
-MyTonWallet: MyTonWallet
 I agree to %term%: Ich stimme %term% zu
 See Words: Wörter anzeigen
 Wrong Phrase: Falscher Ausdruck
@@ -1357,7 +1357,7 @@ Swap is not supported on this account.: Tausch wird für dieses Konto nicht unte
 "%1$@ will be returned": "%1$@ wird zurückerstattet"
 Connecting your wallet: Wallet wird verbunden
 Action is not possible on a view-only wallet.: Diese Aktion ist in einer Nur-Lesen-Wallet nicht möglich.
-Logged in with MyTonWallet: Mit MyTonWallet angemeldet
+Logged in with My Wallet: Mit My Wallet angemeldet
 You have no apps connected to this wallet.: Es sind keine Apps mit dieser Wallet verbunden.
 Asset: Vermögenswert
 Sent to: Gesendet an
@@ -1404,7 +1404,7 @@ Confirm Actions:
 "Install Palette": Palette installieren
 Ledger: Ledger
 "Moving to staking balance": Wird in das Staking-Guthaben verschoben
-MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet nutzt biometrische Authentifizierung zum Entsperren und Freigeben von Transaktionen
+My Wallet uses biometric authentication to unlock and authorize transactions: My Wallet nutzt biometrische Authentifizierung zum Entsperren und Freigeben von Transaktionen
 "Network error": Netzwerkfehler
 "No Camera Access": Kein Kamerazugriff
 "Not all transactions were sent successfully.": Nicht alle Transaktionen wurden erfolgreich gesendet.
@@ -1503,7 +1503,7 @@ Use 6-digit Passcode: 6-stelligen Passcode verwenden
 Authorize %token% Fee: "%token%-Gebühr autorisieren"
 Awaiting Previous Fee: Vorherige Gebühr ausstehend
 Lock: Sperren
-MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet-Karten können Wallets hinzugefügt und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt werden.
+My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: My Wallet-Karten können Wallets hinzugefügt und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt werden.
 Receive: Empfangen
 Scan: Scannen
 

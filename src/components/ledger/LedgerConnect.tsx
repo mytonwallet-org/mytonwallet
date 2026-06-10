@@ -9,7 +9,7 @@ import type { Theme } from '../../global/types';
 import type { LedgerTransport } from '../../util/ledger/types';
 import { HardwareConnectState } from '../../global/types';
 
-import { IS_CAPACITOR } from '../../config';
+import { IS_CAPACITOR, IS_GRAM_WALLET } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle } from '../../util/chain';
 import { closeLedgerTab } from '../../util/ledger/tab';
@@ -36,6 +36,14 @@ import styles from './LedgerModal.module.scss';
 
 import ledgerDesktopSrc from '../../assets/ledger/desktop.png';
 import ledgerDesktopDarkSrc from '../../assets/ledger/desktop-dark.png';
+import gramLedgerDesktopSrc from '../../assets/ledger/gram-desktop.png';
+import gramLedgerDesktopDarkSrc from '../../assets/ledger/gram-desktop-dark.png';
+import gramLedgerIosSrc from '../../assets/ledger/gram-ios.png';
+import gramLedgerIosDarkSrc from '../../assets/ledger/gram-ios-dark.png';
+import gramLedgerMobileBluetoothSrc from '../../assets/ledger/gram-mobile-bluetooth.png';
+import gramLedgerMobileBluetoothDarkSrc from '../../assets/ledger/gram-mobile-bluetooth-dark.png';
+import gramLedgerMobileUsbSrc from '../../assets/ledger/gram-mobile-usb.png';
+import gramLedgerMobileUsbDarkSrc from '../../assets/ledger/gram-mobile-usb-dark.png';
 import ledgerIosSrc from '../../assets/ledger/ios.png';
 import ledgerIosDarkSrc from '../../assets/ledger/ios-dark.png';
 import ledgerMobileBluetoothSrc from '../../assets/ledger/mobile-bluetooth.png';
@@ -67,6 +75,18 @@ const NEXT_SLIDE_DELAY = 500;
 const TRANSPORT_NAMES: Record<LedgerTransport, string> = {
   usb: 'USB',
   bluetooth: 'Bluetooth',
+};
+const LEDGER_ICONS = {
+  desktop: { light: ledgerDesktopSrc, dark: ledgerDesktopDarkSrc },
+  mobileUsb: { light: ledgerMobileUsbSrc, dark: ledgerMobileUsbDarkSrc },
+  ios: { light: ledgerIosSrc, dark: ledgerIosDarkSrc },
+  mobileBluetooth: { light: ledgerMobileBluetoothSrc, dark: ledgerMobileBluetoothDarkSrc },
+};
+const GRAM_LEDGER_ICONS = {
+  desktop: { light: gramLedgerDesktopSrc, dark: gramLedgerDesktopDarkSrc },
+  mobileUsb: { light: gramLedgerMobileUsbSrc, dark: gramLedgerMobileUsbDarkSrc },
+  ios: { light: gramLedgerIosSrc, dark: gramLedgerIosDarkSrc },
+  mobileBluetooth: { light: gramLedgerMobileBluetoothSrc, dark: gramLedgerMobileBluetoothDarkSrc },
 };
 
 function LedgerConnect({
@@ -231,11 +251,12 @@ function LedgerConnect({
 
   function getLedgerIconSrc() {
     const isDarkTheme = appTheme === 'dark';
+    const icons = IS_GRAM_WALLET ? GRAM_LEDGER_ICONS : LEDGER_ICONS;
     const iconData = {
-      desktop: isDarkTheme ? ledgerDesktopDarkSrc : ledgerDesktopSrc,
-      mobileUsb: isDarkTheme ? ledgerMobileUsbDarkSrc : ledgerMobileUsbSrc,
-      ios: isDarkTheme ? ledgerIosDarkSrc : ledgerIosSrc,
-      mobileBluetooth: isDarkTheme ? ledgerMobileBluetoothDarkSrc : ledgerMobileBluetoothSrc,
+      desktop: isDarkTheme ? icons.desktop.dark : icons.desktop.light,
+      mobileUsb: isDarkTheme ? icons.mobileUsb.dark : icons.mobileUsb.light,
+      ios: isDarkTheme ? icons.ios.dark : icons.ios.light,
+      mobileBluetooth: isDarkTheme ? icons.mobileBluetooth.dark : icons.mobileBluetooth.light,
     };
 
     if (!IS_CAPACITOR) {

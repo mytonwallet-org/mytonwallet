@@ -771,7 +771,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     }],
     isNetWorthSupported: false,
     doesSupportPushNotifications: false,
-    isNftSupported: true,
+    isNftSupported: false,
   },
   avalanche: {
     title: 'Avalanche',
@@ -832,7 +832,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     }],
     isNetWorthSupported: false,
     doesSupportPushNotifications: false,
-    isNftSupported: true,
+    isNftSupported: false,
   },
   hyperliquid: {
     title: 'Hyperliquid',

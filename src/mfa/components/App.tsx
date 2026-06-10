@@ -95,7 +95,7 @@ function App() {
   return (
     <div>
       <Transition
-        name={IS_ANDROID ? 'slideFadeAndroid' : 'slideFade'}
+        name="slideFade"
         activeKey={activeKey}
         renderCount={TRANSITION_KEYS}
         shouldCleanup
@@ -115,6 +115,7 @@ function App() {
             <InstallConfirmation
               isActive={isActive}
               installRequest={installRequest}
+              walletApp={parsedStartParam.walletApp}
               onConfirm={onConfirm}
               reqId={requestId}
             />

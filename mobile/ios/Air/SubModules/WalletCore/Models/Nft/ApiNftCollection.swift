@@ -1,5 +1,6 @@
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 // Generated based on TypeScript definition. Do not edit manually.
 public struct ApiNftCollection: Equatable, Hashable, Codable, Sendable {

@@ -1,6 +1,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 public struct ApiEthenaStakingState: MBaseStakingState, Equatable, Hashable, Codable, Sendable  {
     // base staking state

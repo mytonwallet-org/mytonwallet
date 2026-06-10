@@ -11,33 +11,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  install:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Reconfigure git to use HTTPS authentication
-        uses: GuillaumeFalourd/SSH-to-HTTPS@v1
-      - name: Setup Node.js ${{ vars.NODE_VERSION }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ vars.NODE_VERSION }}
-      - name: Install
-        run: npm ci
-      - name: Cache results
-        uses: actions/cache@v4
-        id: cache-results
-        with:
-          path: |
-            node_modules
-            mobile/plugins/*/node_modules
-          key: ${{ github.sha }}
   statoscope:
-    needs:
-      - install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -62,18 +36,10 @@ jobs:
             exit 1
           fi
           echo "sha=$reference_sha" >> "$GITHUB_OUTPUT"
-      - name: Setup Node.js ${{ vars.NODE_VERSION }}
-        uses: actions/setup-node@v4
+      - name: Prepare Node
+        uses: mytonwallet-org/shared-actions/prepare_node@master
         with:
           node-version: ${{ vars.NODE_VERSION }}
-      - name: Restore cache
-        uses: actions/cache@v4
-        id: restore-cache
-        with:
-          path: |
-            node_modules
-            mobile/plugins/*/node_modules
-          key: ${{ github.sha }}
       - name: Download reference statistics
         id: download-reference
         uses: dawidd6/action-download-artifact@v9
@@ -91,8 +57,6 @@ jobs:
           BASE_SHA: ${{ steps.reference.outputs.sha }}
         run: |
           set -euo pipefail
-
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
 
           reference_dir="$(mktemp -d)"
           cleanup() {

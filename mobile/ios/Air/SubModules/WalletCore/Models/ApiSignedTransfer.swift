@@ -1,6 +1,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 public struct ApiSignedTransfer: Equatable, Hashable, Codable, Sendable {
     public var chain: ApiChain

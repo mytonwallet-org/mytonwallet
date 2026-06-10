@@ -30,6 +30,19 @@ public struct StakingConfig: Identifiable, Equatable, Hashable, Sendable {
 
 public extension StakingConfig {
 
+    static func config(forTokenSlug tokenSlug: String?) -> StakingConfig? {
+        return switch tokenSlug {
+        case TONCOIN_SLUG, STAKED_TON_SLUG:
+            .ton
+        case MYCOIN_SLUG, STAKED_MYCOIN_SLUG:
+            .mycoin
+        case TON_USDE_SLUG, TON_TSUSDE_SLUG:
+            .ethena
+        default:
+            nil
+        }
+    }
+
     static let ton = StakingConfig(
         id: "ton",
         baseToken: .TONCOIN,

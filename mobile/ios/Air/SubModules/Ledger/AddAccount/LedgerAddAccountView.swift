@@ -12,7 +12,7 @@ struct LedgerAddAccountView: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 32) {
-                Image.airBundle("LedgerConnect")
+                Image.mainBundle("LedgerConnect")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .padding(.top, 50)

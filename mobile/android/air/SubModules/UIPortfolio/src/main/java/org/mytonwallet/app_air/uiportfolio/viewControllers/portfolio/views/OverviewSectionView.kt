@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.views
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.Barrier
@@ -15,6 +16,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioOverview
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -46,10 +48,18 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         setTextColor(WColor.SecondaryText)
     }
     private val totalValueLabel = WLabel(context).apply {
-        id = generateViewId()
         setStyle(16f, WFont.DemiBold)
         setPadding(0, 0, 16.dp, 0)
     }
+    private val totalValueContainer = WSensitiveDataContainer(
+        totalValueLabel,
+        WSensitiveDataContainer.MaskConfig(
+            8, 2, Gravity.START or Gravity.CENTER_VERTICAL,
+            cellSize = 6.dp,
+            cornerRadius = 6.dp,
+            protectContentLayoutSize = false,
+        )
+    ).apply { id = generateViewId() }
     private val totalCaptionLabel = WLabel(context).apply {
         id = generateViewId()
         text = LocaleController.getString("Total Balance")
@@ -62,6 +72,15 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         setStyle(16f, WFont.DemiBold)
         setTextColor(WColor.PrimaryText)
     }
+    private val netChangeContainer = WSensitiveDataContainer(
+        netChangeLabel,
+        WSensitiveDataContainer.MaskConfig(
+            8, 2, Gravity.START or Gravity.CENTER_VERTICAL,
+            cellSize = 6.dp,
+            cornerRadius = 6.dp,
+            protectContentLayoutSize = false,
+        )
+    ).apply { id = generateViewId() }
     private val netPctLabel = WLabel(context).apply {
         id = generateViewId()
         setStyle(13f, WFont.DemiBold)
@@ -88,22 +107,22 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
 
     private val netChangeBox = WView(context).apply {
         id = generateViewId()
-        addView(netChangeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(netChangeContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(netPctLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(netCaptionLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(netChangePlaceholder, LayoutParams(140.dp, 22.dp))
         setConstraints {
-            toTop(netChangeLabel)
-            toStart(netChangeLabel)
-            startToEnd(netPctLabel, netChangeLabel, 6f)
-            baseLineToBasLine(netPctLabel, netChangeLabel)
+            toTop(netChangeContainer)
+            toStart(netChangeContainer)
+            startToEnd(netPctLabel, netChangeContainer, 6f)
+            bottomToBottom(netPctLabel, netChangeContainer)
             toEnd(netPctLabel)
             setHorizontalBias(netPctLabel.id, 0f)
-            topToBottom(netCaptionLabel, netChangeLabel, 1f)
+            topToBottom(netCaptionLabel, netChangeContainer, 1f)
             toCenterX(netCaptionLabel)
             toBottom(netCaptionLabel)
-            topToTop(netChangePlaceholder, netChangeLabel)
-            startToStart(netChangePlaceholder, netChangeLabel)
+            topToTop(netChangePlaceholder, netChangeContainer)
+            startToStart(netChangePlaceholder, netChangeContainer)
         }
     }
 
@@ -123,7 +142,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
 
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(dateRangeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(totalValueLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(totalValueContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(totalCaptionLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(netChangeBox, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(totalValuePlaceholder, LayoutParams(120.dp, 22.dp))
@@ -131,7 +150,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         addView(centerAnchor, LayoutParams(0, 0))
         addView(netStartBarrier)
         netStartBarrier.referencedIds =
-            intArrayOf(totalValueLabel.id, totalCaptionLabel.id, centerAnchor.id)
+            intArrayOf(totalValueContainer.id, totalCaptionLabel.id, centerAnchor.id)
         setConstraints {
             guidelinePercent(centerGuideline, 0.5f)
             startToStart(centerAnchor, centerGuideline)
@@ -141,9 +160,9 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             toStart(titleLabel, 4f)
             toTop(dateRangeLabel)
             toEnd(dateRangeLabel)
-            topToBottom(totalValueLabel, titleLabel, 14f)
-            toStart(totalValueLabel)
-            topToBottom(totalCaptionLabel, totalValueLabel, 1f)
+            topToBottom(totalValueContainer, titleLabel, 14f)
+            toStart(totalValueContainer)
+            topToBottom(totalCaptionLabel, totalValueContainer, 1f)
             toStart(totalCaptionLabel)
             toBottom(totalCaptionLabel)
             topToBottom(netChangeBox, dateRangeLabel, 14f)
@@ -152,8 +171,8 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             toBottom(netChangeBox)
             setHorizontalBias(netChangeBox.id, 0f)
 
-            topToTop(totalValuePlaceholder, totalValueLabel)
-            startToStart(totalValuePlaceholder, totalValueLabel)
+            topToTop(totalValuePlaceholder, totalValueContainer)
+            startToStart(totalValuePlaceholder, totalValueContainer)
         }
     }
 
@@ -163,7 +182,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     )
 
     fun crossFadeTargets(): List<View> =
-        listOf(dateRangeLabel, totalValueLabel, netChangeLabel, netPctLabel)
+        listOf(dateRangeLabel, totalValueContainer, netChangeContainer, netPctLabel)
 
     fun render(overview: PortfolioOverview?, baseCurrency: MBaseCurrency?) {
         if (overview == null || baseCurrency == null) {

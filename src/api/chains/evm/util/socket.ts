@@ -72,6 +72,7 @@ class AlchemySocket extends AbstractWebsocketClient<
     }
 
     const sub = this.#subscriptionsBySubId.get(message.params.subscription);
+
     if (!sub) {
       return;
     }

@@ -96,6 +96,12 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         observe { [weak self] in
             self?.updateEditingState()
         }
+        observe { [weak self] in
+            guard let self else { return }
+            if accountStore.accountsById.isEmpty {
+                dismiss(animated: true)
+            }
+        }
         navigationItem.titleView = HostingView {
             WalletSettingsNavigationHeader(viewModel: viewModel)
         }
@@ -199,7 +205,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
             tabs.stopEditing(isCanceled: isCanceled)
             segmentedController.replace(items: tabs.segmentedControlItems)
             if isCanceled, let orderedAccountIdsRestoreSnapshot {
-                accountStore.reorderAccounts(newOrder: orderedAccountIdsRestoreSnapshot)
+                accountStore.reorderAccounts(newOrderHint: orderedAccountIdsRestoreSnapshot)
             }
             orderedAccountIdsRestoreSnapshot = nil
         }

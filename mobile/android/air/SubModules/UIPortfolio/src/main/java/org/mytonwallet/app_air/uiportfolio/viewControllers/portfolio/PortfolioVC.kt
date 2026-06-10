@@ -62,6 +62,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import java.math.BigInteger
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -284,6 +285,15 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         periodSelector.setBackgroundColor(Color.TRANSPARENT, 24f.dp)
         periodSelector.setSliderColor(WColor.SecondaryBackground.color)
         periodSelectorBlurView.updateTheme()
+    }
+
+    override fun updateProtectedView() {
+        super.updateProtectedView()
+        clearChartSelections()
+        selectableCharts.forEach { chart ->
+            chart.onPickerDataChanged(false, true, false)
+            chart.invalidate()
+        }
     }
 
     private fun startSharedSkeleton(
@@ -1633,8 +1643,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
 
     private fun createSignedChartValueFormatter(baseCurrency: MBaseCurrency): ChartValueFormatter {
         return object : ChartValueFormatter {
-            override fun formatAxisValue(value: Long, paint: TextPaint): CharSequence =
-                applyCurrencyPosition(
+            override fun formatAxisValue(value: Long, paint: TextPaint): CharSequence {
+                if (WGlobalStorage.getIsSensitiveDataProtectionOn()) return SENSITIVE_VALUE_MASK
+                return applyCurrencyPosition(
                     compactScaledNumber(
                         value,
                         baseCurrency.decimalsCount,
@@ -1643,6 +1654,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                     ),
                     baseCurrency.sign,
                 )
+            }
 
             override fun formatLegendValue(value: Long, paint: TextPaint): CharSequence =
                 formatCurrencyLegendValue(value, baseCurrency, showPositiveSign = true)
@@ -1654,6 +1666,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         baseCurrency: MBaseCurrency,
         showPositiveSign: Boolean = false,
     ): String {
+        if (WGlobalStorage.getIsSensitiveDataProtectionOn()) return SENSITIVE_VALUE_MASK
         return BigInteger.valueOf(value).toString(
             decimals = baseCurrency.decimalsCount,
             currency = baseCurrency.sign,
@@ -1663,6 +1676,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     }
 
     private fun formatCurrencyAxisValue(value: Long, baseCurrency: MBaseCurrency): String {
+        if (WGlobalStorage.getIsSensitiveDataProtectionOn()) return SENSITIVE_VALUE_MASK
         val formattedNumber = compactScaledNumber(
             value = value,
             decimals = baseCurrency.decimalsCount,
@@ -1727,6 +1741,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
 
     private companion object {
         private const val PERIOD_SELECTOR_SECTION_HEIGHT = 64
+        private const val SENSITIVE_VALUE_MASK = "***"
     }
 
     override fun viewWillAppear() {

@@ -1,0 +1,119 @@
+$title: MFA 擴充功能
+$confirmation-title: 請確認操作
+$confirmed: 已確認！
+$install-confirmation-title: 確認安裝擴充功能
+Go Back: 返回
+Confirm: 確認
+Is it all ok?: 全部確認都 OK?
+Connect Wallet: 連接錢包
+Confirm Connection: 確認連接
+Confirm Unlinking: 確認解除綁定
+My Telegram Account: 我的 Telegram 帳戶
+Without username: 無使用者名稱
+My Wallet: 我的錢包
+We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.: 在 %app_name% 中輸入密碼後，我們會要求你在 Telegram 中確認操作。
+2FA applies only to actions involving TON assets.: 2FA 僅適用於涉及 TON 資產的操作。
+Action Confirmed: 操作已確認
+Almost Ready!: 即將完成！
+Your wallet is now connected to your Telegram account.: 你的錢包現在已連接到 Telegram 帳戶。
+Return to the app to pay fee and complete the final confirmation.: 返回應用程式支付費用並完成最終確認。
+Back to %app_name%: 返回 %app_name%
+Preview: 預覽
+$preview_not_guaranteed: 預覽結果**不受保證**，且**可能被服務偽造**。
+$fee_value: 手續費 %fee%
+$fee_value_with_colon: "手續費: %fee%"
+Fee: 手續費
+Details: 明細
+Transaction ID: 交易ID
+Transaction ID Copied: 交易ID已被複製
+Encrypted Message: 加密消息
+Failed: 失敗
+$transaction_on: 上 %address%
+$transaction_from: 從 %address%
+$transaction_to: 到 %address%
+at %annual_yield%: 在%annual_yield%
+Scam: 騙局
+Staked: 已質押
+Staking: 質押中
+$stake_action: 質押
+Unstaked: 已解除質押
+Unstaking: 解除質押
+$unstake_action: 解押
+Requested Unstake: 已申請解除質押
+Requesting Unstake: 請求解除質押
+$request_unstake_action: 請求解押
+Called Contract: 已調用合約
+Calling Contract: 呼叫合約
+$call_contract_action: 呼叫合約
+Excess: 多餘款項
+Deployed Contract: 已部署合約
+Deploying Contract: 部署合約
+$deploy_contract_action: 部署合約
+Bounced: 被退回
+Bouncing: 反彈中
+$bounce_action: 反彈
+Minted: 已鑄造
+Minting: 鑄造
+$mint_action: 鑄造
+Burned: 已銷毀
+Burning: 銷毀
+$burn_action: 銷毀
+NFT Auction Bid: NFT 拍賣出價
+Bidding at NFT Auction: NFT 拍賣中出價
+"NFT Auction Bid ": NFT 拍賣出價
+Updated Address: 已更新地址
+Updating Address: 更新地址中
+$update_address_action: 更新地址
+Updated Site: 已更新網站
+Updating Site: 更新網站中
+$update_site_action: 更新網站
+Updated Subdomains: 已更新子網域
+Updating Subdomains: 更新子域名中
+$update_subdomains_action: 更新子域名
+Updated Storage: 已更新儲存
+Updating Storage: 更新存儲中
+$update_storage_action: 更新存儲
+Deleted Domain Record: 已刪除網域記錄
+Deleting Domain Record: 刪除域名記錄中
+$delete_domain_record_action: 刪除域名記錄
+Renewed Domain: 已續約網域
+Renewing Domain: 續訂域名中
+$renew_domain_action: 續訂域名
+Provided Liquidity: 已提供流動性
+Providing Liquidity: 提供流動性
+$provide_liquidity_action: 提供流動性
+Withdrawn Liquidity: 已提取流動性
+Withdrawing Liquidity: 正在提取流動性
+$withdraw_liquidity_action: 提取流動性
+Sold NFT: 已出售NFT
+Selling NFT: 正在出售 NFT
+$sell_nft_action: 出售 NFT
+Bought NFT: 已購買NFT
+Buying NFT: 正在購買 NFT
+$buy_nft_action: 購買 NFT
+Minted NFT: 已鑄造NFT
+Minting NFT: 正在鑄造 NFT
+$mint_nft_action: 鑄造 NFT
+Burned NFT: 已銷毀NFT
+Burning NFT: 正在銷毀 NFT
+$burn_nft_action: 銷毀 NFT
+Received NFT: 已收到NFT
+Receiving NFT: 正在接收 NFT
+$receive_nft_action: 接收 NFT
+Sent NFT: 已送出NFT
+Sending NFT: 正在傳送 NFT
+$send_nft_action: 傳送 NFT
+Received: 已收到
+Receiving: 接收中
+$receive_action: 接收
+Sent: 已送出
+Sending: 傳送
+$send_action: 發送
+Expired: 過期
+Refunded: 退款
+On Hold: 持有
+Waiting for Payment: 等待付款
+In Progress: 進行中
+$swap_action: 交換
+Swapping: 進行交換
+Swapped: 已交換

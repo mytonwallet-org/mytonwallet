@@ -1,5 +1,6 @@
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 private let wrappedTonSlug = "ton-eqcm3b12qk"
 private let unknownTokenSymbol = "[Unknown]"

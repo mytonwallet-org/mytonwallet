@@ -14,6 +14,7 @@ Sign transfers and important actions with your passcode, then confirm them in Te
 This helps protect your funds even if your recovery phrase or keys are compromised.: This helps protect your funds even if your recovery phrase or keys are compromised.
 "Connection Fee:": "Connection Fee:"
 Connect Telegram: Connect Telegram
+Add in Gram Wallet: Add in Gram Wallet
 Telegram will be used to confirm transfers and important actions.: Telegram will be used to confirm transfers and important actions.
 My Telegram Account: My Telegram Account
 Without username: Without username
@@ -768,7 +769,7 @@ Toggle fullscreen: Toggle fullscreen
 Request is sent!: Request is sent!
 Transaction ID: Transaction ID
 Help Center: Help Center
-MyTonWallet Tips: MyTonWallet Tips
+"%app_name% Tips": "%app_name% Tips"
 Open %nft_marketplace%: Open %nft_marketplace%
 Link Copied: Link Copied
 Share Link: Share Link
@@ -836,7 +837,7 @@ $receive_action: Receive
 Change Palette: Change Palette
 Palette: Palette
 Unlock New Palettes: Unlock New Palettes
-Get a unique MyTonWallet Card to unlock new palettes.: Get a unique MyTonWallet Card to unlock new palettes.
+Get a unique My Wallet Card to unlock new palettes.: Get a unique My Wallet Card to unlock new palettes.
 Mint Cards: Mint Cards
 Card has been upgraded!: Card has been upgraded!
 $mint_card_result: NFT Card will be **minted** and **installed automatically** within a minute.
@@ -871,9 +872,9 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: Please, use MyTonWallet %mobileAppButton% or %browserExtensionButton% to avoid this warning.
+$reopen_in_iab: Please, use My Wallet %mobileAppButton% or %browserExtensionButton% to avoid this warning.
 $reopen_in_iab_explore: Please use the %exploreTab% section when browsing apps to avoid this warning.
-MyTonWallet Browser: MyTonWallet Browser
+My Wallet Browser: My Wallet Browser
 mobile app: mobile app
 browser extension: browser extension
 Exit all wallets: Exit all wallets
@@ -982,7 +983,7 @@ $domain_like_scam_warning: |
 Allow Suspicious Actions: Allow Suspicious Actions
 $allow_suspicious_actions_description: Allow sending to suspicious addresses and interacting with potentially unsafe contracts.
 Multisig Wallet Detected: Multisig Wallet Detected
-$multisig_warning_text: This wallet requires multiple signatures to make transfers. You **cannot withdraw** any funds here using MyTonWallet. Make sure it’s yours — otherwise, it may be part of a scam. %multisig_warning_link%
+$multisig_warning_text: This wallet requires multiple signatures to make transfers. You **cannot withdraw** any funds here using %app_name%. Make sure it’s yours — otherwise, it may be part of a scam. %multisig_warning_link%
 $multisig_warning_link: Tap to learn more
 Multisig sending disabled: Multisig sending disabled
 $try_new_air_version: Try the native app experience — lighter, faster, and built for your device. You can switch back anytime.
@@ -1054,9 +1055,9 @@ Customize Wallet: Customize Wallet
 "Select the card stored in this wallet:": "Select the card stored in this wallet:"
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.
 Get More Cards: Get More Cards
-Browse MyTonWallet Cards available for purchase.: Browse MyTonWallet Cards available for purchase.
+Browse My Wallet Cards available for purchase.: Browse My Wallet Cards available for purchase.
 You don’t have any cards to customize yet: You don’t have any cards to customize yet
-MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.
+My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.
 Get First Card: Get First Card
 Palette and Card: Palette and Card
 Customize the wallet's home screen and color accents the way you like.: Customize the wallet's home screen and color accents the way you like.
@@ -1090,7 +1091,7 @@ Adding wallets is not available in explorer mode: Adding wallets is not availabl
 $explorer_mode_warning: "Explorer mode: waiting for a View deeplink to open an address"
 This command is not supported in explorer mode: This command is not supported in explorer mode
 $saved_addresses_header: Saved
-confirm an action in MyTonWallet: confirm an action in MyTonWallet
+confirm an action in My Wallet: confirm an action in My Wallet
 Timed out waiting for account to be ready: Timed out waiting for account to be ready
 $connected_apps:
   otherValue: "%1$d connected"
@@ -1153,7 +1154,7 @@ $agent_consent_debug_reset_button: Reset Agent consent state
 $agent_consent_debug_reset_footer: Shows the Agent consent screen again when opening the Agent tab.
 Clear Chat: Clear Chat
 Unsupported link: Unsupported link
-MyTonWallet Features: MyTonWallet Features
+My Wallet Features: My Wallet Features
 Notifications: Notifications
 Wrong passcode, please try again: Wrong passcode, please try again
 Use biometric authentication or create a passcode to protect it.: Use biometric authentication or create a passcode to protect it.
@@ -1246,7 +1247,6 @@ Connect your hardware wallet: Connect your hardware wallet
 Watch wallet in read-only mode: Watch wallet in read-only mode
 More: More
 at: at
-MyTonWallet: MyTonWallet
 I agree to %term%: I agree to %term%
 See Words: See Words
 Wrong Phrase: Wrong Phrase
@@ -1347,7 +1347,7 @@ Swap is not supported on this account.: Swap is not supported on this account.
 "%1$@ will be returned": "%1$@ will be returned"
 Connecting your wallet: Connecting your wallet
 Action is not possible on a view-only wallet.: Action is not possible on a view-only wallet.
-Logged in with MyTonWallet: Logged in with MyTonWallet
+Logged in with My Wallet: Logged in with My Wallet
 You have no apps connected to this wallet.: You have no apps connected to this wallet.
 Asset: Asset
 Sent to: Sent to
@@ -1394,7 +1394,7 @@ Confirm Actions:
 "Install Palette": "Install Palette"
 Ledger: Ledger
 "Moving to staking balance": "Moving to staking balance"
-MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet uses biometric authentication to unlock and authorize transactions
+My Wallet uses biometric authentication to unlock and authorize transactions: My Wallet uses biometric authentication to unlock and authorize transactions
 "Network error": "Network error"
 "No Camera Access": "No Camera Access"
 "Not all transactions were sent successfully.": "Not all transactions were sent successfully."
@@ -1493,7 +1493,7 @@ Use 6-digit Passcode: Use 6-digit Passcode
 Authorize %token% Fee: Authorize %token% Fee
 Awaiting Previous Fee: Awaiting Previous Fee
 Lock: Lock
-MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.
+My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.
 Receive: Receive
 Scan: Scan
 

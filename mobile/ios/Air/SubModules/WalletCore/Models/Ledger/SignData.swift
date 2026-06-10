@@ -2,6 +2,7 @@
 import WalletContext
 import UIKit
 import SwiftUI
+import WalletCoreTypes
 
 
 public enum SignData: Sendable {

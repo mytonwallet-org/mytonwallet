@@ -1,4 +1,5 @@
 import Foundation
+import WalletCoreTypes
 
 extension MBaseCurrency {
     public var nameStringResource: LocalizedStringResource {

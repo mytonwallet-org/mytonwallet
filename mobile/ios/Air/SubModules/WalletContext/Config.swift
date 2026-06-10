@@ -57,10 +57,10 @@ public let MAX_PRICE_IMPACT_VALUE = 5.0
 
 public let JSBRIDGE_IDENTIFIER = "jsbridge"
 
-public var APP_WEBSITE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io" : "https://mytonwallet.io" }
-public let APP_BLOG_URL = "https://mytonwallet.io/en/blog/"
-public var APP_TERMS_OF_USE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/terms-of-use/" : "https://mytonwallet.io/terms-of-use" }
-public var APP_PRIVACY_POLICY_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/privacy-policy/" : "https://mytonwallet.io/privacy-policy" }
+public var APP_WEBSITE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io" : "https://mywallet.io" }
+public let APP_BLOG_URL = "https://mywallet.io/en/blog/"
+public var APP_TERMS_OF_USE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/terms-of-use/" : "https://mywallet.io/terms-of-use/" }
+public var APP_PRIVACY_POLICY_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/privacy-policy/" : "https://mywallet.io/privacy-policy/" }
 public var APP_INSTALL_URL: String { IS_GRAM_WALLET ? "https://apps.apple.com/us/app/gram-wallet/id6763345750" : "https://get.mytonwallet.io/ios" }
 public let BOT_USERNAME = "MyTonWalletBot"
 public let SUPPORT_USERNAME = "mysupport"
@@ -94,7 +94,7 @@ public let SMALL_CARD_RATIO: CGFloat = 116/80
 public let MEDIUM_CARD_RATIO: CGFloat = 110/75
 public let LARGE_CARD_RATIO: CGFloat = 274/176
 
-public var APP_NAME: String { IS_GRAM_WALLET ? "Gram Wallet" : lang("MyTonWallet") }
+public var APP_NAME: String { IS_GRAM_WALLET ? "Gram Wallet" : "My Wallet" }
 
 public enum DebugProductionMode {
     public static let userDefaultsKey = "debug_forceProductionMode"
@@ -103,6 +103,8 @@ public enum DebugProductionMode {
         UserDefaults.standard.bool(forKey: userDefaultsKey)
     }
 }
+
+public let APP_ROOT_URL_DOMAINS = [ "gramwallet.io", "mytonwallet.io", "mywallet.io" ]
 
 public var IS_DEBUG_OR_TESTFLIGHT_DEFAULT: Bool {
     #if DEBUG

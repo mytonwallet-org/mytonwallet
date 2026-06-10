@@ -182,6 +182,11 @@ function Confirmation({
 
   const lang = useLang();
   const appTheme = useAppTheme(theme);
+  const title = transaction
+    ? getPayloadOpCode(transaction.payload) === OpCode.REMOVE_EXTENSION
+      ? lang('Confirm Unlinking')
+      : lang('Is it all ok?')
+    : undefined;
 
   const onConfirmClicked = async () => {
     if (!extensionAddress || !requestId) return;
@@ -215,7 +220,7 @@ function Confirmation({
         previewUrl={ANIMATED_STICKERS_PATHS.billPreview}
       />
 
-      <div className={styles.title}>{lang('Is it all ok?')}</div>
+      <div className={styles.title}>{title ?? '\u00A0'}</div>
 
       <div className={styles.preview}>
         {areActionsLoading ? (

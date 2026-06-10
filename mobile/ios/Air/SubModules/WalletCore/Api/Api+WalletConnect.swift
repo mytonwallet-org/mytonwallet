@@ -1,4 +1,5 @@
 import Foundation
+import WalletCoreTypes
 
 public struct ApiDappEvmRpcProxyRequest: Codable, Sendable {
     public var chain: ApiChain

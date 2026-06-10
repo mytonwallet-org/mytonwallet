@@ -7,6 +7,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 let DEFAULT_OUR_SWAP_FEE = 0.875
 

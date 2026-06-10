@@ -32,7 +32,7 @@ Use this script to find candidate unused assets in an asset catalog:
 
 ```bash
 python3 mobile/ios/Air/scripts/find_unused_assets.py \
-  --assets mobile/ios/Air/SubModules/WalletContext/Resources/Assets.xcassets \
+  --assets mobile/ios/Air/SubModules/WalletResources/Resources/Assets.xcassets \
   --scan-root mobile/ios/Air
 ```
 

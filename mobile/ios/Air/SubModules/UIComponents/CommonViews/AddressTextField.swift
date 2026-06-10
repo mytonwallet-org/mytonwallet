@@ -153,10 +153,13 @@ public struct AddressTextField: UIViewRepresentable {
                 }
             }
         } else if !isFocused && view.isFirstResponder {
-            let ok = view.resignFirstResponder()
-            if !ok {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01)  {
-                    isFocused = true
+            DispatchQueue.main.async {
+                guard !isFocused, view.isFirstResponder else { return }
+                let ok = view.resignFirstResponder()
+                if !ok {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01)  {
+                        isFocused = true
+                    }
                 }
             }
         }

@@ -1,4 +1,5 @@
 import AppIntents
+import WalletCoreTypes
 
 struct TokenWidgetConfiguration: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Token"

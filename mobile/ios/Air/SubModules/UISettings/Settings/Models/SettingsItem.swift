@@ -164,7 +164,7 @@ extension SettingsItem.Identifier {
             return SettingsItem(
                 id: self,
                 icon: UIImage.airBundle("TipsIcon30"),
-                title: lang("MyTonWallet Tips"),
+                title: lang("%app_name% Tips", arg1: APP_NAME),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false

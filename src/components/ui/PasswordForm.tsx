@@ -31,6 +31,7 @@ import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import { useMatchCount } from '../../hooks/useMatchCount';
+import useToggleClass from '../../hooks/useToggleClass';
 
 import LogOutModal from '../main/modals/LogOutModal';
 import AnimatedIconWithPreview from './AnimatedIconWithPreview';
@@ -239,6 +240,8 @@ function PasswordForm({
   });
 
   useFocusAfterAnimation(passwordRef, !isActive || isBiometricAuthEnabled);
+
+  useToggleClass({ className: 'is-password-form-visible', isActive });
 
   const handleClearError = useLastCallback(() => {
     setLocalError('');

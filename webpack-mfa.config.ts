@@ -179,7 +179,7 @@ export default function createConfig(
         rules: [
           {
             name: 'i18n to JSON conversion',
-            files: ['src/i18n/*.yaml', 'src/mfa/i18n/*.yaml'],
+            files: 'src/mfa/i18n/*.yaml',
             action: () => {
               buildMfaLocales();
               const defaultI18nYaml = fs.readFileSync(defaultI18nSourceFilename, 'utf8');

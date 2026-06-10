@@ -1,6 +1,7 @@
 import UIKit
 import WalletContext
 import OrderedCollections
+import WalletCoreTypes
 
 private let log = Log("ActivityListViewModel")
 

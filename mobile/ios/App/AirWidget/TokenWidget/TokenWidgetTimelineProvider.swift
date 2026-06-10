@@ -1,5 +1,6 @@
 import WidgetKit
 import UIKit
+import WalletCoreTypes
 
 struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> TokenWidgetTimelineEntry {

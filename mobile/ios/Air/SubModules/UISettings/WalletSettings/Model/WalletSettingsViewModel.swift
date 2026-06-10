@@ -35,6 +35,7 @@ final class WalletSettingsViewModel {
         }
     }
     
+    var selectedAccountIds = Set<String>()
     var isReordering: Bool = false
     var segmentedControllerDidSwitchTrigger: Int = 0
     var onStartEditing: (() -> Void)?
@@ -58,7 +59,12 @@ final class WalletSettingsViewModel {
     func stopEditing(isCanceled: Bool) {
         if isReordering {
             isReordering = false
+            selectedAccountIds.removeAll()
             onStopEditing?(isCanceled)
         }
+    }
+    
+    @MainActor func deleteSelectedWallets() {
+        AppActions.showDeleteSelectedAccounts(accountIds: selectedAccountIds.apply(Array.init))
     }
 }

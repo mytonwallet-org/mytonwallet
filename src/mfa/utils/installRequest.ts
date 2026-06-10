@@ -10,14 +10,14 @@ export const fetchInstallRequest = async (reqId: string) => {
 
 export const confirmInstallRequest = async (
   reqId: string,
-  user: { id: string; name: string; username?: string; avatarUrl?: string },
+  initData: string,
 ) => {
   const response = await fetchJson(
     `${MFA_API_URL}/installRequest/${reqId}`,
     undefined,
     {
       method: 'POST',
-      body: JSON.stringify({ user }),
+      body: JSON.stringify({ initData }),
       headers: { 'Content-Type': 'application/json' },
     },
   );

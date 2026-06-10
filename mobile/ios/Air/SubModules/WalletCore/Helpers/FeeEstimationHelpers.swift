@@ -6,6 +6,7 @@
 //
 
 import WalletContext
+import WalletCoreTypes
 
 public class FeeEstimationHelpers {
     private init() {}

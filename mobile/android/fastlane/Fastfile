@@ -110,19 +110,9 @@ end
 def update_version_and_build_number
   play_beta_build_number = play_track_version_code("closed-beta")
   play_production_build_number = play_track_version_code("production")
-  play_alpha_build_number = play_track_version_code("alpha")
-  play_internal_build_number = play_track_version_code("internal")
-  play_open_beta_build_number = play_track_version_code("beta")
   firebase_build_number = firebase_beta_build_number
 
-  build_number = [
-    play_beta_build_number,
-    play_production_build_number,
-    play_alpha_build_number,
-    play_internal_build_number,
-    play_open_beta_build_number,
-    firebase_build_number,
-  ].max + 1
+  build_number = [play_beta_build_number, play_production_build_number, firebase_build_number].max + 1
   version = JSON.parse(File.read("../../../package.json"))["version"]
 
   android_set_version_name(version_name: version)

@@ -1,6 +1,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 public struct ApiDappTransfer: ApiTransferToSignProtocol, Equatable, Hashable, Decodable, Sendable {
     

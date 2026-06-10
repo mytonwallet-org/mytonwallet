@@ -1,6 +1,7 @@
 import React, { memo } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
+import { APP_NAME } from '../../../../config';
 import { getHelpCenterUrl } from '../../../../global/helpers/getHelpCenterUrl';
 import { selectIsCurrentAccountViewMode, selectIsMultisigAccount } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
@@ -31,6 +32,7 @@ function ScamWalletWarning({ isMultisig, isViewMode }: StateProps) {
         {lang('Multisig Wallet Detected')}
         <p className={styles.text}>
           {lang('$multisig_warning_text', {
+            app_name: APP_NAME,
             multisig_warning_link: (
               <span className={styles.linkContainer}>
                 <i className={buildClassName(styles.link, 'icon-chevron-right')} aria-hidden />

@@ -213,7 +213,7 @@ function CustomizeWalletModal({
             isNftBuyingDisabled={isNftBuyingDisabled}
           />
           <p className={styles.helperTextOutside}>
-            {lang('Get a unique MyTonWallet Card to unlock new palettes.')}
+            {lang('Get a unique My Wallet Card to unlock new palettes.')}
           </p>
         </div>
         <div className={styles.section}>
@@ -222,7 +222,7 @@ function CustomizeWalletModal({
           </div>
 
           <p className={styles.helperTextOutside}>
-            {lang('Browse MyTonWallet Cards available for purchase.')}
+            {lang('Browse My Wallet Cards available for purchase.')}
           </p>
         </div>
       </>

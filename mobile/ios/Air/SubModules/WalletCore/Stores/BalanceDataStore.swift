@@ -2,70 +2,50 @@ import Dependencies
 import Foundation
 import Perception
 import WalletContext
+import WalletCoreTypes
 
 private let log = Log("BalanceDataStore")
 
 public var BalanceDataStore: _BalanceDataStore { _BalanceDataStore.shared }
 
+@MainActor
+@Perceptible
 public final class AccountBalanceData: Sendable {
-    @Perceptible
-    public final class State: Sendable {
-        private let _walletTokensData: UnfairLock<MAccountWalletTokensData?> = .init(initialState: nil)
-        private let _balanceTotals: UnfairLock<MAccountBalanceTotals?> = .init(initialState: nil)
-
-        nonisolated init() {}
-
-        public var walletTokensData: MAccountWalletTokensData? {
-            access(keyPath: \._walletTokensData)
-            return _walletTokensData.withLock { $0 }
-        }
-
-        public var balanceTotals: MAccountBalanceTotals? {
-            access(keyPath: \._balanceTotals)
-            return _balanceTotals.withLock { $0 }
-        }
-
-        fileprivate func replace(walletTokensData: MAccountWalletTokensData?) {
-            withMutation(keyPath: \._walletTokensData) {
-                _walletTokensData.withLock { $0 = walletTokensData }
-            }
-        }
-
-        fileprivate func replace(balanceTotals: MAccountBalanceTotals?) {
-            withMutation(keyPath: \._balanceTotals) {
-                _balanceTotals.withLock { $0 = balanceTotals }
-            }
-        }
-    }
-
     public let accountId: String
-    public let state = State()
+    public private(set) var walletTokensData: MAccountWalletTokensData?
+    public private(set) var balanceTotals: MAccountBalanceTotals?
 
-    init(accountId: String) {
+    nonisolated init(accountId: String) {
         self.accountId = accountId
     }
 
-    public var walletTokensData: MAccountWalletTokensData? {
-        state.walletTokensData
+    fileprivate var isMissing: Bool {
+        walletTokensData == nil || balanceTotals == nil
     }
 
-    public var balanceTotals: MAccountBalanceTotals? {
-        state.balanceTotals
-    }
+    @discardableResult
+    fileprivate func replace(
+        walletTokensData nextWalletTokensData: MAccountWalletTokensData?,
+        balanceTotals nextBalanceTotals: MAccountBalanceTotals?
+    ) -> Bool {
+        let walletTokensChanged = walletTokensData != nextWalletTokensData
+        let balanceTotalsChanged = balanceTotals != nextBalanceTotals
 
-    func replace(walletTokensData: MAccountWalletTokensData?) {
-        state.replace(walletTokensData: walletTokensData)
-    }
+        if walletTokensChanged {
+            walletTokensData = nextWalletTokensData
+        }
+        if balanceTotalsChanged {
+            balanceTotals = nextBalanceTotals
+        }
 
-    func replace(balanceTotals: MAccountBalanceTotals?) {
-        state.replace(balanceTotals: balanceTotals)
+        return walletTokensChanged || balanceTotalsChanged
     }
 }
 
 public actor _BalanceDataStore: WalletCoreData.EventsObserver {
     public static let shared = _BalanceDataStore()
 
-    private struct ComputedAccountData {
+    private struct ComputedAccountData: Sendable {
         let walletTokensData: MAccountWalletTokensData
         let balanceTotals: MAccountBalanceTotals
     }
@@ -77,7 +57,7 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
     private let accountStore: _AccountStore
     private let tokenStore: _TokenStore
 
-    private let byAccountId: ByAccountIdStore<AccountBalanceData> = .init(initialValue: { AccountBalanceData(accountId: $0) })
+    @MainActor private var byAccountId: MainActorByAccountIdStore<AccountBalanceData> = .init(initialValue: AccountBalanceData.init(accountId:))
     private var updateDataTask: Task<Void, Never>?
     private var lastUpdateData: Date = .distantPast
 
@@ -99,16 +79,18 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         WalletCoreData.add(eventObserver: self)
     }
 
-    public func clean() {
+    public func clean() async {
         updateDataTask?.cancel()
         updateDataTask = nil
         lastUpdateData = .distantPast
-        byAccountId.removeAll()
+        await MainActor.run {
+            byAccountId.removeAll()
+        }
     }
 
-    public nonisolated func `for`(accountId: String) -> AccountBalanceData {
+    @MainActor public func `for`(accountId: String) -> AccountBalanceData {
         let context = byAccountId.for(accountId: accountId)
-        if context.walletTokensData == nil || context.balanceTotals == nil {
+        if context.isMissing {
             Task {
                 await recomputeAccountIfMissing(accountId: accountId)
             }
@@ -116,15 +98,15 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         return context
     }
 
-    public nonisolated func walletTokensData(accountId: String) -> MAccountWalletTokensData? {
+    @MainActor public func walletTokensData(accountId: String) -> MAccountWalletTokensData? {
         self.for(accountId: accountId).walletTokensData
     }
 
-    public nonisolated func balanceTotals(accountId: String) -> MAccountBalanceTotals? {
+    @MainActor public func balanceTotals(accountId: String) -> MAccountBalanceTotals? {
         self.for(accountId: accountId).balanceTotals
     }
 
-    public nonisolated func totalBalance(ofWalletsWithType type: AccountType?) -> BaseCurrencyAmount {
+    @MainActor public func totalBalance(ofWalletsWithType type: AccountType?) -> BaseCurrencyAmount {
         let filteredAccounts = accountStore.accountsById.values.filter { account in
             guard account.network == .mainnet else { return false }
             return if let type {
@@ -134,11 +116,15 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
             }
         }
 
-        computeMissingAccounts(accountIds: filteredAccounts.map(\.id))
-
         var baseCurrency = tokenStore.baseCurrency
         let amount = filteredAccounts.reduce(BigInt.zero) { partialResult, account in
-            guard let totals = byAccountId.existing(accountId: account.id)?.balanceTotals else {
+            let context = byAccountId.for(accountId: account.id)
+            if context.isMissing {
+                Task {
+                    await recomputeAccountIfMissing(accountId: account.id)
+                }
+            }
+            guard let totals = context.balanceTotals else {
                 return partialResult
             }
             baseCurrency = totals.totalBalance.baseCurrency
@@ -147,38 +133,24 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         return BaseCurrencyAmount(amount, baseCurrency)
     }
 
-    private nonisolated func computeMissingAccounts(accountIds: [String]) {
-        for accountId in accountIds {
-            let context = byAccountId.for(accountId: accountId)
-            guard context.walletTokensData == nil || context.balanceTotals == nil else { continue }
-            let nextData = computeAccountData(accountId: accountId)
-            context.replace(walletTokensData: nextData.walletTokensData)
-            context.replace(balanceTotals: nextData.balanceTotals)
-        }
-    }
-
     @MainActor public func walletCore(event: WalletCoreData.Event) {
         Task {
             await handleEvent(event)
         }
     }
 
-    private func handleEvent(_ event: WalletCoreData.Event) {
+    private func handleEvent(_ event: WalletCoreData.Event) async {
         switch event {
         case .rawBalancesChanged(let accountId):
-            recomputeAccount(accountId: accountId)
+            await recomputeAccount(accountId: accountId)
         case .stakingAccountData(let stakingData):
-            recomputeAccount(accountId: stakingData.accountId)
+            await recomputeAccount(accountId: stakingData.accountId)
         case .baseCurrencyChanged, .tokensChanged, .hideNoCostTokensChanged, .assetsAndActivityDataUpdated:
             scheduleRecomputeAllKnownAccounts()
         case .accountDeleted(let accountId):
-            if let context = byAccountId.existing(accountId: accountId) {
-                context.replace(walletTokensData: nil)
-                context.replace(balanceTotals: nil)
-            }
-            byAccountId.remove(accountId: accountId)
+            await removeAccountData(accountId: accountId)
         case .accountsReset:
-            clean()
+            await clean()
         default:
             break
         }
@@ -188,48 +160,56 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         if Date().timeIntervalSince(lastUpdateData) > 0.1 {
             updateDataTask?.cancel()
             updateDataTask = Task {
-                recomputeAllKnownAccounts()
+                await recomputeAllKnownAccounts()
             }
         } else {
             updateDataTask?.cancel()
             updateDataTask = Task {
                 do {
                     try await Task.sleep(for: .seconds(0.1))
-                    recomputeAllKnownAccounts()
+                    await recomputeAllKnownAccounts()
                 } catch {}
             }
         }
     }
 
-    private func recomputeAllKnownAccounts() {
+    private func recomputeAllKnownAccounts() async {
         lastUpdateData = .now
-        for accountId in byAccountId.accountIds() {
-            recomputeAccount(accountId: accountId)
+        let accountIds = await MainActor.run {
+            byAccountId.accountIds()
+        }
+        for accountId in accountIds {
+            await recomputeAccount(accountId: accountId)
         }
     }
 
-    private func recomputeAccountIfMissing(accountId: String) {
-        let context = byAccountId.for(accountId: accountId)
-        guard context.walletTokensData == nil || context.balanceTotals == nil else { return }
-        recomputeAccount(accountId: accountId)
+    private func recomputeAccountIfMissing(accountId: String) async {
+        let isMissing = await MainActor.run {
+            byAccountId.for(accountId: accountId).isMissing
+        }
+        guard isMissing else { return }
+        await recomputeAccount(accountId: accountId)
     }
 
-    private func recomputeAccount(accountId: String) {
+    private func recomputeAccount(accountId: String) async {
         let nextData = computeAccountData(accountId: accountId)
-        let context = byAccountId.for(accountId: accountId)
-        let walletTokensChanged = context.walletTokensData != nextData.walletTokensData
-        let balanceTotalsChanged = context.balanceTotals != nextData.balanceTotals
-
-        if walletTokensChanged {
-            context.replace(walletTokensData: nextData.walletTokensData)
-        }
-        if balanceTotalsChanged {
-            context.replace(balanceTotals: nextData.balanceTotals)
-        }
-
-        if walletTokensChanged || balanceTotalsChanged {
+        let changed = await applyAccountData(accountId: accountId, nextData: nextData)
+        if changed {
             WalletCoreData.notify(event: .balanceChanged(accountId: accountId))
         }
+    }
+
+    @MainActor private func applyAccountData(accountId: String, nextData: ComputedAccountData) -> Bool {
+        byAccountId
+            .for(accountId: accountId)
+            .replace(walletTokensData: nextData.walletTokensData, balanceTotals: nextData.balanceTotals)
+    }
+
+    @MainActor private func removeAccountData(accountId: String) {
+        if let context = byAccountId.existing(accountId: accountId) {
+            context.replace(walletTokensData: nil, balanceTotals: nil)
+        }
+        byAccountId.remove(accountId: accountId)
     }
 
     private nonisolated func computeAccountData(accountId: String) -> ComputedAccountData {

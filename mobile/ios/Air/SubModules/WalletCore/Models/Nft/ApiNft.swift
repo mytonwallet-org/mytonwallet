@@ -3,6 +3,7 @@ import Foundation
 import WalletContext
 import Kingfisher
 import OrderedCollections
+import WalletCoreTypes
 
 // Generated based on TypeScript definition. Do not edit manually.
 public struct ApiNft: Equatable, Hashable, Codable, Sendable {
@@ -267,7 +268,7 @@ public extension ApiNft {
             mtwCardBorderShineType: nil
         )
     )
-    static let sampleMtwCard = try! JSONDecoder().decode(ApiNft.self, fromString: #"{"metadata":{"attributes":[{"trait_type":"trait1","value":"value1"},{"trait_type":"trait2trait2trait2","value":"value2value2value2value2value2value2value2value2"}], "mtwCardId":1806,"mtwCardTextType":"light","mtwCardType":"standard","imageUrl":"https:\/\/static.mytonwallet.org\/cards\/preview\/1806-a5797.jpg","mtwCardBorderShineType":"right"},"isHidden":false,"ownerAddress":"UQCjWIRxnjt45AgA_IXhXnTfzWxBsNOGvM0CC38GOuS6oYs3","name":"MyTonWallet Card #1806","collectionAddress":"EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM","isScam":false,"thumbnail":"https:\/\/imgproxy.mytonwallet.org\/imgproxy\/8bKZwRge6Phr-mo_6aMwIToSIG5jh9V6_TT9rsQSLoM\/rs:fill:500:500:1\/g:no\/aHR0cHM6Ly9zdGF0aWMubXl0b253YWxsZXQub3JnL2NhcmRzL3ByZXZpZXcvMTgwNi1hNTc5Ny5qcGc.webp","isOnSale":false,"index":1805,"isOnFragment":false,"image":"https:\/\/imgproxy.mytonwallet.org\/imgproxy\/uOrcShhuNL7T0qbSUHJ-qSVTjFzomgl976mnmpBkmTM\/rs:fill:1500:1500:1\/g:no\/aHR0cHM6Ly9zdGF0aWMubXl0b253YWxsZXQub3JnL2NhcmRzL3ByZXZpZXcvMTgwNi1hNTc5Ny5qcGc.webp","address":"EQC4sLqKTwQOHYckdbkdTNYT17yTtEJqVye1yR7wWkYUIL3u","description":"A sea background MyTonWallet card with purple & yellow desert texture.","collectionName":"MyTonWallet Cards"}"#)
+    static let sampleMtwCard = try! JSONDecoder().decode(ApiNft.self, fromString: #"{"metadata":{"attributes":[{"trait_type":"trait1","value":"value1"},{"trait_type":"trait2trait2trait2","value":"value2value2value2value2value2value2value2value2"}], "mtwCardId":1806,"mtwCardTextType":"light","mtwCardType":"standard","imageUrl":"https:\/\/static.mytonwallet.org\/cards\/preview\/1806-a5797.jpg","mtwCardBorderShineType":"right"},"isHidden":false,"ownerAddress":"UQCjWIRxnjt45AgA_IXhXnTfzWxBsNOGvM0CC38GOuS6oYs3","name":"My Wallet Card #1806","collectionAddress":"EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM","isScam":false,"thumbnail":"https:\/\/imgproxy.mytonwallet.org\/imgproxy\/8bKZwRge6Phr-mo_6aMwIToSIG5jh9V6_TT9rsQSLoM\/rs:fill:500:500:1\/g:no\/aHR0cHM6Ly9zdGF0aWMubXl0b253YWxsZXQub3JnL2NhcmRzL3ByZXZpZXcvMTgwNi1hNTc5Ny5qcGc.webp","isOnSale":false,"index":1805,"isOnFragment":false,"image":"https:\/\/imgproxy.mytonwallet.org\/imgproxy\/uOrcShhuNL7T0qbSUHJ-qSVTjFzomgl976mnmpBkmTM\/rs:fill:1500:1500:1\/g:no\/aHR0cHM6Ly9zdGF0aWMubXl0b253YWxsZXQub3JnL2NhcmRzL3ByZXZpZXcvMTgwNi1hNTc5Ny5qcGc.webp","address":"EQC4sLqKTwQOHYckdbkdTNYT17yTtEJqVye1yR7wWkYUIL3u","description":"A sea background MyTonWallet card with purple & yellow desert texture.","collectionName":"My Wallet Cards"}"#)
 }
 
 #endif

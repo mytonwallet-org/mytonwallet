@@ -317,7 +317,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                             .action(
                                 ContextMenuAction(
                                     title: "TON Domains",
-                                    icon: .airBundle("MenuTonDomains26"),
+                                    icon: .airBundle("MenuTonDomains26", renderingMode: .original),
                                     handler: {
                                         AppActions.openInBrowser(url)
                                     }

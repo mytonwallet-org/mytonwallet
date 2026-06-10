@@ -38,14 +38,10 @@ struct AboutView: View {
             VStack(spacing: 4) {
                 Text("\(APP_NAME) \(appVersion)")
                     .font(.system(size: 17, weight: .semibold))
-                Text(LocalizedStringKey("[\(websiteTitle)](\(APP_WEBSITE_URL))"))
+                Link(websiteTitle, destination: websiteUrl)
                     .font(.system(size: 14, weight: .regular))
             }
         }
-        .environment(\.openURL, OpenURLAction { url in
-            UIApplication.shared.open(url)
-            return .handled
-        })
     }
 
     @ViewBuilder
@@ -57,7 +53,7 @@ struct AboutView: View {
             )
                 .frame(width: 96, height: 96)
         } else {
-            Image.airBundle("IntroLogo")
+            Image.mainBundle("IntroLogo")
                 .resizable()
                 .frame(width: 96, height: 96)
         }

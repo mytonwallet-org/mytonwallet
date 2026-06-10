@@ -3,6 +3,7 @@ import Foundation
 import GRDB
 import Perception
 import WalletContext
+import WalletCoreTypes
 
 private let log = Log("BalancesStore")
 

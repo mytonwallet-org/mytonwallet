@@ -14,9 +14,11 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     
     public var style: WButtonStyle
     public var loadingIndicatorDelay: CGFloat = 0.2
-    
-    public init(style: WButtonStyle) {
+    public var useLegacyShadow: Bool
+
+    public init(style: WButtonStyle, useLegacyShadow: Bool = false) {
         self.style = style
+        self.useLegacyShadow = useLegacyShadow
     }
     
     @Environment(\.isEnabled) private var isEnabled
@@ -30,6 +32,8 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             UIColor.white // FIXME: Doesn't work for white theme color
         case .destructive:
             .white
+        case .thickDestructiveCapsule:
+            isEnabled ? .air.error : .air.secondaryLabel
         case .secondary, .clearBackground, .thickCapsule:
             .tintColor
         }
@@ -41,8 +45,14 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             .tintColor
         case .secondary:
             .tintColor.withAlphaComponent(0.15)
-        case .clearBackground, .thickCapsule:
+        case .clearBackground:
             .clear
+        case .thickDestructiveCapsule, .thickCapsule:
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                .clear
+            } else {
+                .air.secondaryFill
+            }
         case .destructive:
             .air.error
         }
@@ -53,12 +63,16 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
                 content(configuration: configuration)
                     .glassEffect(Glass.regular.tint(Color(backgroundColor)).interactive(isEnabled), in: .capsule)
+            } else if useLegacyShadow {
+                content(configuration: configuration)
+                    .background(Color(backgroundColor), in: .rect(cornerRadius: WButton.borderRadius))
+                    .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
             } else {
                 content(configuration: configuration)
                     .background(Color(backgroundColor), in: .rect(cornerRadius: WButton.borderRadius))
             }
         }
-        .opacity(isEnabled ? 1 : 0.5)
+        .opacity(isEnabled || style == .thickDestructiveCapsule ? 1 : 0.5)
         .contentShape(.rect)
         .onTapGesture {
             configuration.trigger()
@@ -90,7 +104,7 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
         }
-        .font(Font(WButton.font))
+        .font(Font(WButton.font(for: style)))
         .foregroundStyle(Color(textColor))
         .opacity(isEnabled && isTouching ? 0.5 : 1)
         .frame(height: IOS_26_MODE_ENABLED ? 52 : 50)
@@ -105,7 +119,14 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
 public extension PrimitiveButtonStyle where Self == WUIButtonStyle {
     static var airPrimary: WUIButtonStyle { WUIButtonStyle(style: .primary) }
     static var airSecondary: WUIButtonStyle { WUIButtonStyle(style: .secondary) }
+    static var airSecondaryDestructive: WUIButtonStyle {  WUIButtonStyle(style: .thickDestructiveCapsule) }
     static var airClearBackground: WUIButtonStyle { WUIButtonStyle(style: .clearBackground) }
+    
+    func withLegacyShadow() -> WUIButtonStyle {
+        var result = self
+        result.useLegacyShadow = true
+        return result
+    }
 }
 
 public extension EnvironmentValues {
@@ -114,9 +135,9 @@ public extension EnvironmentValues {
 
 #if DEBUG
 @available(iOS 17.0, *)
-#Preview {
+#Preview("Loading") {
     @Previewable @State var isLoading = false
-    
+
     Button(action: {}) {
         Text("Hello")
     }
@@ -131,6 +152,41 @@ public extension EnvironmentValues {
         isLoading = false
         try? await Task.sleep(for: .seconds(2))
         isLoading = true
+    }
+}
+
+@available(iOS 17.0, *)
+#Preview("All Styles") {
+    let styles: [(String, WUIButtonStyle)] = [
+        ("Primary", .airPrimary),
+        ("Secondary", .airSecondary),
+        ("Secondary Destructive", .airSecondaryDestructive),
+        ("Secondary Destructive Shadow", .airSecondaryDestructive.withLegacyShadow()),
+        ("Clear", .airClearBackground),
+    ]
+
+    ScrollView {
+        VStack(spacing: 24) {
+            ForEach(styles, id: \.0) { name, style in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+
+                    HStack(spacing: 12) {
+                        Button(action: {}) { Text("Enabled") }
+                            .buttonStyle(style)
+
+                        Button(action: {}) { Text("Disabled") }
+                            .buttonStyle(style)
+                            .disabled(true)
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+        .padding(.vertical)
     }
 }
 #endif
