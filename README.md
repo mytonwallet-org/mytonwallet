@@ -1,20 +1,20 @@
-# **MyTonWallet** · [mytonwallet.io](https://mytonwallet.io)
+# **My Wallet** · [mywallet.io](https://mywallet.io)
 
 **All you need to enjoy crypto.** A safe, self-custodial **multichain wallet** for [**TON**](https://ton.org), [**TRON**](https://trondao.org/), and [**Solana**](https://solana.com/) — native mobile (iOS & Android), desktop, web, and **Telegram Mini App**. One account, any device.
 
-<img src="https://mytonwallet.io/img/og-image.png" width="600" alt="MyTonWallet — All You Need to Enjoy Crypto" />
+<img src="https://mywallet.io/img/og-image.png" width="600" alt="My Wallet — All You Need to Enjoy Crypto" />
 
-You keep full control: we **do not** have access to your funds, keys, or data. **MyTonWallet** is built for **speed** and **reliability**, with a minimal dependency footprint for maximum safety.
+You keep full control: we **do not** have access to your funds, keys, or data. **My Wallet** is built for **speed** and **reliability**, with a minimal dependency footprint for maximum safety.
 
 ---
 
-## Why **MyTonWallet**?
+## Why **My Wallet**?
 
 **🌐 One wallet for everything**  
 Keep TON, TRON, and Solana in one place. You can send, receive, and swap across chains without jumping between different apps.
 
 **📱 Use it wherever you are**  
-**MyTonWallet** works as a native mobile app, desktop app, web app, Telegram Mini App, and browser extension for all major browsers, so your wallet is always within reach.
+**My Wallet** works as a native mobile app, desktop app, web app, Telegram Mini App, and browser extension for all major browsers, so your wallet is always within reach.
 
 **⚡ Instant transfers**  
 Transfers and swaps feel almost instant across supported chains, so you can send crypto and other assets in less than a second in typical conditions.
@@ -38,24 +38,24 @@ Follow your portfolio and net worth over time in the base fiat currency you choo
 Stake TON and other supported assets, including options like USDe, directly in the wallet.
 
 **🛡️ Industry-leading security**  
-**MyTonWallet** uses advanced security practices audited by CertiK. We also run a [bug bounty on CertiK SkyShield](https://skyshield.certik.com/bounties/mytonwallet) with **$100K** in reserved funds and rewards of up to **$5,000**. The program has been live since **March 23, 2024**, and no vulnerabilities have been found to date.
+**My Wallet** uses advanced security practices audited by CertiK. We also run a [bug bounty on CertiK SkyShield](https://skyshield.certik.com/bounties/mytonwallet) with **$100K** in reserved funds and rewards of up to **$5,000**. The program has been live since **March 23, 2024**, and no vulnerabilities have been found to date.
 
 **🧰 Hundreds of handy features**  
 Connect Ledger hardware wallets, hide balances, personalize interface, send multiple transfers at once, view other wallets, use AI plugins for OpenClaw, ChatGPT, and Claude, and much more.
 
 **⭐ Trusted by millions**  
-**MyTonWallet** has a **4.8** rating on [Trustpilot](https://www.trustpilot.com/), strong App Store and Google Play rankings, and **9M+ users** worldwide.
+**My Wallet** has a **4.8** rating on [Trustpilot](https://www.trustpilot.com/), strong App Store and Google Play rankings, and **9M+ users** worldwide.
 
 ---
 
 ## 🔗 Links
 
-- 📲 **Get the app**: [get.mytonwallet.io](https://get.mytonwallet.io/)
-- 📚 **Help Center**: [help.mytonwallet.io](https://help.mytonwallet.io)
+- 📲 **Get the app**: [get.mywallet.io](https://get.mywallet.io/)
+- 📚 **Help Center**: [help.mywallet.io](https://help.mywallet.io)
 - 🛟 **24/7 Support**: [t.me/mysupport](https://t.me/mysupport)
 - 💬 **Telegram**: [t.me/mytonwalleten](https://t.me/mytonwalleten)
 - 🐦 **X (Twitter)**: [x.com/mytonwallet_io](https://x.com/mytonwallet_io)
-- 📰 **Blog & updates**: [mytonwallet.io](https://mytonwallet.io)
+- 📰 **Blog & updates**: [mywallet.io](https://mywallet.io)
 
 ---
 
