@@ -82,7 +82,7 @@ function AccountWalletCard({
   const {
     backgroundImageUrl,
     withTextGradient,
-    classNames: mtwCardClassNames,
+    classNames: mwCardClassNames,
   } = useCardCustomization(cardBackgroundNft);
   const { imageUrl } = useCachedImage(backgroundImageUrl);
   const sensitiveDataMaskSkin = getSensitiveDataMaskSkinFromCardNft(cardBackgroundNft);
@@ -145,7 +145,7 @@ function AccountWalletCard({
     IS_GRAM_WALLET && 'gram',
     isActive && styles.current,
     imageUrl && styles.customCard,
-    imageUrl && mtwCardClassNames,
+    imageUrl && mwCardClassNames,
     isContextMenuOpen && OPEN_CONTEXT_MENU_CLASS_NAME,
   );
 

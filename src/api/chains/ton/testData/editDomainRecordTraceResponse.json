@@ -341,7 +341,7 @@
           "valid": true,
           "type": "nft_collections",
           "name": "Gram DNS Domains",
-          "description": "Exclusive .gram DNS domains – the privilege of being a part of the decentralized future based on Gram.",
+          "description": "Exclusive .grm DNS domains – the privilege of being a part of the decentralized future based on Gram.",
           "image": "https://gramcoin.org/img/icon.png",
           "extra": {
             "_image_big": "https://imgproxy.toncenter.com/E3HvtiB-sHg4h_wTCyOC1n1NCga1cmOWpvN0jWjAgw4/pr:big/aHR0cHM6Ly9ncmFtY29pbi5vcmcvaW1nL2ljb24ucG5n",
@@ -357,8 +357,8 @@
         {
           "valid": true,
           "type": "nft_items",
-          "name": "marsonkotovi4.gram",
-          "description": "A .gram blockchain domain. Gram DNS is a service that allows users to assign a human-readable name to crypto wallets, smart contracts, and websites.",
+          "name": "marsonkotovi4.grm",
+          "description": "A .grm blockchain domain. Gram DNS is a service that allows users to assign a human-readable name to crypto wallets, smart contracts, and websites.",
           "image": "https://dns-cdn.gramcoin.org/dnsimage/marsonkotovi4.png",
           "nft_index": "62098834295120963927411126347242136284360673055441170963365674062424074453162",
           "extra": {

@@ -136,11 +136,11 @@ function SettingsAppearance({
         <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
           <div className={styles.item} onClick={handleAirVersionSwitch}>
             <img className={styles.menuIcon} src={airImg} alt="" aria-hidden />
-            <span className={styles.itemTitle}>MyTonWallet Air</span>
+            <span className={styles.itemTitle}>My Wallet Air</span>
 
             <Switcher
               className={styles.menuSwitcher}
-              label="MyTonWallet Air"
+              label="My Wallet Air"
               checked={isAirVersionEnabled}
             />
           </div>

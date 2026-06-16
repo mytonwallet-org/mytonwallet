@@ -74,6 +74,7 @@ class MfaActionConfirmVC(
     private val requestHash: String,
     private val chip: Chip? = null,
     private val forceCloseButton: Boolean = false,
+    private val popupConfirmedActivity: Boolean = true,
     private val onConfirmed: ((txHash: String?) -> Unit)? = null,
 ) : WViewController(context), WalletCore.EventObserver {
     override val TAG = "MfaActionConfirm"
@@ -392,7 +393,7 @@ class MfaActionConfirmVC(
         pendingTxHash = null
         pendingAccountId = null
         navigationController?.window?.dismissLastNav {
-            if (matchedActivity != null && accountId != null) {
+            if (popupConfirmedActivity && matchedActivity != null && accountId != null) {
                 WalletCore.notifyEvent(
                     WalletEvent.OpenActivity(accountId, matchedActivity)
                 )

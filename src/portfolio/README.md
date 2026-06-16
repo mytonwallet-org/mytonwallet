@@ -1,6 +1,6 @@
-# MyTonWallet Portfolio
+# My Wallet Portfolio
 
-This is a standalone dapp for MyTonWallet's professional features.
+This is a standalone dapp for My Wallet's professional features.
 
 ## Development
 
@@ -28,7 +28,7 @@ npm run portfolio:build:dev
 
 ## Structure
 
-The Portfolio dapp follows a similar structure to the main MyTonWallet project:
+The Portfolio dapp follows a similar structure to the main My Wallet project:
 
 - `/components`: UI components specific to the Portfolio dapp
 - `/utils`: Utility functions and helpers

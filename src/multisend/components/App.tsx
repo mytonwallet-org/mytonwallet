@@ -31,7 +31,7 @@ import TransferListPage from './TransferListPage';
 import styles from './App.module.scss';
 
 type OwnProps = {
-  mtwWalletInfo?: WalletInfo;
+  mwWalletInfo?: WalletInfo;
 };
 
 enum PageKey {
@@ -41,7 +41,7 @@ enum PageKey {
   ManageTransfer,
 }
 
-function App({ mtwWalletInfo }: OwnProps) {
+function App({ mwWalletInfo }: OwnProps) {
   const [wallet, setWallet] = useState<Wallet | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [renderKey, setRenderKey] = useState<PageKey>(PageKey.Loading);
@@ -65,8 +65,8 @@ function App({ mtwWalletInfo }: OwnProps) {
   }, [isLoading, wallet]);
 
   const handleConnectClick = useLastCallback(() => {
-    if (mtwWalletInfo) {
-      void handleTonConnectButtonClick(mtwWalletInfo);
+    if (mwWalletInfo) {
+      void handleTonConnectButtonClick(mwWalletInfo);
     }
   });
 

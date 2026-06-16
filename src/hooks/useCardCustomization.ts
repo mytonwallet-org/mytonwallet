@@ -17,14 +17,14 @@ export default function useCardCustomization(
   const withTextGradient = !!mtwCardType && mtwCardType !== 'standard';
   const mtwCardTextTypeClass = mtwCardType !== 'standard'
     ? undefined
-    : (mtwCardTextType === 'dark' ? 'MtwCard__darkText' : 'MtwCard__lightText');
+    : (mtwCardTextType === 'dark' ? 'MwCard__darkText' : 'MwCard__lightText');
 
   const backgroundImageUrl = cardNft ? getCardNftImageUrl(cardNft) : undefined;
 
   return {
     backgroundImageUrl,
     withTextGradient,
-    classNames: buildClassName(mtwCardType && `MtwCard__${mtwCardType}`, mtwCardTextTypeClass),
+    classNames: buildClassName(mtwCardType && `MwCard__${mtwCardType}`, mtwCardTextTypeClass),
     borderShineType: mtwCardBorderShineType,
   };
 }

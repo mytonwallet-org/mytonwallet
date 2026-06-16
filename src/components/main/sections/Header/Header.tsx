@@ -36,7 +36,7 @@ import ToggleSensitiveDataButton from './actionButtons/ToggleSensitiveDataButton
 
 import styles from './Header.module.scss';
 
-import logoSrc from '../../../../assets/logoMonochromeWhite.svg';
+import logoSrc from '../../../../assets/logoMinimalistic.svg';
 
 export const HEADER_HEIGHT_REM = 3;
 
@@ -156,7 +156,7 @@ function Header({
       ? 1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0)
       : 1 + (isAppLockEnabled ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0) + (canToggleAppLayout ? 1 : 0);
 
-    if (IS_EXPLORER) {
+    if (!IS_EXPLORER) {
       return (
         <div className={fullClassName}>
           <div className={styles.headerInner} style="--icons-amount: 3">
@@ -167,7 +167,7 @@ function Header({
                 className={styles.openLink}
                 onClick={handleOpenInAppClick}
               >
-                <img src={logoSrc} alt="" />
+                <img src={logoSrc} alt="" className={styles.mtLogo} />
                 {lang('Open')}
               </a>
             </div>

@@ -45,7 +45,7 @@ function AccountButton({
   const {
     backgroundImageUrl,
     withTextGradient,
-    classNames: mtwCardClassNames,
+    classNames: mwCardClassNames,
   } = useCardCustomization(cardBackgroundNft);
   const { imageUrl } = useCachedImage(backgroundImageUrl);
 
@@ -56,7 +56,7 @@ function AccountButton({
     styles.account,
     IS_GRAM_WALLET && 'gram',
     imageUrl && styles.customCard,
-    imageUrl && mtwCardClassNames,
+    imageUrl && mwCardClassNames,
     isActive && !withCheckbox && styles.account_current,
     isLoading && styles.account_disabled,
     !onClick && styles.account_inactive,

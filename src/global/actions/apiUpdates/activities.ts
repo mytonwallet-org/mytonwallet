@@ -5,7 +5,7 @@ import {
   IS_CORE_WALLET,
   MINT_CARD_ADDRESS,
   MINT_CARD_REFUND_COMMENT,
-  MTW_CARDS_COLLECTION,
+  MW_CARDS_COLLECTION,
 } from '../../../config';
 import { getActivityIdReplacements } from '../../../util/activities';
 import { playIncomingTransactionSound } from '../../../util/notificationSound';
@@ -115,7 +115,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       if (!IS_CORE_WALLET) {
         // NFT polling is executed at long intervals, so a transaction-event with an NFT can arrive
         // long before the next polling round. Apply the change to local NFT state immediately so the UI
-        // reflects new ownership (incl. MTW-card auto-install) without waiting for polling.
+        // reflects new ownership (incl. MW-card auto-install) without waiting for polling.
         // A subsequent `nftReceived`/`nftSent` socket update or polling round is idempotent here.
         for (const activity of newConfirmedActivities) {
           if (activity.kind !== 'transaction' || !activity.nft) continue;
@@ -127,7 +127,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           if (isNftIncoming) {
             global = applyIncomingNftFromActivity(global, accountId, activity.nft);
 
-            if (activity.nft.collectionAddress === MTW_CARDS_COLLECTION) {
+            if (activity.nft.collectionAddress === MW_CARDS_COLLECTION) {
               const settings = selectAccountSettings(global, accountId);
 
               if (!settings?.cardBackgroundNft) {
@@ -184,7 +184,7 @@ function processCardMintingActivity(global: GlobalState, accountId: string, acti
   const mintCardActivity = activities.find((activity) => {
     return activity.kind === 'transaction'
       && activity.isIncoming
-      && activity?.nft?.collectionAddress === MTW_CARDS_COLLECTION;
+      && activity?.nft?.collectionAddress === MW_CARDS_COLLECTION;
   });
 
   const refundActivity = activities.find((activity) => {

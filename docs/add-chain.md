@@ -81,7 +81,7 @@ What you need from backend:
 - Access to a reliable node / RPC endpoint (or cluster) for the new chain
 - Indexing for activity
 - CEX swap support on our backend
-- Add the popular tokens to the `GET https://api.mytonwallet.org/assets` response
+- Add the popular tokens to the `GET https://api.mywallet.io/assets` response
 - Real-time activity notifications via our backend socket (set by `CHAIN_CONFIG[chain].doesBackendSocketSupport`)
 
 Note the `doesBackendSocketSupport` flag in `CHAIN_CONFIG`:

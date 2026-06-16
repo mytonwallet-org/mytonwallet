@@ -151,7 +151,9 @@ class TonConnectRequestConnectVC(
 
             val account = AccountStore.accountById(update.accountId)
 
-            if (account?.accountType == MAccount.AccountType.VIEW && update.proof != null) {
+            val requiresSigning = update.proof != null ||
+                account?.byChain?.get(TON_CHAIN)?.mfa != null
+            if (account?.accountType == MAccount.AccountType.VIEW && requiresSigning) {
                 showAlert(
                     LocaleController.getString("Error"),
                     LocaleController.getString("Action is not possible on a view-only wallet.")
@@ -159,7 +161,7 @@ class TonConnectRequestConnectVC(
                 return@setOnClickListener
             }
 
-            if (!update.permissions.proof) {
+            if (!requiresSigning) {
                 connectConfirm(
                     update.promiseId,
                     passcode = ""
@@ -250,6 +252,7 @@ class TonConnectRequestConnectVC(
                                     context,
                                     requestHash = mfaHash,
                                     forceCloseButton = true,
+                                    popupConfirmedActivity = false,
                                     onConfirmed = { _ ->
                                         finalizeMfaDappConnect()
                                     },

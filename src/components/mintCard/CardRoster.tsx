@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiCardInfo, ApiCardsInfo, ApiMtwCardType, ApiTokenWithPrice } from '../../api/types';
 import type { LangFn } from '../../hooks/useLang';
 
-import { MTW_CARDS_MINT_BASE_URL } from '../../config';
+import { MW_CARDS_MINT_BASE_URL } from '../../config';
 import { selectCurrentAccountTokenBalance, selectCurrentToncoinBalance, selectMycoin } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
@@ -228,11 +228,11 @@ function renderMediaCard({
             muted
             loop
             playsInline
-            poster={`${MTW_CARDS_MINT_BASE_URL}mtw_card_${type}.avif`}
+            poster={`${MW_CARDS_MINT_BASE_URL}mtw_card_${type}.avif`}
             className={styles.video}
           >
             <source
-              src={`${MTW_CARDS_MINT_BASE_URL}mtw_card_${type}.h264.mp4`}
+              src={`${MW_CARDS_MINT_BASE_URL}mtw_card_${type}.h264.mp4`}
               type="video/mp4; codecs=avc1.4D401E,mp4a.40.2"
             />
           </video>

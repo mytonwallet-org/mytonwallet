@@ -7,7 +7,7 @@ import type { DropdownItem } from '../../ui/Dropdown';
 
 import {
   IS_CORE_WALLET,
-  MTW_CARDS_COLLECTION,
+  MW_CARDS_COLLECTION,
 } from '../../../config';
 import { formatRelativeDays } from '../../../util/dateFormat';
 import { isDotTonDomainNft, isLinkableDnsNft, isRenewableDnsNft } from '../../../util/dns';
@@ -317,7 +317,7 @@ export default function useNftMenu({
     const isDotTon = isDotTonDomainNft(nft);
     const isRenewable = isRenewableDnsNft(nft);
     const isLinkable = isLinkableDnsNft(nft);
-    const isCard = !IS_CORE_WALLET && nft.collectionAddress === MTW_CARDS_COLLECTION;
+    const isCard = !IS_CORE_WALLET && nft.collectionAddress === MW_CARDS_COLLECTION;
 
     return compact([
       ...(isCard ? [!isNftInstalled ? INSTALL_CARD : RESET_CARD] : []),

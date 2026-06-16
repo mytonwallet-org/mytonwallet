@@ -205,7 +205,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                     AppearancePaletteItemView.State.LOCKED -> {
                         showAlert(
                             LocaleController.getString("Unlock New Palettes"),
-                            LocaleController.getString("Get a unique MyTonWallet Card to unlock new palettes.")
+                            LocaleController.getString("Get a unique My Wallet Card to unlock new palettes.")
                         )
                     }
 
@@ -285,7 +285,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
             addView(
                 WLabel(context).apply {
                     text =
-                        LocaleController.getString("Get a unique MyTonWallet Card to unlock new palettes.")
+                        LocaleController.getString("Get a unique My Wallet Card to unlock new palettes.")
                     setTextColor(WColor.SecondaryText)
                     setStyle(14f)
                     setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
@@ -302,7 +302,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
             addView(
                 WLabel(context).apply {
                     text =
-                        LocaleController.getString("Browse MyTonWallet Cards available for purchase.")
+                        LocaleController.getString("Browse My Wallet Cards available for purchase.")
                     setTextColor(WColor.SecondaryText)
                     setStyle(14f)
                     setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)

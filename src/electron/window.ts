@@ -44,7 +44,7 @@ export function createWindow() {
     height: windowState.height,
 
     titleBarStyle: 'hidden',
-    title: 'MyTonWallet',
+    title: 'My Wallet',
     frame: false,
 
     webPreferences: {

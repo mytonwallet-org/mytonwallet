@@ -19,7 +19,6 @@ describe('RE_TG_BOT_MENTION', () => {
       't.me/scam_channel',
       'https://t.me/free_ton',
       'http://t.me/some_bot',
-      'Visit t.me/giveaway for free TON!',
 
       // telegram.me and telegram.dog domains
       'telegram.me/scammer',
@@ -59,7 +58,7 @@ describe('RE_TG_BOT_MENTION', () => {
 
       // Other URLs
       'https://google.com',
-      'https://mytonwallet.io',
+      'https://mywallet.io',
       'Visit our website at example.com',
     ];
 

@@ -25,34 +25,34 @@ const mockNft: ApiNft = {
 
 describe('updateActivityMetadata - scam comment detection', () => {
   describe('should be marked as SCAM', () => {
-    it('"claim at tg: @mytonwallet" incoming transfer', () => {
+    it('"claim at tg: @mywallet" incoming transfer', () => {
       const activity = makeMockTransactionActivity({
         isIncoming: true,
         status: 'completed',
-        comment: 'claim at tg: @mytonwallet',
+        comment: 'claim at tg: @mywallet',
       });
 
       const result = updateActivityMetadata(activity);
       expect(result.metadata?.isScam).toBe(true);
     });
 
-    it('"tg: @mytonwallet" incoming transfer with NFT attached', () => {
+    it('"tg: @mywallet" incoming transfer with NFT attached', () => {
       const activity = makeMockTransactionActivity({
         isIncoming: true,
         status: 'completed',
         nft: mockNft,
-        comment: 'tg: @mytonwallet',
+        comment: 'tg: @mywallet',
       });
 
       const result = updateActivityMetadata(activity);
       expect(result.metadata?.isScam).toBe(true);
     });
 
-    it('"t.me/mytonwallet" incoming transfer but failed', () => {
+    it('"t.me/mywallet" incoming transfer but failed', () => {
       const activity = makeMockTransactionActivity({
         isIncoming: true,
         status: 'failed',
-        comment: 't.me/mytonwallet',
+        comment: 't.me/mywallet',
       });
 
       const result = updateActivityMetadata(activity);
@@ -94,22 +94,22 @@ describe('updateActivityMetadata - scam comment detection', () => {
   });
 
   describe('should NOT be marked as scam', () => {
-    it('"tg: @mytonwallet" outgoing transfer (not bounce)', () => {
+    it('"tg: @mywallet" outgoing transfer (not bounce)', () => {
       const activity = makeMockTransactionActivity({
         isIncoming: false,
         status: 'completed',
-        comment: 'tg: @mytonwallet',
+        comment: 'tg: @mywallet',
       });
 
       const result = updateActivityMetadata(activity);
       expect(result.metadata?.isScam).toBeUndefined();
     });
 
-    it('"tg: @mytonwallet" incoming transfer (not failed, no NFT, no claim)', () => {
+    it('"tg: @mywallet" incoming transfer (not failed, no NFT, no claim)', () => {
       const activity = makeMockTransactionActivity({
         isIncoming: true,
         status: 'completed',
-        comment: 'tg: @mytonwallet',
+        comment: 'tg: @mywallet',
       });
 
       const result = updateActivityMetadata(activity);

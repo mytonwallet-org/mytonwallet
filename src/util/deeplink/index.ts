@@ -11,7 +11,6 @@ import {
   DEFAULT_SWAP_AMOUNT,
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
-  GIVEAWAY_CHECKIN_URL,
   IS_CAPACITOR,
   IS_EXPLORER,
   TONCOIN,
@@ -63,7 +62,6 @@ export const enum DeeplinkCommand {
   BuyWithCard = 'buy-with-card',
   Offramp = 'offramp',
   Stake = 'stake',
-  Giveaway = 'giveaway',
   Transfer = 'transfer',
   Send = 'send',
   Explore = 'explore',
@@ -99,7 +97,6 @@ const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
 const VIEW_MODE_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Air,
   DeeplinkCommand.CheckinWithR,
-  DeeplinkCommand.Giveaway,
   DeeplinkCommand.Explore,
   DeeplinkCommand.View,
   DeeplinkCommand.Token,
@@ -648,13 +645,6 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
       case DeeplinkCommand.CheckinWithR: {
         const r = pathname.match(/r\/(.*)$/)?.[1];
         const url = `${CHECKIN_URL}${r ? `?r=${r}` : ''}`;
-        void openUrl(url);
-        return true;
-      }
-
-      case DeeplinkCommand.Giveaway: {
-        const giveawayId = pathname.match(/giveaway\/([^/]+)/)?.[1];
-        const url = `${GIVEAWAY_CHECKIN_URL}${giveawayId ? `?giveawayId=${giveawayId}` : ''}`;
         void openUrl(url);
         return true;
       }

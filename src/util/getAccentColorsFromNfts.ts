@@ -1,6 +1,6 @@
 import type { ApiNft } from '../api/types';
 
-import { MTW_CARDS_COLLECTION } from '../config';
+import { MW_CARDS_COLLECTION } from '../config';
 import { getAccentColorIndexFromNft } from './accentColor';
 import { compact, unique } from './iteratees';
 import { logDebugError } from './logs';
@@ -12,7 +12,7 @@ export default async function getAccentColorsFromNfts(
   try {
     const nftCards = (nftAddresses || []).reduce((result, nftAddress) => {
       const nft = nftsByAddress?.[nftAddress];
-      if (nft?.collectionAddress === MTW_CARDS_COLLECTION) {
+      if (nft?.collectionAddress === MW_CARDS_COLLECTION) {
         result.push(nft);
       }
       return result;

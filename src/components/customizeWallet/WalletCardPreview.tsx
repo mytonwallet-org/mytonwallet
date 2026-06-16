@@ -53,7 +53,7 @@ function WalletCardPreview({
     return calculateFullBalance(tokens, undefined, currencyRates[baseCurrency]);
   }, [tokens, currencyRates, baseCurrency]);
 
-  const accountTitle = account?.title || 'MyTonWallet';
+  const accountTitle = account?.title || 'My Wallet';
 
   const handleCardChange = useLastCallback((hasGradient: boolean, className?: string) => {
     setCustomCardClassName(className);

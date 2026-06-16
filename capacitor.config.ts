@@ -6,7 +6,7 @@ const IS_GRAM_WALLET = ['1', 'true', 'yes'].includes(
   (process.env.IS_GRAM_WALLET ?? '').toLowerCase(),
 );
 const APP_ID = IS_GRAM_WALLET ? 'org.mytonwallet.gram' : 'org.mytonwallet.app';
-const APP_NAME = IS_GRAM_WALLET ? 'GramWallet' : 'MyTonWallet';
+const APP_NAME = IS_GRAM_WALLET ? 'GramWallet' : 'My Wallet';
 
 const COMMON_PLUGINS = [
   '@capacitor-community/bluetooth-le',

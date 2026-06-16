@@ -6,7 +6,7 @@ import {
   IS_AIR_APP,
   IS_CAPACITOR,
   IS_CORE_WALLET,
-  MTW_CARDS_COLLECTION,
+  MW_CARDS_COLLECTION,
   STAKING_SLUG_PREFIX,
   SWAP_API_VERSION,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
@@ -16,7 +16,7 @@ import { buildCollectionByKey, unique } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
 import { getIsActiveStakingState } from '../../../util/staking';
 import { IS_IOS_APP } from '../../../util/windowEnvironment';
-import { pinMtwCardsFirst } from '../../helpers/nfts';
+import { pinMwCardsFirst } from '../../helpers/nfts';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   addUnorderedNfts,
@@ -26,7 +26,7 @@ import {
   removeNft,
   updateAccount,
   updateAccountChain,
-  updateAccountOwnedMtwCards,
+  updateAccountOwnedMwCards,
   updateAccountSettings,
   updateAccountSettingsBackgroundNft,
   updateAccountStaking,
@@ -50,9 +50,9 @@ import {
   selectVestingPartsReadyToUnfreeze,
 } from '../../selectors';
 
-// Accumulates new MTW cards across multi-batch streaming rounds.
+// Accumulates new My Wallet Cards across multi-batch streaming rounds.
 // Drained on the round's final batch when `streamedAddresses` is present.
-const pendingNewMtwCardsByAccount = new Map<string, ApiNft[]>();
+const pendingNewMwCardsByAccount = new Map<string, ApiNft[]>();
 
 addActionHandler('apiUpdate', (global, actions, update) => {
   switch (update.type) {
@@ -192,7 +192,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         );
       }
 
-      orderedAddresses = pinMtwCardsFirst(orderedAddresses, byAddress);
+      orderedAddresses = pinMwCardsFirst(orderedAddresses, byAddress);
 
       global = updateAccountState(global, accountId, {
         nfts: {
@@ -217,20 +217,20 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       if (!IS_CORE_WALLET) {
         // Diff against persistent `ownedSet` so a card the user removed (via `clearCardBackgroundNft`)
         // isn't re-installed every polling round when it remains in the wallet
-        const ownedSet = new Set(currentNfts?.ownedMtwCardAddresses ?? []);
+        const ownedSet = new Set(currentNfts?.ownedMwCardAddresses ?? []);
         const newCards = update.nfts.filter((nft) =>
-          nft.collectionAddress === MTW_CARDS_COLLECTION
+          nft.collectionAddress === MW_CARDS_COLLECTION
           && !ownedSet.has(nft.address),
         );
         if (newCards.length) {
-          pendingNewMtwCardsByAccount.set(accountId, [
-            ...(pendingNewMtwCardsByAccount.get(accountId) ?? []),
+          pendingNewMwCardsByAccount.set(accountId, [
+            ...(pendingNewMwCardsByAccount.get(accountId) ?? []),
             ...newCards,
           ]);
         }
 
         update.nfts.forEach((nft) => {
-          if (nft.collectionAddress === MTW_CARDS_COLLECTION) {
+          if (nft.collectionAddress === MW_CARDS_COLLECTION) {
             global = updateAccountSettingsBackgroundNft(global, nft);
           }
         });
@@ -252,16 +252,16 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       // On the round's final batch: rebuild `ownedSet` from current ownership, then auto-install
       // a new card if the user has none set
       if (streamedAddresses && !IS_CORE_WALLET) {
-        const candidates = pendingNewMtwCardsByAccount.get(accountId);
-        pendingNewMtwCardsByAccount.delete(accountId);
+        const candidates = pendingNewMwCardsByAccount.get(accountId);
+        pendingNewMwCardsByAccount.delete(accountId);
 
         const byAddressNow = selectAccountState(getGlobal(), accountId)?.nfts?.byAddress;
         if (byAddressNow) {
           // Sync `ownedSet` BEFORE auto-install so subsequent rounds see the current ownership
-          const currentMtwAddresses = Object.values(byAddressNow)
-            .filter((nft) => nft.collectionAddress === MTW_CARDS_COLLECTION)
+          const currentMwAddresses = Object.values(byAddressNow)
+            .filter((nft) => nft.collectionAddress === MW_CARDS_COLLECTION)
             .map((nft) => nft.address);
-          global = updateAccountOwnedMtwCards(getGlobal(), accountId, currentMtwAddresses);
+          global = updateAccountOwnedMwCards(getGlobal(), accountId, currentMwAddresses);
           setGlobal(global);
         }
 
@@ -307,7 +307,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       if (!IS_CORE_WALLET) {
         actions.checkCardNftOwnership({ accountId });
         const settings = selectAccountSettings(global, accountId);
-        if (nft.collectionAddress === MTW_CARDS_COLLECTION && !settings?.cardBackgroundNft) {
+        if (nft.collectionAddress === MW_CARDS_COLLECTION && !settings?.cardBackgroundNft) {
           actions.setCardBackgroundNft({ nft, accountId });
           actions.installAccentColorFromNft({ nft, accountId });
         }

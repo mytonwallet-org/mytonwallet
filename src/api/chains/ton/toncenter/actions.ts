@@ -46,7 +46,7 @@ import {
   DNS_IMAGE_GEN_URL,
   ETHENA_STAKING_VAULT,
   LIQUID_POOL,
-  MTW_CARDS_COLLECTION,
+  MW_CARDS_COLLECTION,
   MYCOIN_STAKING_POOL,
   NFT_FRAGMENT_COLLECTIONS,
   NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX,
@@ -64,7 +64,7 @@ import { fixIpfsUrl, getProxiedLottieUrl } from '../../../../util/fetch';
 import { omitUndefined } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
 import safeExec from '../../../../util/safeExec';
-import { buildMtwCardsNftMetadata, getIsFragmentGift, readComment } from '../util/metadata';
+import { buildMwCardsNftMetadata, getIsFragmentGift, readComment } from '../util/metadata';
 import { toBase64Address } from '../util/tonCore';
 import {
   checkHasScamLink,
@@ -1012,7 +1012,7 @@ function parseToncenterNft(
     const isScam = hasScamLink; // TODO (actions) Replace with real value when Toncenter supports it
     const isHidden = extra?.render_type === 'hidden' || isScam;
     const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
-    const isMtwCard = collectionAddress === MTW_CARDS_COLLECTION;
+    const isMwCard = collectionAddress === MW_CARDS_COLLECTION;
     const fixedImage = image ? fixIpfsUrl(image) : undefined;
 
     const thumbnail = extra?._image_medium ?? fixedImage!;
@@ -1034,7 +1034,7 @@ function parseToncenterNft(
         }),
         // `id` must be set to `index + 1`. Unlike TonApi where this field is preformatted,
         // we need to manually adjust it here due to data source differences.
-        ...(isMtwCard && buildMtwCardsNftMetadata({
+        ...(isMwCard && buildMwCardsNftMetadata({
           id: Number(index || 0) + 1, image, attributes: extra?.attributes,
         })),
       },

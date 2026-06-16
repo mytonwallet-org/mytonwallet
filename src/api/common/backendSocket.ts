@@ -23,7 +23,7 @@ interface ExtendedWatchedWallet {
 }
 
 /**
- * Connects to the MTW backend to passively listen to updates.
+ * Connects to the MW backend to passively listen to updates
  */
 class BackendSocket extends AbstractWebsocketClient<
   ApiClientSocketMessage,

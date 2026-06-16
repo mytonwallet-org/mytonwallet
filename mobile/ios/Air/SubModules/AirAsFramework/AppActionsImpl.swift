@@ -27,7 +27,7 @@ import Dependencies
 }
 
 private let log = Log("AppActions")
-private let portfolioURL = URL(string: "https://portfolio.mytonwallet.io/")!
+private let portfolioURL = URL(string: "https://portfolio.mywallet.io/")!
 
 private func isPortfolioHomeURL(_ url: URL) -> Bool {
     url.host == portfolioURL.host && (url.path.isEmpty || url.path == "/")

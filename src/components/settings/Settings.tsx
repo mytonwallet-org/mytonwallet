@@ -9,7 +9,7 @@ import type { Wallet } from './wallets/SettingsWalletVariants';
 import { SettingsState } from '../../global/types';
 
 import {
-  APP_ENV_MARKER,
+  APP_ENV_MARKER, APP_INSTALL_URL,
   APP_NAME,
   APP_VERSION,
   IS_CAPACITOR,
@@ -17,7 +17,7 @@ import {
   IS_EXPLORER,
   IS_EXTENSION,
   LANG_LIST,
-  MTW_CARDS_WEBSITE,
+  MW_CARDS_WEBSITE,
   PROXY_HOSTS,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
   SUPPORT_USERNAME,
@@ -101,8 +101,8 @@ import installAppImg from '../../assets/settings/settings_install-app.svg';
 import installDesktopImg from '../../assets/settings/settings_install-desktop.svg';
 import installMobileImg from '../../assets/settings/settings_install-mobile.svg';
 import languageImg from '../../assets/settings/settings_language.svg';
-import mtwCardsImg from '../../assets/settings/settings_mtw-cards.svg';
-import upgradeImg from '../../assets/settings/settings_mytonwallet.svg';
+import mwCardsImg from '../../assets/settings/settings_mw-cards.svg';
+import upgradeImg from '../../assets/settings/settings_mywallet.png';
 import notifications from '../../assets/settings/settings_notifications.svg';
 import portfolioImg from '../../assets/settings/settings_portfolio.svg';
 import securityImg from '../../assets/settings/settings_security.svg';
@@ -326,15 +326,15 @@ function Settings({
   });
 
   function handleClickInstallApp() {
-    void openUrl('https://mytonwallet.io/get', { isExternal: true });
+    void openUrl(APP_INSTALL_URL, { isExternal: true });
   }
 
   function handleClickInstallOnDesktop() {
-    void openUrl('https://mytonwallet.io/get/desktop', { isExternal: true });
+    void openUrl(`${APP_INSTALL_URL}desktop`, { isExternal: true });
   }
 
   function handleClickInstallOnMobile() {
-    void openUrl('https://mytonwallet.io/get/mobile', { isExternal: true });
+    void openUrl(`${APP_INSTALL_URL}mobile`, { isExternal: true });
   }
 
   const handleLedgerConnected = useLastCallback(() => {
@@ -460,8 +460,8 @@ function Settings({
           {IS_CORE_WALLET && (
             <div className={styles.block}>
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallApp}>
-                <img className={styles.menuIcon} src={upgradeImg} alt={lang('Upgrade to MyTonWallet')} />
-                <span className={styles.itemTitle}>{lang('Upgrade to MyTonWallet')}</span>
+                <img className={styles.menuIcon} src={upgradeImg} alt={lang('Upgrade to My Wallet')} />
+                <span className={styles.itemTitle}>{lang('Upgrade to My Wallet')}</span>
 
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
@@ -655,8 +655,8 @@ function Settings({
                   rel="noopener noreferrer"
                   className={buildClassName(styles.item, styles.itemMenu)}
                 >
-                  <img className={styles.menuIcon} src={tipsImg} alt={lang('MyTonWallet Features')} />
-                  <span className={styles.itemTitle}>{lang('MyTonWallet Features')}</span>
+                  <img className={styles.menuIcon} src={tipsImg} alt={lang('My Wallet Features')} />
+                  <span className={styles.itemTitle}>{lang('My Wallet Features')}</span>
 
                   <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                 </a>
@@ -676,13 +676,13 @@ function Settings({
               <div className={styles.block}>
                 {!isNftBuyingDisabled && (
                   <a
-                    href={MTW_CARDS_WEBSITE}
+                    href={MW_CARDS_WEBSITE}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={buildClassName(styles.item, styles.itemMenu)}
                   >
-                    <img className={styles.menuIcon} src={mtwCardsImg} alt={lang('MyTonWallet Cards NFT')} />
-                    <span className={styles.itemTitle}>{lang('MyTonWallet Cards NFT')}</span>
+                    <img className={styles.menuIcon} src={mwCardsImg} alt={lang('My Wallet Cards NFT')} />
+                    <span className={styles.itemTitle}>{lang('My Wallet Cards NFT')}</span>
 
                     <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                   </a>
@@ -804,7 +804,6 @@ function Settings({
         return (
           <SettingsAbout
             isActive={isActive && isSlideActive}
-            theme={theme}
             onBackClick={handleBackClick}
           />
         );

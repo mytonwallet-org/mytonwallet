@@ -43,7 +43,7 @@ object TonConfig : MBlockchainConfig {
                 """^([-\da-z]+\.){0,2}[\da-z]{1,24}\.(vip|ton\.vip|vip\.ton)$""",
                 RegexOption.IGNORE_CASE
             ),
-            Regex("""^([-\da-z]+\.){0,2}[-\da-z]{1,127}\.gram$""", RegexOption.IGNORE_CASE)
+            Regex("""^([-\da-z]+\.){0,2}[-\da-z]{1,127}\.grm$""", RegexOption.IGNORE_CASE)
         )
         return zones.any { it.matches(address) }
     }

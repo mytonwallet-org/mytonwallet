@@ -38,7 +38,7 @@ let hidImportPromise: Promise<{
 }> | undefined;
 let bleImportPromise: Promise<BleConnectorClass> | undefined;
 let BleConnector: BleConnectorClass;
-let MtwHidTransport: HIDTransportClass;
+let MwHidTransport: HIDTransportClass;
 let listLedgerDevices: ListLedgerDevicesFunction;
 
 async function ensureBleConnector() {
@@ -65,7 +65,7 @@ async function ensureHidTransport() {
       };
     });
     const result = await hidImportPromise;
-    MtwHidTransport = result.transport;
+    MwHidTransport = result.transport;
     listLedgerDevices = result.listLedgerDevices;
   }
 
@@ -79,7 +79,7 @@ export async function detectAvailableTransports() {
   await ensureBleConnector();
   await ensureHidTransport();
   const [hid, bluetooth, webUsb] = await Promise.all([
-    IS_ANDROID_APP ? MtwHidTransport.isSupported() : TransportWebHID.isSupported(),
+    IS_ANDROID_APP ? MwHidTransport.isSupported() : TransportWebHID.isSupported(),
     BleConnector ? BleConnector.isSupported() : false,
     TransportWebUSB.isSupported(),
   ]);
@@ -213,7 +213,7 @@ async function connectCapacitorHID(): Promise<HIDTransport> {
 
     try {
       return await Promise.race([
-        MtwHidTransport.open(device),
+        MwHidTransport.open(device),
         new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error()), 1000);
         }),

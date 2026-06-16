@@ -31,7 +31,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "504EC3031FED79650016851F"
-               BuildableName = "MyTonWallet.app"
+               BuildableName = "My Wallet.app"
                BlueprintName = "MyTonWallet"
                ReferencedContainer = "container:App.xcodeproj">
             </BuildableReference>
@@ -72,7 +72,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "504EC3031FED79650016851F"
-            BuildableName = "MyTonWallet.app"
+            BuildableName = "My Wallet.app"
             BlueprintName = "MyTonWallet"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>
@@ -113,7 +113,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "504EC3031FED79650016851F"
-            BuildableName = "MyTonWallet.app"
+            BuildableName = "My Wallet.app"
             BlueprintName = "MyTonWallet"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>

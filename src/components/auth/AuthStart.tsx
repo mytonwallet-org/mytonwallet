@@ -29,7 +29,6 @@ import { PARTICLE_HEIGHT, PARTICLE_LANDSCAPE_HEIGHT } from '../ui/ImageWithParti
 
 import styles from './Auth.module.scss';
 
-import logoDarkPath from '../../assets/logoDark.svg';
 import logoLightPath from '../../assets/logoLight.svg';
 
 interface OwnProps {
@@ -73,7 +72,6 @@ function AuthStart({
   const canvasRef = useRef<HTMLCanvasElement>();
   const { isLandscape } = useDeviceScreen();
   const appTheme = useAppTheme(theme);
-  const logoPath = appTheme === 'light' ? logoLightPath : logoDarkPath;
   const [isLogoReady, markLogoReady] = useFlag();
   const [isLogoAnimated, markLogoAnimated] = useFlag();
   const logoRef = useMediaTransition<HTMLImageElement>(isLogoReady);
@@ -167,7 +165,7 @@ function AuthStart({
         ) : (
           <img
             ref={logoRef}
-            src={logoPath}
+            src={logoLightPath}
             alt={APP_NAME}
             className={buildClassName(
               styles.logo,

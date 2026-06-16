@@ -1,4 +1,4 @@
-# This file is for tma.mytonwallet.io hosted on Netlify
+# This file is for tma.mywallet.io hosted on Netlify
 /
   Content-Security-Policy: {{CSP}}
   X-Content-Type-Options: nosniff

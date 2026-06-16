@@ -1,8 +1,6 @@
 import React, { type ElementRef, memo, useState } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
-import type { Theme } from '../../global/types';
-
 import { APP_NAME } from '../../config';
 import { getDoesUsePinPad, getIsNativeBiometricAuthSupported } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -13,7 +11,6 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import PasswordForm from '../ui/PasswordForm';
-import Logo from './Logo';
 
 import styles from './AppLocked.module.scss';
 
@@ -22,7 +19,6 @@ const PINPAD_RESET_DELAY = 300;
 interface OwnProps {
   isActive: boolean;
   ref: ElementRef<HTMLDivElement>;
-  theme: Theme;
   innerContentTopPosition?: number;
   shouldHideBiometrics: boolean;
   onSubmit: NoneToVoidFunction;
@@ -31,7 +27,6 @@ interface OwnProps {
 function PasswordFormSlide({
   isActive,
   ref,
-  theme,
   innerContentTopPosition = 0,
   shouldHideBiometrics,
   onSubmit,
@@ -79,7 +74,6 @@ function PasswordFormSlide({
         onSubmit={handleSubmitPassword}
         onUpdate={handlePasswordChange}
       >
-        <Logo theme={theme} />
         <span className={buildClassName(styles.title, 'rounded-font')}>{APP_NAME}</span>
       </PasswordForm>
     </div>

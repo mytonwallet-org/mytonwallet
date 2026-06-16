@@ -62,7 +62,7 @@ class SettingsVM {
                 SettingsItem(
                     identifier = SettingsItem.Identifier.MTW_CARDS_NFT,
                     icon = R.drawable.ic_mtw_nft,
-                    title = LocaleController.getString("MyTonWallet Cards NFT"),
+                    title = LocaleController.getString("My Wallet Cards NFT"),
                     hasTintColor = false
                 ),
                 SettingsItem(

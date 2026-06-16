@@ -332,7 +332,7 @@ public struct DeeplinkBuilder: Sendable {
         IntentResult(
             type: "portfolio",
             message: i18n.t("portfolio.message", lang: lang),
-            deeplinks: [Deeplink(title: i18n.t("portfolio.button", lang: lang), url: "https://portfolio.mytonwallet.io")]
+            deeplinks: [Deeplink(title: i18n.t("portfolio.button", lang: lang), url: "https://portfolio.mywallet.io")]
         )
     }
 

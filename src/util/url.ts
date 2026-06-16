@@ -4,10 +4,10 @@ import type { LangCode } from '../global/types';
 import {
   DEFAULT_CHAIN,
   EMPTY_HASH_VALUE,
-  MTW_CARDS_BASE_URL,
-  MTW_NEWS_CHANNEL_NAME,
-  MTW_TIPS_CHANNEL_NAME,
-  MYTONWALLET_BLOG,
+  MW_CARDS_BASE_URL,
+  MW_NEWS_CHANNEL_NAME,
+  MW_TIPS_CHANNEL_NAME,
+  MY_WALLET_BLOG,
   SELF_UNIVERSAL_HOST_URL,
 } from '../config';
 import { base64ToHex } from './base64toHex';
@@ -239,19 +239,19 @@ export function isTelegramUrl(url: string) {
 }
 
 export function getCardNftImageUrl(nft: ApiNft, format: 'svg' | 'webp' = 'svg'): string {
-  return `${MTW_CARDS_BASE_URL}${nft.metadata.mtwCardId}.${format}`;
+  return `${MW_CARDS_BASE_URL}${nft.metadata.mtwCardId}.${format}`;
 }
 
 export function getBlogUrl(lang: LangCode): string {
-  return MYTONWALLET_BLOG[lang] || MYTONWALLET_BLOG.en!;
+  return MY_WALLET_BLOG[lang] || MY_WALLET_BLOG.en!;
 }
 
 export function getTelegramNewsChannelUrl(lang: LangCode): string {
-  return `https://t.me/${MTW_NEWS_CHANNEL_NAME[lang] ?? MTW_NEWS_CHANNEL_NAME.en}`;
+  return `https://t.me/${MW_NEWS_CHANNEL_NAME[lang] ?? MW_NEWS_CHANNEL_NAME.en}`;
 }
 
 export function getTelegramTipsChannelUrl(lang: LangCode): string {
-  return `https://t.me/${MTW_TIPS_CHANNEL_NAME[lang] ?? MTW_TIPS_CHANNEL_NAME.en}`;
+  return `https://t.me/${MW_TIPS_CHANNEL_NAME[lang] ?? MW_TIPS_CHANNEL_NAME.en}`;
 }
 
 export function getViewTransactionUrl(chain: ApiChain, txId: string, isTestnet?: boolean): string {

@@ -68,19 +68,19 @@
       background-image: var(--bg) !important;
     }
 
-    &:global(.MtwCard__black) {
+    &:global(.MwCard__black) {
       background-image: var(--bg), linear-gradient(to bottom, #{v.$blackCardGradient}) !important;
     }
 
-    &:global(.MtwCard__platinum) {
+    &:global(.MwCard__platinum) {
       background-image: var(--bg), linear-gradient(to bottom, #{v.$platinumCardGradient}) !important;
     }
 
-    &:global(.MtwCard__gold) {
+    &:global(.MwCard__gold) {
       background-image: var(--bg), linear-gradient(to bottom, #{v.$goldCardGradient}) !important;
     }
 
-    &:global(.MtwCard__silver) {
+    &:global(.MwCard__silver) {
       background-image: var(--bg), linear-gradient(to bottom, #{v.$silverCardGradient}) !important;
     }
   }

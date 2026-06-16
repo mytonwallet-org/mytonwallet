@@ -714,13 +714,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         }
 
 
-        val nativeSendAmount = if (tokenToSend.slug == tokenToSend.mBlockchain?.nativeSlug) {
-            sendAmount
-        } else {
-            BigInteger.ZERO
-        } + (estimated.fee ?: BigInteger.ZERO)
-
-        if (nativeSendAmount > state.nativeTokenToSendBalance && state.tokenToSendIsSupported) {
+        val nativeFee = estimated.fee ?: BigInteger.ZERO
+        if (nativeFee > state.nativeTokenToSendBalance && state.tokenToSendIsSupported) {
             if (estimated.request.isDiesel) {
                 if (shouldAuthorizeDiesel) {
                     return ButtonState(

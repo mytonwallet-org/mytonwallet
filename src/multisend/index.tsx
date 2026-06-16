@@ -47,7 +47,7 @@ void (async () => {
   });
 
   const walletInfoList = await tonConnect.getWallets();
-  const mtwWalletInfo = walletInfoList.find((walletInfo) => walletInfo.appName === 'mytonwallet');
+  const mwWalletInfo = walletInfoList.find((walletInfo) => walletInfo.appName === 'mytonwallet');
 
   if (DEBUG) {
     // eslint-disable-next-line no-console
@@ -56,7 +56,7 @@ void (async () => {
 
   requestMutation(() => {
     TeactDOM.render(
-      <App mtwWalletInfo={mtwWalletInfo} />,
+      <App mwWalletInfo={mwWalletInfo} />,
       document.getElementById('root')!,
     );
 
