@@ -4,7 +4,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
 import type { Account, Theme, UserToken } from '../../global/types';
 
-import { MTW_CARDS_COLLECTION, MTW_CARDS_WEBSITE } from '../../config';
+import { MW_CARDS_COLLECTION, MW_CARDS_WEBSITE } from '../../config';
 import {
   selectAccount,
   selectAccountSettings,
@@ -92,12 +92,12 @@ function CustomizeWalletModal({
 
   useEffectWithPrevDeps(([prevIsOpen]) => {
     if (isOpen && accountId) {
-      fetchNftsFromCollection({ collection: { chain: 'ton', address: MTW_CARDS_COLLECTION } });
+      fetchNftsFromCollection({ collection: { chain: 'ton', address: MW_CARDS_COLLECTION } });
     }
 
     return () => {
       if (prevIsOpen && !isOpen) {
-        clearNftCollectionLoading({ collection: { chain: 'ton', address: MTW_CARDS_COLLECTION } });
+        clearNftCollectionLoading({ collection: { chain: 'ton', address: MW_CARDS_COLLECTION } });
       }
     };
   }, [isOpen, accountId]);
@@ -123,7 +123,7 @@ function CustomizeWalletModal({
     };
 
     const cardsAddresses = orderedNftAddresses.filter(
-      (address) => nfts[address]?.collectionAddress === MTW_CARDS_COLLECTION && !nfts[address]?.isHidden,
+      (address) => nfts[address]?.collectionAddress === MW_CARDS_COLLECTION && !nfts[address]?.isHidden,
     );
 
     const cardsByAddress = cardsAddresses.reduce<Record<string, ApiNft>>((result, address) => {
@@ -168,7 +168,7 @@ function CustomizeWalletModal({
       if (isMintingCardsAvailable && !isNftBuyingDisabled) {
         openMintCardModal();
       } else {
-        void openUrl(MTW_CARDS_WEBSITE);
+        void openUrl(MW_CARDS_WEBSITE);
       }
     };
     callback();
@@ -213,7 +213,7 @@ function CustomizeWalletModal({
             isNftBuyingDisabled={isNftBuyingDisabled}
           />
           <p className={styles.helperTextOutside}>
-            {lang('Get a unique MyTonWallet Card to unlock new palettes.')}
+            {lang('Get a unique My Wallet Card to unlock new palettes.')}
           </p>
         </div>
         <div className={styles.section}>
@@ -222,7 +222,7 @@ function CustomizeWalletModal({
           </div>
 
           <p className={styles.helperTextOutside}>
-            {lang('Browse MyTonWallet Cards available for purchase.')}
+            {lang('Browse My Wallet Cards available for purchase.')}
           </p>
         </div>
       </>
@@ -325,7 +325,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const tokens = selectCurrentAccountTokens(global);
   const { config: { cardsInfo } = {} } = accountState || {};
 
-  const areCardsLoading = !accountState?.nfts?.isLoadedByAddress?.[MTW_CARDS_COLLECTION];
+  const areCardsLoading = !accountState?.nfts?.isLoadedByAddress?.[MW_CARDS_COLLECTION];
 
   return {
     accountId,

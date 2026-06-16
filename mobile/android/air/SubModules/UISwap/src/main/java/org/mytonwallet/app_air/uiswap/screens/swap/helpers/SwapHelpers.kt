@@ -2,10 +2,8 @@ package org.mytonwallet.app_air.uiswap.screens.swap.helpers
 
 import org.mytonwallet.app_air.uiswap.screens.swap.DEFAULT_OUR_SWAP_FEE
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
-import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
@@ -50,46 +48,47 @@ class SwapHelpers {
             fallbackToMax: Boolean = false
         ): BigInteger {
             val tokenToSend = tokenToSend ?: return BigInteger.ZERO
-            val tokenToReceive = tokenToReceive
-            var balance = balances?.get(tokenToSend.slug) ?: BigInteger.ZERO
+            val tokenBalance = balances?.get(tokenToSend.slug) ?: BigInteger.ZERO
 
             val swapType = swapType(
                 tokenToSend,
                 tokenToReceive,
                 addressByChain ?: emptyMap()
             )
-            if (tokenToSend.mBlockchain?.nativeSlug == tokenToSend.slug) {
-                val networkFeeData =
-                    FeeEstimationHelpers.networkFeeData(
-                        tokenToSend,
-                        lastSwapEstimateResponse?.request?.wallet?.isSupportedChain(tokenToSend.mBlockchain) == true,
-                        swapType,
-                        lastSwapEstimateResponse?.dex?.networkFee
-                            ?: lastSwapEstimateResponse?.fee?.doubleAbsRepresentation(tokenToSend.nativeToken?.decimals)
-                    )
-                balance -= CoinUtils.fromDecimal(networkFeeData?.fee, tokenToSend.decimals)
-                    ?: BigInteger.ZERO
+
+            val maxAmountFromBackend = if (lastSwapEstimateResponse?.request?.isFromAmountMax == true) {
+                CoinUtils.fromDecimal(lastSwapEstimateResponse.dex?.fromAmount, tokenToSend.decimals)
+            } else {
+                null
+            }
+            if (maxAmountFromBackend != null) {
+                return maxAmountFromBackend
             }
 
-            tokenToReceive?.let {
-                if (swapType == SwapType.ON_CHAIN) {
-                    lastSwapEstimateResponse?.dex?.dieselFee?.toDouble()?.let {
-                        balance -= it.toBigInteger(tokenToSend.decimals)!!
-                    }
+            if (swapType == SwapType.CROSS_CHAIN_TO_WALLET) {
+                return if (fallbackToMax) tokenBalance else BigInteger.ZERO
+            }
 
-                    val ourFeePercent =
-                        lastSwapEstimateResponse?.dex?.ourFeePercent ?: DEFAULT_OUR_SWAP_FEE
-                    balance = balance.multiply(BigInteger.TEN.pow(9))
-                        .divide((1 + (ourFeePercent / 100)).toBigInteger(9))
+            var maxAmount = tokenBalance
+
+            lastSwapEstimateResponse?.explainedFee?.fullFee?.networkTerms?.let { networkTerms ->
+                maxAmount -= networkTerms.token ?: BigInteger.ZERO
+
+                if (tokenToSend.isBlockchainNative) {
+                    maxAmount -= networkTerms.native ?: BigInteger.ZERO
                 }
             }
 
-            if (balance <= BigInteger.ZERO) {
-                return if (fallbackToMax) balances?.get(tokenToSend.slug)
-                    ?: BigInteger.ZERO else BigInteger.ZERO
+            val ourFeePercent = lastSwapEstimateResponse?.dex?.ourFeePercent
+                ?: if (swapType == SwapType.ON_CHAIN) DEFAULT_OUR_SWAP_FEE else 0.0
+            maxAmount = maxAmount.multiply(BigInteger.TEN.pow(9))
+                .divide((1 + (ourFeePercent / 100)).toBigInteger(9))
+
+            if (maxAmount <= BigInteger.ZERO) {
+                return if (fallbackToMax) tokenBalance else BigInteger.ZERO
             }
 
-            return balance
+            return maxAmount
         }
 
         fun explainApiSwapFee(

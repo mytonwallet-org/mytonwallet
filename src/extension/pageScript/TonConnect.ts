@@ -26,7 +26,7 @@ import { transformTonConnectMessageToUnified } from '../../api/dappProtocols/ada
 
 declare global {
   interface Window {
-    mytonwallet: {
+    mytonwallet: { // For legacy reason
       tonconnect: TonConnect;
     };
     tonwallet: {

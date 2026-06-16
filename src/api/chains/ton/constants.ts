@@ -37,7 +37,7 @@ export const TINIEST_TOKEN_TRANSFER_REAL_AMOUNT = 3000000n; // 0.003 TON
 export const TOKEN_TRANSFER_FORWARD_AMOUNT = 1n; // 0.000000001 TON
 export const CLAIM_MINTLESS_AMOUNT = 20000000n; // 0.02 TON
 
-/** The amount that MyTonWallet attaches to NFT transfers */
+/** The amount that My Wallet attaches to NFT transfers */
 export const NFT_TRANSFER_AMOUNT = 100000000n; // 0.1 TON
 export const NFT_TRANSFER_REAL_AMOUNT = 5000000n; // 0.005 TON
 export const NFT_TRANSFER_FORWARD_AMOUNT = 1n; // 0.000000001 TON

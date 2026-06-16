@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
-import type { AutolockValueType, Theme } from '../../global/types';
+import type { AutolockValueType } from '../../global/types';
 
 import { AUTOLOCK_OPTIONS_LIST, DEBUG, IS_TELEGRAM_APP } from '../../config';
 import {
@@ -49,7 +49,6 @@ const ACTIVATION_EVENT_OPTIONS = { capture: true };
 interface StateProps {
   isNonNativeBiometricAuthEnabled: boolean;
   autolockValue?: AutolockValueType;
-  theme: Theme;
   isManualLockActive?: boolean;
   isAppLockEnabled?: boolean;
   shouldHideBiometrics?: boolean;
@@ -160,7 +159,6 @@ function useContentSlide(
 function AppLocked({
   isNonNativeBiometricAuthEnabled,
   autolockValue = 'never',
-  theme,
   isManualLockActive,
   isAppLockEnabled,
   shouldHideBiometrics,
@@ -290,7 +288,6 @@ function AppLocked({
             ? (
               <UnlockButtonSlide
                 ref={ref}
-                theme={theme}
                 innerContentTopPosition={innerContentTopPosition}
                 handleChangeSlideForBiometricAuth={handleChangeSlideForBiometricAuth}
               />
@@ -299,7 +296,6 @@ function AppLocked({
               <PasswordFormSlide
                 ref={ref}
                 isActive={isActive}
-                theme={theme}
                 innerContentTopPosition={innerContentTopPosition}
                 shouldHideBiometrics={!!shouldHideBiometrics}
                 onSubmit={unlock}
@@ -352,7 +348,6 @@ export default memo(withGlobal((global): StateProps => {
     autolockValue,
     canRender: Boolean(isAppLockEnabled && isPasswordPresent),
     isAppLockEnabled,
-    theme: global.settings.theme,
     isManualLockActive: global.isManualLockActive,
     shouldHideBiometrics: global.appLockHideBiometrics,
   };

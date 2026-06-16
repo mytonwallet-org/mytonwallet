@@ -22,7 +22,7 @@ export function parseMfaStartParam(startParam?: string): MfaStartParam {
 export function getMfaWalletAppInfo(walletApp: MfaWalletApp) {
   return walletApp === 'gram'
     ? { name: 'Gram Wallet', deeplink: 'https://go.gramwallet.io' }
-    : { name: 'MyTonWallet', deeplink: 'https://go.mytonwallet.org' };
+    : { name: 'My Wallet', deeplink: 'https://go.mytonwallet.org' };
 }
 
 function parseWalletPrefix(startParam?: string): Pick<MfaStartParam, 'id' | 'walletApp'> {

@@ -197,7 +197,7 @@ export function shouldShowTransactionAddress(transaction: ApiTransactionActivity
   return shouldHide ? [] : ['list', 'modal'];
 }
 
-/** "Our" is staking that can be controlled with MyTonWallet app */
+/** "Our" is staking that can be controlled with My Wallet app */
 export function isOurStakingTransaction({ type, isIncoming, toAddress, fromAddress }: ApiTransaction) {
   return STAKING_TRANSACTION_TYPES.has(type) && ALL_STAKING_POOLS.includes(isIncoming ? fromAddress : toAddress);
 }

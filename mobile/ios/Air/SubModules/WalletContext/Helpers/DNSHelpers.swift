@@ -12,13 +12,13 @@ private struct ZonesRegex {
     static let ton = try! NSRegularExpression(pattern: "^([\\-\\da-z]+\\.){0,2}([\\-\\da-z]{4,126})\\.ton$", options: .caseInsensitive)
     static let t_me = try! NSRegularExpression(pattern: "^([\\-\\da-z]+\\.){0,2}([\\-_\\da-z]{4,126})\\.t\\.me$", options: .caseInsensitive)
     static let vip = try! NSRegularExpression(pattern: #"^(?<base>([\-\da-z]+\.){0,2}([\da-z]{1,24}))\.(ton\.vip|vip\.ton|vip)$"#, options: .caseInsensitive)
-    static let gram = try! NSRegularExpression(pattern: #"^(?<base>([\-\da-z]+\.){0,2}([\da-z]{1,24}))\.(gram)$"#, options: .caseInsensitive)
+    static let grm = try! NSRegularExpression(pattern: #"^(?<base>([\-\da-z]+\.){0,2}([\da-z]{1,24}))\.grm$"#, options: .caseInsensitive)
 }
 private let regexes = [
     ZonesRegex.ton,
     ZonesRegex.t_me,
     ZonesRegex.vip,
-    ZonesRegex.gram
+    ZonesRegex.grm
 ]
 
 public class DNSHelpers {

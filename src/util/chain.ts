@@ -80,7 +80,7 @@ export interface ChainConfig {
   chainStandard?: ApiChain;
   /** Whether the chain supports domain names that resolve to regular addresses */
   isDnsSupported: boolean;
-  /** Whether MyTonWallet supports purchasing crypto in that blockchain with a bank card in Russia */
+  /** Whether My Wallet supports purchasing crypto in that blockchain with a bank card in Russia */
   canBuyWithCardInRussia: boolean;
   /** Whether the chain is supported by the on-ramp widget (Moonpay outside RU, Avanchange in RU) */
   isOnRampSupported: boolean;

@@ -1,0 +1,134 @@
+.MwCard__darkText {
+  --main-text: #000;
+  --second-text: #00000099;
+  --action-color: #00000099;
+  --action-color-hover: #000;
+  --color-card-change-text: #00000099;
+  --color-card-button: rgba(211, 211, 211, 0.35);
+
+  .glare-text {
+    --glare-main: #000;
+    --glare-accent: rgba(0, 0, 0, 0.3);
+  }
+}
+
+.MwCard__lightText {
+  --main-text: #FFF;
+  --second-text: #FFFFFF99;
+  --action-color: #FFFFFFBB;
+  --action-color-hover: #FFF;
+}
+
+.MwCard__standard:not(.MwCard__darkText) {
+  --color-card-button: #FFFFFF29;
+}
+
+.MwCard__black {
+  --main-text: #FFF;
+  --second-text: #A6A6B1;
+  --action-color: rgba(255, 255, 255, 0.23);
+  --action-color-hover: rgba(255, 255, 255, 0.75);
+  --color-card-button: rgba(171, 172, 173, 0.1);
+  --color-card-change-text: rgba(171, 172, 173, 0.8);
+}
+
+.MwCard__platinum {
+  --main-text: #FFF;
+  --second-text: #A6A6B1;
+  --action-color: #888891;
+  --action-color-hover: #FFFFFF;
+  --color-card-button: rgba(222, 222, 224, 0.1);
+  --color-card-change-text: rgba(222, 222, 224, 0.8);
+}
+
+.MwCard__gold {
+  --main-text: #34270A;
+  --second-text: #845F16;
+  --action-color: #B07D1D;
+  --action-color-hover: #845F16;
+  --color-card-button: rgba(101, 70, 10, 0.1);
+  --color-card-change-text: rgba(101, 70, 10, 0.8);
+}
+
+.MwCard__silver {
+  --main-text: #272727;
+  --second-text: #6E6E6E;
+  --action-color: #888;
+  --action-color-hover: #595959;
+  --color-card-button: rgba(68, 68, 68, 0.1);
+  --color-card-change-text: rgba(68, 68, 68, 0.8);
+}
+
+.MwCard__gold .glare-text,
+.MwCard__silver .glare-text {
+  --glare-main: rgba(39, 39, 39, 0.7);
+  --glare-accent: rgba(160, 160, 160, 0.3);
+}
+
+.gradientText {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.9) 0%, #5B5C64 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  -webkit-text-fill-color: transparent;
+
+  & > .icon {
+    background: #6F7076;
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    -webkit-text-fill-color: transparent;
+  }
+
+  .MwCard__silver & {
+    background-image: radial-gradient(71.63% 170.11% at 28.37% 50%, #272727 0%, #989898 100%);
+
+    > .icon {
+      background-color: #989898;
+      background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
+    }
+  }
+
+  .MwCard__gold & {
+    background-image: radial-gradient(71.7% 170.29% at 28.3% 50%, #4C3403 0%, #B07D1D 100%);
+
+    > .icon {
+      background-color: #B07D1D;
+      background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
+    }
+  }
+
+  .MwCard__platinum & {
+    background-image: radial-gradient(71.7% 170.29% at 28.3% 50%, #FFFFFF 0%, #77777F 100%);
+
+    > .icon {
+      background-color: #77777F;
+      background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
+    }
+  }
+
+  .MwCard__black & {
+    background-image: radial-gradient(71.63% 170.11% at 28.37% 50%, #CECECF 0%, #444546 100%);
+
+    > .icon {
+      background-color: #444546;
+      background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
+    }
+  }
+}

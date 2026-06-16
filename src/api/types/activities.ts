@@ -19,7 +19,7 @@ type BaseActivity = {
     marketplace?: ApiNftMarketplace;
     /** Request identifier from the underlying message where available (TON only) */
     queryId?: string;
-    /** Marks hidden transfers that include the MyTonWallet swap fee */
+    /** Marks hidden transfers that include the My Wallet swap fee */
     isOurSwapFee?: boolean;
     /** Aggregated swap marker used to merge internal aggregator routes */
     mtwAggregator?: {

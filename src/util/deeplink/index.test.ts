@@ -48,10 +48,10 @@ const TEST_TON_ADDRESS = 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S';
 const TEST_TRON_ADDRESS = 'TBvwz11CKdgBymTtF7Q6UfhGWQyEqNrodT';
 const TEST_EVM_ADDRESS = '0x9429C8Af1089efD542b313156Af2DFA35c7e0a81';
 const TEST_BASE_ADDRESS = '0x0000000000000000000000000000000000000001';
-const TEST_DNS_NAME = 'testmytonwallet.ton';
+const TEST_DNS_NAME = 'testmywallet.ton';
 const TEST_BIN_PAYLOAD = 'te6ccgEBAQEANwAAaV0r640BleSq4Ql3m5OrdlSApYTNRMdDGUFXwTpwZ1oe1G8cPlS_Zym8CwoAdO4mWSned-Fg';
 const TEST_STATE_INIT = 'te6ccgEBAgEACwACATQBAQAI_____w\\=\\=';
-const TEST_COMMENT = 'MyTonWallet';
+const TEST_COMMENT = 'My Wallet';
 const TEST_AMOUNT = 1n;
 const TEST_TRON_AMOUNT_77 = 77000000n; // 77 TRX in smallest units (6 decimals)
 
@@ -546,22 +546,6 @@ describe('processSelfDeeplink', () => {
 
       expect(result).toBe(true);
       expect(openUrl).toHaveBeenCalledWith('https://checkin.mytonwallet.org?r=ABC123');
-    });
-  });
-
-  describe('Giveaway command', () => {
-    it('should open giveaway URL without giveaway ID', async () => {
-      const result = await processSelfDeeplink('mtw://giveaway/');
-
-      expect(result).toBe(true);
-      expect(openUrl).toHaveBeenCalledWith('https://giveaway.mytonwallet.io');
-    });
-
-    it('should open giveaway URL with giveaway ID', async () => {
-      const result = await processSelfDeeplink('https://go.mytonwallet.org/giveaway/GIVEAWAY123');
-
-      expect(result).toBe(true);
-      expect(openUrl).toHaveBeenCalledWith('https://giveaway.mytonwallet.io?giveawayId=GIVEAWAY123');
     });
   });
 

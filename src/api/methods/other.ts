@@ -18,6 +18,7 @@ import { storage } from '../storages';
 
 import RECEIVE_GRADIENT_SVGS from '../../assets/receiveGradientSvgs';
 
+// `MyTonWallet` is here for backward compatibility reasons
 const SIGN_MESSAGE = Buffer.from('MyTonWallet_AuthToken_n6i0k4w8pb');
 
 export async function getBackendAuthToken(accountId: string, password: string) {

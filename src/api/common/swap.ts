@@ -1,6 +1,6 @@
 import type { ApiActivity, ApiSwapActivity, ApiSwapHistoryItem } from '../types';
 
-import { MTW_AGGREGATOR_QUERY_ID, SWAP_API_VERSION, TONCOIN } from '../../config';
+import { MW_AGGREGATOR_QUERY_ID, SWAP_API_VERSION, TONCOIN } from '../../config';
 import { Big } from '../../lib/big.js';
 import { parseAccountId } from '../../util/account';
 import { buildBackendSwapId, getActivityTokenSlugs, getIsBackendSwapId, parseTxId } from '../../util/activities';
@@ -214,7 +214,7 @@ function aggregateTonSwapActivities(activities: ApiActivity[]) {
     }
 
     if (
-      activity.extra?.queryId === MTW_AGGREGATOR_QUERY_ID
+      activity.extra?.queryId === MW_AGGREGATOR_QUERY_ID
       || activity.extra?.isOurSwapFee
     ) {
       group.hasAggregatorMarker = true;

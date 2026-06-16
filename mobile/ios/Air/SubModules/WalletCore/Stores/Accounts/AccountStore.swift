@@ -544,7 +544,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             return APP_NAME
         }
         let mnemonicCount = accountsById.values.filter { $0.type == .mnemonic }.count
-        let title = IS_GRAM_WALLET ? "Wallet" : "MyTonWallet"
+        let title = IS_GRAM_WALLET ? "Wallet" : "My Wallet"
         return "\(title) \(mnemonicCount + 1)"
     }
 
@@ -1174,7 +1174,7 @@ extension _AccountStore: DependencyKey {
         accountStore.accountsById = [
             MAccount(
                 id: "0-mainnet",
-                title: "MyTonWallet",
+                title: "My Wallet",
                 type: .mnemonic,
                 byChain: [
                     .ton: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34Aef3dsdaQ8N", domain: nil),

@@ -1557,7 +1557,7 @@ function getDieselToncoinFee(token: ApiToken) {
 
   // Multiplying by 2 because the diesel transfer has 2 transactions:
   // - for the transfer itself,
-  // - for sending the diesel to the MTW wallet.
+  // - for sending the diesel to the My Wallet.
   if (!isStars) {
     amount *= 2n;
     realFee *= 2n;

@@ -53,11 +53,11 @@
     mask-composite: exclude;
   }
 
-  &:global(.MtwCard__black)::before {
+  &:global(.MwCard__black)::before {
     padding: 2px;
   }
 
-  &:global(.MtwCard__standard) {
+  &:global(.MwCard__standard) {
     background-clip: border-box, content-box;
     background-origin: border-box, content-box;
     background-size: cover, cover;
@@ -102,7 +102,7 @@
   background-image: linear-gradient(to bottom, #5CE850 0%, #5CE850 100%) !important;
 }
 
-:global(.MtwCard__black)::before {
+:global(.MwCard__black)::before {
   background-image: radial-gradient(28.79% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
                     linear-gradient(258.61deg, rgba(255, 255, 255, 0.12) 33.38%, rgba(255, 255, 255, 0.24) 48.39%) !important;
 
@@ -112,17 +112,17 @@
   }
 }
 
-:global(.MtwCard__platinum)::before {
+:global(.MwCard__platinum)::before {
   background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
                     linear-gradient(258.61deg, rgba(119, 119, 127, 0.5) 33.38%, rgba(255, 255, 255, 0.5) 48.39%) !important;
 }
 
-:global(.MtwCard__gold)::before {
+:global(.MwCard__gold)::before {
   background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
                     linear-gradient(258.61deg, rgba(76, 52, 3, 0.5) 33.38%, rgba(176, 125, 29, 0.5) 48.39%) !important;
 }
 
-:global(.MtwCard__silver)::before {
+:global(.MwCard__silver)::before {
   background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
                     linear-gradient(258.61deg, rgba(39, 39, 39, 0.5) 33.38%, rgba(152, 152, 152, 0.5) 48.39%) !important;
 }

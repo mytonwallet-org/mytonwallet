@@ -1,9 +1,9 @@
 import type { ApiNft } from '../../api/types';
 import type { GlobalState } from '../types';
 
-import { MTW_CARDS_COLLECTION } from '../../config';
+import { MW_CARDS_COLLECTION } from '../../config';
 import isEmptyObject from '../../util/isEmptyObject';
-import { pinMtwCardsFirst } from '../helpers/nfts';
+import { pinMwCardsFirst } from '../helpers/nfts';
 import { selectAccountState } from '../selectors';
 import { updateAccountSettings, updateAccountState } from './misc';
 
@@ -17,7 +17,7 @@ export function addNft(global: GlobalState, accountId: string, nft: ApiNft, shou
     nfts: {
       ...nfts,
       byAddress,
-      orderedAddresses: pinMtwCardsFirst(
+      orderedAddresses: pinMwCardsFirst(
         shouldAppendToEnd
           ? orderedAddresses.concat(nftAddress)
           : [nftAddress, ...orderedAddresses],
@@ -87,10 +87,10 @@ export function removeFromSelectedNfts(global: GlobalState, accountId: string, n
   });
 }
 
-export function updateAccountOwnedMtwCards(
+export function updateAccountOwnedMwCards(
   global: GlobalState,
   accountId: string,
-  ownedMtwCardAddresses: string[],
+  ownedMwCardAddresses: string[],
 ): GlobalState {
   const accountState = selectAccountState(global, accountId);
   if (!accountState?.nfts) return global;
@@ -98,13 +98,13 @@ export function updateAccountOwnedMtwCards(
   return updateAccountState(global, accountId, {
     nfts: {
       ...accountState.nfts,
-      ownedMtwCardAddresses,
+      ownedMwCardAddresses,
     },
   });
 }
 
 // Mirrors the `nftReceived` socket update from the activities pipeline so a freshly received NFT
-// (and the MTW-card ownership snapshot) is applied immediately, without waiting for NFT polling
+// (and the MW-card ownership snapshot) is applied immediately, without waiting for NFT polling
 export function applyIncomingNftFromActivity(
   global: GlobalState,
   accountId: string,
@@ -112,10 +112,10 @@ export function applyIncomingNftFromActivity(
 ): GlobalState {
   global = addNft(global, accountId, nft);
 
-  if (nft.collectionAddress === MTW_CARDS_COLLECTION) {
-    const owned = selectAccountState(global, accountId)?.nfts?.ownedMtwCardAddresses ?? [];
+  if (nft.collectionAddress === MW_CARDS_COLLECTION) {
+    const owned = selectAccountState(global, accountId)?.nfts?.ownedMwCardAddresses ?? [];
     if (!owned.includes(nft.address)) {
-      global = updateAccountOwnedMtwCards(global, accountId, [...owned, nft.address]);
+      global = updateAccountOwnedMwCards(global, accountId, [...owned, nft.address]);
     }
   }
 
@@ -132,14 +132,14 @@ export function applyOutgoingNftFromActivity(
 ): GlobalState {
   global = removeNft(global, accountId, nft.address);
 
-  if (nft.collectionAddress === MTW_CARDS_COLLECTION) {
+  if (nft.collectionAddress === MW_CARDS_COLLECTION) {
     // Sync owner snapshot in `settings.cardBackgroundNft`; final clear is done by `checkCardNftOwnership`
     const sentNft = { ...nft, ownerAddress: newOwnerAddress };
     global = updateAccountSettingsBackgroundNft(global, sentNft);
 
-    const owned = selectAccountState(global, accountId)?.nfts?.ownedMtwCardAddresses;
+    const owned = selectAccountState(global, accountId)?.nfts?.ownedMwCardAddresses;
     if (owned?.includes(nft.address)) {
-      global = updateAccountOwnedMtwCards(global, accountId, owned.filter((a) => a !== nft.address));
+      global = updateAccountOwnedMwCards(global, accountId, owned.filter((a) => a !== nft.address));
     }
   }
 

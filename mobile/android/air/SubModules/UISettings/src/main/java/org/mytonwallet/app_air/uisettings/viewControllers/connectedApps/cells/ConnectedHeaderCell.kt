@@ -46,7 +46,7 @@ class ConnectedHeaderCell(context: Context) :
         maxLines = 1
         useCustomEmoji = true
         text =
-            LocaleController.getString("Logged in with MyTonWallet")
+            LocaleController.getString("Logged in with My Wallet")
     }
 
     private val subtitleLabel = AppCompatTextView(context).apply {

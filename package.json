@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "4.10.7",
+  "version": "4.10.8",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -63,9 +63,6 @@
     "analyze:bundle": "node dev/analyzeBundleSize.mjs",
     "statoscope:validate-diff": "statoscope validate --input input.json --reference reference.json",
     "postversion": "./deploy/postversion.sh",
-    "giveaways:build": "webpack --config ./webpack-giveaways.config.ts && bash ./deploy/copy_to_dist.sh dist-giveaways",
-    "giveaways:build:dev": "APP_ENV=development webpack --mode development --config ./webpack-giveaways.config.ts",
-    "giveaways:dev": "APP_ENV=development webpack serve --mode development --config ./webpack-giveaways.config.ts",
     "multisend:build": "webpack --config webpack-multisend.config.ts && bash ./deploy/copy_to_dist.sh dist-multisend src/multisend/public",
     "multisend:build:dev": "APP_ENV=development webpack --mode development --config webpack-multisend.config.ts",
     "multisend:dev": "APP_ENV=development webpack serve --mode development --config webpack-multisend.config.ts",
@@ -114,7 +111,7 @@
       ]
     },
     {
-      "name": "MyTonWallet",
+      "name": "My Wallet",
       "schemes": [
         "mtw"
       ]

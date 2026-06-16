@@ -118,7 +118,7 @@ export interface DappSession<T extends string = any> {
   id: string;
   /** Which protocol established this session */
   protocolType: DappProtocolType;
-  /** MyTonWallet account ID */
+  /** My Wallet account ID */
   accountId: string;
   /** dApp metadata */
   dapp: DappMetadata;
@@ -418,7 +418,7 @@ export interface DappProtocolAdapter<T extends `${DappProtocolType}` = any> {
    * Let remote dApp know that local connection is revoked.
    * Only applicable for protocols that use deep links (SSE, WalletConnect).
    *
-   * @param accountId - MTW accountId
+   * @param accountId - MW accountId
    * @param url - The deep link URL
    */
   closeRemoteConnection(accountId: string, dapp: StoredDappConnection): Promise<void>;

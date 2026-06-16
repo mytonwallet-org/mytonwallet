@@ -1,6 +1,6 @@
-# MyTonWallet Multisend
+# My Wallet Multisend
 
-This is a standalone dapp for MyTonWallet's professional features.
+This is a standalone dapp for My Wallet's professional features.
 
 ## Development
 
@@ -28,7 +28,7 @@ npm run multisend:build:dev
 
 ## Structure
 
-The Multisend dapp follows a similar structure to the main MyTonWallet project:
+The Multisend dapp follows a similar structure to the main My Wallet project:
 
 - `/components`: UI components specific to the Multisend dapp
 - `/utils`: Utility functions and helpers
@@ -36,4 +36,4 @@ The Multisend dapp follows a similar structure to the main MyTonWallet project:
 
 ## Configuration
 
-The Multisend dapp configuration is located in `config.ts`. 
+The Multisend dapp configuration is located in `config.ts`.

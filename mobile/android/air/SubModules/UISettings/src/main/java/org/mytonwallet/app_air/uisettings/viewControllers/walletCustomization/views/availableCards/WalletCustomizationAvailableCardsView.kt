@@ -149,7 +149,7 @@ open class WalletCustomizationAvailableCardsView(
             setTextColor(WColor.SecondaryText)
             gravity = Gravity.CENTER
             text =
-                LocaleController.getString("MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.")
+                LocaleController.getString("My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.")
             alpha = 0f
         }
         WView(context).apply {

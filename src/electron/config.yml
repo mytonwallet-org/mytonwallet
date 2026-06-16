@@ -1,9 +1,9 @@
-productName: "MyTonWallet"
+productName: "My Wallet"
 artifactName: "${productName}-${arch}.${ext}"
 appId: "io.mytonwallet.electron"
 extraMetadata:
   main: "./dist/electron.js"
-  productName: "MyTonWallet"
+  productName: "My Wallet"
 files:
   - "dist"
   - "package.json"
@@ -24,9 +24,9 @@ protocols:
     schemes: ["ton"]
   - name: "TonConnect"
     schemes: ["tc"]
-  - name: "TonConnect MyTonWallet"
+  - name: "TonConnect My Wallet"
     schemes: ["mytonwallet-tc"]
-  - name: "MyTonWallet"
+  - name: "My Wallet"
     schemes: ["mtw"]
 publish:
   provider: "github"
@@ -52,7 +52,7 @@ mac:
   icon: "public/icon-electron-macos.icns"
 
 dmg:
-  title: "MyTonWallet installer"
+  title: "My Wallet installer"
   background: "public/background-electron-dmg.tiff"
   contents:
     - x: 148
@@ -70,4 +70,3 @@ linux:
         - x64
         - arm64
   icon: "public/icon-256x256.png"
-  

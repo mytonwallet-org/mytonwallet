@@ -26,7 +26,7 @@ public let STAKED_TOKEN_SLUGS: Set<String> = [
   TON_TSUSDE_SLUG,
 ]
 
-public let MYTONWALLET_MULTISEND_DAPP_URL = "https://multisend.mytonwallet.io/";
+public let MYTONWALLET_MULTISEND_DAPP_URL = "https://multisend.mywallet.io/";
 
 public let NFT_MARKETPLACE_URL = "https://opensea.io/"
 public let NFT_MARKETPLACE_TITLE = "OpenSea"
@@ -57,11 +57,11 @@ public let MAX_PRICE_IMPACT_VALUE = 5.0
 
 public let JSBRIDGE_IDENTIFIER = "jsbridge"
 
-public var APP_WEBSITE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io" : "https://mytonwallet.io" }
-public let APP_BLOG_URL = "https://mytonwallet.io/en/blog/"
-public var APP_TERMS_OF_USE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/terms-of-use/" : "https://mytonwallet.io/terms-of-use" }
-public var APP_PRIVACY_POLICY_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/privacy-policy/" : "https://mytonwallet.io/privacy-policy" }
-public var APP_INSTALL_URL: String { IS_GRAM_WALLET ? "https://apps.apple.com/us/app/gram-wallet/id6763345750" : "https://get.mytonwallet.io/ios" }
+public var APP_WEBSITE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io" : "https://mywallet.io" }
+public let APP_BLOG_URL = "https://mywallet.io/en/blog/"
+public var APP_TERMS_OF_USE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/terms-of-use/" : "https://mywallet.io/terms-of-use/" }
+public var APP_PRIVACY_POLICY_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/privacy-policy/" : "https://mywallet.io/privacy-policy/" }
+public var APP_INSTALL_URL: String { IS_GRAM_WALLET ? "https://apps.apple.com/us/app/gram-wallet/id6763345750" : "https://get.mywallet.io/ios" }
 public let BOT_USERNAME = "MyTonWalletBot"
 public let SUPPORT_USERNAME = "mysupport"
 
@@ -80,12 +80,12 @@ public func buildMfaBotUrl(startApp: String) -> URL? {
     return components.url
 }
 
-public let HELP_CENTER_URL = "https://help.mytonwallet.io"
-public let HELP_CENTER_URL_RU = "https://help.mytonwallet.io/ru"
-public let HELP_CENTER_DOMAIN_SCAM_URL = "https://help.mytonwallet.io/intro/scams/.ton-domain-scams"
-public let HELP_CENTER_DOMAIN_SCAM_URL_RU = "https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton"
-public let HELP_CENTER_SEED_SCAM_URL = "https://help.mytonwallet.io/intro/scams/leaked-seed-phrases"
-public let HELP_CENTER_SEED_SCAM_URL_RU = "https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy"
+public let HELP_CENTER_URL = "https://help.mywallet.io"
+public let HELP_CENTER_URL_RU = "https://help.mywallet.io/ru"
+public let HELP_CENTER_DOMAIN_SCAM_URL = "https://help.mywallet.io/intro/scams/.ton-domain-scams"
+public let HELP_CENTER_DOMAIN_SCAM_URL_RU = "https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton"
+public let HELP_CENTER_SEED_SCAM_URL = "https://help.mywallet.io/intro/scams/leaked-seed-phrases"
+public let HELP_CENTER_SEED_SCAM_URL_RU = "https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy"
 public var DOMAIN_SCAM_REGEX: Regex<Substring> { /^[-\w]{26,}\./ }
 public let MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 
@@ -94,7 +94,7 @@ public let SMALL_CARD_RATIO: CGFloat = 116/80
 public let MEDIUM_CARD_RATIO: CGFloat = 110/75
 public let LARGE_CARD_RATIO: CGFloat = 274/176
 
-public var APP_NAME: String { IS_GRAM_WALLET ? "Gram Wallet" : "MyTonWallet" }
+public var APP_NAME: String { IS_GRAM_WALLET ? "Gram Wallet" : "My Wallet" }
 
 public enum DebugProductionMode {
     public static let userDefaultsKey = "debug_forceProductionMode"
@@ -104,7 +104,7 @@ public enum DebugProductionMode {
     }
 }
 
-public let APP_ROOT_URL_DOMAINS = [ "gramwallet.io", "mytonwallet.io" ]
+public let APP_ROOT_URL_DOMAINS = [ "gramwallet.io", "mytonwallet.io", "mywallet.io" ]
 
 public var IS_DEBUG_OR_TESTFLIGHT_DEFAULT: Bool {
     #if DEBUG

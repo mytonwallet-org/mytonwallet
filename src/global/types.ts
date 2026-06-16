@@ -546,8 +546,8 @@ export interface AccountState {
     isFullLoadingByChain?: Partial<Record<ApiChain, boolean>>;
     /** Collection address -> last loaded timestamp for cache TTL */
     collectionLoadedTimestamps?: Record<string, number>;
-    /** Snapshot of MTW card NFT addresses currently owned by this account */
-    ownedMtwCardAddresses?: string[];
+    /** Snapshot of MW card NFT addresses currently owned by this account */
+    ownedMwCardAddresses?: string[];
   };
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
@@ -992,7 +992,7 @@ export type GlobalState = {
   portfolioReturnTo?: 'settings';
   portfolio?: PortfolioState;
   isAppUpdateAvailable?: boolean;
-  // Force show the "Update MyTonWallet" pop-up on all platforms
+  // Force show the "Update My Wallet" pop-up on all platforms
   isAppUpdateRequired?: boolean;
   seasonalTheme?: ApiBackendConfig['seasonalTheme'];
   isPromotionModalOpen?: boolean;

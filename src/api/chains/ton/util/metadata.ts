@@ -26,7 +26,7 @@ import {
 import {
   DEBUG,
   LIQUID_JETTON,
-  MTW_CARDS_COLLECTION,
+  MW_CARDS_COLLECTION,
   NFT_FRAGMENT_COLLECTIONS,
   NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
@@ -584,7 +584,7 @@ export function readSnakeBytes(slice: Slice) {
   return buffer;
 }
 
-export function buildMtwCardsNftMetadata(metadata: {
+export function buildMwCardsNftMetadata(metadata: {
   image?: string;
   id?: number;
   attributes?: ApiNftAttribute[];
@@ -690,7 +690,7 @@ export function parseTonapiioNft(
         attributes: attributes.filter((a) => typeof a.value === 'string'),
       }),
       ...(isWhitelisted && lottie && { lottie: getProxiedLottieUrl(lottie) }),
-      ...(collectionAddress === MTW_CARDS_COLLECTION && buildMtwCardsNftMetadata(rawMetadata)),
+      ...(collectionAddress === MW_CARDS_COLLECTION && buildMwCardsNftMetadata(rawMetadata)),
       ...(isFragmentGift && { fragmentUrl: image!.replace(NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX, 'https://$1') }),
     };
 

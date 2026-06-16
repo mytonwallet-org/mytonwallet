@@ -34,7 +34,7 @@ function EmptyState({ onGetFirstCard }: OwnProps) {
         </h3>
         <p className={styles.helperTextInside}>
           {lang(
-            'MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.',
+            'My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.',
           )}
         </p>
       </div>
@@ -44,7 +44,7 @@ function EmptyState({ onGetFirstCard }: OwnProps) {
           <span className={styles.getMoreText}>{lang('Get First Card')}</span>
         </div>
         <p className={styles.helperTextOutside}>
-          {lang('Browse MyTonWallet Cards available for purchase.')}
+          {lang('Browse My Wallet Cards available for purchase.')}
         </p>
       </div>
     </div>

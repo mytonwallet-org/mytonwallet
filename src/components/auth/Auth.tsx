@@ -1,7 +1,7 @@
 import React, { memo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { GlobalState, Theme } from '../../global/types';
+import type { GlobalState } from '../../global/types';
 import { AuthState } from '../../global/types';
 
 import { selectIsBiometricAuthEnabled } from '../../global/selectors';
@@ -36,7 +36,7 @@ import styles from './Auth.module.scss';
 type StateProps = Pick<GlobalState['auth'], (
   'state' | 'biometricsStep' | 'error' | 'mnemonic' | 'mnemonicCheckIndexes' | 'isLoading' | 'method'
   | 'hardwareSelectedIndices'
-)> & { theme: Theme; isBiometricAuthEnabled?: boolean };
+)> & { isBiometricAuthEnabled?: boolean };
 
 const RENDER_COUNT = Object.keys(AuthState).length / 2;
 
@@ -49,7 +49,6 @@ const Auth = ({
   mnemonicCheckIndexes,
   hardwareSelectedIndices,
   method,
-  theme,
   isBiometricAuthEnabled,
 }: StateProps) => {
   const {
@@ -158,7 +157,6 @@ const Auth = ({
         return (
           <SettingsAbout
             isActive={isActive}
-            theme={theme}
             slideClassName={styles.aboutSlide}
             onBackClick={closeAbout}
           />
@@ -217,7 +215,6 @@ export default memo(withGlobal((global): StateProps => {
   const isBiometricAuthEnabled = selectIsBiometricAuthEnabled(global);
   return {
     ...authProps,
-    theme: global.settings.theme,
     isBiometricAuthEnabled,
   };
 })(Auth));

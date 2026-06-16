@@ -18,14 +18,14 @@ export const APP_ENV = process.env.APP_ENV || 'production';
 export const IS_CORE_WALLET = process.env.IS_CORE_WALLET === '1';
 export const IS_GRAM_WALLET = process.env.IS_GRAM_WALLET === '1';
 export const APP_NAME = process.env.APP_NAME
-  || (IS_CORE_WALLET ? 'TON Wallet' : IS_GRAM_WALLET ? 'Gram Wallet' : 'MyTonWallet');
+  || (IS_CORE_WALLET ? 'TON Wallet' : IS_GRAM_WALLET ? 'Gram Wallet' : 'My Wallet');
 export const APP_VERSION = process.env.APP_VERSION!;
 export const APP_COMMIT_HASH = process.env.APP_COMMIT_HASH!;
 export const APP_ENV_MARKER = APP_ENV === 'staging' ? 'Beta' : APP_ENV === 'development' ? 'Dev' : undefined;
-export const EXTENSION_NAME = IS_CORE_WALLET ? 'TON Wallet' : 'MyTonWallet · My TON Wallet';
+export const EXTENSION_NAME = IS_CORE_WALLET ? 'TON Wallet' : 'My Wallet: Crypto Wallet';
 export const EXTENSION_DESCRIPTION = IS_CORE_WALLET
   ? 'Set up your own TON Wallet on The Open Network'
-  : 'The most feature-rich TON+TRON wallet: multi-accounts, multi-send, Telegram Gifts and other collectibles, TON DNS+Proxy, and more.';
+  : 'Self-custodial wallet for TON, TRON, Solana, Ethereum, Base, and more. Send crypto, swap, stake, buy and withdraw to a bank card, track your portfolio with PnL charts, manage NFTs, explore dapps, and use hundreds of other features — all in one app.';
 
 export const DEBUG = APP_ENV !== 'production' && APP_ENV !== 'perf' && APP_ENV !== 'test';
 export const DEBUG_MORE = false;
@@ -50,15 +50,15 @@ export const IS_EXPLORER = process.env.IS_EXPLORER === '1';
 
 export const ELECTRON_HOST_URL = 'https://dumb-host';
 export const INACTIVE_MARKER = '[Inactive]';
-export const PRODUCTION_URL = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
-export const BETA_URL = IS_CORE_WALLET ? 'https://beta.wallet.ton.org' : 'https://beta.mytonwallet.app';
-export const APP_INSTALL_URL = IS_GRAM_WALLET ? 'https://get.gramwallet.io/' : 'https://get.mytonwallet.io/';
+export const PRODUCTION_URL = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://web.mywallet.io';
+export const BETA_URL = IS_CORE_WALLET ? 'https://beta.wallet.ton.org' : 'https://beta.mywallet.io';
+export const APP_INSTALL_URL = IS_GRAM_WALLET ? 'https://get.gramwallet.io/' : 'https://get.mywallet.io/';
 export const APP_REPO_URL = 'https://github.com/mytonwallet-org/mytonwallet';
 export const SELF_UNIVERSAL_HOST_URL = 'https://my.tt';
-export const APP_WEBSITE_URL = IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mytonwallet.io';
+export const APP_WEBSITE_URL = IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mywallet.io';
 export const APP_ICON_URL = IS_GRAM_WALLET
   ? 'https://gramwallet.io/icon-512x512.png'
-  : 'https://mytonwallet.io/icon-512x512.png';
+  : 'https://mywallet.io/icon-512x512.png';
 
 // GitHub workflow uses an empty string as the default value if it's not in repository variables, so we cannot define a default value here
 export const BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
@@ -75,7 +75,7 @@ export const DEBUG_ALERT_MSG = 'Shoot!\nSomething went wrong, please see the err
 export const PIN_LENGTH = 4;
 export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet';
 export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
-export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in MyTonWallet';
+export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in My Wallet';
 
 /** If `true`, the app supports only TON-specific mnemonics */
 export const IS_TON_MNEMONIC_ONLY = IS_CORE_WALLET;
@@ -135,8 +135,8 @@ export const TONCENTER_TESTNET_KEY = process.env.TONCENTER_TESTNET_KEY;
 export const ELECTRON_TONCENTER_TESTNET_KEY = process.env.ELECTRON_TONCENTER_TESTNET_KEY;
 export const TONAPIIO_TESTNET_URL = process.env.TONAPIIO_TESTNET_URL || 'https://tonapiio-testnet.mytonwallet.org';
 
-export const BRILLIANT_API_BASE_URL = process.env.BRILLIANT_API_BASE_URL || 'https://api.mytonwallet.org';
-export const PROXY_API_BASE_URL = process.env.PROXY_API_BASE_URL || 'https://api.mytonwallet.org/proxy';
+export const BRILLIANT_API_BASE_URL = process.env.BRILLIANT_API_BASE_URL || 'https://api.mywallet.io';
+export const PROXY_API_BASE_URL = process.env.PROXY_API_BASE_URL || 'https://api.mywallet.io/proxy';
 export const IPFS_GATEWAY_BASE_URL = 'https://ipfs.io/ipfs/';
 export const SSE_BRIDGE_URL = 'https://tonconnectbridge.mytonwallet.org/bridge/';
 
@@ -165,11 +165,11 @@ export const SHORT_FRACTION_DIGITS = 2;
 export const MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3;
 
 export const SUPPORT_USERNAME = 'mysupport';
-export const MTW_NEWS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
+export const MW_NEWS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
   en: 'MyTonWalletEn',
   ru: 'MyTonWalletRu',
 };
-export const MTW_TIPS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
+export const MW_TIPS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
   en: 'MyTonWalletTips',
   ru: 'MyTonWalletTipsRu',
 };
@@ -178,20 +178,20 @@ export const NFT_MARKETPLACE_TITLES: Record<ApiNftMarketplace, string> = {
   fragment: 'Fragment',
   opensea: 'OpenSea',
 };
-export const MTW_STATIC_BASE_URL = 'https://static.mytonwallet.org';
-export const MTW_CARDS_BASE_URL = `${MTW_STATIC_BASE_URL}/cards/v2/cards/`;
-export const MTW_CARDS_MINT_BASE_URL = `${MTW_STATIC_BASE_URL}/mint-cards/`;
-export const MYTONWALLET_PROMO_URL = 'https://mytonwallet.io/';
-export const MYTONWALLET_BLOG: Partial<Record<LangCode, string>> = {
-  en: 'https://mytonwallet.io/en/blog/',
-  ru: 'https://mytonwallet.io/ru/blog/',
+export const MW_STATIC_BASE_URL = 'https://static.mytonwallet.org';
+export const MW_CARDS_BASE_URL = `${MW_STATIC_BASE_URL}/cards/v2/cards/`;
+export const MW_CARDS_MINT_BASE_URL = `${MW_STATIC_BASE_URL}/mint-cards/`;
+export const MY_WALLET_PROMO_URL = 'https://mywallet.io/';
+export const MY_WALLET_BLOG: Partial<Record<LangCode, string>> = {
+  en: 'https://mywallet.io/en/blog/',
+  ru: 'https://mywallet.io/ru/blog/',
 };
-export const MYTONWALLET_TERMS_OF_USE_URL = 'https://mytonwallet.io/terms-of-use';
-export const MYTONWALLET_PRIVACY_POLICY_URL = 'https://mytonwallet.io/privacy-policy';
+export const MY_WALLET_TERMS_OF_USE_URL = 'https://mywallet.io/terms-of-use';
+export const MY_WALLET_PRIVACY_POLICY_URL = 'https://mywallet.io/privacy-policy';
 
-export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://multisend.mytonwallet.io/';
-export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mytonwallet.io/';
-export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mytonwallet.io/api';
+export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://multisend.mywallet.io/';
+export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mywallet.io/';
+export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mywallet.io/api';
 export const AGENT_API_URL = process.env.AGENT_API_URL || 'https://agent.mytonwallet.org/api';
 
 export const NFT_MARKETPLACE_URL = 'https://opensea.io/';
@@ -209,7 +209,7 @@ export const IFRAME_WHITELIST = [
   'https://tonviewer.com',
   'https://testnet.tonviewer.com',
 ];
-export const SUBPROJECT_URL_MASK = 'https://*.mytonwallet.io';
+export const SUBPROJECT_URL_MASK = 'https://*.mywallet.io';
 
 export const CHANGELLY_SUPPORT_EMAIL = 'support@changelly.com';
 export const CHANGELLY_LIVE_CHAT_URL = 'https://changelly.com/';
@@ -224,7 +224,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-309';
+export const LANG_CACHE_NAME = 'mtw-lang-310';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -313,8 +313,8 @@ export const NFT_FRAGMENT_COLLECTIONS = [
 export const NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX = /^https?:\/\/nft\.(fragment\.com\/gift\/[\w-]+-\d+)\.\w+$/i;
 export const TELEGRAM_GIFTS_SUPER_COLLECTION = 'super:telegram-gifts';
 
-export const MTW_CARDS_WEBSITE = 'https://cards.mytonwallet.io';
-export const MTW_CARDS_COLLECTION = 'EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM';
+export const MW_CARDS_WEBSITE = 'https://cards.mytonwallet.io';
+export const MW_CARDS_COLLECTION = 'EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM';
 
 export const TON_DNS_RENEWAL_WARNING_DAYS = 14;
 export const TON_DNS_RENEWAL_NFT_WARNING_DAYS = 30;
@@ -414,7 +414,7 @@ export const HYPERLIQUID = {
 } as const;
 
 export const MYCOIN_MAINNET = {
-  name: 'MyTonWallet Coin',
+  name: 'My Wallet Coin',
   symbol: 'MY',
   slug: 'ton-eqcfvnlrbn',
   decimals: 9,
@@ -697,7 +697,7 @@ export const INDEXED_DB_NAME = IS_EXPLORER ? 'explorer-keyval-store' : 'keyval-s
 export const INDEXED_DB_STORE_NAME = 'keyval';
 
 export const WINDOW_PROVIDER_CHANNEL = 'windowProvider';
-export const WINDOW_PROVIDER_PORT = `${IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet'}_popup_reversed`;
+export const WINDOW_PROVIDER_PORT = `${IS_CORE_WALLET ? 'TonWallet' : 'MyWallet'}_popup_reversed`;
 
 export const SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY = IS_CORE_WALLET;
 export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 6;
@@ -705,7 +705,7 @@ export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 6;
 export const DEFAULT_PRICE_CURRENCY = 'USD';
 export const CURRENCIES: Record<
   ApiBaseCurrency,
-  // Get the fallback rates at https://api.mytonwallet.org/currency-rates
+  // Get the fallback rates at https://api.mywallet.io/currency-rates
   { name: string; decimals: number; shortSymbol?: string; shortSymbolPosition?: 'start' | 'end'; fallbackRate: string }
 > = {
   USD: {
@@ -796,8 +796,6 @@ export const RE_TG_BOT_MENTION = /(telegram|tg)[:\s-]*@[a-z0-9_]+|(https?:\/\/)?
 
 export const STARS_SYMBOL = '⭐️';
 
-export const GIVEAWAY_CHECKIN_URL = process.env.GIVEAWAY_CHECKIN_URL || 'https://giveaway.mytonwallet.io';
-
 export const AUTOLOCK_OPTIONS_LIST = [
   {
     value: 'never',
@@ -849,7 +847,7 @@ export const STAKED_TOKEN_SLUGS = new Set([
 ]);
 
 export const DEFAULT_OUR_SWAP_FEE = 0.875;
-export const MTW_AGGREGATOR_QUERY_ID = '4246015164496276000';
+export const MW_AGGREGATOR_QUERY_ID = '4246015164496276000';
 
 export const DEFAULT_STAKING_STATE: ApiLiquidStakingState = {
   type: 'liquid',
@@ -887,20 +885,20 @@ export const JVAULT_URL = 'https://jvault.xyz';
 
 export const HELP_CENTER_URL = {
   home: {
-    en: 'https://help.mytonwallet.io/',
-    ru: 'https://help.mytonwallet.io/ru',
+    en: 'https://help.mywallet.io/',
+    ru: 'https://help.mywallet.io/ru',
   },
   domainScam: {
-    en: 'https://help.mytonwallet.io/intro/scams/.ton-domain-scams',
-    ru: 'https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton',
+    en: 'https://help.mywallet.io/intro/scams/.ton-domain-scams',
+    ru: 'https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton',
   },
   seedScam: {
-    en: 'https://help.mytonwallet.io/intro/scams/leaked-seed-phrases',
-    ru: 'https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy',
+    en: 'https://help.mywallet.io/intro/scams/leaked-seed-phrases',
+    ru: 'https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy',
   },
   ethenaStaking: {
-    en: 'https://help.mytonwallet.io/intro/staking/what-is-usde-how-does-usde-staking-work',
-    ru: 'https://help.mytonwallet.io/ru/baza-znanii/steiking/chto-takoe-usde-kak-rabotaet-steiking-usde',
+    en: 'https://help.mywallet.io/intro/staking/what-is-usde-how-does-usde-staking-work',
+    ru: 'https://help.mywallet.io/ru/baza-znanii/steiking/chto-takoe-usde-kak-rabotaet-steiking-usde',
   },
 };
 
@@ -936,7 +934,7 @@ const ALL_TON_DNS_ZONES = [
     isTelemint: false,
   },
   {
-    suffixes: ['gram'],
+    suffixes: ['grm'],
     baseFormat: /^([-\da-z]+\.){0,2}[-\da-z]{1,127}$/i,
     resolver: 'EQAic3zPce496ukFDhbco28FVsKKl2WUX_iJwaL87CBxSiLQ',
     collectionName: 'GRAM DNS Domains',

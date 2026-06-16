@@ -18,8 +18,8 @@ describe('processTemplateJsx', () => {
     const stringTestCases = [{
       name: 'must replace the single token with a string',
       template: 'More about %app_name%',
-      value: { app_name: 'MyTonWallet' },
-      expected: ['More about MyTonWallet'],
+      value: { app_name: 'My Wallet' },
+      expected: ['More about My Wallet'],
     }, {
       name: 'must replace multiple tokens with strings',
       template: 'Transfer %amount% %symbol%',
@@ -33,8 +33,8 @@ describe('processTemplateJsx', () => {
     }, {
       name: 'must handle recurring tokens',
       template: '%app_name% is secure. Use %app_name% safely.',
-      value: { app_name: 'MyTonWallet' },
-      expected: ['MyTonWallet is secure. Use MyTonWallet safely.'],
+      value: { app_name: 'My Wallet' },
+      expected: ['My Wallet is secure. Use My Wallet safely.'],
     }];
 
     stringTestCases.forEach(({ name, template, value, expected }) => {
@@ -101,7 +101,7 @@ describe('processTemplateJsx', () => {
 
     it('handles markdown with tokens', () => {
       const template = '**%app_name%** is secure';
-      const value = { app_name: 'MyTonWallet' };
+      const value = { app_name: 'My Wallet' };
 
       const result = processTemplateJsx(template, value);
 
@@ -109,7 +109,7 @@ describe('processTemplateJsx', () => {
       expect(typeof result[0]).toBe('object');
       expect((result[0] as any).tag).toBe('b');
       expect(typeof (result[0] as any).children[0]).toBe('object');
-      expect((result[0] as any).children[0].value).toBe('MyTonWallet');
+      expect((result[0] as any).children[0].value).toBe('My Wallet');
     });
   });
 
@@ -143,8 +143,8 @@ describe('processTemplateJsx', () => {
     const translationTestCases = [{
       name: 'handles Russian "More about %app_name%" string',
       template: 'Подробнее о %app_name%',
-      value: { app_name: 'MyTonWallet' },
-      expected: ['Подробнее о MyTonWallet'],
+      value: { app_name: 'My Wallet' },
+      expected: ['Подробнее о My Wallet'],
     }, {
       name: 'handles fee string',
       template: 'Комиссия %fee%',

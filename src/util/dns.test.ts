@@ -33,18 +33,21 @@ const correctDomains = [
     ],
   },
   {
-    zone: TON_DNS_ZONES.find((zone) => zone.suffixes[0] === 'gram'),
+    zone: TON_DNS_ZONES.find((zone) => zone.suffixes[0] === 'grm'),
     domains: [
-      { full: 'tele.gram', base: 'tele' },
-      { full: 'sub.domain.gram', base: 'sub.domain' },
-      { full: 'sub.sub.domain.gram', base: 'sub.sub.domain' },
+      { full: 'tele.grm', base: 'tele' },
+      { full: 'sub.domain.grm', base: 'sub.domain' },
+      { full: 'sub.sub.domain.grm', base: 'sub.sub.domain' },
     ],
   },
 ];
 
 const incorrectDomains = [
   // Unknown TLD
-  'mytonwallet.me',
+  'mywallet.me',
+  'tele.gram',
+  'sub.domain.gram',
+  'sub.sub.domain.gram',
 
   // Forbidden symbols
   'foo_bar.ton',
@@ -65,12 +68,15 @@ const incorrectDomains = [
   '012345678901234567890123456789.vip',
   '0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999'
   + '000000000011111111112222222222.gram',
+  '0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999'
+  + '000000000011111111112222222222.grm',
 
   // Too deep
   'one.two.three.domain.ton',
   'one.two.three.domain.t.me',
   'one.two.three.domain.vip',
   'one.two.three.domain.gram',
+  'one.two.three.domain.grm',
 ];
 
 describe('isTonBlockchainDns', () => {

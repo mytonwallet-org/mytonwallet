@@ -41,7 +41,6 @@ src/
 ├── styles/              # Global SCSS, chain variables
 ├── util/                # Utilities (chain, crypto, deeplink, DOM, etc.)
 ├── push/                # Push notification worker (separate webpack build)
-├── giveaways/           # Giveaway/gift claim module (separate build)
 ├── multisend/           # Batch transfer tool (separate build)
 ├── portfolio/           # Portfolio dashboard (separate build)
 └── config.ts            # App-wide constants and env flags

@@ -37,7 +37,7 @@ import {
   IS_PACKAGED_ELECTRON,
   IS_TELEGRAM_APP,
   MFA_API_BASE_URL,
-  MTW_STATIC_BASE_URL,
+  MW_STATIC_BASE_URL,
   PORTFOLIO_API_URL,
   PROXY_API_BASE_URL,
   SOLANA_MAINNET_API_URL,
@@ -80,7 +80,7 @@ const cspConnectSrcHosts = Array.from(new Set([
   BRILLIANT_API_BASE_URL,
   BRILLIANT_API_BASE_URL.replace(/^http(s?):/, 'ws$1:'),
   ensureTrailingSlash(PROXY_API_BASE_URL),
-  MTW_STATIC_BASE_URL,
+  MW_STATIC_BASE_URL,
   TONCENTER_MAINNET_URL,
   TONCENTER_MAINNET_URL.replace(/^http(s?):/, 'ws$1:'),
   TONCENTER_TESTNET_URL,
@@ -108,7 +108,7 @@ const cspConnectSrcHosts = Array.from(new Set([
 ])).join(' ');
 
 const cspImageSrcHosts = [
-  MTW_STATIC_BASE_URL,
+  MW_STATIC_BASE_URL,
   'https://imgproxy.mytonwallet.org',
   'https://dns-image.mytonwallet.org',
   'https://mytonwallet.s3.eu-central-1.amazonaws.com',
@@ -353,7 +353,7 @@ export default function createConfig(
         chunks: ['main'],
         csp: CSP,
         title: APP_NAME,
-        homepage: IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.io',
+        homepage: IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mywallet.io',
         assets_prefix: IS_CORE_WALLET ? 'coreWallet/' : '',
       }),
       new PreloadWebpackPlugin({

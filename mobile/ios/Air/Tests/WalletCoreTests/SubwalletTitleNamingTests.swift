@@ -18,8 +18,8 @@ struct SubwalletTitleNamingTests {
         .init(title: "MyTonWallet", expected: "MyTonWallet"),
         .init(title: "MyTonWallet .2", expected: "MyTonWallet"),
         .init(title: "MyTonWallet.2", expected: "MyTonWallet"),
-        .init(title: "MyTonWallet 2", expected: "MyTonWallet 2"),
-        .init(title: "MyTonWallet 2.3", expected: "MyTonWallet 2"),
+        .init(title: "My Wallet 2", expected: "My Wallet 2"),
+        .init(title: "My Wallet 2.3", expected: "My Wallet 2"),
         .init(title: "Wallet.v4R2", expected: "Wallet.v4R2"),
     ]
 
@@ -40,19 +40,19 @@ struct SubwalletTitleNamingTests {
             expected: "MyTonWallet .4"
         ),
         .init(
-            baseTitle: "MyTonWallet 2",
-            existingTitles: ["MyTonWallet 2"],
-            expected: "MyTonWallet 2.2"
+            baseTitle: "My Wallet 2",
+            existingTitles: ["My Wallet 2"],
+            expected: "My Wallet 2.2"
         ),
         .init(
-            baseTitle: "MyTonWallet 2",
-            existingTitles: ["MyTonWallet 2", "MyTonWallet 2.2"],
-            expected: "MyTonWallet 2.3"
+            baseTitle: "My Wallet 2",
+            existingTitles: ["My Wallet 2", "My Wallet 2.2"],
+            expected: "My Wallet 2.3"
         ),
         .init(
-            baseTitle: "MyTonWallet 3",
-            existingTitles: ["MyTonWallet 2", "MyTonWallet 2.2", "MyTonWallet 2.3"],
-            expected: "MyTonWallet 3.2"
+            baseTitle: "My Wallet 3",
+            existingTitles: ["My Wallet 2", "My Wallet 2.2", "My Wallet 2.3"],
+            expected: "My Wallet 3.2"
         ),
     ]
 

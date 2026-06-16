@@ -47,7 +47,7 @@ class DNSHelpers {
                 isUnofficial = true
             ),
             DnsZone(
-                suffixes = listOf("gram"),
+                suffixes = listOf("gram", "grm"),
                 baseFormat = Regex(
                     "^([\\-\\da-z]+\\.){0,2}[\\da-z]{1,127}$",
                     RegexOption.IGNORE_CASE

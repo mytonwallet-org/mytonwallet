@@ -159,7 +159,7 @@ export interface ChainSdk<T extends ApiChain> {
   ): Promise<ApiSubmitGasfullTransferResult | { error: string }>;
 
   /**
-   * Builds, signs and sends a transfer with the fee paid by MyTonWallet in exchange to diesel, i.e. a small amount
+   * Builds, signs and sends a transfer with the fee paid by My Wallet in exchange to diesel, i.e. a small amount
    * of the transferred token. If the chain doesn't support gasless transfers, it mustn't add `diesel` to the
    * `checkTransactionDraft` result.
    */
@@ -269,7 +269,7 @@ export interface ChainSdk<T extends ApiChain> {
   }) => Promise<ApiSubmitNftTransferResult>;
 
   /**
-   * Checks ownership of NFT, currently used in MTW NFT-cards flow
+   * Checks ownership of NFT, currently used in MW NFT-cards flow
    */
   checkNftOwnership: (accountId: string, nftAddress: string) => Promise<boolean>;
 }

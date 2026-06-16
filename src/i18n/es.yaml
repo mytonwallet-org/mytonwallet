@@ -843,7 +843,7 @@ $receive_action: Recibir
 Change Palette: Cambiar paleta
 Palette: Paleta
 Unlock New Palettes: Desbloquear nuevas paletas
-Get a unique MyTonWallet Card to unlock new palettes.: Obtén una tarjeta única de MyTonWallet para desbloquear nuevas paletas.
+Get a unique My Wallet Card to unlock new palettes.: Obtén una tarjeta única de My Wallet para desbloquear nuevas paletas.
 Mint Cards: Crear tarjetas
 Card has been upgraded!: ¡La tarjeta ha sido mejorada!
 $mint_card_result: La tarjeta NFT será **creada** y **instalada automáticamente** en un minuto.
@@ -878,9 +878,9 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: Por favor, use MyTonWallet %mobileAppButton% o %browserExtensionButton% para evitar esta advertencia.
+$reopen_in_iab: Por favor, use My Wallet %mobileAppButton% o %browserExtensionButton% para evitar esta advertencia.
 $reopen_in_iab_explore: Use la sección %exploreTab% al navegar por aplicaciones para evitar esta advertencia.
-MyTonWallet Browser: Navegador MyTonWallet
+My Wallet Browser: Navegador My Wallet
 mobile app: aplicación móvil
 browser extension: extensión del navegador
 Exit all wallets: Cerrar todas las billeteras
@@ -1060,9 +1060,9 @@ Customize Wallet: Personalizar billetera
 "Select the card stored in this wallet:": "Selecciona la tarjeta almacenada en esta billetera:"
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Esta tarjeta se instalará para esta billetera y se mostrará en la pantalla principal y en la lista de billeteras.
 Get More Cards: Obtener más tarjetas
-Browse MyTonWallet Cards available for purchase.: Explora las tarjetas MyTonWallet disponibles para comprar.
+Browse My Wallet Cards available for purchase.: Explora las tarjetas My Wallet disponibles para comprar.
 You don’t have any cards to customize yet: Aún no tienes tarjetas para personalizar.
-MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Las tarjetas MyTonWallet pueden instalarse para las billeteras y mostrarse en la pantalla principal y en la lista de billeteras.
+My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Las tarjetas My Wallet pueden instalarse para las billeteras y mostrarse en la pantalla principal y en la lista de billeteras.
 Get First Card: Obtener primera tarjeta
 Palette and Card: Paleta y tarjeta
 Customize the wallet's home screen and color accents the way you like.: Personaliza la pantalla principal y los acentos de color de la billetera a tu gusto.
@@ -1096,7 +1096,7 @@ Adding wallets is not available in explorer mode: Agregar billeteras no está di
 $explorer_mode_warning: "Modo explorador: esperando un enlace profundo de View para abrir una dirección"
 This command is not supported in explorer mode: Este comando no es compatible en modo explorador
 $saved_addresses_header: Guardado
-confirm an action in MyTonWallet: confirmar una acción en MyTonWallet
+confirm an action in My Wallet: confirmar una acción en My Wallet
 Timed out waiting for account to be ready: Tiempo de espera agotado para la preparación de la cuenta
 $connected_apps:
   otherValue: "%1$d conectadas"
@@ -1154,12 +1154,12 @@ $agent_consent_subtitle: Pide ayuda al Agente sobre la billetera, información d
 $agent_consent_feature_answers: Obtén respuestas sobre %app_name%, tokens y actividad de la billetera.
 $agent_consent_feature_actions: Prepara acciones compatibles como enviar, recibir y hacer staking.
 $agent_consent_feature_context: Usa el contexto de la billetera para que las respuestas puedan hacer referencia a activos y direcciones relevantes.
-$agent_consent_disclosure_text: Al tocar Permitir al Agente, permites que %app_name% envíe tus mensajes del Agente y el contexto relevante de la billetera a %app_name% Agent (agent.mytonwallet.org) y a Anthropic Claude API, nuestro proveedor externo de IA, para procesar tus solicitudes. El contexto de la billetera puede incluir direcciones de billetera, saldos, tokens, actividad y detalles de las acciones solicitadas. Los datos se usan solo para proporcionar respuestas del Agente y preparar las acciones que solicites.
+$agent_consent_disclosure_text: Al tocar Permitir al Agente, permites que %app_name% envíe tus mensajes del Agente y el contexto relevante de la billetera a %app_name% Agent (agent.mywallet.io) y a Anthropic Claude API, nuestro proveedor externo de IA, para procesar tus solicitudes. El contexto de la billetera puede incluir direcciones de billetera, saldos, tokens, actividad y detalles de las acciones solicitadas. Los datos se usan solo para proporcionar respuestas del Agente y preparar las acciones que solicites.
 $agent_consent_debug_reset_button: Restablecer estado de consentimiento del Agente
 $agent_consent_debug_reset_footer: Muestra de nuevo la pantalla de consentimiento del Agente al abrir la pestaña Agente.
 Clear Chat: Borrar chat
 Unsupported link: Este enlace no es compatible
-MyTonWallet Features: Características de MyTonWallet
+My Wallet Features: Características de My Wallet
 Notifications: Notificaciones
 Enter Passcode: Introducir código
 Wrong passcode, please try again: Código incorrecto, por favor inténtelo de nuevo.
@@ -1273,7 +1273,7 @@ Screen Recording: Grabación de pantalla
 Disable Screen Record Warning: Desactivar advertencia de grabación de pantalla
 I Understand, Proceed: Entiendo, continuar
 Waiting for Network: Esperando la red
-MyTonWallet: MyTonWallet
+My Wallet: My Wallet
 $no_activity_history: |
   Aún no hay historial
   de actividades en esta cartera.
@@ -1354,7 +1354,7 @@ Swap is not supported on this account.: Esta cuenta no admite intercambios.
 "%1$@ will be returned": "%1$@ será devuelto"
 Connecting your wallet: Conectando tu cartera
 Action is not possible on a view-only wallet.: Esta acción no es posible en una cartera de solo lectura.
-Logged in with MyTonWallet: Sesión iniciada con MyTonWallet
+Logged in with My Wallet: Sesión iniciada con My Wallet
 You have no apps connected to this wallet.: No tienes apps conectadas a esta cartera.
 Asset: Activo
 Sent to: Enviado a
@@ -1401,7 +1401,7 @@ Confirm Actions:
 "Install Palette": Instalar paleta
 Ledger: Ledger
 "Moving to staking balance": Moviendo al saldo de staking
-MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet usa autenticación biométrica para desbloquear y autorizar transacciones
+My Wallet uses biometric authentication to unlock and authorize transactions: My Wallet usa autenticación biométrica para desbloquear y autorizar transacciones
 "Network error": Error de red
 "No Camera Access": Sin acceso a la cámara
 "Not all transactions were sent successfully.": No todas las transacciones se enviaron correctamente.
@@ -1500,7 +1500,7 @@ Use 6-digit Passcode: Usar código de 6 dígitos
 Authorize %token% Fee: Autorizar comisión de %token%
 Awaiting Previous Fee: Esperando la comisión anterior
 Lock: Bloquear
-MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: Las tarjetas de MyTonWallet pueden instalarse en las carteras y mostrarse en la pantalla principal y en la lista de carteras.
+My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: Las tarjetas de My Wallet pueden instalarse en las carteras y mostrarse en la pantalla principal y en la lista de carteras.
 Receive: Recibir
 Scan: Escanear
 
