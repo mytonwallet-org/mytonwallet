@@ -25,7 +25,7 @@ export const APP_ENV_MARKER = APP_ENV === 'staging' ? 'Beta' : APP_ENV === 'deve
 export const EXTENSION_NAME = IS_CORE_WALLET ? 'TON Wallet' : 'My Wallet: Crypto Wallet';
 export const EXTENSION_DESCRIPTION = IS_CORE_WALLET
   ? 'Set up your own TON Wallet on The Open Network'
-  : 'Self-custodial wallet for TON, TRON, Solana, Ethereum, Base, and more. Send crypto, swap, stake, buy and withdraw to a bank card, track your portfolio with PnL charts, manage NFTs, explore dapps, and use hundreds of other features — all in one app.';
+  : 'Self-custodial wallet for TON, TRON, Solana, Ethereum and more. Swap, stake, buy crypto, manage NFTs and explore dapps.';
 
 export const DEBUG = APP_ENV !== 'production' && APP_ENV !== 'perf' && APP_ENV !== 'test';
 export const DEBUG_MORE = false;

@@ -1,5 +1,5 @@
 productName: "My Wallet"
-artifactName: "${productName}-${arch}.${ext}"
+artifactName: "MyTonWallet-${arch}.${ext}"
 appId: "io.mytonwallet.electron"
 extraMetadata:
   main: "./dist/electron.js"
