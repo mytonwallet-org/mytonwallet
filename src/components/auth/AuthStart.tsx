@@ -29,7 +29,7 @@ import { PARTICLE_HEIGHT, PARTICLE_LANDSCAPE_HEIGHT } from '../ui/ImageWithParti
 
 import styles from './Auth.module.scss';
 
-import logoLightPath from '../../assets/logoLight.svg';
+import logoWebpPath from '../../assets/logo.webp';
 
 interface OwnProps {
   isActive?: boolean;
@@ -165,7 +165,7 @@ function AuthStart({
         ) : (
           <img
             ref={logoRef}
-            src={logoLightPath}
+            src={logoWebpPath}
             alt={APP_NAME}
             className={buildClassName(
               styles.logo,

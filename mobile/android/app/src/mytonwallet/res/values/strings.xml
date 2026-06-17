@@ -20,7 +20,7 @@
   <string name="app_support_telegram_url" translatable="false">https://t.me/mysupport</string>
   <string name="app_tips_telegram_username_en" translatable="false">MyTonWalletTips</string>
   <string name="app_tips_telegram_username_ru" translatable="false">MyTonWalletTipsRu</string>
-  <string name="app_desktop_install_url" translatable="false">https://mytonwallet.io/get/desktop</string>
+  <string name="app_desktop_install_url" translatable="false">https://get.mywallet.io/desktop</string>
   <string name="app_multisend_url" translatable="false">https://multisend.mywallet.io/</string>
   <string name="app_portfolio_url" translatable="false">https://portfolio.mywallet.io</string>
   <string name="app_giveaway_url" translatable="false">https://giveaway.mytonwallet.io/</string>

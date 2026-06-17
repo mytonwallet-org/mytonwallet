@@ -8,15 +8,13 @@ import Image from '../ui/Image';
 
 import styles from './AppLocked.module.scss';
 
+import logoWebpPath from '../../assets/logo.webp';
 import coreWalletLogoPath from '../../assets/logoCoreWallet.svg';
-import logoLightPath from '../../assets/logoLight.svg';
 
 function Logo() {
   const lang = useLang();
 
-  const logoPath = IS_CORE_WALLET
-    ? coreWalletLogoPath
-    : logoLightPath;
+  const logoPath = IS_CORE_WALLET ? coreWalletLogoPath : logoWebpPath;
 
   return (
     <div className={styles.logo}>

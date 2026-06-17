@@ -69,7 +69,7 @@ const tray: TrayHelper = {
     }
 
     const icon = nativeImage.createFromPath(defaultIconPath);
-    const title = app.getName();
+    const title = 'My Wallet';
 
     this.instance = new Tray(icon);
 

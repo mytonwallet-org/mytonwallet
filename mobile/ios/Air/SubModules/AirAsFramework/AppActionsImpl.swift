@@ -650,7 +650,7 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showUpgradeCard() {
         log.info("showUpgradeCard - switchToCapacitor")
-        AppActions.openInBrowser(URL(string:  "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!, title: "MyTonWallet NFT Cards", injectDappConnect: true)
+        AppActions.openInBrowser(URL(string:  "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!, title: "My Wallet NFT Cards", injectDappConnect: true)
     }
     
     static func showWalletSettings() {

@@ -192,7 +192,7 @@ export const MY_WALLET_PRIVACY_POLICY_URL = 'https://mywallet.io/privacy-policy'
 export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://multisend.mywallet.io/';
 export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mywallet.io/';
 export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mywallet.io/api';
-export const AGENT_API_URL = process.env.AGENT_API_URL || 'https://agent.mytonwallet.org/api';
+export const AGENT_API_URL = process.env.AGENT_API_URL || 'https://agent.mywallet.io/api';
 
 export const NFT_MARKETPLACE_URL = 'https://opensea.io/';
 export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.opensea;

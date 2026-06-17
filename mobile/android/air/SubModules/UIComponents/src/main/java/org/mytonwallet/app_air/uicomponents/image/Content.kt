@@ -80,11 +80,11 @@ data class Content(
 
             val mainImage: Image = when {
                 showPercentBadge -> {
-                    if (isTonOrStake) Image.Res(R.drawable.ic_blockchain_ton_128)
+                    if (isTonOrStake) Image.Res(R.drawable.ic_token_gram)
                     else Image.Url(token.image)
                 }
 
-                isTonOrStake -> Image.Res(R.drawable.ic_blockchain_ton_128)
+                isTonOrStake -> Image.Res(R.drawable.ic_token_gram)
                 token.image.isNotBlank() -> Image.Url(token.image)
                 token.isUsdt -> Image.Res(R.drawable.ic_coin_usdt_40)
                 chainIconRes != 0 && token.slug == blockchain?.nativeSlug -> Image.Res(chainIconRes)
