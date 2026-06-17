@@ -131,7 +131,7 @@ $footerPaddingBottomMin: 1rem;
   }
 
   &ReadyToScale {
-    @include mixins.transition('transform 150ms', !important);
+    @include mixins.transition('opacity 1s ease, transform 150ms', !important);
   }
 }
 
