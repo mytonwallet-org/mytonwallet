@@ -75,21 +75,18 @@ end
 
 def update_version_and_build_number
   version = JSON.parse(File.read($package_json_path))["version"]
-  production_build_number = 0
-  begin
-    production_build_number = app_store_build_number(app_identifier: $app_identifier, version: version, initial_build_number: 0, live: true).to_i
-  rescue
-  end
-  # A build uploaded for this version (in review, rejected, or pending) keeps its
-  # build number reserved on App Store Connect even while it is absent from TestFlight.
-  # live:false returns the latest uploaded build, so the next bump clears it too.
-  review_build_number = 0
-  begin
-    review_build_number = app_store_build_number(app_identifier: $app_identifier, version: version, initial_build_number: 0, live: false).to_i
-  rescue
-  end
-  beta_build_number = latest_testflight_build_number(app_identifier: $app_identifier, version: version, initial_build_number: 0)
-  build_number = [production_build_number, review_build_number, beta_build_number].max() + 1
+  # Build number = GitHub Actions run number plus a fixed offset. GITHUB_RUN_NUMBER is a
+  # per-workflow counter that only ever increases and is never reused (re-runs keep their
+  # number), so the build number stays strictly monotonic. App Store Connect rejects any
+  # upload whose build number is not higher than the highest already uploaded for the app
+  # ACROSS marketing versions, so the number must increase globally, not reset per version.
+  # The offset lifts the counter above build numbers minted by the previous App Store
+  # Connect-lookup scheme. No network call and no per-version scoping left to get wrong.
+  build_offset = 3300
+  run_number = env_value('GITHUB_RUN_NUMBER')
+  UI.user_error!('GITHUB_RUN_NUMBER is not set — the build number can only be derived in CI') if run_number.nil?
+  build_number = run_number.to_i + build_offset
+  UI.message("iOS build number: GITHUB_RUN_NUMBER(#{run_number}) + #{build_offset} = #{build_number}")
 
   increment_version_number(version_number: version)
   increment_build_number(skip_info_plist: true, build_number: build_number)
