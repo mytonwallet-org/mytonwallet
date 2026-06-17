@@ -156,7 +156,7 @@ function Header({
       ? 1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0)
       : 1 + (isAppLockEnabled ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0) + (canToggleAppLayout ? 1 : 0);
 
-    if (!IS_EXPLORER) {
+    if (IS_EXPLORER) {
       return (
         <div className={fullClassName}>
           <div className={styles.headerInner} style="--icons-amount: 3">
