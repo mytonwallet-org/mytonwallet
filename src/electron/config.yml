@@ -1,9 +1,9 @@
-productName: "My Wallet"
+productName: "MyTonWallet"
 artifactName: "MyTonWallet-${arch}.${ext}"
 appId: "io.mytonwallet.electron"
 extraMetadata:
   main: "./dist/electron.js"
-  productName: "My Wallet"
+  productName: "MyTonWallet"
 files:
   - "dist"
   - "package.json"
@@ -50,6 +50,10 @@ mac:
     arch: ["x64", "arm64"]
   entitlements: "public/electron-entitlements.mac.plist"
   icon: "public/icon-electron-macos.icns"
+  extendInfo:
+    # Show "My Wallet" in Finder/Dock while keeping CFBundleName (=productName)
+    # "MyTonWallet" so userData path and the safeStorage keychain entry stay put.
+    CFBundleDisplayName: "My Wallet"
 
 dmg:
   title: "My Wallet installer"
