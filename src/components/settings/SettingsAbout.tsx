@@ -26,7 +26,7 @@ import SettingsHeader from './SettingsHeader';
 import activityStyles from '../main/sections/Content/Activity.module.scss';
 import styles from './Settings.module.scss';
 
-import logoLightPath from '../../assets/logoLight.svg';
+import logoWebpPath from '../../assets/logo.webp';
 import helpcenterImg from '../../assets/settings/settings_helpcenter.svg';
 import hotImg from '../../assets/settings/settings_hot.svg';
 import videoImg from '../../assets/settings/settings_video.svg';
@@ -67,7 +67,7 @@ function SettingsAbout({
       <div
         className={buildClassName(styles.content, styles.noTitle, 'custom-scroll')}
       >
-        <img src={logoLightPath} alt={lang('Logo')} className={styles.logo} />
+        <img src={logoWebpPath} alt={lang('Logo')} className={styles.logo} />
         <h2 ref={headerRef} className={styles.title}>
           {APP_NAME} {APP_VERSION} {APP_ENV_MARKER}
           {!IS_CORE_WALLET && (
