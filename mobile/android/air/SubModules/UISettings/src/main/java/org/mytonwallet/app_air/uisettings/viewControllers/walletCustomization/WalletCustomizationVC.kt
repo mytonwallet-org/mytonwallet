@@ -6,13 +6,11 @@ import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import androidx.core.graphics.toColorInt
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -20,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.DirectionalTouchHandler
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -29,7 +28,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteItemView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.availableCards.WalletCustomizationAvailableCardsView
-import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards.WalletCustomizationCardCell
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards.WalletCustomizationCardsView
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -173,12 +171,8 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
     }
 
     private val availableCardsView: WalletCustomizationAvailableCardsView by lazy {
-        val totalWidth = window?.windowView?.width ?: view.width
-        if (totalWidth <= 0)
-            throw Error()
         WalletCustomizationAvailableCardsView(
-            context,
-            totalWidth
+            context
         ).apply {
             onCardChanged = { accountId, nft ->
                 cardsView.reload(accountId)
@@ -225,7 +219,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                             )
                             tintId = null
                         }
-                        WalletContextManager.delegate?.themeChanged()
+                        WalletContextManager.delegate?.get()?.themeChanged()
                         appPaletteView.reloadViews()
                     }
 
@@ -254,11 +248,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                 cardsView,
                 LinearLayout.LayoutParams(
                     MATCH_PARENT,
-                    17.dp + if (window!!.windowView.width > 138.dp) {
-                        ((window!!.windowView.width - 138.dp) / WalletCustomizationCardCell.RATIO).roundToInt()
-                    } else {
-                        0
-                    }
+                    WalletCustomizationCardsView.heightForWidth(window!!.windowView.width)
                 ).apply {
                     topMargin = 17.dp
                 })
@@ -386,11 +376,11 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        scrollView.setPadding(
-            0,
+        scrollView.setPaddingLocalized(
+            additionalTabletPadding + systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp,
-            0,
+            systemBarEndInset,
             20.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
         )
     }

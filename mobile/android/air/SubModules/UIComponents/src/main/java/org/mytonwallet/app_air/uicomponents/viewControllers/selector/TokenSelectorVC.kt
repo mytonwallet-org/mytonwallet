@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconTitleSubtitleView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.TokenSelectorCell
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -137,7 +138,6 @@ class TokenSelectorVC(
         searchEditText.isSearchIconFixed = true
         searchEditText.hint = LocaleController.getString("Search...")
         searchContainer.addView(searchEditText, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
-        searchContainer.setPadding(10.dp, 0, 10.dp, 8.dp)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.addView(emptyView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -174,7 +174,7 @@ class TokenSelectorVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        val ime = (window?.imeInsets?.bottom ?: 0)
+        val ime = (navigationController?.imeInsetBottom ?: 0)
         val nav = (navigationController?.bottomInset ?: 0)
 
         view.setConstraints {
@@ -182,12 +182,18 @@ class TokenSelectorVC(
             toBottomPx(recyclerView, ime)
         }
 
-        recyclerView.setPadding(
+        searchContainer.setPaddingLocalized(
+            10.dp + additionalTabletPadding + systemBarStartInset,
             0,
+            10.dp + systemBarEndInset,
+            8.dp
+        )
+        recyclerView.setPaddingLocalized(
+            additionalTabletPadding + systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp +
                 56.dp,
-            0,
+            systemBarEndInset,
             max(0, nav - ime)
         )
     }

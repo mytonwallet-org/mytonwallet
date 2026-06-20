@@ -117,6 +117,21 @@ class SettingsHeaderView(
         updateTheme()
     }
 
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        if (changed) {
+            updateScroll(lastY, forceUpdate = true)
+        }
+    }
+
+    fun updateTopInset(top: Int) {
+        topInset = top
+        setConstraints {
+            toTopPx(walletIcon, topInset + 64.dp)
+        }
+        updateScroll(lastY, forceUpdate = true)
+    }
+
     fun viewDidAppear() {
         walletNameLabel.isSelected = true
     }
@@ -233,7 +248,7 @@ class SettingsHeaderView(
             (normalHeight - dy).coerceAtLeast(minHeight)
         expandPercentage = (contentHeight - minHeight.toFloat()) / (normalHeight - minHeight)
         val newIsCollapsed = expandPercentage == 0f
-        if (isFullyCollapsed && newIsCollapsed)
+        if (isFullyCollapsed && newIsCollapsed && !forceUpdate)
             return
         isFullyCollapsed = newIsCollapsed
 

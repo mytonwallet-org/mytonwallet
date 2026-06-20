@@ -92,6 +92,8 @@ class SellVC(
 
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
+    override val shouldDisplayBottomBar = false
+
     private var latestAddressInfo: SendViewModel.AddressInfo? = null
     private var latestUiState: SendViewModel.UiState? = null
 
@@ -227,7 +229,7 @@ class SellVC(
             toBottomPx(
                 confirmButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
             topToTop(
@@ -493,17 +495,19 @@ class SellVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        linearLayout.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        linearLayout.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             0
         )
         view.setConstraints {
+            setMargin(confirmButton.id, ConstraintSet.START, 20.dp + systemBarStartInset)
+            setMargin(confirmButton.id, ConstraintSet.END, 20.dp + systemBarEndInset)
             toBottomPx(
                 confirmButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }

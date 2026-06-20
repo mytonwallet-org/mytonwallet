@@ -73,9 +73,13 @@ open class WalletTypeView(
     }
 
     private var account: MAccount? = null
+    private var shownAccountId: String? = null
+    private var shownIsTemporary: Boolean? = null
     fun configure(account: MAccount?) {
-        if (this.account?.accountId == account?.accountId && this.account?.isTemporary == account?.isTemporary)
+        if (shownAccountId == account?.accountId && shownIsTemporary == account?.isTemporary)
             return
+        shownAccountId = account?.accountId
+        shownIsTemporary = account?.isTemporary
 
         this.account = account ?: run {
             isGone = true
@@ -137,8 +141,7 @@ open class WalletTypeView(
             createViewTagView(account, tintColor)
         } else {
             viewTagView?.isGone = false
-            eyeDrawable?.setTint(tintColor)
-            viewLabel?.setTextColor(tintColor)
+            applyViewTagVariant(account, tintColor)
         }
         walletTypeBlurView?.isVisible = true
 
@@ -146,44 +149,49 @@ open class WalletTypeView(
     }
 
     private fun createViewTagView(account: MAccount, tintColor: Int) {
-        val iconRes = if (account.isTemporary) {
-            org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye_add
-        } else {
-            org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye
-        }
-
-        eyeDrawable = context.getDrawableCompat(iconRes)?.apply {
-            setTint(tintColor)
-        }
-
-        eyeImageView = AppCompatImageView(context).apply {
-            setImageDrawable(eyeDrawable)
-        }
+        eyeImageView = AppCompatImageView(context)
 
         viewLabel = WLabel(context).apply {
             text = LocaleController.getString("\$view_mode")
             setStyle(12f, WFont.SemiBold)
-            setTextColor(tintColor)
             setPaddingLocalized(2.dp, 0, 0, 0)
         }
-
-        val hPadding = if (account.isTemporary) {
-            7.5f.dp.roundToInt()
-        } else {
-            4.5f.dp.roundToInt()
-        }
-
-        val height = if (account.isTemporary) 28.dp else 20.dp
 
         viewTagView = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(hPadding, 0, hPadding, 0)
             addView(eyeImageView)
             addView(viewLabel)
         }
 
-        addView(viewTagView, LayoutParams(LayoutParams.WRAP_CONTENT, height))
+        addView(viewTagView, LayoutParams(LayoutParams.WRAP_CONTENT, 20.dp))
+        applyViewTagVariant(account, tintColor)
+    }
+
+    private var appliedTemporaryVariant: Boolean? = null
+    private fun applyViewTagVariant(account: MAccount, tintColor: Int) {
+        if (appliedTemporaryVariant != account.isTemporary) {
+            appliedTemporaryVariant = account.isTemporary
+            val iconRes = if (account.isTemporary) {
+                org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye_add
+            } else {
+                org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye
+            }
+            eyeDrawable = context.getDrawableCompat(iconRes)
+            eyeImageView?.setImageDrawable(eyeDrawable)
+
+            val hPadding = if (account.isTemporary) {
+                7.5f.dp.roundToInt()
+            } else {
+                4.5f.dp.roundToInt()
+            }
+            viewTagView?.setPadding(hPadding, 0, hPadding, 0)
+            viewTagView?.layoutParams = viewTagView?.layoutParams?.apply {
+                height = if (account.isTemporary) 28.dp else 20.dp
+            }
+        }
+        eyeDrawable?.setTint(tintColor)
+        viewLabel?.setTextColor(tintColor)
     }
 
     private fun setupViewTagBackground(account: MAccount) {

@@ -51,8 +51,9 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 open class WalletCustomizationAvailableCardsView(
     context: Context,
-    private val totalWidth: Int,
 ) : FrameLayout(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
+
+    private var totalWidth: Int = 0
 
     companion object {
         val AVAILABLE_CARD_CELL = WCell.Type(1)
@@ -100,8 +101,7 @@ open class WalletCustomizationAvailableCardsView(
     private val recyclerView by lazy {
         WRecyclerView(context).apply {
             adapter = rvAdapter
-            val spanSize = totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp
-            val layoutManager = GridLayoutManager(context, spanSize)
+            val layoutManager = GridLayoutManager(context, spanSize())
             layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int {
                     return cellWidth()
@@ -193,6 +193,30 @@ open class WalletCustomizationAvailableCardsView(
         return cellWidth(totalWidth)
     }
 
+    private fun spanSize(): Int {
+        return max(1, totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp)
+    }
+
+    fun setLayoutWidth(width: Int) {
+        if (width <= 0 || width == totalWidth) return
+        totalWidth = width
+        (recyclerView.layoutManager as? GridLayoutManager)?.let { lm ->
+            val newSpan = spanSize()
+            if (lm.spanCount != newSpan) {
+                lm.spanCount = newSpan
+            }
+        }
+        cards?.let {
+            val rows = ceil(it.size / calculateNoOfColumns().toFloat())
+            val itemsHeight =
+                (rows * (cellWidth() / WalletCustomizationAvailableCardCell.RATIO + 4.dp)).roundToInt()
+            recyclerView.updateLayoutParams {
+                height = itemsHeight
+            }
+        }
+        rvAdapter.reloadData()
+    }
+
     private val contentView: FrameLayout by lazy {
         FrameLayout(context).apply {
             addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
@@ -226,6 +250,12 @@ open class WalletCustomizationAvailableCardsView(
             topMargin = 18.dp
         })
         updateTheme()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w != oldw)
+            setLayoutWidth(w + 2 * ViewConstants.HORIZONTAL_PADDINGS.dp)
     }
 
     override fun updateTheme() {

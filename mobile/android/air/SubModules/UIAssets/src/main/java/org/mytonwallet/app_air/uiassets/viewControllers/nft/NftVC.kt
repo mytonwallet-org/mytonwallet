@@ -450,15 +450,31 @@ class NftVC(
             (navigationController?.getSystemBars()?.bottom ?: 0)
         )
         v.addView(ownerView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.setConstraints { toCenterX(ownerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat()) }
+        v.setConstraints {
+            toStartPx(
+                ownerView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding
+            )
+            toEnd(ownerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+        }
 
         v.addView(descriptionView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.setConstraints { toCenterX(descriptionView, ViewConstants.HORIZONTAL_PADDINGS.toFloat()) }
+        v.setConstraints {
+            toStartPx(
+                descriptionView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding
+            )
+            toEnd(descriptionView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+        }
 
         v.addView(attributesView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setConstraints {
             toBottom(attributesView)
-            toCenterX(attributesView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            toStartPx(
+                attributesView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding
+            )
+            toEnd(attributesView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
         }
         v
     }
@@ -761,6 +777,26 @@ class NftVC(
     var insetsUpdatedOnce = false
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollingContentView.setConstraints {
+            toStartPx(
+                ownerView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+            )
+            toEndPx(ownerView, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset)
+            toStartPx(
+                descriptionView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+            )
+            toEndPx(descriptionView, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset)
+            toStartPx(
+                attributesView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+            )
+            toEndPx(attributesView, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset)
+        }
+        view.setConstraints {
+            toEndPx(actionsView, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset)
+        }
         view.post {
             updatePadding(
                 if (!insetsUpdatedOnce && isAttributesSectionExpandable)
@@ -1049,7 +1085,7 @@ class NftVC(
         )
         val nav = WNavigationController(
             window!!, WNavigationController.PresentationConfig(
-                overFullScreen = false
+                style = WNavigationController.PresentationStyle.Overlay
             )
         )
         nav.setRoot(previewVC)
@@ -1302,7 +1338,7 @@ class NftVC(
                     nft.toDictionary()
                 )
             }
-            WalletContextManager.delegate?.themeChanged()
+            WalletContextManager.delegate?.get()?.themeChanged()
         }
     }
 
@@ -1312,7 +1348,7 @@ class NftVC(
             null,
             null
         )
-        WalletContextManager.delegate?.themeChanged()
+        WalletContextManager.delegate?.get()?.themeChanged()
     }
 
 }

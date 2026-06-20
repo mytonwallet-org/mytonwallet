@@ -1,3 +1,4 @@
+import type { TonConnectEventName } from '../../../api/dappProtocols/adapters/tonConnect/analytics';
 import type { GlobalState } from '../../types';
 import { DappConnectState, SignDataState, TransferState } from '../../types';
 
@@ -31,11 +32,23 @@ import { CLOSE_DURATION, CLOSE_DURATION_PORTRAIT } from '../../../components/ui/
 
 const GET_DAPPS_PAUSE = 250;
 
+// Reports a TON Connect UI event (modal shown / approved / rejected) for a real request; the worker enriches it
+// from the flow context by `promiseId`. No-op for the speculative placeholder, which has no `promiseId`.
+function recordTonConnectUiEvent(eventName: TonConnectEventName, promiseId?: string) {
+  if (!promiseId) {
+    return;
+  }
+
+  void callApi('recordTonConnectEvent', { event_name: eventName, promiseId });
+}
+
 addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { password, accountId }) => {
   const {
     promiseId, permissions, proof, dapp,
   } = global.dappConnectRequest!;
   const shouldRequireMfa = Boolean(global.accounts?.byId?.[accountId]?.byChain?.ton?.mfa);
+
+  recordTonConnectUiEvent('wallet-connect-accepted', promiseId);
   if (!await prepareDappOperation(
     accountId,
     DappConnectState.ConfirmHardware,
@@ -95,6 +108,7 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
 });
 
 addActionHandler('cancelDappConnectRequestConfirm', (global) => {
+  recordTonConnectUiEvent('wallet-connect-rejected', global.dappConnectRequest?.promiseId);
   cancelDappOperation(
     (global) => global.dappConnectRequest,
     clearDappConnectRequest,
@@ -106,6 +120,7 @@ addActionHandler('setDappConnectRequestState', (global, actions, { state }) => {
 });
 
 addActionHandler('cancelDappTransfer', (global) => {
+  recordTonConnectUiEvent('wallet-transaction-declined', global.currentDappTransfer.promiseId);
   cancelDappOperation(
     (global) => global.currentDappTransfer,
     clearCurrentDappTransfer,
@@ -135,6 +150,8 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
   if (!promiseId) {
     return;
   }
+
+  recordTonConnectUiEvent('wallet-transaction-accepted', promiseId);
 
   if (!await prepareDappOperation(
     selectCurrentAccountId(global)!,
@@ -193,6 +210,8 @@ addActionHandler('submitDappSignData', async (global, actions, { password } = {}
   if (!promiseId) {
     return;
   }
+
+  recordTonConnectUiEvent('wallet-sign-data-accepted', promiseId);
 
   if (!await prepareDappOperation(
     selectCurrentAccountId(global)!,
@@ -270,6 +289,7 @@ addActionHandler('deleteDapp', (global, actions, { url, uniqueId }) => {
 });
 
 addActionHandler('cancelDappSignData', (global) => {
+  recordTonConnectUiEvent('wallet-sign-data-declined', global.currentDappSignData.promiseId);
   cancelDappOperation(
     (global) => global.currentDappSignData,
     clearCurrentDappSignData,
@@ -292,6 +312,7 @@ addActionHandler('apiUpdateDappConnect', (global, actions, {
   });
   setGlobal(global);
 
+  recordTonConnectUiEvent('wallet-connect-request-ui-displayed', promiseId);
   actions.addSiteToBrowserHistory({ url: dapp.url });
 });
 
@@ -327,6 +348,8 @@ addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload
       isLegacyOutput,
     }),
   );
+
+  recordTonConnectUiEvent('wallet-transaction-confirmation-ui-displayed', promiseId);
 });
 
 addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
@@ -346,6 +369,8 @@ addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
       payloadToSign,
     }),
   );
+
+  recordTonConnectUiEvent('wallet-sign-data-confirmation-ui-displayed', promiseId);
 });
 
 async function apiUpdateDappOperation(

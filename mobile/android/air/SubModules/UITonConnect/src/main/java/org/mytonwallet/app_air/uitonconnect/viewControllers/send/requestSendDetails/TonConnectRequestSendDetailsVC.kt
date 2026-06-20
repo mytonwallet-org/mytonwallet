@@ -81,11 +81,19 @@ class TonConnectRequestSendDetailsVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        val ime = (window?.imeInsets?.bottom ?: 0)
+        val ime = (navigationController?.imeInsetBottom ?: 0)
         val nav = (navigationController?.getSystemBars()?.bottom ?: 0)
 
         view.setConstraints({
             toBottomPx(recyclerView, max(ime, nav))
+            toStartPx(
+                recyclerView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset
+            )
+            toEndPx(
+                recyclerView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
+            )
         })
     }
 

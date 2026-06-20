@@ -103,11 +103,11 @@ class TransactionListVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        recyclerView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             navigationController?.getSystemBars()?.bottom ?: 0
         )
     }

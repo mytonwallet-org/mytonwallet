@@ -100,7 +100,7 @@ class EarnHistoryCell: WHighlightCollectionViewCell {
             separatorView.bottomAnchor.constraint(equalTo: bottomAnchor),
             separatorView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -16 : 0),
             separatorView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 62),
-            separatorView.heightAnchor.constraint(equalToConstant: 1.0 / UIScreen.main.scale),
+            separatorView.heightAnchor.constraint(equalToConstant: 1.0 / max(traitCollection.displayScale, 1)),
         ])
         
         // Set content compression priorities

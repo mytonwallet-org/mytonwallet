@@ -86,6 +86,8 @@ class SwapVC(
 
     private val swapViewModel by lazy { ViewModelProvider(this)[SwapViewModel::class.java] }
 
+    override val shouldDisplayBottomBar = false
+
     private val scrollView = NestedScrollView(context).apply {
         id = View.generateViewId()
         overScrollMode = NestedScrollView.OVER_SCROLL_ALWAYS
@@ -95,6 +97,7 @@ class SwapVC(
     private val linearLayout = LinearLayout(context)
 
     private val swapAssetsButton = SwapSwapAssetsButton(context)
+    private val topSpacer = View(context)
     private val sendAmount = SwapAssetInputView(context)
     private val receiveAmount = SwapAssetInputView(context)
     private val alertView = WAlertLabel(
@@ -217,7 +220,7 @@ class SwapVC(
         sendAmount.setMode(SwapAssetInputView.Mode.SELL)
 
         linearLayout.addView(
-            View(context),
+            topSpacer,
             ViewGroup.LayoutParams(MATCH_PARENT, topSpace)
         )
         linearLayout.addView(sendAmount)
@@ -255,17 +258,18 @@ class SwapVC(
                 MATCH_CONSTRAINT
             )
         )
-        view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
+        view.addView(continueButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 50.dp))
 
         view.setConstraints {
             toCenterX(scrollView)
             toTop(scrollView)
             toBottom(scrollView)
-            toCenterX(continueButton, 20f)
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 continueButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
             topToTop(
@@ -599,24 +603,36 @@ class SwapVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        scrollView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        val topSpace = (navigationController?.getSystemBars()?.top ?: 0) +
+            WNavigationBar.DEFAULT_HEIGHT.dp
+        topSpacer.layoutParams?.let { lp ->
+            lp.height = topSpace
+            topSpacer.layoutParams = lp
+        }
+        (swapAssetsButton.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
+            lp.topMargin = 80.dp + topSpace
+            swapAssetsButton.layoutParams = lp
+        }
+        scrollView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             20.dp +
                 ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
                 continueButton.buttonHeight +
                 max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
         )
         scrollView.clipToPadding = false
         view.setConstraints {
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 continueButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }

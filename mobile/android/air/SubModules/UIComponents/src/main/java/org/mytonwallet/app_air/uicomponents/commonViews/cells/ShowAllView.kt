@@ -3,6 +3,8 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.TextUtils
+import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
@@ -11,6 +13,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -64,7 +67,6 @@ class ShowAllView(
         WLabel(context).apply {
             id = generateViewId()
             setStyle(adaptiveFontSize())
-            setTextColor(WColor.PrimaryText)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             marqueeRepeatLimit = -1
@@ -86,6 +88,20 @@ class ShowAllView(
 
         updateTrailingViewsLayout()
         updateTheme()
+    }
+
+    private var blurView: WBlurryBackgroundView? = null
+
+    fun setupBlurBackground(rootView: ViewGroup) {
+        if (blurView != null)
+            return
+        blurView = WBlurryBackgroundView(context, fadeSide = null).apply {
+            setupWith(rootView)
+            setOverlayColor(WColor.Background, 204)
+        }
+        addView(blurView, 0, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        background = null
+        foreground = ripple
     }
 
     fun configure(icon: Int, text: String) {
@@ -153,9 +169,11 @@ class ShowAllView(
     }
 
     override fun updateTheme() {
+        blurView?.updateTheme()
         ripple.rippleColor = WColor.BackgroundRipple.color
         iconDrawable?.setTint(WColor.SecondaryText.color)
         menuDrawable?.setTint(WColor.SecondaryText.color)
+        titleLabel.setTextColor(WColor.PrimaryText.color)
         counterLabel.setGradientColor(arrayOf(WColor.SecondaryText, WColor.SecondaryText))
         counterLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         menuButton.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)

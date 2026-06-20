@@ -58,7 +58,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         isLast = false,
     ).apply {
         setOnClickListener {
-            navigationController?.tabBarController?.navigationController?.push(LogsVC(context))
+            navigationController?.tabBarController?.mainNavigationController?.push(LogsVC(context))
                 ?: navigationController?.push(LogsVC(context))
         }
     }
@@ -91,13 +91,13 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             val nav = WNavigationController(
                 window!!,
                 WNavigationController.PresentationConfig(
-                    overFullScreen = false,
-                    isBottomSheet = true,
+                    style = WNavigationController.PresentationStyle.BottomSheet,
                     aboveKeyboard = true
                 )
             )
             nav.setRoot(
-                WalletContextManager.delegate?.getAddAccountVC(MBlockchainNetwork.TESTNET) as WViewController
+                WalletContextManager.delegate?.get()
+                    ?.getAddAccountVC(MBlockchainNetwork.TESTNET) as WViewController
             )
             window?.present(nav)
         }
@@ -193,12 +193,6 @@ class DebugMenuVC(context: Context) : WViewController(context) {
 
     private val scrollingContentView: WView by lazy {
         WView(context).apply {
-            setPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
-                0,
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
-                0
-            )
             // Section 1: Logs
             addView(logsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(viewLogsRow)
@@ -335,6 +329,16 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             )
             seasonalThemeRow?.setBackgroundColor(WColor.Background.color)
         }
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        scrollingContentView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
     }
 
     private fun presentSeasonalThemeOverrideMenu() {

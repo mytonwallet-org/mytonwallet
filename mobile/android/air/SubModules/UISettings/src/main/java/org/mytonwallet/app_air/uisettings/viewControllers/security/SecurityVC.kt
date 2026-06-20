@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -319,8 +320,8 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
-        v.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        v.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
@@ -415,6 +416,16 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         appLockContainerView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
+        )
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        scrollingContentView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
         )
     }
 

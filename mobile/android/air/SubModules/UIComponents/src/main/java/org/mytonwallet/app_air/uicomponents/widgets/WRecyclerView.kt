@@ -164,6 +164,9 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
         verticalOverScrollBounceEffectDecorator?.detach()
     }
 
+    val hasOverScroll: Boolean
+        get() = verticalOverScrollBounceEffectDecorator != null
+
     fun setMaxOverscrollOffset(value: Float) {
         verticalOverScrollBounceEffectDecorator?.setMaxOffset(value)
     }

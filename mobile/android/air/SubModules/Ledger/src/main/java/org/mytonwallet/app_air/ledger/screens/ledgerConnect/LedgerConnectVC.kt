@@ -22,7 +22,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatImageView
@@ -43,10 +42,12 @@ import org.mytonwallet.app_air.ledger.screens.ledgerConnect.views.LedgerConnectS
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.LedgerWalletsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -101,6 +102,8 @@ class LedgerConnectVC(
     private val headerView: View? = null,
 ) : WViewController(context), WThemedView, WalletCore.EventObserver {
     override val TAG = "LedgerConnect"
+
+    override val isContentWidthCapped = true
 
     sealed class Mode {
         data class AddAccount(val network: MBlockchainNetwork) : Mode()
@@ -366,7 +369,12 @@ class LedgerConnectVC(
             navigationBar?.addCloseButton()
         }
 
-        view.addView(scrollView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.addView(
             bottomReversedCornerViewUpsideDown,
             ConstraintLayout.LayoutParams(
@@ -376,6 +384,7 @@ class LedgerConnectVC(
         )
         view.addView(tryAgainButton, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         view.setConstraints {
+            allEdges(scrollView)
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 tryAgainButton,
@@ -383,10 +392,11 @@ class LedgerConnectVC(
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toCenterX(tryAgainButton, 20f)
+            constrainMaxWidth(tryAgainButton.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp - 40.dp)
             toBottomPx(
                 tryAgainButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }
@@ -420,16 +430,24 @@ class LedgerConnectVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        scrollView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        scrollView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             ViewConstants.GAP.dp + tryAgainButton.buttonHeight + 20.dp + max(
                 (navigationController?.getSystemBars()?.bottom ?: 0),
-                (window?.imeInsets?.bottom ?: 0)
+                (navigationController?.imeInsetBottom ?: 0)
             )
         )
+        view.setConstraints {
+            toBottomPx(
+                tryAgainButton, 20.dp + max(
+                    (navigationController?.getSystemBars()?.bottom ?: 0),
+                    (navigationController?.imeInsetBottom ?: 0)
+                )
+            )
+        }
     }
 
     private fun updateConnectionTypeView() {
@@ -759,7 +777,8 @@ class LedgerConnectVC(
                                 stakingState = signData.stakingState,
                                 realFee = signData.realFee,
                             )
-                        signedActivityId = result.activityId?.let { ActivityHelpers.getTxIdFromId(it) }
+                        signedActivityId =
+                            result.activityId?.let { ActivityHelpers.getTxIdFromId(it) }
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                             receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }

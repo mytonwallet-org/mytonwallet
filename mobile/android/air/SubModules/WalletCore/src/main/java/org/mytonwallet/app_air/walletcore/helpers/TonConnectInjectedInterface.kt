@@ -384,7 +384,7 @@ class TonConnectInjectedInterface(
 
             "window:open" -> {
                 val url = invoke.args?.optJSONObject(0)?.optString("url") ?: return
-                if (WalletContextManager.delegate?.handleDeeplink(url) != true) {
+                if (WalletContextManager.delegate?.get()?.handleDeeplink(url) != true) {
                     webView.loadUrl(url)
                 }
             }

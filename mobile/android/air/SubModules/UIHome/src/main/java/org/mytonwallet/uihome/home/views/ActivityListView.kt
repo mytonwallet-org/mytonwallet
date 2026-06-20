@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
+import org.mytonwallet.app_air.uicomponents.commonViews.TabletHeaderActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.EmptyCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderSpaceCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell
@@ -28,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -39,12 +41,17 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import org.mytonwallet.uihome.home.cells.HomeAssetsCell
+import org.mytonwallet.uihome.home.cells.HomeAssetsVCPool
+import org.mytonwallet.uihome.home.cells.HomePhoneAssetsCell
+import org.mytonwallet.uihome.home.cells.HomeTabletAssetsCell
+import org.mytonwallet.uihome.home.cells.HomeTabletAssetsSkeletonCell
+import org.mytonwallet.uihome.home.cells.IHomeAssetsCell
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import java.lang.ref.WeakReference
 import java.util.Date
@@ -81,6 +88,7 @@ class ActivityListView<T>(
 
         val SKELETON_HEADER_CELL = WCell.Type(9)
         val SKELETON_CELL = WCell.Type(10)
+        val TABLET_ASSETS_SKELETON_CELL = WCell.Type(11)
 
         const val HEADER_SECTION = 0
         const val ASSETS_SECTION = 1
@@ -96,9 +104,20 @@ class ActivityListView<T>(
         fun activityListViewHeaderHeight(): Int
         fun swipeItemsOffset(): Int
         fun activityListReserveActionsCell(): Boolean
+        fun activityListActionsCellHeight(): Int = HeaderActionsView.HEIGHT.dp
+        fun activityListReserveAssetsCell(): Boolean = true
         fun recyclerViewModeValue(): HomeHeaderView.Mode
-        val headerView: HomeHeaderView
+        val phoneHeaderView: HomeHeaderView
+        val isWideHome: Boolean
     }
+
+    val additionalTabletPadding: Int
+        get() {
+            return if (dataSourceRef.get()?.isWideHome == true)
+                ViewConstants.ADDITIONAL_TABLET_PADDING
+            else
+                0
+        }
 
     interface Delegate {
         fun updateScroll(dy: Int, velocity: Float? = null, isGoingBack: Boolean = false)
@@ -116,6 +135,9 @@ class ActivityListView<T>(
         fun onTransactionTap(accountId: String, transaction: MApiTransaction)
         fun pauseBlurViews()
         fun resumeBottomBlurViews()
+        fun onHeaderAction(identifier: HeaderActionsView.Identifier)
+
+        fun onTopItemHorizontalScroll()
     }
 
     // PUBLIC //////////////////////////////////////////////////////////////////////////////////////
@@ -140,14 +162,14 @@ class ActivityListView<T>(
         val showingAccountId = showingAccountId
         if (showingAccountId != null) {
             isInstantSwitchingAccount =
-                skipSkeletonOnCache &&
+                (skipSkeletonOnCache || dataSource?.activityListReserveAssetsCell() == false) &&
                     isGeneralDataAvailable &&
                     WGlobalStorage.hasCachedActivities(showingAccountId, null)
             isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
             activityLoader =
                 ActivityLoader(context, showingAccountId, null, WeakReference(this))
             activityLoader?.askForActivities()
-            homeAssetsCell?.configure(showingAccountId)
+            assetsCell?.configure(showingAccountId)
             updateSkeletonState(animated = false)
         }
         reloadData()
@@ -165,12 +187,12 @@ class ActivityListView<T>(
         if (recyclerView.computeVerticalScrollOffset() > 0) {
             recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
         } else {
-            homeAssetsCell?.scrollToFirst()
+            assetsCell?.scrollToFirst()
         }
     }
 
     private fun scrollAssetsCellToVisible() {
-        val cell = homeAssetsCell ?: return
+        val cell = assetsCell?.asCell ?: return
         val visibleTop = (dataSource?.navigationController?.getSystemBars()?.top ?: 0) +
             HomeHeaderView.navDefaultHeight
         if (cell.top < visibleTop) {
@@ -199,7 +221,38 @@ class ActivityListView<T>(
         skeletonRecyclerView.adapter = null
         skeletonRecyclerView.removeAllViews()
         skeletonView.onDestroy()
-        homeAssetsCell?.onDestroy()
+        assetsCell?.onDestroy()
+        assetsVCPool?.destroy()
+        assetsVCPool = null
+        tabletActionsView?.onDestroy()
+    }
+
+    // On a live phone<->tablet switch the cell types change (segmented vs columns for assets, and
+    // phone shared vs tablet per-instance actions), so cached instances are dropped and rebuilt on
+    // the next bind.
+    fun onWideLayoutChanged() {
+        assetsCell?.let {
+            if (it.isInDragMode) it.endSorting(false)
+            if (it.isInSelectionMode) it.closeSelectionMode()
+            (it.asCell.parent as? android.view.ViewGroup)?.removeView(it.asCell)
+            it.onDestroy()
+        }
+        assetsCell = null
+
+        tabletActionsView?.let {
+            (it.parent as? android.view.ViewGroup)?.removeView(it)
+            it.onDestroy()
+        }
+        tabletActionsView = null
+
+        // Clear the actions placeholder cell so the correct actions view (phone shared view via
+        // HomeVC.moveActionsViewToCell, or a fresh tablet view via mountTabletActionsView) is
+        // re-inserted on the next bind. The placeholder cell itself (and its holder) is reused.
+        actionsCell.removeAllViews()
+
+        rvAdapter.invalidateCellType(ASSETS_CELL)
+        reloadData()
+        rvSkeletonAdapter.reloadData()
     }
 
     private var animationsPaused = false
@@ -209,11 +262,11 @@ class ActivityListView<T>(
         if (animationsPaused != newAnimationsPaused) {
             animationsPaused = newAnimationsPaused
             if (animationsPaused)
-                homeAssetsCell?.setAnimations(paused = true)
+                assetsCell?.setAnimations(paused = true)
             else
                 post {
                     if (!animationsPaused)
-                        homeAssetsCell?.setAnimations(paused = false)
+                        assetsCell?.setAnimations(paused = false)
                 }
         }
     }
@@ -310,7 +363,8 @@ class ActivityListView<T>(
             arrayOf(
                 HEADER_CELL,
                 SKELETON_HEADER_CELL,
-                SKELETON_CELL
+                SKELETON_CELL,
+                TABLET_ASSETS_SKELETON_CELL
             )
         ).apply {
             setHasStableIds(true)
@@ -318,26 +372,26 @@ class ActivityListView<T>(
 
     val rvLayoutManager = object : LinearLayoutManagerAccurateOffset(context) {
         override fun canScrollVertically(): Boolean {
-            return !skeletonView.isVisible && dataSource?.headerView?.isAnimating != true
+            return !skeletonView.isVisible && dataSource?.phoneHeaderView?.isAnimating != true
         }
     }.apply {
         isSmoothScrollbarEnabled = true
     }
 
     private var ignoreScrolls = false
+
     private var scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
             val dataSource = dataSource ?: return
-            if (ignoreScrolls || !isVisible)
-                return
+            if (ignoreScrolls || !isVisible) return
             val firstVisibleItem =
                 (recyclerView.layoutManager as LinearLayoutManagerAccurateOffset).findFirstVisibleItemPosition()
             val computedOffset =
                 if (firstVisibleItem < 2) recyclerView.computeVerticalScrollOffset() else LARGE_INT
             val isHeaderFullyCollapsed =
-                (dataSource.headerView.mode == HomeHeaderView.Mode.Collapsed &&
-                    (dataSource.recyclerViewModeValue() == HomeHeaderView.Mode.Collapsed || computedOffset > dataSource.headerView.diffPx + 100.dp))
+                (dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
+                    (dataSource.recyclerViewModeValue() == HomeHeaderView.Mode.Collapsed || computedOffset > dataSource.phoneHeaderView.diffPx + 100.dp))
             if (isHeaderFullyCollapsed && dy > 3 && computedOffset > 100.dp) {
                 dataSource.navigationController?.tabBarController?.scrollingDown()
             } else if (dy < -3 || computedOffset < 100.dp) {
@@ -357,18 +411,18 @@ class ActivityListView<T>(
             }
             if (newState == RecyclerView.SCROLL_STATE_SETTLING || newState == RecyclerView.SCROLL_STATE_IDLE) {
                 this@ActivityListView.recyclerView.setBounceBackSkipValue(0)
-                dataSource.headerView.isExpandAllowed = false
+                dataSource.phoneHeaderView.isExpandAllowed = false
                 ignoreScrolls =
                     dataSource.recyclerViewModeValue() == HomeHeaderView.Mode.Expanded &&
-                        dataSource.headerView.mode == HomeHeaderView.Mode.Collapsed &&
-                        recyclerView.computeVerticalScrollOffset() < dataSource.headerView.diffPx
+                        dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
+                        recyclerView.computeVerticalScrollOffset() < dataSource.phoneHeaderView.diffPx
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     scrollEnded()
                 } else {
                     // Usual fling should be stopped, if the header is collapsed partially.
                     if (dataSource.recyclerViewModeValue() == HomeHeaderView.Mode.Expanded &&
-                        dataSource.headerView.mode == HomeHeaderView.Mode.Collapsed &&
-                        recyclerView.computeVerticalScrollOffset() < dataSource.headerView.diffPx
+                        dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
+                        recyclerView.computeVerticalScrollOffset() < dataSource.phoneHeaderView.diffPx
                     ) {
                         recyclerView.stopScroll()
                         scrollEnded()
@@ -404,7 +458,7 @@ class ActivityListView<T>(
                     return@setOnOverScrollListener
                 var offset = suggestedOffset
                 if (
-                    (suggestedOffset > 0f && dataSource.headerView.mode == HomeHeaderView.Mode.Expanded && dataSource.headerView.mode == dataSource.recyclerViewModeValue())
+                    (suggestedOffset > 0f && dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Expanded && dataSource.phoneHeaderView.mode == dataSource.recyclerViewModeValue())
                 ) {
                     offset = 0f
                     recyclerView.removeOverScroll()
@@ -415,12 +469,12 @@ class ActivityListView<T>(
                     dataSource.heavyAnimationInProgress()
                 }
                 val isGoingBack = newState == IOverScrollState.STATE_BOUNCE_BACK
-                if (isGoingBack && dataSource.recyclerViewModeValue() != dataSource.headerView.mode) {
+                if (isGoingBack && dataSource.recyclerViewModeValue() != dataSource.phoneHeaderView.mode) {
                     val prevOverscroll = recyclerView.getOverScrollOffset()
-                    if (dataSource.headerView.mode == HomeHeaderView.Mode.Expanded) {
+                    if (dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Expanded) {
                         recyclerView.getOverScrollOffset()
                         val newOffset =
-                            if (!expandingProgrammatically) (dataSource.headerView.diffPx - prevOverscroll).toInt() else 0
+                            if (!expandingProgrammatically) (dataSource.phoneHeaderView.diffPx - prevOverscroll).toInt() else 0
                         expandingProgrammatically = false
                         ignoreScrolls = true
                         recyclerView.scrollBy(0, newOffset)
@@ -432,7 +486,7 @@ class ActivityListView<T>(
                         }
                     } else {
                         val newOffset =
-                            (dataSource.headerView.collapsedHeight - dataSource.headerView.expandedContentHeight - prevOverscroll).toInt()
+                            (dataSource.phoneHeaderView.collapsedHeight - dataSource.phoneHeaderView.expandedContentHeight - prevOverscroll).toInt()
                         ignoreScrolls = true
                         recyclerView.scrollBy(0, newOffset)
                         recyclerView.smoothScrollBy(0, -recyclerView.computeVerticalScrollOffset())
@@ -450,11 +504,11 @@ class ActivityListView<T>(
                     velocity,
                     isGoingBack
                 )
-                dataSource.headerView.isExpandAllowed = isTouchActive
+                dataSource.phoneHeaderView.isExpandAllowed = isTouchActive
             }
             onFlingListener = object : RecyclerView.OnFlingListener() {
                 override fun onFling(velocityX: Int, velocityY: Int): Boolean {
-                    return if (dataSource?.headerView?.mode == HomeHeaderView.Mode.Expanded)
+                    return if (dataSource?.phoneHeaderView?.mode == HomeHeaderView.Mode.Expanded)
                         adjustScrollingPosition()
                     else
                         false
@@ -489,9 +543,131 @@ class ActivityListView<T>(
 
     private var skeletonEmptyHeaderCell: WCell? = null
     val headerCell = HeaderSpaceCell(context)
-    val actionsCell = WCell(context)
+    val actionsCell = WCell(context).apply {
+        clipChildren = false
+        clipToPadding = false
+    }
+
+    private val isWideLayout: Boolean
+        get() = dataSource?.isWideHome == true
+
+    private var tabletActionsView: TabletHeaderActionsView? = null
+
+    // Ensure the tablet per-instance actions view exists, is mounted inside the actions placeholder
+    // cell, and reflects the current account. Called when binding the actions cell on wide layout.
+    private fun mountTabletActionsView() {
+        val view = tabletActionsView ?: TabletHeaderActionsView(
+            context,
+            TabletHeaderActionsView.headerTabs(context, true),
+            onClick = onClick@{ identifier ->
+                if (skeletonVisible)
+                    return@onClick
+                delegate?.onHeaderAction(HeaderActionsView.Identifier.valueOf(identifier.name))
+            }
+        ).also { tabletActionsView = it }
+        if (view.parent !== actionsCell) {
+            (view.parent as? android.view.ViewGroup)?.removeView(view)
+            actionsCell.removeAllViews()
+            actionsCell.addView(
+                view,
+                android.view.ViewGroup.LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+        view.updateActions(AccountStore.accountById(showingAccountId))
+        view.updateTheme()
+    }
+
+    fun updateActionsView() {
+        tabletActionsView?.updateActions(AccountStore.accountById(showingAccountId))
+    }
+
     val stickyCells = setOf(headerCell, actionsCell)
-    var homeAssetsCell: HomeAssetsCell? = null
+    var assetsCell: IHomeAssetsCell? = null
+
+    // Owns the home assets ViewControllers so they survive a phone<->tablet cell swap (see
+    // HomeAssetsVCPool). Created on first cell build; destroyed once in onDestroy. Per-ActivityListView
+    // (prev/current/next each have their own account, hence their own pool).
+    private var assetsVCPool: HomeAssetsVCPool? = null
+
+    // On wide layout the assets are shown as side-by-side columns (HomeTabletAssetsCell); on phone
+    // as a paged segmented control (HomePhoneAssetsCell). Both share the IHomeAssetsCell surface.
+    private fun createAssetsCell(dataSource: T): IHomeAssetsCell {
+        val window = dataSource.window!!
+        val navigationController = dataSource.navigationController!!
+        val pool = assetsVCPool ?: HomeAssetsVCPool(
+            context,
+            window,
+            navigationController,
+            showingAccountId ?: ""
+        ).also { assetsVCPool = it }
+        val heightChanged = { delegate?.resumeBottomBlurViews(); Unit }
+        val onAssetsShown = onAssetsShown@{
+            if (showingAccountId == null)
+                return@onAssetsShown
+            assetsShown = true
+            updateSkeletonState(animated = true)
+        }
+        val onReorderingRequested = { reordering: Boolean ->
+            if (reordering) delegate?.startSorting() else delegate?.endSorting()
+            Unit
+        }
+        val onForceEndReorderingRequested = { delegate?.endSorting(); Unit }
+        val onSelectionRequested = { selectedCount: Int, shouldShowTransferActions: Boolean ->
+            delegate?.startSelectionMode(selectedCount, shouldShowTransferActions)
+            Unit
+        }
+        val onSelectionChanged = { selectedCount: Int,
+                                   animationMode: TitleAnimationMode?,
+                                   isInSelectionMode: Boolean,
+                                   shouldShowTransferActions: Boolean ->
+            if (isInSelectionMode) {
+                delegate?.updateSelectionMode(
+                    selectedCount,
+                    animationMode,
+                    shouldShowTransferActions
+                )
+            } else {
+                delegate?.endSelectionMode()
+            }
+            Unit
+        }
+        val onDetailsOpened = { delegate?.endSelectionMode(); Unit }
+        val cell: IHomeAssetsCell = if (isWideLayout) {
+            HomeTabletAssetsCell(
+                context,
+                pool = pool,
+                navigationController = navigationController,
+                showingAccountId = showingAccountId ?: "",
+                heightChanged = heightChanged,
+                onAssetsShown = onAssetsShown,
+                onReorderingRequested = onReorderingRequested,
+                onSelectionRequested = onSelectionRequested,
+                onSelectionChanged = onSelectionChanged,
+                onDetailsOpened = onDetailsOpened,
+                onHorizontalScroll = { delegate?.onTopItemHorizontalScroll() }
+            )
+        } else {
+            HomePhoneAssetsCell(
+                context,
+                pool = pool,
+                window = window,
+                navigationController = navigationController,
+                showingAccountId = showingAccountId ?: "",
+                heightChanged = heightChanged,
+                onAssetsShown = onAssetsShown,
+                onReorderingRequested = onReorderingRequested,
+                onForceEndReorderingRequested = onForceEndReorderingRequested,
+                onSelectionRequested = onSelectionRequested,
+                onSelectionChanged = onSelectionChanged,
+                onDetailsOpened = onDetailsOpened
+            )
+        }
+        cell.onScrollToVisibleRequested = { scrollAssetsCellToVisible() }
+        return cell
+    }
 
     init {
         addView(recyclerView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -509,6 +685,17 @@ class ActivityListView<T>(
         updateSkeletonViews()
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val header = dataSource?.phoneHeaderView ?: return
+        header.availableHeight = height
+        if (header.mode == HomeHeaderView.Mode.Collapsed && recyclerView.hasOverScroll) {
+            recyclerView.setMaxOverscrollOffset(
+                if (header.canExpandForHeight) header.diffPx else 0f
+            )
+        }
+    }
+
     override val isTinted = true
     override fun updateTheme() {
         rvAdapter.updateTheme()
@@ -516,17 +703,19 @@ class ActivityListView<T>(
     }
 
     fun insetsUpdated() {
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        val startInset = dataSource?.systemBarStartInset ?: 0
+        val endInset = dataSource?.systemBarEndInset ?: 0
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + startInset,
             recyclerView.paddingTop,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + endInset,
             dataSource?.navigationController?.getSystemBars()?.bottom ?: 0
         )
-        skeletonRecyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        skeletonRecyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + startInset,
             skeletonRecyclerView.paddingTop,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            skeletonRecyclerView.paddingBottom
+            ViewConstants.HORIZONTAL_PADDINGS.dp + endInset,
+            dataSource?.navigationController?.getSystemBars()?.bottom ?: 0
         )
     }
 
@@ -555,7 +744,7 @@ class ActivityListView<T>(
         val dataSource = dataSource ?: return
         val newHeight = dataSource.activityListViewHeaderHeight() +
             dataSource.swipeItemsOffset() +
-            (if (dataSource.activityListReserveActionsCell()) HeaderActionsView.HEIGHT.dp else 0)
+            (if (dataSource.activityListReserveActionsCell()) dataSource.activityListActionsCellHeight() else 0)
         if (newHeight == skeletonEmptyHeaderCell?.layoutParams?.height)
             return
         skeletonEmptyHeaderCell?.layoutParams = skeletonEmptyHeaderCell?.layoutParams?.apply {
@@ -569,7 +758,8 @@ class ActivityListView<T>(
 
         val areActivitiesAvailable =
             !showingTransactions.isNullOrEmpty() || activityLoader?.loadedAll == true
-        val shouldShowRecyclerView = isGeneralDataAvailable && areActivitiesAvailable && assetsShown
+        val assetsReady = assetsShown || dataSource?.activityListReserveAssetsCell() == false
+        val shouldShowRecyclerView = isGeneralDataAvailable && areActivitiesAvailable && assetsReady
         val shouldFadeInRecyclerView =
             isInstantSwitchingAccount && shouldShowRecyclerView && !skeletonVisible
 
@@ -663,9 +853,14 @@ class ActivityListView<T>(
         skeletonRecyclerView.post {
             rvSkeletonAdapter.notifyItemChanged(0)
         }
-        if (dataSource.headerView.mode == HomeHeaderView.Mode.Collapsed) {
+        if (dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) {
             recyclerView.setupOverScroll()
-            recyclerView.setMaxOverscrollOffset(dataSource.headerView.diffPx)
+            recyclerView.setMaxOverscrollOffset(
+                if (dataSource.phoneHeaderView.canExpandForHeight)
+                    dataSource.phoneHeaderView.diffPx
+                else
+                    0f
+            )
         } else if (isInvisible) {
             recyclerView.removeOverScroll()
         }
@@ -692,11 +887,11 @@ class ActivityListView<T>(
 
     fun scrollEnded(overrideOffset: Int? = null) {
         val dataSource = dataSource ?: return
-        if (dataSource.recyclerViewModeValue() != dataSource.headerView.mode) {
+        if (dataSource.recyclerViewModeValue() != dataSource.phoneHeaderView.mode) {
             delegate?.headerModeChanged()
-            if (rvLayoutManager.findFirstVisibleItemPosition() == 0) {
+            if (rvLayoutManager.findFirstVisibleItemPosition() == 0 && !isWideLayout) {
                 // Correct the scroll offset of the recycler view
-                val correctionOffset = dataSource.headerView.diffPx
+                val correctionOffset = dataSource.phoneHeaderView.diffPx
                 val scrollOffset = overrideOffset ?: recyclerView.computeVerticalScrollOffset()
                 if (correctionOffset > scrollOffset) {
                     // Go to over-scroll
@@ -716,7 +911,7 @@ class ActivityListView<T>(
             }
         } else {
             adjustScrollingPosition()
-            if (dataSource.headerView.mode == HomeHeaderView.Mode.Expanded) {
+            if (dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Expanded) {
                 recyclerView.removeOverScroll()
             }
         }
@@ -728,7 +923,7 @@ class ActivityListView<T>(
         when (dataSource.recyclerViewModeValue()) {
             HomeHeaderView.Mode.Expanded -> {
                 if (scrollOffset > 0 &&
-                    dataSource.headerView.mode == HomeHeaderView.Mode.Expanded
+                    dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Expanded
                 ) {
                     recyclerView.smoothScrollBy(0, -scrollOffset)
                     return true
@@ -759,10 +954,13 @@ class ActivityListView<T>(
         if (showingAccountId == null)
             return
         updateSkeletonState(animated = true)
-        val shouldReloadAssetsCellHeight = homeAssetsCell?.isDraggingCollectible != true
+        val shouldReloadActionsCellHeight = tabletActionsView?.isScrolling != true
+        val shouldReloadAssetsCellHeight = assetsCell?.isDraggingCollectible != true
         val shouldShowActions = dataSource?.activityListReserveActionsCell()
         isApplyingUpdate = isUpdateEvent && oldTransactions != null
-        if (shouldReloadAssetsCellHeight || showActions != shouldShowActions)
+        if ((shouldReloadAssetsCellHeight && shouldReloadActionsCellHeight) ||
+            showActions != shouldShowActions
+        )
             reloadData()
         else
             reloadTransactions()
@@ -779,7 +977,7 @@ class ActivityListView<T>(
         }
     }
 
-    private fun reloadData() {
+    internal fun reloadData() {
         if (recyclerView.isComputingLayout) {
             recyclerView.post { reloadData() }
             return
@@ -828,7 +1026,7 @@ class ActivityListView<T>(
                         if (showActions) 2 else 1
                     }
 
-                    ASSETS_SECTION -> 2
+                    ASSETS_SECTION -> if (dataSource?.activityListReserveAssetsCell() == false) 0 else 2
 
                     TRANSACTION_SECTION -> if ((showingTransactions?.size ?: 0) > 0)
                         showingTransactions!!.size
@@ -836,13 +1034,13 @@ class ActivityListView<T>(
                         0
 
                     EMPTY_VIEW_SECTION -> {
-                        return if (
+                        if (
                             showingTransactions?.isEmpty() == true
                         ) 1 else 0
                     }
 
                     LOADING_SECTION -> {
-                        return 1
+                        1
                     }
 
                     else -> throw Error()
@@ -890,7 +1088,7 @@ class ActivityListView<T>(
 
                     else -> {
                         val tx = showingTransactions?.getOrNull(indexPath.row)
-                        return tx?.let { transaction ->
+                        tx?.let { transaction ->
                             if (transaction.isNft ||
                                 (transaction as? MApiTransaction.Transaction)?.hasComment == true
                             ) TRANSACTION_CELL else if (indexPath.row == 0 || !transaction.dt.isSameDayAs(
@@ -909,10 +1107,15 @@ class ActivityListView<T>(
                     }
 
                     else -> {
-                        return if (indexPath.row == 0)
-                            SKELETON_HEADER_CELL
-                        else
-                            SKELETON_CELL
+                        if (isWideLayout) {
+                            when (indexPath.row) {
+                                0 -> TABLET_ASSETS_SKELETON_CELL
+                                1 -> SKELETON_HEADER_CELL
+                                else -> SKELETON_CELL
+                            }
+                        } else {
+                            if (indexPath.row == 0) SKELETON_HEADER_CELL else SKELETON_CELL
+                        }
                     }
                 }
             }
@@ -944,57 +1147,9 @@ class ActivityListView<T>(
                     }
 
                     ASSETS_CELL -> {
-                        if (homeAssetsCell == null)
-                            homeAssetsCell = HomeAssetsCell(
-                                context,
-                                window = dataSource.window!!,
-                                navigationController = dataSource.navigationController!!,
-                                showingAccountId = showingAccountId ?: "",
-                                heightChanged = {
-                                    delegate?.resumeBottomBlurViews()
-                                },
-                                onAssetsShown = {
-                                    if (showingAccountId == null)
-                                        return@HomeAssetsCell
-                                    assetsShown = true
-                                    updateSkeletonState(animated = true)
-                                },
-                                onReorderingRequested = { reordering ->
-                                    if (reordering)
-                                        delegate?.startSorting()
-                                    else
-                                        delegate?.endSorting()
-                                },
-                                onForceEndReorderingRequested = {
-                                    delegate?.endSorting()
-                                },
-                                onSelectionRequested = { selectedCount, shouldShowTransferActions ->
-                                    delegate?.startSelectionMode(
-                                        selectedCount,
-                                        shouldShowTransferActions
-                                    )
-                                },
-                                onSelectionChanged = { selectedCount,
-                                                       animationMode,
-                                                       isInSelectionMode,
-                                                       shouldShowTransferActions ->
-                                    if (isInSelectionMode) {
-                                        delegate?.updateSelectionMode(
-                                            selectedCount,
-                                            animationMode,
-                                            shouldShowTransferActions
-                                        )
-                                    } else {
-                                        delegate?.endSelectionMode()
-                                    }
-                                },
-                                onDetailsOpened = {
-                                    delegate?.endSelectionMode()
-                                }
-                            ).also {
-                                it.onScrollToVisibleRequested = { scrollAssetsCellToVisible() }
-                            }
-                        return homeAssetsCell!!
+                        if (assetsCell == null)
+                            assetsCell = createAssetsCell(dataSource)
+                        assetsCell!!.asCell
                     }
 
                     TRANSACTION_CELL -> {
@@ -1058,6 +1213,10 @@ class ActivityListView<T>(
                         SkeletonHeaderCell(context)
                     }
 
+                    TABLET_ASSETS_SKELETON_CELL -> {
+                        HomeTabletAssetsSkeletonCell(context)
+                    }
+
                     else -> {
                         SkeletonCell(context)
                     }
@@ -1091,9 +1250,12 @@ class ActivityListView<T>(
                             }
 
                             1 -> {
-                                actionsCell.updateLayoutParams {
-                                    height = HeaderActionsView.Companion.HEIGHT.dp
+                                cellHolder.cell.updateLayoutParams {
+                                    height = dataSource?.activityListActionsCellHeight()
+                                        ?: HeaderActionsView.HEIGHT.dp
                                 }
+                                if (isWideLayout)
+                                    mountTabletActionsView()
                             }
                         }
                         (cellHolder.cell as? WThemedView)?.updateTheme()
@@ -1102,10 +1264,9 @@ class ActivityListView<T>(
 
                     ASSETS_SECTION -> {
                         if (indexPath.row == 0) {
-                            val homeAssetsCell = cellHolder.cell as HomeAssetsCell
-                            homeAssetsCell.visibility =
+                            cellHolder.cell.visibility =
                                 if (showingTransactions == null) INVISIBLE else VISIBLE
-                            homeAssetsCell.configure(showingAccountId)
+                            assetsCell?.configure(showingAccountId)
                         } else {
                             val layoutParams = cellHolder.cell.layoutParams
                             layoutParams.height = ViewConstants.GAP.dp
@@ -1160,7 +1321,7 @@ class ActivityListView<T>(
                                         75.dp + // TabBar
                                         HomeHeaderView.navDefaultHeight +
                                         ViewConstants.GAP.dp +
-                                        (homeAssetsCell?.height ?: 0)
+                                        (assetsCell?.asCell?.height ?: 0)
                                     )
                             }
                         }
@@ -1192,6 +1353,10 @@ class ActivityListView<T>(
                         (cellHolder.cell as SkeletonHeaderCell).updateTheme()
                     }
 
+                    is HomeTabletAssetsSkeletonCell -> {
+                        (cellHolder.cell as HomeTabletAssetsSkeletonCell).updateTheme()
+                    }
+
                     is SkeletonCell -> {
                         (cellHolder.cell as SkeletonCell).apply {
                             configure(indexPath.row, isFirst = false, isLast = false)
@@ -1219,7 +1384,7 @@ class ActivityListView<T>(
 
                     TRANSACTION_SECTION -> {
                         if (indexPath.row < (showingTransactions?.size ?: 0)) {
-                            return showingTransactions!![indexPath.row].getStableId()
+                            showingTransactions!![indexPath.row].getStableId()
                         } else
                             null
                     }

@@ -126,10 +126,6 @@ public class HomeTabBarController: UITabBarController {
 
         addGestureRecognizer()
 
-        if #available(iOS 18.0, *), UIDevice.current.userInterfaceIdiom == .pad {
-            traitOverrides.horizontalSizeClass = .compact
-        }
-
         updateTheme()
     }
 

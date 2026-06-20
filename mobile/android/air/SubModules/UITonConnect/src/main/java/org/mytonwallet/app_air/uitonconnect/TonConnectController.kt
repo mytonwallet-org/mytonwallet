@@ -52,12 +52,14 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
         when (update) {
             is ApiUpdate.ApiUpdateDappConnect -> {
                 window.doOnWalletReady {
+                    WalletCore.recordTonConnectEvent("wallet-connect-request-ui-displayed", update.promiseId)
                     // Reuse a connect modal that's already shown (e.g. a connect deeplink tapped twice) so a
                     // second request replaces the first in place instead of stacking a new sheet.
-                    val existingVC = loadingConnectRequestViewController?.get()?.takeIf { !it.isDisappeared }
-                        ?: window.navigationControllers
-                            .flatMap { it.viewControllers }
-                            .lastOrNull { it is TonConnectRequestConnectVC && !it.isDisappeared }
+                    val existingVC =
+                        loadingConnectRequestViewController?.get()?.takeIf { !it.isDisappeared }
+                            ?: window.navigationControllers
+                                .flatMap { it.viewControllers }
+                                .lastOrNull { it is TonConnectRequestConnectVC && !it.isDisappeared }
                                 as? TonConnectRequestConnectVC
                     if (existingVC != null) {
                         existingVC.setDappUpdate(update)
@@ -65,8 +67,7 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                     } else {
                         val navVC = WNavigationController(
                             window, WNavigationController.PresentationConfig(
-                                overFullScreen = false,
-                                isBottomSheet = true
+                                style = WNavigationController.PresentationStyle.BottomSheet
                             )
                         )
                         navVC.setRoot(TonConnectRequestConnectVC(window, update))
@@ -78,6 +79,7 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
             is ApiUpdate.ApiUpdateDappSendTransactions -> {
                 WalletCore.ensureAccountActivated(update.accountId) { accountChanged ->
                     window.doOnWalletReady {
+                        WalletCore.recordTonConnectEvent("wallet-transaction-confirmation-ui-displayed", update.promiseId)
                         val loadingVC = loadingSendRequestViewController?.get()
                         if (accountChanged) {
                             while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)
@@ -87,7 +89,10 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                             loadingVC.setUpdate(update)
                             loadingSendRequestViewController = null
                         } else {
-                            val navVC = WNavigationController(window)
+                            val navVC = WNavigationController(
+                                window,
+                                WNavigationController.PresentationConfig.PreferredFullScreen
+                            )
                             navVC.setRoot(
                                 TonConnectRequestSendVC(
                                     window,
@@ -103,6 +108,7 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
 
             is ApiUpdate.ApiUpdateDappSignData -> {
                 WalletCore.ensureAccountActivated(update.accountId) { accountChanged ->
+                    WalletCore.recordTonConnectEvent("wallet-sign-data-confirmation-ui-displayed", update.promiseId)
                     val loadingVC = loadingSendRequestViewController?.get()
                     if (accountChanged) {
                         while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)
@@ -112,7 +118,10 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                         loadingVC.setUpdate(update)
                         loadingSendRequestViewController = null
                     } else {
-                        val navVC = WNavigationController(window)
+                        val navVC = WNavigationController(
+                            window,
+                            WNavigationController.PresentationConfig.PreferredFullScreen
+                        )
                         navVC.setRoot(
                             TonConnectRequestSendVC(
                                 window,

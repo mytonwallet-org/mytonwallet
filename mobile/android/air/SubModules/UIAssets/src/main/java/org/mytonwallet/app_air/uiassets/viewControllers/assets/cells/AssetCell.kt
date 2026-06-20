@@ -52,7 +52,8 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 @SuppressLint("ViewConstructor")
 class AssetCell(
     context: Context,
-    val viewMode: AssetsVC.ViewMode
+    val viewMode: AssetsVC.ViewMode,
+    private var showsTitle: Boolean = viewMode == AssetsVC.ViewMode.COMPLETE,
 ) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
 
@@ -116,9 +117,12 @@ class AssetCell(
         v
     }
 
+    private val nftTextSize =
+        if (viewMode == AssetsVC.ViewMode.COMPLETE) 14f else adaptiveFontSize(12f)
+
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(adaptiveFontSize(), WFont.DemiBold)
+            setStyle(adaptiveFontSize(nftTextSize), WFont.DemiBold)
             setLineHeight(24f)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
@@ -129,7 +133,7 @@ class AssetCell(
 
     private val subtitleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(14f)
+            setStyle(adaptiveFontSize(nftTextSize))
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(WColor.SecondaryText)
@@ -148,14 +152,11 @@ class AssetCell(
 
     init {
         background = ripple
-        setPadding((if (viewMode == AssetsVC.ViewMode.COMPLETE) 8 else 4).dp)
         clipToPadding = false
 
         addView(imageView, LayoutParams(0, 0))
-        if (viewMode == AssetsVC.ViewMode.COMPLETE) {
-            addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        }
+        addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
         addView(animationView, LayoutParams(0, 0))
         addView(expiryInfoView, LayoutParams(0, 24.dp))
@@ -174,20 +175,17 @@ class AssetCell(
             edgeToEdge(saleInfoView, imageView)
             toTop(checkboxImageView, 10f)
             toEnd(checkboxImageView, 10f)
-            if (viewMode == AssetsVC.ViewMode.COMPLETE) {
-                topToBottom(titleLabel, imageView, 8f)
-                toCenterX(titleLabel)
-                topToBottom(subtitleLabel, titleLabel)
-                toCenterX(subtitleLabel)
-                toBottom(subtitleLabel)
-            } else {
-                toBottom(imageView)
-            }
+            topToBottom(titleLabel, imageView, 8f)
+            toCenterX(titleLabel)
+            topToBottom(subtitleLabel, titleLabel)
+            toCenterX(subtitleLabel)
+            toBottom(subtitleLabel)
             bottomToBottom(expiryInfoView, imageView)
             centerXToCenterX(expiryInfoView, imageView)
             topToTop(saleBadgeView, imageView, -2f)
             endToEnd(saleBadgeView, imageView, 16f)
         }
+        applyShowsTitle(showsTitle, force = true)
 
         setOnClickListener {
             nft?.let {
@@ -205,6 +203,27 @@ class AssetCell(
         }
     }
 
+    private fun applyShowsTitle(value: Boolean, force: Boolean = false) {
+        if (!force && showsTitle == value) return
+        showsTitle = value
+        setPadding((if (value) 8 else 4).dp)
+        titleLabel.isGone = !value
+        subtitleLabel.isGone = !value
+        setConstraints {
+            if (value) {
+                clear(imageView.id, androidx.constraintlayout.widget.ConstraintSet.BOTTOM)
+            } else {
+                toBottom(imageView)
+            }
+        }
+        if (value) {
+            nft?.let {
+                setNftTitle(it)
+                setNftSubtitle(it)
+            }
+        }
+    }
+
     private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
         imageView.updateTheme()
@@ -214,7 +233,7 @@ class AssetCell(
         if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
         ripple.rippleColor = WColor.SecondaryBackground.color
-        if (viewMode == AssetsVC.ViewMode.COMPLETE) {
+        if (showsTitle) {
             nft?.let {
                 setNftTitle(it)
                 setNftSubtitle(it)
@@ -290,7 +309,9 @@ class AssetCell(
         isSelected: Boolean,
         isReadOnly: Boolean = false,
         daysUntilExpiration: Int? = null,
+        showsTitle: Boolean = this.showsTitle,
     ) {
+        applyShowsTitle(showsTitle)
         if (this.nft == nft &&
             this.interactionMode == interactionMode &&
             this.animationsPaused == animationsPaused &&
@@ -350,7 +371,7 @@ class AssetCell(
             expiryInfoView.isVisible = shouldShowExpiryInfo
             expiryInfoView.alpha = if (shouldShowExpiryInfo) 1f else 0f
         }
-        if (viewMode == AssetsVC.ViewMode.COMPLETE) {
+        if (showsTitle) {
             setNftTitle(nft)
             setNftSubtitle(nft)
         }

@@ -72,6 +72,9 @@ sealed class WalletEvent {
     data object NetworkConnected : WalletEvent()
     data object NetworkDisconnected : WalletEvent()
 
+    data object WideLayoutChanged : WalletEvent()
+    data object SideGuttersChanged : WalletEvent()
+
     data class OpenUrl(
         val url: String,
         val isExternal: Boolean = false

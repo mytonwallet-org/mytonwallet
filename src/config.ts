@@ -140,6 +140,8 @@ export const PROXY_API_BASE_URL = process.env.PROXY_API_BASE_URL || 'https://api
 export const IPFS_GATEWAY_BASE_URL = 'https://ipfs.io/ipfs/';
 export const SSE_BRIDGE_URL = 'https://tonconnectbridge.mytonwallet.org/bridge/';
 
+export const TON_CONNECT_ANALYTICS_URL = 'https://analytics.ton.org';
+
 export const WALLET_CONNECT_BRIDGE_PATTERNS = 'https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org';
 
 export const WALLET_CONNECT_PROJECT_ID = process.env.WALLET_CONNECT_PROJECT_ID || '';

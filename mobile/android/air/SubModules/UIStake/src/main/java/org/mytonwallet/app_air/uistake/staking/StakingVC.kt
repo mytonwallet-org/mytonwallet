@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -55,6 +56,7 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class StakingVC(
@@ -73,6 +75,7 @@ class StakingVC(
     }
 
     override val isSwipeBackAllowed: Boolean = true
+    override val shouldDisplayBottomBar = false
 
     private val stakeInputView by lazy {
         StakeInputView(
@@ -161,17 +164,17 @@ class StakingVC(
         )
 
         view.setConstraints {
-            topToBottom(scrollView, navigationBar!!)
+            toTop(scrollView)
             toStart(scrollView)
             toEnd(scrollView)
-            bottomToTop(scrollView, stakeButton, 20f)
+            toBottom(scrollView)
 
-            toStart(stakeButton, 20f)
-            toEnd(stakeButton, 20f)
+            toStartPx(stakeButton, 20.dp + systemBarStartInset)
+            toEndPx(stakeButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 stakeButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
 
@@ -520,17 +523,32 @@ class StakingVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        linearLayout.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        linearLayout.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             0
         )
+        scrollView.setPadding(
+            0,
+            (navigationController?.getSystemBars()?.top ?: 0) + WNavigationBar.DEFAULT_HEIGHT.dp,
+            0,
+            20.dp +
+                ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
+                stakeButton.buttonHeight +
+                max(
+                    (navigationController?.getSystemBars()?.bottom ?: 0),
+                    (navigationController?.imeInsetBottom ?: 0)
+                )
+        )
+        scrollView.clipToPadding = false
         view.setConstraints {
+            toStartPx(stakeButton, 20.dp + systemBarStartInset)
+            toEndPx(stakeButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 stakeButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }

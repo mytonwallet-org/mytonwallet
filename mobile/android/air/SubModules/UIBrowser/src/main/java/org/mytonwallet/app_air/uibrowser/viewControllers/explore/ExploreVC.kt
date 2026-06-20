@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -93,15 +94,12 @@ class ExploreVC(context: Context) : WViewController(context),
     private var emptyView: WEmptyIconView? = null
 
     private val recyclerView: WRecyclerView by lazy {
-        val layoutManager = GridLayoutManager(context, effectiveViewWidth.coerceAtLeast(1))
+        val layoutManager = GridLayoutManager(context, gridWidth.coerceAtLeast(1))
         val rv = object : WRecyclerView(this) {
             override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
                 super.onSizeChanged(w, h, oldw, oldh)
                 if (w == oldw) return
-                val newSpanCount = effectiveViewWidth
-                if (layoutManager.spanCount != newSpanCount) {
-                    layoutManager.spanCount = newSpanCount
-                }
+                onWidthChanged(w)
             }
         }
         rv.adapter = rvAdapter
@@ -109,19 +107,26 @@ class ExploreVC(context: Context) : WViewController(context),
         layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
             override fun getSpanSize(position: Int): Int {
                 val indexPath = rvAdapter.positionToIndexPath(position)
-                val fullWidth = effectiveViewWidth
-                return when (indexPath.section) {
+                val fullWidth = gridWidth
+                val span = when (indexPath.section) {
                     SECTION_CONNECTED, SECTION_TRENDING -> fullWidth
 
                     else -> {
                         if (indexPath.row == 0) fullWidth else {
                             val dappsCols = calculateNoOfColumns()
-                            cellWidth +
-                                (if (indexPath.row % dappsCols == 1) 8.dp + ViewConstants.HORIZONTAL_PADDINGS.dp else 0) +
-                                (if (indexPath.row % dappsCols == 0) 8.dp + ViewConstants.HORIZONTAL_PADDINGS.dp else 0)
+                            val col = indexPath.row % dappsCols // 1=first, 0=last
+                            val baseCell = cellWidth
+                            val leftGap = 8.dp + ViewConstants.HORIZONTAL_PADDINGS.dp
+                            if (col == 0) {
+                                val others = (baseCell * (dappsCols - 1)) + leftGap
+                                fullWidth - others
+                            } else {
+                                baseCell + (if (col == 1) leftGap else 0)
+                            }
                         }
                     }
                 }
+                return span.coerceIn(1, layoutManager.spanCount)
             }
         }
         rv.layoutManager = layoutManager
@@ -182,10 +187,10 @@ class ExploreVC(context: Context) : WViewController(context),
     override fun insetsUpdated() {
         super.insetsUpdated()
         val topPadding = (navigationController?.getSystemBars()?.top ?: 0)
-        recyclerView.setPadding(
-            0,
+        recyclerView.setPaddingLocalized(
+            additionalTabletPadding + systemBarStartInset,
             topPadding,
-            0,
+            systemBarEndInset,
             navigationController?.bottomInset ?: 0
         )
         bottomReversedCornerView?.setHorizontalPadding(ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat())
@@ -214,25 +219,37 @@ class ExploreVC(context: Context) : WViewController(context),
 
     private fun onCategoryTap(category: MExploreCategory) {
         val categoryVC = ExploreCategoryVC(context, category)
-        navigationController?.tabBarController?.navigationController?.push(categoryVC)
+        navigationController?.tabBarController?.mainNavigationController?.push(categoryVC)
     }
 
+    private var lastEffectiveViewWidth = 0
     private val effectiveViewWidth: Int
         get() {
             val w = (view.parent?.parent as? View)?.width ?: 0
-            return if (w > 0) w else context.resources.displayMetrics.widthPixels
+            if (w > 0) {
+                lastEffectiveViewWidth = w
+                return w
+            }
+            return if (lastEffectiveViewWidth > 0) lastEffectiveViewWidth
+            else context.resources.displayMetrics.widthPixels
         }
+
+    private val contentWidth: Int
+        get() = effectiveViewWidth - additionalTabletPadding - systemBarStartInset - systemBarEndInset
+
+    private val gridWidth: Int
+        get() = contentWidth
 
     private val cellWidth: Int
         get() {
             val cols = calculateNoOfColumns()
-            return (effectiveViewWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp) / cols
+            return (contentWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp) / cols
         }
 
     private val trendingCellWidth: Int
         get() {
             val cols = calculateNoOfColumns()
-            return (effectiveViewWidth - 4.dp) / cols
+            return (contentWidth - 4.dp) / cols
         }
 
     override fun onBackPressed(): Boolean {
@@ -447,13 +464,27 @@ class ExploreVC(context: Context) : WViewController(context),
         navigationController?.popToRoot(false)
     }
 
+    private fun onWidthChanged(newWidth: Int) {
+        val w = ((view.parent?.parent as? View)?.width ?: 0).takeIf { it > 0 } ?: newWidth
+        if (w > 0) lastEffectiveViewWidth = w
+        cachedColumnsForWidth = 0
+        val newSpanCount = gridWidth.coerceAtLeast(1)
+        if ((recyclerView.layoutManager as? GridLayoutManager)?.spanCount != newSpanCount) {
+            (recyclerView.layoutManager as? GridLayoutManager)?.spanCount = newSpanCount
+        }
+        recyclerView.recycledViewPool.clear()
+        recyclerView.adapter = null
+        recyclerView.adapter = rvAdapter
+        rvAdapter.reloadData()
+    }
+
     private var cachedColumnsForWidth = 0
     private var cachedColumns = 0
     private fun calculateNoOfColumns(): Int {
-        val width = effectiveViewWidth
+        val width = contentWidth
         if (width == cachedColumnsForWidth && cachedColumns != 0) return cachedColumns
         cachedColumnsForWidth = width
-        cachedColumns = max(2, (width - 32.dp) / 190.dp)
+        cachedColumns = max(if (window?.isWideLayout == true) 1 else 2, (width - 32.dp) / 190.dp)
         return cachedColumns
     }
 
@@ -513,7 +544,7 @@ class ExploreVC(context: Context) : WViewController(context),
     }
 
     private fun pushConfigure() {
-        navigationController?.tabBarController?.navigationController?.push(
+        navigationController?.tabBarController?.mainNavigationController?.push(
             ConnectedAppsVC(context)
         )
     }

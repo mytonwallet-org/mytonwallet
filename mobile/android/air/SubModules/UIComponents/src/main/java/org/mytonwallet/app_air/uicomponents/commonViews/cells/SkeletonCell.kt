@@ -71,9 +71,12 @@ class SkeletonCell(
     fun configure(item: Int, isFirst: Boolean, isLast: Boolean) {
         if (this.item == item && this.isFirst == isFirst && this.isLast == isLast)
             return
-        this.item == item
+        this.item = item
         this.isFirst = isFirst
         this.isLast = isLast
+        backgroundDrawable.topRadius = if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
+        backgroundDrawable.bottomRadius = if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
+        backgroundDrawable.invalidateSelf()
         val titleLayoutParams = titleSkeleton.layoutParams
         titleLayoutParams.width = TITLE_WIDTH[item % TITLE_WIDTH.size].dp
         titleSkeleton.layoutParams = titleLayoutParams

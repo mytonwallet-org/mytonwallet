@@ -27,6 +27,7 @@ const ALLOWED_METHODS = new Set([
   'flushMemoryCache',
   'prepareTransaction',
   'processDeeplink',
+  'recordTonConnectEvent',
   'tonConnect_connect',
   'tonConnect_reconnect',
   'tonConnect_disconnect',

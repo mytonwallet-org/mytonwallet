@@ -42,7 +42,7 @@ object ConfigStore : IStore {
         if (configMap == null) return
         if (configMap["switchToClassic"] as? Boolean == true) {
             WalletCore.switchingToLegacy()
-            WalletContextManager.delegate?.switchToLegacy()
+            WalletContextManager.delegate?.get()?.switchToLegacy()
         }
         isCopyStorageEnabled = configMap["isCopyStorageEnabled"] as? Boolean
         supportAccountsCount = configMap["supportAccountsCount"] as? Double

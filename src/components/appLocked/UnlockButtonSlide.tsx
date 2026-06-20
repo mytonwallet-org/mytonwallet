@@ -30,7 +30,7 @@ function UnlockButtonSlide({
       style={`--position-top: ${innerContentTopPosition}px;`}
     >
       <Logo />
-      <span className={buildClassName(styles.title, 'rounded-font')}>{APP_NAME}</span>
+      <span className={buildClassName(styles.title, 'brand-font')}>{APP_NAME}</span>
       <Button isPrimary onClick={handleChangeSlideForBiometricAuth}>
         {lang('Unlock')}
       </Button>

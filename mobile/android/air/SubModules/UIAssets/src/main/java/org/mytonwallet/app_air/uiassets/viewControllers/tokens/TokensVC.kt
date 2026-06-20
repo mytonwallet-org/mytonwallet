@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -71,6 +72,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
+import kotlin.math.min
 
 @SuppressLint("ViewConstructor")
 class TokensVC(
@@ -123,6 +125,9 @@ class TokensVC(
 
     override val shouldDisplayTopBar = false
 
+    override val shouldDisplayBottomBar: Boolean
+        get() = mode != Mode.HOME && super.shouldDisplayBottomBar
+
     override val isSwipeBackAllowed = false
 
     private val queueDispatcher =
@@ -136,6 +141,7 @@ class TokensVC(
     private var currentHomeAssetsLimit = WGlobalStorage.getHomeAssetsTopLimit(showingAccountId)
 
     private var thereAreMoreToShow: Boolean = false
+    private var effectiveHomeLimit = Int.MAX_VALUE
     private var isScreenFullyVisible = false
     private var emptyTokensViewHeight = 0
     private var isEmptyStateVisible = false
@@ -172,7 +178,10 @@ class TokensVC(
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(this)
         rv.adapter = rvAdapter
-        val layoutManager = LinearLayoutManager(context)
+        val layoutManager = object : LinearLayoutManager(context) {
+            override fun canScrollVertically() =
+                mode != Mode.HOME && super.canScrollVertically()
+        }
         layoutManager.isSmoothScrollbarEnabled = true
         rv.setLayoutManager(layoutManager)
         if (mode == Mode.ALL) {
@@ -205,7 +214,10 @@ class TokensVC(
         )
         v.onTap = {
             val window = this.window!!
-            val navVC = WNavigationController(window)
+            val navVC = WNavigationController(
+                window,
+                WNavigationController.PresentationConfig.PreferredFullScreen
+            )
             navVC.setRoot(
                 AssetsTabVC(
                     context,
@@ -243,6 +255,7 @@ class TokensVC(
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         if (mode == Mode.HOME) {
             view.addView(showAllView, ViewGroup.LayoutParams(MATCH_PARENT, 56.dp))
+            showAllView.setupBlurBackground(recyclerView)
         }
         view.addView(emptyDataView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.setConstraints {
@@ -278,11 +291,27 @@ class TokensVC(
 
         if (mode == Mode.HOME) {
             view.background = null
+            recyclerView.setBackgroundColor(WColor.Background.color)
+            showAllView.updateTheme()
         } else {
             view.setBackgroundColor(WColor.SecondaryBackground.color)
         }
         emptyDataView.updateTheme()
         rvAdapter.reloadData()
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        if (mode == Mode.ALL) {
+            val hostHandlesSideInsets = segmentedController != null
+            recyclerView.setPaddingRelative(
+                if (hostHandlesSideInsets) 0 else systemBarStartInset,
+                (navigationController?.getSystemBars()?.top ?: 0) +
+                    WNavigationBar.DEFAULT_HEIGHT.dp,
+                if (hostHandlesSideInsets) 0 else systemBarEndInset,
+                recyclerView.paddingBottom
+            )
+        }
     }
 
     fun configure(accountId: String) {
@@ -339,19 +368,24 @@ class TokensVC(
                 totalVisibleTokensCount = filteredWalletTokens.size
                 val limit =
                     if (totalVisibleTokensCount == currentHomeAssetsLimit + 1) totalVisibleTokensCount else currentHomeAssetsLimit
-                walletTokens = if (mode == Mode.HOME) {
-                    filteredWalletTokens.take(limit).toTypedArray()
-                } else {
-                    filteredWalletTokens.toTypedArray()
-                }
+                val limitChanged = effectiveHomeLimit != limit
+                effectiveHomeLimit = limit
+                walletTokens = filteredWalletTokens.toTypedArray()
                 val moreToShow = mode == Mode.HOME && totalVisibleTokensCount > limit
                 val moreToShowChanged = thereAreMoreToShow != moreToShow
                 thereAreMoreToShow = moreToShow
                 showAllView.setCounter(totalVisibleTokensCount)
                 showAllView.visibility = if (thereAreMoreToShow) View.VISIBLE else View.GONE
+                if (mode == Mode.HOME) {
+                    val bottomPadding = if (moreToShow) 56.dp else 0
+                    if (recyclerView.paddingBottom != bottomPadding) {
+                        recyclerView.clipToPadding = false
+                        recyclerView.setPadding(0, 0, 0, bottomPadding)
+                    }
+                }
                 updateShowAllPosition()
                 updateEmptyTokensState()
-                if (walletTokens.size != prevSize || moreToShowChanged) {
+                if (walletTokens.size != prevSize || moreToShowChanged || limitChanged) {
                     prevSize = walletTokens.size
                     if (mode == Mode.HOME) {
                         animateHeight()
@@ -385,9 +419,16 @@ class TokensVC(
                 }
                 emptyTokensViewHeight
             } else {
-                (60 * walletTokens.size).dp + (if (thereAreMoreToShow) 56 else 0).dp
+                (60 * homeVisibleRowCount()).dp + (if (thereAreMoreToShow) 56 else 0).dp
             }
         }
+
+    private fun homeVisibleRowCount(): Int {
+        return if (mode == Mode.HOME) min(
+            walletTokens.size,
+            effectiveHomeLimit
+        ) else walletTokens.size
+    }
 
     private fun animateHeight() {
         if (mode != Mode.HOME) {
@@ -425,7 +466,17 @@ class TokensVC(
         if (mode != Mode.HOME) {
             return
         }
-        val newShowAllViewToTop = (60 * walletTokens.size).dp
+        if (window?.isWideLayout == true) {
+            if (prevShowAllViewToTop == -2)
+                return
+            prevShowAllViewToTop = -2
+            view.setConstraints {
+                clear(showAllView.id, ConstraintSet.TOP)
+                toBottom(showAllView)
+            }
+            return
+        }
+        val newShowAllViewToTop = (60 * homeVisibleRowCount()).dp
         if (prevShowAllViewToTop == newShowAllViewToTop) {
             return
         }
@@ -454,8 +505,14 @@ class TokensVC(
         return 1
     }
 
+    private val displayedTokensCount: Int
+        get() = if (mode == Mode.HOME && window?.isWideLayout != true)
+            min(walletTokens.size, homeVisibleRowCount())
+        else
+            walletTokens.size
+
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return walletTokens.size
+        return displayedTokensCount
     }
 
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
@@ -470,7 +527,10 @@ class TokensVC(
                     val token = TokenStore.getToken(tokenBalance.token)
                     token?.let {
                         if (tokenBalance.isVirtualStakingRow) {
-                            val navVC = WNavigationController(window!!)
+                            val navVC = WNavigationController(
+                                window!!,
+                                WNavigationController.PresentationConfig.PreferredFullScreen
+                            )
                             navVC.setRoot(EarnRootVC(context, tokenSlug = token.slug))
                             window?.present(navVC)
                             return@let
@@ -507,7 +567,7 @@ class TokensVC(
             tokenBalance,
             isPinned,
             isFirst = mode == Mode.ALL && indexPath.row == 0 && isScreenFullyVisible,
-            isLast = indexPath.row == walletTokens.size - 1 && !thereAreMoreToShow
+            isLast = indexPath.row == displayedTokensCount - 1 && !thereAreMoreToShow
         )
     }
 
@@ -799,7 +859,10 @@ class TokensVC(
         val window = this.window ?: return
         val chain = MBlockchain.valueOfOrNull(token.chain) ?: return
         val receiveVC = ReceiveVC.createIfAvailable(context, chain) ?: return
-        val navVC = WNavigationController(window).apply {
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        ).apply {
             setRoot(receiveVC)
         }
         window.present(navVC)
@@ -807,7 +870,10 @@ class TokensVC(
 
     private fun openSend(token: MToken) {
         val window = this.window ?: return
-        val navVC = WNavigationController(window).apply {
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        ).apply {
             setRoot(SendVC(context, token.slug))
         }
         window.present(navVC)
@@ -815,7 +881,10 @@ class TokensVC(
 
     private fun openSwap(token: MToken) {
         val window = this.window ?: return
-        val navVC = WNavigationController(window)
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         navVC.setRoot(
             SwapVC(
                 context,
@@ -838,7 +907,10 @@ class TokensVC(
 
     private fun openStake(token: MToken, hasActiveStaking: Boolean) {
         val window = this.window ?: return
-        val navVC = WNavigationController(window).apply {
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        ).apply {
             if (hasActiveStaking) {
                 setRoot(EarnRootVC(context, token.slug))
             } else {
@@ -850,7 +922,10 @@ class TokensVC(
 
     private fun openManageAssets() {
         val window = this.window ?: return
-        val navVC = WNavigationController(window).apply {
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        ).apply {
             setRoot(AssetsAndActivitiesVC(context))
         }
         window.present(navVC)
@@ -859,7 +934,10 @@ class TokensVC(
     private fun openAddToken() {
         val window = this.window ?: return
         val account = fetchAccount(showingAccountId) ?: return
-        val navVC = WNavigationController(window).apply {
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        ).apply {
             setRoot(
                 TokenSelectorHelper.buildAddTokenSelector(
                     context = context,
@@ -881,7 +959,10 @@ class TokensVC(
     private fun stakeMore(tokenBalance: MTokenBalance) {
         val token = tokenBalance.token ?: return
         val window = this.window ?: return
-        val navVC = WNavigationController(window).apply {
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        ).apply {
             setRoot(StakingVC(context, token, StakingViewModel.Mode.STAKE))
         }
         window.present(navVC)
@@ -890,7 +971,10 @@ class TokensVC(
     private fun unstake(tokenBalance: MTokenBalance) {
         val token = tokenBalance.token ?: return
         val window = this.window ?: return
-        val navVC = WNavigationController(window).apply {
+        val navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        ).apply {
             setRoot(StakingVC(context, token, StakingViewModel.Mode.UNSTAKE))
         }
         window.present(navVC)

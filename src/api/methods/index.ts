@@ -2,6 +2,7 @@ import '../../util/bigintPatch';
 
 export { destroy } from './init';
 export * from './activities';
+export * from './analytics';
 export * from './auth';
 export * from './wallet';
 export * from './transfer';

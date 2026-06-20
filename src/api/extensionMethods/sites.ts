@@ -1,8 +1,10 @@
+import type { RecordTonConnectEventInput } from '../dappProtocols/adapters/tonConnect/analytics';
 import type { OnApiUpdate } from '../types';
 import type { ApiSiteUpdate, OnApiSiteUpdate } from '../types/dappUpdates';
 
 import { getCurrentAccountIdOrFail, waitLogin } from '../common/accounts';
 import { resolveDappPromise } from '../common/dappPromises';
+import { recordTonConnectEvent as recordTonConnectAnalyticsEvent } from '../methods/analytics';
 import storage from '../storages/extension';
 import { clearCache, openPopupWindow } from './window';
 
@@ -89,4 +91,12 @@ export async function processDeeplink({ url }: {
 
 export async function flushMemoryCache() {
   await clearCache();
+}
+
+// Routes the browser-extension page script's TON Connect analytics events to the worker recorder. The in-app
+// browser bridge reaches the recorder directly via `callApi`, but the extension page script can only reach the
+// worker through this content-script provider, so the method must be exposed here (and allow-listed in
+// `providerForContentScript`). Fire-and-forget: the recorder never rejects, so nothing is awaited.
+export function recordTonConnectEvent(input: RecordTonConnectEventInput) {
+  void recordTonConnectAnalyticsEvent(input);
 }

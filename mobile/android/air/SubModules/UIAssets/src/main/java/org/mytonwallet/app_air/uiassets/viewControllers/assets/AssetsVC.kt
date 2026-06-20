@@ -16,6 +16,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -172,10 +174,26 @@ class AssetsVC(
                 }
             }
 
+        val chain: String?
+            get() = when (this) {
+                is SingleCollection -> collection.chain
+                TelegramGifts -> MBlockchain.ton.name
+                is ReadOnly -> null
+            }
+
+        val cacheKey: String
+            get() = when (this) {
+                is SingleCollection -> "${collection.chain}:${collection.address}"
+                TelegramGifts -> "telegram_gifts"
+                is ReadOnly -> "read_only"
+            }
+
         fun matches(comparing: CollectionMode): Boolean {
             return when (this) {
                 is SingleCollection -> {
-                    comparing is SingleCollection && comparing.collection.address == collection.address
+                    comparing is SingleCollection &&
+                        comparing.collection.chain == collection.chain &&
+                        comparing.collection.address == collection.address
                 }
 
                 TelegramGifts -> {
@@ -201,7 +219,8 @@ class AssetsVC(
         private const val THUMB_GRID_MAX_COLUMNS = 3
     }
 
-    override val shouldDisplayBottomBar = isShowingSingleCollection
+    override val shouldDisplayBottomBar = isShowingSingleCollection &&
+        (navigationController?.viewControllers?.size ?: 0) > 1
 
     override var title: String?
         get() {
@@ -219,6 +238,7 @@ class AssetsVC(
             context,
             ReversedCornerView.Config(
                 shouldBlur = false,
+                additionalTabletPadding = isSplitDetailPanel
             )
         ).apply {
             setHorizontalPadding(0f)
@@ -243,15 +263,24 @@ class AssetsVC(
             THUMB_BANNER_BOTTOM_MARGIN_DP).dp
     }
 
+    private val showsCellTitle: Boolean
+        get() = viewMode == ViewMode.COMPLETE ||
+            (viewMode == ViewMode.THUMB && window?.isWideLayout == true)
+
+    private val cellTitleExtraHeight: Int
+        get() = if (showsCellTitle) 8.dp + 24.dp + 20.dp else 0
+
     private val finalHeight: Int
         get() {
             return if (!assetsVM.hasLoadedNfts || assetsVM.isEmpty) {
                 getEmptyThumbHeight().takeIf { it > 0 } ?: 192.dp
             } else {
                 val rows = if (assetsVM.nftsCount > 3) 2 else 1
-                val nftGridHeight = rows * thumbGridItemWidth() +
-                    4.dp +
-                    (if (thereAreMoreToShow) 64 else 8).dp
+                val nftGridHeight = rows * (thumbGridItemWidth() + cellTitleExtraHeight) +
+                    thumbRecyclerVerticalPadding() +
+                    (if (thereAreMoreToShow) 64 else 8).dp.coerceAtLeast(
+                        thumbRecyclerVerticalPadding()
+                    )
                 nftGridHeight +
                     (if (shouldShowWarningBanner) thumbBannerContainerHeight else 0)
             }
@@ -347,31 +376,50 @@ class AssetsVC(
         updateShowAllTranslationY()
     }
 
+    private fun thumbRecyclerBasePadding(): Int {
+        return (if (window?.isWideLayout == true) 8 else THUMB_RECYCLER_HORIZONTAL_PADDING_DP).dp
+    }
+
+    private fun thumbRecyclerVerticalPadding(): Int {
+        return (if (window?.isWideLayout == true) 8 else 4).dp
+    }
+
     private fun thumbGridItemWidth(): Int {
-        return (recyclerView.width - 32.dp) / THUMB_GRID_MAX_COLUMNS
+        val contentWidth = view.width.takeIf { it > 0 } ?: recyclerView.width
+        return (contentWidth - 2 * thumbRecyclerBasePadding()) / THUMB_GRID_MAX_COLUMNS
     }
 
     private fun thumbRecyclerHorizontalPadding(): Int {
+        val basePadding = thumbRecyclerBasePadding()
         val itemCount = assetsVM.nftsCount
         if (itemCount !in 1 until THUMB_GRID_MAX_COLUMNS || recyclerView.width == 0) {
-            return THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp
+            return basePadding
         }
 
         val centeredPadding = (recyclerView.width - thumbGridItemWidth() * itemCount) / 2
-        return max(THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp, centeredPadding)
+        return max(basePadding, centeredPadding)
     }
 
     private fun updateThumbWarningBannerLayout(floatValue: Float = warningBannerAnimator.floatValue) {
         if (viewMode != ViewMode.THUMB) {
             return
         }
-        val collapsedTopInset = 4.dp
+        val collapsedTopInset = thumbRecyclerVerticalPadding()
         val expandedTopInset = thumbBannerContainerHeight
         val topInset = collapsedTopInset +
             ((expandedTopInset - collapsedTopInset) * floatValue).roundToInt()
         val horizontalPadding = thumbRecyclerHorizontalPadding()
         thumbWarningBannerView.isGone = !isShowingWarningBanner
-        recyclerView.setPadding(horizontalPadding, topInset, horizontalPadding, 4.dp)
+        recyclerView.setPadding(
+            horizontalPadding,
+            topInset,
+            horizontalPadding,
+            thumbRecyclerBottomPadding()
+        )
+    }
+
+    private fun thumbRecyclerBottomPadding(): Int {
+        return thumbRecyclerVerticalPadding() + (if (thereAreMoreToShow) 56.dp else 0)
     }
 
     private fun completeModeTopInset(): Int {
@@ -694,7 +742,11 @@ class AssetsVC(
         }
     }
 
-    private val layoutManager = GridLayoutManager(context, calculateNoOfColumns())
+    private val layoutManager =
+        object : GridLayoutManager(context, calculateNoOfColumns()) {
+            override fun canScrollVertically() =
+                viewMode != ViewMode.THUMB && super.canScrollVertically()
+        }
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(this)
         rv.adapter = rvAdapter
@@ -706,11 +758,13 @@ class AssetsVC(
         rv.clipChildren = false
         when (viewMode) {
             ViewMode.THUMB -> {
+                val thumbPadding = thumbRecyclerBasePadding()
+                val thumbVerticalPadding = thumbRecyclerVerticalPadding()
                 rv.setPadding(
-                    THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp,
-                    4.dp,
-                    THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp,
-                    4.dp
+                    thumbPadding,
+                    thumbVerticalPadding,
+                    thumbPadding,
+                    thumbVerticalPadding
                 )
                 rv.addItemDecoration(
                     SpacesItemDecoration(
@@ -762,7 +816,10 @@ class AssetsVC(
             val initialSelectionSnapshot = selectionSnapshot()
             onShowAllTapped?.invoke()
             val window = injectedWindow ?: this.window!!
-            val navVC = WNavigationController(window)
+            val navVC = WNavigationController(
+                window,
+                PresentationConfig.PreferredFullScreen
+            )
             navVC.setRoot(
                 AssetsTabVC(
                     context,
@@ -986,6 +1043,7 @@ class AssetsVC(
                 LayoutParams(0, WDomainExpirationBannerView.HEIGHT_DP.dp)
             )
             view.addView(showAllView, LayoutParams(MATCH_PARENT, 56.dp))
+            showAllView.setupBlurBackground(recyclerView)
         }
         underSegmentedControlReversedCornerView?.let { underSegmentedControlReversedCornerView ->
             view.addView(
@@ -1004,11 +1062,13 @@ class AssetsVC(
                 toCenterX(thumbWarningBannerView, 16f)
                 toCenterX(showAllView)
             }
-            if (isShowingSingleCollection)
-                toCenterX(
+            if (isShowingSingleCollection) {
+                toStartPx(
                     recyclerView,
-                    ViewConstants.HORIZONTAL_PADDINGS.toFloat()
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding
                 )
+                toEnd(recyclerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            }
             underSegmentedControlReversedCornerView?.let {
                 toTop(it)
             }
@@ -1022,6 +1082,13 @@ class AssetsVC(
         view.post {
             updateEmptyView()
             nftsUpdated(isFirstLoad = true)
+        }
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
+        super.onSizeChanged(w, h, oldW, oldH)
+        if (w != oldW) {
+            recyclerView.doOnPreDraw { relayoutForWidthIfNeeded() }
         }
     }
 
@@ -1299,7 +1366,9 @@ class AssetsVC(
 
         if (viewMode == ViewMode.THUMB) {
             view.background = null
+            recyclerView.setBackgroundColor(WColor.Background.color)
             thumbWarningBannerView.updateTheme()
+            showAllView.updateTheme()
         } else {
             view.setBackgroundColor(WColor.SecondaryBackground.color)
             recyclerView.setBackgroundColor(WColor.Background.color)
@@ -1342,10 +1411,22 @@ class AssetsVC(
                 view.post { updateShowAllPosition() }
                 return
             }
+            if (window?.isWideLayout == true) {
+                if (prevShowAllViewToTop != -2) {
+                    prevShowAllViewToTop = -2
+                    view.setConstraints {
+                        clear(showAllView.id, ConstraintSet.TOP)
+                        toBottom(showAllView)
+                    }
+                }
+                animateHeight()
+                return
+            }
             val newShowAllViewToTop = finalHeight - 56.dp
             if (prevShowAllViewToTop != newShowAllViewToTop) {
                 prevShowAllViewToTop = newShowAllViewToTop
                 view.setConstraints {
+                    clear(showAllView.id, ConstraintSet.BOTTOM)
                     toTopPx(showAllView, newShowAllViewToTop)
                 }
             }
@@ -1380,8 +1461,7 @@ class AssetsVC(
         val activeWindow = injectedWindow ?: window ?: return
         val navVC = WNavigationController(
             activeWindow, PresentationConfig(
-                overFullScreen = false,
-                isBottomSheet = true
+                style = WNavigationController.PresentationStyle.BottomSheet
             )
         )
         navVC.setRoot(RenewVC(context, nft))
@@ -1447,6 +1527,26 @@ class AssetsVC(
         if (viewMode == ViewMode.COMPLETE) {
             updateCompleteModeBannerLayout()
         }
+        if (isShowingSingleCollection) {
+            view.setConstraints {
+                toStartPx(
+                    recyclerView,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+                )
+                toEndPx(
+                    recyclerView,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
+                )
+            }
+        }
+        underSegmentedControlReversedCornerView?.let {
+            if (it.layoutParams != null)
+                it.updateLayoutParams {
+                    height = WNavigationBar.DEFAULT_HEIGHT.dp +
+                        (navigationController?.getSystemBars()?.top ?: 0) +
+                        underSegmentedControlReversedCornerView!!.cornerRadius.roundToInt()
+                }
+        }
         updateShowAllPosition()
     }
 
@@ -1496,7 +1596,7 @@ class AssetsVC(
             assetsVM.getAllNfts()!!
         )
         val window = injectedWindow ?: window!!
-        val tabNav = window.navigationControllers.last().tabBarController?.navigationController
+        val tabNav = navigationController?.tabBarController?.mainNavigationController
         if (tabNav != null)
             tabNav.push(assetVC)
         else
@@ -1541,9 +1641,17 @@ class AssetsVC(
         return 1
     }
 
+    private val displayedNftCount: Int
+        get() = if (viewMode == ViewMode.THUMB && window?.isWideLayout != true) {
+            val rows = if (assetsVM.nftsCount > 3) 2 else 1
+            min(displayedAssetRows.size, rows * THUMB_GRID_MAX_COLUMNS)
+        } else {
+            displayedAssetRows.size
+        }
+
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         return when (section) {
-            NFTS_SECTION -> displayedAssetRows.size
+            NFTS_SECTION -> displayedNftCount
             else -> throw IllegalStateException()
         }
     }
@@ -1559,7 +1667,7 @@ class AssetsVC(
     }
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return AssetCell(context, viewMode).apply {
+        return AssetCell(context, viewMode, showsTitle = showsCellTitle).apply {
             onTap = { nft ->
                 onNftTap(nft)
             }
@@ -1591,7 +1699,8 @@ class AssetsVC(
                     animationsPaused = row.animationsPaused,
                     isSelected = row.isSelected,
                     isReadOnly = isReadOnly,
-                    daysUntilExpiration = row.daysUntilExpiration
+                    daysUntilExpiration = row.daysUntilExpiration,
+                    showsTitle = showsCellTitle
                 )
             }
 
@@ -1754,6 +1863,47 @@ class AssetsVC(
         } else {
             max(2, (view.width - 16.dp) / 182.dp)
         }
+    }
+
+    private var lastLayoutWidth = 0
+    private fun relayoutForWidthIfNeeded() {
+        val width = recyclerView.width.takeIf { it > 0 } ?: view.width
+        if (width == 0 || width == lastLayoutWidth) return
+        lastLayoutWidth = width
+        val newSpan = calculateNoOfColumns()
+        if (layoutManager.spanCount != newSpan) {
+            layoutManager.spanCount = newSpan
+            recyclerView.requestLayout()
+        }
+        if (viewMode == ViewMode.THUMB) {
+            updateRecyclerViewPaddingForCentering()
+        }
+        updateShowAllPosition()
+        animateHeight()
+    }
+
+    private var lastDisplayedNftCount = -1
+    fun onLayoutModeChanged() {
+        lastLayoutWidth = 0
+        val apply = {
+            layoutManager.spanCount = calculateNoOfColumns()
+            if (viewMode == ViewMode.THUMB) {
+                updateRecyclerViewPaddingForCentering()
+            }
+            val newDisplayedNftCount = displayedNftCount
+            if (newDisplayedNftCount != lastDisplayedNftCount) {
+                lastDisplayedNftCount = newDisplayedNftCount
+                rvAdapter.reloadData()
+            } else {
+                rvAdapter.updateVisibleCells()
+            }
+            updateShowAllPosition()
+            if (view.width > 0) {
+                currentHeight = finalHeight
+                onHeightChanged?.invoke()
+            }
+        }
+        if (view.width > 0) apply() else view.post { apply() }
     }
 
     private fun updateRecyclerViewPaddingForCentering() {

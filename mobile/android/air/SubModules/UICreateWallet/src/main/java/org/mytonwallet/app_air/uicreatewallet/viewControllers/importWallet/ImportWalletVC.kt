@@ -16,6 +16,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getTextFromClipboard
@@ -251,6 +252,8 @@ class ImportWalletVC(
         val columnCount = activeWordCount / 2
         val containerWidth = (navigationController?.width?.takeIf { it > 0 }
             ?: ApplicationContextHolder.screenWidth)
+            .coerceAtMost(WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp) -
+            systemBarStartInset - systemBarEndInset
         val wordInputWidth = (containerWidth - 64.dp - 16.dp) / 2
 
         wordInputViews.forEachIndexed { i, wordInput ->
@@ -327,7 +330,12 @@ class ImportWalletVC(
         if (navigationController?.viewControllers?.firstOrNull() !is IntroVC)
             navigationBar?.addCloseButton()
 
-        view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.setConstraints {
             allEdges(scrollView)
         }
@@ -355,13 +363,20 @@ class ImportWalletVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollView.setPaddingRelative(systemBarStartInset, 0, systemBarEndInset, 0)
+        applyWordInputConstraints(scrollingContentView)
         scrollingContentView.setConstraints {
+            toTopPx(
+                animationView,
+                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
+                    ?: 0)
+            )
             toBottomPx(
                 continueButton,
                 48.dp +
                     max(
                         (navigationController?.getSystemBars()?.bottom ?: 0),
-                        (window?.imeInsets?.bottom ?: 0)
+                        (navigationController?.imeInsetBottom ?: 0)
                     )
             )
         }
@@ -371,7 +386,7 @@ class ImportWalletVC(
 
     override val isTinted = true
     override fun updateTheme() {
-        scrollingContentView.setBackgroundColor(WColor.SecondaryBackground.color)
+        view.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.PrimaryText.color)
         pasteButton.addRippleEffect(WColor.TintRipple.color, 10f.dp)

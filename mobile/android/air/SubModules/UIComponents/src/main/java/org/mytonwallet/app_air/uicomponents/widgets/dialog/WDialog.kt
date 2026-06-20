@@ -168,7 +168,10 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     fun presentOn(viewController: WViewController): Boolean {
         if (isPresented)
             throw Exception("WDialog can't be presented more than once")
-        val parentView = viewController.navigationController?.parent as? WView ?: return false
+        val navigationParent = viewController.navigationController?.parent
+        val parentView = (navigationParent as? WView)
+            ?: (navigationParent?.parent as? WView)
+            ?: return false
         isPresented = true
         viewController.setActiveDialog(this)
         PopupHelpers.popupShown(this)
@@ -236,7 +239,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
         get() {
             val viewController = parentViewController.get() ?: return 0
             return (viewController.navigationController?.bottom ?: 0) -
-                (viewController.window?.imeInsets?.bottom ?: 0)
+                (viewController.navigationController?.imeInsetBottom ?: 0)
         }
 
     fun insetsUpdated() {

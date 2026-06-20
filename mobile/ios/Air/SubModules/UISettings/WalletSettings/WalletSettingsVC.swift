@@ -80,7 +80,8 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     private var segmentedControl: WSegmentedControl? { segmentedController?.segmentedControl }
     private var viewModel = WalletSettingsViewModel()
     private let segmentedControlWidth: CGFloat = 320
-    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    private var segmentedControlContainerWidthConstraint: NSLayoutConstraint?
+    private var isConfiguredForBottomAttachedSheet: Bool?
     
     @Dependency(\.accountStore) private var accountStore
     private var orderedAccountIdsRestoreSnapshot: OrderedSet<String>?
@@ -105,24 +106,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         navigationItem.titleView = HostingView {
             WalletSettingsNavigationHeader(viewModel: viewModel)
         }
-        if let sheet = sheetPresentationController {
-            if IOS_26_MODE_ENABLED {
-                sheet.prefersGrabberVisible = !isPad
-            }
-            if isPad {
-                sheet.detents = [.large()]
-                sheet.selectedDetentIdentifier = .large
-            } else {
-                sheet.detents = [
-                    .custom(identifier: .init("twoThirds")) { $0.maximumDetentValue * 0.667 },
-                    .large(),
-                ]
-                sheet.selectedDetentIdentifier = .init("twoThirds")
-            }
-            if #available(iOS 26.1, *) {
-                sheet.backgroundEffect = UIColorEffect(color: .air.sheetBackground)
-            }
-        }
+        updateSheetPresentation()
         
         let segmentedController = WSegmentedController(
             items: tabs.segmentedControlItems,
@@ -147,11 +131,13 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         let segmentedControlContainer = UIView()
         segmentedControlContainer.translatesAutoresizingMaskIntoConstraints = false
         segmentedControlContainer.addSubview(segmentedControl)
+        let segmentedControlContainerWidthConstraint = segmentedControlContainer.widthAnchor.constraint(equalToConstant: preferredSegmentedControlContainerWidth)
+        self.segmentedControlContainerWidthConstraint = segmentedControlContainerWidthConstraint
         NSLayoutConstraint.activate([
             segmentedControl.topAnchor.constraint(equalTo: segmentedControlContainer.topAnchor, constant: 12),
             segmentedControl.centerXAnchor.constraint(equalTo: segmentedControlContainer.centerXAnchor),
             segmentedControl.widthAnchor.constraint(equalTo: segmentedControlContainer.widthAnchor),
-            segmentedControlContainer.widthAnchor.constraint(equalToConstant: min(maxWidth, screenWidth)),
+            segmentedControlContainerWidthConstraint,
         ])
         segmentedControlContainer.frame.size.height = 54
         
@@ -208,6 +194,58 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
                 accountStore.reorderAccounts(newOrderHint: orderedAccountIdsRestoreSnapshot)
             }
             orderedAccountIdsRestoreSnapshot = nil
+        }
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateSegmentedControlContainerWidth()
+        updateSheetPresentation()
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateSegmentedControlContainerWidth()
+        updateSheetPresentation()
+    }
+
+    private var preferredSegmentedControlContainerWidth: CGFloat {
+        let availableWidth = view.bounds.width > 0
+            ? view.bounds.width
+            : (view.window?.bounds.width ?? screenWidth)
+        guard availableWidth > 0 else {
+            return min(maxWidth, segmentedControlWidth)
+        }
+        return min(maxWidth, availableWidth)
+    }
+
+    private func updateSegmentedControlContainerWidth() {
+        segmentedControlContainerWidthConstraint?.constant = preferredSegmentedControlContainerWidth
+    }
+
+    private func updateSheetPresentation() {
+        guard let sheet = sheetPresentationController else { return }
+        let usesBottomSheetControls = isSheetPresentationAttachedToBottom
+        let shouldUpdateDetents = isConfiguredForBottomAttachedSheet != usesBottomSheetControls
+        isConfiguredForBottomAttachedSheet = usesBottomSheetControls
+
+        if IOS_26_MODE_ENABLED {
+            sheet.prefersGrabberVisible = usesBottomSheetControls
+        }
+        if shouldUpdateDetents {
+            if usesBottomSheetControls {
+                sheet.detents = [
+                    .custom(identifier: .init("twoThirds")) { $0.maximumDetentValue * 0.667 },
+                    .large(),
+                ]
+                sheet.selectedDetentIdentifier = .init("twoThirds")
+            } else {
+                sheet.detents = [.large()]
+                sheet.selectedDetentIdentifier = .large
+            }
+        }
+        if #available(iOS 26.1, *) {
+            sheet.backgroundEffect = UIColorEffect(color: .air.sheetBackground)
         }
     }
     

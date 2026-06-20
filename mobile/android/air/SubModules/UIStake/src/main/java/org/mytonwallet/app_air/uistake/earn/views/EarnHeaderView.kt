@@ -51,6 +51,8 @@ class EarnHeaderView(
     var onUnstakeClick: (() -> Unit)?,
 ) : WLinearLayout(viewController.get()!!.context), WThemedView, SkeletonContainer {
 
+    private val viewControllerRef = viewController
+
     private var updateHandler: Handler? = null
     private var updateRunnable: Runnable? = null
     private var currentStakingState: StakingState? = null
@@ -145,13 +147,7 @@ class EarnHeaderView(
             LayoutParams(ConstraintLayout.LayoutParams.MATCH_CONSTRAINT, WRAP_CONTENT)
         )
 
-        setPadding(
-            0,
-            WNavigationBar.DEFAULT_HEIGHT.dp +
-                (viewController.get()?.navigationController?.getSystemBars()?.top ?: 0),
-            0,
-            0
-        )
+        setPadding(0, computeTopPadding(), 0, 0)
 
         setConstraints {
             toStart(amountTextView)
@@ -200,6 +196,15 @@ class EarnHeaderView(
             WColor.SecondaryText.color,
             MESSAGE_SKELETON_RADIUS
         )
+    }
+
+    private fun computeTopPadding(): Int {
+        return WNavigationBar.DEFAULT_HEIGHT.dp +
+            (viewControllerRef.get()?.navigationController?.getSystemBars()?.top ?: 0)
+    }
+
+    fun insetsUpdated() {
+        innerContainer.setPadding(0, computeTopPadding(), 0, 0)
     }
 
     fun hideInnerViews() {

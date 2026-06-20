@@ -18,7 +18,7 @@ import androidx.core.net.toUri
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
-import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
@@ -54,7 +54,6 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class InAppBrowserTopBarView(
     private val viewController: InAppBrowserVC,
-    private val tabBarController: WNavigationController.ITabBarController?,
     private val options: List<InAppBrowserConfig.Option>?,
     private var selectedOption: String?,
     private val optionsOnTitle: Boolean,
@@ -64,11 +63,20 @@ class InAppBrowserTopBarView(
     private val maximizeFinished: () -> Unit,
 ) : WView(viewController.context), WThemedView {
 
-    val canBeMinimized = tabBarController != null
-    private val minimizedBlurRoot = tabBarController?.minimizedBlurRootView
-    private val useMinimizedBlur = minimizedBlurRoot != null
+    private val tabBarController: ITabsVC?
+        get() = viewController.tabBarController
+
+    var canBeMinimized = computeCanBeMinimized()
+        private set
+
+    private fun computeCanBeMinimized() =
+        tabBarController != null && viewController.window?.isWideLayout == false
+
+    private val minimizedBlurRoot get() = tabBarController?.minimizedBlurRootView
+    private val useMinimizedBlur get() = minimizedBlurRoot != null
 
     private var minimizedBlurView: WBlurryBackgroundView? = null
+    private var minimizedBlurViewRoot: ViewGroup? = null
 
     private val moreButtonRipple = WRippleDrawable.create(20f.dp)
     private val minimizeButtonRipple = WRippleDrawable.create(20f.dp)
@@ -280,6 +288,58 @@ class InAppBrowserTopBarView(
         updateTheme()
     }
 
+    fun updateCanBeMinimized() {
+        val newValue = computeCanBeMinimized()
+        if (newValue == canBeMinimized)
+            return
+        canBeMinimized = newValue
+        if (!newValue) {
+            if (isMinimizing || isMinimized)
+                tabBarController?.maximize()
+            if (minimizeButton.parent != null)
+                removeView(minimizeButton)
+        } else {
+            if (minimizeButton.parent == null)
+                addView(minimizeButton, LayoutParams(40.dp, 40.dp))
+        }
+        val topInset = viewController.navigationController?.getSystemBars()?.top ?: 0
+        setConstraints {
+            endToStart(titleLabel, if (canBeMinimized) minimizeButton else moreButton, 8f)
+            if (canBeMinimized) {
+                endToStart(minimizeButton, moreButton, 4f)
+                toTopPx(minimizeButton, topInset)
+                toBottom(minimizeButton)
+            }
+        }
+    }
+
+    fun insetsUpdated() {
+        updateCanBeMinimized()
+        val topInset = viewController.navigationController?.getSystemBars()?.top ?: 0
+        minHeight =
+            (if (options.isNullOrEmpty()) WNavigationBar.DEFAULT_HEIGHT_TINY else WNavigationBar.DEFAULT_HEIGHT).dp +
+                topInset
+        maxHeight = minHeight
+        setConstraints {
+            if (options.isNullOrEmpty()) {
+                toTopPx(titleLabel, topInset)
+                toBottom(titleLabel)
+            } else {
+                toTopPx(titleLabel, 8.dp + topInset)
+            }
+            toTopPx(iconView, topInset)
+            toBottom(iconView)
+            toTopPx(backButton, topInset)
+            toBottom(backButton)
+            toTopPx(moreButton, topInset)
+            toBottom(moreButton)
+            if (canBeMinimized) {
+                toTopPx(minimizeButton, topInset)
+                toBottom(minimizeButton)
+            }
+        }
+    }
+
     var overrideThemeIsDark: Boolean? = null
         set(value) {
             field = value
@@ -287,10 +347,16 @@ class InAppBrowserTopBarView(
         }
 
     private fun syncBlurView() {
-        if (minimizedBlurView != null)
-            return
+        val blurRoot = minimizedBlurRoot ?: return
+        if (minimizedBlurView != null) {
+            if (minimizedBlurViewRoot === blurRoot)
+                return
+            removeView(minimizedBlurView)
+            minimizedBlurView = null
+        }
+        minimizedBlurViewRoot = blurRoot
         minimizedBlurView = WBlurryBackgroundView(context, fadeSide = null).also {
-            it.setupWith(minimizedBlurRoot!!)
+            it.setupWith(blurRoot)
             it.setOverlayColor(WColor.Background, 204)
             it.alpha = 0f
             addView(it, 0, LayoutParams(0, 0))

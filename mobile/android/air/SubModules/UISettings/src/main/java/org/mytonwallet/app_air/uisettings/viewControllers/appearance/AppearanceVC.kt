@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -62,7 +63,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                 isEnabled = true,
                 onTap = {
                     WalletCore.switchingToLegacy()
-                    WalletContextManager.delegate?.switchToLegacy()
+                    WalletContextManager.delegate?.get()?.switchToLegacy()
                 }
             )
         }
@@ -102,7 +103,8 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             Logger.d(Logger.LogTag.SETTINGS, "gradientNavigationBarRow: isChecked=$isChecked")
             WGlobalStorage.setIsGradientNavigationBarActive(isChecked)
             pendingThemeChange = true
-            WalletContextManager.delegate?.themeChanged()
+            WalletContextManager.delegate?.get()?.themeChanged()
+            syncBottomCornerRadius()
             scrollingContentView.setPadding(
                 scrollingContentView.paddingLeft,
                 scrollingContentView.paddingTop,
@@ -136,7 +138,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                 sideGuttersRow.isEnabled = false
             }
             pendingThemeChange = true
-            WalletContextManager.delegate?.themeChanged()
+            WalletContextManager.delegate?.get()?.themeChanged()
         }
     )
 
@@ -151,7 +153,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             WGlobalStorage.setAreRoundedToolbarsActive(isChecked)
             ViewConstants.TOOLBAR_RADIUS = if (isChecked) 24f else 0f
             pendingThemeChange = true
-            WalletContextManager.delegate?.themeChanged()
+            WalletContextManager.delegate?.get()?.themeChanged()
             topReversedCornerView?.animateRadius(
                 prevBarRounds,
                 ViewConstants.TOOLBAR_RADIUS.dp
@@ -193,16 +195,37 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             Logger.d(Logger.LogTag.SETTINGS, "sideGuttersRow: isChecked=$isChecked")
             WGlobalStorage.setAreSideGuttersActive(isChecked)
             ViewConstants.HORIZONTAL_PADDINGS = if (isChecked) 10 else 0
+            val fromPadding =
+                (if (LocaleController.isRTL) scrollView.paddingLeft else scrollView.paddingRight) -
+                    systemBarEndInset
+            WalletCore.notifyEvent(WalletEvent.SideGuttersChanged)
             sideGuttersAnimator?.cancel()
+            if (!WGlobalStorage.getAreAnimationsActive()) {
+                val padding = ViewConstants.HORIZONTAL_PADDINGS.dp
+                scrollView.setPaddingLocalized(
+                    padding + additionalTabletPadding + systemBarStartInset,
+                    0,
+                    padding + systemBarEndInset,
+                    0
+                )
+                topReversedCornerView?.setHorizontalPadding(padding.toFloat())
+                bottomReversedCornerView?.setHorizontalPadding(padding.toFloat())
+                return@SwitchCell
+            }
             sideGuttersAnimator =
-                ValueAnimator.ofInt(scrollView.paddingLeft, ViewConstants.HORIZONTAL_PADDINGS.dp)
+                ValueAnimator.ofInt(fromPadding, ViewConstants.HORIZONTAL_PADDINGS.dp)
                     .apply {
                         duration = AnimationConstants.QUICK_ANIMATION
                         interpolator = AccelerateDecelerateInterpolator()
 
                         addUpdateListener { animator ->
                             val padding = animator.animatedValue as Int
-                            scrollView.setPadding(padding, 0, padding, 0)
+                            scrollView.setPaddingLocalized(
+                                padding + additionalTabletPadding + systemBarStartInset,
+                                0,
+                                padding + systemBarEndInset,
+                                0
+                            )
                             topReversedCornerView?.setHorizontalPadding(padding.toFloat())
                             bottomReversedCornerView?.setHorizontalPadding(padding.toFloat())
                         }
@@ -227,7 +250,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             Logger.d(Logger.LogTag.SETTINGS, "blurRow: isChecked=$isChecked")
             WGlobalStorage.setBlurEnabled(isChecked)
             pendingThemeChange = true
-            WalletContextManager.delegate?.themeChanged()
+            WalletContextManager.delegate?.get()?.themeChanged()
         }
     )
 
@@ -315,12 +338,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             setOnScrollChangeListener { _, _, _, _, _ ->
                 updateBlurViews(scrollView = this)
             }
-            setPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
-                0,
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
-                0
-            )
         }
     }
 
@@ -354,6 +371,16 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         }
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        scrollView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
     }
 
     override fun onDestroy() {

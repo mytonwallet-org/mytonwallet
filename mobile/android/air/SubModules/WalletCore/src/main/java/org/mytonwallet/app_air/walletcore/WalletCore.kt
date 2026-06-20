@@ -531,6 +531,12 @@ object WalletCore {
         call(method) { _, res, err -> callback.invoke(res, err) }
     }
 
+    // Fire-and-forget TON Connect analytics event, called from the UI view controllers (single home for the
+    // bridge call so the three UITonConnect screens do not each carry a copy of the helper).
+    fun recordTonConnectEvent(eventName: String, promiseId: String) {
+        call(ApiMethod.DApp.RecordTonConnectEvent(eventName, promiseId)) { _, _ -> }
+    }
+
 
     /* This code allows to receive updates directly from the api bridge */
 

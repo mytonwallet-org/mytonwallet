@@ -155,15 +155,15 @@ class SendTokenVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        val ime = (window?.imeInsets?.bottom ?: 0)
+        val ime = (navigationController?.imeInsetBottom ?: 0)
         val nav = (navigationController?.bottomInset ?: 0)
 
-        recyclerView.setPadding(
-            0,
+        recyclerView.setPaddingRelative(
+            systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp +
                 56.dp,
-            0,
+            systemBarEndInset,
             max(0, nav - ime)
         )
     }

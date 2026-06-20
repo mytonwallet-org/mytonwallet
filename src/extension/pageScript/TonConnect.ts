@@ -10,6 +10,7 @@ import type {
   WalletResponse,
 } from '@tonconnect/protocol';
 
+import type { RecordTonConnectEventInput } from '../../api/dappProtocols/adapters/tonConnect/analytics';
 // We must import DappProtocolType as type bc in extension we cant import real enum from its context
 import type {
   DappConnectionRequest,
@@ -20,6 +21,7 @@ import type {
 import type { Connector } from '../../util/PostMessageConnector';
 
 import { TONCONNECT_PROTOCOL_VERSION, TONCONNECT_WALLET_JSBRIDGE_KEY } from '../../config';
+import { trackJsBridgeMethod } from '../../util/embeddedDappBridge/jsBridgeAnalytics';
 import { isPortDisconnectedError } from '../../util/isPortDisconnectedError';
 import { tonConnectGetDeviceInfo } from '../../util/tonConnectEnvironment';
 import { transformTonConnectMessageToUnified } from '../../api/dappProtocols/adapters/tonConnect/utils';
@@ -209,7 +211,16 @@ class TonConnect implements ExtensionTonConnectBridge {
   }
 
   private request(name: RequestMethods, args: any[] = []) {
-    return this.apiConnector.request({ name: `tonConnect_${name}`, args });
+    return trackJsBridgeMethod(
+      name,
+      (input) => this.recordAnalyticsEvent(input),
+      () => this.apiConnector.request({ name: `tonConnect_${name}`, args }),
+    )();
+  }
+
+  private recordAnalyticsEvent(input: RecordTonConnectEventInput) {
+    // Fire-and-forget telemetry must never surface as an unhandled rejection on the dApp page.
+    void this.apiConnector.request({ name: 'recordTonConnectEvent', args: [input] }).catch(() => undefined);
   }
 
   private static buildConnectError(

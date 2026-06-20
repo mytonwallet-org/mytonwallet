@@ -19,7 +19,7 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     
     private var viewModel: ActivityDetailsViewModel
     private var shouldDisableDetailsCollapse: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad
+        isPresentedInRegularWidthWindow
     }
     
     public init(activity: ApiActivity, accountSource: AccountSource, context: ActivityDetailsContext) {
@@ -357,35 +357,30 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     }
 
     private func applyDetailsCollapsePolicy() {
-        let detailsCollapseEnabled = !shouldDisableDetailsCollapse
-        guard viewModel.detailsCollapseEnabled != detailsCollapseEnabled else { return }
+        guard shouldDisableDetailsCollapse, viewModel.detailsCollapseEnabled else { return }
 
-        viewModel.detailsCollapseEnabled = detailsCollapseEnabled
+        viewModel.detailsCollapseEnabled = false
         if let sheet = sheetPresentationController, IOS_26_MODE_ENABLED {
-            sheet.prefersGrabberVisible = detailsCollapseEnabled
+            sheet.prefersGrabberVisible = false
         }
-        if detailsCollapseEnabled {
-            viewModel.progressiveRevealEnabled = true
-            if let sheet = sheetPresentationController, view.window != nil {
-                sheet.animateChanges {
-                    sheet.detents = makeDetents()
-                }
-            }
-        } else {
-            viewModel.detailsExpanded = true
-            viewModel.progressiveRevealEnabled = false
-            viewModel.scrollingDisabled = false
-            if let sheet = sheetPresentationController, view.window != nil {
-                sheet.animateChanges {
-                    sheet.detents = makeDetents()
-                    sheet.selectedDetentIdentifier = .large
-                }
+        viewModel.detailsExpanded = true
+        viewModel.progressiveRevealEnabled = false
+        viewModel.scrollingDisabled = false
+        if let sheet = sheetPresentationController, view.window != nil {
+            sheet.animateChanges {
+                sheet.detents = makeDetents()
+                sheet.selectedDetentIdentifier = .large
             }
         }
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
+        applyDetailsCollapsePolicy()
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
         applyDetailsCollapsePolicy()
     }
 }

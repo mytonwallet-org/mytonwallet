@@ -33,7 +33,7 @@ class WalletCardCell(
     private val onClick: (accountId: MAccount) -> Unit,
     private val onLongClick: (cell: WalletCardCell, view: WView, account: MAccount) -> Unit,
 ) :
-    WCell(context, LayoutParams(cellWidth, WRAP_CONTENT)), WThemedView, IWalletCardCell {
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView, IWalletCardCell {
 
     private var account: MAccount? = null
     private val miniCardView = MiniCardView(context, cellWidth)

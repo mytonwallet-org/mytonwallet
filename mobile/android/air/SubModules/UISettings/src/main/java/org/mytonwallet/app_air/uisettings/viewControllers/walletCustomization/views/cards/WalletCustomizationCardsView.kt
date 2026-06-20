@@ -2,7 +2,8 @@ package org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.v
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.view.ViewTreeObserver
+import androidx.core.view.doOnPreDraw
+import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -14,6 +15,7 @@ import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import java.lang.ref.WeakReference
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 open class WalletCustomizationCardsView(
@@ -26,6 +28,20 @@ open class WalletCustomizationCardsView(
 
     companion object {
         val ACCOUNT_CELL = WCell.Type(1)
+
+        private const val MAX_HEIGHT_DP = 360
+
+        fun cellWidthFor(width: Int): Int {
+            val byWidth = (width - 138.dp).coerceAtLeast(0)
+            val byHeight =
+                ((MAX_HEIGHT_DP.dp - 17.dp) * WalletCustomizationCardCell.RATIO).roundToInt()
+            return minOf(byWidth, byHeight)
+        }
+
+        fun heightForWidth(width: Int): Int {
+            val cw = cellWidthFor(width)
+            return if (cw > 0) 17.dp + (cw / WalletCustomizationCardCell.RATIO).roundToInt() else 0
+        }
     }
 
     interface OnItemChangeListener {
@@ -69,6 +85,9 @@ open class WalletCustomizationCardsView(
         setHasStableIds(true)
     }
 
+    private var lastWidth = 0
+    private var cellWidth = 0
+
     init {
         adapter = rvAdapter
         layoutManager = layoutManagerH
@@ -76,27 +95,39 @@ open class WalletCustomizationCardsView(
         clipToPadding = false
         addOnScrollListener(scrollListener)
         PagerSnapHelper().attachToRecyclerView(this)
+    }
 
-        viewTreeObserver.addOnGlobalLayoutListener(object :
-            ViewTreeObserver.OnGlobalLayoutListener {
-            override fun onGlobalLayout() {
-                viewTreeObserver.removeOnGlobalLayoutListener(this)
-                val child = getChildAt(0) ?: return
-                val itemWidth = child.width
-                val screenWidth = width
-                val sidePadding = (screenWidth - itemWidth) / 2
-                setPadding(sidePadding, 0, sidePadding, 0)
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val w = width
+        if (w <= 0 || w == lastWidth) return
+        lastWidth = w
+        val newCellWidth = cellWidthFor(w)
+        if (newCellWidth != cellWidth) {
+            cellWidth = newCellWidth
+            rvAdapter.reloadData()
+        }
+        centerSelected(w)
+    }
 
-                val index = accounts.indexOfFirst { it.accountId == selectedAccountId }
-                if (index != -1) {
-                    layoutManagerH.scrollToPosition(index)
-                    if (index == 0)
-                        post {
-                            scrollListener.onScrolled(this@WalletCustomizationCardsView, 0, 0)
-                        }
-                }
+    private fun centerSelected(forWidth: Int) {
+        if (width != forWidth || width <= 0) return
+        val itemWidth = cellWidthFor(width)
+        if (itemWidth <= 0) return
+        val targetHeight = heightForWidth(width)
+        if (layoutParams != null && layoutParams.height != targetHeight) {
+            updateLayoutParams { height = targetHeight }
+        }
+        val sidePadding = (width - itemWidth) / 2
+        setPadding(sidePadding, 0, sidePadding, 0)
+
+        val index = accounts.indexOfFirst { it.accountId == selectedAccountId }
+        if (index != -1) {
+            layoutManagerH.scrollToPosition(index)
+            doOnPreDraw {
+                scrollListener.onScrolled(this@WalletCustomizationCardsView, 0, 0)
             }
-        })
+        }
     }
 
     fun reload(accountId: String) {
@@ -117,18 +148,22 @@ open class WalletCustomizationCardsView(
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView) = 1
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int) = accounts.size
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int) =
+        if (width > 0) accounts.size else 0
 
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath) = ACCOUNT_CELL
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type) =
-        WalletCustomizationCardCell(context, width - 138.dp)
+        WalletCustomizationCardCell(context, cellWidth)
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
         cellHolder: WCell.Holder,
         indexPath: IndexPath
     ) {
-        (cellHolder.cell as WalletCustomizationCardCell).configure(accounts[indexPath.row])
+        (cellHolder.cell as WalletCustomizationCardCell).apply {
+            updateCellWidth(this@WalletCustomizationCardsView.cellWidth)
+            configure(accounts[indexPath.row])
+        }
     }
 }

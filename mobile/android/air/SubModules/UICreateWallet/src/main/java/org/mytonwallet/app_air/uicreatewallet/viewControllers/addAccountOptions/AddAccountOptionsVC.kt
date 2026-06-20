@@ -6,13 +6,14 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.widget.NestedScrollView
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.LinedCenteredTitleView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.importViewWallet.ImportViewWalletVC
@@ -38,6 +39,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import java.lang.ref.WeakReference
 
 class AddAccountOptionsVC(
     context: Context,
@@ -247,14 +249,14 @@ class AddAccountOptionsVC(
 
             setConstraints {
                 if (showCreateButton) {
-                    toTop(createNewWalletView, 78f)
+                    toTop(createNewWalletView, 14f)
                     toCenterX(createNewWalletView)
                     topToBottom(secretWordsRow, createNewWalletView, 1f)
                 } else {
                     // toTop(importTitleLabel, 84f)
                     // toCenterX(importTitleLabel, 32f)
                     // topToBottom(secretWordsRow, importTitleLabel, 32f)
-                    toTop(secretWordsRow, 78f)
+                    toTop(secretWordsRow, 14f)
                 }
                 toCenterX(secretWordsRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 topToBottom(ledgerRow, secretWordsRow)
@@ -269,10 +271,17 @@ class AddAccountOptionsVC(
         }
     }
 
-    private val scrollView: NestedScrollView by lazy {
-        NestedScrollView(context).apply {
+    private val scrollView: WScrollView by lazy {
+        WScrollView(WeakReference(this)).apply {
             id = View.generateViewId()
+            clipToPadding = false
             addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            onScrollStateChange = {
+                updateBlurViews(scrollView = this)
+            }
+            setOnScrollChangeListener { _, _, _, _, _ ->
+                updateBlurViews(scrollView = this)
+            }
         }
     }
 
@@ -296,6 +305,22 @@ class AddAccountOptionsVC(
         }
 
         updateTheme()
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        scrollView.setPaddingRelative(
+            systemBarStartInset,
+            (navigationBar?.topOffset ?: 0) + WNavigationBar.DEFAULT_HEIGHT.dp,
+            systemBarEndInset,
+            0
+        )
+        scrollingContentView.setConstraints {
+            toBottomPx(
+                viewRow,
+                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+            )
+        }
     }
 
     override val isTinted = true
@@ -471,13 +496,16 @@ class AddAccountOptionsVC(
         fun afterDismiss() {
             val window = window ?: return
             if (presentAsModal) {
-                val nav = WNavigationController(window)
+                val nav = WNavigationController(
+                    window,
+                    WNavigationController.PresentationConfig.PreferredFullScreen
+                )
                 nav.setRoot(viewController)
                 window.present(nav, onCompletion = onCompletion)
                 return
             }
             val lastNav = window.navigationControllers.lastOrNull()
-            if (lastNav != null && !lastNav.presentationConfig.isBottomSheet) {
+            if (lastNav != null && !lastNav.isBottomSheet) {
                 lastNav.push(viewController, onCompletion = onCompletion)
             } else {
                 // Underlying nav is still a bottom-sheet (e.g. a stacked sheet).

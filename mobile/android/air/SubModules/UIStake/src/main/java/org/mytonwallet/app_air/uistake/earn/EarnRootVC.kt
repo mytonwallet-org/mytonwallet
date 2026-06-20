@@ -135,7 +135,7 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
 
         view.setConstraints {
             toTopPx(titleLabel, (navigationController?.getSystemBars()?.top ?: 0) + 16.dp)
-            toStart(titleLabel, 20f)
+            toStartPx(titleLabel, 20.dp + systemBarStartInset)
             allEdges(segmentView)
         }
 
@@ -146,6 +146,17 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
     override fun updateTheme() {
         super.updateTheme()
         titleLabel.setTextColor(WColor.PrimaryText.color)
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        segmentView.insetsUpdated()
+        if (titleLabel.parent != null) {
+            view.setConstraints {
+                toTopPx(titleLabel, (navigationController?.getSystemBars()?.top ?: 0) + 16.dp)
+                toStartPx(titleLabel, 20.dp + systemBarStartInset)
+            }
+        }
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

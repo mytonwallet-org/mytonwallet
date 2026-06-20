@@ -7,8 +7,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.CheckboxItemView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -38,6 +40,8 @@ class BackupVC(
     private val passedPasscode: String?
 ) : WViewController(context) {
     override val TAG = "Backup"
+
+    override val isContentWidthCapped = true
 
     override val shouldDisplayTopBar = false
     override val ignoreSideGuttering = true
@@ -170,7 +174,12 @@ class BackupVC(
         if (navigationController?.viewControllers?.firstOrNull() !is IntroVC)
             navigationBar?.addCloseButton()
 
-        view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.setConstraints {
             allEdges(scrollView)
         }
@@ -198,20 +207,26 @@ class BackupVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollView.setPaddingRelative(systemBarStartInset, 0, systemBarEndInset, 0)
         scrollingContentView.setConstraints {
+            toTopPx(
+                animationView,
+                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
+                    ?: 0)
+            )
             toBottomPx(
                 toWordsButton,
                 32.dp +
                     max(
                         (navigationController?.getSystemBars()?.bottom ?: 0),
-                        (window?.imeInsets?.bottom ?: 0)
+                        (navigationController?.imeInsetBottom ?: 0)
                     )
             )
         }
     }
 
     override fun updateTheme() {
-        scrollingContentView.setBackgroundColor(WColor.SecondaryBackground.color)
+        view.setBackgroundColor(WColor.SecondaryBackground.color)
     }
 
 }

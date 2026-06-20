@@ -13,19 +13,23 @@ import android.text.style.ImageSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.View.MeasureSpec
 import android.view.View.TEXT_ALIGNMENT_CENTER
-import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -33,6 +37,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -40,6 +45,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleConfig
 import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
 import org.mytonwallet.app_air.uicomponents.widgets.pulseView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.backup.BackupVC
@@ -58,6 +64,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.min
 
 @SuppressLint("ViewConstructor")
 class IntroVC(
@@ -186,9 +195,7 @@ class IntroVC(
             val nav = WNavigationController(
                 window!!,
                 WNavigationController.PresentationConfig(
-                    overFullScreen = false,
-                    isBottomSheet = true,
-                    aboveKeyboard = false
+                    style = WNavigationController.PresentationStyle.BottomSheet
                 )
             )
             nav.setRoot(AddAccountOptionsVC(context, network = network, isOnIntro = true))
@@ -211,60 +218,68 @@ class IntroVC(
         addView(termsView, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(createNewWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
         addView(importExistingWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+    }
 
-        isVisible = false
-        post {
-            isVisible = true
-            val screenHeight =
-                (navigationController?.height ?: 0) -
-                    (navigationController?.getSystemBars()?.top ?: 0) -
-                    (navigationController?.getSystemBars()?.bottom ?: 0)
-            val minRequiredHeight = 657.dp
+    private val scrollView = ScrollView(context).apply {
+        id = View.generateViewId()
+        addView(contentView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    }
 
-            val logoTopMargin = if (screenHeight < minRequiredHeight) 40 else 80
-            val titleTopMargin = if (screenHeight < minRequiredHeight) 20f else 30f
-            val subtitleTopMargin = if (screenHeight < minRequiredHeight) 12f else 18f
-            val moreInfoTopMargin = if (screenHeight < minRequiredHeight) 22f else 43f
+    private fun applyContentConstraints() {
+        val screenHeight =
+            (window?.windowView?.height ?: 0) -
+                (navigationController?.getSystemBars()?.top ?: 0) -
+                (navigationController?.getSystemBars()?.bottom ?: 0)
+        val desiredHeight = 657.dp
 
-            setConstraints {
+        val logoTopMargin = if (screenHeight < desiredHeight) 40 else 80
+        val titleTopMargin = if (screenHeight < desiredHeight) 20f else 30f
+        val subtitleTopMargin = if (screenHeight < desiredHeight) 12f else 18f
+        val moreInfoTopMargin = if (screenHeight < desiredHeight) 22f else 43f
+
+        contentView.setConstraints {
+            toTopPx(
+                tonParticlesView,
+                (navigationController?.getSystemBars()?.top
+                    ?: 0) + (if (screenHeight < desiredHeight) -23 else 17).dp
+            )
+            toCenterX(tonParticlesView)
+            toTopPx(
+                logoImageView,
+                (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
+            )
+            toCenterX(logoImageView)
+            diamondAnimationView?.let {
                 toTopPx(
-                    tonParticlesView,
-                    (navigationController?.getSystemBars()?.top
-                        ?: 0) + (if (screenHeight < minRequiredHeight) -23 else 17).dp
-                )
-                toCenterX(tonParticlesView)
-                toTopPx(
-                    logoImageView,
+                    it,
                     (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
                 )
-                toCenterX(logoImageView)
-                diamondAnimationView?.let {
-                    toTopPx(
-                        it,
-                        (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
-                    )
-                    toCenterX(it)
-                    topToBottom(titleLabel, it, titleTopMargin)
-                } ?: run {
-                    topToBottom(titleLabel, logoImageView, titleTopMargin)
-                }
-                toCenterX(titleLabel, 32f)
-                topToBottom(subtitleLabel, titleLabel, subtitleTopMargin)
-                toCenterX(subtitleLabel, 20f)
-                topToBottom(moreInfoButton, subtitleLabel, moreInfoTopMargin)
-                toCenterX(moreInfoButton)
-
-                toBottomPx(
-                    importExistingWalletButton,
-                    32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
-                )
-                toCenterX(importExistingWalletButton, 32f)
-                bottomToTop(createNewWalletButton, importExistingWalletButton, 16f)
-                toCenterX(createNewWalletButton, 32f)
-                bottomToTop(termsView, createNewWalletButton, 20f)
-                toCenterX(termsView, 32f)
+                toCenterX(it)
+                topToBottom(titleLabel, it, titleTopMargin)
+            } ?: run {
+                topToBottom(titleLabel, logoImageView, titleTopMargin)
             }
+            toCenterX(titleLabel, 32f)
+            topToBottom(subtitleLabel, titleLabel, subtitleTopMargin)
+            toCenterX(subtitleLabel, 20f)
+            topToBottom(moreInfoButton, subtitleLabel, moreInfoTopMargin)
+            toCenterX(moreInfoButton)
+
+            toBottomPx(
+                importExistingWalletButton,
+                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+            )
+            toCenterX(importExistingWalletButton, 32f)
+            bottomToTop(createNewWalletButton, importExistingWalletButton, 16f)
+            toCenterX(createNewWalletButton, 32f)
+            bottomToTop(termsView, createNewWalletButton, 20f)
+            toCenterX(termsView, 32f)
         }
+
+        val minRequiredHeight = 580.dp + (navigationController?.getSystemBars()?.top ?: 0) -
+            (navigationController?.getSystemBars()?.bottom ?: 0)
+        val targetHeight = max(minRequiredHeight, window?.windowView?.height ?: 0)
+        contentView.minHeight = targetHeight
     }
 
     override fun setupViews() {
@@ -272,9 +287,24 @@ class IntroVC(
 
         setTopBlur(visible = false, animated = false)
 
-        view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
+        view.setConstraints {
+            allEdges(scrollView)
+        }
 
+        applyContentConstraints()
         updateTheme()
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        scrollView.setPaddingRelative(systemBarStartInset, 0, systemBarEndInset, 0)
+        applyContentConstraints()
     }
 
     override val isTinted = true

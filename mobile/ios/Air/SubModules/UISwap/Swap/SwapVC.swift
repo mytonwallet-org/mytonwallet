@@ -18,7 +18,9 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private var isKeyboardVisible = false
     
     private var startWithKeyboardActive: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone
+        windowHorizontalSizeClass == .compact
+            && isSheetPresentationAttachedToBottom
+            && !WKeyboardObserver.isHardwareKeyboardConnected
     }
 
     private var currentTokenSelectionSide: SwapSide?

@@ -176,7 +176,7 @@ function AuthStart({
         )}
       </div>
 
-      <div className={buildClassName(styles.appName, 'rounded-font')}>{APP_NAME}</div>
+      <div className={buildClassName(styles.appName, 'brand-font')}>{APP_NAME}</div>
       {IS_EXPLORER ? (
         <div className={styles.info}>
           {lang('Waiting for a View deeplink to display a wallet address.')}

@@ -20,6 +20,8 @@ $contentMaxWidth: 31.4375rem;
   gap: 2rem;
   align-items: center;
 
+  min-width: 18rem;
+
   .withPinPad & {
     width: 100% !important;
     max-width: $contentMaxWidth !important;
@@ -43,9 +45,10 @@ $contentMaxWidth: 31.4375rem;
 
 .title {
   font-size: 1.6875rem;
-  font-weight: 800;
+  font-weight: 400;
   line-height: 1;
   color: var(--color-black);
+  letter-spacing: 0.3%;
 }
 
 .passwordFormContent {

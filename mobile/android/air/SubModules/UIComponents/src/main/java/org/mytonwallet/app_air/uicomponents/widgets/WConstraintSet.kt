@@ -186,7 +186,7 @@ class WConstraintSet(private val constraintView: ConstraintLayout) : ConstraintS
         )
     }
 
-    private fun startToStartPx(v1: View, v2: View, margin: Int = 0) {
+    fun startToStartPx(v1: View, v2: View, margin: Int = 0) {
         connect(
             v1.id,
             START,

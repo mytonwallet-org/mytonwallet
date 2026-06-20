@@ -152,9 +152,6 @@ public extension String {
 
 public extension UIDevice {
     var hasDynamicIsland: Bool {
-        guard userInterfaceIdiom == .phone else {
-            return false
-        }
         guard let window = UIApplication.shared.sceneKeyWindow else {
             return false
         }

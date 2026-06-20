@@ -22,6 +22,7 @@ import com.facebook.drawee.generic.RoundingParams
 import com.facebook.fresco.ui.common.OnFadeListener
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -80,6 +81,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -129,7 +131,7 @@ class WalletCardView(
 
     private val cardFullWidth: Int
         get() {
-            return window.window.decorView.width - 32.dp
+            return (window.window.decorView.width - 32.dp).coerceAtLeast(0)
         }
 
     // Tilt Effect
@@ -266,7 +268,8 @@ class WalletCardView(
         }
         lbl.setOnClickListener {
             if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
-            val tabNav = window.navigationControllers.last().tabBarController?.navigationController
+            val tabNav =
+                (window.topNavigationController?.viewControllers?.firstOrNull() as? ITabsVC)?.mainNavigationController
             if (tabNav != null) {
                 tabNav.push(PortfolioVC(context))
             } else {
@@ -535,7 +538,8 @@ class WalletCardView(
     fun onDestroy() {
         stopSensorListening()
         balanceView.onTotalWidthChanged = null
-        balanceViewMaskWrapper.onDestroy()
+        if (this::balanceViewMaskWrapper.isInitialized)
+            balanceViewMaskWrapper.onDestroy()
     }
 
     fun startSensorListening() {
@@ -557,6 +561,9 @@ class WalletCardView(
 
     // PUBLIC METHODS //////////////////////////////////////////////////////////////////////////////
     fun setupLayout(parentWidth: Int) {
+        balanceView.containerWidth = parentWidth - 34.dp
+        balanceViewContainer.contentView.maxAllowedWidth = balanceView.containerWidth
+        balanceViewContainer.contentView.updateScale()
         balanceViewMaskWrapper.setupLayout(parentWidth = parentWidth)
     }
 
@@ -570,6 +577,23 @@ class WalletCardView(
         balanceViewContainer.y = balanceY
         balanceSkeletonView.y = balanceY
         balanceChangeLabel.y = balanceY + 64.dp
+        val cardHeight = layoutParams?.height ?: 0
+        if (cardHeight > 0 && expandProgress > 0.9f && balanceChangeLabel.isVisible) {
+            val changeHeight = balanceChangeLabel.height.takeIf { it > 0 } ?: 28.dp
+            val bottomRowTop = cardHeight - 10.dp - bottomViewContainer.height
+            val overlap = balanceChangeLabel.y + changeHeight + 4.dp - bottomRowTop
+            if (overlap > 0) {
+                val pillLift = overlap.coerceAtMost(20f.dp)
+                balanceChangeLabel.y -= pillLift
+                val overlapProgress = 10 * (expandProgress - 0.9f)
+                val rest = lerp(0f, overlap - pillLift, overlapProgress)
+                if (rest > 0) {
+                    balanceViewContainer.y -= rest + lerp(0f, 8f.dp, overlapProgress)
+                    balanceSkeletonView.y = balanceViewContainer.y
+                    balanceChangeLabel.y -= rest
+                }
+            }
+        }
         balanceChangeBlurView?.y = balanceChangeLabel.y
         balanceChangeSkeletonView.y = balanceChangeLabel.y
 
@@ -686,10 +710,15 @@ class WalletCardView(
     }
 
     // Called to update account
+    private var shownAccountId: String? = null
+    private var shownIsTemporary: Boolean? = null
+
     fun updateAccountData(account: MAccount?) {
-        if (this.account?.accountId == account?.accountId) {
+        if (shownAccountId == account?.accountId && shownIsTemporary == account?.isTemporary) {
             return
         }
+        shownAccountId = account?.accountId
+        shownIsTemporary = account?.isTemporary
         this.account = account
         if (account == null) {
             isGone = true
@@ -831,6 +860,8 @@ class WalletCardView(
         addressLabel.alpha = actionsAlpha
         mintIcon.alpha = actionsAlpha
         walletTypeView.alpha = actionsAlpha
+        balanceChangeLabel.alpha = actionsAlpha
+        balanceChangeBlurView?.alpha = actionsAlpha
     }
 
     private var isBalanceChangePositive = false
@@ -898,7 +929,7 @@ class WalletCardView(
                 13f.dp
             )
         }
-        if (isBalanceChangePositive) {
+        if (isBalanceChangePositive && cardNft == null) {
             val positiveColor = WColor.PositiveBalance.color
             balanceChangeLabel.contentView.setTextColor(positiveColor)
             balanceChangeChevron?.setTint(positiveColor)
@@ -969,7 +1000,6 @@ class WalletCardView(
     }
 
     private fun balanceViewContainerTapped() {
-        val location = balanceViewContainer.contentView.getLocationOnScreen()
         WMenuPopup.present(
             balanceViewContainer.contentView,
             listOf(
@@ -1000,7 +1030,7 @@ class WalletCardView(
                     WidgetsConfigurations.reloadWidgets(context)
                 }
             },
-            xOffset = (-location.x + (window.navigationControllers.last().width / 2) - 112.5f.dp).toInt(),
+            centerHorizontally = true,
             yOffset = (-6).dp,
             popupWidth = 225.dp,
             positioning = WMenuPopup.Positioning.BELOW,

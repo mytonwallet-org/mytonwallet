@@ -8,6 +8,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -104,12 +105,13 @@ class SetPasscodeVC(
                     (navigationController?.getSystemBars()?.top ?: 0)
             )
             toCenterX(headerView)
+            constrainMaxWidth(headerView.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp)
             topToBottom(passcodeInputView, headerView, 38f)
             toCenterX(passcodeInputView)
             if (is6DigitPassSupported && confirmingPasscode == null) {
                 toBottomPx(
                     switchLengthButton, 16.dp + max(
-                        (window?.imeInsets?.bottom ?: 0),
+                        (navigationController?.imeInsetBottom ?: 0),
                         (navigationController?.getSystemBars()?.bottom ?: 0)
                     )
                 )
@@ -153,10 +155,15 @@ class SetPasscodeVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         view.constraintSet().apply {
+            toTopPx(
+                headerView,
+                WNavigationBar.DEFAULT_HEIGHT.dp +
+                    (navigationController?.getSystemBars()?.top ?: 0)
+            )
             toBottomPx(
                 switchLengthButton,
                 16.dp + max(
-                    (window?.imeInsets?.bottom ?: 0),
+                    (navigationController?.imeInsetBottom ?: 0),
                     (navigationController?.getSystemBars()?.bottom ?: 0)
                 )
             )
@@ -191,10 +198,16 @@ class SetPasscodeVC(
         } else {
             if (passcode == confirmingPasscode) {
                 confirmedPasscode = true
-                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "didEnterPasscode: Passcode confirmed successfully")
+                Logger.d(
+                    Logger.LogTag.PASSCODE_CONFIRM,
+                    "didEnterPasscode: Passcode confirmed successfully"
+                )
                 passcodeInputView.showIndicator(true)
                 fun finalize(isBiometricsActivated: Boolean) {
-                    Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "finalize: isBiometricsActivated=$isBiometricsActivated")
+                    Logger.d(
+                        Logger.LogTag.PASSCODE_CONFIRM,
+                        "finalize: isBiometricsActivated=$isBiometricsActivated"
+                    )
                     view.lockView()
                     view.hideKeyboard()
                     onCompletion(confirmingPasscode, isBiometricsActivated)

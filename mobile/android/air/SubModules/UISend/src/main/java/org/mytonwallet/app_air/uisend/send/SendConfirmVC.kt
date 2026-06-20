@@ -76,6 +76,8 @@ class SendConfirmVC(
     private var isShowingAccountMultichain =
         WGlobalStorage.isMultichain(AccountStore.activeAccountId!!)
 
+    override val shouldDisplayBottomBar = false
+
     private var task: ((passcode: String?) -> Unit)? = null
     private val scamLabelSpan by lazy {
         ScamLabelSpan(LocaleController.getString("Scam").uppercase())
@@ -361,8 +363,8 @@ class SendConfirmVC(
             if (isSell) {
                 toLeft(confirmButton)
                 toRight(confirmButton)
-                setMargin(confirmButton.id, ConstraintSet.START, 20.dp)
-                setMargin(confirmButton.id, ConstraintSet.END, 20.dp)
+                setMargin(confirmButton.id, ConstraintSet.START, 20.dp + systemBarStartInset)
+                setMargin(confirmButton.id, ConstraintSet.END, 20.dp + systemBarEndInset)
             } else {
                 toBottomPx(cancelButton, buttonsBottomMargin)
                 topToTop(
@@ -374,9 +376,9 @@ class SendConfirmVC(
                 toLeft(cancelButton)
                 leftToRight(confirmButton, cancelButton)
                 toRight(confirmButton)
-                setMargin(cancelButton.id, ConstraintSet.START, 20.dp)
+                setMargin(cancelButton.id, ConstraintSet.START, 20.dp + systemBarStartInset)
                 setMargin(confirmButton.id, ConstraintSet.START, 8.dp)
-                setMargin(confirmButton.id, ConstraintSet.END, 20.dp)
+                setMargin(confirmButton.id, ConstraintSet.END, 20.dp + systemBarEndInset)
                 createHorizontalChain(
                     ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
                     ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
@@ -437,17 +439,22 @@ class SendConfirmVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        linearLayout.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        linearLayout.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             0
         )
         val buttonsBottomMargin = getButtonsBottomMargin()
         view.setConstraints {
             toBottomPx(confirmButton, buttonsBottomMargin)
-            if (!isSell) {
+            if (isSell) {
+                setMargin(confirmButton.id, ConstraintSet.START, 20.dp + systemBarStartInset)
+                setMargin(confirmButton.id, ConstraintSet.END, 20.dp + systemBarEndInset)
+            } else {
                 toBottomPx(cancelButton, buttonsBottomMargin)
+                setMargin(cancelButton.id, ConstraintSet.START, 20.dp + systemBarStartInset)
+                setMargin(confirmButton.id, ConstraintSet.END, 20.dp + systemBarEndInset)
             }
         }
     }
@@ -455,7 +462,7 @@ class SendConfirmVC(
     private fun getButtonsBottomMargin(): Int {
         return 20.dp + max(
             (navigationController?.getSystemBars()?.bottom ?: 0),
-            (window?.imeInsets?.bottom ?: 0)
+            (navigationController?.imeInsetBottom ?: 0)
         )
     }
 

@@ -540,12 +540,10 @@ public class SwipeRevealLayout extends ViewGroup {
 
             if (matchParentHeight) {
                 measuredChildHeight = maxBottom - minTop;
-                childParams.height = measuredChildHeight;
             }
 
             if (matchParentWidth) {
                 measuredChildWidth = maxRight - minLeft;
-                childParams.width = measuredChildWidth;
             }
 
             switch (mDragEdge) {

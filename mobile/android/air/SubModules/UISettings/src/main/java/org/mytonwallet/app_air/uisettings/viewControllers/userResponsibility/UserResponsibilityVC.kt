@@ -8,12 +8,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -35,6 +38,8 @@ import kotlin.math.max
 
 class UserResponsibilityVC(context: Context) : WViewController(context) {
     override val TAG = "UserResponsibility"
+
+    override val isContentWidthCapped = true
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = navigationController?.tabBarController == null
@@ -113,7 +118,12 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
-        v.setPaddingDp(ViewConstants.HORIZONTAL_PADDINGS, 0, ViewConstants.HORIZONTAL_PADDINGS, 0)
+        v.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            0
+        )
         v.addView(animationView, ViewGroup.LayoutParams(90.dp, 90.dp))
         v.addView(titleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         v.addView(descriptionLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -150,7 +160,12 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
         setNavTitle("")
         setupNavBar(true)
 
-        view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.setConstraints {
             allEdges(scrollView)
         }
@@ -168,19 +183,29 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollingContentView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         scrollingContentView.setConstraints {
+            toTopPx(
+                animationView,
+                (navigationController?.getSystemBars()?.top ?: 0) + 45.dp
+            )
             toBottomPx(
                 privacyPolicyRow,
                 max(
                     (navigationController?.bottomInset ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }
     }
 
     override fun updateTheme() {
-        scrollView.setBackgroundColor(WColor.SecondaryBackground.color)
+        view.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
         descriptionLabel.setBackgroundColor(
             WColor.Background.color,

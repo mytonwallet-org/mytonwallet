@@ -26,7 +26,7 @@ class AutoLockHelper {
                 timer?.schedule(object : TimerTask() {
                     override fun run() {
                         Handler(Looper.getMainLooper()).post {
-                            WalletContextManager.delegate?.lockScreen()
+                            WalletContextManager.delegate?.get()?.lockScreen()
                         }
                     }
                 }, remainingTimeMs ?: (period * 1000L))
@@ -39,7 +39,7 @@ class AutoLockHelper {
             val passedTimeMs = System.currentTimeMillis() - timerStartAt!!
             val periodTime = period!! * 1000L
             if (passedTimeMs >= periodTime) {
-                WalletContextManager.delegate?.lockScreen()
+                WalletContextManager.delegate?.get()?.lockScreen()
             } else {
                 resetTimer(periodTime - passedTimeMs)
             }

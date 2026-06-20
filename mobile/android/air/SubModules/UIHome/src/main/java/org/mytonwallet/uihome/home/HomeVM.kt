@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import org.mytonwallet.uihome.home.status.HomeStatusController
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import java.lang.ref.WeakReference
 
@@ -41,6 +42,7 @@ class HomeVM(
         fun accountConfigChanged()
         fun seasonalThemeChanged()
         fun accountWillChange(fromHome: Boolean)
+        fun wideLayoutChanged()
         fun removeScreenFromStack()
 
         fun pop()
@@ -77,14 +79,12 @@ class HomeVM(
     // Called on bridge ready to setup the observer
     fun setupObservers() {
         WalletCore.registerObserver(this)
-        if (!WalletCore.isConnected()) {
-            connectionLost()
-        }
-        startUpdatingTimer()
+        waitingForNetwork = !WalletCore.isConnected()
+        HomeStatusController.addListener(statusListener)
     }
 
     fun destroy() {
-        stopUpdatingTimer()
+        HomeStatusController.removeListener(statusListener)
         WalletCore.unregisterObserver(this)
     }
 
@@ -103,6 +103,10 @@ class HomeVM(
 
     // PRIVATE VARIABLES ///////////////////////////////////////////////////////////////////////////
     private val delegate: WeakReference<Delegate> = WeakReference(delegate)
+
+    private val statusListener = HomeStatusController.Listener { state, animated ->
+        this@HomeVM.delegate.get()?.update(state, animated)
+    }
 
     private var waitingForNetwork = false
 
@@ -143,30 +147,6 @@ class HomeVM(
         get() {
             return !BalanceStore.getBalances(accountId = showingAccountId).isNullOrEmpty()
         }
-
-    // UpdateStatusView handler
-    private val handler = Handler(Looper.getMainLooper())
-    private val updateRunnable = Runnable {
-        checkUpdatingTimer = null
-        updateStatus()
-    }
-    private var checkUpdatingTimer: Runnable? = null
-    private fun startUpdatingTimer() {
-        val checkUpdatingTimer = checkUpdatingTimer
-        if (checkUpdatingTimer != null)
-            handler.removeCallbacks(checkUpdatingTimer)
-        if (AccountStore.updatingActivities || AccountStore.updatingBalance) {
-            this.checkUpdatingTimer = updateRunnable
-            handler.postDelayed(this.checkUpdatingTimer!!, 2000)
-        } else {
-            updateRunnable.run()
-        }
-    }
-
-    private fun stopUpdatingTimer() {
-        checkUpdatingTimer?.let { handler.removeCallbacks(it) }
-        checkUpdatingTimer = null
-    }
 
     // Check if everything is ready and notify transaction list to reload
     private fun dataUpdated(updateBalance: Boolean = true) {
@@ -212,24 +192,6 @@ class HomeVM(
         updateBalanceView(false)
         // Reload tableview to make it clear as the tokens are not up to date
         delegate.get()?.transactionsUpdated(isUpdateEvent = false)
-    }
-
-    private fun updateStatus(animated: Boolean = true) {
-        if (waitingForNetwork) {
-            // It's either `waiting for network` or `not specified` yet!
-            return
-        }
-        if (AccountStore.updatingActivities || AccountStore.updatingBalance) {
-            delegate.get()?.update(UpdateStatusView.State.Updating, animated)
-        } else {
-            delegate.get()
-                ?.update(UpdateStatusView.State.Updated(loadedAccount?.name ?: ""), animated)
-        }
-    }
-
-    private fun connectionLost() {
-        waitingForNetwork = true
-        delegate.get()?.update(UpdateStatusView.State.WaitingForNetwork, true)
     }
 
     private fun accountChanged(fromHome: Boolean, isSavingTemporaryWallet: Boolean) {
@@ -289,19 +251,20 @@ class HomeVM(
                 dataUpdated()
             }
 
+            WalletEvent.WideLayoutChanged -> {
+                delegate.get()?.wideLayoutChanged()
+            }
+
             WalletEvent.NetworkConnected -> {
                 if (waitingForNetwork) {
                     waitingForNetwork = false
                     delegate.get()?.loadStakingData()
                     WalletCore.requestDAppList(showingAccountId)
-                } else {
-                    waitingForNetwork = false
-                    updateStatus()
                 }
             }
 
             WalletEvent.NetworkDisconnected -> {
-                connectionLost()
+                waitingForNetwork = true
             }
 
             WalletEvent.NftCardUpdated -> {
@@ -314,10 +277,6 @@ class HomeVM(
                 if (!mode.isScreenActive)
                     return
                 delegate.get()?.reloadTabs()
-            }
-
-            WalletEvent.UpdatingStatusChanged -> {
-                startUpdatingTimer()
             }
 
             WalletEvent.AccountConfigReceived -> {

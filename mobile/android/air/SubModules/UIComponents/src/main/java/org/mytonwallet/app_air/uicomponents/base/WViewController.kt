@@ -69,15 +69,31 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     open val ignoreSideGuttering = false
 
+    // If the view-controller is presented in the content panel on tablet, returns the `ADDITIONAL_TABLET_PADDING`
+    open val additionalTabletPadding: Int
+        get() {
+            return if (isSplitDetailPanel)
+                ViewConstants.ADDITIONAL_TABLET_PADDING
+            else
+                0
+        }
+
     open val shouldDisplayTopBar = true
     open val topBlurViewGuideline: View? = null
     open val topBarConfiguration: ReversedCornerView.Config by lazy {
         ReversedCornerView.Config(
-            blurRootView = view
+            blurRootView = view,
+            additionalTabletPadding = isSplitDetailPanel
         )
     }
 
-    open val shouldDisplayBottomBar = false
+    val isInCenteredWindow: Boolean
+        get() = navigationController?.isCenteredWindow == true
+
+    open val shouldDisplayBottomBar: Boolean
+        get() {
+            return window?.isWideLayout == true && !isInCenteredWindow
+        }
     open val forceBlurBottomView = false
     open val bottomBlurRootView: ViewGroup? by lazy {
         topBarConfiguration.blurRootView
@@ -107,20 +123,79 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     var isKeyboardOpen = false
         private set
 
-    open fun insetsUpdated() {
-        isKeyboardOpen = (window?.imeInsets?.bottom ?: 0) > 0
-        if (!ignoreSideGuttering) {
-            val padding = ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
-            topReversedCornerView?.setHorizontalPadding(padding)
-            bottomReversedCornerView?.setHorizontalPadding(padding)
+    open val isContentWidthCapped = false
+
+    protected fun updateBlurPaddings() {
+        if (topReversedCornerView == null && bottomReversedCornerView == null)
+            return
+        val basePadding =
+            if (ignoreSideGuttering) 0f else ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
+        val maxContentWidth =
+            if (isContentWidthCapped) WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp.toFloat() else 0f
+        val tabletContentStartPadding =
+            if (ignoreSideGuttering && isSplitDetailPanel && !isInCenteredWindow) -ViewConstants.TABLET_CONTENT_START_PADDING.dp else 0f
+        topReversedCornerView?.apply {
+            setHorizontalPadding(basePadding)
+            setSideInsets(
+                tabletContentStartPadding + if (ignoreSideGuttering) 0f else systemBarStartInset.toFloat(),
+                if (ignoreSideGuttering) 0f else systemBarEndInset.toFloat()
+            )
+            setMaxContentWidth(maxContentWidth)
         }
+        bottomReversedCornerView?.apply {
+            setHorizontalPadding(basePadding)
+            setSideInsets(
+                tabletContentStartPadding + if (ignoreSideGuttering) 0f else systemBarStartInset.toFloat(),
+                if (ignoreSideGuttering) 0f else systemBarEndInset.toFloat()
+            )
+            setMaxContentWidth(maxContentWidth)
+        }
+    }
+
+    open fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
+        if (isContentWidthCapped && w != oldW)
+            updateBlurPaddings()
+    }
+
+    val isSplitDetailPanel: Boolean
+        get() = navigationController?.tabBarController != null
+    val systemBarStartInset: Int
+        get() {
+            if (isSplitDetailPanel)
+                return 0
+            val bars = navigationController?.getSystemBars() ?: return 0
+            return if (LocaleController.isRTL) bars.right else bars.left
+        }
+    val systemBarEndInset: Int
+        get() {
+            val bars = navigationController?.getSystemBars() ?: return 0
+            return if (LocaleController.isRTL) bars.left else bars.right
+        }
+
+    private var centeredWindowCloseButtonAdded = false
+    open fun insetsUpdated() {
+        if (!view.configured)
+            return
+        isKeyboardOpen = (window?.imeInsets?.bottom ?: 0) > 0
+        updateBlurPaddings()
+        navigationBar?.insetsUpdated()
         activeDialog?.insetsUpdated()
+        if (isInCenteredWindow && !centeredWindowCloseButtonAdded) {
+            if (navigationBar?.addCloseButton() == true)
+                centeredWindowCloseButtonAdded = true
+        } else if (!isInCenteredWindow && centeredWindowCloseButtonAdded) {
+            centeredWindowCloseButtonAdded = false
+            navigationBar?.removeCloseButton()
+        }
+        syncBottomCornerRadius()
+        refreshBottomCornerRadiusHeight()
     }
 
     // Called from NavigationController, whenever the vc layout changes during keyboard animation.
     open fun keyboardAnimationFrameRendered() {}
 
-    private var isViewConfigured = false
+    var isViewConfigured = false
+        private set
     private var isViewAppearanceAnimationInProgress = false
 
     @SuppressLint("ViewConstructor")
@@ -129,6 +204,11 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         override fun setupViews() {
             super.setupViews()
             viewController.get()?.setupViews()
+        }
+
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+            super.onSizeChanged(w, h, oldw, oldh)
+            viewController.get()?.onSizeChanged(w, h, oldw, oldh)
         }
 
         override fun updateProtectedView() {
@@ -148,11 +228,9 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         private var initialX: Float? = null
         private var initialY: Float? = null
         private var isScrollingVertical: Boolean? = null
-        override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
-            // Should not let children get touch if view-controller is not enabled
-            if (!isEnabled)
-                return true
-            if (viewController.get()?.isViewAppearanceAnimationInProgress != true &&
+
+        private fun canHandleSwipeBack(ev: MotionEvent?): Boolean {
+            return viewController.get()?.isViewAppearanceAnimationInProgress != true &&
                 (
                     viewController.get()?.isSwipeBackAllowed == true || // is swipe allowed
                         isScrollingVertical == false || // it's already swiping
@@ -161,7 +239,12 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                             (LocaleController.isRTL && (ev?.x ?: 0f) > (width - 60f.dp)))
                     ) &&
                 (viewController.get()?.navigationController?.viewControllers?.size ?: 0) > 1
-            ) {
+        }
+
+        override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
+            if (!isEnabled)
+                return true
+            if (canHandleSwipeBack(ev)) {
                 ev?.let {
                     val swipeTouchListener = viewController.get()?.swipeTouchListener
                     when (it.action) {
@@ -222,9 +305,31 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             event?.let {
                 val swipeTouchListener = viewController.get()?.swipeTouchListener
                 when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        if (canHandleSwipeBack(event)) {
+                            swipeTouchListener?.onTouch(this, event)
+                            isScrollingVertical = null
+                            initialX = it.x
+                            initialY = it.y
+                            return true
+                        }
+                    }
+
                     MotionEvent.ACTION_MOVE -> {
                         if (initialX == null)
                             return@let
+                        if (isScrollingVertical == null) {
+                            val diffX = abs(it.x - initialX!!)
+                            val diffY = abs(it.y - initialY!!)
+                            if (diffX > 20)
+                                isScrollingVertical = false
+                            else if (diffY > 10)
+                                isScrollingVertical = true
+                            if (isScrollingVertical != null) {
+                                initialX = it.x
+                                initialY = it.y
+                            }
+                        }
                         if (isScrollingVertical == false) {
                             swipeTouchListener?.onTouch(
                                 this,
@@ -371,7 +476,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     open fun didSetupViews() {
         if (overrideShowTopBlurView ?: shouldDisplayTopBar)
             addTopCornerRadius()
-        if (shouldDisplayBottomBar)
+        if (shouldDisplayBottomBar && !isInCenteredWindow)
             addBottomCornerRadius()
     }
 
@@ -497,10 +602,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                 }
             }
             bottomReversedCornerView?.refreshModeFromSettings()
-            if (bottomReversedCornerView?.parent != null)
-                bottomReversedCornerView?.updateLayoutParams {
-                    height = bottomReversedCornerViewHeight()
-                }
+            refreshBottomCornerRadiusHeight()
         }
     }
 
@@ -560,6 +662,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             addTopCornerRadius()
             navigationBar?.bringToFront()
             topBlurViewGuideline?.bringToFront()
+            updateBlurPaddings()
         }
     }
 
@@ -612,7 +715,9 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     var bottomReversedCornerView: ReversedCornerViewUpsideDown? = null
 
-    protected fun syncBottomCornerRadius(shouldShow: Boolean = shouldDisplayBottomBar) {
+    protected fun syncBottomCornerRadius(
+        shouldShow: Boolean = shouldDisplayBottomBar && !isInCenteredWindow
+    ) {
         val existing = bottomReversedCornerView
         if (shouldShow && existing == null) {
             addBottomCornerRadius()
@@ -634,6 +739,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             context = context,
             blurRootView = bottomBlurRootView,
             forceBlurView = forceBlurBottomView,
+            additionalTabletPadding = isSplitDetailPanel
         )
         bottomReversedCornerView = bottomView
         if (ignoreSideGuttering)
@@ -655,6 +761,18 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         return ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
             (navigationController?.getSystemBars()?.bottom ?: 0) +
             extra
+    }
+
+    protected fun refreshBottomCornerRadiusHeight() {
+        val bottomView = bottomReversedCornerView ?: return
+        if (bottomView.parent == null) return
+        val targetHeight = bottomReversedCornerViewHeight()
+        if (bottomView.layoutParams?.height != targetHeight) {
+            bottomView.updateLayoutParams { height = targetHeight }
+        }
+        view.setConstraints {
+            toBottom(bottomView)
+        }
     }
 
     private val overScrollSettleHandler by lazy(LazyThreadSafetyMode.NONE) {
@@ -729,6 +847,10 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     protected var modalExpandOffset: Int? = null
     protected var modalExpandProgress: Float? = null
+
+    val isModalFullyExpanded: Boolean
+        get() = modalExpandProgress == 1f
+
     open fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         modalExpandOffset = expandOffset
         modalExpandProgress = expandProgress

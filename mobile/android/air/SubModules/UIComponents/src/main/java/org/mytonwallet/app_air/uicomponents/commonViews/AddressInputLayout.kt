@@ -364,7 +364,7 @@ class AddressInputLayout(
             }
         }
 
-        WalletContextManager.delegate?.bindQrCodeButton(
+        WalletContextManager.delegate?.get()?.bindQrCodeButton(
             context,
             qrScanImageView,
             {

@@ -20,6 +20,8 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setConstraints
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
@@ -165,7 +167,7 @@ class SettingsVC(context: Context) : WViewController(context),
                 context,
                 AccountStore.activeAccount?.firstChain
             ) ?: return@setOnClickListener
-            val navVC = WNavigationController(window!!)
+            val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
             navVC.setRoot(receiveVC)
             window?.present(navVC)
         }
@@ -210,10 +212,10 @@ class SettingsVC(context: Context) : WViewController(context),
         WalletCore.registerObserver(this)
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateWalletVersions::class.java, this)
 
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             recyclerView.paddingTop,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             recyclerView.paddingBottom
         )
 
@@ -232,7 +234,7 @@ class SettingsVC(context: Context) : WViewController(context),
         view.setConstraints {
             allEdges(recyclerView)
             toTop(headerView)
-            toStart(headerView)
+            toStartPx(headerView, additionalTabletPadding + systemBarStartInset)
             toEnd(headerView)
             toTopPx(
                 moreButton,
@@ -260,6 +262,7 @@ class SettingsVC(context: Context) : WViewController(context),
     override fun viewWillAppear() {
         super.viewWillAppear()
         if (pendingReload) {
+            visibleSections = computeVisibleSections()
             updatePadding()
             rvAdapter.reloadData()
             pendingReload = false
@@ -274,6 +277,7 @@ class SettingsVC(context: Context) : WViewController(context),
     override fun viewDidEnterForeground() {
         super.viewDidEnterForeground()
         if (pendingReload) {
+            visibleSections = computeVisibleSections()
             updatePadding()
             rvAdapter.reloadData()
             pendingReload = false
@@ -314,6 +318,13 @@ class SettingsVC(context: Context) : WViewController(context),
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        val topInset = navigationController?.getSystemBars()?.top ?: 0
+        view.setConstraints {
+            toTopPx(moreButton, topInset + ViewConstants.GAP.dp)
+            toTopPx(qrButton, topInset + ViewConstants.GAP.dp)
+        }
+        headerView.updateTopInset(topInset)
+        rvAdapter.notifyItemChanged(0)
         updatePadding()
         if (headerView.parent == headerCell)
             headerCell?.setConstraints {
@@ -342,6 +353,9 @@ class SettingsVC(context: Context) : WViewController(context),
                     topReversedCornerView?.alpha = 1f
                     headerCell?.removeView(headerView)
                     view.addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                    view.setConstraints {
+                        toStartPx(headerView, additionalTabletPadding + systemBarStartInset)
+                    }
                     navigationBar?.bringToFront()
                     topBlurViewGuideline.bringToFront()
                     moreButton.bringToFront()
@@ -400,13 +414,12 @@ class SettingsVC(context: Context) : WViewController(context),
                 val nav = WNavigationController(
                     window!!,
                     PresentationConfig(
-                        overFullScreen = false,
-                        isBottomSheet = true,
-                        aboveKeyboard = false
+                        style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
                 nav.setRoot(
-                    WalletContextManager.delegate?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
+                    WalletContextManager.delegate?.get()
+                        ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
                 )
                 window?.present(nav)
             }
@@ -440,12 +453,11 @@ class SettingsVC(context: Context) : WViewController(context),
             SettingsItem.Identifier.SHOW_ALL_WALLETS -> {
                 val navVC = WNavigationController(
                     window!!, PresentationConfig(
-                        overFullScreen = false,
-                        isBottomSheet = true
+                        style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
                 navVC.setRoot(
-                    WalletContextManager.delegate?.getWalletsTabsVC(
+                    WalletContextManager.delegate?.get()?.getWalletsTabsVC(
                         MWalletSettingsViewMode.LIST
                     ) as WViewController
                 )
@@ -453,37 +465,37 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.NOTIFICATION_SETTINGS -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     NotificationSettingsVC(context)
                 )
             }
 
             SettingsItem.Identifier.PORTFOLIO -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     PortfolioVC(context)
                 )
             }
 
             SettingsItem.Identifier.APPEARANCE -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     AppearanceVC(context)
                 )
             }
 
             SettingsItem.Identifier.ASSETS_AND_ACTIVITY -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     AssetsAndActivitiesVC(context)
                 )
             }
 
             SettingsItem.Identifier.LANGUAGE -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     LanguageVC(context)
                 )
             }
 
             SettingsItem.Identifier.CONNECTED_APPS -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     ConnectedAppsVC(context)
                 )
             }
@@ -498,7 +510,7 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.USE_RESPONSIBILITY -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     UserResponsibilityVC(context)
                 )
             }
@@ -508,7 +520,7 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.WALLET_VERSIONS -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     WalletVersionsVC(context)
                 )
             }
@@ -540,7 +552,7 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.ABOUT_MTW -> {
-                navigationController?.tabBarController?.navigationController?.push(
+                navigationController?.tabBarController?.mainNavigationController?.push(
                     AppInfoVC(context)
                 )
             }
@@ -549,8 +561,19 @@ class SettingsVC(context: Context) : WViewController(context),
         }
     }
 
+    private var visibleSections: List<SettingsSection> = settingsVM.settingsSections
+
+    private fun computeVisibleSections(): List<SettingsSection> {
+        val sections = settingsVM.settingsSections
+        return if (window?.isWideLayout == true)
+            sections.filter { it.section != SettingsSection.Section.ACCOUNTS }
+        else
+            sections
+    }
+
     private fun reloadData() {
         if (view.isAttachedToWindow) {
+            visibleSections = computeVisibleSections()
             updatePadding()
             rvAdapter.reloadData()
         } else {
@@ -568,10 +591,10 @@ class SettingsVC(context: Context) : WViewController(context),
             val recyclerViewPaddingBottom =
                 (view.height - contentHeight - topInset + additionalPadding)
                     .coerceAtLeast(bottomInset)
-            recyclerView.setPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+            recyclerView.setPaddingLocalized(
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
                 recyclerView.paddingTop,
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
                 recyclerViewPaddingBottom
             )
         }
@@ -602,7 +625,7 @@ class SettingsVC(context: Context) : WViewController(context),
         destinationTitle: String,
         destinationBuilder: (String) -> WViewController
     ) {
-        val nav = navigationController?.tabBarController?.navigationController
+        val nav = navigationController?.tabBarController?.mainNavigationController
         val passcodeConfirmVC = PasscodeConfirmVC(
             context,
             Default(
@@ -625,7 +648,7 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return settingsVM.settingsSections.size + 2
+        return visibleSections.size + 2
     }
 
     private fun sectionHasHeader(section: SettingsSection): Boolean {
@@ -633,11 +656,12 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
+        val sections = visibleSections
         return when (section) {
             0 -> 1
-            settingsVM.settingsSections.size + 1 -> 1
+            sections.size + 1 -> 1
             else -> {
-                val settingsSection = settingsVM.settingsSections[section - 1]
+                val settingsSection = sections[section - 1]
                 val headerCount = if (sectionHasHeader(settingsSection)) 1 else 0
                 headerCount + settingsSection.children.size
             }
@@ -645,11 +669,12 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
+        val sections = visibleSections
         return when (indexPath.section) {
             0 -> HEADER_CELL
-            settingsVM.settingsSections.size + 1 -> VERSION_CELL
+            sections.size + 1 -> VERSION_CELL
             else -> {
-                val settingsSection = settingsVM.settingsSections[indexPath.section - 1]
+                val settingsSection = sections[indexPath.section - 1]
                 val hasHeader = sectionHasHeader(settingsSection)
                 if (hasHeader && indexPath.row == 0)
                     SECTION_HEADER_CELL
@@ -686,7 +711,7 @@ class SettingsVC(context: Context) : WViewController(context),
 
             VERSION_CELL -> {
                 SettingsVersionCell(window!!) {
-                    navigationController?.tabBarController?.navigationController?.push(
+                    navigationController?.tabBarController?.mainNavigationController?.push(
                         DebugMenuVC(context)
                     )
                 }
@@ -703,6 +728,7 @@ class SettingsVC(context: Context) : WViewController(context),
         cellHolder: WCell.Holder,
         indexPath: IndexPath
     ) {
+        val sections = visibleSections
         when (indexPath.section) {
             0 -> {
                 val cellLayoutParams = RecyclerView.LayoutParams(MATCH_PARENT, 0)
@@ -714,10 +740,10 @@ class SettingsVC(context: Context) : WViewController(context),
                 return
             }
 
-            settingsVM.settingsSections.size + 1 -> {}
+            sections.size + 1 -> {}
 
             else -> {
-                val section = settingsVM.settingsSections.getOrNull(indexPath.section - 1) ?: return
+                val section = sections.getOrNull(indexPath.section - 1) ?: return
                 val hasHeader = sectionHasHeader(section)
                 if (hasHeader && indexPath.row == 0) {
                     val cell = cellHolder.cell as HeaderCell
@@ -749,11 +775,12 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
+        val sections = visibleSections
         return when (indexPath.section) {
-            0, settingsVM.settingsSections.size + 1 -> null
+            0, sections.size + 1 -> null
 
             else -> {
-                val section = settingsVM.settingsSections.getOrNull(indexPath.section - 1)
+                val section = sections.getOrNull(indexPath.section - 1)
                 val hasHeader = section != null && sectionHasHeader(section)
                 if (hasHeader && indexPath.row == 0)
                     return section.title
@@ -845,6 +872,15 @@ class SettingsVC(context: Context) : WViewController(context),
                 val itemsChanged = settingsVM.updateHelpSection()
                 if (itemsChanged)
                     reloadData()
+            }
+
+            WalletEvent.WideLayoutChanged -> {
+                if (headerView.parent == view) {
+                    view.setConstraints {
+                        toStartPx(headerView, additionalTabletPadding + systemBarStartInset)
+                    }
+                }
+                reloadData()
             }
 
             else -> {}

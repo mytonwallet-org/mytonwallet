@@ -124,6 +124,18 @@ class TransactionVC(
     override val displayedAccount =
         DisplayedAccount(showingAccountId, AccountStore.isPushedTemporary)
 
+    private val isCenteredWindowMode: Boolean
+        get() = navigationController?.isCenteredWindow == true
+
+    private val isFullScreenShortWideWindow: Boolean
+        get() = navigationController?.isShortWideWindow == true
+
+    private val isDetailsExpandedByDefault: Boolean
+        get() = isCenteredWindowMode || isFullScreenShortWideWindow
+
+    private val effectiveExpandProgress: Float
+        get() = if (isDetailsExpandedByDefault) 1f else (modalExpandProgress ?: 0f)
+
     private companion object {
         const val TITLE_TEXT_SIZE = 22f
         val TAG_PADDING = 8.dp
@@ -144,6 +156,8 @@ class TransactionVC(
     }
 
     private var transaction = adjustTransactionStatusForUi(tx)
+
+    private var loadingDetailsActivityId: String? = null
 
     val titleLabel: WReplaceableLabel? by lazy {
         WReplaceableLabel(context).apply {
@@ -275,7 +289,10 @@ class TransactionVC(
         btn.gravity = Gravity.CENTER
         btn.setPaddingDp(8, 4, 8, 4)
         btn.setOnClickListener {
-            val nav = WNavigationController(window!!)
+            val nav = WNavigationController(
+                window!!,
+                WNavigationController.PresentationConfig.PreferredFullScreen
+            )
             nav.setRoot(
                 PasscodeConfirmVC(
                     context,
@@ -467,7 +484,7 @@ class TransactionVC(
 
     private fun generateActions(): List<HeaderActionsView.Item> {
         return listOfNotNull(
-            if (isInBottomSheet) HeaderActionsView.Item(
+            if (isInBottomSheet && !isDetailsExpandedByDefault) HeaderActionsView.Item(
                 HeaderActionsView.Identifier.DETAILS,
                 context.requireDrawableCompat(R.drawable.ic_act_details_outline),
                 LocaleController.getString("Details")
@@ -907,6 +924,7 @@ class TransactionVC(
 
         ensureCorrectHeaderView()
         updateTheme()
+        applyExpandPresentation()
 
         if (transaction.shouldLoadDetails == true)
             loadActivityDetails()
@@ -915,6 +933,42 @@ class TransactionVC(
     override fun onDestroy() {
         super.onDestroy()
         WalletCore.unregisterObserver(this)
+    }
+
+    private var appliedDetailsExpandedByDefault: Boolean? = null
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        innerContentView.setConstraints {
+            toBottomPx(transactionDetails, navigationController?.getSystemBars()?.bottom ?: 0)
+            toStartPx(
+                transactionDetails,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset
+            )
+            toEndPx(
+                transactionDetails,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
+            )
+            transactionAddress?.let {
+                toStartPx(it, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset)
+                toEndPx(it, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset)
+            }
+        }
+        scrollingContentView.setConstraints {
+            toTopPx(
+                innerContentView, (navigationController?.getSystemBars()?.top ?: 0) +
+                    WNavigationBar.DEFAULT_HEIGHT.dp
+            )
+            constrainMinHeight(
+                innerContentView.id,
+                window!!.windowView.height - (navigationController?.getSystemBars()?.top
+                    ?: 0) - WNavigationBar.DEFAULT_HEIGHT.dp
+            )
+        }
+        if (appliedDetailsExpandedByDefault != isDetailsExpandedByDefault) {
+            appliedDetailsExpandedByDefault = isDetailsExpandedByDefault
+            actionsView.resetTabs(generateActions())
+        }
+        applyExpandPresentation()
     }
 
     override fun updateTheme() {
@@ -953,7 +1007,7 @@ class TransactionVC(
     }
 
     private fun updateBackground() {
-        val expandProgress = 10f / 3f * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
+        val expandProgress = 10f / 3f * ((effectiveExpandProgress - 0.7f).coerceIn(0f, 1f))
         // Use fixed radius when Rounded Corners is off, otherwise use BLOCK_RADIUS
         val halfExpandedRadius =
             if (ViewConstants.BLOCK_RADIUS == 0f) 24f.dp else ViewConstants.BLOCK_RADIUS.dp
@@ -970,7 +1024,7 @@ class TransactionVC(
         } else {
             headerView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
         }
-        if (modalExpandProgress == 1f) {
+        if (effectiveExpandProgress == 1f) {
             view.setBackgroundColor(WColor.SecondaryBackground.color)
         } else {
             view.background = null
@@ -983,11 +1037,27 @@ class TransactionVC(
 
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         super.onModalSlide(expandOffset, expandProgress)
+        applyExpandPresentation()
+    }
+
+    private fun applyExpandPresentation() {
+        val progress = effectiveExpandProgress
         updateBackground()
-        transactionDetails.alpha = expandProgress
-        transactionAddress?.alpha = expandProgress
-        val padding = (ViewConstants.HORIZONTAL_PADDINGS.dp * expandProgress).roundToInt()
-        headerViewContainer.setPadding(padding, 0, padding, 0)
+        transactionDetails.alpha = progress
+        transactionAddress?.alpha = progress
+        val padding = (ViewConstants.HORIZONTAL_PADDINGS.dp * progress).roundToInt()
+        headerViewContainer.setPaddingRelative(
+            padding + systemBarStartInset,
+            0,
+            padding + systemBarEndInset,
+            0
+        )
+        if (isDetailsExpandedByDefault) {
+            navigationBar?.expansionValue = 1f
+            view.translationY = 0f
+            scrollingContentView.translationY = 0f
+        }
+        topReversedCornerView?.translationZ = navigationBar?.translationZ ?: 0f
     }
 
     private fun configureTitle(animated: Boolean) {
@@ -1216,7 +1286,8 @@ class TransactionVC(
                                     val network = MBlockchainNetwork.ofAccountId(showingAccountId)
                                     val token = TokenStore.getToken(transaction.getTxSlug())
                                     val chain =
-                                        if (token?.chain != null) MBlockchain.valueOfOrNull(token.chain) ?: return@Item
+                                        if (token?.chain != null) MBlockchain.valueOfOrNull(token.chain)
+                                            ?: return@Item
                                         else if (transaction is Swap) MBlockchain.ton
                                         else return@Item
                                     val txHash = transaction.getTxHash() ?: return@Item
@@ -1335,15 +1406,22 @@ class TransactionVC(
 
     private fun loadActivityDetails() {
         val accountId = AccountStore.activeAccountId ?: return
+        val activityId = transaction.id
+        if (loadingDetailsActivityId == activityId)
+            return
+        loadingDetailsActivityId = activityId
         WalletCore.call(
             ApiMethod.WalletData.FetchActivityDetails(
                 accountId,
                 transaction
             ),
             callback = { res, err ->
+                if (loadingDetailsActivityId != activityId)
+                    return@call
+                loadingDetailsActivityId = null
                 if (err != null) {
                     Handler(Looper.getMainLooper()).postDelayed({
-                        if (view.parent == null)
+                        if (view.parent == null || transaction.id != activityId)
                             return@postDelayed
                         loadActivityDetails()
                     }, 3000)
@@ -1361,7 +1439,10 @@ class TransactionVC(
     }
 
     private fun repeatPressed() {
-        val navVC = WNavigationController(window!!)
+        val navVC = WNavigationController(
+            window!!,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
 
         val transaction = transaction
         when (transaction) {

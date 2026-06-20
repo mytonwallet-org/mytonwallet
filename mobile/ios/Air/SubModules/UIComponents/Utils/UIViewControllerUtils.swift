@@ -220,6 +220,38 @@ public extension UIViewController {
         }
         return nil
     }
+
+    private var sheetPresentationHostViewController: UIViewController? {
+        var hostViewController: UIViewController?
+        var candidate: UIViewController? = self
+        while let viewController = candidate {
+            if viewController.sheetPresentationController != nil {
+                hostViewController = viewController
+            }
+            candidate = viewController.parent
+        }
+        return hostViewController
+    }
+
+    var windowHorizontalSizeClass: UIUserInterfaceSizeClass {
+        if let sizeClass = viewIfLoaded?.window?.traitCollection.horizontalSizeClass,
+           sizeClass != .unspecified {
+            return sizeClass
+        }
+        if let sizeClass = sheetPresentationHostViewController?.presentingViewController?.viewIfLoaded?.window?.traitCollection.horizontalSizeClass,
+           sizeClass != .unspecified {
+            return sizeClass
+        }
+        return .unspecified
+    }
+
+    var isPresentedInRegularWidthWindow: Bool {
+        windowHorizontalSizeClass == .regular
+    }
+
+    var isSheetPresentationAttachedToBottom: Bool {
+        sheetPresentationHostViewController != nil && !isPresentedInRegularWidthWindow
+    }
     
     func descendantViewController(where predicate: (UIViewController) -> Bool) -> UIViewController? {
         if predicate(self) {

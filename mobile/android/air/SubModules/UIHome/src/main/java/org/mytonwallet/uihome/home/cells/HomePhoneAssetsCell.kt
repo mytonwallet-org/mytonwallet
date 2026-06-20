@@ -42,8 +42,9 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class HomeAssetsCell(
+class HomePhoneAssetsCell(
     context: Context,
+    private val pool: HomeAssetsVCPool,
     private val window: WWindow,
     private val navigationController: WNavigationController,
     private var showingAccountId: String,
@@ -60,61 +61,50 @@ class HomeAssetsCell(
         shouldShowTransferActions: Boolean
     ) -> Unit,
     private val onDetailsOpened: () -> Unit,
-) : WCell(context), WThemedView, ISortableController {
+) : WCell(context), WThemedView, ISortableController, IHomeAssetsCell, IHomeAssetsHost {
 
-    private var areAssetsShown = false
+    override var areAssetsShown = false
     private var selectionAssetsVC: AssetsVC? = null
-    var onScrollToVisibleRequested: (() -> Unit)? = null
+    override var onScrollToVisibleRequested: (() -> Unit)? = null
 
-    private val tokensVC: TokensVC by lazy {
-        val vc = TokensVC(
-            context,
-            showingAccountId,
-            TokensVC.Mode.HOME,
-            onHeightChanged = {
-                updateHeight()
-            },
-            onAssetsShown = {
-                if (segmentedController.currentItem is TokensVC) {
-                    areAssetsShown = true
-                    onAssetsShown()
-                }
-            }
-        ) {
-            updateHeight()
+    private val tokensVC: TokensVC get() = pool.tokensVC
+    private val collectiblesVC: AssetsVC get() = pool.collectiblesVC
+
+    // IHomeAssetsHost ///////////////////////////////////////////////////////////////////////////////
+    override fun onVcHeightChanged() = updateHeight()
+
+    override fun onVcScroll(vc: WViewController) = updateHeight()
+
+    override fun onVcAssetsShown(vc: TokensVC) {
+        if (segmentedController.currentItem === vc) {
+            areAssetsShown = true
+            onAssetsShown()
         }
-        vc.onScrollToVisibleRequested = { onScrollToVisibleRequested?.invoke() }
-        vc
     }
 
-    private val collectiblesVC: AssetsVC by lazy {
-        val vc = AssetsVC(
-            context,
-            showingAccountId,
-            AssetsVC.ViewMode.THUMB,
-            injectedWindow = window,
-            onHeightChanged = {
-                updateHeight()
-            }, onScroll = {
-                updateHeight()
-            }, onReorderingRequested = {
-                onReorderingRequested(true)
-            }, isShowingSingleCollection = false,
-            onNftsShown = {
-                if (segmentedController.currentItem is AssetsVC) {
-                    if ((segmentedController.currentItem as AssetsVC).collectionMode == null) {
-                        areAssetsShown = true
-                        onAssetsShown()
-                    }
-                }
-            },
-            shouldAnimateHeight = {
-                areAssetsShown
-            }
-        )
-        vc.onShowAllTapped = {
-            handleShowAllTapped(vc)
+    override fun onVcNftsShown(vc: AssetsVC) {
+        if (segmentedController.currentItem === vc) {
+            areAssetsShown = true
+            onAssetsShown()
         }
+    }
+
+    override fun requestReordering(reordering: Boolean) = onReorderingRequested.invoke(reordering)
+
+    // Make this cell the active host: point the pool at us and re-bind the mutable per-VC callbacks.
+    override fun attachHost(pool: HomeAssetsVCPool) {
+        pool.host = this
+        tokensVC.onScrollToVisibleRequested = { onScrollToVisibleRequested?.invoke() }
+        segmentedController.items.forEach { item ->
+            (item.viewController as? AssetsVC)?.let { vc ->
+                bindPooledAssetsVC(vc)
+                vc.segmentedController = segmentedController
+            }
+        }
+    }
+
+    private fun bindPooledAssetsVC(vc: AssetsVC) {
+        vc.onShowAllTapped = { handleShowAllTapped(vc) }
         bindSelection(vc)
     }
 
@@ -134,7 +124,8 @@ class HomeAssetsCell(
             },
             onForceEndReorderingRequested = {
                 onForceEndReorderingRequested()
-            }
+            },
+            ownsItems = false,
         ).apply {
             setDragAllowed(true)
         }
@@ -144,8 +135,9 @@ class HomeAssetsCell(
     override fun setupViews() {
         super.setupViews()
 
+        attachHost(pool)
         segmentedController.items.forEach {
-            (it.viewController as? AssetsVC)?.segmentedController = segmentedController
+            (it.viewController as? AssetsVC)?.onLayoutModeChanged()
         }
         addView(segmentedController, LayoutParams(MATCH_PARENT, 0))
         setConstraints {
@@ -192,15 +184,16 @@ class HomeAssetsCell(
         }
     }
 
-    fun updateSegmentItemsTheme() {
+    override fun updateSegmentItemsTheme() {
         segmentedController.updateTheme()
         segmentedController.items.forEach {
             it.viewController.updateTheme()
         }
     }
 
-    fun configure(accountId: String?) {
+    override fun configure(accountId: String?) {
         updateTheme()
+        attachHost(pool)
         val accountId = accountId ?: return
         if (selectionAssetsVC != null && showingAccountId != accountId) {
             closeSelectionMode()
@@ -211,6 +204,7 @@ class HomeAssetsCell(
         }
         areAssetsShown = false
         showingAccountId = accountId
+        pool.onAccountChanged(accountId)
         segmentedController.updateProtectedView()
         val itemsChanged = reloadTabs(true)
         tokensVC.configure(showingAccountId)
@@ -224,7 +218,7 @@ class HomeAssetsCell(
     }
 
     // Returns true if the items are changed
-    fun reloadTabs(resetSelection: Boolean): Boolean {
+    override fun reloadTabs(resetSelection: Boolean): Boolean {
         val oldSegmentItems = segmentedController.items
         val newSegmentItems = generateSegmentItems()
         if (selectionAssetsVC != null && newSegmentItems.none { it.viewController === selectionAssetsVC }) {
@@ -355,35 +349,10 @@ class HomeAssetsCell(
                                     }
                             }
                         if (collectionMode != null) {
-                            val vc = AssetsVC(
-                                context,
-                                showingAccountId,
-                                AssetsVC.ViewMode.THUMB,
-                                injectedWindow = window,
-                                collectionMode = collectionMode,
-                                onHeightChanged = {
-                                    updateHeight()
-                                }, onScroll = {
-                                    updateHeight()
-                                }, onReorderingRequested = {
-                                    onReorderingRequested(true)
-                                }, isShowingSingleCollection = false,
-                                onNftsShown = {
-                                    if (segmentedController.currentItem is AssetsVC) {
-                                        if ((segmentedController.currentItem as AssetsVC).collectionMode == collectionMode) {
-                                            areAssetsShown = true
-                                            onAssetsShown()
-                                        }
-                                    }
-                                },
-                                shouldAnimateHeight = {
-                                    areAssetsShown
-                                }
-                            )
-                            vc.onShowAllTapped = {
-                                handleShowAllTapped(vc)
-                            }
-                            bindSelection(vc)
+                            // Pinned VC comes from the shared pool (survives layout switches); its
+                            // callbacks are (re)bound in attachHost().
+                            val vc = pool.pinnedVC(collectionMode)
+                            bindPooledAssetsVC(vc)
                             WSegmentedControllerItem(
                                 viewController = vc,
                                 identifier = AssetsTabVC.identifierForVC(vc),
@@ -484,7 +453,7 @@ class HomeAssetsCell(
         else -> 0
     }
 
-    fun setAnimations(paused: Boolean) {
+    override fun setAnimations(paused: Boolean) {
         segmentedController.items.forEach { item ->
             (item.viewController as? WSegmentedControllerItemVC)?.apply {
                 if (paused) onPartiallyVisible() else onFullyVisible()
@@ -523,15 +492,16 @@ class HomeAssetsCell(
         }
     }
 
-    fun scrollToFirst() {
+    override fun scrollToFirst() {
         segmentedController.scrollToFirst()
     }
 
-    fun onDestroy() {
+    override fun onDestroy() {
+        if (pool.host === this) pool.host = null
         segmentedController.onDestroy()
     }
 
-    val isDraggingCollectible: Boolean
+    override val isDraggingCollectible: Boolean
         get() {
             return (segmentedController.currentItem as? AssetsVC)?.isDragging == true
         }
@@ -560,6 +530,7 @@ class HomeAssetsCell(
             if (isInDragMode) {
                 (segmentedController.currentItem as? AssetsVC)?.startSorting()
             }
+            pool.evictPinned(collectionMode)
         })
         (removedItem?.viewController as? AssetsVC)?.reloadList()
     }
@@ -594,12 +565,12 @@ class HomeAssetsCell(
         )
     }
 
-    val isInDragMode: Boolean
+    override val isInDragMode: Boolean
         get() {
             return segmentedController.isInDragMode
         }
 
-    val isInSelectionMode: Boolean
+    override val isInSelectionMode: Boolean
         get() = selectionAssetsVC != null
 
     private fun handleShowAllTapped(assetsVC: AssetsVC) {
@@ -632,26 +603,26 @@ class HomeAssetsCell(
         )
     }
 
-    fun closeSelectionMode() {
+    override fun closeSelectionMode() {
         val assetsVC = selectionAssetsVC ?: return
         selectionAssetsVC = null
         assetsVC.closeSelectionMode()
         segmentedController.unlockTab()
     }
 
-    fun hideSelectedAssets() {
+    override fun hideSelectedAssets() {
         selectionAssetsVC?.hideSelectedAssets()
     }
 
-    fun selectAllVisibleAssets() {
+    override fun selectAllVisibleAssets() {
         selectionAssetsVC?.selectAllVisibleAssets()
     }
 
-    fun sendSelectedNfts(): Boolean {
+    override fun sendSelectedNfts(): Boolean {
         return selectionAssetsVC?.sendSelectedNfts() ?: false
     }
 
-    fun burnSelectedNfts(): Boolean {
+    override fun burnSelectedNfts(): Boolean {
         return selectionAssetsVC?.burnSelectedNfts() ?: false
     }
 

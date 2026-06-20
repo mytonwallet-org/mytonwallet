@@ -6,6 +6,7 @@ import android.view.View
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
+import java.lang.ref.WeakReference
 
 interface WalletContextManagerDelegate {
     fun restartApp()
@@ -47,17 +48,17 @@ interface WalletContextManagerDelegate {
 }
 
 object WalletContextManager {
-    var delegate: WalletContextManagerDelegate? = null
+    var delegate: WeakReference<WalletContextManagerDelegate>? = null
         private set
 
     private var pendingSwitchToLegacy = false
 
     fun scheduleSwitchToLegacy() {
-        delegate?.switchToLegacy() ?: run { pendingSwitchToLegacy = true }
+        delegate?.get()?.switchToLegacy() ?: run { pendingSwitchToLegacy = true }
     }
 
     fun setDelegate(delegate: WalletContextManagerDelegate?) {
-        this.delegate = delegate
+        this.delegate = delegate?.let { WeakReference(it) }
         if (delegate != null && pendingSwitchToLegacy) {
             pendingSwitchToLegacy = false
             delegate.switchToLegacy()

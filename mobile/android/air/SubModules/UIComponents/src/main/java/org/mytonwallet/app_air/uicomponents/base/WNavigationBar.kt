@@ -25,11 +25,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WNavigationBar(
     private val viewController: WViewController,
-    defaultHeight: Int = DEFAULT_HEIGHT,
+    private val defaultHeight: Int = DEFAULT_HEIGHT,
     private val contentMarginTop: Int = 0
 ) : WView(viewController.navigationController!!.context), WThemedView {
 
@@ -49,17 +50,14 @@ class WNavigationBar(
             return viewController.navigationController!!
         }
 
-    val topOffset: Int by lazy {
-        if (navigationController.presentationConfig.isBottomSheet &&
-            !viewController.isExpandable
-        )
+    val topOffset: Int
+        get() = if (navigationController.isBottomSheet && !viewController.isExpandable)
             0
         else
             navigationController.getSystemBars().top
-    }
 
-    val calculatedMinHeight =
-        defaultHeight.dp + topOffset
+    val calculatedMinHeight: Int
+        get() = defaultHeight.dp + topOffset
 
     val titleLabel: WLabel by lazy {
         WLabel(context).apply {
@@ -117,11 +115,18 @@ class WNavigationBar(
         setConstraints {
             toTopPx(titleLinearLayout, topOffset + contentMarginTop)
             toBottom(titleLinearLayout)
-            toStart(titleLinearLayout, if (backButton.isVisible) 64f else 20f)
-            toEnd(titleLinearLayout, 20f)
+            toStartPx(
+                titleLinearLayout,
+                viewController.systemBarStartInset + viewController.additionalTabletPadding +
+                    if (backButton.isVisible) 64.dp else 20.dp
+            )
+            toEndPx(titleLinearLayout, viewController.systemBarEndInset + 20.dp)
             toTopPx(backButton, topOffset + contentMarginTop)
             toBottom(backButton)
-            toStart(backButton, 8f)
+            toStartPx(
+                backButton,
+                viewController.systemBarStartInset + viewController.additionalTabletPadding + 8.dp
+            )
         }
     }
 
@@ -146,6 +151,39 @@ class WNavigationBar(
     override fun updateTheme() {
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
+    }
+
+    fun insetsUpdated() {
+        minHeight = calculatedMinHeight + bottomViewHeight
+        if (layoutParams != null && layoutParams.height != minHeight) {
+            layoutParams = layoutParams.apply { height = minHeight }
+        }
+        val startInset = viewController.systemBarStartInset
+        val endInset = viewController.systemBarEndInset
+        contentView.setConstraints {
+            toTopPx(titleLinearLayout, topOffset + contentMarginTop)
+            toTopPx(backButton, topOffset + contentMarginTop)
+            if (closeButton.parent != null) toTopPx(closeButton, topOffset)
+            leadingView?.let { toTopPx(it, topOffset + contentMarginTop) }
+            trailingView?.let { toTopPx(it, topOffset + contentMarginTop) }
+
+            toStartPx(backButton, startInset + viewController.additionalTabletPadding + 8.dp)
+            leadingView?.let {
+                toStartPx(it, startInset + viewController.additionalTabletPadding + 8.dp)
+            } ?: run {
+                toStartPx(
+                    titleLinearLayout,
+                    startInset + viewController.additionalTabletPadding +
+                        if (backButton.isVisible) 64.dp else 20.dp
+                )
+            }
+            if (closeButton.parent != null) {
+                toEndPx(closeButton, closeButtonEndMarginPx)
+            } else if (trailingView == null) {
+                toEndPx(titleLinearLayout, endInset + 20.dp)
+            }
+            trailingView?.let { toEndPx(it, endInset + 8.dp) }
+        }
     }
 
     private var oldTitle: String? = null
@@ -244,17 +282,33 @@ class WNavigationBar(
         onClose: () -> Unit = {
             navigationController.window.dismissLastNav()
         }
-    ) {
+    ): Boolean {
+        if (closeButton.parent != null || trailingView != null)
+            return false
+
         contentView.addView(closeButton, LayoutParams(40.dp, 40.dp))
         closeButton.setOnClickListener {
             onClose()
         }
+        closeButtonTrailingMarginDp = trailingMarginDp
         contentView.setConstraints {
             toTopPx(closeButton, topOffset)
             toBottom(closeButton)
-            toEnd(closeButton, trailingMarginDp ?: if (height < DEFAULT_HEIGHT) 11f else 8f)
+            toEndPx(closeButton, closeButtonEndMarginPx)
             endToStart(titleLinearLayout, closeButton, 4f)
         }
+        return true
+    }
+
+    private var closeButtonTrailingMarginDp: Float? = null
+    private val closeButtonEndMarginPx: Int
+        get() = viewController.systemBarEndInset +
+            (closeButtonTrailingMarginDp ?: if (height < DEFAULT_HEIGHT.dp) 11f else 8f).dp.roundToInt()
+
+    fun removeCloseButton() {
+        if (closeButton.parent == null)
+            return
+        contentView.removeView(closeButton)
     }
 
     private var leadingView: View? = null
@@ -268,7 +322,10 @@ class WNavigationBar(
         contentView.setConstraints {
             toTopPx(leadingView, topOffset + contentMarginTop)
             toBottom(leadingView)
-            toStart(leadingView, 8f)
+            toStartPx(
+                leadingView,
+                viewController.systemBarStartInset + viewController.additionalTabletPadding + 8.dp
+            )
             startToEnd(titleLinearLayout, leadingView, 4f)
         }
     }
@@ -284,12 +341,14 @@ class WNavigationBar(
         contentView.setConstraints {
             toTopPx(trailingView, topOffset + contentMarginTop)
             toBottom(trailingView)
-            toEnd(trailingView, 8f)
+            toEndPx(trailingView, viewController.systemBarEndInset + 8.dp)
             endToStart(titleLinearLayout, trailingView, 4f)
         }
     }
 
+    private var bottomViewHeight = 0
     fun addBottomView(bottomView: View, bottomViewHeight: Int) {
+        this.bottomViewHeight = bottomViewHeight
         val newHeight = calculatedMinHeight + bottomViewHeight
         minHeight = newHeight
         layoutParams = layoutParams.apply {
@@ -311,8 +370,12 @@ class WNavigationBar(
             if (gravity == Gravity.CENTER) {
                 toCenterX(titleLinearLayout, if (backButton.isVisible) 64f else 24f)
             } else {
-                toStart(titleLinearLayout, if (backButton.isVisible) 64f else 24f)
-                toEnd(titleLinearLayout, 20f)
+                toStartPx(
+                    titleLinearLayout,
+                    viewController.systemBarStartInset + viewController.additionalTabletPadding +
+                        if (backButton.isVisible) 64.dp else 24.dp
+                )
+                toEndPx(titleLinearLayout, viewController.systemBarEndInset + 20.dp)
             }
         }
     }

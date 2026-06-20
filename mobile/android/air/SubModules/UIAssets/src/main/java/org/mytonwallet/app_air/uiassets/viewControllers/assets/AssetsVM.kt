@@ -231,10 +231,7 @@ class AssetsVM(
     }
 
     private fun rebuildAssetRows() {
-        val visibleNfts = when (viewMode) {
-            AssetsVC.ViewMode.COMPLETE -> nfts.orEmpty()
-            AssetsVC.ViewMode.THUMB -> nfts.orEmpty().take(6)
-        }
+        val visibleNfts = nfts.orEmpty()
         val areAnimationsPaused = animationsPaused == false
         val expirationByAddress = NftStore.nftData?.expirationByAddress
         val nowMs = System.currentTimeMillis()

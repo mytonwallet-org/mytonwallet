@@ -90,13 +90,21 @@ class AssetsTabVC(
                 expiringDomainsBannerView,
                 ViewGroup.LayoutParams(0, WDomainExpirationBannerView.HEIGHT_DP.dp)
             )
-            setConstraints {
-                toTop(expiringDomainsBannerView, EXPANDED_BANNER_TOP_MARGIN_DP.toFloat())
-                toCenterX(
-                    expiringDomainsBannerView,
-                    ViewConstants.HORIZONTAL_PADDINGS.toFloat()
-                )
-            }
+            applyBannerConstraints(this)
+        }
+    }
+
+    private fun applyBannerConstraints(container: WView) {
+        container.setConstraints {
+            toTop(expiringDomainsBannerView, EXPANDED_BANNER_TOP_MARGIN_DP.toFloat())
+            toStartPx(
+                expiringDomainsBannerView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+            )
+            toEndPx(
+                expiringDomainsBannerView,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
+            )
         }
     }
     private val expiringDomainsBannerExpandedHeight: Int by lazy {
@@ -123,7 +131,10 @@ class AssetsTabVC(
     }
 
     override val shouldDisplayTopBar = false
-    override val shouldDisplayBottomBar = true
+    override val shouldDisplayBottomBar: Boolean
+        get() {
+            return !isInCenteredWindow
+        }
     override val isSwipeBackAllowed = false
 
     private val tokensVC: TokensVC by lazy {
@@ -603,6 +614,12 @@ class AssetsTabVC(
         if (!expiringDomainsBannerView.isGone) {
             expiringDomainsBannerView.updateTheme()
         }
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        segmentedController.insetsUpdated()
+        applyBannerConstraints(expiringDomainsBannerContainerView)
     }
 
     override fun scrollToTop() {

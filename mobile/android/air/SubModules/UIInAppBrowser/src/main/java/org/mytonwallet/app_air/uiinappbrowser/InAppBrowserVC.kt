@@ -37,7 +37,7 @@ import androidx.core.net.toUri
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WMinimizableBlurHost
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
-import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
@@ -178,9 +178,18 @@ private const val ORIGIN_PERMISSION_GEOLOCATION = "geolocation"
 @SuppressLint("ViewConstructor")
 class InAppBrowserVC(
     context: Context,
-    private val tabBarController: WNavigationController.ITabBarController?,
+    tabBarController: ITabsVC?,
     val config: InAppBrowserConfig
 ) : WViewController(context), IInAppBrowser, WalletCore.EventObserver, WMinimizableBlurHost {
+
+    private val isMinimizationSupported = tabBarController != null
+
+    val tabBarController: ITabsVC?
+        get() {
+            if (!isMinimizationSupported) return null
+            return window?.navigationControllers?.firstOrNull()
+                ?.viewControllers?.firstOrNull() as? ITabsVC
+        }
 
     override fun pauseMinimizedBlur() {
         topBar.pauseBlurring()
@@ -199,6 +208,7 @@ class InAppBrowserVC(
     override val topBarConfiguration = super.topBarConfiguration.copy(blurRootView = null)
     override val topBlurViewGuideline: View
         get() = topBar
+    override val ignoreSideGuttering = true
 
     private var savedInExploreVisitedHistory = false
     private var shouldClearHistoryOnLoad = false
@@ -214,7 +224,7 @@ class InAppBrowserVC(
 
     private val topBar: InAppBrowserTopBarView by lazy {
         InAppBrowserTopBarView(
-            this, tabBarController,
+            this,
             options = config.options,
             selectedOption = config.selectedOption,
             optionsOnTitle = config.optionsOnTitle,
@@ -396,7 +406,8 @@ class InAppBrowserVC(
                     "https" -> {}
 
                     else -> {
-                        val isValidDeeplink = WalletContextManager.delegate?.handleDeeplink(url)
+                        val isValidDeeplink =
+                            WalletContextManager.delegate?.get()?.handleDeeplink(url)
                         if (isValidDeeplink == true)
                             return true
                     }
@@ -573,8 +584,15 @@ class InAppBrowserVC(
         webView.setBackgroundColor(WColor.Background.color)
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
+        super.onSizeChanged(w, h, oldW, oldH)
+        layoutWebView()
+    }
+
     override fun insetsUpdated() {
         super.insetsUpdated()
+        topBar.insetsUpdated()
+        layoutWebView()
         topReversedCornerView?.setHorizontalPadding(0f)
         bottomReversedCornerView?.setHorizontalPadding(0f)
     }
@@ -602,28 +620,26 @@ class InAppBrowserVC(
     }
 
     private fun addWebView() {
-        val refNav = navigationController?.window?.navigationControllers?.first()
-        val browserWidth = refNav?.width ?: 0
+        view.addView(webViewContainer, ConstraintLayout.LayoutParams(0, 0))
+        view.addView(webViewScreenShot, ConstraintLayout.LayoutParams(0, 0))
+        layoutWebView()
+    }
+
+    private fun layoutWebView() {
+        val refView = navigationController?.window?.windowView ?: return
+        val browserWidth = refView.width
         val topSpace = (window?.systemBars?.top ?: 0) +
             WNavigationBar.DEFAULT_HEIGHT_TINY.dp
-        val browserHeight =
-            (refNav?.height ?: 0) -
-                topSpace -
-                (window?.systemBars?.bottom ?: 0)
-        view.addView(
-            webViewContainer, ConstraintLayout.LayoutParams(
-                browserWidth,
-                browserHeight,
-            )
-        )
-        view.addView(
-            webViewScreenShot, ConstraintLayout.LayoutParams(
-                browserWidth,
-                browserHeight,
-            )
-        )
-        webViewContainer.y = topSpace.toFloat()
-        webViewScreenShot.y = topSpace.toFloat()
+        val browserHeight = refView.height - topSpace - (window?.systemBars?.bottom ?: 0)
+        for (child in listOf(webViewContainer, webViewScreenShot)) {
+            val lp = child.layoutParams ?: continue
+            if (lp.width != browserWidth || lp.height != browserHeight) {
+                lp.width = browserWidth
+                lp.height = browserHeight
+                child.layoutParams = lp
+            }
+            child.y = topSpace.toFloat()
+        }
     }
 
     override fun onBackPressed(): Boolean {

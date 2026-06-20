@@ -68,4 +68,16 @@ class SignedVC(context: Context) : WViewController(context) {
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
     }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        view.setConstraints {
+            toBottomPx(
+                continueButton, 20.dp +
+                    (navigationController?.getSystemBars()?.bottom ?: 0)
+            )
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
+        }
+    }
 }

@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -103,7 +104,9 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
 import org.mytonwallet.uihome.home.HomeVC
-import org.mytonwallet.uihome.tabs.TabsVC
+import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
+import org.mytonwallet.uihome.tabs.BaseTabsVC
+import org.mytonwallet.uihome.tabs.PhoneTabsVC
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
@@ -280,7 +283,8 @@ class SplashVC(context: Context) : WViewController(context),
 
     private fun presentTabsAndLockScreen() {
         val tabsNav = WNavigationController(window!!)
-        val tabsVC = TabsVC(context)
+        val tabsVC: WViewController =
+            if (window!!.isWideLayout) TabletTabsVC(context) else PhoneTabsVC(context)
         tabsNav.setRoot(tabsVC)
         tabsVC.view.isVisible = appIsUnlocked
         window!!.replace(tabsNav, appIsUnlocked, onCompletion = {
@@ -417,7 +421,10 @@ class SplashVC(context: Context) : WViewController(context),
             },
             allowedToCancel = false
         )
-        val navigationController = WNavigationController(window!!)
+        val navigationController = WNavigationController(
+            window!!,
+            PresentationConfig(style = WNavigationController.PresentationStyle.ForceFullScreen)
+        )
         navigationController.setRoot(passcodeConfirmVC)
         window!!.present(
             navigationController,
@@ -489,13 +496,7 @@ class SplashVC(context: Context) : WViewController(context),
                                 persistedAccountsModified = false
                             )
                         )
-                        tabsVC?.view?.viewController?.get()
-                            ?.push(
-                                HomeVC(
-                                    context,
-                                    MScreenMode.SingleWallet(existingAccountId)
-                                )
-                            )
+                        openSingleWalletHome(existingAccountId)
                         openingSingleWalletWithAddress = null
                     }
                 }
@@ -592,10 +593,13 @@ class SplashVC(context: Context) : WViewController(context),
         handleWalletReadyDeeplinks(deeplink)
     }
 
-    private val tabsVC: TabsVC?
-        get() {
-            return window?.navigationControllers?.firstOrNull()?.viewControllers?.firstOrNull() as? TabsVC
-        }
+    private val tabsVC: BaseTabsVC?
+        get() = window?.navigationControllers?.firstOrNull()?.viewControllers?.firstOrNull() as? BaseTabsVC
+
+    private fun openSingleWalletHome(accountId: String) {
+        val homeVC = HomeVC(context, MScreenMode.SingleWallet(accountId))
+        tabsVC?.mainNavigationController?.push(homeVC)
+    }
 
     private fun handleInstantDeeplinks(deeplink: Deeplink): Boolean {
         when (deeplink) {
@@ -741,7 +745,10 @@ class SplashVC(context: Context) : WViewController(context),
 
                 val amountString = CoinUtils.toDecimalString(deeplink.amount, token?.decimals)
 
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(
+                    window!!,
+                    PresentationConfig.PreferredFullScreen
+                )
                 navVC.setRoot(
                     SendVC(
                         context, token?.slug, InitialValues(
@@ -800,7 +807,7 @@ class SplashVC(context: Context) : WViewController(context),
                 val token = TokenStore.getToken(tokenSlug)
                 val amountString = CoinUtils.toDecimalString(deeplink.amount, token?.decimals)
 
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(
                     SendVC(
                         context, tokenSlug, InitialValues(
@@ -845,7 +852,7 @@ class SplashVC(context: Context) : WViewController(context),
                     if (toToken != null) MApiSwapAsset.from(toToken) else null,
                     deeplink.amountIn
                 )
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(swapVC)
                 window?.present(navVC)
             }
@@ -865,7 +872,7 @@ class SplashVC(context: Context) : WViewController(context),
                         AccountStore.activeAccount?.firstChain,
                         false
                     ) ?: return
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(receiveVC)
                 window?.present(navVC)
             }
@@ -881,7 +888,7 @@ class SplashVC(context: Context) : WViewController(context),
                 }
                 val receiveVC =
                     ReceiveVC.createIfAvailable(context, MBlockchain.ton, true) ?: return
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(receiveVC)
                 window?.present(navVC)
             }
@@ -926,7 +933,8 @@ class SplashVC(context: Context) : WViewController(context),
                 }
 
                 window?.dismissToRoot {
-                    val navVC = WNavigationController(window!!)
+                    val navVC =
+                        WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                     navVC.setRoot(
                         SellVC(
                             context,
@@ -951,7 +959,7 @@ class SplashVC(context: Context) : WViewController(context),
                     nextDeeplink = null
                     return
                 }
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(EarnRootVC(context))
                 window?.present(navVC)
             }
@@ -962,7 +970,8 @@ class SplashVC(context: Context) : WViewController(context),
                 if (tabsVC?.isOnHomeScreen == true && homeNav != null) {
                     homeNav.push(PortfolioVC(context))
                 } else {
-                    val nav = WNavigationController(window!!)
+                    val nav =
+                        WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                     nav.setRoot(PortfolioVC(context))
                     window?.present(nav)
                 }
@@ -1006,7 +1015,7 @@ class SplashVC(context: Context) : WViewController(context),
                     nextDeeplink = null
                     return
                 }
-                val nav = WNavigationController(window!!)
+                val nav = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
                 nav.setRoot(EarnRootVC(context))
                 window?.present(nav)
             }
@@ -1050,8 +1059,7 @@ class SplashVC(context: Context) : WViewController(context),
                     val isSingleTransaction = activities.size == 1
                     val transactionNav = WNavigationController(
                         window!!, if (isSingleTransaction) PresentationConfig(
-                            overFullScreen = false,
-                            isBottomSheet = true
+                            style = WNavigationController.PresentationStyle.BottomSheet
                         ) else PresentationConfig()
                     )
                     if (isSingleTransaction)
@@ -1151,7 +1159,7 @@ class SplashVC(context: Context) : WViewController(context),
             )
             val window = window ?: return@call
             val nav = window.navigationControllers.lastOrNull()
-            val tabNav = nav?.tabBarController?.navigationController
+            val tabNav = nav?.tabBarController?.mainNavigationController
             if (tabNav != null) {
                 tabNav.push(nftVC)
             } else {
@@ -1237,11 +1245,7 @@ class SplashVC(context: Context) : WViewController(context),
                                 persistedAccountsModified = false
                             )
                         )
-                        val homeVC = HomeVC(
-                            context,
-                            MScreenMode.SingleWallet(result.accountId)
-                        )
-                        tabsVC?.view?.viewController?.get()?.push(homeVC)
+                        openSingleWalletHome(result.accountId)
                         openingSingleWalletWithAddress = null
                     }
                 }
@@ -1297,8 +1301,7 @@ class SplashVC(context: Context) : WViewController(context),
             if (isLoadingVCAdded) {
                 val navVC = WNavigationController(
                     window, WNavigationController.PresentationConfig(
-                        overFullScreen = false,
-                        isBottomSheet = true
+                        style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
                 navVC.setRoot(tonConnectRequestVC)
@@ -1326,13 +1329,19 @@ class SplashVC(context: Context) : WViewController(context),
                 window.pendingPresentationNav?.viewControllers?.firstOrNull() !is TonConnectRequestSendVC
             ) {
                 val tonConnectRequestSendVC =
-                    TonConnectRequestSendVC(window, connectionType, isWaitingForRequest = isWaitingForRequest, returnUrl = returnUrl)
+                    TonConnectRequestSendVC(
+                        window,
+                        connectionType,
+                        isWaitingForRequest = isWaitingForRequest,
+                        returnUrl = returnUrl
+                    )
                 val isLoadingVCAdded =
                     TonConnectController.setLoadingSendRequestViewController(
                         tonConnectRequestSendVC
                     )
                 if (isLoadingVCAdded) {
-                    val navVC = WNavigationController(window)
+                    val navVC =
+                        WNavigationController(window, PresentationConfig.PreferredFullScreen)
                     navVC.setRoot(tonConnectRequestSendVC)
                     if (isAppUnlocked())
                         window.present(navVC)
@@ -1365,13 +1374,13 @@ class SplashVC(context: Context) : WViewController(context),
             account,
             token
         )
-        (window?.topViewController as? TabsVC)?.let { tabsVC ->
+        (window?.topViewController as? ITabsVC)?.let { tabsVC ->
             (tabsVC.activeNavigationController?.viewControllers?.firstOrNull() as? HomeVC)?.let { homeVC ->
                 homeVC.push(tokenVC)
                 return
             }
         }
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
         nav.setRoot(tokenVC)
         window?.present(nav)
     }
@@ -1379,8 +1388,7 @@ class SplashVC(context: Context) : WViewController(context),
     private fun presentDomainRenewal(nft: ApiNft) {
         val nav = WNavigationController(
             window!!, PresentationConfig(
-                overFullScreen = false,
-                isBottomSheet = true
+                style = WNavigationController.PresentationStyle.BottomSheet
             )
         )
         nav.setRoot(RenewVC(context, nft))

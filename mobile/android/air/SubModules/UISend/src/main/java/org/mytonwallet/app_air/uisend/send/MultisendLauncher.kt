@@ -17,7 +17,10 @@ object MultisendLauncher {
         if (multisendUrl.isEmpty()) return
         val url = SubprojectHelpers.appendSubprojectContext(multisendUrl)
 
-        val nav = WNavigationController(window)
+        val nav = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         val browserVC = InAppBrowserVC(
             caller.view.context,
             null,

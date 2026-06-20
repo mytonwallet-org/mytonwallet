@@ -116,7 +116,7 @@ final class ExploreCategoryVC: WViewController {
                             backgroundColorSUI
                                 .overlay(alignment: .bottom) {
                                     Rectangle().fill(Color.air.separator)
-                                        .frame(height: 1 / UIScreen.main.scale) // 1 physical pixel
+                                        .frame(height: 1 / max(collectionView.traitCollection.displayScale, 1))
                                         .padding(.leading, 102)
                                 }
                         }

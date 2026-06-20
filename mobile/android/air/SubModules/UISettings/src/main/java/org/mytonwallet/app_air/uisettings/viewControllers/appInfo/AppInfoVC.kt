@@ -9,6 +9,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -16,8 +17,10 @@ import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -46,6 +49,8 @@ import kotlin.math.max
 
 class AppInfoVC(context: Context) : WViewController(context) {
     override val TAG = "AppInfo"
+
+    override val isContentWidthCapped = true
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = navigationController?.tabBarController == null
@@ -203,7 +208,12 @@ class AppInfoVC(context: Context) : WViewController(context) {
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
-        v.setPaddingDp(ViewConstants.HORIZONTAL_PADDINGS, 0, ViewConstants.HORIZONTAL_PADDINGS, 0)
+        v.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            0
+        )
         v.addView(tonParticlesView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
         v.addView(logoImageView, FrameLayout.LayoutParams(96.dp, 96.dp))
         diamondAnimationView?.let { dv ->
@@ -263,7 +273,12 @@ class AppInfoVC(context: Context) : WViewController(context) {
         setNavTitle("")
         setupNavBar(true)
 
-        view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.setConstraints {
             allEdges(scrollView)
         }
@@ -281,12 +296,18 @@ class AppInfoVC(context: Context) : WViewController(context) {
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollingContentView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         scrollingContentView.setConstraints {
             toBottomPx(
                 helpRow,
                 max(
                     (navigationController?.bottomInset ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }

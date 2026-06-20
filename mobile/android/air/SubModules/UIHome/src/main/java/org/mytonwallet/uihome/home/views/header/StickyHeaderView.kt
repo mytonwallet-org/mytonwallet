@@ -16,14 +16,21 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
@@ -40,6 +47,12 @@ class StickyHeaderView(
     private enum class ActionMode {
         REORDER,
         SELECT
+    }
+
+    enum class Mode {
+        WideScreen,
+        Collapsed,
+        Expanded
     }
 
     init {
@@ -60,6 +73,9 @@ class StickyHeaderView(
         UpdateStatusView(context).apply {
             onTap = {
                 onActionClick(HeaderActionsView.Identifier.WALLET_SETTINGS)
+            }
+            onLongTap = {
+                onActionClick(HeaderActionsView.Identifier.WALLET_RENAME)
             }
         }
     }
@@ -94,6 +110,22 @@ class StickyHeaderView(
         }
         v
     }
+
+    private val editButtonRipple = WRippleDrawable.create(20f.dp)
+    private val editButton: WLabel by lazy {
+        WLabel(context).apply {
+            text = LocaleController.getString("Edit")
+            setStyle(16f, WFont.Medium)
+            gravity = Gravity.CENTER
+            setPaddingDp(12f, 0f, 12f, 0f)
+            isVisible = false
+            background = editButtonRipple
+            setOnClickListener {
+                onActionClick(HeaderActionsView.Identifier.EDIT)
+            }
+        }
+    }
+
     private val backButton: WImageButton by lazy {
         WImageButton(context).apply {
             setOnClickListener {
@@ -163,6 +195,13 @@ class StickyHeaderView(
                 rightMargin = 8.dp
             topMargin = 1.dp
         })
+        addView(editButton, LayoutParams(WRAP_CONTENT, 40.dp).apply {
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            if (LocaleController.isRTL)
+                leftMargin = 8.dp
+            else
+                rightMargin = 8.dp
+        })
         addView(actionBar, LayoutParams(MATCH_PARENT, HomeHeaderView.navDefaultHeight).apply {
             gravity = Gravity.CENTER or Gravity.TOP
         })
@@ -176,7 +215,13 @@ class StickyHeaderView(
 
     override fun updateTheme() {
         actionBar.updateTheme()
+        editButton.setTextColor(WColor.Tint.color)
+        editButtonRipple.rippleColor = WColor.BackgroundRipple.color
         updateEyeIcon()
+    }
+
+    fun insetsUpdated(startInset: Int = 0, endInset: Int = 0) {
+        setPaddingLocalized(ViewConstants.ADDITIONAL_TABLET_PADDING + startInset, 0, endInset, 0)
     }
 
     override fun updateProtectedView() {
@@ -187,16 +232,64 @@ class StickyHeaderView(
         super.onMeasure(widthMeasureSpec, HomeHeaderView.navDefaultHeight.exactly)
     }
 
-    fun update(mode: HomeHeaderView.Mode, state: UpdateStatusView.State, handleAnimation: Boolean) {
+    private var appliedWideScreen: Boolean? = null
+
+    fun update(mode: Mode, state: UpdateStatusView.State?, handleAnimation: Boolean) {
+        val effectiveMode =
+            if (mode == Mode.WideScreen && screenMode is MScreenMode.SingleWallet)
+                Mode.Collapsed
+            else
+                mode
         val isShowing =
-            state is UpdateStatusView.State.Updated && mode == HomeHeaderView.Mode.Collapsed
-        updateStatusView.setAppearance(isShowing = !isShowing, animated = handleAnimation)
-        updateStatusView.setState(state, handleAnimation)
+            state is UpdateStatusView.State.Updated && effectiveMode == Mode.Collapsed
+        updateStatusView.setAppearance(
+            isShowing = effectiveMode != Mode.WideScreen && !isShowing,
+            animated = handleAnimation
+        )
+        state?.let {
+            updateStatusView.setState(state, effectiveMode != Mode.WideScreen && handleAnimation)
+        }
+        applyWideScreenLayout(effectiveMode == Mode.WideScreen)
+    }
+
+    private fun applyWideScreenLayout(isWideScreen: Boolean) {
+        if (appliedWideScreen == isWideScreen)
+            return
+        appliedWideScreen = isWideScreen
+
+        if (screenMode is MScreenMode.Default) {
+            scanButton.isVisible = !isWideScreen
+        }
+        editButton.isVisible = isWideScreen && !isInActionMode
+
+        updateButtonPositions()
+    }
+
+    private fun applyButtonEdge(
+        button: View,
+        atStart: Boolean,
+        edgeMargin: Int
+    ) {
+        (button.layoutParams as? LayoutParams)?.let { lp ->
+            lp.gravity =
+                (if (atStart) Gravity.START else Gravity.END) or Gravity.CENTER_VERTICAL
+            lp.leftMargin = 0
+            lp.rightMargin = 0
+            if (atStart != LocaleController.isRTL)
+                lp.leftMargin = edgeMargin
+            else
+                lp.rightMargin = edgeMargin
+            button.layoutParams = lp
+        }
     }
 
     fun updateActions() {
-        lockButton.visibility =
+        val lockButtonVisibility =
             if (WGlobalStorage.isPasscodeSet()) VISIBLE else GONE
+        if (lockButton.visibility != lockButtonVisibility) {
+            lockButton.visibility = lockButtonVisibility
+            updateButtonPositions()
+        }
         val statusViewMargin = defaultStatusViewMargin()
         (updateStatusView.layoutParams as? MarginLayoutParams)?.let { layoutParams ->
             updateStatusView.layoutParams = layoutParams.apply {
@@ -204,6 +297,20 @@ class StickyHeaderView(
                 marginEnd = statusViewMargin
             }
         }
+    }
+
+    private fun updateButtonPositions() {
+        val isWideScreen = appliedWideScreen == true
+        applyButtonEdge(
+            lockButton,
+            atStart = isWideScreen,
+            edgeMargin = if (isWideScreen) 8.dp else 56.dp
+        )
+        applyButtonEdge(
+            eyeButton,
+            atStart = isWideScreen,
+            edgeMargin = if (isWideScreen && lockButton.isVisible) 56.dp else 8.dp
+        )
     }
 
     val animationDuration = AnimationConstants.QUICK_ANIMATION / 2
@@ -280,13 +387,14 @@ class StickyHeaderView(
             actionBar.isInvisible = true
             hiddenViewsForActionMode.forEach {
                 it.alpha = 0f
-                it.visibility = View.VISIBLE
+                it.visibility = VISIBLE
                 it.isClickable = true
             }
             hiddenViewsForActionMode.forEach { view ->
                 view.fadeIn(animationDuration)
             }
             hiddenViewsForActionMode = emptyList()
+            updateActions()
         }
     }
 
@@ -362,6 +470,9 @@ class StickyHeaderView(
         }
         if (eyeButton.isVisible) {
             views.add(eyeButton)
+        }
+        if (editButton.isVisible) {
+            views.add(editButton)
         }
         return views
     }

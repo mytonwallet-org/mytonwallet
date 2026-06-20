@@ -86,8 +86,6 @@ class ReceiveVC private constructor(
         }
     }
 
-    private val receiveViewModel by lazy { ViewModelProvider(this)[ReceiveViewModel::class.java] }
-
     val availableChains: List<MBlockchain> =
         AccountStore.activeAccount?.sortedChains()?.mapNotNull { entry ->
             MBlockchain.supportedChains.find { it.name == entry.key }
@@ -495,32 +493,35 @@ class ReceiveVC private constructor(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        qrSegmentView.insetsUpdated()
         if (isViewOnlyAccount) {
             view.setConstraints {
-                toCenterX(viewOnlyWarningView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                toStartPx(
+                    viewOnlyWarningView,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset
+                )
+                toEndPx(
+                    viewOnlyWarningView,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
+                )
             }
         } else {
             view.setConstraints {
-                toCenterX(optionsContainerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                toStartPx(
+                    optionsContainerView,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset
+                )
+                toEndPx(
+                    optionsContainerView,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
+                )
             }
         }
     }
 
     private fun openBuyWithCard(chain: String, anchorView: View? = null) {
-        val baseCurrencies = listOfNotNull(
-            MBaseCurrency.USD,
-            MBaseCurrency.EUR,
-            if (chain == MBlockchain.ton.name) MBaseCurrency.RUB else null
-        )
-        val preferredBaseCurrency = if (ConfigStore.countryCode == "RU")
-            MBaseCurrency.RUB
-        else
-            WalletCore.baseCurrency
-        val baseCurrency =
-            if (baseCurrencies.contains(preferredBaseCurrency))
-                preferredBaseCurrency
-            else
-                MBaseCurrency.USD
+        val baseCurrencies = BuyWithCardLauncher.supportedBaseCurrencies(chain)
+        val baseCurrency = BuyWithCardLauncher.preferredBaseCurrency(chain)
         if (anchorView != null && baseCurrencies.size > 1) {
             WMenuPopup.present(
                 anchorView,
@@ -552,7 +553,7 @@ class ReceiveVC private constructor(
 
     private fun openBuyWithCardUrl(chain: String, baseCurrency: MBaseCurrency) {
         buyWithCardView.isClickable = false
-        receiveViewModel.buyWithCardUrl(chain, baseCurrency) { url ->
+        BuyWithCardLauncher.buyWithCardUrl(chain, baseCurrency, { url ->
             buyWithCardView.isClickable = true
             url?.let {
                 CustomTabsBrowser.open(context, it)
@@ -560,7 +561,7 @@ class ReceiveVC private constructor(
                 if (!WalletCore.isConnected())
                     showError(MBridgeError.SERVER_ERROR)
             }
-        }
+        })
     }
 
     override fun viewWillAppear() {

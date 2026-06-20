@@ -81,7 +81,7 @@ enum class MBlockchain(
         "pol",
         "Polygon",
         PolygonConfig,
-        isSupported = false
+        isSupported = true
     ),
 
     arbitrum(
@@ -97,7 +97,7 @@ enum class MBlockchain(
         "mon",
         "Monad",
         MonadConfig,
-        isSupported = false
+        isSupported = true
     ),
 
     avalanche(
@@ -105,7 +105,7 @@ enum class MBlockchain(
         "ava",
         "Avalanche",
         AvalancheConfig,
-        isSupported = false
+        isSupported = true
     ),
 
     // unsupported examples (data only, no config yet)

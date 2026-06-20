@@ -8,7 +8,20 @@
 import Foundation
 import WalletContext
 
+// Reports a TON Connect UI event to the analytics worker method; the worker enriches it from the flow context.
+public struct TonConnectAnalyticsEvent: Encodable, Sendable {
+    public var event_name: String
+    public var promiseId: String
+}
+
 extension Api {
+
+    // Best-effort fire-and-forget; analytics must never affect the dapp flow.
+    public static func recordTonConnectEvent(eventName: String, promiseId: String) {
+        Task {
+            try? await bridge.callApiVoid("recordTonConnectEvent", TonConnectAnalyticsEvent(event_name: eventName, promiseId: promiseId))
+        }
+    }
 
     public static func startSseConnection(params: ApiSseConnectionParams) async throws -> ReturnStrategy? {
         try await bridge.callApiOptional(

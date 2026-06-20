@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.drawable.MotionBackgroundDrawable
+import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -23,7 +24,9 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import kotlinx.coroutines.launch
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.refreshStoredMfa
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
@@ -37,7 +40,7 @@ class PasscodeConfirmVC(
     private val task: (passcode: String) -> Unit,
     private val allowedToCancel: Boolean = true,
     private val ignoreBiometry: Boolean = false,
-) : WViewController(context), PasscodeScreenView.Delegate {
+) : WViewController(context), PasscodeScreenView.Delegate, WalletCore.EventObserver {
     override val TAG = "PasscodeConfirm"
 
     override val protectFromScreenRecord = true
@@ -104,6 +107,8 @@ class PasscodeConfirmVC(
         }
         updateTheme()
 
+        WalletCore.registerObserver(this)
+
         if (passcodeViewState is PasscodeViewState.Default) {
             if (passcodeViewState.showMotionBackgroundDrawable) {
                 passcodeScreenView.doOnNumPadClick = {
@@ -124,17 +129,29 @@ class PasscodeConfirmVC(
             view.background = bgDrawable
             bgDrawable.setColors(WColor.Tint.color, colors[0], colors[1], colors[2])
         } else {
-            view.setBackgroundColor(WColor.SecondaryBackground.color)
+            if (isSplitDetailPanel) {
+                val bgColor =
+                    if (passcodeViewState is PasscodeViewState.Default) WColor.Background.color else WColor.SecondaryBackground.color
+                view.background = TabletEdgeFadeDrawable(bgColor, dimWhenWide = false)
+            } else {
+                view.setBackgroundColor(WColor.SecondaryBackground.color)
+            }
         }
     }
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        view.setConstraints {
+            toTopPx(
+                passcodeScreenView, (navigationController?.getSystemBars()?.top ?: 0) +
+                    (if (shouldShowNav) WNavigationBar.DEFAULT_HEIGHT.dp else 0)
+            )
+        }
         if (passcodeViewState !is PasscodeViewState.Default || !passcodeViewState.showMotionBackgroundDrawable) {
-            passcodeScreenView.setPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+            passcodeScreenView.setPaddingLocalized(
+                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
                 0,
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
                 if (passcodeViewState is PasscodeViewState.CustomHeader) 48.dp else 0
             )
         }
@@ -165,7 +182,14 @@ class PasscodeConfirmVC(
 
     override fun onDestroy() {
         super.onDestroy()
+        WalletCore.unregisterObserver(this)
         passcodeScreenView.clearCooldown()
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        if (walletEvent is WalletEvent.WideLayoutChanged) {
+            passcodeScreenView.relayoutForConfigurationChange()
+        }
     }
 
     override fun onBackPressed(): Boolean {
@@ -256,7 +280,7 @@ class PasscodeConfirmVC(
                     Logger.d(Logger.LogTag.ACCOUNT, "signOutPressed: Resetting accounts")
                     WGlobalStorage.deleteAllWallets()
                     WSecureStorage.deleteAllWalletValues()
-                    WalletContextManager.delegate?.restartApp()
+                    WalletContextManager.delegate?.get()?.restartApp()
                 }
             },
             LocaleController.getString("Cancel"),

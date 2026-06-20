@@ -824,7 +824,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
     ) {
         if (accountId != AccountStore.activeAccountId) return
         if (!WGlobalStorage.getAreSoundsActive()) return
-        if (WalletContextManager.delegate?.isAppUnlocked() != true) return
+        if (WalletContextManager.delegate?.get()?.isAppUnlocked() != true) return
 
         val hasNewIncoming = activities.any { activity ->
             val isRecent =

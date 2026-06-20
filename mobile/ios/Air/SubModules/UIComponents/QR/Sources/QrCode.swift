@@ -3,8 +3,6 @@ import UIKit
 import CoreImage
 import CoreGraphics
 
-@MainActor let UIScreenScale = UIScreen.main.scale
-
 public enum QrCodeIcon {
     case none
     case cutout
@@ -12,13 +10,13 @@ public enum QrCodeIcon {
     case custom(UIImage?)
 }
 
-@MainActor private func floorToContextPixels(_ value: CGFloat, scale: CGFloat? = UIScreenScale) -> CGFloat {
-    let scale = scale ?? UIScreenScale
+@MainActor private func floorToContextPixels(_ value: CGFloat, scale: CGFloat? = nil) -> CGFloat {
+    let scale = scale ?? screenScale
     return floor(value * scale) / scale
 }
 
-@MainActor private func roundToContextPixels(_ value: CGFloat, scale: CGFloat? = UIScreenScale) -> CGFloat {
-    let scale = scale ?? UIScreenScale
+@MainActor private func roundToContextPixels(_ value: CGFloat, scale: CGFloat? = nil) -> CGFloat {
+    let scale = scale ?? screenScale
     return round(value * scale) / scale
 }
 

@@ -39,7 +39,7 @@ public class AddViewWalletVC: CreateWalletBaseVC {
     func setupViews() {
         addCloseNavigationItemIfNeeded()
 
-        let isCompactScreen = UIScreen.main.bounds.height < 700 // Urgent hotfix. Will be refactored later
+        let isCompactScreen = screenHeight < 700
 
         headerView = HeaderView(
             animationName: "animation_bill",

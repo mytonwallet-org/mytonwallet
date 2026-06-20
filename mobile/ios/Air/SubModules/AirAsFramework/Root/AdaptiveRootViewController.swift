@@ -12,9 +12,6 @@ private enum RootContainerLayout: String {
     private static let fallbackSplitMinimumWidth: CGFloat = 700
 
     static func preferred(for traitCollection: UITraitCollection, fallbackWidth: CGFloat) -> RootContainerLayout {
-        guard UIDevice.current.userInterfaceIdiom == .pad else {
-            return .tab
-        }
         switch traitCollection.horizontalSizeClass {
         case .regular:
             return .split
@@ -30,7 +27,8 @@ private enum RootContainerLayout: String {
     static var fallbackWindowWidth: CGFloat {
         UIApplication.shared.sceneKeyWindow?.bounds.width
             ?? UIApplication.shared.anySceneKeyWindow?.bounds.width
-            ?? UIScreen.main.bounds.width
+            ?? UIApplication.shared.connectedWindowScene?.coordinateSpace.bounds.width
+            ?? 0
     }
 
     private static func preferred(forFallbackWidth width: CGFloat) -> RootContainerLayout {

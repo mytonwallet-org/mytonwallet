@@ -21,6 +21,10 @@ class WRecyclerViewAdapter(
 ) :
     RecyclerView.Adapter<WCell.Holder>() {
 
+    companion object {
+        private const val DEFAULT_MAX_SCRAP = 5
+    }
+
     // Registered types, to be used later in datasource function calls
     private var registeredCellTypesHashmap = HashMap<Int, WCell.Type>()
 
@@ -147,6 +151,19 @@ class WRecyclerViewAdapter(
 
         val diffResult = DiffUtil.calculateDiff(diffCallback, false)
         diffResult.dispatchUpdatesTo(OffsetUpdateCallback(this, section))
+    }
+
+    fun invalidateCellType(cellType: WCell.Type) {
+        val recyclerView = recyclerView ?: return
+        for (i in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(i)
+            val viewHolder = recyclerView.getChildViewHolder(child)
+            if (viewHolder.itemViewType == cellType.value)
+                viewHolder.setIsRecyclable(false)
+        }
+        val pool = recyclerView.recycledViewPool
+        pool.setMaxRecycledViews(cellType.value, 0)
+        pool.setMaxRecycledViews(cellType.value, DEFAULT_MAX_SCRAP)
     }
 
     fun updateVisibleCells(customOperator: ((cell: WCell) -> Unit)? = null) {

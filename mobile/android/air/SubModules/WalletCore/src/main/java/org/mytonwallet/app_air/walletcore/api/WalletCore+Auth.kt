@@ -240,7 +240,7 @@ fun WalletCore.activateAccount(
     val prevAccentColor = WColor.Tint.color
     updateAccentColor(accountId = accountId)
     if (WColor.Tint.color != prevAccentColor) {
-        WalletContextManager.delegate?.themeChanged(animated = false)
+        WalletContextManager.delegate?.get()?.themeChanged(animated = false)
     }
     if (force ||
         (AccountStore.activeAccountId != null &&
