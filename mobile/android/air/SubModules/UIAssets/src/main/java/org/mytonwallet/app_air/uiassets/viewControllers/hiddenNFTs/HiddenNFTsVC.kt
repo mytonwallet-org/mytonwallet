@@ -12,6 +12,7 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -67,8 +68,8 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
         rv.setLayoutManager(layoutManager)
         rv.clipToPadding = false
         rv.addOnScrollListener(scrollListener)
-        rv.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        rv.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
@@ -101,10 +102,10 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top ?: 0),
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             (navigationController?.getSystemBars()?.bottom ?: 0)
         )
     }

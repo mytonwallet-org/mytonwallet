@@ -159,7 +159,10 @@ export default class ReconnectingWebSocket<OutMessage, InMessage> {
     this.#stopSocket();
 
     this.#reconnectAttemptCount++;
-    const reconnectDelay = Math.min(RECONNECT_BASE_DELAY * this.#reconnectAttemptCount, RECONNECT_MAX_DELAY);
+    const reconnectDelay = Math.min(
+      (RECONNECT_BASE_DELAY + (2000 * Math.random())) * this.#reconnectAttemptCount,
+      RECONNECT_MAX_DELAY,
+    );
     this.#cancelTimeout = setCancellableTimeout(reconnectDelay, () => this.#startSocket());
 
     if (this.#isConnected) {

@@ -6,16 +6,24 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View.generateViewId
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WTokenSymbolIconView
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
@@ -41,6 +49,8 @@ import org.mytonwallet.app_air.walletsdk.methods.SDKApiMethod
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget.Config
 import org.mytonwallet.app_air.widgets.utils.ImageUtils
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 
 class PriceWidgetConfigurationVC(
     context: Context,
@@ -53,7 +63,7 @@ class PriceWidgetConfigurationVC(
     private val periodViewRowRipple =
         WRippleDrawable.create(0f, 0f, ViewConstants.BLOCK_RADIUS.dp, ViewConstants.BLOCK_RADIUS.dp)
 
-    override val shouldDisplayTopBar = false
+    override val shouldDisplayBottomBar = false
 
     private val previewView = WidgetPreviewView(context)
 
@@ -166,6 +176,38 @@ class PriceWidgetConfigurationVC(
         }
     }
 
+    private val scrollingContentView: WView by lazy {
+        val v = WView(context)
+        v.addView(previewView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+        v.addView(tokenRow, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+        v.addView(periodViewRow, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+        v.setConstraints {
+            toTop(previewView)
+            toCenterX(previewView)
+            topToBottom(tokenRow, previewView, 16f)
+            toCenterX(tokenRow)
+            topToBottom(periodViewRow, tokenRow)
+            toCenterX(periodViewRow)
+            toBottom(periodViewRow)
+        }
+        v
+    }
+
+    private val scrollView: WScrollView by lazy {
+        WScrollView(WeakReference(this)).apply {
+            clipToPadding = false
+            addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            onScrollChange = { updateBlurViews(scrollView = this) }
+        }
+    }
+
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown by lazy {
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
+    }
+
     override fun setupViews() {
         super.setupViews()
 
@@ -175,23 +217,32 @@ class PriceWidgetConfigurationVC(
         navigationBar?.setTitleGravity(Gravity.CENTER)
 
         view.apply {
-            addView(previewView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-            addView(tokenRow, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-            addView(periodViewRow, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-            addView(continueButton, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+            addView(scrollView, ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            })
+            addView(
+                bottomReversedCornerViewUpsideDown,
+                ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_CONSTRAINT)
+            )
+            addView(continueButton, ConstraintLayout.LayoutParams(0, WRAP_CONTENT).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            })
 
             setConstraints {
-                topToBottom(previewView, navigationBar!!)
-                toCenterX(previewView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-                topToBottom(tokenRow, previewView, 16f)
-                toCenterX(tokenRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-                topToBottom(periodViewRow, tokenRow)
-                toCenterX(periodViewRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                toTop(scrollView)
+                toCenterX(scrollView)
+                toBottom(scrollView)
                 toCenterX(continueButton, 20f)
                 toBottomPx(
                     continueButton,
                     navigationController?.getSystemBars()?.bottom ?: 0
                 )
+                topToTop(
+                    bottomReversedCornerViewUpsideDown,
+                    continueButton,
+                    -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
+                )
+                toBottom(bottomReversedCornerViewUpsideDown)
             }
         }
 
@@ -220,8 +271,18 @@ class PriceWidgetConfigurationVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        navigationBar?.setPadding(0, (navigationController?.getSystemBars()?.top) ?: 0, 0, 0)
+        scrollView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            (navigationController?.getSystemBars()?.top ?: 0) + WNavigationBar.DEFAULT_HEIGHT.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            16.dp +
+                ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
+                continueButton.buttonHeight +
+                (navigationController?.getSystemBars()?.bottom ?: 0)
+        )
         view.setConstraints {
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 continueButton,
                 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)

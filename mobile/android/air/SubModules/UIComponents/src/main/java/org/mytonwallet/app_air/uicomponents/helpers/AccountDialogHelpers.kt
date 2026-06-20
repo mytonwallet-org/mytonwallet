@@ -220,7 +220,7 @@ class AccountDialogHelpers {
                 Logger.d(Logger.LogTag.ACCOUNT, "removeAllWallets: Resetting accounts")
                 WGlobalStorage.deleteAllWallets()
                 WSecureStorage.deleteAllWalletValues()
-                WalletContextManager.delegate?.restartApp()
+                WalletContextManager.delegate?.get()?.restartApp()
             }
         }
     }

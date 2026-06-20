@@ -33,6 +33,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClear
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -63,6 +64,7 @@ class WSegmentedController(
     private val onForceEndReorderingRequested: (() -> Unit)? = null,
     private val forceCenterTabs: Boolean = false,
     private val pilledTabs: Boolean = false,
+    private val ownsItems: Boolean = true,
 ) : WView(navigationController.context), WThemedView, WProtectedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WClearSegmentedControl.Delegate,
@@ -225,6 +227,7 @@ class WSegmentedController(
             context,
             ReversedCornerView.Config(
                 blurRootView = blurSourceContainerView,
+                additionalTabletPadding = false
             )
         )
     }
@@ -258,6 +261,97 @@ class WSegmentedController(
     private fun baseHeaderHeight(): Int {
         return navHeight +
             (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else (-3).dp)
+    }
+
+    private val systemBarStartInset: Int
+        get() {
+            if (navigationController.tabBarController != null)
+                return 0
+            val bars = navigationController.getSystemBars()
+            return if (LocaleController.isRTL) bars.right else bars.left
+        }
+    private val systemBarEndInset: Int
+        get() {
+            val bars = navigationController.getSystemBars()
+            return if (LocaleController.isRTL) bars.left else bars.right
+        }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w != oldw)
+            insetsUpdated()
+    }
+
+    fun insetsUpdated() {
+        contentView.layoutParams?.let { layoutParams ->
+            layoutParams.height = baseHeaderHeight()
+            contentView.layoutParams = layoutParams
+        }
+        contentView.setConstraints {
+            toTopPx(
+                clearSegmentedControl,
+                if (pilledTabs) {
+                    (navHeight - PILLED_TABS_HEIGHT.dp) / 2 +
+                        (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
+                } else {
+                    (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
+                }
+            )
+        }
+        setConstraints {
+            toTopPx(underTabsContainerView, baseHeaderHeight())
+        }
+        if (closeButton.parent != null) {
+            contentView.setConstraints {
+                toTopPx(
+                    closeButton,
+                    (navHeight - 40.dp) / 2 +
+                        (navigationController.getSystemBars().top + navTopPadding)
+                )
+                toEndPx(closeButton, 8.dp + systemBarEndInset)
+                // Reserve the close button's footprint on the end so the centered
+                // tab strip can never extend under it. For the centered cases
+                // reserve the same on the start to keep the strip visually centered.
+                val centeredTabs = items.size < 3 || forceCenterTabs
+                toStartPx(
+                    clearSegmentedControl,
+                    (if (centeredTabs) 56 else 16).dp + systemBarStartInset
+                )
+                toEndPx(clearSegmentedControl, 56.dp + systemBarEndInset)
+            }
+        }
+        backButton?.let { btn ->
+            if (btn.parent != null) {
+                contentView.setConstraints {
+                    toTopPx(
+                        btn,
+                        (navHeight - 40.dp) / 2 +
+                            (navigationController.getSystemBars().top + navTopPadding)
+                    )
+                    toStartPx(btn, 8.dp + systemBarStartInset)
+                    toStartPx(
+                        clearSegmentedControl,
+                        (if (items.size < 3 || forceCenterTabs) 0 else 56).dp + systemBarStartInset
+                    )
+                }
+            }
+        }
+        blurSourceContainerView.setConstraints {
+            val gutter = if (applySideGutters) ViewConstants.HORIZONTAL_PADDINGS.dp else 0
+            toStartPx(viewPager, gutter + systemBarStartInset)
+            toEndPx(viewPager, gutter + systemBarEndInset)
+        }
+        if (isFullScreen && !isTransparent) {
+            reversedCornerView.setSideInsets(
+                systemBarStartInset.toFloat(),
+                systemBarEndInset.toFloat()
+            )
+        }
+        updateUnderTabsLayout()
+        items.forEach {
+            if (it.viewController.isViewConfigured)
+                it.viewController.insetsUpdated()
+        }
     }
 
     private fun updateUnderTabsLayout() {
@@ -316,10 +410,9 @@ class WSegmentedController(
             } else {
                 toTopPx(viewPager, baseHeaderHeight() + underTabsHeight)
             }
-            toCenterX(
-                viewPager,
-                if (applySideGutters) ViewConstants.HORIZONTAL_PADDINGS.toFloat() else 0f
-            )
+            val gutter = if (applySideGutters) ViewConstants.HORIZONTAL_PADDINGS.dp else 0
+            toStartPx(viewPager, gutter + systemBarStartInset)
+            toEndPx(viewPager, gutter + systemBarEndInset)
             toBottom(viewPager)
         }
 
@@ -360,7 +453,7 @@ class WSegmentedController(
         else {
             if (isFullScreen) {
                 blurSourceContainerView.setBackgroundColor(WColor.SecondaryBackground.color)
-                reversedCornerView.setBlurOverlayColor(WColor.SecondaryBackground.color)
+                reversedCornerView.setBlurOverlayColor(WColor.SecondaryBackground)
             } else {
                 blurSourceContainerView.setBackgroundColor(WColor.Background.color)
                 contentView.setBackgroundColor(WColor.Background.color)
@@ -428,8 +521,12 @@ class WSegmentedController(
     ) {
         if (closeButton.parent != null)
             contentView.setConstraints {
-                toStart(clearSegmentedControl, 16f)
-                toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 16f else 56f)
+                val centeredTabs = items.size < 3 || forceCenterTabs
+                toStartPx(
+                    clearSegmentedControl,
+                    (if (centeredTabs) 56 else 16).dp + systemBarStartInset
+                )
+                toEndPx(clearSegmentedControl, 56.dp + systemBarEndInset)
             }
         if (fadeAnimation) {
             clearSegmentedControl
@@ -533,6 +630,9 @@ class WSegmentedController(
             navigationController.window.dismissLastNav()
         }
     ) {
+        if (closeButton.parent != null)
+            return
+
         contentView.addView(closeButton, LayoutParams(40.dp, 40.dp))
         closeButton.setOnClickListener {
             onClose()
@@ -543,9 +643,12 @@ class WSegmentedController(
                 (navHeight - 40.dp) / 2 +
                     (navigationController.getSystemBars().top + navTopPadding)
             )
-            toEnd(closeButton, 8f)
-            toStart(clearSegmentedControl, 16f)
-            toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 16f else 56f)
+            toEndPx(closeButton, 8.dp + systemBarEndInset)
+            toStartPx(clearSegmentedControl, 16.dp + systemBarStartInset)
+            toEndPx(
+                clearSegmentedControl,
+                (if (items.size < 3 || forceCenterTabs) 16 else 56).dp + systemBarEndInset
+            )
         }
         clearSegmentedControl.horizontalFadingEdge = true
         syncCloseButtonVisibility()
@@ -570,8 +673,11 @@ class WSegmentedController(
                 (navHeight - 40.dp) / 2 +
                     (navigationController.getSystemBars().top + navTopPadding)
             )
-            toStart(btn, 8f)
-            toStart(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
+            toStartPx(btn, 8.dp + systemBarStartInset)
+            toStartPx(
+                clearSegmentedControl,
+                (if (items.size < 3 || forceCenterTabs) 0 else 56).dp + systemBarStartInset
+            )
         }
         clearSegmentedControl.horizontalFadingEdge = true
     }
@@ -720,10 +826,16 @@ class WSegmentedController(
         indexPath: IndexPath
     ) {
         val item = items.getOrNull(indexPath.row) ?: return
+        val wasConfigured = item.viewController.isViewConfigured
         (cellHolder.cell as WSegmentedControllerPageCell).configure(
             item.viewController,
             indexPath.row == lastFullyVisible && currentOffset == lastFullyVisible.toFloat()
         )
+        if (!wasConfigured) {
+            item.viewController.view.post {
+                item.viewController.insetsUpdated()
+            }
+        }
     }
 
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
@@ -793,7 +905,8 @@ class WSegmentedController(
     }
 
     fun onDestroy() {
-        items.map { it.viewController.onDestroy() }
+        if (ownsItems)
+            items.forEach { it.viewController.onDestroy() }
         items = mutableListOf()
         onOffsetChange = null
         onItemsReordered = null

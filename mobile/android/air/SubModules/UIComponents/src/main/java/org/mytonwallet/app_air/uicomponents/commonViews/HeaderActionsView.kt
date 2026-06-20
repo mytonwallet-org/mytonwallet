@@ -47,7 +47,7 @@ class HeaderActionsView(
     context: Context,
     var tabs: List<Item>,
     var onClick: ((Identifier) -> Unit)?,
-) : WCell(context), WThemedView {
+) : WCell(context), WThemedView, IHeaderActionsView {
 
     private var actionViews = HashMap<Identifier, HeaderActionItem>()
     var tabsLocalized = if (LocaleController.isRTL) tabs.asReversed() else tabs
@@ -193,6 +193,7 @@ class HeaderActionsView(
     )
 
     enum class Identifier {
+        BUY,
         RECEIVE,
         SEND,
         MULTISEND,
@@ -207,10 +208,12 @@ class HeaderActionsView(
         REPEAT,
         SHARE,
         WALLET_SETTINGS,
+        WALLET_RENAME,
+        EDIT,
         BACK,
     }
 
-    fun insetsUpdated() {
+    override fun insetsUpdated() {
         val extraPadding = when (itemViews.size) {
             2 -> 48f
             3 -> 32f
@@ -317,7 +320,7 @@ class HeaderActionsView(
         }
     }
 
-    var fadeInPercent: Float = 1f
+    override var fadeInPercent: Float = 1f
         set(value) {
             if (field == value)
                 return
@@ -332,11 +335,11 @@ class HeaderActionsView(
             }
         }
 
-    fun onDestroy() {
+    override fun onDestroy() {
         onClick = null
     }
 
-    fun updateActions(account: MAccount?, tokenSlug: String? = null) {
+    override fun updateActions(account: MAccount?, tokenSlug: String?) {
         this.account = account
         val isMainNet = account?.isMainnet == true
         setReceiveVisibility(account?.supportsReceiveScreen == true)

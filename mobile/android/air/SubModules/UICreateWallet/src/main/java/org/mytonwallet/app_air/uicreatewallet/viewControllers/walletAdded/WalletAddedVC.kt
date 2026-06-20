@@ -7,6 +7,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.ConfettiView
@@ -16,7 +17,8 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
-import org.mytonwallet.uihome.tabs.TabsVC
+import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
+import org.mytonwallet.uihome.tabs.PhoneTabsVC
 
 class WalletAddedVC(
     context: Context,
@@ -59,8 +61,11 @@ class WalletAddedVC(
     private val openWalletButton = WButton(context, WButton.Type.PRIMARY).apply {
         text = LocaleController.getString("Open Wallet")
         setOnClickListener {
-            val navigationController = WNavigationController(window!!)
-            navigationController.setRoot(TabsVC(context))
+            val navigationController =
+                WNavigationController(window!!, WNavigationController.PresentationConfig())
+            navigationController.setRoot(
+                if (window!!.isWideLayout) TabletTabsVC(context) else PhoneTabsVC(context)
+            )
             window!!.replace(navigationController, true)
         }
         alpha = 0f
@@ -76,17 +81,30 @@ class WalletAddedVC(
             allEdges(confettiView)
             toTopPx(headerView, 80.dp + (navigationController?.getSystemBars()?.top ?: 0))
             toCenterX(headerView)
+            constrainMaxWidth(headerView.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp)
             toBottomPx(
                 openWalletButton,
                 32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
             toCenterX(openWalletButton, 32f)
+            constrainMaxWidth(openWalletButton.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp)
         }
         view.post {
             confettiView.triggerConfetti()
         }
 
         updateTheme()
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        view.setConstraints {
+            toTopPx(headerView, 80.dp + (navigationController?.getSystemBars()?.top ?: 0))
+            toBottomPx(
+                openWalletButton,
+                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+            )
+        }
     }
 
     override fun updateTheme() {

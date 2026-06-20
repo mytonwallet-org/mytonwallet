@@ -74,11 +74,13 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val card = cards[viewType]
             (card.parent as? ViewGroup)?.removeView(card)
-            card.layoutParams = RecyclerView.LayoutParams(cardWidth, MATCH_PARENT)
+            card.layoutParams = RecyclerView.LayoutParams(calculatedCardWidth(), MATCH_PARENT)
             return object : RecyclerView.ViewHolder(card) {}
         }
 
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) = Unit
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            holder.itemView.updateLayoutParams { width = calculatedCardWidth() }
+        }
         override fun getItemCount() = cards.size
     }
 
@@ -101,6 +103,25 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
             }
         })
         addOnItemTouchListener(AxisInterceptTouchListener(context))
+    }
+
+    // With only two cards (Asset Mix + Staked) there is no carousel overflow;
+    // split the available width between them instead of using the fixed width.
+    private fun calculatedCardWidth(): Int {
+        if (cards.size != 2) return cardWidth
+        val available =
+            width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - ViewConstants.GAP.dp
+        return if (available > 0) available / 2 else cardWidth
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w == oldw || cards.size != 2) return
+        val newWidth = calculatedCardWidth()
+        cards.forEach { card ->
+            if (card.parent != null && card.layoutParams?.width != newWidth)
+                card.updateLayoutParams { this.width = newWidth }
+        }
     }
 
     init {

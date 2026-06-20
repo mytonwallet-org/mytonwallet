@@ -14,6 +14,7 @@ private let log = Log("AppStorageHelper")
 
 public enum AppStorageHelper {
     private static var settingsStore: SettingsStore { SettingsStore.liveValue }
+    private static let landscapeModeKey = "settings.isLandscapeModeEnabled"
 
     public static func reset() {}
 
@@ -196,6 +197,17 @@ public enum AppStorageHelper {
         }
         set {
             settingsStore.setWalletSettingsFilterOrder(newValue)
+        }
+    }
+
+    // MARK: - Orientation
+
+    public static var isLandscapeModeEnabled: Bool {
+        get {
+            UserDefaults.standard.object(forKey: landscapeModeKey) as? Bool ?? true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: landscapeModeKey)
         }
     }
 }

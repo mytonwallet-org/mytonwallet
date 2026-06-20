@@ -2,6 +2,7 @@ import UIKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Metal
+import UIComponents
 import WalletContext
 
 private let log = Log("NftDetails.ImageProcessor")
@@ -29,7 +30,7 @@ class NftDetailsImageProcessor: @unchecked Sendable {
     
     @MainActor
     init() {
-        self.deviceScale = UIScreen.main.scale
+        self.deviceScale = screenScale
     }
         
     private struct Gradient1 {

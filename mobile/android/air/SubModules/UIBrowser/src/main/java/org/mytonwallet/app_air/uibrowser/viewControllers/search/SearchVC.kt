@@ -69,7 +69,10 @@ class SearchVC(context: Context) : WViewController(context),
         }
 
     override val shouldDisplayTopBar = true
-    override val shouldDisplayBottomBar = false
+    override val shouldDisplayBottomBar: Boolean
+        get() {
+            return window?.isWideLayout == true
+        }
 
     private val rvAdapter =
         WRecyclerViewAdapter(
@@ -128,11 +131,11 @@ class SearchVC(context: Context) : WViewController(context),
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        recyclerView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) + WNavigationBar.DEFAULT_HEIGHT.dp,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            (navigationController?.getSystemBars()?.bottom ?: 0) - 16.dp
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            ((navigationController?.bottomInset ?: 0) - 16.dp).coerceAtLeast(0)
         )
     }
 
@@ -274,9 +277,11 @@ class SearchVC(context: Context) : WViewController(context),
                     titleLabel.setStyle(14f, WFont.DemiBold)
                     val clearAllButton = object : WLabel(context) {
                         private val ripple = WRippleDrawable.create(20f.dp)
+
                         init {
                             background = ripple
                         }
+
                         override fun updateTheme() {
                             super.updateTheme()
                             ripple.rippleColor = WColor.TintRipple.color

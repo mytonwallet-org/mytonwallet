@@ -41,3 +41,8 @@ export async function getBackendConfigCache() {
   await configDeferred.promise;
   return backendConfig!;
 }
+
+/** Synchronous variant: returns the config only if it has already arrived, otherwise `undefined`. */
+export function getBackendConfigCacheSync() {
+  return backendConfig;
+}

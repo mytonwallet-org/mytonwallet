@@ -103,11 +103,11 @@ class WalletSelectionVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        recyclerView.setPadding(
-            0,
+        recyclerView.setPaddingRelative(
+            systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp,
-            0,
+            systemBarEndInset,
             (navigationController?.getSystemBars()?.bottom ?: 0)
         )
     }

@@ -468,7 +468,7 @@ object NftStore : IStore {
                     WGlobalStorage.setNftAccentColor(accountId, colorIndex, nft.toDictionary())
                 }
                 if (AccountStore.activeAccountId == accountId) {
-                    WalletContextManager.delegate?.themeChanged()
+                    WalletContextManager.delegate?.get()?.themeChanged()
                 }
                 WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
             }
@@ -579,7 +579,7 @@ object NftStore : IStore {
                     if (paletteNft != null && paletteNft.address == nft.address) {
                         WGlobalStorage.setNftAccentColor(accountId, null, null)
                         if (AccountStore.activeAccountId == accountId)
-                            WalletContextManager.delegate?.themeChanged()
+                            WalletContextManager.delegate?.get()?.themeChanged()
                     }
                 }
             }
@@ -598,7 +598,7 @@ object NftStore : IStore {
                 if (res == false) {
                     WGlobalStorage.setNftAccentColor(accountId, null, null)
                     if (AccountStore.activeAccountId == accountId)
-                        WalletContextManager.delegate?.themeChanged()
+                        WalletContextManager.delegate?.get()?.themeChanged()
                 }
             }
         }

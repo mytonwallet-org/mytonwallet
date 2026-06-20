@@ -196,10 +196,10 @@ class TonConnectRequestConnectVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        scrollView.setPadding(
-            0, (WNavigationBar.DEFAULT_HEIGHT - 28).dp, 0, max(
+        scrollView.setPaddingRelative(
+            systemBarStartInset, (WNavigationBar.DEFAULT_HEIGHT - 28).dp, systemBarEndInset, max(
                 (navigationController?.getSystemBars()?.bottom ?: 0),
-                (window?.imeInsets?.bottom ?: 0)
+                (navigationController?.imeInsetBottom ?: 0)
             )
         )
     }
@@ -224,7 +224,10 @@ class TonConnectRequestConnectVC(
                 }),
             headerView = ConnectRequestConfirmView(context).apply { configure(update.dapp) }
         )
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(
+            window!!,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         nav.setRoot(ledgerConnectVC)
         window!!.present(nav)
     }
@@ -271,7 +274,10 @@ class TonConnectRequestConnectVC(
                     }
                 }
             })
-        navVC = WNavigationController(window)
+        navVC = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         navVC.setRoot(passcodeVC)
         window.present(navVC)
     }
@@ -284,7 +290,7 @@ class TonConnectRequestConnectVC(
     ) {
         val update = update ?: return
         isConfirmed = true
-
+        WalletCore.recordTonConnectEvent("wallet-connect-accepted", promiseId)
 
         fun callback(account: MAccount) {
             window!!.lifecycleScope.launch {
@@ -386,6 +392,7 @@ class TonConnectRequestConnectVC(
 
     private fun connectReject() {
         val update = update ?: return
+        WalletCore.recordTonConnectEvent("wallet-connect-rejected", update.promiseId)
         window!!.lifecycleScope.launch {
             WalletCore.call(
                 ApiMethod.DApp.CancelDappRequest(
@@ -494,7 +501,10 @@ class TonConnectRequestConnectVC(
         }
 
         // Open as regular modal (not bottom sheet) so push works inside it
-        val navVC = WNavigationController(window!!)
+        val navVC = WNavigationController(
+            window!!,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         navVC.setRoot(walletSelectionVC)
         window!!.present(navVC)
     }

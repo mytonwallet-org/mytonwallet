@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletcontext.utils.isChanged
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
@@ -109,7 +110,10 @@ class ActivityLoader(
     // Public API //////////////////////////////////////////////////////////////////////////////////
     // Request the first page of activities
     override fun askForActivities() {
-        Logger.d(Logger.LogTag.ACTIVITY_LOADER, "askForActivities: accountId=$accountId slug=$selectedSlug")
+        Logger.d(
+            Logger.LogTag.ACTIVITY_LOADER,
+            "askForActivities: accountId=$accountId slug=$selectedSlug"
+        )
         ActivityStore.fetchTransactions(
             context = context,
             accountId = accountId,
@@ -512,6 +516,10 @@ class ActivityLoader(
             hideTinyIfRequired = true,
             checkSlug = null,
         )?.sortedWith(ActivityHelpers::sorter)
+        if (this.showingTransactions?.isChanged(filtered) == false) {
+            this.showingTransactions = filtered
+            return
+        }
         this.showingTransactions = filtered
 
         mainHandler.post {

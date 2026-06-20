@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.helpers
 
 import org.mytonwallet.app_air.uicomponents.widgets.IPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WNavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WPopupHost
 import java.lang.ref.WeakReference
 
@@ -27,6 +28,12 @@ object PopupHelpers {
     fun dismissAllPopups() {
         popups.toList().forEach {
             it.get()?.dismiss()
+        }
+    }
+
+    fun dismissMenuPopups() {
+        popups.toList().forEach {
+            (it.get() as? WNavigationPopup)?.dismiss()
         }
     }
 

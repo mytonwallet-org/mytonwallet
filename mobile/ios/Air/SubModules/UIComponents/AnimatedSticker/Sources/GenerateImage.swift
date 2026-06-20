@@ -17,7 +17,7 @@ public let deviceColorSpace: CGColorSpace = {
 
 private let grayscaleColorSpace = CGColorSpaceCreateDeviceGray()
 
-@MainActor let deviceScale = UIScreen.main.scale
+@MainActor var deviceScale: CGFloat { screenScale }
 
 public func generateImagePixel(_ size: CGSize, scale: CGFloat, pixelGenerator: (CGSize, UnsafeMutablePointer<UInt8>, Int) -> Void) -> UIImage? {
     let scaledSize = CGSize(width: size.width * scale, height: size.height * scale)

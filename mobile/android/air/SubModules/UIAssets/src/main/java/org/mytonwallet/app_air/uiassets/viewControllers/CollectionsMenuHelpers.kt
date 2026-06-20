@@ -266,7 +266,7 @@ object CollectionsMenuHelpers {
         ) {
             val hiddenNFTsVC =
                 HiddenNFTsVC(view.context, showingAccountId)
-            (navigationController.tabBarController?.navigationController
+            (navigationController.tabBarController?.mainNavigationController
                 ?: navigationController).push(hiddenNFTsVC)
         }
         val menuItems =
@@ -301,12 +301,14 @@ object CollectionsMenuHelpers {
             makeReorderItem { onReorderTapped() }
         )
         if (shouldShowSelect) menuItems.add(makeSelectItem { onSelectTapped.invoke() })
+        val isWide = navigationController.window?.isWideLayout == true
         val location = view.getLocationInWindow()
         WMenuPopup.present(
             view,
             menuItems,
             popupWidth = 256.dp,
-            xOffset = (-location.x + (navigationController.width / 2) - 128.dp),
+            xOffset = if (isWide) 0 else (-location.x + (navigationController.width / 2) - 128.dp),
+            centerHorizontally = isWide,
             positioning = WMenuPopup.Positioning.BELOW,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 40f.dp)
         )
@@ -730,8 +732,7 @@ object CollectionsMenuHelpers {
         val nav = WNavigationController(
             navigationController.window,
             WNavigationController.PresentationConfig(
-                overFullScreen = false,
-                isBottomSheet = true
+                style = WNavigationController.PresentationStyle.BottomSheet
             )
         )
         nav.setRoot(RenewVC(navigationController.context, nft))
@@ -745,8 +746,7 @@ object CollectionsMenuHelpers {
         val nav = WNavigationController(
             navigationController.window,
             WNavigationController.PresentationConfig(
-                overFullScreen = false,
-                isBottomSheet = true,
+                style = WNavigationController.PresentationStyle.BottomSheet,
                 aboveKeyboard = true
             )
         )
@@ -852,8 +852,8 @@ object CollectionsMenuHelpers {
         viewController: org.mytonwallet.app_air.uicomponents.base.WViewController
     ) {
         val window = navigationController.window
-        val topNavigationController = window?.navigationControllers?.lastOrNull()
-            ?.tabBarController?.navigationController
+        val topNavigationController = window.navigationControllers.lastOrNull()
+            ?.tabBarController?.mainNavigationController
         if (topNavigationController != null) {
             topNavigationController.push(viewController)
         } else {
@@ -872,7 +872,7 @@ object CollectionsMenuHelpers {
                     nft.toDictionary()
                 )
             }
-            WalletContextManager.delegate?.themeChanged()
+            WalletContextManager.delegate?.get()?.themeChanged()
         }
     }
 
@@ -882,6 +882,6 @@ object CollectionsMenuHelpers {
             null,
             null
         )
-        WalletContextManager.delegate?.themeChanged()
+        WalletContextManager.delegate?.get()?.themeChanged()
     }
 }

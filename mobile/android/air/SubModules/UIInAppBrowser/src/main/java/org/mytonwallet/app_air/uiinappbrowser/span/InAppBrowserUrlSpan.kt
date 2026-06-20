@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uiinappbrowser.span
 
 import android.text.style.URLSpan
 import android.view.View
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
@@ -9,7 +10,7 @@ import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
 class InAppBrowserUrlSpan(
     url: String,
-    private val tabBarController: WNavigationController.ITabBarController?
+    private val tabBarController: ITabsVC?
 ) :
     URLSpan(url) {
     override fun onClick(widget: View) {

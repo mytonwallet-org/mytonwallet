@@ -33,6 +33,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -125,6 +126,14 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         BarChartView(context),
         PortfolioChartKind.DAILY_PNL,
     )
+
+    private val shareValueRow = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+    }
+    private val pnlRow = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+    }
+    private var isTwoColumnSections: Boolean? = null
     private val selectableCharts: List<BaseChartView<*, *>>
         get() = listOf(
             absoluteSection.stackChartView,
@@ -183,22 +192,23 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             breakdownSection,
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp, horizontalMargin = 0)
         )
+        shareValueRow.addView(distributionSection.container)
+        shareValueRow.addView(absoluteSection.container)
+        pnlRow.addView(totalPnlSection.container)
+        pnlRow.addView(dailyPnlSection.container)
         contentLayout.addView(
-            distributionSection.container,
-            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
+            shareValueRow,
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
         )
         contentLayout.addView(
-            absoluteSection.container,
-            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
+            pnlRow,
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
         )
-        contentLayout.addView(
-            totalPnlSection.container,
-            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
-        )
-        contentLayout.addView(
-            dailyPnlSection.container,
-            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
-        )
+        updateSectionsArrangement()
+        contentLayout.addOnLayoutChangeListener { v, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (right - left != oldRight - oldLeft)
+                v.post { updateSectionsArrangement() }
+        }
 
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
         view.addView(
@@ -1622,6 +1632,33 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
     }
 
+    private fun updateSectionsArrangement() {
+        val twoColumns = contentLayout.width >= TWO_COLUMN_SECTIONS_MIN_WIDTH_DP.dp
+        if (isTwoColumnSections == twoColumns)
+            return
+        isTwoColumnSections = twoColumns
+        listOf(shareValueRow, pnlRow).forEach { row ->
+            row.orientation =
+                if (twoColumns) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            for (i in 0 until row.childCount) {
+                val child = row.getChildAt(i)
+                child.layoutParams = if (twoColumns) {
+                    LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply {
+                        topMargin = ViewConstants.GAP.dp
+                        marginStart =
+                            if (i == 0) ViewConstants.HORIZONTAL_PADDINGS.dp
+                            else ViewConstants.GAP.dp / 2
+                        marginEnd =
+                            if (i == 0) ViewConstants.GAP.dp / 2
+                            else ViewConstants.HORIZONTAL_PADDINGS.dp
+                    }
+                } else {
+                    createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
+                }
+            }
+        }
+    }
+
     private fun createAbsoluteChartValueFormatter(baseCurrency: MBaseCurrency): ChartValueFormatter {
         return object : ChartValueFormatter {
             override fun formatAxisValue(value: Long, paint: TextPaint): CharSequence =
@@ -1729,11 +1766,22 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     override fun insetsUpdated() {
         super.insetsUpdated()
         val bottomInset = navigationController?.getSystemBars()?.bottom ?: 0
-        contentLayout.setPadding(
-            0, 0, 0,
+        contentLayout.setPaddingLocalized(
+            additionalTabletPadding + systemBarStartInset,
+            0,
+            systemBarEndInset,
             bottomInset + PERIOD_SELECTOR_SECTION_HEIGHT.dp + 8.dp
         )
         (periodSelectorContainer.layoutParams as? ConstraintLayout.LayoutParams)?.let { lp ->
+            if (LocaleController.isRTL) {
+                lp.rightMargin =
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+                lp.leftMargin = systemBarEndInset
+            } else {
+                lp.leftMargin =
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+                lp.rightMargin = systemBarEndInset
+            }
             lp.bottomMargin = bottomInset
             periodSelectorContainer.layoutParams = lp
         }
@@ -1742,6 +1790,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private companion object {
         private const val PERIOD_SELECTOR_SECTION_HEIGHT = 64
         private const val SENSITIVE_VALUE_MASK = "***"
+        private const val TWO_COLUMN_SECTIONS_MIN_WIDTH_DP = 480
     }
 
     override fun viewWillAppear() {

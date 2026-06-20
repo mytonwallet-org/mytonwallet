@@ -1,11 +1,28 @@
 
 import UIKit
 import SwiftUI
+import WalletContext
 
-@MainActor public var screenSize: CGSize { UIScreen.main.bounds.size }
+@MainActor public var screenSize: CGSize {
+    UIApplication.shared.sceneKeyWindow?.bounds.size
+        ?? UIApplication.shared.anySceneKeyWindow?.bounds.size
+        ?? UIApplication.shared.connectedWindowScene?.coordinateSpace.bounds.size
+        ?? .zero
+}
 @MainActor public var screenWidth: CGFloat { screenSize.width }
 @MainActor public var screenHeight: CGFloat { screenSize.height }
 @MainActor public var isCompactWidth: Bool { screenWidth < 600 }
+@MainActor public var screenScale: CGFloat {
+    let scale = UIApplication.shared.sceneKeyWindow?.screen.scale
+        ?? UIApplication.shared.anySceneKeyWindow?.screen.scale
+        ?? UITraitCollection.current.displayScale
+    return max(scale, 1)
+}
+@MainActor public var screenMaximumFramesPerSecond: Int {
+    UIApplication.shared.sceneKeyWindow?.screen.maximumFramesPerSecond
+        ?? UIApplication.shared.anySceneKeyWindow?.screen.maximumFramesPerSecond
+        ?? 60
+}
 
 public let designScreenWidth: CGFloat = 402
 

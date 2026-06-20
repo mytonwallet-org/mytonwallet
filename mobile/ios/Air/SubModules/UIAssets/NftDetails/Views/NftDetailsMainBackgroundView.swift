@@ -4,6 +4,7 @@ import CoreImage.CIFilterBuiltins
 import Metal
 import MetalKit
 import SwiftUI
+import UIComponents
 
 struct NftDetailsBackground {
     final class View: UIView, MTKViewDelegate {
@@ -17,7 +18,7 @@ struct NftDetailsBackground {
         private var metalView: MTKView?
         private var ciContext: CIContext?
         private var commandQueue: MTLCommandQueue?
-        private let deviceScale = UIScreen.main.scale
+        private var deviceScale: CGFloat { max(window?.screen.scale ?? traitCollection.displayScale, 1) }
         private let colorSpace = CGColorSpaceCreateDeviceRGB()
         private var lastLayoutSizeForPrepare: CGSize = .init(width: -1, height: -1)
         private var fallbackColor: UIColor
@@ -102,12 +103,12 @@ struct NftDetailsBackground {
         private static let idleFramesPerSecond: Int = 10
         
         // Active frame-rate during a transition. Falls back to the device max (60/120 Hz).
-        private static var activeFramesPerSecond: Int { UIScreen.main.maximumFramesPerSecond }
+        private var activeFramesPerSecond: Int { window?.screen.maximumFramesPerSecond ?? screenMaximumFramesPerSecond }
 
         private func updatePreferredFrameRate(isTransitioning: Bool) {
             guard isTransitionFpsCapActive != isTransitioning else { return }
             isTransitionFpsCapActive = isTransitioning
-            metalView?.preferredFramesPerSecond = isTransitioning ? Self.activeFramesPerSecond : Self.idleFramesPerSecond
+            metalView?.preferredFramesPerSecond = isTransitioning ? activeFramesPerSecond : Self.idleFramesPerSecond
         }
 
         private func updateDrawableResolution(isLowRes: Bool, force: Bool = false) {

@@ -62,10 +62,6 @@ class InvoiceVC(context: Context) : WViewController(context) {
 
     override val shouldDisplayBottomBar = true
 
-    private val topGapView = View(context).apply {
-        id = View.generateViewId()
-    }
-
     private val amountInputView by lazy {
         TokenAmountInputView(context, isFirstItem = true).apply {
             id = View.generateViewId()
@@ -125,8 +121,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                 ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             )
             setConstraints {
-                toTop(topGapView)
-                topToBottom(amountInputView, topGapView)
+                toTop(amountInputView)
                 topToBottom(title2, amountInputView, ViewConstants.GAP.toFloat())
                 topToBottom(commentInputView, title2)
                 topToBottom(title3, commentInputView, ViewConstants.GAP.toFloat())
@@ -248,7 +243,6 @@ class InvoiceVC(context: Context) : WViewController(context) {
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        topGapView.setBackgroundColor(WColor.Background.color)
         commentInputView.setBackgroundColor(
             WColor.Background.color,
             0f,
@@ -266,14 +260,14 @@ class InvoiceVC(context: Context) : WViewController(context) {
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        contentLayout.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        contentLayout.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             20.dp + max(
                 (navigationController?.getSystemBars()?.bottom ?: 0),
-                (window?.imeInsets?.bottom ?: 0)
+                (navigationController?.imeInsetBottom ?: 0)
             )
         )
     }

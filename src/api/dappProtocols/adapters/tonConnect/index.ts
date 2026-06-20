@@ -80,6 +80,7 @@ import { fetchJsonWithProxy, handleFetchErrors } from '../../../../util/fetch';
 import { getDappConnectionUniqueId } from '../../../../util/getDappConnectionUniqueId';
 import { extractKey, pick } from '../../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../../util/logs';
+import { generateUuidV7 } from '../../../../util/random';
 import safeExec from '../../../../util/safeExec';
 import { pause } from '../../../../util/schedulers';
 import { getMaxMessagesInTransaction } from '../../../../util/ton/transfer';
@@ -118,6 +119,14 @@ import {
   setSseLastEventId,
   updateDapp,
 } from '../../../methods/dapps';
+import {
+  clearTonConnectFlowContext,
+  finishTonConnectFlow,
+  recordTonConnectEvent,
+  setTonConnectFlowContext,
+  toTonConnectNetworkId,
+  toTonConnectRequestType,
+} from './analytics';
 import {
   BadRequestError,
   CONNECT_EVENT_ERROR_CODES,
@@ -275,7 +284,32 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     message: DappConnectionRequest<typeof this.protocolType>,
     requestId: number,
   ): Promise<DappConnectionResult<typeof this.protocolType>> {
+    let promiseId: string | undefined;
+
     try {
+      const addressItem = message.protocolData.items.find(({ name }) => name === 'ton_addr');
+      const proofItem = message.protocolData.items.find(({ name }) => name === 'ton_proof');
+      const traceId = generateUuidV7();
+      const sse = 'sseOptions' in request ? request.sseOptions : undefined;
+      // Record the request the moment it arrives, before the popup and the manifest fetch (per analytics-spec
+      // `wallet-connect-request-received` = "when the wallet receives a connection request"), so a request that
+      // fails the manifest fetch or validation is still counted. Per the spec this event carries only the manifest
+      // and addr/proof fields (not dapp_name/origin_url, which need the fetched manifest); the flow context below
+      // reuses `traceId` and adds the dapp fields for the later events.
+      void recordTonConnectEvent({
+        event_name: 'wallet-connect-request-received',
+        trace_id: traceId,
+        client_id: sse?.appClientId,
+        wallet_id: sse?.clientId,
+        manifest_json_url: message.protocolData.manifestUrl,
+        is_ton_addr: Boolean(addressItem),
+        is_ton_proof: Boolean(proofItem),
+        // `payload` is dapp-supplied; guard against a non-string before measuring it.
+        proof_payload_size: proofItem?.name === 'ton_proof' && typeof proofItem.payload === 'string'
+          ? Buffer.byteLength(proofItem.payload)
+          : undefined,
+      });
+
       await this.openExtensionPopup(true);
 
       this.onUpdate({
@@ -286,8 +320,6 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       const dappMetadata = await fetchDappMetadata(message.protocolData.manifestUrl);
       const url = request.url || dappMetadata.url;
-      const addressItem = message.protocolData.items.find(({ name }) => name === 'ton_addr');
-      const proofItem = message.protocolData.items.find(({ name }) => name === 'ton_proof');
 
       const proof = proofItem ? {
         timestamp: Math.round(Date.now() / 1000),
@@ -304,7 +336,11 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       }
 
       let accountId = await getCurrentAccountOrFail();
-      const { promiseId, promise } = createDappPromise();
+      const { network } = parseAccountId(accountId);
+
+      const dappPromise = createDappPromise();
+      promiseId = dappPromise.promiseId;
+      const { promise } = dappPromise;
 
       let account = await fetchStoredChainAccount(accountId, 'ton');
       let dapp = buildDappConnection(
@@ -317,6 +353,16 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       );
 
       const uniqueId = getDappConnectionUniqueId(dapp);
+
+      setTonConnectFlowContext(promiseId, {
+        trace_id: traceId,
+        network_id: toTonConnectNetworkId(network),
+        client_id: sse?.appClientId,
+        wallet_id: sse?.clientId,
+        manifest_json_url: message.protocolData.manifestUrl,
+        origin_url: url,
+        dapp_name: dappMetadata.name,
+      });
 
       this.onUpdate({
         type: 'dappConnect',
@@ -363,6 +409,8 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       this.onUpdate({ type: 'updateDapps' });
       this.onUpdate({ type: 'dappConnectComplete' });
 
+      finishTonConnectFlow(promiseId, 'wallet-connect-response-sent');
+
       return {
         success: true,
         session: {
@@ -397,6 +445,10 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       });
 
       return formatConnectError(requestId, err);
+    } finally {
+      if (promiseId) {
+        clearTonConnectFlowContext(promiseId);
+      }
     }
   }
 
@@ -486,10 +538,30 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     request: ApiDappRequest,
     message: DappTransactionRequest<typeof this.protocolType>,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
+    let promiseId: string | undefined;
+
     try {
       await this.assertDappConnected(request);
       const { url, accountId } = await ensureRequestParams(request);
       const { network } = parseAccountId(accountId);
+
+      const traceId = generateUuidV7();
+      const sse = 'sseOptions' in request ? request.sseOptions : undefined;
+      const uniqueId = getDappConnectionUniqueId(request);
+      const dapp = (await getDapp(accountId, url, uniqueId))!;
+      // Record the request on arrival, before validation/emulation/UI (per analytics-spec
+      // `wallet-transaction-request-received` = "when the wallet receives a transaction request"), so requests
+      // rejected before the prompt are still counted. The flow context below reuses `traceId` to correlate the rest.
+      void recordTonConnectEvent({
+        event_name: 'wallet-transaction-request-received',
+        trace_id: traceId,
+        network_id: toTonConnectNetworkId(network),
+        client_id: sse?.appClientId,
+        wallet_id: sse?.clientId,
+        manifest_json_url: dapp.manifestUrl,
+        origin_url: url,
+        dapp_name: dapp.name,
+      });
 
       const txPayload = message.payload;
 
@@ -554,8 +626,6 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         throw new BadRequestError(checkResult.error, checkResult.error);
       }
 
-      const uniqueId = getDappConnectionUniqueId(request);
-      const dapp = (await getDapp(accountId, url, uniqueId))!;
       const transactionsForRequest = await prepareTransactionForRequest(
         network,
         messages,
@@ -563,7 +633,19 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         checkResult.parsedPayloads,
       );
 
-      const { promiseId, promise } = createDappPromise();
+      const dappPromise = createDappPromise();
+      promiseId = dappPromise.promiseId;
+      const { promise } = dappPromise;
+
+      setTonConnectFlowContext(promiseId, {
+        trace_id: traceId,
+        network_id: toTonConnectNetworkId(network),
+        client_id: sse?.appClientId,
+        wallet_id: sse?.clientId,
+        manifest_json_url: dapp.manifestUrl,
+        origin_url: url,
+        dapp_name: dapp.name,
+      });
 
       this.onUpdate({
         type: 'dappSendTransactions',
@@ -643,6 +725,8 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         accountId,
       });
 
+      finishTonConnectFlow(promiseId, 'wallet-transaction-sent', { normalized_hash: externalMsgHashNorm });
+
       return {
         success: true,
         result: {
@@ -654,6 +738,10 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       logDebugError('tonConnect:sendTransaction', err);
 
       return this.handleMethodError(err, message.id, 'sendTransaction');
+    } finally {
+      if (promiseId) {
+        clearTonConnectFlowContext(promiseId);
+      }
     }
   }
 
@@ -661,9 +749,28 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     request: ApiDappRequest,
     message: DappSignDataRequest<typeof this.protocolType>,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
+    let promiseId: string | undefined;
+
     try {
       await this.assertDappConnected(request);
       const { url, accountId } = await ensureRequestParams(request);
+
+      const traceId = generateUuidV7();
+      const sse = 'sseOptions' in request ? request.sseOptions : undefined;
+      const uniqueId = getDappConnectionUniqueId(request);
+      const dapp = (await getDapp(accountId, url, uniqueId))!;
+      // Record the request on arrival, before the UI (per analytics-spec `wallet-sign-data-request-received` =
+      // "when the wallet receives a sign-data request"). The flow context below reuses `traceId` to correlate.
+      void recordTonConnectEvent({
+        event_name: 'wallet-sign-data-request-received',
+        trace_id: traceId,
+        network_id: toTonConnectNetworkId(parseAccountId(accountId).network),
+        client_id: sse?.appClientId,
+        wallet_id: sse?.clientId,
+        manifest_json_url: dapp.manifestUrl,
+        origin_url: url,
+        dapp_name: dapp.name,
+      });
 
       await this.openExtensionPopup(true);
 
@@ -674,10 +781,20 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         isSse: Boolean('sseOptions' in request && request.sseOptions),
       });
 
-      const { promiseId, promise } = createDappPromise();
-      const uniqueId = getDappConnectionUniqueId(request);
-      const dapp = (await getDapp(accountId, url, uniqueId))!;
+      const dappPromise = createDappPromise();
+      promiseId = dappPromise.promiseId;
+      const { promise } = dappPromise;
       const payloadToSign = message.payload;
+
+      setTonConnectFlowContext(promiseId, {
+        trace_id: traceId,
+        network_id: toTonConnectNetworkId(parseAccountId(accountId).network),
+        client_id: sse?.appClientId,
+        wallet_id: sse?.clientId,
+        manifest_json_url: dapp.manifestUrl,
+        origin_url: url,
+        dapp_name: dapp.name,
+      });
 
       this.onUpdate({
         type: 'dappSignData',
@@ -695,6 +812,8 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         accountId,
       });
 
+      finishTonConnectFlow(promiseId, 'wallet-sign-data-sent');
+
       return {
         success: true,
         result: {
@@ -706,6 +825,10 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       logDebugError('tonConnect:signData', err);
 
       return this.handleMethodError(err, message.id, 'signData');
+    } finally {
+      if (promiseId) {
+        clearTonConnectFlowContext(promiseId);
+      }
     }
   }
 
@@ -889,10 +1012,37 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     }
 
     await this.destroy();
-    this.sseEventSource = this.openEventSource(walletClientIds, lastEventId);
+
+    const bridgeTraceId = generateUuidV7();
+    // Restarted on each disconnect (in `onerror`) so a reconnect's `onopen` reports the reconnect handshake
+    // duration, not the time since the original setup, which the native EventSource auto-reconnect would inflate.
+    let connectStartedAt = Date.now();
+    // The SSE bridge is a single connection multiplexing every dapp; emitting the joined set of all
+    // wallet-side session client ids here would hand the collector a stable cross-dapp fingerprint of the
+    // user. Per-message events carry their own single client id, so connection-level events omit it.
+    void recordTonConnectEvent({
+      event_name: 'bridge-client-connect-started',
+      trace_id: bridgeTraceId,
+      bridge_url: SSE_BRIDGE_URL,
+    });
+
+    const eventSource = this.openEventSource(walletClientIds, lastEventId);
+    this.sseEventSource = eventSource;
     this.initialized = true;
 
-    this.sseEventSource.onopen = () => {
+    // A native EventSource auto-reconnects and fires `onerror` on every failed attempt; report only the
+    // first error of each disconnection episode (reset on the next successful open) so a flapping bridge
+    // does not flood the collector with identical events.
+    let hasReportedConnectError = false;
+
+    eventSource.onopen = () => {
+      hasReportedConnectError = false;
+      void recordTonConnectEvent({
+        event_name: 'bridge-client-connect-established',
+        trace_id: bridgeTraceId,
+        bridge_url: SSE_BRIDGE_URL,
+        bridge_connect_duration: Date.now() - connectStartedAt,
+      });
       if (SHOULD_SHOW_LOADER_ON_SSE_START) {
         this.onUpdate({
           type: 'tonConnectOnline',
@@ -901,11 +1051,24 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       logDebug('tonConnect:resetupRemoteConnection: EventSource opened');
     };
 
-    this.sseEventSource.onerror = (e) => {
+    eventSource.onerror = (e) => {
+      if (!hasReportedConnectError) {
+        hasReportedConnectError = true;
+        // Mark the start of this disconnection episode so the next successful `onopen` measures the reconnect from here.
+        connectStartedAt = Date.now();
+        void recordTonConnectEvent({
+          event_name: 'bridge-client-connect-error',
+          trace_id: bridgeTraceId,
+          bridge_url: SSE_BRIDGE_URL,
+          // `e.type` on an EventSource error is always the literal `'error'`; readyState carries the signal. Read it
+          // from the source that errored, not `this.sseEventSource`, which a concurrent reconnect may have replaced.
+          error_message: `readyState=${eventSource.readyState}`,
+        });
+      }
       logDebugError('tonConnect:resetupRemoteConnection', e.type);
     };
 
-    this.sseEventSource.onmessage = async (event) => {
+    eventSource.onmessage = async (event) => {
       const { from, message: encryptedMessage } = JSON.parse(event.data);
 
       const sseDapp = this.sseDapps.find(({ appClientId }) => appClientId === from);
@@ -917,7 +1080,33 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       const {
         accountId, clientId: walletClientId, appClientId, secretKey, url, lastOutputId,
       } = sseDapp;
-      const message = decryptMessage(encryptedMessage, appClientId, secretKey) as AppRequest<keyof RpcRequests>;
+
+      const messageTraceId = generateUuidV7();
+      let message: AppRequest<keyof RpcRequests>;
+      try {
+        message = decryptMessage(encryptedMessage, appClientId, secretKey) as AppRequest<keyof RpcRequests>;
+      } catch (err) {
+        void recordTonConnectEvent({
+          event_name: 'bridge-client-message-decode-error',
+          trace_id: messageTraceId,
+          bridge_url: SSE_BRIDGE_URL,
+          client_id: appClientId,
+          wallet_id: walletClientId,
+          error_message: err instanceof Error ? err.message : String(err),
+        });
+        logDebugError('tonConnect:resetupRemoteConnection: decode error', err);
+        return;
+      }
+
+      void recordTonConnectEvent({
+        event_name: 'bridge-client-message-received',
+        trace_id: messageTraceId,
+        bridge_url: SSE_BRIDGE_URL,
+        client_id: appClientId,
+        wallet_id: walletClientId,
+        message_id: message.id !== undefined ? String(message.id) : undefined,
+        request_type: toTonConnectRequestType(message.method),
+      });
 
       logDebug('tonConnect:resetupRemoteConnection: SSE Event:', message);
 
@@ -948,6 +1137,16 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         walletClientId,
         appClientId,
       );
+
+      void recordTonConnectEvent({
+        event_name: 'bridge-client-message-sent',
+        trace_id: messageTraceId,
+        bridge_url: SSE_BRIDGE_URL,
+        client_id: appClientId,
+        wallet_id: walletClientId,
+        message_id: message.id !== undefined ? String(message.id) : undefined,
+        request_type: toTonConnectRequestType(message.method),
+      });
 
       if (this.delayedReturnParams) {
         const { validUntil, url, isFromInAppBrowser } = this.delayedReturnParams;

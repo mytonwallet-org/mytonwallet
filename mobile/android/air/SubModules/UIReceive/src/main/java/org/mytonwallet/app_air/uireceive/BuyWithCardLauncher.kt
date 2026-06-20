@@ -1,13 +1,35 @@
 package org.mytonwallet.app_air.uireceive
 
-import androidx.lifecycle.ViewModel
+import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uiinappbrowser.CustomTabsBrowser
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import java.lang.ref.WeakReference
 
-class ReceiveViewModel : ViewModel() {
+object BuyWithCardLauncher {
+
+    fun preferredBaseCurrency(chain: String): MBaseCurrency {
+        val baseCurrencies = supportedBaseCurrencies(chain)
+        val preferred = if (ConfigStore.countryCode == "RU")
+            MBaseCurrency.RUB
+        else
+            WalletCore.baseCurrency
+        return if (baseCurrencies.contains(preferred)) preferred else MBaseCurrency.USD
+    }
+
+    fun supportedBaseCurrencies(chain: String): List<MBaseCurrency> {
+        return listOfNotNull(
+            MBaseCurrency.USD,
+            MBaseCurrency.EUR,
+            if (chain == MBlockchain.ton.name) MBaseCurrency.RUB else null
+        )
+    }
 
     fun buyWithCardUrl(
         chain: String,
@@ -40,4 +62,17 @@ class ReceiveViewModel : ViewModel() {
         }
     }
 
+    fun launch(
+        caller: WeakReference<WViewController>,
+        chain: String,
+    ) {
+        buyWithCardUrl(chain, preferredBaseCurrency(chain)) { url ->
+            val context = caller.get()?.context
+            if (context != null && url != null) {
+                CustomTabsBrowser.open(context, url)
+            } else {
+                caller.get()?.showError(MBridgeError.SERVER_ERROR)
+            }
+        }
+    }
 }

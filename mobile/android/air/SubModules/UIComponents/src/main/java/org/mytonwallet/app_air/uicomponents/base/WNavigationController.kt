@@ -6,9 +6,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.widget.FrameLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.graphics.Insets
@@ -16,6 +14,7 @@ import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -38,52 +37,80 @@ class WNavigationController(
     val window: WWindow,
     val presentationConfig: PresentationConfig = PresentationConfig()
 ) : CoordinatorLayout(window), WThemedView {
+    enum class PresentationStyle {
+        // Covers the whole screen; screens beneath are detached while shown.
+        ForceFullScreen,
+
+        // Floating window on Tablets
+        PreferredFullScreen,
+
+        // Slides up from the bottom over a dimmed backdrop, sized to its content.
+        BottomSheet,
+
+        // Partial cover kept above a still-live screen (no dim, not a sheet, doesn't detach below).
+        Overlay,
+    }
+
     data class PresentationConfig(
-        val overFullScreen: Boolean = true,
-        val isBottomSheet: Boolean = false,
+        val style: PresentationStyle = PresentationStyle.ForceFullScreen,
         val aboveKeyboard: Boolean = false,
-    )
+    ) {
+        companion object {
+            val PreferredFullScreen = PresentationConfig(PresentationStyle.PreferredFullScreen)
+        }
+    }
+
+    // On wide (tablet) layout, BottomSheet and PreferredFullScreen are shown as a centered floating
+    // window above the previous screens instead of a sheet / full screen. The exception is a window
+    // too short for a centered window, where they fall back to full screen (see isShortWideWindow).
+    private val isWideLayout: Boolean get() = window.isWideLayout
+    val isShortWideWindow: Boolean
+        get() {
+            if (!isWideLayout)
+                return false
+            val windowHeight = window.windowView.height
+            return windowHeight in 1..<WWindow.CENTERED_WINDOW_MIN_HEIGHT_DP.dp
+        }
+    val isCenteredWindow: Boolean
+        get() {
+            if (!isWideLayout)
+                return false
+            if (isShortWideWindow)
+                return false
+            return presentationConfig.style == PresentationStyle.BottomSheet ||
+                presentationConfig.style == PresentationStyle.PreferredFullScreen
+        }
+
+    // Effective presentation flags (resolve PresentationStyle against the current layout).
+    // A centered window keeps the previous screen mounted behind it (not over-full-screen) and is
+    // not a bottom sheet.
+    val overFullScreen: Boolean
+        get() = !isCenteredWindow && (
+            presentationConfig.style == PresentationStyle.ForceFullScreen ||
+                presentationConfig.style == PresentationStyle.PreferredFullScreen ||
+                (isShortWideWindow && presentationConfig.style == PresentationStyle.BottomSheet)
+            )
+    val isBottomSheet: Boolean
+        get() = !isCenteredWindow && !isShortWideWindow &&
+            presentationConfig.style == PresentationStyle.BottomSheet
 
     init {
         id = generateViewId()
     }
 
-    interface ITabBarController {
-        val navigationController: WNavigationController?
-        val activeNavigationController: WNavigationController?
-        val pausedBlurViews: Boolean
-        val bottomNavigationView: FrameLayout?
-        val minimizedBlurRootView: ViewGroup? get() = null
-        fun getBottomNavigationHeight(): Int
-        fun minimize(
-            nav: WNavigationController,
-            onProgress: (progress: Float) -> Unit,
-            onMaximizeProgress: (progress: Float) -> Unit
-        )
-
-        fun maximize()
-        fun dismissMinimized(animated: Boolean = true)
-        fun scrollingUp()
-        fun scrollingDown()
-        fun pauseBlurring()
-        fun resumeBlurring()
-        fun setSearchText(text: String)
-        fun switchToFirstTab(): Boolean
-
-        fun hideTabBar()
-        fun showTabBar()
-    }
-
-    var tabBarController: ITabBarController? = null
+    var tabBarController: ITabsVC? = null
     private var keyboardAnimationInProgress = false
 
     var viewControllers: ArrayList<WViewController> = arrayListOf()
     private val darkView: WView by lazy {
         val v = WView(context)
-        v.setBackgroundColor(Color.BLACK)
+        if (tabBarController != null)
+            v.background = TabletEdgeFadeDrawable()
+        else
+            v.setBackgroundColor(Color.BLACK)
         // block touches on dark overlay
         v.setOnTouchListener { _, _ ->
-            presentationConfig.overFullScreen
+            overFullScreen
         }
         v
     }
@@ -125,6 +152,8 @@ class WNavigationController(
     }
 
     fun getSystemBars(): Insets {
+        if (isCenteredWindow)
+            return Insets.of(0, 0, 0, 0)
         return Insets.of(
             window.systemBars?.left ?: 0,
             window.systemBars?.top ?: 0,
@@ -135,8 +164,20 @@ class WNavigationController(
 
     val bottomInset: Int
         get() {
+            if (isCenteredWindow)
+                return 0
             return (if (WGlobalStorage.isGradientNavigationBarActive()) ViewConstants.ADDITIONAL_GRADIENT_HEIGHT.dp.roundToInt() else 0) +
                 (tabBarController?.getBottomNavigationHeight() ?: (window.systemBars?.bottom ?: 0))
+        }
+
+    val imeInsetBottom: Int
+        get() {
+            val imeBottom = window.imeInsets?.bottom ?: 0
+            if (!isCenteredWindow || imeBottom <= 0) return imeBottom
+            val windowHeight = window.windowView.height
+            if (windowHeight <= 0) return imeBottom
+            val gapBelowWindow = windowHeight - (y.toInt() + height)
+            return (window.systemBars?.bottom ?: 0) + max(0, imeBottom - gapBelowWindow)
         }
 
     fun insetsUpdated() {
@@ -153,7 +194,18 @@ class WNavigationController(
     private fun handleAboveKeyboardVisibility() {
         if (!presentationConfig.aboveKeyboard)
             return
-        val keyboardHeight = (window.imeInsets?.bottom ?: 0) - (getSystemBars().bottom)
+        val imeBottom = window.imeInsets?.bottom ?: 0
+        val keyboardHeight = if (isCenteredWindow) {
+            val windowHeight = window.windowView.height
+            if (windowHeight <= 0 || imeBottom <= 0) 0
+            else {
+                val windowBottom = top + height
+                val keyboardTop = windowHeight - imeBottom
+                windowBottom - keyboardTop
+            }
+        } else {
+            imeBottom - getSystemBars().bottom
+        }
         val newBottomMargin = max(keyboardHeight, 0)
         val diff = newBottomMargin - prevBottomMargin
         if (diff != 0) {
@@ -179,7 +231,7 @@ class WNavigationController(
     }
 
     fun onBottomSheetHeightChanged() {
-        if (!presentationConfig.isBottomSheet || isBottomSheetHeightAnimating || layoutParams == null) {
+        if (!isBottomSheet || isBottomSheetHeightAnimating || layoutParams == null) {
             return
         }
         val topVC = viewControllers.lastOrNull() ?: return
@@ -189,6 +241,25 @@ class WNavigationController(
         this.y = (windowHeight - newNavHeight).toFloat()
     }
 
+    // Re-establish the resting bottom-sheet layout + behaviour. Used when a centered window becomes a
+    // bottom sheet on a layout change (rotation tablet->phone): the nav still has the centered
+    // window's fixed width / no behaviour, so reset to full width and re-attach BottomSheetBehavior.
+    fun applyBottomSheetLayout() {
+        val topVC = viewControllers.lastOrNull() ?: return
+        val windowHeight = window.windowView.height.takeIf { it > 0 } ?: return
+        translationX = 0f
+        x = 0f
+        val shouldPresentFullScreen = topVC.isExpandable
+        val navHeight = if (shouldPresentFullScreen) MATCH_PARENT
+        else (topVC.getModalHalfExpandedHeight() ?: layoutParams?.height ?: MATCH_PARENT)
+        updateLayoutParams {
+            width = MATCH_PARENT
+            height = navHeight
+        }
+        y = if (navHeight == MATCH_PARENT) 0f else (windowHeight - navHeight).toFloat()
+        setupBottomSheetBehaviour(topVC, restoreExpanded = true)
+    }
+
     // Set root view controller right after init
     fun setRoot(viewController: WViewController) {
         if (viewControllers.isNotEmpty())
@@ -196,7 +267,7 @@ class WNavigationController(
         viewController.navigationController = this
         addViewController(viewController)
         addView(viewController.view, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        if (presentationConfig.isBottomSheet) {
+        if (isBottomSheet) {
             // Presented as modal. Should setup bottom sheet behaviour.
             if (viewController.isExpandable)
                 viewController.view.post {
@@ -204,6 +275,26 @@ class WNavigationController(
                 }
             else
                 setupBottomSheetBehaviour(viewController)
+        }
+    }
+
+    /**
+     * Replace the single root view controller in place, destroying the previous stack. Intended
+     * for swapping tab-container view controllers (e.g. phone <-> tablet tabs) that own their own content
+     * and don't rely on this nav's back stack.
+     */
+    fun replaceRoot(viewController: WViewController) {
+        viewControllers.forEach {
+            it.viewWillDisappear()
+            if (it.view.parent == this)
+                removeView(it.view)
+            it.onDestroy()
+        }
+        viewControllers.clear()
+        setRoot(viewController)
+        if (!isDisappeared) {
+            viewController.viewWillAppear()
+            viewController.viewDidAppear()
         }
     }
 
@@ -261,7 +352,7 @@ class WNavigationController(
         addViewController(viewController)
         addView(viewController.view, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         var pendingHeightAnimation: ValueAnimator? = null
-        if (presentationConfig.isBottomSheet) {
+        if (isBottomSheet) {
             if (hidingVC.isExpandable) {
                 throw Exception("Pushing on an expandable bottom-sheet is not supported.")
             }
@@ -350,11 +441,72 @@ class WNavigationController(
     private fun addViewController(viewController: WViewController) {
         viewControllers.add(viewController)
         setupSwipeGestureOn(viewController)
+        tabBarController?.navStackUpdated(this)
+    }
+
+    /**
+     * Detach every view controller above the root WITHOUT destroying them, leaving only the root
+     * shown. Returns the detached controllers (root-first order) so they can be re-adopted by
+     * another navigation controller — used to keep full-screen pushes alive across a phone<->tablet
+     * container swap. The caller is responsible for re-hosting or destroying the returned VCs.
+     */
+    fun detachAboveRoot(): List<WViewController> {
+        if (viewControllers.size <= 1)
+            return emptyList()
+        val detached = viewControllers.drop(1).toList()
+        detached.forEach {
+            it.viewWillDisappear()
+            if (it.view.parent == this)
+                removeView(it.view)
+            it.swipeTouchListener = null
+        }
+        val root = viewControllers.first()
+        viewControllers = arrayListOf(root)
+        root.view.visibility = VISIBLE
+        if (!isDisappeared)
+            root.viewWillAppear()
+        return detached
+    }
+
+    /**
+     * Re-host controllers previously obtained from [detachAboveRoot] on top of this nav's root,
+     * preserving their order. No appearance animation: the last one ends up visible, the rest stay
+     * in the back stack with their views detached (mirroring a settled push stack).
+     */
+    fun adoptAboveRoot(adopted: List<WViewController>) {
+        if (adopted.isEmpty())
+            return
+        val root = viewControllers.firstOrNull() ?: return
+        root.viewWillDisappear()
+        if (root.view.parent == this)
+            removeView(root.view)
+        adopted.forEachIndexed { index, vc ->
+            vc.navigationController = this
+            addViewController(vc)
+            if (index == adopted.lastIndex) {
+                addView(vc.view, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+                if (!isDisappeared) {
+                    vc.viewWillAppear()
+                    vc.insetsUpdated()
+                    vc.viewDidAppear()
+                }
+            }
+        }
+    }
+
+    // Detach any bottom-sheet behaviour (used when a sheet becomes a centered window / full screen).
+    fun clearBottomSheetBehaviour() {
+        (bottomSheetBehaviorHolder?.view?.layoutParams as? LayoutParams)?.behavior = null
+        bottomSheetBehaviorHolder = null
     }
 
     // Setup bottom sheet behaviour
     private var bottomSheetBehaviorHolder: WViewController? = null
-    private fun setupBottomSheetBehaviour(viewController: WViewController) {
+    private fun setupBottomSheetBehaviour(
+        viewController: WViewController,
+        restoreExpanded: Boolean = false,
+    ) {
+        val wasFullyExpanded = restoreExpanded && viewController.isModalFullyExpanded
         (bottomSheetBehaviorHolder?.view?.layoutParams as? LayoutParams)?.behavior = null
         bottomSheetBehaviorHolder = viewController
         (viewController.view.layoutParams as LayoutParams).behavior =
@@ -401,7 +553,14 @@ class WNavigationController(
                 }
             }
         })
-        bottomSheetBehavior.setState(if (isExpandable) BottomSheetBehavior.STATE_HALF_EXPANDED else BottomSheetBehavior.STATE_EXPANDED)
+        bottomSheetBehavior.setState(
+            if (isExpandable && !wasFullyExpanded)
+                BottomSheetBehavior.STATE_HALF_EXPANDED
+            else BottomSheetBehavior.STATE_EXPANDED
+        )
+        if (wasFullyExpanded) {
+            viewController.onModalSlide(0, 1f)
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -424,6 +583,7 @@ class WNavigationController(
                 bringToFront()
                 viewDidAppear()
             }
+            tabBarController?.navStackUpdated(this)
         }
     }
 
@@ -445,7 +605,7 @@ class WNavigationController(
             window.dismissLastNav(onCompletion = onCompletion)
             return
         }
-        if (presentationConfig.isBottomSheet && isKeyboardOpen) {
+        if (isBottomSheet && isKeyboardOpen) {
             hideKeyboard()
             return
         }
@@ -465,7 +625,7 @@ class WNavigationController(
     }
 
     fun updateHeightOnPop() {
-        if (presentationConfig.isBottomSheet) {
+        if (isBottomSheet) {
             val topVC = viewControllers.lastOrNull() ?: return
             val prevVC = viewControllers.getOrNull(viewControllers.size - 2) ?: return
             val topVCHeight = topVC.getModalHalfExpandedHeight() ?: topVC.view.measuredHeight
@@ -534,6 +694,7 @@ class WNavigationController(
             viewControllers[keptFirstViewControllers].swipeTouchListener?.behindView =
                 WeakReference(viewControllers[keptFirstViewControllers - 1].view)
         }
+        tabBarController?.navStackUpdated(this)
     }
 
     fun removeViewController(removingVC: WViewController) {
@@ -550,6 +711,7 @@ class WNavigationController(
                     WeakReference(viewControllers[index - 1].view)
             }
             viewControllers.remove(removingVC)
+            tabBarController?.navStackUpdated(this)
         }
     }
 

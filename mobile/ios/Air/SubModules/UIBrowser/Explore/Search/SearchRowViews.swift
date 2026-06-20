@@ -477,6 +477,7 @@ struct SuggestedSearchItemRow: View {
 
 private struct SearchRowSeparator: View {
     let leadingPadding: CGFloat
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
          if #available(iOS 26.0, *) {
@@ -484,7 +485,7 @@ private struct SearchRowSeparator: View {
          } else {
             Rectangle()
                 .fill(Color.air.separator)
-                .frame(height: 1 / UIScreen.main.scale)
+                .frame(height: 1 / max(displayScale, 1))
                 .padding(.leading, leadingPadding)
                 .padding(.trailing, 12)
          }

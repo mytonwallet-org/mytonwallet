@@ -119,7 +119,7 @@ class SwapReceiveAddressInputVC(
             toBottomPx(
                 continueButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }
@@ -156,11 +156,19 @@ class SwapReceiveAddressInputVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         view.setConstraints {
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 continueButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }

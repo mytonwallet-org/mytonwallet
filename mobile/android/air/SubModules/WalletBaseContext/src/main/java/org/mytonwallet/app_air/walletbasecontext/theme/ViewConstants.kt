@@ -17,4 +17,9 @@ object ViewConstants {
     var HORIZONTAL_PADDINGS = 10
 
     var ADDITIONAL_GRADIENT_HEIGHT = 16f
+
+    // If the app is in wideLayout mode, returns additional padding required to keep content in place, otherwise: 0
+    var ADDITIONAL_TABLET_PADDING = 0
+    const val TABLET_PANELS_OVERLAP_WIDTH = 25f
+    const val TABLET_CONTENT_START_PADDING = 6f
 }

@@ -61,7 +61,11 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     private let hintsSectionView = AgentHintsSectionView()
     private let composerView = AgentComposerView()
     private let scrollToBottomButton = AgentScrollToBottomButton()
-    private lazy var contentLayoutGuideWidthConstraint = contentLayoutGuide.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor)
+    private lazy var contentLayoutGuideWidthConstraint: NSLayoutConstraint = {
+        let constraint = contentLayoutGuide.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor)
+        constraint.priority = .defaultHigh
+        return constraint
+    }()
     private lazy var contentLayoutGuideMaxWidthConstraint = contentLayoutGuide.widthAnchor.constraint(lessThanOrEqualToConstant: AgentVCLayout.maxContentWidth)
     private lazy var hintsContainerHeightConstraint = hintsContainerView.heightAnchor.constraint(equalToConstant: AgentVCLayout.hintsContainerHeight)
     private lazy var scrollToBottomButtonBottomToComposerConstraint = scrollToBottomButton.bottomAnchor.constraint(equalTo: composerView.inputTopAnchor, constant: -16)
@@ -129,7 +133,6 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        updateContentWidthConstraints()
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
         updateTheme()
     }
@@ -253,6 +256,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             contentLayoutGuide.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor),
             contentLayoutGuide.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor),
             contentLayoutGuideWidthConstraint,
+            contentLayoutGuideMaxWidthConstraint,
 
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor),
@@ -280,12 +284,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             fallbackConstraint
         ])
 
-        updateContentWidthConstraints()
         updateTheme()
-    }
-
-    private func updateContentWidthConstraints() {
-        contentLayoutGuideMaxWidthConstraint.isActive = traitCollection.userInterfaceIdiom == .pad
     }
 
     private func setupNavigationItem() {

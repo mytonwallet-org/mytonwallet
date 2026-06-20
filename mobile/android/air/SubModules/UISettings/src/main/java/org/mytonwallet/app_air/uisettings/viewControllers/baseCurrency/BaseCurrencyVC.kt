@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.TitleSubtitleSelectionCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -64,8 +65,8 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
                 updateBlurViews(recyclerView)
             }
         })
-        rv.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        rv.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
@@ -92,6 +93,16 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {

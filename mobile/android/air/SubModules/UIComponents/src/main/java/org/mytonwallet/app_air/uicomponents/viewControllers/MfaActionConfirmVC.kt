@@ -273,7 +273,8 @@ class MfaActionConfirmVC(
             toCenterX(scrollView)
             bottomToTop(scrollView, confirmButton, 20f)
             toBottomPx(confirmButton, buttonsBottomMargin())
-            toCenterX(confirmButton, 16f)
+            toStartPx(confirmButton, 16.dp + systemBarStartInset)
+            toEndPx(confirmButton, 16.dp + systemBarEndInset)
         }
         updateTheme()
     }
@@ -444,15 +445,23 @@ class MfaActionConfirmVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollingContentView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         view.setConstraints {
             toBottomPx(confirmButton, buttonsBottomMargin())
+            toStartPx(confirmButton, 16.dp + systemBarStartInset)
+            toEndPx(confirmButton, 16.dp + systemBarEndInset)
         }
     }
 
     private fun buttonsBottomMargin(): Int {
         return 20.dp + max(
             (navigationController?.bottomInset ?: 0),
-            (window?.imeInsets?.bottom ?: 0),
+            (navigationController?.imeInsetBottom ?: 0),
         )
     }
 

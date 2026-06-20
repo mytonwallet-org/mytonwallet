@@ -32,10 +32,6 @@ import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
-import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
-import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode
-import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WMinimizableBlurHost
@@ -69,19 +65,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
-import org.mytonwallet.app_air.uireceive.ReceiveBackgroundCache
-import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
-import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
-import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -91,23 +82,16 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
-import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
-import org.mytonwallet.app_air.walletcore.models.MScreenMode
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
-import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import org.mytonwallet.uihome.home.HomeVC
-import org.mytonwallet.uihome.home.promotion.PromotionVC
 import kotlin.math.roundToInt
 
-class TabsVC(context: Context) : WViewController(context), WThemedView, WProtectedView,
-    WalletCore.EventObserver,
-    WNavigationController.ITabBarController {
+class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtectedView,
+    WalletCore.EventObserver {
     override val TAG = "Tabs"
 
     companion object {
@@ -129,13 +113,34 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     override val isSwipeBackAllowed = false
-    override val shouldDisplayBottomBar: Boolean
-        get() {
-            return !WGlobalStorage.isGradientNavigationBarActive()
-        }
     override var ignoreSideGuttering = false
 
-    private var stackNavigationControllers = HashMap<Int, WNavigationController>()
+    override var currentTabId: Int
+        get() = bottomNavigationView.selectedItemId
+        set(value) {
+            pendingSelectedTab = value
+        }
+    private var pendingSelectedTab: Int? = null
+
+    override fun onExploreCreated(exploreVC: ExploreVC) {
+        searchBlurryBackgroundView.setupWith(exploreVC.view)
+    }
+
+    override fun exportSearchText(): String {
+        return if (searchMatchedSite != null)
+            searchKeyword
+        else
+            (searchEditText.text?.toString() ?: "")
+    }
+
+    override fun restoreSearchText(text: String) {
+        searchEditText.setText(text)
+    }
+
+    override fun detachMountedStacks() {
+        contentView.removeAllViews()
+    }
+
     private val contentView = WView(context)
 
     private var updateFloatingButton: WLabel? = null
@@ -155,7 +160,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     private val tabListener = object : IBottomNavigationView.Listener {
         override fun onTabSelected(itemId: Int, isReselect: Boolean): Boolean {
             if (isReselect) {
-                stackNavigationControllers[itemId]?.apply {
+                navForOrNull(itemId)?.apply {
                     if (viewControllers.size == 1) scrollToTop() else popToRoot()
                 }
                 return true
@@ -326,6 +331,8 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
                 if (isProcessingSearchKeyword)
                     return@OnFocusChangeListener
+                if (!hasFocus && (context as? android.app.Activity)?.isChangingConfigurations == true)
+                    return@OnFocusChangeListener
                 isProcessingSearchKeyword = true
                 val query = if (hasFocus) text?.toString() else null
                 cachedExploreVC?.search(query, hasFocus)
@@ -356,7 +363,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     }
                     val inAppBrowserVC = InAppBrowserVC(
                         context,
-                        this@TabsVC,
+                        this@PhoneTabsVC,
                         config
                     )
                     val nav = WNavigationController(window!!)
@@ -521,10 +528,21 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
         }
 
+        val initialTab = pendingSelectedTab ?: IBottomNavigationView.ID_HOME
         contentView.addView(
-            getNavigationStack(IBottomNavigationView.ID_HOME),
+            getNavigationStack(initialTab),
             ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
+        pendingSelectedTab?.let { tab ->
+            pendingSelectedTab = null
+            if (tab != IBottomNavigationView.ID_HOME)
+                bottomNavigationView.selectedItemId = tab
+        }
+        val searchVisible = initialTab == IBottomNavigationView.ID_EXPLORE
+        searchView.alpha = if (searchVisible) 1f else 0f
+        searchView.visibility = if (searchVisible) View.VISIBLE else View.INVISIBLE
+        searchShadow?.sync()
+        adoptPendingSearchText()
         view.post {
             activeNavigationController?.insetsUpdated()
             // preload other tabs
@@ -538,12 +556,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         updateToastAvailability()
         checkForUpdate()
         updateTheme()
-        WalletCore.doOnBridgeReady {
-            val prioritized = AccountStore.activeAccount?.sortedChains()?.mapNotNull { entry ->
-                MBlockchain.supportedChains.find { it.name == entry.key }
-            } ?: emptyList()
-            ReceiveBackgroundCache.precache(window?.systemBars?.top ?: 0, prioritized)
-        }
+        precacheReceiveBackground()
     }
 
     private fun setupWalletSwitcherPopup() {
@@ -565,13 +578,13 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     val nav = WNavigationController(
                         window!!,
                         PresentationConfig(
-                            overFullScreen = false,
-                            isBottomSheet = true,
+                            style = WNavigationController.PresentationStyle.BottomSheet,
                             aboveKeyboard = true
                         )
                     )
                     nav.setRoot(
-                        WalletContextManager.delegate?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
+                        WalletContextManager.delegate?.get()
+                            ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
                     )
                     window?.present(nav)
                 }
@@ -606,12 +619,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 onTap = {
                     val navVC = WNavigationController(
                         window!!, PresentationConfig(
-                            overFullScreen = false,
-                            isBottomSheet = true
+                            style = WNavigationController.PresentationStyle.BottomSheet
                         )
                     )
                     navVC.setRoot(
-                        WalletContextManager.delegate?.getWalletsTabsVC(
+                        WalletContextManager.delegate?.get()?.getWalletsTabsVC(
                             MWalletSettingsViewMode.LIST
                         ) as WViewController
                     )
@@ -683,7 +695,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     override fun notifyThemeChanged() {
         super.notifyThemeChanged()
         if (isDisappeared) {
-            stackNavigationControllers.values.forEach {
+            navStacks.forEach {
                 it.viewControllers.lastOrNull()?.pendingThemeChange = true
             }
             return
@@ -696,7 +708,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
         val tintColor = WColor.Tint.color
 
-        for (navView in stackNavigationControllers.values) {
+        for (navView in navStacks) {
             if (navView.parent != null)
                 continue
             navView.updateTheme()
@@ -708,7 +720,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         updateBottomNavigationBackground()
 
         searchEditText.highlightColor = tintColor.colorWithAlpha(51)
+        isProcessingSearchKeyword = true
         checkForMatchingUrl(searchKeyword)
+        isProcessingSearchKeyword = false
 
         render()
     }
@@ -723,6 +737,18 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         super.viewDidAppear()
         activeNavigationController?.viewDidAppear()
         updateToastAvailability()
+        // Re-host any full-screen VCs carried over from the tablet container, now that this VC is the
+        // root of the window nav (which is the phone's main navigation controller).
+        adoptPendingPushedOverMain()
+    }
+
+    // Full-screen pushes on phone live in the window nav, above this PhoneTabsVC root.
+    override fun exportPushedOverMain(): List<WViewController> {
+        return navigationController?.detachAboveRoot() ?: emptyList()
+    }
+
+    override fun adoptPushedOverMain(pushed: List<WViewController>) {
+        navigationController?.adoptAboveRoot(pushed)
     }
 
     override fun viewDidEnterForeground() {
@@ -738,7 +764,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     override fun updateProtectedView() {
-        for (navView in stackNavigationControllers.values) {
+        for (navView in navStacks) {
             fun updateProtectedViewForChildren(parentView: ViewGroup) {
                 for (child in parentView.children) {
                     if (child is WProtectedView)
@@ -770,6 +796,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         keyboardVisible.animatedValue = keyboardHeight
         onUpdateAdditionalHeight()
         bottomNavigationView.insetsUpdated(bottomBarHeight)
+        render()
         searchView.translationY = ViewConstants.TOOLBAR_RADIUS.dp - SEARCH_BOTTOM_MARGIN.dp
 
         if (!isKeyboardOpen && searchEditText.hasFocus()) {
@@ -873,20 +900,20 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
     }
 
-    fun switchToExplore(targetUri: Uri? = null) {
+    override fun switchToExplore(targetUri: Uri?) {
         navigationController?.popToRoot(false)
         bottomNavigationView.selectedItemId = IBottomNavigationView.ID_EXPLORE
         window?.dismissToRoot()
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
     }
 
-    fun switchToAgent() {
+    override fun switchToAgent() {
         navigationController?.popToRoot(false)
         bottomNavigationView.selectedItemId = IBottomNavigationView.ID_AGENT
         window?.dismissToRoot()
     }
 
-    fun switchToSettings(pushVC: WViewController? = null) {
+    override fun switchToSettings(pushVC: WViewController?) {
         navigationController?.popToRoot(false)
         bottomNavigationView.selectedItemId = IBottomNavigationView.ID_SETTINGS
         window?.dismissToRoot()
@@ -895,61 +922,20 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
     }
 
-    val isOnHomeScreen: Boolean
+    override val isOnHomeScreen: Boolean
         get() {
             val homeNavigationController =
-                stackNavigationControllers[IBottomNavigationView.ID_HOME] ?: return false
+                navForOrNull(IBottomNavigationView.ID_HOME) ?: return false
             return bottomNavigationView.selectedItemId == IBottomNavigationView.ID_HOME &&
                 window?.topViewController == this &&
                 homeNavigationController.viewControllers.size == 1
         }
-
-    private var cachedExploreVC: ExploreVC? = null
-        set(value) {
-            field = value
-            value?.view?.let {
-                searchBlurryBackgroundView.setupWith(it)
-            }
-        }
-
-    private fun getNavigationStack(id: Int): WNavigationController {
-        if (stackNavigationControllers.containsKey(id))
-            return stackNavigationControllers[id]!!
-
-        val navigationController = WNavigationController(window!!)
-        navigationController.tabBarController = this
-        navigationController.setRoot(
-            when (id) {
-                IBottomNavigationView.ID_HOME -> {
-                    HomeVC(context, MScreenMode.Default)
-                }
-
-                IBottomNavigationView.ID_AGENT -> {
-                    AgentVC(context)
-                }
-
-                IBottomNavigationView.ID_EXPLORE -> {
-                    val b = ExploreVC(context)
-                    cachedExploreVC = b
-                    b
-                }
-
-                IBottomNavigationView.ID_SETTINGS -> {
-                    SettingsVC(context)
-                }
-
-                else -> {
-                    throw Error()
-                }
-            }
-        )
-        stackNavigationControllers[id] = navigationController
-        return navigationController
-    }
+    override val mainNavigationController: WNavigationController?
+        get() = navigationController
 
     override val activeNavigationController: WNavigationController?
         get() {
-            return stackNavigationControllers[bottomNavigationView.selectedItemId]
+            return navForOrNull(bottomNavigationView.selectedItemId)
         }
 
     private fun createUpdateButtonIfNeeded() {
@@ -1086,23 +1072,6 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         checkForMatchingUrl(searchKeyword)
     }
 
-    private fun canOpenExternally(url: String): Boolean {
-        val scheme = url.toUriOrNull()?.scheme?.lowercase() ?: return false
-        return scheme in setOf("geo", "mailto", "market", "tg")
-    }
-
-    private fun openUrl(config: InAppBrowserConfig) {
-        val window = window ?: return
-        val browserVC =
-            InAppBrowserVC(
-                context,
-                window.navigationControllers.lastOrNull()?.viewControllers?.lastOrNull() as? TabsVC,
-                config
-            )
-        val nav = WNavigationController(window)
-        nav.setRoot(browserVC)
-        window.present(nav)
-    }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
@@ -1122,90 +1091,13 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 dismissMinimized(false)
             }
 
-            is WalletEvent.OpenUrl -> {
-                val url = walletEvent.url
-                if (walletEvent.isExternal) {
-                    context.startActivityCatching(
-                        Intent(Intent.ACTION_VIEW, url.toUri())
-                    )
-                } else if (WalletContextManager.delegate?.handleDeeplink(url) != true) {
-                    if (canOpenExternally(url)) {
-                        context.startActivityCatching(
-                            Intent(Intent.ACTION_VIEW, url.toUri())
-                        )
-                    } else if (url.lowercase().startsWith("https://")) {
-                        val resolved = if (SubprojectHelpers.isSubproject(url))
-                            SubprojectHelpers.appendSubprojectContext(url)
-                        else url
-                        openUrl(InAppBrowserConfig(resolved, injectDappConnect = true))
-                    } else {
-                        Logger.w(Logger.LogTag.AIR_APPLICATION, "OpenUrl: unsupported link = $url")
-                    }
-                }
-            }
-
-            is WalletEvent.OpenUrlWithConfig -> {
-                walletEvent.config?.let { config ->
-                    openUrl(config)
-                }
-            }
-
-            is WalletEvent.ShowPromotion -> {
-                val nav = WNavigationController(
-                    window!!, PresentationConfig(
-                        overFullScreen = false,
-                        isBottomSheet = true
-                    )
-                )
-                nav.setRoot(PromotionVC(context, walletEvent.promotion))
-                window?.present(nav)
-            }
-
-            is WalletEvent.OpenActivity -> {
-                walletEvent.activity.let { activity ->
-                    val nav = WNavigationController(
-                        window!!, PresentationConfig(
-                            overFullScreen = false,
-                            isBottomSheet = true
-                        )
-                    )
-                    val transactionVC = TransactionVC(context, walletEvent.accountId, activity)
-                    nav.setRoot(transactionVC)
-                    window?.present(nav)
-                }
-            }
-
-            is WalletEvent.OpenToken -> {
-                val account = AccountStore.activeAccount ?: return
-                val token = TokenStore.getToken(walletEvent.slug) ?: return
-                val tokenVC = TokenVC(context, account, token)
-                getNavigationStack(IBottomNavigationView.ID_HOME).push(tokenVC)
-            }
-
-            is WalletEvent.OpenNftList -> {
-                if (walletEvent.nfts.isEmpty()) {
-                    return
-                }
-                val assetsVC = AssetsVC(
-                    context,
-                    walletEvent.accountId,
-                    AssetsVC.ViewMode.COMPLETE,
-                    collectionMode = CollectionMode.ReadOnly(
-                        name = walletEvent.name,
-                        walletEvent.nfts
-                    ),
-                    isShowingSingleCollection = true
-                )
-                (window?.navigationControllers?.lastOrNull()
-                    ?: getNavigationStack(IBottomNavigationView.ID_HOME))
-                    .push(assetsVC)
-            }
-
             is WalletEvent.ConfigReceived -> {
                 checkForUpdate()
             }
 
-            else -> {}
+            else -> {
+                routeWalletEvent(walletEvent)
+            }
         }
     }
 
@@ -1324,7 +1216,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         val finalWidth = customFinalWidth ?: (initialWidth - 20.dp)
         val finalTranslationX =
             if (customFinalWidth != null) (initialWidth - finalWidth) / 2f else 10.dp.toFloat()
-        val finalY = view.height -
+        val containerHeight = view.height.takeIf { it > 0 }
+            ?: (window?.windowView?.height ?: 0)
+        val finalY = containerHeight -
             bottomBarHeight -
             finalHeight - 4.dp
         minimizedNavHeight = finalHeight + 8f.dp
@@ -1379,6 +1273,10 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     override fun maximize() {
+        maximize(animated = WGlobalStorage.getAreAnimationsActive())
+    }
+
+    fun maximize(animated: Boolean) {
         val nav = minimizedNav ?: return
         this.minimizedNav = null
         val initialHeight = nav.height
@@ -1420,7 +1318,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             window?.attachNavigationController(nav)
         }
 
-        if (WGlobalStorage.getAreAnimationsActive()) {
+        if (animated) {
             pauseBlurring()
             ValueAnimator.ofInt(0, 1)
                 .apply {
@@ -1440,6 +1338,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     start()
                 }
         } else {
+            onMaximizeProgress?.invoke(0f)
             onUpdate(1f)
             onEnd()
         }
@@ -1529,7 +1428,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     private fun updateToastAvailability(selectedItemId: Int = bottomNavigationView.selectedItemId) {
-        val homeNavigationController = stackNavigationControllers[IBottomNavigationView.ID_HOME]
+        val homeNavigationController = navForOrNull(IBottomNavigationView.ID_HOME)
         val isMainHomeVisible =
             selectedItemId == IBottomNavigationView.ID_HOME &&
                 window?.topViewController == this &&
@@ -1539,7 +1438,8 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     private fun syncToastHostPosition() {
-        toastHostView.translationY = bottomNavigationView.translationY + ViewConstants.TOOLBAR_RADIUS.dp
+        toastHostView.translationY =
+            bottomNavigationView.translationY + ViewConstants.TOOLBAR_RADIUS.dp
     }
 
     override fun onDestroy() {
@@ -1552,12 +1452,6 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
         minimizedNav = null
         onMaximizeProgress = null
-        stackNavigationControllers.values.forEach {
-            it.tabBarController = null
-            it.onDestroy()
-        }
-        stackNavigationControllers.clear()
         bottomNavigationView.listener = null
-        cachedExploreVC = null
     }
 }

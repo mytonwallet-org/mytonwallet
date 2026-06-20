@@ -76,7 +76,6 @@ public class TokenVC: ActivityListViewController {
         cell.setup(accountContext: accountContext, token: token)
         cell.configure(
             token: token,
-            fundAvailable: !account.isView,
             sendAvailable: account.supportsSend,
             swapAvailable: account.supportsSwap,
             earnAvailable: account.supportsEarn && token.earnAvailable

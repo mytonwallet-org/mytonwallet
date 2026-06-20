@@ -11,16 +11,33 @@ import WalletContext
 import WalletCore
 
 class TokenActionsView: WTouchPassStackView {
-    static let usesSplitHomeActionStyle = UIDevice.current.userInterfaceIdiom == .pad
-    static let rowHeight: CGFloat = usesSplitHomeActionStyle ? WActionTileButton.sideLength : WScalableButton.preferredHeight
+    private static let splitStyleActionCount: CGFloat = 4
+    private static let splitStyleSpacing: CGFloat = 16
+    private static let splitStyleHorizontalPadding: CGFloat = 16
+    private static var splitStyleMinimumWidth: CGFloat {
+        splitStyleActionCount * WActionTileButton.sideLength
+            + (splitStyleActionCount - 1) * splitStyleSpacing
+            + 2 * splitStyleHorizontalPadding
+    }
+
+    static func usesSplitHomeActionStyle(horizontalSizeClass: UIUserInterfaceSizeClass, availableWidth: CGFloat) -> Bool {
+        horizontalSizeClass == .regular && availableWidth >= splitStyleMinimumWidth
+    }
+
+    static func rowHeight(usesSplitHomeActionStyle: Bool) -> CGFloat {
+        usesSplitHomeActionStyle ? WActionTileButton.sideLength : WScalableButton.preferredHeight
+    }
     
     private let accountContext: AccountContext
+    let usesSplitHomeActionStyle: Bool
+    var rowHeight: CGFloat { Self.rowHeight(usesSplitHomeActionStyle: usesSplitHomeActionStyle) }
     
     var token: ApiToken?
     
-    init(accountContext: AccountContext, token: ApiToken?) {
+    init(accountContext: AccountContext, token: ApiToken?, usesSplitHomeActionStyle: Bool) {
         self.accountContext = accountContext
         self.token = token
+        self.usesSplitHomeActionStyle = usesSplitHomeActionStyle
         super.init(frame: .zero)
         setupViews()
     }
@@ -43,7 +60,7 @@ class TokenActionsView: WTouchPassStackView {
         distribution = .fill
         clipsToBounds = false
         
-        heightConstraint = heightAnchor.constraint(equalToConstant: Self.rowHeight)
+        heightConstraint = heightAnchor.constraint(equalToConstant: rowHeight)
         NSLayoutConstraint.activate([
             heightConstraint,
         ])
@@ -52,33 +69,33 @@ class TokenActionsView: WTouchPassStackView {
         
         addButton = makeButton(
             title: lang("Fund"),
-            image: .airBundle(Self.usesSplitHomeActionStyle ? "DepositIconLarge" : "AddIconBold"),
+            image: .airBundle(usesSplitHomeActionStyle ? "DepositIconLarge" : "AddIconBold"),
             onTap: { [weak self] in self?.addPressed() },
         )
         buttons += addButton
         
         sendButton = makeButton(
             title: lang("Send"),
-            image: .airBundle(Self.usesSplitHomeActionStyle ? "SendIconLarge" : "SendIconBold"),
+            image: .airBundle(usesSplitHomeActionStyle ? "SendIconLarge" : "SendIconBold"),
             onTap: { [weak self] in self?.sendPressed() },
         )
         buttons += sendButton
 
         swapButton = makeButton(
             title: lang("Swap"),
-            image: .airBundle(Self.usesSplitHomeActionStyle ? "SwapIconLarge" : "SwapIconBold"),
+            image: .airBundle(usesSplitHomeActionStyle ? "SwapIconLarge" : "SwapIconBold"),
             onTap: { [weak self] in self?.swapPressed() },
         )
         buttons += swapButton
 
         earnButton = makeButton(
             title: lang("Earn"),
-            image: .airBundle(Self.usesSplitHomeActionStyle ? "EarnIconLarge" : "EarnIconBold"),
+            image: .airBundle(usesSplitHomeActionStyle ? "EarnIconLarge" : "EarnIconBold"),
             onTap: { [weak self] in self?.earnPressed() },
         )
         buttons += earnButton
 
-        if Self.usesSplitHomeActionStyle {
+        if usesSplitHomeActionStyle {
             for button in buttons {
                 addArrangedSubview(button)
             }
@@ -98,7 +115,7 @@ class TokenActionsView: WTouchPassStackView {
     }
     
     private func makeButton(title: String, image: UIImage?, onTap: @escaping () -> Void) -> UIView {
-        if Self.usesSplitHomeActionStyle {
+        if usesSplitHomeActionStyle {
             let button = WActionTileButton(title: title, image: image, onTap: onTap)
             NSLayoutConstraint.activate([
                 button.widthAnchor.constraint(equalToConstant: WActionTileButton.sideLength),
@@ -110,7 +127,7 @@ class TokenActionsView: WTouchPassStackView {
     }
     
     private func updateSpacing() {
-        if Self.usesSplitHomeActionStyle {
+        if usesSplitHomeActionStyle {
             spacing = 16
         } else {
             buttonsToolbar.update()

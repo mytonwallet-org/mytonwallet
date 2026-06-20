@@ -7,6 +7,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -17,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
@@ -47,7 +49,11 @@ class ScreenRecordProtectionView(
         } else {
             addView(
                 WBaseView(context).apply {
-                    setBackground(WColor.Background)
+                    if (viewController.isSplitDetailPanel)
+                        background =
+                            TabletEdgeFadeDrawable(WColor.Background.color, dimWhenWide = false)
+                    else
+                        setBackground(WColor.Background)
                 }
             )
         }

@@ -89,7 +89,8 @@ class HighlightOverlayView(
         val width = view.width.toFloat()
         val height = view.height.toFloat()
         val radius = ViewConstants.TOOLBAR_RADIUS.dp
-        val padding = view.horizontalPadding
+        val startPadding = view.startHorizontalPadding
+        val endPadding = view.endHorizontalPadding
 
         viewRect.set(left, top, left + width, top + height)
 
@@ -103,9 +104,9 @@ class HighlightOverlayView(
         val radii = if (isTop) radiiTop else radiiBottom
 
         cutoutRect.set(
-            left + padding,
+            left + startPadding,
             cutoutTop,
-            left + width - padding,
+            left + width - endPadding,
             cutoutBottom
         )
 

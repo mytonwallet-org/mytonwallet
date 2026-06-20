@@ -2,7 +2,6 @@ package org.mytonwallet.app_air.ledger.screens.ledgerWallets
 
 import android.content.Context
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
@@ -13,8 +12,10 @@ import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerLoadMore
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerWalletCell
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -48,6 +49,7 @@ class LedgerWalletsVC(
     override val TAG = "LedgerWallets"
 
     override val shouldDisplayBottomBar = !WGlobalStorage.isGradientNavigationBarActive()
+    override val isContentWidthCapped = true
 
     data class Item(
         val title: String?,
@@ -139,7 +141,12 @@ class LedgerWalletsVC(
         setNavTitle(LocaleController.getString("Select Ledger Wallets"))
         setupNavBar(true)
 
-        view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            recyclerView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.addView(
             bottomGradientView,
             ConstraintLayout.LayoutParams(
@@ -147,11 +154,16 @@ class LedgerWalletsVC(
                 MATCH_CONSTRAINT
             )
         )
-        view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 0))
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        view.addView(
+            continueButton,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp - 40.dp
+            }
+        )
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             navigationBar?.calculatedMinHeight ?: 0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             20.dp +
                 continueButton.buttonHeight +
                 20.dp +
@@ -182,10 +194,10 @@ class LedgerWalletsVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             navigationBar?.calculatedMinHeight ?: 0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             20.dp +
                 continueButton.buttonHeight +
                 20.dp +
@@ -224,7 +236,7 @@ class LedgerWalletsVC(
     override fun finalizedWallets(importedAccountsCount: Int) {
         if (prevAccountsCount == 0) {
             push(
-                WalletContextManager.delegate?.getWalletAddedVC(
+                WalletContextManager.delegate?.get()?.getWalletAddedVC(
                     false,
                     importedAccountsCount
                 ) as WViewController

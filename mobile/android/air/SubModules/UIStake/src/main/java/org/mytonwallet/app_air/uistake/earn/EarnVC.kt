@@ -19,6 +19,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.contains
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -88,7 +89,8 @@ class EarnVC(
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     override val shouldDisplayTopBar = false
-    override val shouldDisplayBottomBar = true
+    override val shouldDisplayBottomBar: Boolean
+        get() = !isInCenteredWindow
 
     companion object {
         val HEADER_CELL = WCell.Type(1)
@@ -617,19 +619,19 @@ class EarnVC(
                     roundUp = false
                 )
             } ?: "")
-            recyclerView.setPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+            recyclerView.setPaddingRelative(
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
                 0,
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
                 86.dp + (navigationController?.bottomInset ?: 0)
             )
         } else {
             claimRewardView.visibility = View.GONE
             claimRewardShadow?.sync()
-            recyclerView.setPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+            recyclerView.setPaddingRelative(
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
                 0,
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
+                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
                 (navigationController?.bottomInset ?: 0)
             )
         }
@@ -664,16 +666,29 @@ class EarnVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        val bottomInset = navigationController?.bottomInset ?: 0
+        recyclerView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            recyclerView.paddingBottom
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            (if (claimRewardView.isVisible) 86.dp else 0) + bottomInset
         )
+        skeletonRecyclerView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
+        headerView.insetsUpdated()
+        if (headerView.layoutParams != null && headerView.layoutParams.height != headerHeight) {
+            headerView.updateLayoutParams { height = headerHeight }
+            rvAdapter.notifyItemChanged(0)
+        }
         (headerView.parent as? WCell)?.setConstraints {
             toCenterX(headerView)
         }
         view.setConstraints {
+            toBottomPx(claimRewardView, 16.dp + bottomInset)
             toCenterX(claimRewardView, 2 * ViewConstants.HORIZONTAL_PADDINGS + 12f)
         }
     }

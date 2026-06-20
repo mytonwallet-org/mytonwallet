@@ -12,6 +12,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -79,6 +80,12 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            navigationBar?.calculatedMinHeight ?: 0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         recyclerView.removeItemDecorationAt(0)
         recyclerView.addItemDecoration(
             LastItemPaddingDecoration(
@@ -96,10 +103,10 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
         view.setConstraints {
             allEdges(recyclerView)
         }
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             navigationBar?.calculatedMinHeight ?: 0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             0
         )
 

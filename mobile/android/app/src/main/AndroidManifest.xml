@@ -86,7 +86,7 @@
 
     <activity
       android:name="org.mytonwallet.app_air.airasframework.MainWindow"
-      android:configChanges="orientation|screenSize|uiMode|locale|layoutDirection"
+      android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|locale|layoutDirection|density|keyboardHidden"
       android:exported="true"
       android:launchMode="singleTop"
       android:theme="@style/Theme.MyTonWalletAir" />

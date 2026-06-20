@@ -35,10 +35,12 @@ class UpdateStatusView(
     private val statusReplaceableLabel = WReplaceableLabel(context)
 
     var onTap: (() -> Unit)? = null
+    var onLongTap: (() -> Unit)? = null
 
     init {
         clipChildren = false
         clipToPadding = false
+        setPadding(1.dp, 0, 1.dp, 0)
         addView(statusReplaceableLabel, LayoutParams(MATCH_PARENT, 28.dp).apply {
             gravity = Gravity.CENTER
             topMargin = (-2).dp
@@ -48,6 +50,14 @@ class UpdateStatusView(
 
         setOnClickListener {
             onTap?.invoke()
+        }
+        setOnLongClickListener {
+            if (state is State.Updated) {
+                onLongTap?.invoke()
+                true
+            } else {
+                false
+            }
         }
     }
 

@@ -66,11 +66,17 @@ import kotlin.math.roundToInt
 class WalletsVC(
     context: Context,
     val walletCategory: WalletsTabsVC.WalletCategory,
-    private val totalWidth: Int,
-    private val topInset: Int,
-    private val bottomInset: Int,
+    private val fallbackWidth: Int,
 ) : WViewController(context), WRecyclerViewAdapter.WRecyclerViewDataSource {
     override val TAG = "Wallets"
+
+    private val topInset: Int
+        get() = navigationController?.getSystemBars()?.top ?: 0
+    private val bottomSafeInset: Int
+        get() = navigationController?.getSystemBars()?.bottom ?: 0
+
+    private var totalWidth: Int = fallbackWidth
+    private fun currentLayoutWidth(): Int = view.width.takeIf { it > 0 } ?: fallbackWidth
 
     override val isSwipeBackAllowed = false
     override val shouldDisplayTopBar = true
@@ -97,7 +103,7 @@ class WalletsVC(
         set(value) {
             if (field != value) {
                 field = value
-                if (!didSetup)
+                if (!view.configured)
                     return
                 updateRecyclerViewInsets()
                 if (recyclerView.computeVerticalScrollOffset() > 0)
@@ -200,6 +206,9 @@ class WalletsVC(
             return (totalWidth - 16.dp) / cols
         }
 
+    private val spanSize: Int
+        get() = totalWidth - 16.dp
+
     private val rvAdapter =
         WRecyclerViewAdapter(
             WeakReference(this),
@@ -284,16 +293,22 @@ class WalletsVC(
             override fun onMeasure(widthSpec: Int, heightSpec: Int) {
                 setMeasuredDimension(
                     view.width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp,
-                    view.height - topInset - bottomInset + 48.dp
+                    view.height - topInset - bottomSafeInset + 48.dp
                 )
             }
         }.apply {
-            val spanSize = totalWidth - 16.dp
             val layoutManager = GridLayoutManager(context, spanSize)
             layoutManager.isSmoothScrollbarEnabled = true
             layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int {
-                    return if (viewMode == MWalletSettingsViewMode.GRID) cellWidth else spanSize
+                    val total = layoutManager.spanCount
+                    val contentWidth = (width - paddingLeft - paddingRight).takeIf { it > 0 }
+                        ?: (totalWidth - 16.dp)
+                    val cols = max(2, contentWidth / 104.dp)
+                    return if (viewMode == MWalletSettingsViewMode.GRID)
+                        (total / cols).coerceIn(1, total)
+                    else
+                        total
                 }
             }
             this.layoutManager = layoutManager
@@ -302,6 +317,9 @@ class WalletsVC(
             clipChildren = false
             addOnScrollListener(scrollListener)
             disallowInterceptOnOverscroll()
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                resyncGridSpan(currentLayoutWidth())
+            }
         }
     }
 
@@ -310,14 +328,13 @@ class WalletsVC(
     private var emptyView: WEmptyIconTitleSubtitleView? = null
 
     val bottomReversedCornerViewUpsideDown by lazy {
-        ReversedCornerViewUpsideDown(context, recyclerView).apply {
+        ReversedCornerViewUpsideDown(context, recyclerView, additionalTabletPadding = false).apply {
             isClickable = true
             isFocusable = true
             setOnTouchListener { _, _ -> true }
         }
     }
 
-    private var didSetup = false
     override fun setupViews() {
         super.setupViews()
 
@@ -344,8 +361,13 @@ class WalletsVC(
 
         updateTheme()
         updateEmptyView()
-        didSetup = true
         updateBottomViewsYPosition()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
+        super.onSizeChanged(w, h, oldW, oldH)
+        if (w != oldW)
+            updateRecyclerViewInsets()
     }
 
     override fun didSetupViews() {
@@ -375,23 +397,55 @@ class WalletsVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
 
+        if (guideline.layoutParams == null)
+            return
+        guideline.updateLayoutParams<ConstraintLayout.LayoutParams> {
+            guideBegin = (navigationController?.getSystemBars()?.top ?: 0) +
+                WNavigationBar.DEFAULT_HEIGHT_THICK.dp +
+                33.dp
+        }
+        bottomReversedCornerViewUpsideDown.updateLayoutParams {
+            height = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
+                ViewConstants.GAP.dp +
+                50.dp +
+                16.dp +
+                (navigationController?.getSystemBars()?.bottom ?: 0)
+        }
         updateRecyclerViewInsets()
     }
 
+    fun setLayoutWidth(width: Int) {
+        if (width <= 0) return
+        resyncGridSpan(width)
+    }
+
+    private fun resyncGridSpan(width: Int) {
+        if (width <= 0 || width == totalWidth) return
+        totalWidth = width
+        (recyclerView.layoutManager as? GridLayoutManager)?.let { lm ->
+            val newSpan = spanSize
+            if (newSpan > 0 && lm.spanCount != newSpan) {
+                lm.spanCount = newSpan
+                recyclerView.requestLayout()
+            }
+        }
+    }
+
     private fun updateRecyclerViewInsets() {
+        resyncGridSpan(currentLayoutWidth())
         when (viewMode) {
             MWalletSettingsViewMode.LIST -> {
                 topReversedCornerView?.isGone = false
                 bottomReversedCornerViewUpsideDown.isGone = false
-                recyclerView.setPadding(
-                    0,
+                recyclerView.setPaddingRelative(
+                    systemBarStartInset,
                     (navigationController?.getSystemBars()?.top ?: 0) +
                         WNavigationBar.DEFAULT_HEIGHT_THICK.dp +
                         44.dp -
                         ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
                         22.dp,
-                    0,
-                    90.dp + bottomInset
+                    systemBarEndInset,
+                    90.dp + bottomSafeInset
                 )
                 view.setConstraints {
                     toCenterY(recyclerView)
@@ -402,15 +456,15 @@ class WalletsVC(
             MWalletSettingsViewMode.GRID -> {
                 topReversedCornerView?.isGone = true
                 bottomReversedCornerViewUpsideDown.isGone = true
-                recyclerView.setPadding(
-                    10.dp,
+                recyclerView.setPaddingRelative(
+                    10.dp + systemBarStartInset,
                     (navigationController?.getSystemBars()?.top ?: 0) +
                         WNavigationBar.DEFAULT_HEIGHT_THICK.dp +
                         44.dp -
                         ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
                         22.dp,
-                    6.dp,
-                    90.dp + bottomInset
+                    6.dp + systemBarEndInset,
+                    90.dp + bottomSafeInset
                 )
                 view.setConstraints {
                     toCenterY(recyclerView)
@@ -425,7 +479,7 @@ class WalletsVC(
         checkedAccounts = checkedAccounts.filter { checkedAccount ->
             accounts.find { it.accountId == checkedAccount.accountId } != null
         }.toMutableSet()
-        if (!didSetup)
+        if (!view.configured)
             return
         rvAdapter.reloadData()
         updateEmptyView()
@@ -489,11 +543,16 @@ class WalletsVC(
     }
 
     private fun updateBottomViewsYPosition() {
+        if (isInCenteredWindow) {
+            bottomReversedCornerViewUpsideDown.translationY = 0f
+            emptyView?.translationY = 0f
+            return
+        }
         val modalExpandOffset = modalExpandOffset ?: 0
         bottomReversedCornerViewUpsideDown.translationY =
             WalletsTabsVC.DEFAULT_HEIGHT.toFloat().dp -
                 (window?.windowView?.height ?: 0) +
-                bottomInset +
+                bottomSafeInset +
                 modalExpandOffset
         emptyView?.translationY = (modalExpandOffset / 2f).coerceAtLeast(0f)
     }
@@ -607,7 +666,10 @@ class WalletsVC(
                     ),
                     hasSeparator = false,
                     onTap = {
-                        val navVC = WNavigationController(window!!)
+                        val navVC = WNavigationController(
+                            window!!,
+                            WNavigationController.PresentationConfig.PreferredFullScreen
+                        )
                         val walletCustomizationVC =
                             WalletCustomizationVC(context, account.accountId)
                         navVC.setRoot(walletCustomizationVC)
@@ -738,7 +800,7 @@ class WalletsVC(
 
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         super.onModalSlide(expandOffset, expandProgress)
-        if (!didSetup)
+        if (!view.configured)
             return
         updateBottomViewsYPosition()
     }

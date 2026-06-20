@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setConstraints
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.PositionBasedItemDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
@@ -81,6 +82,7 @@ class SubWalletsVC(
     override val TAG = "Subwallets"
     override val isSwipeBackAllowed = false
     override val isEdgeSwipeBackAllowed = true
+    override val shouldDisplayBottomBar = false
 
     companion object {
         private const val SECTION_TOP = 0
@@ -146,6 +148,16 @@ class SubWalletsVC(
         layoutManager.isSmoothScrollbarEnabled = true
         rv.setLayoutManager(layoutManager)
         rv.setItemAnimator(null)
+        rv.addItemDecoration(
+            PositionBasedItemDecoration { _ ->
+                Rect(
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+                    0,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+                    0
+                )
+            }
+        )
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
@@ -264,28 +276,16 @@ class SubWalletsVC(
             (navigationController?.getSystemBars()?.bottom ?: 0) + 144.dp
         )
         recyclerView.clipToPadding = false
-        recyclerView.addItemDecoration(
-            PositionBasedItemDecoration { _ ->
-                Rect(
-                    ViewConstants.HORIZONTAL_PADDINGS.dp,
-                    0,
-                    ViewConstants.HORIZONTAL_PADDINGS.dp,
-                    0
-                )
-            }
-        )
 
         view.setConstraints {
             toTop(recyclerView)
             toCenterX(recyclerView)
             toBottom(recyclerView)
 
-            toCenterX(createSubwalletButton, 20f)
             toBottomPx(
                 createSubwalletButton,
                 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
-            toCenterX(addAllFoundSubwalletsButton)
             bottomToTop(addAllFoundSubwalletsButton, createSubwalletButton, 16f)
             toStart(bottomGradientView)
             toEnd(bottomGradientView)
@@ -319,6 +319,33 @@ class SubWalletsVC(
             )
         } else {
             bottomGradientView.isGone = true
+        }
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        recyclerView.setPadding(
+            0,
+            (navigationController?.getSystemBars()?.top ?: 0) + WNavigationBar.DEFAULT_HEIGHT.dp,
+            0,
+            (navigationController?.getSystemBars()?.bottom ?: 0) + 144.dp
+        )
+        recyclerView.invalidateItemDecorations()
+        view.setConstraints {
+            toBottomPx(
+                createSubwalletButton,
+                16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+            )
+            toStartPx(
+                createSubwalletButton,
+                20.dp + ViewConstants.ADDITIONAL_TABLET_PADDING + systemBarStartInset
+            )
+            toEndPx(createSubwalletButton, 20.dp + systemBarEndInset)
+            toStartPx(
+                addAllFoundSubwalletsButton,
+                ViewConstants.ADDITIONAL_TABLET_PADDING + systemBarStartInset
+            )
+            toEndPx(addAllFoundSubwalletsButton, systemBarEndInset)
         }
     }
 

@@ -108,6 +108,12 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
     override fun insetsUpdated() {
         super.insetsUpdated()
         view.setPadding(0, 0, 0, navigationController?.getSystemBars()?.bottom ?: 0)
+        view.setConstraints {
+            toStartPx(nftTagView, 16.dp + systemBarStartInset)
+            toEndPx(nftTagView, 16.dp + systemBarEndInset)
+            toStartPx(renewButton, 16.dp + systemBarStartInset)
+            toEndPx(renewButton, 16.dp + systemBarEndInset)
+        }
     }
 
     override fun updateTheme() {
@@ -205,7 +211,10 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                 }),
             headerView = headerView
         )
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(
+            window!!,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         nav.setRoot(ledgerConnectVC)
         window?.present(nav)
     }
@@ -247,7 +256,10 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                     })
             }
         )
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(
+            window!!,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         nav.setRoot(passcodeConfirmVC)
         window?.present(nav)
     }

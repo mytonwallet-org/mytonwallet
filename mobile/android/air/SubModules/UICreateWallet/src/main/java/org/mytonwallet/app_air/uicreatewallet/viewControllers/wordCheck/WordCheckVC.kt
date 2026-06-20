@@ -10,10 +10,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.WordCheckerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -52,6 +54,8 @@ class WordCheckVC(
     private val mode: WordCheckMode
 ) : WViewController(context), WalletCreationVM.Delegate {
     override val TAG = "WordCheck"
+
+    override val isContentWidthCapped = true
 
     private val walletCreationVM by lazy {
         WalletCreationVM(this)
@@ -159,7 +163,12 @@ class WordCheckVC(
             navigationBar?.addCloseButton()
 
         scrollView.alpha = 0f
-        view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.setConstraints {
             allEdges(scrollView)
         }
@@ -190,12 +199,18 @@ class WordCheckVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollView.setPaddingRelative(systemBarStartInset, 0, systemBarEndInset, 0)
         scrollingContentView.setConstraints {
+            toTopPx(
+                headerView,
+                (WNavigationBar.DEFAULT_HEIGHT - 6).dp +
+                    (navigationController?.getSystemBars()?.top ?: 0)
+            )
             toBottomPx(
                 wordsDoNotMatchLabel,
                 48.dp + max(
                     (navigationController?.getSystemBars()?.bottom
-                        ?: 0), (window?.imeInsets?.bottom
+                        ?: 0), (navigationController?.imeInsetBottom
                         ?: 0)
                 )
             )

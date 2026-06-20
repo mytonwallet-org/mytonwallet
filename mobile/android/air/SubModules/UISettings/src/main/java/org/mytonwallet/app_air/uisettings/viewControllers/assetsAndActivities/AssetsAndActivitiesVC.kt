@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.ViewBinderHelper
@@ -128,12 +129,6 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
         reloadTokens()
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            navigationBar?.calculatedMinHeight ?: 0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0
-        )
         recyclerView.clipToPadding = false
         view.setConstraints {
             toTop(recyclerView)
@@ -149,6 +144,16 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + ViewConstants.ADDITIONAL_TABLET_PADDING + systemBarStartInset,
+            navigationBar?.calculatedMinHeight ?: 0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
     }
 
     override fun scrollToTop() {

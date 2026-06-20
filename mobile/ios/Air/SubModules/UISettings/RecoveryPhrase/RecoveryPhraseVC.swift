@@ -94,7 +94,8 @@ open class RecoveryPhraseVC: SettingsBaseVC {
         super.viewDidAppear(animated)
         // We don't consider additional space under bottomActionsView, to make it fixed without any scroll on bigger iOS devices,
         //  and add this space on smaller devices to let button come up a little more and make user feel better :)
-        let isDeviceHeightEnoughForAllContent = screenHeight >= scrollView.contentSize.height
+        let availableHeight = view.bounds.height > 0 ? view.bounds.height : screenHeight
+        let isDeviceHeightEnoughForAllContent = availableHeight >= scrollView.contentSize.height
         if !isDeviceHeightEnoughForAllContent {
             scrollView.contentInset.bottom = BottomActionsView.reserveHeight
         }

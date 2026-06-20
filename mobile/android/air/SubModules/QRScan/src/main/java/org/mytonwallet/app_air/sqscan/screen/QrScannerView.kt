@@ -13,6 +13,8 @@ import android.util.AttributeSet
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -294,6 +296,22 @@ class QrScannerView @JvmOverloads constructor(
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var scannerBackend: QrScannerBackend
     private var previewCamera: Camera? = null
+    private var previewUseCase: androidx.camera.core.Preview? = null
+
+    private val orientationListener by lazy {
+        object : OrientationEventListener(context) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) return
+                val rotation = when (orientation) {
+                    in 45 until 135 -> Surface.ROTATION_270
+                    in 135 until 225 -> Surface.ROTATION_180
+                    in 225 until 315 -> Surface.ROTATION_90
+                    else -> Surface.ROTATION_0
+                }
+                previewUseCase?.targetRotation = rotation
+            }
+        }
+    }
 
     private fun createScannerBackend(): QrScannerBackend {
         // mytonwallet ships the bundled MlKit model in-APK, so it works without GMS.
@@ -322,13 +340,18 @@ class QrScannerView @JvmOverloads constructor(
             ContextCompat.getMainExecutor(context)
         )
         startScanningImpl()
+        if (orientationListener.canDetectOrientation()) {
+            orientationListener.enable()
+        }
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        orientationListener.disable()
         cameraExecutor.shutdown()
         scannerBackend.close()
         previewCamera = null
+        previewUseCase = null
     }
 
     private fun startScanningImpl() {
@@ -339,15 +362,22 @@ class QrScannerView @JvmOverloads constructor(
         previewCamera = try {
             val cameraProvider = cameraProviderFuture.get()
 
+            val targetRotation = previewView.display?.rotation ?: Surface.ROTATION_0
+
             // CameraX Preview
-            val preview = androidx.camera.core.Preview.Builder().build().also {
-                it.surfaceProvider = previewView.surfaceProvider
-            }
+            val preview = androidx.camera.core.Preview.Builder()
+                .setTargetRotation(targetRotation)
+                .build().also {
+                    it.surfaceProvider = previewView.surfaceProvider
+                }
 
             // CameraX ImageAnalysis
-            val imageAnalysis = ImageAnalysis.Builder().build().also {
-                it.setAnalyzer(cameraExecutor) { imageProxy -> processImage(imageProxy) }
-            }
+            val imageAnalysis = ImageAnalysis.Builder()
+                .build().also {
+                    it.setAnalyzer(cameraExecutor) { imageProxy -> processImage(imageProxy) }
+                }
+
+            previewUseCase = preview
 
             // Use the back camera
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA

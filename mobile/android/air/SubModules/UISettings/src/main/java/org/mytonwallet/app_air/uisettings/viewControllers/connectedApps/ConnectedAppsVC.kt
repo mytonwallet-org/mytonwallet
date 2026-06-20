@@ -139,12 +139,7 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
                 )
             }
         })
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            navigationBar?.calculatedMinHeight ?: 0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0
-        )
+        updateRecyclerViewPadding()
         recyclerView.clipToPadding = false
 
         view.addView(noItemView)
@@ -198,6 +193,20 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         noItemLabel.setTextColor(WColor.PrimaryText.color)
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        updateRecyclerViewPadding()
+    }
+
+    private fun updateRecyclerViewPadding() {
+        recyclerView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            navigationBar?.calculatedMinHeight ?: 0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
     }
 
     override fun scrollToTop() {

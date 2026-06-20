@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -26,6 +27,7 @@ class ReversedCornerViewUpsideDown(
     context: Context,
     private var blurRootView: ViewGroup?,
     private val forceBlurView: Boolean = false,
+    private val additionalTabletPadding: Boolean = true,
 ) : BaseReversedCornerView(context), WThemedView {
 
     init {
@@ -136,10 +138,12 @@ class ReversedCornerViewUpsideDown(
         path.lineTo(0f, height)
         path.close()
 
-        rectF.set(
-            horizontalPadding,
+        val tabletPadding =
+            if (additionalTabletPadding) ViewConstants.ADDITIONAL_TABLET_PADDING.toFloat() else 0f
+        rectF.setLocalized(
+            cutoutStart(width, tabletPadding),
             0f,
-            width - horizontalPadding,
+            cutoutEnd(width),
             cornerRadius
         )
         cornerPath.addRoundRect(rectF, radii, Path.Direction.CCW)
@@ -248,6 +252,7 @@ class ReversedCornerViewUpsideDown(
         }
 
         updateRadius()
+        postInvalidateOnAnimation()
     }
 
     private fun updateRadius() {

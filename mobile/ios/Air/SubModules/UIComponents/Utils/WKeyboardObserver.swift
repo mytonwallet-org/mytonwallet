@@ -6,6 +6,9 @@
 //
 
 import UIKit
+#if canImport(GameController)
+import GameController
+#endif
 
 public struct WKeyboardDisplayInfo {
     
@@ -13,7 +16,7 @@ public struct WKeyboardDisplayInfo {
     public var animationCurve: Int
     public var beginFrame: CGRect
     public var endFrame: CGRect
-    public var screen: UIScreen
+    public var screen: UIScreen?
     
     public var height: CGFloat { endFrame.height }
 }
@@ -32,6 +35,13 @@ public struct WKeyboardDisplayInfo {
         get { CGFloat(UserDefaults.standard.float(forKey: "keyboardHeight"))  }
         set { UserDefaults.standard.set(newValue, forKey: "keyboardHeight") }
     }
+    public static var isHardwareKeyboardConnected: Bool {
+        #if canImport(GameController)
+        return GCKeyboard.coalesced != nil
+        #else
+        return false
+        #endif
+    }
     
     public static func observeKeyboard(delegate: WKeyboardObserverDelegate) {
         NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification,
@@ -46,7 +56,6 @@ public struct WKeyboardDisplayInfo {
             let screen = notification.object as? UIScreen
             MainActor.assumeIsolated {
                 keyboardHeight = endFrame.height
-                let screen = screen ?? UIScreen.main
                 let showInfo = WKeyboardDisplayInfo(animationDuration: animationDuration, animationCurve: animationCurve, beginFrame: beginFrame, endFrame: endFrame, screen: screen)
                 delegate?.keyboardWillShow(info: showInfo)
             }
@@ -64,7 +73,6 @@ public struct WKeyboardDisplayInfo {
             let screen = notification.object as? UIScreen
             MainActor.assumeIsolated {
                 displayedKeyboardOnce = true
-                let screen = screen ?? UIScreen.main
                 let showInfo = WKeyboardDisplayInfo(animationDuration: animationDuration, animationCurve: animationCurve, beginFrame: beginFrame, endFrame: endFrame, screen: screen)
                 delegate?.keyboardWillHide(info: showInfo)
             }

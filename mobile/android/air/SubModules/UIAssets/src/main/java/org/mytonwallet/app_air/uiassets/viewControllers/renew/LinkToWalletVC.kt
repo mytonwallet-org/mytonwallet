@@ -180,6 +180,14 @@ class LinkToWalletVC(
             0,
             systemBarBottom
         )
+        view.setConstraints {
+            toStartPx(nftTagView, 16.dp + systemBarStartInset)
+            toEndPx(nftTagView, 16.dp + systemBarEndInset)
+            toStartPx(linkedWalletView, 16.dp + systemBarStartInset)
+            toEndPx(linkedWalletView, 16.dp + systemBarEndInset)
+            toStartPx(linkButton, 16.dp + systemBarStartInset)
+            toEndPx(linkButton, 16.dp + systemBarEndInset)
+        }
         addressInputView.insetsUpdated()
     }
 
@@ -287,7 +295,10 @@ class LinkToWalletVC(
                 }),
             headerView = headerView
         )
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(
+            window!!,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         nav.setRoot(ledgerConnectVC)
         window?.present(nav, onCompletion = {
             linkButton.unlockView()
@@ -332,7 +343,10 @@ class LinkToWalletVC(
                     })
             }
         )
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(
+            window!!,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         nav.setRoot(passcodeConfirmVC)
         window?.present(nav, onCompletion = {
             linkButton.unlockView()

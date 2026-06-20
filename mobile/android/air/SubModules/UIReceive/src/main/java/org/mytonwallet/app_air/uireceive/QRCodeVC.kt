@@ -47,6 +47,7 @@ class QRCodeVC(
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     override val shouldDisplayTopBar = false
+    override val shouldDisplayBottomBar = false
 
     override var title: String?
         get() = chain.displayName
@@ -204,12 +205,6 @@ class QRCodeVC(
         super.updateTheme()
 
         view.setBackgroundColor(Color.TRANSPARENT)
-        view.setConstraints {
-            toTopPx(
-                qrCodeView, (navigationController?.getSystemBars()?.top ?: 0) +
-                    WNavigationBar.DEFAULT_HEIGHT.dp + 16.dp
-            )
-        }
         addressLabel.setTextColor(WColor.PrimaryText.color)
         titleLabel.updateTheme()
         warningLabel.setTextColor(WColor.SecondaryText.color)
@@ -223,6 +218,18 @@ class QRCodeVC(
         } else {
             ornamentView.setImageDrawable(null)
             ornamentView.visibility = View.INVISIBLE
+        }
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        view.setConstraints {
+            toTopPx(
+                qrCodeView, (navigationController?.getSystemBars()?.top ?: 0) +
+                    WNavigationBar.DEFAULT_HEIGHT.dp + 16.dp
+            )
+            toStartPx(addressView, systemBarStartInset)
+            toEndPx(addressView, systemBarEndInset)
         }
     }
 

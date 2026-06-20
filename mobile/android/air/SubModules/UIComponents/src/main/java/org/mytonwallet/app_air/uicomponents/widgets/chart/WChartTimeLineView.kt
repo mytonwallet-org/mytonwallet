@@ -344,6 +344,13 @@ class WChartTimeLineView(
         super.onSizeChanged(w, h, oldw, oldh)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
             setSystemGestureExclusionRects(Collections.singletonList(Rect(0, 0, width, height)))
+        post {
+            val baseLeft = (width - 40.dp) * startPercentage
+            val baseRight = (width - 40.dp) * endPercentage + 10.dp
+            imgLeft.x = min(baseLeft, baseRight - 30.dp)
+            imgRight.x = max(imgLeft.x + 30.dp, baseRight)
+            updateOverlays()
+        }
     }
 
     private fun isRangeAcceptable(startPercentage: Float, endPercentage: Float): Boolean {

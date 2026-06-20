@@ -657,6 +657,20 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
+        class RecordTonConnectEvent(
+            eventName: String,
+            promiseId: String
+        ) : ApiMethod<Unit>() {
+            override val name: String = "recordTonConnectEvent"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .jsonObject(JSONObject().apply {
+                    put("event_name", eventName)
+                    put("promiseId", promiseId)
+                })
+                .build()
+        }
+
         class DeleteDapp(
             accountId: String,
             appClientId: String,

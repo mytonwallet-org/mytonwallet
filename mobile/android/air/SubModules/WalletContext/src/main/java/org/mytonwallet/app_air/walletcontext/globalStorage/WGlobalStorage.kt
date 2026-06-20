@@ -110,6 +110,7 @@ object WGlobalStorage {
     private const val EXPLORER = "settings.selectedExplorerIds"
     private const val IS_SCREEN_RECORD_WARNING_DISABLED = "settings.isScreenRecordWarningDisabled"
     private const val IS_SHAKE_TO_DEBUG_ENABLED = "settings.isShakeToDebugEnabled"
+    private const val TABLET_PANEL_WIDTH = "settings.tabletPanelWidth"
 
     fun save(accountId: String, accountName: String?, persist: Boolean = true) {
         // Save null names as empty string in the cache to return it without accessing storage
@@ -745,7 +746,7 @@ object WGlobalStorage {
             _isSensitiveDataProtectionOn,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
-        WalletContextManager.delegate?.protectedModeChanged()
+        WalletContextManager.delegate?.get()?.protectedModeChanged()
     }
 
     fun getIsSensitiveDataProtectionOn(): Boolean {
@@ -996,6 +997,18 @@ object WGlobalStorage {
 
     fun getAccountSelectorViewMode(): MWalletSettingsViewMode? {
         return MWalletSettingsViewMode.fromValue(globalStorageProvider.getString("accountSelectorViewMode"))
+    }
+
+    fun setTabletPanelWidth(widthDp: Int) {
+        globalStorageProvider.set(
+            TABLET_PANEL_WIDTH,
+            widthDp,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    fun getTabletPanelWidth(): Int? {
+        return globalStorageProvider.getInt(TABLET_PANEL_WIDTH)
     }
 
     fun setWalletTabOrder(order: List<String>) {

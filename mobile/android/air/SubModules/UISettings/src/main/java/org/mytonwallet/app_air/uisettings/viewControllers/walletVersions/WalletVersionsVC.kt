@@ -22,7 +22,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import kotlinx.coroutines.launch
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
@@ -50,17 +50,16 @@ class WalletVersionsVC(context: Context) : WViewController(context),
 
     val walletVersionsData = AccountStore.walletVersionsData
 
+    private val lastItemPaddingDecoration =
+        LastItemPaddingDecoration(navigationController?.bottomInset ?: 0)
+
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(this)
         rv.adapter = rvAdapter
         val layoutManager = LinearLayoutManagerAccurateOffset(context)
         layoutManager.isSmoothScrollbarEnabled = true
         rv.setLayoutManager(layoutManager)
-        rv.addItemDecoration(
-            LastItemPaddingDecoration(
-                navigationController?.bottomInset ?: 0
-            )
-        )
+        rv.addItemDecoration(lastItemPaddingDecoration)
         rv.setItemAnimator(null)
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -89,12 +88,7 @@ class WalletVersionsVC(context: Context) : WViewController(context),
         }
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            navigationBar?.calculatedMinHeight ?: 0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0
-        )
+        updateRecyclerViewPadding()
         recyclerView.clipToPadding = false
         view.setConstraints {
             toTop(recyclerView)
@@ -110,6 +104,22 @@ class WalletVersionsVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        updateRecyclerViewPadding()
+        lastItemPaddingDecoration.padding = navigationController?.bottomInset ?: 0
+        recyclerView.invalidateItemDecorations()
+    }
+
+    private fun updateRecyclerViewPadding() {
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            navigationBar?.calculatedMinHeight ?: 0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
     }
 
     private fun handleTap(identifier: String) {

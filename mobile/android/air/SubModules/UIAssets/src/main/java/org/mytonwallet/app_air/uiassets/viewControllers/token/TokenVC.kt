@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.isVisible
+import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -34,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -147,7 +149,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 }
 
                 else -> {
-                    return if (indexPath.row == 0) SKELETON_HEADER_CELL else SKELETON_CELL
+                    if (indexPath.row == 0) SKELETON_HEADER_CELL else SKELETON_CELL
                 }
             }
         }
@@ -293,12 +295,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             }
         }
         setItemAnimator(null)
-        setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            navigationController?.getSystemBars()?.bottom ?: 0
-        )
         clipToPadding = false
     }
 
@@ -347,6 +343,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 (navigationController?.getSystemBars()?.top ?: 0) +
                     TokenHeaderView.navDefaultHeight + headerView.contentHeight
             )
+        )
+        headerView.setPaddingLocalized(
+            additionalTabletPadding + systemBarStartInset,
+            0,
+            systemBarEndInset,
+            0
         )
         view.addView(navigationBar, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.addView(skeletonView)
@@ -426,13 +428,19 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             HeaderActionsView.Identifier.RECEIVE -> {
                 val chain = MBlockchain.valueOfOrNull(token.chain) ?: return
                 val receiveVC = ReceiveVC.createIfAvailable(context, chain) ?: return
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(
+                    window!!,
+                    WNavigationController.PresentationConfig.PreferredFullScreen
+                )
                 navVC.setRoot(receiveVC)
                 window?.present(navVC)
             }
 
             HeaderActionsView.Identifier.SEND -> {
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(
+                    window!!,
+                    WNavigationController.PresentationConfig.PreferredFullScreen
+                )
                 navVC.setRoot(SendVC(context, token.slug))
                 window?.present(navVC)
             }
@@ -448,7 +456,10 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             HeaderActionsView.Identifier.EARN -> {
                 val hasActiveStaking =
                     AccountStore.stakingData?.hasActiveStaking(token.slug) == true
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(
+                    window!!,
+                    WNavigationController.PresentationConfig.PreferredFullScreen
+                )
                 if (hasActiveStaking) {
                     navVC.setRoot(EarnRootVC(context, token.slug))
                 } else {
@@ -458,7 +469,10 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             }
 
             HeaderActionsView.Identifier.SWAP -> {
-                val navVC = WNavigationController(window!!)
+                val navVC = WNavigationController(
+                    window!!,
+                    WNavigationController.PresentationConfig.PreferredFullScreen
+                )
                 navVC.setRoot(
                     SwapVC(
                         context,
@@ -507,6 +521,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     if (headerView.parent == headerCell) {
                         headerCell?.removeView(headerView)
                         view.addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                        headerView.setPaddingLocalized(
+                            additionalTabletPadding + systemBarStartInset,
+                            0,
+                            systemBarEndInset,
+                            0
+                        )
                         skeletonView.bringToFront()
                         navigationBar?.bringToFront()
                         topBlurViewGuideline?.bringToFront()
@@ -526,6 +546,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                             headerView,
                             ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
                         )
+                        headerView.setPadding(0)
                         headerCell?.setConstraints {
                             toCenterX(headerView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                         }
@@ -811,22 +832,40 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        recyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             navigationController?.getSystemBars()?.bottom ?: 0
         )
-        skeletonRecyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        skeletonRecyclerView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             skeletonRecyclerView.paddingTop,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             skeletonRecyclerView.paddingBottom
         )
+        topBlurReversedCornerView.updateLayoutParams {
+            height = (navigationController?.getSystemBars()?.top ?: 0) +
+                TokenHeaderView.navDefaultHeight +
+                ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
+        }
+        headerView.updateLayoutParams {
+            height = (navigationController?.getSystemBars()?.top ?: 0) +
+                TokenHeaderView.navDefaultHeight + headerView.contentHeight
+        }
         if (headerView.parent == headerCell)
             headerCell?.setConstraints {
                 toCenterX(headerView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             }
+        else
+            headerView.setPaddingLocalized(
+                additionalTabletPadding + systemBarStartInset,
+                0,
+                systemBarEndInset,
+                0
+            )
+        rvAdapter.notifyItemChanged(0)
+        rvSkeletonAdapter.notifyItemChanged(0)
         actionsView?.insetsUpdated()
     }
 
@@ -834,8 +873,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         window?.let { window ->
             val transactionNav = WNavigationController(
                 window, WNavigationController.PresentationConfig(
-                    overFullScreen = false,
-                    isBottomSheet = true
+                    style = WNavigationController.PresentationStyle.BottomSheet
                 )
             )
             transactionNav.setRoot(TransactionVC(context, account.accountId, transaction))

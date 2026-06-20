@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.buildConfirmWithTelegramTitle
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
@@ -32,7 +33,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -188,12 +188,6 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
-        v.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0,
-        )
         v.addView(animationView, ViewGroup.LayoutParams(124.dp, 124.dp))
         v.addView(titleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         v.addView(installContainer, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -240,7 +234,10 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             ),
         )
         view.addView(feeLabel, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        view.addView(primaryButton, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+        view.addView(
+            primaryButton,
+            ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_CONSTRAINT, 50.dp)
+        )
 
         view.setConstraints {
             toTop(scrollView)
@@ -248,7 +245,8 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             toBottom(scrollView)
             toCenterX(feeLabel, 16f)
             bottomToTop(feeLabel, primaryButton, 8f)
-            toCenterX(primaryButton, 16f)
+            toStartPx(primaryButton, 16.dp + additionalTabletPadding + systemBarStartInset)
+            toEndPx(primaryButton, 16.dp + systemBarEndInset)
             toBottomPx(primaryButton, buttonsBottomMargin())
             topToTop(
                 bottomReversedCornerViewUpsideDown,
@@ -448,15 +446,23 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
     override fun insetsUpdated() {
         super.insetsUpdated()
         view.setConstraints {
+            toStartPx(primaryButton, 16.dp + additionalTabletPadding + systemBarStartInset)
+            toEndPx(primaryButton, 16.dp + systemBarEndInset)
             toBottomPx(primaryButton, buttonsBottomMargin())
         }
+        scrollingContentView.setPaddingLocalized(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0,
+        )
         applyScrollPadding()
     }
 
     private fun buttonsBottomMargin(): Int {
         return 16.dp + max(
             (navigationController?.getSystemBars()?.bottom ?: 0),
-            (window?.imeInsets?.bottom ?: 0),
+            (navigationController?.imeInsetBottom ?: 0),
         )
     }
 

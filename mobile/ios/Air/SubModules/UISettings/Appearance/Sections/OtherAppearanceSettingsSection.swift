@@ -17,6 +17,7 @@ struct OtherAppearanceSettingsSection: View {
     
     @State private var animationEnabled: Bool = AppStorageHelper.animations
     @State private var seasonalThemingEnabled: Bool = !AppStorageHelper.isSeasonalThemingDisabled
+    @State private var landscapeModeEnabled: Bool = AppStorageHelper.isLandscapeModeEnabled
     
     var body: some View {
         InsetSection {
@@ -42,6 +43,19 @@ struct OtherAppearanceSettingsSection: View {
                 }
                 .frame(minHeight: 44)
             }
+            if AppOrientation.isLandscapeModeSettingAvailable {
+                InsetCell(verticalPadding: 0) {
+                    HStack {
+                        Text(lang("Enable Landscape Mode"))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack {
+                            Toggle(lang("Enable Landscape Mode"), isOn: $landscapeModeEnabled)
+                                .labelsHidden()
+                        }
+                    }
+                    .frame(minHeight: 44)
+                }
+            }
         } header: {
             Text(lang("Other"))
         }
@@ -59,6 +73,15 @@ struct OtherAppearanceSettingsSection: View {
                 let isDisabled = !seasonalThemingEnabled
                 if isDisabled != AppStorageHelper.isSeasonalThemingDisabled {
                     AppStorageHelper.isSeasonalThemingDisabled = isDisabled
+                }
+            } catch {}
+        }
+        .task(id: landscapeModeEnabled) {
+            do {
+                try await Task.sleep(for: .seconds(0.2))
+                if landscapeModeEnabled != AppStorageHelper.isLandscapeModeEnabled {
+                    AppStorageHelper.isLandscapeModeEnabled = landscapeModeEnabled
+                    AppOrientation.updateSupportedInterfaceOrientations()
                 }
             } catch {}
         }

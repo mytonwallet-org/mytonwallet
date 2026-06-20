@@ -33,10 +33,7 @@ final class TokenExpandableChartView: UIView {
     private static let expandedChartMaxHeight = CGFloat(200)
     private static var expandedChartHeight: CGFloat {
         let height = 0.36 * (screenWidth - 32 - 6)
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            return min(height, expandedChartMaxHeight)
-        }
-        return height
+        return min(height, expandedChartMaxHeight)
     }
     static var expandedHeight: CGFloat {
         30 + 16 + 76 + expandedChartHeight

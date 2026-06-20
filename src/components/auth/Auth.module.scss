@@ -137,11 +137,14 @@ $footerPaddingBottomMin: 1rem;
 
 .appName {
   margin: 0 0 1.375rem;
+  font-weight: 400;
+  letter-spacing: 0.3%;
 }
 
 .title {
   flex-shrink: 0;
   margin: 1.375rem 1rem 1.875rem;
+  font-weight: 800;
   text-align: center;
 
   &_afterSmallSticker {
@@ -159,7 +162,6 @@ $footerPaddingBottomMin: 1rem;
 
 .title, .appName {
   font-size: 2rem;
-  font-weight: 800;
   line-height: 2.375rem;
   color: var(--color-black);
 }

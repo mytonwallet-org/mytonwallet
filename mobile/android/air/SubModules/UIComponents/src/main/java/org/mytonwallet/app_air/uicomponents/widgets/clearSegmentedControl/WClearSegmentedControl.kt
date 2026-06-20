@@ -470,9 +470,9 @@ class WClearSegmentedControl(
         })
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-
-                // TODO:: This is a workaround to fix ui glitches; can be improved
-                rvAdapter.updateVisibleCells()
+                if (dx != 0 || dy != 0) {
+                    rvAdapter.updateVisibleCells()
+                }
 
                 updateThumbPositionInternal(
                     position = currentPosition,

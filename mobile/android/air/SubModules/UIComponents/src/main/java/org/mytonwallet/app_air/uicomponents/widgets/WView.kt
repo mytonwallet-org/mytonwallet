@@ -60,14 +60,16 @@ open class WView(
         this.layoutParams = layoutParams
     }
 
-    private var configured = false
+    var configured = false
+        private set
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (configured)
             return
-        configured = true
         setupViews()
         didSetupViews()
+        configured = true
     }
 
     open fun setupViews() {}

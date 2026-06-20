@@ -72,7 +72,17 @@ class ActivityCell(
     private var commentView: FrameLayout? = null
     private var singleTagView: ActivitySingleTagView? = null
 
-    private val recyclerWidth by lazy { parentView.width }
+    private val recyclerWidth: Int
+        get() = parentView.width.takeIf { it > 0 } ?: parentView.parentWidthFallback()
+
+    private fun View.parentWidthFallback(): Int {
+        var v: View? = this
+        while (v != null) {
+            if (v.width > 0) return v.width
+            v = v.parent as? View
+        }
+        return resources.displayMetrics.widthPixels
+    }
     private val bigRadius get() = ViewConstants.BLOCK_RADIUS.dp
 
     var onTap: ((MApiTransaction) -> Unit)? = null

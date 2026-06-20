@@ -276,6 +276,10 @@ class TonConnectRequestSendVC(
                 )
                 return@setOnClickListener
             }
+            update?.let {
+                didAccept = true
+                WalletCore.recordTonConnectEvent(acceptedEventName, it.promiseId)
+            }
             if (AccountStore.activeAccount?.isHardware == true) {
                 confirmHardware()
             } else {
@@ -329,6 +333,16 @@ class TonConnectRequestSendVC(
         this.update = newUpdate
         initializeWithUpdate()
     }
+
+    // True once the user tapped Confirm; prevents onDestroy from reporting `declined` after an accepted
+    // request whose signing/MFA later failed (which would double-fire accepted + declined for one request).
+    private var didAccept = false
+
+    private val acceptedEventName: String
+        get() = if (connectionType == ApiConnectionType.SIGN_DATA) "wallet-sign-data-accepted" else "wallet-transaction-accepted"
+
+    private val declinedEventName: String
+        get() = if (connectionType == ApiConnectionType.SIGN_DATA) "wallet-sign-data-declined" else "wallet-transaction-declined"
 
     private fun showNotResponding() {
         val url = returnUrl
@@ -484,6 +498,9 @@ class TonConnectRequestSendVC(
 
         notRespondingHandler.removeCallbacksAndMessages(null)
         update?.let {
+            if (viewModel?.isConfirmed != true && !didAccept) {
+                WalletCore.recordTonConnectEvent(declinedEventName, it.promiseId)
+            }
             viewModel?.cancel(it.promiseId, null, window!!.lifecycleScope)
         }
     }
@@ -517,8 +534,16 @@ class TonConnectRequestSendVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        val ime = (window?.imeInsets?.bottom ?: 0)
+        val ime = (navigationController?.imeInsetBottom ?: 0)
         val nav = (navigationController?.getSystemBars()?.bottom ?: 0)
+
+        recyclerView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            (navigationController?.getSystemBars()?.top ?: 0) +
+                WNavigationBar.DEFAULT_HEIGHT.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
 
         view.setConstraints {
             toBottomPx(recyclerView, 90.dp + max(ime, nav))

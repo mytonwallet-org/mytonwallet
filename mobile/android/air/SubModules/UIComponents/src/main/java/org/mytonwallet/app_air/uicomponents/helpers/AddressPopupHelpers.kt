@@ -158,7 +158,7 @@ class AddressPopupHelpers {
                                     isTrusted = false,
                                     hasSeparator = true,
                                     onSelect = {
-                                        WalletContextManager.delegate?.openASingleWallet(
+                                        WalletContextManager.delegate?.get()?.openASingleWallet(
                                             network,
                                             mapOf(blockchain.name to address),
                                             title?.toString()

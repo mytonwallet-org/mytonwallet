@@ -69,7 +69,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     override val shouldDisplayTopBar = false
     override val topBarConfiguration: ReversedCornerView.Config
         get() = super.topBarConfiguration.copy(blurRootView = scrollView)
-    override val shouldDisplayBottomBar = true
+    override val shouldDisplayBottomBar: Boolean
+        get() = !isInCenteredWindow
     override val ignoreSideGuttering = true
 
     enum class WalletCategory(val value: String) {
@@ -144,9 +145,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             val vc = WalletsVC(
                 context,
                 tab,
-                window!!.windowView.width,
-                navigationController?.getSystemBars()?.top ?: 0,
-                navigationController?.getSystemBars()?.bottom ?: 0
+                window!!.windowView.width
             ).apply {
                 onAccountsReordered = { accounts ->
                     WGlobalStorage.setOrderedAccountIds(JSONArray(accounts.map { it.accountId }))
@@ -228,26 +227,27 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     val walletCategory = selectedCategory
                     val vc = when (walletCategory) {
                         WalletCategory.MY, WalletCategory.ALL -> {
-                            WalletContextManager.delegate?.getAddAccountVC(MBlockchainNetwork.MAINNET)
+                            WalletContextManager.delegate?.get()
+                                ?.getAddAccountVC(MBlockchainNetwork.MAINNET)
                         }
 
                         WalletCategory.LEDGER -> {
-                            WalletContextManager.delegate?.getImportLedgerVC(MBlockchainNetwork.MAINNET)
+                            WalletContextManager.delegate?.get()
+                                ?.getImportLedgerVC(MBlockchainNetwork.MAINNET)
                         }
 
                         WalletCategory.VIEW -> {
-                            WalletContextManager.delegate?.getAddViewAccountVC(MBlockchainNetwork.MAINNET)
+                            WalletContextManager.delegate?.get()
+                                ?.getAddViewAccountVC(MBlockchainNetwork.MAINNET)
                         }
-                    } as WViewController
+                    } as? WViewController ?: return@setOnClickListener
                     val nav = WNavigationController(
                         window!!,
                         if (walletCategory == WalletCategory.LEDGER)
                             WNavigationController.PresentationConfig()
                         else
                             WNavigationController.PresentationConfig(
-                                overFullScreen = false,
-                                isBottomSheet = true,
-                                aboveKeyboard = false
+                                style = WNavigationController.PresentationStyle.BottomSheet
                             )
                     ).apply {
                         setRoot(vc)
@@ -286,24 +286,15 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         navigationBar?.addCloseButton(trailingMarginDp = 8f)
         navigationBar?.addLeadingView(listButton)
 
-        view.addView(
-            scrollView,
-            LayoutParams(
-                MATCH_PARENT,
-                window!!.windowView.height
-            )
-        )
+        view.addView(scrollView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(addNewWalletButton, ViewGroup.LayoutParams(MATCH_CONSTRAINT, 50.dp))
         view.addView(titleLinearLayout, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.setConstraints {
-            toBottom(scrollView)
             toCenterX(titleLinearLayout)
             toTop(titleLinearLayout, 16.5f)
             toCenterX(addNewWalletButton, 20f)
-            toBottomPx(
-                addNewWalletButton, 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
-            )
         }
+        applyLayoutForCurrentMode()
         switchViewMode(defaultMode)
 
         WalletCore.registerObserver(this)
@@ -318,14 +309,16 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         }
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
+        super.onSizeChanged(w, h, oldW, oldH)
+        if (w != oldW)
+            walletsViewControllers.forEach { it.setLayoutWidth(w) }
+    }
+
     override fun didSetupViews() {
         super.didSetupViews()
         bottomReversedCornerView?.updateLayoutParams {
-            height = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
-                ViewConstants.GAP.dp +
-                50.dp +
-                16.dp +
-                (navigationController?.getSystemBars()?.bottom ?: 0)
+            height = bottomCornerHeight()
         }
         walletsViewControllers.forEach {
             it.parentTopReversedCornerView = WeakReference(segmentedController.reversedCornerView)
@@ -344,10 +337,58 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         }
     }
 
+    private fun applyLayoutForCurrentMode() {
+        if (scrollView.layoutParams == null) return
+        val centered = isInCenteredWindow
+        scrollView.updateLayoutParams {
+            height = if (centered) MATCH_CONSTRAINT else window!!.windowView.height
+        }
+        view.setConstraints {
+            toBottom(scrollView)
+            if (centered) {
+                toTop(scrollView)
+                toBottomPx(addNewWalletButton, 16.dp)
+            } else {
+                clear(scrollView.id, androidx.constraintlayout.widget.ConstraintSet.TOP)
+            }
+        }
+        if (centered) {
+            titleLinearLayout.translationY = 0f
+            navigationBar?.translationY = 0f
+            addNewWalletButton.translationY = 0f
+            if (scrollView.paddingTop != 0) scrollView.setPadding(0, 0, 0, 0)
+        }
+    }
+
     override fun insetsUpdated() {
         super.insetsUpdated()
-        walletsViewControllers.firstOrNull()?.insetsUpdated()
+        segmentedController.insetsUpdated()
+        walletsViewControllers.forEach { it.insetsUpdated() }
+        bottomReversedCornerView?.let { corner ->
+            corner.updateLayoutParams { height = bottomCornerHeight() }
+            corner.isGone = walletsViewControllers.firstOrNull()?.viewMode == MWalletSettingsViewMode.LIST
+            walletsViewControllers.forEach {
+                it.parentBottomReversedCornerView = WeakReference(corner)
+            }
+            corner.bringToFront()
+            addNewWalletButton.bringToFront()
+        }
+        applyLayoutForCurrentMode()
+        if (!isInCenteredWindow) {
+            view.setConstraints {
+                toBottomPx(
+                    addNewWalletButton, 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                )
+            }
+        }
     }
+
+    private fun bottomCornerHeight(): Int =
+        ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
+            ViewConstants.GAP.dp +
+            50.dp +
+            16.dp +
+            (navigationController?.getSystemBars()?.bottom ?: 0)
 
     override fun onDestroy() {
         super.onDestroy()

@@ -15,6 +15,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintSet
+import androidx.constraintlayout.widget.Guideline
 import androidx.core.animation.doOnEnd
 import androidx.core.view.children
 import androidx.fragment.app.FragmentActivity
@@ -25,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -68,7 +70,8 @@ class PasscodeScreenView(
 
     private val showAnimation = WGlobalStorage.getAreAnimationsActive() &&
         passcodeViewState is PasscodeViewState.Default &&
-        passcodeViewState.animated
+        passcodeViewState.animated &&
+        containerVC.window?.isWideLayout != true
 
     private val subtitle = when (passcodeViewState) {
         is PasscodeViewState.Default -> {
@@ -160,6 +163,13 @@ class PasscodeScreenView(
         gravity = Gravity.CENTER
     }
     private val bottomLayout = WView(context)
+    private val centerGuideline = Guideline(context).apply {
+        id = generateViewId()
+        layoutParams = LayoutParams(
+            WRAP_CONTENT,
+            WRAP_CONTENT
+        ).apply { orientation = LayoutParams.VERTICAL }
+    }
 
     private var isConfigured = false
     override fun onAttachedToWindow() {
@@ -220,38 +230,127 @@ class PasscodeScreenView(
 
         titleTextView.text = defaultState.title
 
-        val showNavBar = defaultState.showNavBar
-        val topInset = if (!showNavBar) {
-            containerVC.navigationController?.getSystemBars()?.top ?: 0
-        } else {
-            0
-        }
-
-        val parentHeight = (containerVC.navigationController?.parent as? ViewGroup)?.height ?: 0
-        val scaleFactor =
-            if (parentHeight <= 2280) 0.2f + max(0, parentHeight - 1280) / 1000 else 1f
-
-        val topImageMargin = (16.dp * scaleFactor).roundToInt() + topInset
-        val titleMarginTop = (30.dp * scaleFactor).roundToInt()
-        val inputMarginTop = (28.dp * scaleFactor).roundToInt()
-
         topLinearLayout.apply {
             addView(
                 topImageView,
                 LinearLayout.LayoutParams(48.dp, 48.dp).apply {
                     gravity = Gravity.CENTER
-                    topMargin = topImageMargin
                 }
             )
             addView(
                 titleTextView,
                 LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     leftMargin = 20.dp
-                    topMargin = titleMarginTop
+                    topMargin = (30.dp * defaultScaleFactor()).roundToInt()
                     rightMargin = 20.dp
                 }
             )
-            addView(
+        }
+
+        bottomLayout.addView(passcodeKeyboardView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
+        applyDefaultLayout()
+    }
+
+    // Layout metrics are derived from the current insets / parent height, so they
+    // are recomputed on demand (also keeps them correct across rotation).
+    private fun defaultTopInset() =
+        if ((passcodeViewState as PasscodeViewState.Default).showNavBar) 0
+        else containerVC.navigationController?.getSystemBars()?.top ?: 0
+
+    private fun defaultScaleFactor(): Float {
+        val parentHeight = (containerVC.navigationController?.parent as? ViewGroup)?.height ?: 0
+        return if (parentHeight <= 2280) 0.2f + max(0, parentHeight - 1280) / 1000 else 1f
+    }
+
+    private var isWideDefaultLayout: Boolean? = null
+
+    private fun applyDefaultLayout() {
+        val isWide = containerVC.window?.isWideLayout == true
+        if (isWideDefaultLayout == isWide)
+            return
+        isWideDefaultLayout = isWide
+
+        val defaultState = passcodeViewState as PasscodeViewState.Default
+        val scaleFactor = defaultScaleFactor()
+        val imageMargin = (16.dp * scaleFactor).roundToInt()
+        val inputMarginTop = (28.dp * scaleFactor).roundToInt()
+
+        if (isWide) {
+            // Wide screens: header on the left, passcode input + pinpad on the right.
+            if (defaultState.isUnlockScreen)
+                titleTextView.text = LocaleController.getString("Locked")
+            val bottomInset =
+                4.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
+            // No status-bar top inset here, so the header column stays vertically
+            // centered instead of being pushed down.
+            (topImageView.layoutParams as LinearLayout.LayoutParams).topMargin =
+                imageMargin
+            passcodeKeyboardView.setPadding(0, 0, 0, 0)
+            setPaddingLocalized(horizontalStartPadding, 0, horizontalEndPadding, bottomInset)
+            topLinearLayout.layoutParams =
+                LayoutParams(0, WRAP_CONTENT)
+            bottomLayout.layoutParams =
+                LayoutParams(0, WRAP_CONTENT)
+            // Move the subtitle ("Enter passcode") and the passcode input out of
+            // the header column and place them above the pinpad in the right column.
+            (subTitleTextView.parent as? ViewGroup)?.removeView(subTitleTextView)
+            (passcodeInputView.parent as? ViewGroup)?.removeView(passcodeInputView)
+            bottomLayout.addView(
+                subTitleTextView,
+                LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            )
+            bottomLayout.addView(
+                passcodeInputView,
+                LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+            )
+            if (centerGuideline.parent == null)
+                addView(centerGuideline)
+            bottomLayout.setConstraints {
+                constrainedHeight(passcodeKeyboardView.id, true)
+                setVerticalBias(subTitleTextView.id, 0f)
+                setVerticalBias(passcodeInputView.id, 0f)
+                setVerticalBias(passcodeKeyboardView.id, 1f)
+                toTop(subTitleTextView, 24f)
+                topToBottom(passcodeInputView, subTitleTextView, 16.5f)
+                toCenterX(passcodeInputView)
+                topToBottom(passcodeKeyboardView, passcodeInputView, 32f)
+                toBottom(passcodeKeyboardView)
+            }
+            setConstraints {
+                guidelinePercent(centerGuideline, 0.5f)
+                // Header column (left)
+                toStart(topLinearLayout)
+                endToStart(topLinearLayout, centerGuideline)
+                toTop(topLinearLayout)
+                toBottom(topLinearLayout, 40f)
+                // Input + pinpad column (right)
+                startToEnd(bottomLayout, centerGuideline)
+                toEnd(bottomLayout)
+                toTop(bottomLayout)
+                toBottom(bottomLayout)
+            }
+        } else {
+            // Phone / narrow: original layout, unchanged.
+            titleTextView.text = defaultState.title
+            (topImageView.layoutParams as LinearLayout.LayoutParams).topMargin =
+                imageMargin + defaultTopInset()
+            setPaddingLocalized(horizontalStartPadding, 0, horizontalEndPadding, 0)
+            passcodeKeyboardView.setPadding(
+                0,
+                0,
+                0,
+                4.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
+            )
+            topLinearLayout.layoutParams =
+                LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            bottomLayout.layoutParams =
+                LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            // Restore the subtitle and passcode input back into the header column
+            // (after the title, as the last two children).
+            (subTitleTextView.parent as? ViewGroup)?.removeView(subTitleTextView)
+            (passcodeInputView.parent as? ViewGroup)?.removeView(passcodeInputView)
+            topLinearLayout.addView(
                 subTitleTextView,
                 LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     topMargin = 14.dp
@@ -259,7 +358,7 @@ class PasscodeScreenView(
                     rightMargin = 20.dp
                 }
             )
-            addView(
+            topLinearLayout.addView(
                 passcodeInputView,
                 LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     gravity = Gravity.CENTER
@@ -267,23 +366,40 @@ class PasscodeScreenView(
                     bottomMargin = 12.dp
                 }
             )
+            if (centerGuideline.parent != null)
+                removeView(centerGuideline)
+            setConstraints {
+                toTop(gapView1)
+                topToBottom(topLinearLayout, gapView1)
+                topToBottom(gapView2, topLinearLayout)
+                topToBottom(bottomLayout, gapView2)
+                toBottom(bottomLayout)
+                createVerticalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.TOP,
+                    ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
+                    intArrayOf(gapView1.id, topLinearLayout.id, gapView2.id, bottomLayout.id),
+                    null,
+                    ConstraintSet.CHAIN_PACKED
+                )
+            }
         }
+    }
 
-        bottomLayout.addView(passcodeKeyboardView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    private val horizontalStartPadding: Int
+        get() = ViewConstants.HORIZONTAL_PADDINGS.dp +
+            containerVC.additionalTabletPadding +
+            containerVC.systemBarStartInset
+    private val horizontalEndPadding: Int
+        get() = ViewConstants.HORIZONTAL_PADDINGS.dp + containerVC.systemBarEndInset
 
-        setConstraints {
-            toTop(gapView1)
-            topToBottom(topLinearLayout, gapView1)
-            topToBottom(gapView2, topLinearLayout)
-            topToBottom(bottomLayout, gapView2)
-            toBottom(bottomLayout)
-            createVerticalChain(
-                ConstraintSet.PARENT_ID, ConstraintSet.TOP,
-                ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
-                intArrayOf(gapView1.id, topLinearLayout.id, gapView2.id, bottomLayout.id),
-                null,
-                ConstraintSet.CHAIN_PACKED
-            )
+    // Re-pick the wide/narrow layout, e.g. after a tablet rotation. No-op if
+    // the layout mode hasn't changed or the view isn't configured yet.
+    fun relayoutForConfigurationChange() {
+        if (!isConfigured)
+            return
+        when (passcodeViewState) {
+            is PasscodeViewState.Default -> applyDefaultLayout()
+            is PasscodeViewState.CustomHeader -> applyCustomHeaderLayout()
         }
     }
 
@@ -298,34 +414,106 @@ class PasscodeScreenView(
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
         bottomLayout.addView(passcodeKeyboardView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        bottomLayout.setConstraints {
-            constrainedHeight(passcodeKeyboardView.id, true)
-            setVerticalBias(subTitleTextView.id, 0f)
-            setVerticalBias(passcodeInputView.id, 0f)
-            setVerticalBias(passcodeKeyboardView.id, 1f)
-            toTop(subTitleTextView, 24f)
-            topToBottom(passcodeInputView, subTitleTextView, 16.5f)
-            toCenterX(passcodeInputView)
-            topToBottom(passcodeKeyboardView, passcodeInputView, 12f)
-            toBottom(passcodeKeyboardView)
+        applyCustomHeaderLayout()
+    }
+
+    private fun applyCustomHeaderBottomConstraints(isWide: Boolean) {
+        if (isWide) {
+            bottomLayout.setConstraints {
+                constrainedHeight(passcodeKeyboardView.id, true)
+                topToBottom(passcodeInputView, subTitleTextView, 16.5f)
+                toCenterX(passcodeInputView)
+                topToBottom(passcodeKeyboardView, passcodeInputView, 32f)
+                createVerticalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.TOP,
+                    ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
+                    intArrayOf(subTitleTextView.id, passcodeInputView.id, passcodeKeyboardView.id),
+                    null,
+                    ConstraintSet.CHAIN_PACKED
+                )
+            }
+        } else {
+            bottomLayout.setConstraints {
+                constrainedHeight(passcodeKeyboardView.id, true)
+                setVerticalBias(subTitleTextView.id, 0f)
+                setVerticalBias(passcodeInputView.id, 0f)
+                setVerticalBias(passcodeKeyboardView.id, 1f)
+                toTop(subTitleTextView, 24f)
+                topToBottom(passcodeInputView, subTitleTextView, 16.5f)
+                toCenterX(passcodeInputView)
+                topToBottom(passcodeKeyboardView, passcodeInputView, 12f)
+                toBottom(passcodeKeyboardView)
+            }
         }
-        setConstraints {
-            constrainMaxHeight(
-                topLinearLayout.id,
-                ((containerVC.navigationController!!.parent as View).height * TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
-            )
-            toTop(topLinearLayout)
-            topToBottom(gapView2, topLinearLayout)
-            topToBottom(bottomLayout, gapView2)
-            toBottom(bottomLayout)
-            createVerticalChain(
-                ConstraintSet.PARENT_ID, ConstraintSet.TOP,
-                ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
-                intArrayOf(topLinearLayout.id, gapView2.id, bottomLayout.id),
-                null,
-                ConstraintSet.CHAIN_SPREAD_INSIDE
-            )
+    }
+
+    private var isWideCustomHeaderLayout: Boolean? = null
+
+    private fun applyCustomHeaderLayout() {
+        val isWide = containerVC.window?.isWideLayout == true
+        if (isWideCustomHeaderLayout == isWide)
+            return
+        isWideCustomHeaderLayout = isWide
+
+        if (isWide) {
+            // Wide screens: custom header on the left, input + pinpad on the right.
+            (gapView2.layoutParams as? LayoutParams)?.let {
+                it.width = ViewConstants.GAP.dp
+                it.height = 0
+            }
+            topLinearLayout.layoutParams = LayoutParams(0, WRAP_CONTENT)
+            bottomLayout.layoutParams = LayoutParams(0, MATCH_PARENT)
+            if (centerGuideline.parent == null)
+                addView(centerGuideline)
+            setConstraints {
+                constrainMaxHeight(topLinearLayout.id, Int.MAX_VALUE)
+                guidelinePercent(centerGuideline, 0.5f)
+                // Header column (left)
+                toStart(topLinearLayout)
+                endToStart(topLinearLayout, gapView2)
+                toTop(topLinearLayout)
+                toBottom(topLinearLayout, 40f)
+                // Gap between columns
+                startToEnd(gapView2, centerGuideline)
+                centerYToCenterY(gapView2, topLinearLayout)
+                // Input + pinpad column (right)
+                startToEnd(bottomLayout, centerGuideline)
+                toEnd(bottomLayout)
+                toTop(bottomLayout)
+                toBottom(bottomLayout)
+            }
+            applyCustomHeaderBottomConstraints(isWide = true)
+        } else {
+            (gapView2.layoutParams as? LayoutParams)?.let {
+                it.width = WRAP_CONTENT
+                it.height = ViewConstants.GAP.dp
+            }
+            topLinearLayout.layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            bottomLayout.layoutParams = LayoutParams(MATCH_PARENT, 0)
+            if (centerGuideline.parent != null)
+                removeView(centerGuideline)
+            setConstraints {
+                val parentHeight = (containerVC.navigationController?.parent as? View)?.height ?: 0
+                if (parentHeight > 0)
+                    constrainMaxHeight(
+                        topLinearLayout.id,
+                        (parentHeight * TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
+                    )
+                toTop(topLinearLayout)
+                topToBottom(gapView2, topLinearLayout)
+                topToBottom(bottomLayout, gapView2)
+                toBottom(bottomLayout)
+                createVerticalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.TOP,
+                    ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
+                    intArrayOf(topLinearLayout.id, gapView2.id, bottomLayout.id),
+                    null,
+                    ConstraintSet.CHAIN_SPREAD_INSIDE
+                )
+            }
+            applyCustomHeaderBottomConstraints(isWide = false)
         }
+        updateTheme()
     }
 
     private fun animateViews() {
@@ -370,18 +558,15 @@ class PasscodeScreenView(
 
     override fun updateTheme() {
         if (passcodeViewState !is PasscodeViewState.Default) {
-            topLinearLayout.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.TOOLBAR_RADIUS.dp,
-                ViewConstants.BLOCK_RADIUS.dp,
-            )
-            bottomLayout.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.BLOCK_RADIUS.dp,
-                ViewConstants.TOOLBAR_RADIUS.dp
-            )
-        } else if (!passcodeViewState.showMotionBackgroundDrawable) {
-            containerVC.view.setBackgroundColor(WColor.Background.color)
+            if (isWideCustomHeaderLayout == true) {
+                bottomLayout.background = null
+            } else {
+                bottomLayout.setBackgroundColor(
+                    WColor.Background.color,
+                    ViewConstants.BLOCK_RADIUS.dp,
+                    ViewConstants.TOOLBAR_RADIUS.dp
+                )
+            }
         }
         if (passcodeViewState is PasscodeViewState.Default) {
             val color =

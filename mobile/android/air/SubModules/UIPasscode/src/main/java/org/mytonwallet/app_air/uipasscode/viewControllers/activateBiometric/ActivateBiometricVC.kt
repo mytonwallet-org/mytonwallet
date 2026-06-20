@@ -10,6 +10,7 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -114,15 +115,31 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
                     (navigationController?.getSystemBars()?.top ?: 0)
             )
             toCenterX(headerView)
+            constrainMaxWidth(headerView.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp)
             topToTop(greenParticlesView, headerView, -59f)
             toCenterX(greenParticlesView)
+            constrainMaxWidth(greenParticlesView.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp)
             toBottomPx(skipButton, 32.dp + (navigationController?.getSystemBars()?.bottom ?: 0))
             toCenterX(skipButton, 32f)
+            constrainMaxWidth(skipButton.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp)
             bottomToTop(connectButton, skipButton, 16f)
             toCenterX(connectButton, 32f)
+            constrainMaxWidth(connectButton.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp)
         }
 
         updateTheme()
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        view.setConstraints {
+            toTopPx(
+                headerView,
+                WNavigationBar.DEFAULT_HEIGHT.dp +
+                    (navigationController?.getSystemBars()?.top ?: 0)
+            )
+            toBottomPx(skipButton, 32.dp + (navigationController?.getSystemBars()?.bottom ?: 0))
+        }
     }
 
     override fun updateTheme() {

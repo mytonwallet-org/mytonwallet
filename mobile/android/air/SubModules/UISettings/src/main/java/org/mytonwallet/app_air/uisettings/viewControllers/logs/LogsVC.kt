@@ -10,6 +10,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -40,7 +43,6 @@ class LogsVC(context: Context) : WViewController(context) {
             this.adapter = this@LogsVC.adapter
             setHasFixedSize(false)
             clipToPadding = false
-            setPadding(12.dp, 12.dp, 12.dp, 12.dp)
             overScrollMode = RecyclerView.OVER_SCROLL_ALWAYS
         }
     }
@@ -51,13 +53,11 @@ class LogsVC(context: Context) : WViewController(context) {
         setNavTitle("Logs")
         setupNavBar(true)
 
-        view.addView(recyclerView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
+        view.addView(recyclerView, ConstraintLayout.LayoutParams(0, 0))
         view.setConstraints {
-            topToBottom(recyclerView, navigationBar!!)
-            toCenterX(recyclerView)
-            toBottom(recyclerView)
+            allEdges(recyclerView)
         }
-        applyBottomInset()
+        navigationBar?.bringToFront()
 
         loadLogs()
         updateTheme()
@@ -65,12 +65,13 @@ class LogsVC(context: Context) : WViewController(context) {
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        applyBottomInset()
-    }
-
-    private fun applyBottomInset() {
-        val bottom = navigationController?.bottomInset ?: 0
-        recyclerView.setPadding(12.dp, 12.dp, 12.dp, 12.dp + bottom)
+        recyclerView.setPaddingLocalized(
+            12.dp + additionalTabletPadding + systemBarStartInset,
+            WNavigationBar.DEFAULT_HEIGHT.dp +
+                (navigationController?.getSystemBars()?.top ?: 0),
+            12.dp + systemBarEndInset,
+            12.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+        )
     }
 
     private fun loadLogs() {
@@ -88,7 +89,11 @@ class LogsVC(context: Context) : WViewController(context) {
     @SuppressLint("NotifyDataSetChanged")
     override fun updateTheme() {
         super.updateTheme()
-        view.setBackgroundColor(WColor.Background.color)
+        if (isSplitDetailPanel)
+            view.background =
+                TabletEdgeFadeDrawable(WColor.Background.color, dimWhenWide = false)
+        else
+            view.setBackgroundColor(WColor.Background.color)
         adapter.notifyDataSetChanged()
     }
 

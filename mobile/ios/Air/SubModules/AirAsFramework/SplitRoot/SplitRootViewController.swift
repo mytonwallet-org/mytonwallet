@@ -127,9 +127,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         presentsWithGesture = true
         minimumPrimaryColumnWidth = 300
         maximumPrimaryColumnWidth = 420
-        let screenSize = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
-        let isMini = screenSize < 1150
-        preferredPrimaryColumnWidthFraction = isMini ? 0.34 : 0.29
+        updatePrimaryColumnWidthFraction()
 
         setViewController(sidebarNavigationController, for: .primary)
         setViewController(homeNavigationController, for: .secondary)
@@ -153,7 +151,18 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        updatePrimaryColumnWidthFraction()
         updateSidebarEdgeCoverFrames()
+    }
+
+    private func updatePrimaryColumnWidthFraction() {
+        let resolvedBounds = view.bounds.isEmpty
+            ? (view.window?.bounds ?? UIApplication.shared.anySceneKeyWindow?.bounds ?? .zero)
+            : view.bounds
+        let maxDimension = max(resolvedBounds.width, resolvedBounds.height)
+        guard maxDimension > 0 else { return }
+        let isMini = maxDimension < 1150
+        preferredPrimaryColumnWidthFraction = isMini ? 0.34 : 0.29
     }
 
     func select(tab: SplitRootTab, popToRoot: Bool = false) {

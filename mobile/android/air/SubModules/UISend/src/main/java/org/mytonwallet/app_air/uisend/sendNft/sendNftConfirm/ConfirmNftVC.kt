@@ -90,6 +90,8 @@ class ConfirmNftVC(
     private val firstNft = nfts.first()
     private val chain = firstNft.chain ?: MBlockchain.ton
 
+    override val shouldDisplayBottomBar = false
+
     private companion object {
         const val NFT_BATCH_SIZE = 4
         const val BURN_CHUNK_DURATION_APPROX_SEC = 30
@@ -376,10 +378,11 @@ class ConfirmNftVC(
             toBottomPx(
                 confirmButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
-            toCenterX(confirmButton, 20f)
+            toStartPx(confirmButton, 20.dp + systemBarStartInset)
+            toEndPx(confirmButton, 20.dp + systemBarEndInset)
         }
 
         confirmButton.setOnClickListener {
@@ -504,11 +507,19 @@ class ConfirmNftVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        contentView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         view.setConstraints {
+            toStartPx(confirmButton, 20.dp + systemBarStartInset)
+            toEndPx(confirmButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 confirmButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }
@@ -672,9 +683,9 @@ class ConfirmNftVC(
                                         requestHash = hash,
                                         chip = org.mytonwallet.app_air.uicomponents
                                             .viewControllers.MfaActionConfirmVC.Chip(
-                                            leading = null,
-                                            text = chipText,
-                                        ),
+                                                leading = null,
+                                                text = chipText,
+                                            ),
                                     )
                                 navigationController?.push(mfaVC, onCompletion = {
                                     navigationController?.removePrevViewControllerOnly()

@@ -5,7 +5,10 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Region
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -31,20 +34,26 @@ class PillShadowView(context: Context) : View(context), WThemedView {
         private val PAD_DP = 6f
 
         /**
-         * Attach a pill shadow to [target] as a sibling directly below it.
+         * Attach a pill shadow to [target]. By default it is inserted directly
+         * below [target] in z-order. Pass [drawInFront] = true to insert it above
+         * [target] instead; the rounded interior is then punched out so only the
+         * halo paints, letting the shadow show over an opaque target (e.g. an edge
+         * that is otherwise occluded by the target's own body).
          * The caller owns updates: invoke [sync] whenever [target]'s bounds,
          * translation, alpha, or visibility change.
          */
-        fun attachTo(target: View, cornerRadius: Float): PillShadowView {
+        fun attachTo(target: View, cornerRadius: Float, drawInFront: Boolean = false): PillShadowView {
             val parent = target.parent as? ViewGroup
                 ?: throw IllegalStateException("target must be attached to a ViewGroup")
             val shadow = PillShadowView(target.context)
             shadow.cornerRadius = cornerRadius
+            shadow.drawInFront = drawInFront
             shadow.target = target
             val targetIndex = parent.indexOfChild(target)
+            val insertIndex = if (drawInFront) targetIndex + 1 else targetIndex
             parent.addView(
                 shadow,
-                targetIndex.coerceAtLeast(0),
+                insertIndex.coerceAtLeast(0),
                 if (target.layoutParams != null)
                     ViewGroup.LayoutParams(target.layoutParams)
                 else
@@ -61,10 +70,33 @@ class PillShadowView(context: Context) : View(context), WThemedView {
     }
     private val rect = RectF()
     private var cornerRadius: Float = 0f
+    private var bottomCornerRadiusOverride: Float? = null
+    private var bottomInset: Float = 0f
+    private var drawInFront = false
     private var hasTarget = false
+
+    private val shadowPath = Path()
+    private val strokePath = Path()
+    private val punchOutPath = Path()
+
+    private val bottomCornerRadius: Float
+        get() = bottomCornerRadiusOverride ?: cornerRadius
 
     private var target: View? = null
     private val pad = PAD_DP.dp
+
+    fun setBottomCornerRadius(radius: Float?) {
+        if (bottomCornerRadiusOverride == radius) return
+        bottomCornerRadiusOverride = radius
+        invalidate()
+    }
+
+    fun setBottomInset(inset: Float) {
+        if (bottomInset == inset) return
+        bottomInset = inset
+        sync()
+        invalidate()
+    }
 
     init {
         id = generateViewId()
@@ -116,7 +148,7 @@ class PillShadowView(context: Context) : View(context), WThemedView {
         val left = pad
         val top = pad
         val right = pad + w
-        val bottom = pad + h
+        val bottom = pad + h - bottomInset
         if (rect.left != left || rect.top != top ||
             rect.right != right || rect.bottom != bottom || !hasTarget
         ) {
@@ -158,36 +190,71 @@ class PillShadowView(context: Context) : View(context), WThemedView {
     override fun onDraw(canvas: Canvas) {
         if (!hasTarget || rect.isEmpty) return
 
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, shadowPaint)
+        val topRadius = cornerRadius
+        val bottomRadius = bottomCornerRadius
+
+        shadowPath.reset()
+        shadowPath.addRoundRect(rect, cornerRadii(topRadius, bottomRadius), Path.Direction.CW)
+        if (drawInFront) {
+            val inset = strokePaint.strokeWidth
+            punchOutPath.reset()
+            punchOutPath.addRoundRect(
+                rect.left + inset, rect.top + inset,
+                rect.right - inset, rect.bottom - inset,
+                cornerRadii(
+                    (topRadius - inset).coerceAtLeast(0f),
+                    (bottomRadius - inset).coerceAtLeast(0f)
+                ),
+                Path.Direction.CW
+            )
+            canvas.save()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                canvas.clipOutPath(punchOutPath)
+            else
+                @Suppress("DEPRECATION")
+                canvas.clipPath(punchOutPath, Region.Op.DIFFERENCE)
+            canvas.drawPath(shadowPath, shadowPaint)
+            canvas.restore()
+        } else {
+            canvas.drawPath(shadowPath, shadowPaint)
+        }
 
         val isDark = ThemeManager.isDark
         val strokeHalf = strokePaint.strokeWidth / 2f
-        val innerRadius = (cornerRadius - strokeHalf).coerceAtLeast(0f)
+        val innerTop = (topRadius - strokeHalf).coerceAtLeast(0f)
+        val innerBottom = (bottomRadius - strokeHalf).coerceAtLeast(0f)
+
+        strokePath.reset()
+        strokePath.addRoundRect(
+            rect.left + strokeHalf, rect.top + strokeHalf,
+            rect.right - strokeHalf, rect.bottom - strokeHalf,
+            cornerRadii(innerTop, innerBottom), Path.Direction.CW
+        )
 
         val topColor = if (isDark) STROKE_TOP_COLOR_DARK else STROKE_TOP_COLOR_LIGHT
-        if (Color.alpha(topColor) > 0) {
+        if (Color.alpha(topColor) > 0 && topRadius > 0f) {
             strokePaint.color = topColor
-            canvas.withClip(rect.left, rect.top, rect.right, rect.top + cornerRadius) {
-                canvas.drawRoundRect(
-                    rect.left + strokeHalf, rect.top + strokeHalf,
-                    rect.right - strokeHalf, rect.bottom - strokeHalf,
-                    innerRadius, innerRadius,
-                    strokePaint
-                )
+            canvas.withClip(rect.left, rect.top, rect.right, rect.top + topRadius) {
+                canvas.drawPath(strokePath, strokePaint)
             }
         }
 
         val bottomColor = if (isDark) STROKE_BOTTOM_COLOR_DARK else STROKE_BOTTOM_COLOR_LIGHT
-        if (Color.alpha(bottomColor) > 0) {
+        if (Color.alpha(bottomColor) > 0 && bottomRadius > 0f) {
             strokePaint.color = bottomColor
-            canvas.withClip(rect.left, rect.bottom - cornerRadius, rect.right, rect.bottom) {
-                canvas.drawRoundRect(
-                    rect.left + strokeHalf, rect.top + strokeHalf,
-                    rect.right - strokeHalf, rect.bottom - strokeHalf,
-                    innerRadius, innerRadius,
-                    strokePaint
-                )
+            canvas.withClip(rect.left, rect.bottom - bottomRadius, rect.right, rect.bottom) {
+                canvas.drawPath(strokePath, strokePaint)
             }
         }
+    }
+
+    private val radiiBuffer = FloatArray(8)
+
+    private fun cornerRadii(topRadius: Float, bottomRadius: Float): FloatArray {
+        radiiBuffer[0] = topRadius; radiiBuffer[1] = topRadius   // top-left
+        radiiBuffer[2] = topRadius; radiiBuffer[3] = topRadius   // top-right
+        radiiBuffer[4] = bottomRadius; radiiBuffer[5] = bottomRadius // bottom-right
+        radiiBuffer[6] = bottomRadius; radiiBuffer[7] = bottomRadius // bottom-left
+        return radiiBuffer
     }
 }

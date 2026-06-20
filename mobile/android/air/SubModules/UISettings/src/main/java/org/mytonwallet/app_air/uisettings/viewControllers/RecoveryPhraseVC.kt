@@ -15,10 +15,13 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.WordListView
+import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -54,6 +57,8 @@ open class RecoveryPhraseVC(
 ) :
     WViewController(context) {
     override val TAG = "RecoveryPhrase"
+
+    override val isContentWidthCapped = true
 
     override val protectFromScreenRecord = true
     override val shouldDisplayBottomBar = true
@@ -182,7 +187,7 @@ open class RecoveryPhraseVC(
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
         v.addView(animationView, ConstraintLayout.LayoutParams(132.dp, 132.dp))
         v.addView(subtitleLabel, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-        v.addView(warningLabel, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+        v.addView(warningLabel, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(copyToClipboardButton, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(wordsView, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(letsCheckButton, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -196,6 +201,7 @@ open class RecoveryPhraseVC(
             toCenterX(animationView)
             topToBottom(subtitleLabel, animationView, 37f)
             toCenterX(subtitleLabel, 44f)
+            constrainedWidth(warningLabel.id, true)
             topToBottom(warningLabel, subtitleLabel, 23f)
             toCenterX(warningLabel, 24f)
             topToBottom(copyToClipboardButton, warningLabel, 34f)
@@ -207,15 +213,9 @@ open class RecoveryPhraseVC(
             if (skipAvailable) {
                 topToBottom(skipButton, letsCheckButton, if (isShowingPrivateKey) 40f else 16f)
                 toCenterX(skipButton, 48f)
-                toBottomPx(
-                    skipButton,
-                    16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
-                )
+                toBottom(skipButton)
             } else {
-                toBottomPx(
-                    letsCheckButton,
-                    16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
-                )
+                toBottom(letsCheckButton)
             }
         }
         v
@@ -240,7 +240,12 @@ open class RecoveryPhraseVC(
         setTopBlur(visible = false, animated = false)
 
         scrollView.alpha = 0f
-        view.addView(scrollView, ConstraintLayout.LayoutParams(0, 0))
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(0, 0).apply {
+                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+            }
+        )
         view.setConstraints {
             allEdges(scrollView)
         }
@@ -265,8 +270,29 @@ open class RecoveryPhraseVC(
 
     override fun updateTheme() {
         super.updateTheme()
-        view.setBackgroundColor(WColor.Background.color)
+        if (isSplitDetailPanel)
+            view.background =
+                TabletEdgeFadeDrawable(WColor.Background.color, dimWhenWide = false)
+        else
+            view.setBackgroundColor(WColor.Background.color)
         warningLabel.setBackgroundColor(WColor.Red.color.colorWithAlpha(20), 16f.dp)
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        scrollingContentView.setPaddingLocalized(
+            additionalTabletPadding + systemBarStartInset,
+            0,
+            systemBarEndInset,
+            16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+        )
+        scrollingContentView.setConstraints {
+            toTopPx(
+                animationView,
+                WNavigationBar.DEFAULT_HEIGHT.dp +
+                    (navigationController?.getSystemBars()?.top ?: 0)
+            )
+        }
     }
 
     private fun gotoWordCheck() {
@@ -275,7 +301,7 @@ open class RecoveryPhraseVC(
         val randomNumbers = shuffledNumbers.take(3)
 
         push(
-            WalletContextManager.delegate?.getWordCheckVC(
+            WalletContextManager.delegate?.get()?.getWordCheckVC(
                 network,
                 words,
                 randomNumbers.sorted(),

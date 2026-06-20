@@ -54,10 +54,24 @@ class MfaInstalledVC(context: Context) : WViewController(context) {
                 doneButton,
                 32.dp + (navigationController?.getSystemBars()?.bottom ?: 0),
             )
-            toCenterX(doneButton, 32f)
+            toStartPx(doneButton, 32.dp + systemBarStartInset)
+            toEndPx(doneButton, 32.dp + systemBarEndInset)
         }
 
         updateTheme()
+    }
+
+    override fun insetsUpdated() {
+        super.insetsUpdated()
+        view.setConstraints {
+            toTopPx(headerView, 80.dp + (navigationController?.getSystemBars()?.top ?: 0))
+            toBottomPx(
+                doneButton,
+                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0),
+            )
+            toStartPx(doneButton, 32.dp + systemBarStartInset)
+            toEndPx(doneButton, 32.dp + systemBarEndInset)
+        }
     }
 
     override fun updateTheme() {

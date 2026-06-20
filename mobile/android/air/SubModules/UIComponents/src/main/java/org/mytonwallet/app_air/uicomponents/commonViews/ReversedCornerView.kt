@@ -18,14 +18,17 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
@@ -39,6 +42,7 @@ class ReversedCornerView(
         val blurRootView: ViewGroup? = null,
         val forceSeparator: Boolean = false,
         val showSeparator: Boolean = true,
+        val additionalTabletPadding: Boolean = true,
         val overrideBackgroundColor: WColor? = null
     )
 
@@ -55,13 +59,7 @@ class ReversedCornerView(
         )
     }
 
-    private var blurryBackgroundView: WBlurryBackgroundView? =
-        if (WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur) initialConfig.blurRootView?.let {
-            WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
-                setupWith(it)
-                setBackgroundVisible(visible = true, animated = false)
-            }
-        } else null
+    private var blurryBackgroundView: WBlurryBackgroundView? = null
 
     private val path = Path()
     private val cornerPath = Path()
@@ -92,6 +90,12 @@ class ReversedCornerView(
         blurryBackgroundView?.setOverlayColor(color ?: Color.TRANSPARENT)
         backgroundView.setBackgroundColor(color ?: WColor.SecondaryBackground.color)
         postInvalidateOnAnimation()
+    }
+
+    fun setBlurOverlayColor(overlayColor: WColor, alpha: Int? = null) {
+        val alpha = alpha ?: if (ThemeManager.isDark) 204 else 140
+        blurryBackgroundView?.setOverlayColor(overlayColor, alpha)
+        setBlurOverlayColor(overlayColor.color.colorWithAlpha(alpha))
     }
 
     fun setBackgroundVisible(visible: Boolean, animated: Boolean = true) {
@@ -152,10 +156,12 @@ class ReversedCornerView(
         path.lineTo(0f, height)
         path.close()
 
-        rectF.set(
-            horizontalPadding,
+        val tabletPadding =
+            if (initialConfig.additionalTabletPadding) ViewConstants.ADDITIONAL_TABLET_PADDING.toFloat() else 0f
+        rectF.setLocalized(
+            cutoutStart(width, tabletPadding),
             height - cornerRadius + 0.5f,
-            width - horizontalPadding,
+            cutoutEnd(width),
             height
         )
         cornerPath.addRoundRect(rectF, radii, Path.Direction.CCW)
@@ -209,6 +215,9 @@ class ReversedCornerView(
                     setupWith(initialConfig.blurRootView)
                     setBackgroundVisible(visible = true, animated = false)
                 }
+            initialConfig.overrideBackgroundColor?.let { overrideBackgroundColor ->
+                setBlurOverlayColor(overrideBackgroundColor)
+            }
             if (backgroundView.parent != null) {
                 addView(blurryBackgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
                 if (isPlaying) {

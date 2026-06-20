@@ -39,19 +39,34 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
+class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
     WCell(context, LayoutParams(cellWidth, (cellWidth / RATIO).roundToInt())), WThemedView {
 
     companion object {
         const val RATIO = 274 / 176f
     }
 
-    private val cellHeight by lazy {
-        cellWidth / RATIO
-    }
+    var cellWidth: Int = cellWidth
+        private set
+
+    private val cellHeight: Float
+        get() = cellWidth / RATIO
 
     init {
         pivotY = cellHeight / 2
+    }
+
+    fun updateCellWidth(newWidth: Int) {
+        if (newWidth == cellWidth || newWidth <= 0) return
+        cellWidth = newWidth
+        layoutParams = layoutParams.apply {
+            width = newWidth
+            height = (newWidth / RATIO).roundToInt()
+        }
+        pivotY = cellHeight / 2
+        balanceView.containerWidth = newWidth
+        balanceContainerView.contentView.maxAllowedWidth = newWidth
+        addressLabel.containerWidth = newWidth
     }
 
     private val imageView = WImageView(context, 20.dp).apply {

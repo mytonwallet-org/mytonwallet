@@ -88,7 +88,9 @@ object ClaimRewardsHelper {
         val account = AccountStore.activeAccount ?: return
         val address = account.tonAddress ?: return
         val fee = getTonStakingFees(stakingState.stakingType)["claim"]?.real ?: return
-        val nav = WNavigationController(window)
+        val nav = WNavigationController(
+            window, WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         val ledgerConnectVC = LedgerConnectVC(
             viewController.context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
@@ -114,7 +116,10 @@ object ClaimRewardsHelper {
         onClaimed: (() -> Unit)?,
         onError: ((MBridgeError?) -> Unit)?
     ) {
-        val nav = WNavigationController(window)
+        val nav = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
         val passcodeConfirmVC = PasscodeConfirmVC(
             context = viewController.context,
             passcodeViewState = PasscodeViewState.CustomHeader(
@@ -160,7 +165,10 @@ object ClaimRewardsHelper {
                 window.dismissLastNav {
                     val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers
                         .MfaActionConfirmVC(window.applicationContext, requestHash = mfaHash)
-                    val mfaNav = WNavigationController(window)
+                    val mfaNav = WNavigationController(
+                        window,
+                        WNavigationController.PresentationConfig.PreferredFullScreen
+                    )
                     mfaNav.setRoot(mfaVC)
                     window.present(mfaNav)
                 }

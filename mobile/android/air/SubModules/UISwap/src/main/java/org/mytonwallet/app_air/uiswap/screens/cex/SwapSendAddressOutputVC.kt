@@ -56,7 +56,8 @@ class SwapSendAddressOutputVC(
     fromAmount: BigInteger?,
     toAmount: BigInteger?,
     payinAddress: String,
-    transactionId: String
+    transactionId: String,
+    cexLabel: String? = null
 ) : WViewControllerWithModelStore(context) {
     override val TAG = "SwapSendAddressOutput"
 
@@ -206,8 +207,12 @@ class SwapSendAddressOutputVC(
 
         text = SpannableStringBuilder()
             .append(hint)
-            .append("\n\n")
-            .append(supportText)
+            .apply {
+                if (cexLabel == null || cexLabel == "changelly") {
+                    append("\n\n")
+                    append(supportText)
+                }
+            }
         maxWidth = (332 + 20 + 20).dp
     }
 
@@ -313,6 +318,12 @@ class SwapSendAddressOutputVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        scrollView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         linearLayout.setPadding(
             0,
             (navigationController?.getSystemBars()?.top ?: 0) +

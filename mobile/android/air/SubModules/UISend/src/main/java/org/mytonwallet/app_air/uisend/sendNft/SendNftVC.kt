@@ -371,7 +371,7 @@ class SendNftVC(
             feeLabel,
             ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
-        view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
+        view.addView(continueButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 50.dp))
         view.setConstraints {
             toCenterX(scrollView)
             topToBottom(scrollView, navigationBar!!)
@@ -384,11 +384,12 @@ class SendNftVC(
                 -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
-            toCenterX(continueButton, 20f)
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 continueButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }
@@ -461,11 +462,19 @@ class SendNftVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        linearLayout.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            0,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+            0
+        )
         view.setConstraints {
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
                 continueButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
+                    (navigationController?.imeInsetBottom ?: 0)
                 )
             )
         }

@@ -8,7 +8,9 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.ScrollView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -55,6 +57,9 @@ class ImportViewWalletVC(
     override val TAG = "ImportViewWallet"
 
     override val shouldDisplayTopBar = false
+    override val shouldDisplayBottomBar = false
+    override val isSwipeBackAllowed
+        get() = isWideLayoutMode == true
 
     private var prevHeight = 0
     private var heightAnimator: ValueAnimator? = null
@@ -112,6 +117,15 @@ class ImportViewWalletVC(
 
     private val contentView = WView(context)
 
+    // Used in wide layout only: lets the content scroll when the panel is short.
+    private val scrollView by lazy {
+        ScrollView(context).apply {
+            id = View.generateViewId()
+            overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+            isVerticalScrollBarEnabled = false
+        }
+    }
+
     private val onInputTextWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -129,11 +143,6 @@ class ImportViewWalletVC(
         setupNavBar(true)
         navigationBar?.addCloseButton()
 
-        view.addView(contentView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
-        view.setConstraints {
-            toBottom(contentView)
-            toCenterX(contentView)
-        }
         val bottomPadding = navigationController?.getSystemBars()?.bottom ?: 0
         contentView.setPadding(0, 0, 0, bottomPadding)
 
@@ -141,24 +150,89 @@ class ImportViewWalletVC(
         contentView.addView(titleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         contentView.addView(subtitleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         contentView.addView(addressInputView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
-        contentView.addView(continueButton, ViewGroup.LayoutParams(0, WRAP_CONTENT))
-        contentView.setConstraints {
-            toCenterX(animationView)
-            toCenterX(titleLabel, 32f)
-            toCenterX(subtitleLabel, 32f)
-            toCenterX(addressInputView, 10f)
-            toCenterX(continueButton, 20f)
-            toBottom(continueButton, 16f)
-            topToTopPx(addressInputView, continueButton, -(32 + 84).dp)
-            bottomToTop(subtitleLabel, addressInputView, 32f)
-            bottomToTop(titleLabel, subtitleLabel, 20f)
-            bottomToTop(animationView, titleLabel, 24f)
-            toTop(animationView, 22f)
-        }
+
+        applyLayoutForMode()
 
         addressInputView.addTextChangedListener(onInputTextWatcher)
 
         updateTheme()
+    }
+
+    private var isWideLayoutMode: Boolean? = null
+    private fun applyLayoutForMode() {
+        val isWide = navigationController?.isBottomSheet != true
+        if (isWideLayoutMode == isWide)
+            return
+        isWideLayoutMode = isWide
+
+        (continueButton.parent as? ViewGroup)?.removeView(continueButton)
+        (contentView.parent as? ViewGroup)?.removeView(contentView)
+
+        cachedContentBaseHeight = 0
+        cachedContentWidth = 0
+
+        if (isWide) {
+            // Button pinned to the panel bottom; content scrolls above it when short.
+            scrollView.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            scrollView.clipToPadding = false
+            if (scrollView.parent == null) {
+                view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
+            }
+            view.addView(continueButton, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+            contentView.setConstraints {
+                toCenterX(animationView)
+                toCenterX(titleLabel, 32f)
+                toCenterX(subtitleLabel, 32f)
+                toCenterX(addressInputView, 10f)
+                toTop(animationView, 86f)
+                topToBottom(titleLabel, animationView, 24f)
+                topToBottom(subtitleLabel, titleLabel, 20f)
+                topToBottom(addressInputView, subtitleLabel, 32f)
+                toBottom(addressInputView)
+            }
+            view.setConstraints {
+                clear(contentView.id)
+                toTop(scrollView)
+                toCenterX(scrollView)
+                toBottom(scrollView)
+                toCenterX(continueButton, 20f)
+            }
+            applyContinueBottomInset()
+        } else {
+            // Bottom sheet: original layout.
+            (scrollView.parent as? ViewGroup)?.removeView(scrollView)
+            view.addView(contentView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+            contentView.addView(continueButton, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+            contentView.setConstraints {
+                toCenterX(animationView)
+                toCenterX(titleLabel, 32f)
+                toCenterX(subtitleLabel, 32f)
+                toCenterX(addressInputView, 10f)
+                toCenterX(continueButton, 20f)
+                toTop(animationView, 22f)
+                topToBottom(titleLabel, animationView, 24f)
+                topToBottom(subtitleLabel, titleLabel, 20f)
+                topToBottom(addressInputView, subtitleLabel, 32f)
+                topToBottom(continueButton, addressInputView, 48f)
+                toBottom(continueButton, 16f)
+            }
+            view.setConstraints {
+                toBottom(contentView)
+                toCenterX(contentView)
+            }
+        }
+    }
+
+    private fun applyContinueBottomInset() {
+        if (isWideLayoutMode != true)
+            return
+        val systemBarBottom = navigationController?.getSystemBars()?.bottom ?: 0
+        val keyboardHeight = navigationController?.imeInsetBottom ?: 0
+        val bottomInset = maxOf(systemBarBottom, keyboardHeight)
+        view.setConstraints {
+            toBottomPx(continueButton, 16.dp + bottomInset)
+        }
+        scrollView.setPadding(0, 0, 0, continueButton.buttonHeight + 32.dp + bottomInset)
     }
 
     override val isExpandable = false
@@ -166,7 +240,7 @@ class ImportViewWalletVC(
         val width = maxOf(
             view.width,
             navigationController?.width ?: 0,
-            context.resources.displayMetrics.widthPixels
+            window?.windowView?.width ?: 0
         )
         val paddingBottom = contentView.paddingBottom
         if (cachedContentBaseHeight == 0 || cachedContentWidth != width) {
@@ -296,7 +370,15 @@ class ImportViewWalletVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         val navController = navigationController ?: return
-        val keyboardHeight = window?.imeInsets?.bottom ?: 0
+
+        applyLayoutForMode()
+        if (isWideLayoutMode == true) {
+            applyContinueBottomInset()
+            updateContentProperties()
+            return
+        }
+
+        val keyboardHeight = navigationController?.imeInsetBottom ?: 0
         val systemBarBottom = navController.getSystemBars().bottom
         val targetHeight = maxOf(systemBarBottom, keyboardHeight)
         if (prevHeight == targetHeight) {

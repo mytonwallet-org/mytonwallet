@@ -45,8 +45,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WPopupHost
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import android.view.ViewOutlineProvider
+import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
@@ -58,11 +61,15 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import java.util.function.Consumer
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     companion object {
         const val PROTECT_PAUSED_APP_VIEW = false
+        const val WIDE_LAYOUT_MIN_WIDTH_DP = 700
+        const val WIDE_LAYOUT_INNER_WIDTH_DP = 600
+        const val CENTERED_WINDOW_MIN_HEIGHT_DP = 500
     }
 
     private val touchBlockerView: View by lazy {
@@ -127,16 +134,149 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     private var activeAnimator: ValueAnimator? = null
 
-    fun isTablet(): Boolean {
-        return (resources.configuration.screenLayout and
-            Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE
+    var isWideLayout: Boolean = false
+        protected set
+
+    fun calcWideLayout(): Boolean {
+        val widthPx = windowView.width.takeIf { it > 0 }
+            ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                windowManager.currentWindowMetrics.bounds.width()
+            else
+                @Suppress("DEPRECATION") resources.displayMetrics.widthPixels
+        val widthDp = widthPx / resources.displayMetrics.density
+        return widthDp > WIDE_LAYOUT_MIN_WIDTH_DP
+    }
+
+    var isConfiguring: Boolean = false
+        protected set
+
+    // Centered floating-window frame on wide layout (BottomSheet / PreferredFullScreen on tablet):
+    // width = min(85% of width, WIDE_LAYOUT_MIN_WIDTH_DP), height = min(80% of height, safe height),
+    // centered within the safe area so it stays below the status bar and above the bottom system bar.
+    data class WindowFrame(val x: Int, val y: Int, val width: Int, val height: Int)
+
+    private fun centeredWindowFrame(): WindowFrame {
+        val w = windowView.width
+        val h = windowView.height
+        val topInset = systemBars?.top ?: 0
+        val bottomInset = systemBars?.bottom ?: 0
+        val safeHeight = (h - topInset - bottomInset).coerceAtLeast(0)
+        val width = min((w * 0.85f).roundToInt(), WIDE_LAYOUT_MIN_WIDTH_DP.dp)
+        val height = min((h * 0.8f).roundToInt(), safeHeight)
+        return WindowFrame(
+            x = ((w - width) / 2).coerceAtLeast(0),
+            y = (topInset + (safeHeight - height) / 2).coerceAtLeast(topInset),
+            width = width,
+            height = height,
+        )
+    }
+
+    // Apply the resting (non-animated) layout for a centered window: size, x, rounded corners.
+    // Y is driven by the present/dismiss animators (so it can slide), so it's set by the caller.
+    private fun applyCenteredWindowLayout(navigationController: WNavigationController) {
+        val frame = centeredWindowFrame()
+        navigationController.updateLayoutParams {
+            width = frame.width
+            height = frame.height
+        }
+        navigationController.x = frame.x.toFloat()
+        navigationController.clipToOutline = true
+        navigationController.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, ViewConstants.BLOCK_RADIUS.dp)
+            }
+        }
+    }
+
+    // Re-apply the resting presentation layout of every PRESENTED nav after a layout (rotation /
+    // wide<->narrow) change, so a bottom sheet becomes a centered window on tablet (and back), a
+    // PreferredFullScreen toggles between full screen and centered window, dim overlays appear /
+    // disappear, and the screen behind is mounted/detached to match the new style.
+    fun reapplyPresentedNavsLayout() {
+        for (i in 1 until navigationControllers.size) {
+            val nav = navigationControllers[i]
+            nav.scaleX = 1f
+            nav.scaleY = 1f
+            nav.alpha = 1f
+            val needsDim = nav.isBottomSheet || nav.isCenteredWindow
+
+            // Dim overlay: ensure presence matches the new style.
+            var overlay = navigationControllerOverlays.getOrNull(i)
+            if (needsDim && overlay == null) {
+                overlay = WBaseView(this).apply {
+                    setBackgroundColor(Color.BLACK.colorWithAlpha(76))
+                    alpha = 1f
+                }
+                // Insert directly beneath this nav.
+                val navIndexInWindow = windowView.indexOfChild(nav).coerceAtLeast(0)
+                windowView.addView(overlay, navIndexInWindow)
+                navigationControllerOverlays[i] = overlay
+            } else if (!needsDim && overlay != null) {
+                windowView.removeView(overlay)
+                navigationControllerOverlays[i] = null
+                overlay = null
+            }
+            // Only the topmost overlay dismisses on tap.
+            overlay?.setOnClickListener(
+                if (i == navigationControllers.size - 1) {
+                    { dismissLastNav() }
+                } else null
+            )
+
+            // Frame.
+            if (nav.isCenteredWindow) {
+                nav.clearBottomSheetBehaviour()
+                applyCenteredWindowLayout(nav)
+                nav.y = centeredWindowFrame().y.toFloat()
+                nav.insetsUpdated()
+            } else if (nav.isBottomSheet) {
+                nav.clipToOutline = false
+                nav.outlineProvider = ViewOutlineProvider.BACKGROUND
+                nav.clearBottomSheetBehaviour()
+                nav.x = 0f
+                nav.translationX = 0f
+                nav.updateLayoutParams {
+                    width = MATCH_PARENT
+                    height = MATCH_PARENT
+                }
+                nav.insetsUpdated()
+                nav.post { nav.applyBottomSheetLayout() }
+            } else {
+                nav.clipToOutline = false
+                nav.outlineProvider = ViewOutlineProvider.BACKGROUND
+                nav.clearBottomSheetBehaviour()
+                nav.x = 0f
+                nav.updateLayoutParams {
+                    width = MATCH_PARENT
+                    height = MATCH_PARENT
+                }
+                nav.y = 0f
+                nav.insetsUpdated()
+            }
+
+            // The screen behind must be detached when this nav fully covers it, mounted otherwise.
+            val prev = navigationControllers.getOrNull(i - 1)
+            if (prev != null) {
+                if (nav.overFullScreen) {
+                    if (prev.parent != null) {
+                        prev.viewWillDisappear()
+                        prev.visibility = View.GONE
+                        windowView.removeView(prev)
+                    }
+                } else {
+                    if (prev.parent == null) {
+                        windowView.addView(prev, 0)
+                        prev.viewWillAppear()
+                    }
+                    prev.visibility = View.VISIBLE
+                }
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (!isTablet())
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
 
         setContentView(windowView)
         windowView.setFilterTouchesWhenObscured(true)
@@ -176,14 +316,18 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             systemBars =
                 insets.getInsets(WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars())
             imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-            for (navigationController in navigationControllers) {
-                navigationController.insetsUpdated()
-            }
+            notifyInsetsUpdated()
             WindowInsetsCompat.CONSUMED
         }
 
         updateTheme()
         updateLayoutDirection()
+    }
+
+    protected fun notifyInsetsUpdated() {
+        for (navigationController in navigationControllers) {
+            navigationController.insetsUpdated()
+        }
     }
 
     override fun onStart() {
@@ -364,8 +508,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     fun presentOnWalletReady(
         navigationController: WNavigationController
     ): Boolean {
-        if (WalletContextManager.delegate?.isWalletReady() != true ||
-            WalletContextManager.delegate?.isAppUnlocked() != true
+        if (WalletContextManager.delegate?.get()?.isWalletReady() != true ||
+            WalletContextManager.delegate?.get()?.isAppUnlocked() != true
         ) {
             // Should not present anything over lock screen
             pendingPresentationNav = navigationController
@@ -377,8 +521,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     private var pendingTasks: MutableList<() -> Unit>? = null
     fun doOnWalletReady(task: () -> Unit) {
-        if (WalletContextManager.delegate?.isWalletReady() != true ||
-            WalletContextManager.delegate?.isAppUnlocked() != true
+        if (WalletContextManager.delegate?.get()?.isWalletReady() != true ||
+            WalletContextManager.delegate?.get()?.isAppUnlocked() != true
         ) {
             if (pendingTasks == null)
                 pendingTasks = mutableListOf()
@@ -398,8 +542,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     }
 
     fun doPendingTasks() {
-        if (WalletContextManager.delegate?.isWalletReady() != true ||
-            WalletContextManager.delegate?.isAppUnlocked() != true
+        if (WalletContextManager.delegate?.get()?.isWalletReady() != true ||
+            WalletContextManager.delegate?.get()?.isAppUnlocked() != true
         ) {
             return
         }
@@ -450,9 +594,12 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             "presentNav: rootVC=${navigationController.viewControllers.firstOrNull()?.TAG} navHash=${navigationController.hashCode()}"
         )
         PopupHelpers.dismissAllPopups()
+        // A bottom sheet and a tablet centered window both dim the screens behind them.
+        val hasDimOverlay =
+            navigationController.isBottomSheet || navigationController.isCenteredWindow
         // Overlay for previous views
         val overlayView: WBaseView?
-        if (navigationController.presentationConfig.isBottomSheet) {
+        if (hasDimOverlay) {
             overlayView = WBaseView(this)
             overlayView.setBackgroundColor(Color.BLACK.colorWithAlpha(76))
             overlayView.setOnClickListener {}
@@ -470,7 +617,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             navigationController,
             ViewGroup.LayoutParams(
                 MATCH_PARENT,
-                if (navigationController.presentationConfig.isBottomSheet) 0 else MATCH_PARENT
+                if (navigationController.isBottomSheet) 0 else MATCH_PARENT
             )
         )
         navigationController.alpha = 0f
@@ -479,10 +626,14 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         navAnimation = NavAnimation.PRESENT_WAITING_FOR_LAYOUT
         windowView.doOnLayout {
             navAnimation = NavAnimation.PRESENTING
-            val shouldPresentFullScreen = !navigationController.presentationConfig.isBottomSheet ||
+            if (navigationController.isCenteredWindow) {
+                applyCenteredWindowLayout(navigationController)
+            }
+            val shouldPresentFullScreen = !navigationController.isBottomSheet ||
                 navigationController.viewControllers.firstOrNull()?.isExpandable == true
             val finalY =
-                if (shouldPresentFullScreen) 0 else windowView.bottom - min(
+                if (navigationController.isCenteredWindow) centeredWindowFrame().y
+                else if (shouldPresentFullScreen) 0 else windowView.bottom - min(
                     navigationController.height,
                     windowView.height - (systemBars?.top ?: 0) - 20.dp
                 )
@@ -664,7 +815,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             activeAnimator = null
             navAnimation = NavAnimation.NONE
             onCompletion?.invoke()
-            if (navigationController?.presentationConfig?.overFullScreen == true)
+            if (navigationController?.overFullScreen == true)
                 navigationControllers.lastOrNull()?.viewDidAppear()
             else
                 navigationControllers.lastOrNull()?.viewDidEnterForeground()
@@ -801,10 +952,10 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             navigationController,
             ViewGroup.LayoutParams(
                 MATCH_PARENT,
-                if (navigationController.presentationConfig.overFullScreen) MATCH_PARENT else 0
+                if (navigationController.overFullScreen) MATCH_PARENT else 0
             )
         )
-        if (navigationController.presentationConfig.overFullScreen) {
+        if (navigationController.overFullScreen) {
             navigationControllers[navigationControllers.size - 2].let {
                 it.visibility = View.GONE
                 windowView.removeView(it)
@@ -844,7 +995,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     // Called after a navigation controller presentation to remove unnecessary views from the hierarchy
     private fun removePrevNavigationControllersFromHierarchy() {
         val navigationController = navigationControllers.lastOrNull() ?: return
-        if (navigationController.presentationConfig.overFullScreen) {
+        if (navigationController.overFullScreen) {
             if (navigationControllers.size >= 2) {
                 fun removePrevNav(i: Int) {
                     if (i < 0)
@@ -853,7 +1004,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                         navigationControllers[i].viewWillDisappear()
                         it.visibility = View.GONE
                         windowView.removeView(it)
-                        if (!it.presentationConfig.overFullScreen) {
+                        if (!it.overFullScreen) {
                             navigationControllerOverlays[i]?.let { overlay ->
                                 overlay.visibility = View.GONE
                                 windowView.removeView(overlay)
@@ -870,14 +1021,14 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     // Called before a navigation dismiss, to add necessary views to the hierarchy
     private fun addPrevNavigationControllersToHierarchy() {
         val navigationController = navigationControllers.lastOrNull()
-        if (navigationController?.presentationConfig?.overFullScreen == true) {
+        if (navigationController?.overFullScreen == true) {
             fun presentPrevScreen(i: Int) {
                 navigationControllers[i].let {
                     if (it.parent == null)
                         windowView.addView(it, 0)
                     it.visibility = View.VISIBLE
                     it.viewWillAppear()
-                    if (!it.presentationConfig.overFullScreen) {
+                    if (!it.overFullScreen) {
                         navigationControllerOverlays[i]?.let { overlay ->
                             if (overlay.parent == null)
                                 windowView.addView(overlay, 0)

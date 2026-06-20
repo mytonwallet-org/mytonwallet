@@ -70,22 +70,31 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import androidx.core.graphics.withClip
+import androidx.core.view.doOnPreDraw
 
 @SuppressLint("ViewConstructor")
 open class HomeHeaderView(
-    window: WWindow,
-    private val overrideAccountIds: Array<String>?,
+    private val window: WWindow,
+    var overrideAccountIds: Array<String>?,
     private val updateStatusView: UpdateStatusView,
     private var onModeChange: ((animated: Boolean) -> Unit)?,
     private var onExpandPressed: (() -> Unit)?,
     private var onHeaderPressed: (() -> Unit)?,
     private var onHorizontalScrollListener: ((progress: Float, verticalOffset: Int, actionsFadeOutPercent: Float) -> Unit)? = null,
+    private val wideHomeHeaderView: Boolean,
+    private val topInsetOverride: Int? = null,
 ) : WFrameLayout(window), WThemedView, WProtectedView {
 
     companion object {
         val DEFAULT_MODE = Mode.Expanded
         private val NAV_SIZE_OFFSET = 8.dp
         val navDefaultHeight = WNavigationBar.DEFAULT_HEIGHT.dp - NAV_SIZE_OFFSET
+        const val CARD_RATIO = 208 / 358f
+        private const val COLLAPSE_PROGRESS_THRESHOLD = 0.66f
+
+        fun expandedContentHeight(width: Int): Float {
+            return NAV_SIZE_OFFSET + (width - 32.dp) * CARD_RATIO + 8.dp
+        }
     }
 
     init {
@@ -120,6 +129,10 @@ open class HomeHeaderView(
 
     var expandedContentHeight: Float = 0f
     var diffPx: Float = 0f
+
+    val collapseExtraScrollPx: Int
+        get() = (collapsedHeight - COLLAPSE_PROGRESS_THRESHOLD * CARD_RATIO * width)
+            .roundToInt().coerceAtLeast(0).let { if (it > 0) it + 2.dp else 0 }
     var isExpandAllowed = true
         set(value) {
             field = if (mode == Mode.Expanded)
@@ -127,6 +140,26 @@ open class HomeHeaderView(
             else
                 value
         }
+
+    var availableHeight: Int = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            if (isHeightLocked) {
+                pinExpanded()
+            } else if (!canExpandForHeight && mode == Mode.Expanded) {
+                collapse(velocity = null, isGoingBack = false, instant = true)
+            }
+        }
+
+    val canExpandForHeight: Boolean
+        get() = availableHeight <= 0 || expandedContentHeight <= 0f ||
+            availableHeight >= 1.3 * expandedContentHeight
+
+    val isHeightLocked: Boolean
+        get() = wideHomeHeaderView &&
+            availableHeight >= WWindow.CENTERED_WINDOW_MIN_HEIGHT_DP.dp
+
     private val skeletonView = SkeletonView(context, isVertical = false, forcedLight = true)
     var isShowingSkeletons: Boolean = false
 
@@ -162,14 +195,15 @@ open class HomeHeaderView(
         smartDecimalsColor = true
     }
     private val balanceViewMaskWrapper = WGradientMaskView(balanceView)
+    private val balanceAutoScaleView = AutoScaleContainerView(balanceViewMaskWrapper).apply {
+        clipChildren = false
+        clipToPadding = false
+        maxAllowedWidth = window.windowView.width - 34.dp
+        minPadding = 16.dp
+        additionalRightPadding = 22f.dp.roundToInt()
+    }
     private val balanceLabel = WSensitiveDataContainer(
-        AutoScaleContainerView(balanceViewMaskWrapper).apply {
-            clipChildren = false
-            clipToPadding = false
-            maxAllowedWidth = window.windowView.width - 34.dp
-            minPadding = 16.dp
-            additionalRightPadding = 22f.dp.roundToInt()
-        },
+        balanceAutoScaleView,
         WSensitiveDataContainer.MaskConfig(
             16,
             4,
@@ -203,19 +237,17 @@ open class HomeHeaderView(
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Helpers /////////////////////////////////////////////////////////////////////////////////////
-    val collapsedMinHeight =
-        (window.systemBars?.top ?: 0) + navDefaultHeight
+    private var topInset = topInsetOverride ?: (window.systemBars?.top ?: 0)
+    val collapsedMinHeight get() = topInset + navDefaultHeight
     val collapsedHeight = 101.dp + NAV_SIZE_OFFSET
     val centerAccount: MAccount?
         get() {
             return cardView.account
         }
     private val smallCardWidth = 36.dp
-    private val topInset = window.systemBars?.top ?: 0
-    private val cardRatio = 208 / 358f
 
     private fun calcMaxExpandProgress(): Float {
-        val realPossibleWidth = max(0, collapsedHeight - scrollY) / cardRatio
+        val realPossibleWidth = max(0, collapsedHeight - scrollY) / CARD_RATIO
         return max(
             minExpandProgress,
             ((realPossibleWidth) / (width))
@@ -323,18 +355,50 @@ open class HomeHeaderView(
 
     override fun updateProtectedView() {}
 
+    private var lastLayoutWidth = 0
+    private var pendingWidthRecalc = false
+
+    // Width recalc is deferred to a pre-draw pass, so hosts that read diffPx/canExpandForHeight
+    // from layout-time callbacks observe stale values; this fires after the recalc completes.
+    var onLayoutRecalculated: (() -> Unit)? = null
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w - oldw > 2) {
-            balanceViewMaskWrapper.setupLayout(parentWidth = w)
-            cardViews.forEach { it.setupLayout(parentWidth = w) }
-            expandedContentHeight = NAV_SIZE_OFFSET + (w - 32.dp) * cardRatio + 8.dp
-            diffPx = expandedContentHeight - collapsedHeight
-            post {
-                scrollY = -diffPx.toInt()
-                expand(false, null)
+        if (window.isWideLayout != wideHomeHeaderView)
+            return
+        if (abs(w - lastLayoutWidth) > 2) {
+            if (lastLayoutWidth == 0) {
+                applyLayoutWidth()
+            } else if (!pendingWidthRecalc) {
+                pendingWidthRecalc = true
+                doOnPreDraw {
+                    pendingWidthRecalc = false
+                    applyLayoutWidth()
+                }
             }
         }
+    }
+
+    private fun applyLayoutWidth() {
+        val w = width
+        if (w <= 0)
+            return
+        lastLayoutWidth = w
+        balanceAutoScaleView.maxAllowedWidth = w - 34.dp
+        balanceAutoScaleView.updateScale()
+        balanceViewMaskWrapper.setupLayout(parentWidth = w)
+        cardViews.forEach { it.setupLayout(parentWidth = w) }
+        expandedContentHeight = expandedContentHeight(w)
+        diffPx = expandedContentHeight - collapsedHeight
+        if (isHeightLocked) {
+            pinExpanded()
+        } else if (!canExpandForHeight && mode == Mode.Expanded) {
+            collapse(velocity = null, isGoingBack = false, instant = true)
+        } else if (mode == Mode.Expanded) {
+            scrollY = -diffPx.toInt()
+            expand(false, null)
+        }
+        onLayoutRecalculated?.invoke()
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -365,10 +429,43 @@ open class HomeHeaderView(
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
+    private fun pinExpanded() {
+        activeValueAnimator?.cancel()
+        scrollY = -diffPx.toInt()
+        minExpandProgress = 1f
+        maxExpandProgress = 1f
+        currentExpandProgress = 1f
+        if (mode != Mode.Expanded) {
+            mode = Mode.Expanded
+            cardViews.forEach { it.headerMode = Mode.Expanded }
+            onModeChange?.invoke(false)
+            cardView.expand(false)
+            cardView.isClickable = false
+        }
+        render()
+    }
+
+    fun unlockPin(collapse: Boolean) {
+        minExpandProgress = 0f
+        if (collapse) {
+            collapse(velocity = null, isGoingBack = false, instant = true)
+        } else {
+            scrollY = -diffPx.toInt()
+            maxExpandProgress = 1f
+            currentExpandProgress = 1f
+            render()
+        }
+    }
+
     // Events //////////////////////////////////////////////////////////////////////////////////////
     fun updateScroll(scrollY: Int, velocity: Float? = null, isGoingBack: Boolean = false) {
-        if (width == 0)
+        if (width == 0 || window.isConfiguring)
             return
+
+        if (isHeightLocked) {
+            pinExpanded()
+            return
+        }
 
         // Ignore if scrolling down in full collapsed mode
         val prevScrollY = this.scrollY
@@ -384,13 +481,13 @@ open class HomeHeaderView(
             return
         }
 
-        val secondaryPossibleWidth = max(0, -scrollY) / cardRatio
-        minExpandProgress =
+        val secondaryPossibleWidth = max(0, -scrollY) / CARD_RATIO
+        minExpandProgress = if (!canExpandForHeight) 0f else
             (secondaryPossibleWidth / (width - 32.dp - smallCardWidth)).pow(if (isExpandAllowed) 2 else 4)
                 .coerceAtMost(1f)
-        if (isExpandAllowed && mode == Mode.Collapsed && maxExpandProgress > 0.7f) {
+        if (isExpandAllowed && canExpandForHeight && mode == Mode.Collapsed && maxExpandProgress > 0.7f) {
             expand(true, velocity)
-        } else if (mode == Mode.Expanded && (maxExpandProgress < 0.66f)) {
+        } else if (mode == Mode.Expanded && (maxExpandProgress < COLLAPSE_PROGRESS_THRESHOLD)) {
             collapse(velocity, isGoingBack)
         } else {
             render()
@@ -421,13 +518,20 @@ open class HomeHeaderView(
         }
     }
 
-    private fun collapse(velocity: Float?, isGoingBack: Boolean) {
+    private fun collapse(velocity: Float?, isGoingBack: Boolean, instant: Boolean = false) {
         mode = Mode.Collapsed
         cardViews.forEach { it.headerMode = Mode.Collapsed }
-        onModeChange?.invoke(true)
-        cardView.collapse(true)
+        onModeChange?.invoke(!instant)
+        cardView.collapse(!instant)
         cardView.isClickable = true
         activeValueAnimator?.cancel()
+        if (instant) {
+            minExpandProgress = 0f
+            currentExpandProgress = 0f
+            render()
+            requestLayout()
+            return
+        }
         activeValueAnimator = ValueAnimator.ofFloat(currentExpandProgress, 0f).apply {
             duration =
                 if (isGoingBack) AnimationConstants.VERY_QUICK_ANIMATION else
@@ -443,6 +547,7 @@ open class HomeHeaderView(
     }
 
     fun insetsUpdated() {
+        topInset = topInsetOverride ?: (window.systemBars?.top ?: 0)
         render()
         (parent as? WCell)?.setConstraints {
             toCenterX(this@HomeHeaderView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
@@ -475,16 +580,14 @@ open class HomeHeaderView(
         val nextView = getViewForAccountId(nextAccountId)
         if (nextView != null) cardViewsCopy.remove(nextView)
 
-        prevCardView = (prevView ?: cardViewsCopy.removeFirstOrNull()!!.apply {
+        prevCardView = (prevView ?: cardViewsCopy.removeFirstOrNull()!!).apply {
             updateAccountData(AccountStore.accountById(prevAccountId))
-        }).apply {
             expand(false)
             setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
         }
         prevCardView.isInGoneState = expandProgress <= 0.9f
-        cardView = (currentView ?: cardViewsCopy.removeFirstOrNull()!!.apply {
+        cardView = (currentView ?: cardViewsCopy.removeFirstOrNull()!!).apply {
             updateAccountData(activeAccount)
-        }).apply {
             this@HomeHeaderView.updateStatusView.state?.let {
                 setStatusViewState(it, animated = false)
             }
@@ -499,13 +602,13 @@ open class HomeHeaderView(
         }
         cardView.isInGoneState = false
         cardView.alpha = 1f
-        nextCardView = (nextView ?: cardViewsCopy.removeFirstOrNull()!!.apply {
+        nextCardView = (nextView ?: cardViewsCopy.removeFirstOrNull()!!).apply {
             updateAccountData(AccountStore.accountById(nextAccountId))
-        }).apply {
             expand(false)
             setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
         }
         nextCardView.isInGoneState = expandProgress <= 0.9f
+        layoutCardView()
     }
 
     fun updateCardImage() {
@@ -656,8 +759,11 @@ open class HomeHeaderView(
 
     private fun updateWalletNameMargin(balanceExpandProgress: Float) {
         val walletNameLayoutParams = walletNameLabel.layoutParams as? MarginLayoutParams ?: return
-        val maxLabelMargin =
-            if (cardView.account?.accountType == MAccount.AccountType.MNEMONIC) 104.dp else 56.dp
+        val maxLabelMargin = when {
+            wideHomeHeaderView -> 20.dp
+            cardView.account?.accountType == MAccount.AccountType.MNEMONIC -> 104.dp
+            else -> 56.dp
+        }
         val labelMargin = lerp(maxLabelMargin.toFloat(), 20f.dp, balanceExpandProgress).roundToInt()
         if (walletNameLayoutParams.marginStart == labelMargin)
             return
@@ -765,7 +871,8 @@ open class HomeHeaderView(
     private fun render() {
         layoutCardView()
         layoutBalance()
-        layoutParams?.height = collapsedMinHeight + max(0, collapsedHeight - scrollY)
+        val newHeight = collapsedMinHeight + max(0, collapsedHeight - scrollY)
+        layoutParams?.let { if (it.height != newHeight) it.height = newHeight }
         val isFullyCollapsed = collapsedHeight - scrollY <= 0
         isClickable = isFullyCollapsed
         balanceLabel.visibility = if (expandProgress == 1f) INVISIBLE else VISIBLE
@@ -775,10 +882,12 @@ open class HomeHeaderView(
         val expandProgress = this.expandProgress
         val newWidth =
             (smallCardWidth + (width - 26.dp - smallCardWidth) * expandProgress).roundToInt()
+        if (newWidth <= 0)
+            return
         if (cardView.layoutParams.width != newWidth)
             cardView.layoutParams = cardView.layoutParams.apply {
                 width = newWidth
-                height = max(20, (newWidth * cardRatio).toInt())
+                height = max(20, (newWidth * CARD_RATIO).toInt())
             }
         cardView.y =
             topInset +
@@ -831,10 +940,23 @@ open class HomeHeaderView(
             cardView.isInGoneState = false
             cardView.translationX = 0f
         }
+
+        val headerBottom = collapsedMinHeight + max(0, collapsedHeight - scrollY)
+        val cardHeight = cardView.layoutParams.height
+        val overflowScale = if (cardHeight > 0)
+            ((headerBottom - cardView.y) / cardHeight).coerceIn(0f, 1f)
+        else
+            1f
+        cardViews.forEach {
+            it.pivotX = it.layoutParams.width / 2f
+            it.pivotY = 0f
+            it.scaleX = overflowScale
+            it.scaleY = overflowScale
+        }
     }
 
     private fun layoutBalance() {
-        val expandedBalanceY = (width - 32.dp) * cardRatio * 0.41f - 28.dp
+        val expandedBalanceY = (width - 32.dp) * CARD_RATIO * 0.41f - 28.dp
         val expandProgress = this.expandProgress
         balanceExpandProgress = if (scrollY > 0) (1 - scrollY / 92f.dp).coerceIn(0f, 1f) else 1f
         balanceLabel.y =
@@ -980,7 +1102,7 @@ open class HomeHeaderView(
                             isHorizontalScrolling = true
                             initialTouchX = event.x
                             initialTouchY = event.y
-                            parent.requestDisallowInterceptTouchEvent(true)
+                            parent?.requestDisallowInterceptTouchEvent(true)
                         }
                     }
                 }
@@ -1015,7 +1137,7 @@ open class HomeHeaderView(
                     startVelocity = 0f
                 )
             }
-            parent.requestDisallowInterceptTouchEvent(false)
+            parent?.requestDisallowInterceptTouchEvent(false)
             isHorizontalScrolling = false
             scrollDirectionLocked = false
             return true
@@ -1067,6 +1189,8 @@ open class HomeHeaderView(
         if (horizontalScrollOffset == value)
             return
         horizontalScrollOffset = value
+        if (cardView.width == 0)
+            return
         val progress = horizontalScrollOffset / cardView.width
         if (progress > 0.52 || progress < -0.52) {
             val nextAccount =

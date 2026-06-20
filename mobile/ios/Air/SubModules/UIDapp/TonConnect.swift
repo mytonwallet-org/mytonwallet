@@ -169,6 +169,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
 
     @MainActor func handleConnect(update: ApiUpdate.DappConnect) async {
         await switchAccountIfNeeded(accountId: update.accountId)
+        Api.recordTonConnectEvent(eventName: "wallet-connect-request-ui-displayed", promiseId: update.promiseId)
         if let vc = placeholderNc?.visibleViewController as? ConnectDappVC {
             vc.replacePlaceholder(
                 request: update,
@@ -185,6 +186,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     }
     
     func submitConnect(request: ApiUpdate.DappConnect, accountId: String, passcode: String) async throws -> DappConnectSubmitResult {
+        Api.recordTonConnectEvent(eventName: "wallet-connect-accepted", promiseId: request.promiseId)
         var signatures: [String]? = nil
         let account = AccountStore.get(accountId: accountId)
         if let proof = request.proof {
@@ -251,6 +253,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     }
     
     func cancelConnect(request: ApiUpdate.DappConnect) {
+        Api.recordTonConnectEvent(eventName: "wallet-connect-rejected", promiseId: request.promiseId)
         Task {
             do {
                 try await Api.cancelDappRequest(promiseId: request.promiseId, reason: "Cancel")
@@ -262,6 +265,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     
     @MainActor  func handleSendTransactions(update: ApiUpdate.DappSendTransactions) async {
         await switchAccountIfNeeded(accountId: update.accountId)
+        Api.recordTonConnectEvent(eventName: "wallet-transaction-confirmation-ui-displayed", promiseId: update.promiseId)
         if let vc = placeholderNc?.visibleViewController as? SendDappVC {
             vc.replacePlaceholder(
                 request: update,
@@ -282,6 +286,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     }
     
     func submitSendTransactions(request: ApiUpdate.DappSendTransactions, password: String?) async throws -> ApiSignDappTransfersResult {
+        Api.recordTonConnectEvent(eventName: "wallet-transaction-accepted", promiseId: request.promiseId)
         let account = AccountStore.get(accountId: request.accountId)
         let chain = request.operationChain
         let address = account.getAddress(chain: chain) ?? ""
@@ -317,6 +322,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     }
     
     func cancelSendTransactions(request: ApiUpdate.DappSendTransactions) {
+        Api.recordTonConnectEvent(eventName: "wallet-transaction-declined", promiseId: request.promiseId)
         Task {
             do {
                 try await Api.cancelDappRequest(promiseId: request.promiseId, reason: lang("Canceled by the user"))
@@ -328,6 +334,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     
     @MainActor func handleSignData(update: ApiUpdate.DappSignData) async {
         await switchAccountIfNeeded(accountId: update.accountId)
+        Api.recordTonConnectEvent(eventName: "wallet-sign-data-confirmation-ui-displayed", promiseId: update.promiseId)
         if let vc = placeholderNc?.visibleViewController as? SignDataVC {
             vc.replacePlaceholder(
                 update: update,
@@ -345,6 +352,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     }
     
     func submitSignData(update: ApiUpdate.DappSignData, password: String?) async throws -> ApiMfaProtectedResult {
+        Api.recordTonConnectEvent(eventName: "wallet-sign-data-accepted", promiseId: update.promiseId)
         let account = AccountStore.get(accountId: update.accountId)
         let chain = update.operationChain
         let address = account.getAddress(chain: chain) ?? ""
@@ -361,6 +369,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     }
     
     func cancelSignData(update: ApiUpdate.DappSignData) {
+        Api.recordTonConnectEvent(eventName: "wallet-sign-data-declined", promiseId: update.promiseId)
         Task {
             do {
                 try await Api.cancelDappRequest(promiseId: update.promiseId, reason: nil)

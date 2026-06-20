@@ -92,7 +92,7 @@ class AppearanceAppThemeItemView(
         setOnClickListener {
             Logger.d(Logger.LogTag.SETTINGS, "themeChanged: theme=$identifier")
             WGlobalStorage.setActiveTheme(identifier)
-            WalletContextManager.delegate?.themeChanged()
+            WalletContextManager.delegate?.get()?.themeChanged()
         }
 
         updateTheme()

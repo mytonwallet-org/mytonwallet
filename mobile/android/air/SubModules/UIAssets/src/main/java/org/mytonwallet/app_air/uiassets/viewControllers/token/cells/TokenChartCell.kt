@@ -14,6 +14,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
 import androidx.core.view.isVisible
@@ -233,7 +234,7 @@ class TokenChartCell(
         addView(expandedChartImageView, LayoutParams(0, 0))
         addView(progressView)
         addView(noDataLabel)
-        addView(chartTimeLineView, LayoutParams(MATCH_PARENT, 36.dp))
+        addView(chartTimeLineView, LayoutParams(MATCH_CONSTRAINT, 36.dp))
         addView(segmentedControlGroupContainer, LayoutParams(0, 46.dp))
         setConstraints {
             toTop(titleLabel, 10f)
@@ -248,6 +249,7 @@ class TokenChartCell(
             toEnd(collapsedChartView, 60f)
             toTop(expandedChartView, 52f) // overlaps header by 12dp
             toCenterX(expandedChartView)
+            toCenterX(chartTimeLineView)
             bottomToTop(chartTimeLineView, segmentedControlGroupContainer, 8f)
             toCenterX(segmentedControlGroupContainer, 12f)
             toBottom(segmentedControlGroupContainer)

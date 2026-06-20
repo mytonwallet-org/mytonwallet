@@ -9,10 +9,13 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isGone
+import androidx.core.view.setPadding
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
@@ -30,15 +33,18 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
@@ -65,12 +71,16 @@ class AgentVC(context: Context) : WViewController(context),
         private const val HINTS_SECTION = 64.66f
         private const val HINTS_SPACING = 12
         private const val GRADIENT_EXTRA = 4
-        private const val COMPOSER_BOTTOM_OFFSET = -17
         private const val DATE_HEADER_GAP_MS = 10 * 60 * 1000L
+        private const val BOTTOM_OFFSET = 17
     }
 
     private val hintsHiddenTranslationY = (HINTS_SECTION + HINTS_SPACING).dp
 
+    private val composerBottomOffset: Int
+        get() {
+            return if (window?.isWideLayout == true) 0 else -BOTTOM_OFFSET
+        }
     private val vm = AgentVM(this)
     private var timelineItems = listOf<AgentTimelineItem>()
     private var animateFromIndex = -1
@@ -149,6 +159,43 @@ class AgentVC(context: Context) : WViewController(context),
         translationY = hintsHiddenTranslationY
     }
 
+    private val contentContainer: WView by lazy {
+        WView(context).apply {
+            addView(chatRecyclerView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 0))
+            addView(
+                bottomGradientView,
+                ConstraintLayout.LayoutParams(MATCH_PARENT, 0)
+            )
+            addView(hintsSectionView)
+            addView(
+                composerView,
+                ConstraintLayout.LayoutParams(
+                    MATCH_PARENT,
+                    ConstraintLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+
+            setConstraints {
+                allEdges(chatRecyclerView)
+
+                toStart(bottomGradientView)
+                toEnd(bottomGradientView)
+                toBottom(bottomGradientView)
+
+                toStart(composerView)
+                toEnd(composerView)
+                toBottomPx(
+                    composerView,
+                    composerBottomOffset.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                )
+
+                toStart(hintsSectionView)
+                toEnd(hintsSectionView)
+                bottomToTop(hintsSectionView, composerView, HINTS_SPACING.toFloat())
+            }
+        }
+    }
+
     private val moreButton: WImageButton by lazy {
         val btn = WImageButton(context)
         btn.setPaddingDp(8)
@@ -180,35 +227,7 @@ class AgentVC(context: Context) : WViewController(context),
             vm.toggleHintsVisibility()
         }
 
-        view.addView(chatRecyclerView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
-        view.addView(
-            bottomGradientView,
-            ConstraintLayout.LayoutParams(MATCH_PARENT, 0)
-        )
-        view.addView(hintsSectionView)
-        view.addView(
-            composerView,
-            ConstraintLayout.LayoutParams(MATCH_PARENT, ConstraintLayout.LayoutParams.WRAP_CONTENT)
-        )
-
-        view.setConstraints {
-            allEdges(chatRecyclerView)
-
-            toStart(bottomGradientView)
-            toEnd(bottomGradientView)
-            toBottom(bottomGradientView)
-
-            toStart(composerView)
-            toEnd(composerView)
-            toBottomPx(
-                composerView,
-                COMPOSER_BOTTOM_OFFSET.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
-            )
-
-            toStart(hintsSectionView)
-            toEnd(hintsSectionView)
-            bottomToTop(hintsSectionView, composerView, HINTS_SPACING.toFloat())
-        }
+        view.addView(contentContainer, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         composerView.post { updateGradientHeight(animated = false) }
 
@@ -243,8 +262,18 @@ class AgentVC(context: Context) : WViewController(context),
 
     override fun updateTheme() {
         super.updateTheme()
-        view.setBackgroundColor(WColor.Background.color)
-        if (WGlobalStorage.isGradientNavigationBarActive()) {
+        view.setBackgroundColor(WColor.SecondaryBackground.color)
+        chatRecyclerView.setBackgroundColor(WColor.Background.color)
+        if (window?.isWideLayout == true)
+            view.setPaddingLocalized(
+                ViewConstants.HORIZONTAL_PADDINGS.dp,
+                0,
+                ViewConstants.HORIZONTAL_PADDINGS.dp,
+                0
+            )
+        else
+            view.setPadding(0)
+        if (window?.isWideLayout == true || WGlobalStorage.isGradientNavigationBarActive()) {
             bottomGradientView.isGone = false
             val bgColor = WColor.Background.color
             val bgColor80 = bgColor.colorWithAlpha(204)
@@ -262,6 +291,16 @@ class AgentVC(context: Context) : WViewController(context),
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        contentContainer.setPaddingLocalized(
+            additionalTabletPadding + systemBarStartInset,
+            0,
+            systemBarEndInset,
+            0
+        )
+        topReversedCornerView?.setSideInsets(
+            systemBarStartInset.toFloat(),
+            systemBarEndInset.toFloat()
+        )
         updateLayout()
     }
 
@@ -276,7 +315,7 @@ class AgentVC(context: Context) : WViewController(context),
     private var hasAppliedInitialLayout = false
 
     private fun updateLayout() {
-        val ime = window?.imeInsets?.bottom ?: 0
+        val ime = navigationController?.imeInsetBottom ?: 0
         val nav = navigationController?.getSystemBars()?.bottom ?: 0
         val targetBottom = maxOf(ime, nav)
 
@@ -306,8 +345,8 @@ class AgentVC(context: Context) : WViewController(context),
     }
 
     private fun applyBottom(bottom: Int) {
-        view.setConstraints {
-            toBottomPx(composerView, bottom + COMPOSER_BOTTOM_OFFSET.dp)
+        contentContainer.setConstraints {
+            toBottomPx(composerView, bottom + composerBottomOffset.dp)
         }
         updateGradientHeight(animated = false)
 
@@ -316,7 +355,8 @@ class AgentVC(context: Context) : WViewController(context),
         val hintsExtra = if (hintsSectionView.isEnabled) {
             HINTS_SECTION.dp.roundToInt() + HINTS_SPACING.dp
         } else 0
-        val bottomPadding = composerView.height + bottom + hintsExtra
+        val bottomPadding =
+            composerView.height + bottom + hintsExtra + composerBottomOffset.dp + BOTTOM_OFFSET.dp
         val paddingChanged = chatRecyclerView.paddingTop != topPadding ||
             chatRecyclerView.paddingBottom != bottomPadding
         if (paddingChanged)
@@ -359,7 +399,8 @@ class AgentVC(context: Context) : WViewController(context),
         val hintsExtra = if (showHints) {
             HINTS_SECTION.dp.roundToInt() + HINTS_SPACING.dp
         } else 0
-        val targetBottom = composerView.height + currentBottom + hintsExtra
+        val targetBottom =
+            composerView.height + currentBottom + hintsExtra + composerBottomOffset.dp + BOTTOM_OFFSET.dp
         val currentPaddingBottom = chatRecyclerView.paddingBottom
 
         if (targetBottom == currentPaddingBottom) return
@@ -538,7 +579,7 @@ class AgentVC(context: Context) : WViewController(context),
             moreButton.fadeIn()
             navigationController?.tabBarController?.showTabBar()
             composerView.fadeIn()
-            if (WGlobalStorage.isGradientNavigationBarActive()) {
+            if (window?.isWideLayout == true || WGlobalStorage.isGradientNavigationBarActive()) {
                 bottomGradientView.fadeIn()
             }
             if (hintsSectionView.isEnabled) {

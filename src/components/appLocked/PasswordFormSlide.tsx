@@ -11,6 +11,7 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import PasswordForm from '../ui/PasswordForm';
+import Logo from './Logo';
 
 import styles from './AppLocked.module.scss';
 
@@ -74,7 +75,8 @@ function PasswordFormSlide({
         onSubmit={handleSubmitPassword}
         onUpdate={handlePasswordChange}
       >
-        <span className={buildClassName(styles.title, 'rounded-font')}>{APP_NAME}</span>
+        <Logo />
+        <span className={buildClassName(styles.title, 'brand-font')}>{APP_NAME}</span>
       </PasswordForm>
     </div>
   );

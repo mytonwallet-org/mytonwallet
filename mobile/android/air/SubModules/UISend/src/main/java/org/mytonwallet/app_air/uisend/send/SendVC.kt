@@ -109,6 +109,8 @@ class SendVC(
 
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
+    override val shouldDisplayBottomBar = false
+
     data class InitialValues(
         val address: String?,
         val amount: String? = null,
@@ -166,8 +168,6 @@ class SendVC(
     private val continueButtonVerticalMarginPx: Int = 15.dp
     private val continueButtonSpaceHeightPx: Int =
         continueButtonHeightPx + continueButtonVerticalMarginPx * 2
-
-    private val topGap = Space(context)
 
     private val bottomGuideline = Guideline(context).apply {
         id = generateViewId()
@@ -396,14 +396,6 @@ class SendVC(
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
 
-            addView(
-                topGap,
-                ViewGroup.LayoutParams(
-                    MATCH_PARENT,
-                    (navigationController?.getSystemBars()?.top ?: 0) +
-                        WNavigationBar.DEFAULT_HEIGHT.dp
-                )
-            )
             addView(title1, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(
                 addressInputView,
@@ -760,7 +752,8 @@ class SendVC(
         )
         scrollView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             val suggestionsBoxHeight =
-                (scrollView.height - linearLayout.paddingBottom) - headerContentContainer.height
+                ((scrollView.height - scrollView.paddingTop - linearLayout.paddingBottom) -
+                    headerContentContainer.height).coerceAtLeast(0)
             if (suggestionsBoxView.layoutParams.height != suggestionsBoxHeight) {
                 suggestionsBoxView.updateLayoutParams { height = suggestionsBoxHeight }
             }
@@ -768,14 +761,21 @@ class SendVC(
         view.addView(
             continueButtonSpace, ViewGroup.LayoutParams(MATCH_PARENT, continueButtonSpaceHeightPx)
         )
-        view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, continueButtonHeightPx))
+        view.addView(
+            continueButton,
+            ConstraintLayout.LayoutParams(
+                ConstraintLayout.LayoutParams.MATCH_CONSTRAINT,
+                continueButtonHeightPx
+            )
+        )
         view.setConstraints {
             allEdges(scrollView)
             toCenterX(bottomReversedCornerViewUpsideDown)
             toBottom(bottomReversedCornerViewUpsideDown)
             bottomToTop(continueButtonSpace, bottomGuideline)
             toCenterX(continueButtonSpace)
-            toCenterX(continueButton, 20f)
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
             bottomToTopPx(continueButton, bottomGuideline, continueButtonVerticalMarginPx)
             guidelineEndPx(bottomGuideline, getSystemBottomOffset())
         }
@@ -986,9 +986,9 @@ class SendVC(
                                             requestHash = mfaHash,
                                             chip = org.mytonwallet.app_air.uicomponents
                                                 .viewControllers.MfaActionConfirmVC.Chip(
-                                                leading = token,
-                                                text = chipText,
-                                            ),
+                                                    leading = token,
+                                                    text = chipText,
+                                                ),
                                         )
                                 navigationController?.push(mfaVC, onCompletion = {
                                     navigationController?.removePrevViewControllerOnly()
@@ -1186,7 +1186,7 @@ class SendVC(
     private fun getSystemBottomOffset(): Int {
         return max(
             (navigationController?.getSystemBars()?.bottom ?: 0),
-            (window?.imeInsets?.bottom ?: 0)
+            (navigationController?.imeInsetBottom ?: 0)
         )
     }
 
@@ -1213,16 +1213,14 @@ class SendVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        scrollView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
+        scrollView.setPaddingRelative(
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
+            (navigationController?.getSystemBars()?.top ?: 0) +
+                WNavigationBar.DEFAULT_HEIGHT.dp,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             0
         )
-        topGap.updateLayoutParamsIfExists {
-            height = (navigationController?.getSystemBars()?.top ?: 0) +
-                WNavigationBar.DEFAULT_HEIGHT.dp
-        }
+        scrollView.clipToPadding = false
         addressInputView.insetsUpdated()
         if (showSuggestionAnimatorInProgress) {
             return
@@ -1230,6 +1228,8 @@ class SendVC(
         updateBottomOffsets(continueButton.isVisible)
         view.setConstraints {
             guidelineEndPx(bottomGuideline, getSystemBottomOffset())
+            toStartPx(continueButton, 20.dp + systemBarStartInset)
+            toEndPx(continueButton, 20.dp + systemBarEndInset)
         }
     }
 
