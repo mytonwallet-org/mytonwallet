@@ -238,8 +238,16 @@ async function onMessage(
         messageId, name, args, withCallback,
       } = data;
       try {
+        let apiMethod: ((...methodArgs: any[]) => any) | undefined;
+
         // This method is probably from another worker
-        if (typeof api !== 'function' && !api[name]) return;
+        if (typeof api !== 'function') {
+          if (!Object.prototype.hasOwnProperty.call(api, name)) return;
+
+          const candidate = api[name];
+          if (typeof candidate !== 'function') return;
+          apiMethod = candidate as (...methodArgs: any[]) => any;
+        }
 
         if (messageId && withCallback) {
           const callback = (...callbackArgs: any[]) => {
@@ -259,7 +267,7 @@ async function onMessage(
 
         const response = typeof api === 'function'
           ? await api(name, origin, ...args)
-          : await api[name](...args);
+          : await apiMethod!(...args);
         const { arrayBuffer } = (typeof response === 'object' && response && 'arrayBuffer' in response) || {};
 
         if (messageId) {
