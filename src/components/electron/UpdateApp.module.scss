@@ -39,7 +39,8 @@
   }
 
   :global(html.is-electron.is-windows) & {
-    margin-right: 1rem;
+    position: static;
+    margin: 0 1rem;
   }
 
   :global(html.is-electron.is-macos) & {
