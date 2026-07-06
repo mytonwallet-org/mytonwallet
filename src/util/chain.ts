@@ -16,6 +16,7 @@ import {
   ETH_USDT_MAINNET,
   HYPERLIQUID,
   HYPERLIQUID_USDC_MAINNET,
+  IS_CORE_WALLET,
   MONAD,
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
@@ -1006,9 +1007,12 @@ export const getTrustedUsdtSlugs = /* #__PURE__ */ withCache((): ReadonlySet<str
 });
 
 export const getDefaultEnabledSlugs = /* #__PURE__ */ withCache((network: ApiNetwork): ReadonlySet<string> => {
+  // Core builds are TON-only: without this gate, foreign-chain defaults get zero-balance rows
+  // injected for every account (see `updateBalances` in `global/reducers/misc.ts`) and rendered on empty wallets.
+  const chainConfigs = IS_CORE_WALLET ? [CHAIN_CONFIG.ton] : Object.values(CHAIN_CONFIG);
+
   return new Set(
-    Object.values(CHAIN_CONFIG)
-      .flatMap((chainConfig) => chainConfig.defaultEnabledSlugs[network]),
+    chainConfigs.flatMap((chainConfig) => chainConfig.defaultEnabledSlugs[network]),
   );
 });
 

@@ -357,7 +357,9 @@ export default function createConfig(
         chunks: ['main'],
         csp: CSP,
         title: APP_NAME,
-        homepage: IS_CORE_WALLET ? 'https://wallet.ton.org' : IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mywallet.io',
+        homepage: IS_CORE_WALLET
+          ? 'https://wallet.ton.org'
+          : IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mywallet.io',
         assets_prefix: IS_GRAM_WALLET ? 'gramWallet/' : IS_TON_BRAND ? 'coreWallet/' : '',
       }),
       new PreloadWebpackPlugin({

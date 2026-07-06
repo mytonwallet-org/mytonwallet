@@ -21,6 +21,8 @@ const FLAVOR_ENV: Record<Flavor, Partial<Record<'IS_CORE_WALLET' | 'IS_GRAM_WALL
 
 type ConfigModule = typeof import('./config');
 type DeeplinkModule = typeof import('./util/deeplink/constants');
+type ChainModule = typeof import('./util/chain');
+type TokensModule = typeof import('./util/tokens');
 
 const savedEnv: Partial<Record<(typeof AXIS_FLAGS)[number], string | undefined>> = {};
 
@@ -43,7 +45,7 @@ afterAll(() => {
 
 async function withFlavor(
   flavor: Flavor,
-  run: (config: ConfigModule, deeplink: DeeplinkModule) => void,
+  run: (config: ConfigModule, deeplink: DeeplinkModule, chain: ChainModule, tokens: TokensModule) => void,
 ) {
   for (const key of AXIS_FLAGS) {
     delete process.env[key];
@@ -53,10 +55,12 @@ async function withFlavor(
   }
 
   await jest.isolateModulesAsync(async () => {
-    // Both modules resolve inside the same fresh registry, so deeplink sees the same config instance.
+    // All modules resolve inside the same fresh registry, so they see the same config instance.
     const config = await import('./config');
     const deeplink = await import('./util/deeplink/constants');
-    run(config, deeplink);
+    const chain = await import('./util/chain');
+    const tokens = await import('./util/tokens');
+    run(config, deeplink, chain, tokens);
   });
 }
 
@@ -185,6 +189,32 @@ describe.each(FLAVORS)('build flavor: %s', (flavor) => {
       expect(deeplink.TONCONNECT_UNIVERSAL_URL).toBe(expected.TONCONNECT_UNIVERSAL_URL);
       expect(deeplink.SELF_UNIVERSAL_URLS).toEqual(expected.SELF_UNIVERSAL_URLS);
     });
+  });
+});
+
+describe('getDefaultEnabledSlugs resolves per behavior axis', () => {
+  // Chains of the default-enabled token set per flavor. This is what puts zero-balance rows on an
+  // empty wallet's home screen, so for Core/combo it must stay TON-only (the wallet.ton.org storefront).
+  const chainsByFlavor: Partial<Record<Flavor, Set<string>>> = {};
+
+  beforeAll(async () => {
+    for (const flavor of FLAVORS) {
+      await withFlavor(flavor, (_config, _deeplink, chain, tokens) => {
+        const slugs = [...chain.getDefaultEnabledSlugs('mainnet')];
+        expect(slugs.length).toBeGreaterThan(0);
+        chainsByFlavor[flavor] = new Set(slugs.map((slug) => tokens.getChainBySlug(slug)));
+      });
+    }
+  });
+
+  it('core and combo default to TON tokens only', () => {
+    expect([...chainsByFlavor.core!]).toEqual(['ton']);
+    expect([...chainsByFlavor.combo!]).toEqual(['ton']);
+  });
+
+  it('default and gram keep the multichain defaults', () => {
+    expect(chainsByFlavor.default).toEqual(chainsByFlavor.gram);
+    expect(chainsByFlavor.default!.size).toBeGreaterThan(1);
   });
 });
 

@@ -273,7 +273,8 @@ function Main({
           />
 
           <LandscapeNavBar />
-          <LandscapeWalletList />
+          {/* Core is single-account, and its `Add Wallet` would be dead anyway: AccountSelectorModal is not rendered below. */}
+          {!IS_CORE_WALLET && <LandscapeWalletList />}
           {IS_EXPLORER && <PromoteWallet />}
         </div>
         <div className={styles.main}>
