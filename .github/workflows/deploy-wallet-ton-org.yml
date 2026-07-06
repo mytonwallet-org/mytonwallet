@@ -16,8 +16,8 @@
 # Build env: inject NO app env, so src/config.ts defaults to production. Do NOT copy
 # build-web.yml's env: block -- in this repo those vars point at beta.
 #
-# Requires in the public repo: secrets TON_WALLET_DEPLOY_TOKEN (Contents:write on
-# ton-blockchain/ton-wallet), CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN; var NODE_VERSION.
+# Requires in the public repo: secret TON_WALLET_DEPLOY_TOKEN (Contents:write on
+# ton-blockchain/ton-wallet); var NODE_VERSION.
 
 name: Deploy wallet.ton.org
 
@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Build + gates only; skip the force-push and Cloudflare purge"
+        description: "Build + gates only; skip the force-push"
         type: boolean
         default: true
 
@@ -101,7 +101,7 @@ jobs:
           git config --global user.email "mytonwalletorg@users.noreply.github.com"
 
       # build, grep gates, source guard, target guard, docs swap, [Build] commit,
-      # force-push, Cloudflare purge -- all in the script.
+      # force-push -- all in the script.
       - name: Deploy
         working-directory: source
         env:
@@ -109,8 +109,6 @@ jobs:
           # Must match the origin URL actions/checkout configures in target/ --
           # the script asserts WORKDIR's origin == TARGET_REPO before pushing.
           TARGET_REPO: https://github.com/ton-blockchain/ton-wallet
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           DRY: ${{ steps.mode.outputs.dry }}
         run: |
           if [ "$DRY" = "true" ]; then

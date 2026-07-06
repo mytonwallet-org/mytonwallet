@@ -3,9 +3,14 @@
 # Deploy the Gram Wallet Web build to wallet.ton.org.
 #
 # wallet.ton.org is GitHub Pages, served from the docs/ directory of the
-# ton-blockchain/ton-wallet repo, sitting behind Cloudflare. There is no CI in
-# that repo -- deploys run from CI in the public mirror, or manually from a
-# maintainer's machine.
+# ton-blockchain/ton-wallet repo. There is no CI in that repo -- deploys run
+# from CI in the public mirror, or manually from a maintainer's machine.
+#
+# No CDN purge step, on purpose: Cloudflare fronts the domain but does not
+# cache the HTML (cf-cache-status: DYNAMIC), the caching layer is the GitHub
+# Pages CDN with max-age=600, and asset filenames are content-hashed -- so a
+# deploy is fully visible within ~10 minutes with no invalidation call. The
+# historical Core Wallet deploys never purged either.
 #
 # ton-blockchain/ton-wallet IS our public mirror (mytonwallet-org/mytonwallet): same
 # 2022 root, differing only by the "core:web:deploy" helper (1a80ba4fb2, the target
@@ -22,8 +27,7 @@
 #   - push (write) access to TARGET_REPO
 #   - a clean working tree in THIS dev checkout, on a ref that carries the Gram
 #     combo profile
-#   - node/npm on PATH; curl >= 7.76 for the Cloudflare purge step
-#   - (optional) CLOUDFLARE_ZONE_ID + CLOUDFLARE_API_TOKEN to auto-purge the CDN
+#   - node/npm on PATH
 #
 # Usage:
 #   deploy/deploy_gram_wallet_web.sh [--dry-run]
@@ -41,8 +45,6 @@
 #                         (local .env / ambient app env); the artifact
 #                         environment gates (6-7) still apply
 #   WORKDIR               default: <sibling of this dev repo>/ton-wallet-deploy
-#   CLOUDFLARE_ZONE_ID    optional, enables cache purge after push
-#   CLOUDFLARE_API_TOKEN  optional, enables cache purge after push
 #
 # Rollback (if a bad build reaches wallet.ton.org):
 #   Every live deploy first preserves the outgoing remote tip on the TARGET as
@@ -53,10 +55,9 @@
 #     git clone git@github.com:ton-blockchain/ton-wallet.git && cd ton-wallet
 #     git fetch origin '+refs/backup/*:refs/backup/*'
 #     git push --force-with-lease=<TARGET_BRANCH> origin refs/backup/build-<sha>:<TARGET_BRANCH>
-#   (or simply re-run this script from the previous good source ref).
-#   Then purge Cloudflare: re-run the purge call below with CLOUDFLARE_ZONE_ID/
-#   CLOUDFLARE_API_TOKEN, or dashboard -> Caching -> Configuration -> Purge
-#   Everything.
+#   (or simply re-run this script from the previous good source ref). The
+#   rolled-back build is live once the Pages CDN cache expires (~10 minutes,
+#   see the note above).
 
 set -e
 
@@ -105,7 +106,7 @@ WORKDIR="${WORKDIR:-$(dirname "$DEV_REPO_ROOT")/ton-wallet-deploy}"
 log "Build source: $DEV_REPO_ROOT @ $SOURCE_BRANCH ($SOURCE_SHA)"
 log "Target repo:  $TARGET_REPO ($TARGET_BRANCH)"
 log "Workdir:      $WORKDIR"
-[ "$DRY_RUN" = "1" ] && log "Mode:         dry-run (push and Cloudflare purge will be skipped)"
+[ "$DRY_RUN" = "1" ] && log "Mode:         dry-run (push will be skipped)"
 
 # --- 1b. Build-env hygiene: refuse an environment that can poison the artifact
 #
@@ -441,28 +442,6 @@ else
   git push --force-with-lease="${TARGET_BRANCH}:${REMOTE_TIP_SHA}" origin "$TARGET_BRANCH"
 fi
 
-# --- 9. Cloudflare purge -----------------------------------------------------
-
-if [ "$DRY_RUN" = "1" ]; then
-  log "[dry-run] Skipping Cloudflare purge."
-elif [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
-  # NOTE: purge_everything on the (TON-side) zone is intentionally unchanged --
-  # we cannot enumerate the site's full URL set, and scoping the purge needs
-  # TON-side coordination. What IS enforced: the purge call must succeed, or
-  # the deploy fails loudly instead of quietly leaving users on a stale build.
-  log "Purging Cloudflare cache (zone $CLOUDFLARE_ZONE_ID)..."
-  PURGE_RESPONSE="$(curl -sS --fail-with-body -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-    -H "Content-Type: application/json" \
-    --data '{"purge_everything":true}')" \
-    || fail "Cloudflare purge request failed: ${PURGE_RESPONSE:-<no response body>}"
-  echo "$PURGE_RESPONSE" | grep -Eq '"success": ?true' \
-    || fail "Cloudflare purge API returned success=false: $PURGE_RESPONSE"
-  log "Cloudflare purge OK."
-else
-  log "CLOUDFLARE_ZONE_ID / CLOUDFLARE_API_TOKEN not set -- purge the Cloudflare cache for wallet.ton.org manually (dashboard -> Caching -> Configuration -> Purge Everything)."
-fi
-
 # --- Summary -----------------------------------------------------------------
 
 echo
@@ -474,5 +453,5 @@ echo "Commit:     $COMMIT_MSG"
 [ "$DRY_RUN" = "1" ] && echo "Mode:       dry-run -- nothing was pushed"
 echo "=================================================================="
 echo "Checklist: verify wallet.ton.org against the canary profile before"
-echo "considering this deploy fully live."
+echo "considering this deploy fully live (CDN cache expires within ~10 min)."
 echo "=================================================================="
