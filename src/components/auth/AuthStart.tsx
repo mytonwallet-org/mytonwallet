@@ -3,7 +3,9 @@ import { getActions, withGlobal } from '../../global';
 
 import { type Theme } from '../../global/types';
 
-import { APP_NAME, IS_CORE_WALLET, IS_EXPLORER } from '../../config';
+import {
+  APP_NAME, IS_CORE_WALLET, IS_EXPLORER, IS_GRAM_WALLET, IS_TON_BRAND,
+} from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -30,6 +32,7 @@ import { PARTICLE_HEIGHT, PARTICLE_LANDSCAPE_HEIGHT } from '../ui/ImageWithParti
 import styles from './Auth.module.scss';
 
 import logoWebpPath from '../../assets/logo.webp';
+import gramWalletLogoPath from '../../assets/logoGramWallet.svg';
 
 interface OwnProps {
   isActive?: boolean;
@@ -134,6 +137,12 @@ function AuthStart({
     );
   }
 
+  // Gram web reuses Core's behavior but ships its own brand mark as a static SVG: the flat June-2026
+  // Gram logo has no lottie asset, and on the combo profile the animated intro logo is only seen on
+  // fresh wallet creation (migrating wallet.ton.org users skip it), so static is the right tradeoff.
+  const brandLogoTgsUrl = IS_TON_BRAND ? ANIMATED_STICKERS_PATHS.coreWalletLogo : undefined;
+  const brandLogoPreviewUrl = IS_TON_BRAND ? ANIMATED_STICKERS_PATHS.coreWalletLogoPreview : undefined;
+
   return (
     <div className={buildClassName(styles.container, 'custom-scroll')}>
       {hasAccounts && (
@@ -150,11 +159,11 @@ function AuthStart({
         onClick={handleParticlesClick}
       >
         <canvas ref={canvasRef} className={styles.logoParticles} />
-        {IS_CORE_WALLET ? (
+        {brandLogoTgsUrl ? (
           <AnimatedIconWithPreview
             play={isActive}
-            tgsUrl={ANIMATED_STICKERS_PATHS.coreWalletLogo}
-            previewUrl={ANIMATED_STICKERS_PATHS.coreWalletLogoPreview}
+            tgsUrl={brandLogoTgsUrl}
+            previewUrl={brandLogoPreviewUrl}
             className={buildClassName(
               styles.logo,
               isLogoAnimated && styles.logoReadyToScale,
@@ -165,7 +174,7 @@ function AuthStart({
         ) : (
           <img
             ref={logoRef}
-            src={logoWebpPath}
+            src={IS_GRAM_WALLET ? gramWalletLogoPath : logoWebpPath}
             alt={APP_NAME}
             className={buildClassName(
               styles.logo,

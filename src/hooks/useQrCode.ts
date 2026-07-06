@@ -7,7 +7,7 @@ import { removeExtraClass } from '../lib/teact/teact-dom';
 
 import type { ApiChain } from '../api/types';
 
-import { IS_CORE_WALLET } from '../config';
+import { IS_GRAM_WALLET, IS_TON_BRAND } from '../config';
 import { getChainConfig } from '../util/chain';
 import getChainNetworkIcon from '../util/swap/getChainNetworkIcon';
 
@@ -37,7 +37,7 @@ export default function useQrCode({
 }): UseQRCodeHook {
   const qrCodeInstanceRef = useRef<QRCodeStyling>();
   const [isInitialized, setIsInitialized] = useState(false);
-  const logoUrl = IS_CORE_WALLET ? './coreWallet/logo.svg' : './logo.svg';
+  const logoUrl = IS_GRAM_WALLET ? './gramWallet/logo.svg' : IS_TON_BRAND ? './coreWallet/logo.svg' : './logo.svg';
 
   const qrCodeRef = useRef<HTMLDivElement>();
 

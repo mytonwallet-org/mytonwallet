@@ -18,10 +18,16 @@ if [ "$IS_EXTENSION" = "1" ]; then
     FILES_TO_REMOVE+=("site.webmanifest")
 fi
 
-if [ "$IS_CORE_WALLET" = "1" ]; then
-   FILES_TO_REMOVE+=("apple-touch-icon.png" "browserconfig.xml" "favicon.ico" "icon*" "logo.svg" "mstile*" "site.webmanifest" , "assets/ui/about.txt")
+if [ "$IS_GRAM_WALLET" = "1" ]; then
+   # Any Gram-branded build (pure gram, the wallet.ton.org combo, and any future Gram mobile bundle) ships
+   # gramWallet/ assets only. Brand asset retention keys on brand alone; platform axes must not gate it, or a
+   # Gram build off the else-branch would strip its own gramWallet/ dir that runtime code (QR logo, manifest) needs.
+   FILES_TO_REMOVE+=("apple-touch-icon.png" "browserconfig.xml" "favicon.ico" "icon*" "logo.svg" "mstile*" "site.webmanifest" "coreWallet*" "core_wallet*" "assets/ui/about.txt")
+   sed -i.bak 's#https://get.mytonwallet.io#https://get.gramwallet.io#' "$DESTINATION/_redirects" && rm -f "$DESTINATION/_redirects.bak"
+elif [ "$IS_CORE_WALLET" = "1" ]; then
+   FILES_TO_REMOVE+=("apple-touch-icon.png" "browserconfig.xml" "favicon.ico" "icon*" "logo.svg" "mstile*" "site.webmanifest" "gramWallet*" "gram_wallet*" "assets/ui/about.txt")
 else
-   FILES_TO_REMOVE+=("coreWallet*" "core_wallet*" "assets/")
+   FILES_TO_REMOVE+=("coreWallet*" "core_wallet*" "gramWallet*" "gram_wallet*" "assets/")
 fi
 
 if [ "$IS_PACKAGED_ELECTRON" != "1" ]; then

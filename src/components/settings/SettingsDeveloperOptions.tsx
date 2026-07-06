@@ -6,7 +6,9 @@ import type { Account, DeveloperSettingsOverrides } from '../../global/types';
 import type { Log } from '../../util/logs';
 import type { DropdownItem } from '../ui/Dropdown';
 
-import { APP_COMMIT_HASH, APP_ENV, APP_VERSION, IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
+import {
+  APP_COMMIT_HASH, APP_ENV, APP_VERSION, IS_EXTENSION, IS_GRAM_WALLET, IS_TELEGRAM_APP, IS_TON_BRAND,
+} from '../../config';
 import { selectCurrentAccountId, selectIsMultichainAccount, selectSeasonalThemeOverride } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
@@ -119,7 +121,8 @@ function SettingsDeveloperOptions({
       showToast({ message: lang('Logs Copied'), icon: 'icon-copy' });
       onClose();
     } else {
-      const filename = `${IS_CORE_WALLET ? 'tonwallet' : 'mytonwallet'}_logs_${new Date().toISOString()}.json`;
+      const brandPrefix = IS_GRAM_WALLET ? 'gramwallet' : IS_TON_BRAND ? 'tonwallet' : 'mytonwallet';
+      const filename = `${brandPrefix}_logs_${new Date().toISOString()}.json`;
       await shareFile(filename, logsString, 'application/json');
     }
   });

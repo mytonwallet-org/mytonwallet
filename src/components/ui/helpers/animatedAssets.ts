@@ -1,4 +1,4 @@
-import { IS_CORE_WALLET } from '../../../config';
+import { IS_TON_BRAND } from '../../../config';
 
 import iconAddDark from '../../../assets/lottie/add_dark.tgs';
 import iconAddLight from '../../../assets/lottie/add_light.tgs';
@@ -144,7 +144,7 @@ export const ANIMATED_STICKERS_PATHS = {
   runPreview,
   yeeePreview,
   guardPreview,
-  ...(IS_CORE_WALLET && {
+  ...(IS_TON_BRAND && {
     coreWalletLogo,
     coreWalletLogoPreview,
   }),

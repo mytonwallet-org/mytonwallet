@@ -17,13 +17,16 @@ export const APP_ENV = process.env.APP_ENV || 'production';
 
 export const IS_CORE_WALLET = process.env.IS_CORE_WALLET === '1';
 export const IS_GRAM_WALLET = process.env.IS_GRAM_WALLET === '1';
+// Both flags together form the wallet.ton.org combo build: Gram branding over Core behavior.
+// Brand-axis code must check IS_GRAM_WALLET first, then IS_TON_BRAND; behavior/storage code keeps using IS_CORE_WALLET.
+export const IS_TON_BRAND = IS_CORE_WALLET && !IS_GRAM_WALLET;
 export const APP_NAME = process.env.APP_NAME
-  || (IS_CORE_WALLET ? 'TON Wallet' : IS_GRAM_WALLET ? 'Gram Wallet' : 'My Wallet');
+  || (IS_GRAM_WALLET ? 'Gram Wallet' : IS_TON_BRAND ? 'TON Wallet' : 'My Wallet');
 export const APP_VERSION = process.env.APP_VERSION!;
 export const APP_COMMIT_HASH = process.env.APP_COMMIT_HASH!;
 export const APP_ENV_MARKER = APP_ENV === 'staging' ? 'Beta' : APP_ENV === 'development' ? 'Dev' : undefined;
-export const EXTENSION_NAME = IS_CORE_WALLET ? 'TON Wallet' : 'My Wallet: Crypto Wallet';
-export const EXTENSION_DESCRIPTION = IS_CORE_WALLET
+export const EXTENSION_NAME = IS_TON_BRAND ? 'TON Wallet' : 'My Wallet: Crypto Wallet';
+export const EXTENSION_DESCRIPTION = IS_TON_BRAND
   ? 'Set up your own TON Wallet on The Open Network'
   : 'Self-custodial wallet for TON, TRON, Solana, Ethereum and more. Swap, stake, buy crypto, manage NFTs and explore dapps.';
 

@@ -33,9 +33,11 @@ import {
   IS_EXPLORER,
   IS_EXTENSION,
   IS_FIREFOX_EXTENSION,
+  IS_GRAM_WALLET,
   IS_OPERA_EXTENSION,
   IS_PACKAGED_ELECTRON,
   IS_TELEGRAM_APP,
+  IS_TON_BRAND,
   MFA_API_BASE_URL,
   MW_STATIC_BASE_URL,
   PORTFOLIO_API_URL,
@@ -355,8 +357,8 @@ export default function createConfig(
         chunks: ['main'],
         csp: CSP,
         title: APP_NAME,
-        homepage: IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mywallet.io',
-        assets_prefix: IS_CORE_WALLET ? 'coreWallet/' : '',
+        homepage: IS_CORE_WALLET ? 'https://wallet.ton.org' : IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mywallet.io',
+        assets_prefix: IS_GRAM_WALLET ? 'gramWallet/' : IS_TON_BRAND ? 'coreWallet/' : '',
       }),
       new PreloadWebpackPlugin({
         include: 'allAssets',
@@ -366,8 +368,11 @@ export default function createConfig(
           /theme_.*?\.png/, // Theme icons
           /chain_.*?\.png/, // Chain icons
           /settings_.*?\.svg/, // Settings icons (svg)
-          ...(IS_CORE_WALLET ? [
+          ...(IS_TON_BRAND ? [
             /core_wallet_.*?\.png/, // Lottie thumbs for TON Wallet
+          ] : []),
+          ...(IS_GRAM_WALLET ? [
+            /gram_wallet_.*?\.png/, // Lottie thumbs for Gram Wallet
           ] : []),
         ],
         as(entry: string) {
@@ -454,13 +459,19 @@ export default function createConfig(
                 extension_pages: CSP,
               };
               manifest.action = { default_title: APP_NAME };
-              manifest.icons = IS_CORE_WALLET
+              manifest.icons = IS_GRAM_WALLET
                 ? {
-                  192: 'coreWallet/icon-192x192.png',
-                  256: 'coreWallet/icon-256x256.png',
-                  512: 'coreWallet/icon-512x512.png',
+                  192: 'gramWallet/icon-192x192.png',
+                  256: 'gramWallet/icon-256x256.png',
+                  512: 'gramWallet/icon-512x512.png',
                 }
-                : { 192: 'icon-192x192.png', 384: 'icon-384x384.png', 512: 'icon-512x512.png' };
+                : IS_TON_BRAND
+                  ? {
+                    192: 'coreWallet/icon-192x192.png',
+                    256: 'coreWallet/icon-256x256.png',
+                    512: 'coreWallet/icon-512x512.png',
+                  }
+                  : { 192: 'icon-192x192.png', 384: 'icon-384x384.png', 512: 'icon-512x512.png' };
 
               if (IS_FIREFOX_EXTENSION) {
                 manifest.background = {

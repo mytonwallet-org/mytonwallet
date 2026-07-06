@@ -1,0 +1,120 @@
+# Deploys wallet.ton.org: builds the Gram Wallet Web combo and force-pushes it into
+# ton-blockchain/ton-wallet docs/. All logic and guards are in the wrapped script,
+# deploy/deploy_gram_wallet_web.sh.
+#
+# Trigger: push to a release/* branch with a commit-message marker.
+#   [wallet-deploy]       dry-run (build + gates, no push)
+#   [wallet-deploy:live]  real deploy
+# The job gate matches the prefix '[wallet-deploy', so BOTH markers start the job;
+# the dry-vs-live split is decided once, in the resolver step. Unmarked pushes and a
+# squash-merge to master (which drops the marker) never deploy.
+#
+# Push, not workflow_dispatch: dispatch needs the file on the DEFAULT branch (a
+# GitHub rule gh/REST do not bypass); push runs the file from the pushed branch, so
+# a release branch can be debugged before it reaches master.
+#
+# Build env: inject NO app env, so src/config.ts defaults to production. Do NOT copy
+# build-web.yml's env: block -- in this repo those vars point at beta.
+#
+# Requires in the public repo: secrets TON_WALLET_DEPLOY_TOKEN (Contents:write on
+# ton-blockchain/ton-wallet), CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN; var NODE_VERSION.
+
+name: Deploy wallet.ton.org
+
+on:
+  push:
+    branches:
+      - 'release/*'   # release/YY.M.PATCH (e.g. release/26.6.4)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build + gates only; skip the force-push and Cloudflare purge"
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-wallet-ton-org
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build combo and publish to ton-wallet
+    runs-on: ubuntu-latest
+    # Only in the public mirror; for push, only when the marker is present.
+    # Prefix match on purpose: matches both '[wallet-deploy]' and
+    # '[wallet-deploy:live]' -- see the marker-grammar note in the header.
+    if: >-
+      github.repository == 'mytonwallet-org/mytonwallet' &&
+      (github.event_name == 'workflow_dispatch' ||
+       contains(github.event.head_commit.message, '[wallet-deploy'))
+    steps:
+      - name: Resolve deploy mode (dry-run vs live)
+        id: mode
+        env:
+          # Pass the untrusted commit message through env (never inline ${{ }} into run).
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_DRY: ${{ inputs.dry_run }}
+          HEAD_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            DRY="$DISPATCH_DRY"
+          elif [[ "$HEAD_MSG" == *"[wallet-deploy:live]"* ]]; then
+            DRY=false
+          else
+            DRY=true
+          fi
+          echo "dry=$DRY" >> "$GITHUB_OUTPUT"
+          echo "Deploy mode: dry=$DRY (event=$EVENT_NAME)"
+
+      # Build SOURCE = this repo at the pushed/dispatched ref (public by construction).
+      - name: Checkout the public mirror (build source)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # script's source-lineage guard needs history
+          path: source
+
+      # Deploy TARGET = ton-wallet, pre-authenticated. The script sees WORKDIR
+      # already populated and reuses these push credentials (skips its own clone).
+      - name: Checkout ton-wallet (deploy target)
+        uses: actions/checkout@v4
+        with:
+          repository: ton-blockchain/ton-wallet
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.TON_WALLET_DEPLOY_TOKEN }}
+          path: target
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+
+      - name: Install dependencies
+        working-directory: source
+        run: npm ci
+
+      - name: Identify the build committer
+        run: |
+          git config --global user.name "mytonwalletorg"
+          git config --global user.email "mytonwalletorg@users.noreply.github.com"
+
+      # build, grep gates, source guard, target guard, docs swap, [Build] commit,
+      # force-push, Cloudflare purge -- all in the script.
+      - name: Deploy
+        working-directory: source
+        env:
+          WORKDIR: ${{ github.workspace }}/target
+          # Must match the origin URL actions/checkout configures in target/ --
+          # the script asserts WORKDIR's origin == TARGET_REPO before pushing.
+          TARGET_REPO: https://github.com/ton-blockchain/ton-wallet
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DRY: ${{ steps.mode.outputs.dry }}
+        run: |
+          if [ "$DRY" = "true" ]; then
+            ./deploy/deploy_gram_wallet_web.sh --dry-run
+          else
+            ./deploy/deploy_gram_wallet_web.sh
+          fi
