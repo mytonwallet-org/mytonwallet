@@ -1,6 +1,12 @@
 import type { GlobalState } from '../../global/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { TonConnectProof } from '../dappProtocols/adapters';
+import type {
+  WcPayMerchant,
+  WcPayPaymentAmount,
+  WcPayPaymentInfo,
+  WcPayPaymentOption,
+} from '../dappProtocols/adapters/walletConnect/types';
 import type { StoredDappConnection } from '../dappProtocols/storage';
 import type { UnifiedSignDataPayload } from '../dappProtocols/types';
 import type { ApiActivity } from './activities';
@@ -214,6 +220,88 @@ export type ApiUpdateDappSignDataComplete = {
   accountId: string;
 };
 
+export type ApiUpdateWalletConnectPaySignTransaction = {
+  type: 'walletConnectPaySignTransaction';
+  promiseId: string;
+  accountId: string;
+  merchant: WcPayMerchant;
+  operationChain: ApiChain;
+  transactions: ApiDappTransfer[];
+  emulation?: Pick<ApiEmulationResult, 'activities' | 'realFee'>;
+  paymentInfo?: WcPayPaymentInfo;
+  paymentOption?: WcPayPaymentOption;
+  isSignOnly: boolean;
+  isLegacyOutput?: boolean;
+  shouldHideTransfers?: boolean;
+  validUntil?: number;
+};
+
+export type ApiUpdateWalletConnectPaySignData = {
+  type: 'walletConnectPaySignData';
+  promiseId: string;
+  accountId: string;
+  merchant: WcPayMerchant;
+  operationChain: ApiChain;
+  payloadToSign: UnifiedSignDataPayload;
+  paymentInfo?: WcPayPaymentInfo;
+  paymentOption?: WcPayPaymentOption;
+  containsApprove?: boolean;
+  approveOperationChain?: ApiChain;
+  approveTransactions?: ApiDappTransfer[];
+  approveValidUntil?: number;
+};
+
+export type ApiUpdateWalletConnectPayLoading = {
+  type: 'walletConnectPayLoading';
+  accountId: string;
+};
+
+export type ApiUpdateWalletConnectPayCloseLoading = {
+  type: 'walletConnectPayCloseLoading';
+};
+
+export type ApiUpdateWalletConnectPayDataCollection = {
+  type: 'walletConnectPayDataCollection';
+  promiseId: string;
+  url: string;
+};
+
+export type ApiUpdateWalletConnectPayDataCollectionComplete = {
+  type: 'walletConnectPayDataCollectionComplete';
+};
+
+export type ApiUpdateWalletConnectPayOptionSelection = {
+  type: 'walletConnectPayOptionSelection';
+  promiseId: string;
+  paymentLink: string;
+  accountId: string;
+  merchant: WcPayMerchant;
+  paymentInfo?: WcPayPaymentInfo;
+  options: WcPayPaymentOption[];
+  isLoading?: boolean;
+  shouldSwitchWallet?: boolean;
+};
+
+export type ApiUpdateWalletConnectPayOptionSelectionComplete = {
+  type: 'walletConnectPayOptionSelectionComplete';
+};
+
+export type ApiUpdateWalletConnectPayProcessing = {
+  type: 'walletConnectPayProcessing';
+  accountId: string;
+  merchant: WcPayMerchant;
+  operationChain: ApiChain;
+};
+
+export type ApiUpdateWalletConnectPayPaymentComplete = {
+  type: 'walletConnectPayPaymentComplete';
+  accountId: string;
+  merchant: WcPayMerchant;
+  operationChain: ApiChain;
+  txId?: string;
+  paymentAmount?: WcPayPaymentAmount;
+};
+
 export type ApiUpdatePrepareTransaction = {
   type: 'prepareTransaction';
   toAddress: string;
@@ -226,6 +314,7 @@ export type ApiUpdatePrepareTransaction = {
 export type ApiUpdateProcessDeeplink = {
   type: 'processDeeplink';
   url: string;
+  isFromInAppBrowser?: boolean;
 };
 
 export type ApiUpdateNfts = {
@@ -378,6 +467,16 @@ export type ApiUpdate =
   | ApiUpdateDapps
   | ApiUpdateDappTransferComplete
   | ApiUpdateDappSignDataComplete
+  | ApiUpdateWalletConnectPaySignTransaction
+  | ApiUpdateWalletConnectPaySignData
+  | ApiUpdateWalletConnectPayLoading
+  | ApiUpdateWalletConnectPayCloseLoading
+  | ApiUpdateWalletConnectPayDataCollection
+  | ApiUpdateWalletConnectPayDataCollectionComplete
+  | ApiUpdateWalletConnectPayOptionSelection
+  | ApiUpdateWalletConnectPayOptionSelectionComplete
+  | ApiUpdateWalletConnectPayProcessing
+  | ApiUpdateWalletConnectPayPaymentComplete
   | ApiUpdatePrepareTransaction
   | ApiUpdateProcessDeeplink
   | ApiUpdateShowError

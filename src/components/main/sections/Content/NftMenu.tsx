@@ -29,6 +29,7 @@ import styles from './NftMenu.module.scss';
 interface OwnProps {
   nft: ApiNft;
   ref?: ElementRef<HTMLButtonElement>;
+  isWidget?: boolean;
   isContextMenuMode?: boolean;
   dnsExpireInDays?: number;
   menuAnchor?: IAnchorPosition;
@@ -53,6 +54,7 @@ const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
 function NftMenu({
   isViewMode,
   isTestnet,
+  isWidget,
   isContextMenuMode,
   nft,
   ref,
@@ -84,6 +86,7 @@ function NftMenu({
   const { menuItems, handleMenuItemSelect } = useNftMenu({
     nft,
     isViewMode,
+    isWidget,
     dnsExpireInDays,
     linkedAddress,
     isNftBlacklisted,

@@ -44,6 +44,6 @@ extension ApiCheckTransactionDraftResult {
 // TODO: surface other errors where appropriate
 public func handleDraftError(_ draft: ApiCheckTransactionDraftResult) throws {
     if let error = draft.error, error == .serverError {
-        throw BridgeCallError.message(.serverError, draft)
+        throw SdkError.apiReturnedError(error: error.rawValue, context: draft)
     }
 }

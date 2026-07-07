@@ -95,7 +95,7 @@ open class WClearSegmentedControlItemView(context: Context) :
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 Gravity.CENTER or Gravity.START
             )
-            setStyle(12f, WFont.SemiBold)
+            setStyle(12f, WFont.Medium)
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             setSingleLine()

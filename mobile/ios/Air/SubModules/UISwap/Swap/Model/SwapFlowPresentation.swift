@@ -107,7 +107,8 @@ struct SwapPresentationContext {
             }
             return .crosschainFromWallet(.init(
                 selling: amounts.selling,
-                buying: amounts.buying
+                buying: amounts.buying,
+                cexLabel: state.cexEstimate?.cexLabel
             ))
         case .crosschainToWallet:
             return .confirmSwap(presentCrosschainResult: true)

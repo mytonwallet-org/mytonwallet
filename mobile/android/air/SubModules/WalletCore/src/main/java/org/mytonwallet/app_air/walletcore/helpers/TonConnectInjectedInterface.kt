@@ -24,6 +24,7 @@ import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSignDataRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappTransactionRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.DAppInject
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import java.net.URI
 import java.security.SecureRandom
 
 class TonConnectInjectedInterface(
@@ -33,8 +34,8 @@ class TonConnectInjectedInterface(
     val showError: (error: String) -> Unit
 ) {
     val origin = uri.scheme + "://" + uri.host
-    private val dApp =
-        ApiMethod.DApp.Inject.DAppArg(url = origin, urlTrustStatus = "verified", accountId = accountId)
+
+    private var liveAccountId = accountId
 
     private fun sendInvokeError(invocationId: String, error: String? = "An error occurred!") {
         sendInvokeResponse(
@@ -75,7 +76,15 @@ class TonConnectInjectedInterface(
     }
 
     fun updateAccountId(accountId: String) {
-        dApp.accountId = accountId
+        liveAccountId = accountId
+    }
+
+    private fun currentDApp(): ApiMethod.DApp.Inject.DAppArg {
+        return ApiMethod.DApp.Inject.DAppArg(
+            url = resolveDappOrigin(origin, webView.url),
+            urlTrustStatus = "verified",
+            accountId = liveAccountId
+        )
     }
 
     @JavascriptInterface
@@ -98,7 +107,7 @@ class TonConnectInjectedInterface(
             "tonConnect:restoreConnection" -> {
                 WalletCore.call(
                     ApiMethod.DApp.Inject.TonConnectReconnect(
-                        dApp,
+                        currentDApp(),
                         getRequestId()
                     )
                 ) { res, _ ->
@@ -143,7 +152,7 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.TonConnectConnect(
-                        dApp,
+                        currentDApp(),
                         request,
                         getRequestId()
                     )
@@ -167,7 +176,7 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.TonConnectDisconnect(
-                        dApp,
+                        currentDApp(),
                         request
                     )
                 ) { _, _ ->
@@ -189,7 +198,7 @@ class TonConnectInjectedInterface(
                         )
                         WalletCore.call(
                             ApiMethod.DApp.Inject.TonConnectDisconnect(
-                                dApp,
+                                currentDApp(),
                                 disconnectRequest
                             )
                         ) { _, _ ->
@@ -217,7 +226,7 @@ class TonConnectInjectedInterface(
                         )
                         WalletCore.call(
                             ApiMethod.DApp.Inject.TonConnectSendTransaction(
-                                dApp,
+                                currentDApp(),
                                 request
                             )
                         ) { res, _ ->
@@ -249,7 +258,7 @@ class TonConnectInjectedInterface(
                         )
                         WalletCore.call(
                             ApiMethod.DApp.Inject.TonConnectSignData(
-                                dApp,
+                                currentDApp(),
                                 request
                             )
                         ) { res, _ ->
@@ -278,7 +287,7 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectConnect(
-                        dApp,
+                        currentDApp(),
                         request,
                         getRequestId()
                     )
@@ -295,7 +304,7 @@ class TonConnectInjectedInterface(
             "walletConnect:reconnect" -> {
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectReconnect(
-                        dApp,
+                        currentDApp(),
                         getRequestId()
                     )
                 ) { res, _ ->
@@ -312,7 +321,7 @@ class TonConnectInjectedInterface(
                 val request = args.optJSONObject(0) ?: return
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectDisconnect(
-                        dApp,
+                        currentDApp(),
                         request
                     )
                 ) { res, _ ->
@@ -330,7 +339,7 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectSendTransaction(
-                        dApp,
+                        currentDApp(),
                         request
                     )
                 ) { res, _ ->
@@ -349,7 +358,7 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectSignData(
-                        dApp,
+                        currentDApp(),
                         request
                     )
                 ) { res, _ ->
@@ -370,7 +379,7 @@ class TonConnectInjectedInterface(
                 val request = args.optJSONObject(0) ?: return
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectProxyEvmRpc(
-                        dApp,
+                        currentDApp(),
                         request
                     )
                 ) { res, _ ->
@@ -384,7 +393,10 @@ class TonConnectInjectedInterface(
 
             "window:open" -> {
                 val url = invoke.args?.optJSONObject(0)?.optString("url") ?: return
-                if (WalletContextManager.delegate?.get()?.handleDeeplink(url) != true) {
+                val routingDecision = WindowOpenUrlRoutingDecision.resolve(url) { deeplink, source ->
+                    WalletContextManager.delegate?.get()?.handleDeeplink(deeplink, source) == true
+                }
+                if (routingDecision == WindowOpenUrlRoutingDecision.LOAD_URL) {
                     webView.loadUrl(url)
                 }
             }
@@ -394,6 +406,22 @@ class TonConnectInjectedInterface(
     }
 
     private fun getRequestId() = SecureRandom().nextInt()
+}
+
+internal fun resolveDappOrigin(initialOrigin: String, liveUrl: String?): String {
+    if (liveUrl.isNullOrBlank()) {
+        return initialOrigin
+    }
+
+    val liveUri = try {
+        URI(liveUrl)
+    } catch (_: Throwable) {
+        return initialOrigin
+    }
+    val liveScheme = liveUri.scheme ?: return initialOrigin
+    val liveHost = liveUri.host ?: return initialOrigin
+
+    return "$liveScheme://$liveHost"
 }
 
 fun WebView.lockTouch() {

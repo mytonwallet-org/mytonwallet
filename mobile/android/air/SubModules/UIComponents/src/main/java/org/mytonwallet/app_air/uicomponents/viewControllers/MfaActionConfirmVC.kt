@@ -76,6 +76,7 @@ class MfaActionConfirmVC(
     private val forceCloseButton: Boolean = false,
     private val popupConfirmedActivity: Boolean = true,
     private val onConfirmed: ((txHash: String?) -> Unit)? = null,
+    private val onFinishOverride: ((txHash: String?) -> Unit)? = null,
 ) : WViewController(context), WalletCore.EventObserver {
     override val TAG = "MfaActionConfirm"
     override val shouldDisplayBottomBar = true
@@ -140,7 +141,7 @@ class MfaActionConfirmVC(
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             id = View.generateViewId()
-            setStyle(28f, WFont.SemiBold)
+            setStyle(28f, WFont.Medium)
             gravity = Gravity.CENTER
             text = buildConfirmWithTelegramTitle(context)
         }
@@ -393,6 +394,11 @@ class MfaActionConfirmVC(
         val txHash = pendingTxHash
         pendingTxHash = null
         pendingAccountId = null
+        val onFinishOverride = onFinishOverride
+        if (onFinishOverride != null) {
+            onFinishOverride(txHash)
+            return
+        }
         navigationController?.window?.dismissLastNav {
             if (popupConfirmedActivity && matchedActivity != null && accountId != null) {
                 WalletCore.notifyEvent(

@@ -60,7 +60,7 @@ public extension ApiActivity {
         case .nftPurchase: ["NFT Bought", "Buying NFT", "Buy NFT"]
         case .nftReceived: ["Received NFT", "Receiving", "$receive_action"]
         case .nftTransferred: ["Sent NFT", "Sending", "$send_action"]
-        case .swap:  ["Swapped", "Swap", "Swap"]
+        case .swap:  ["Swapped", "$swap_activity_title", "$swap_activity_title"]
             
         case nil:
             if transaction?.nft != nil {
@@ -103,15 +103,17 @@ public extension ApiActivity {
     }
 
     var displayTitleResolvedOptimistic: String {
+        resolvedOptimisticDisplayTitle()
+    }
+
+    func resolvedOptimisticDisplayTitle(accountChains: Set<ApiChain>? = nil) -> String {
         let displayTitle = self.displayTitle
         let resolved: String
         if let swap {
-            switch swap.displayStatus() {
-            case .failed, .expired, .refunded, .hold:
+            switch swap.displayStatus(accountChains: accountChains) {
+            case .failed, .expired, .refunded, .hold, .waitingForPayment:
                 resolved = displayTitle.future
-            case .pending, .waitingForPayment:
-                resolved = displayTitle.inProgress
-            case .completed:
+            case .pending, .completed:
                 resolved = displayTitle.complete
             }
         } else if transaction?.status == .failed {

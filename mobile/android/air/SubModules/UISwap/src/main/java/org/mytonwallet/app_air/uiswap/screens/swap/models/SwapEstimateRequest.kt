@@ -6,7 +6,6 @@ import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
 import org.mytonwallet.app_air.walletcore.models.DIESEL_TOKENS
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDexLabel
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
@@ -65,7 +64,8 @@ data class SwapEstimateRequest(
         get() = MApiSwapEstimateRequest(
             from = tokenToSend.swapSlug,
             to = tokenToReceive.swapSlug,
-            fromAddress = wallet.tonAddress,
+            fromAddress = tokenToSend.mBlockchain?.name?.let { wallet.addressByChain[it] }
+                ?: wallet.tonAddress,
             fromAmount = if (!reverse) CoinUtils.toBigDecimal(
                 amount,
                 tokenToSend.decimals
@@ -81,16 +81,25 @@ data class SwapEstimateRequest(
             toncoinBalance = nativeTokenToSendBalance,
         )
 
-    val estimateRequestCex: MApiSwapCexEstimateRequest
+    val estimateRequestCex: MApiSwapEstimateRequest
         get() {
             if (reverse && isCex) {
                 throw IllegalStateException()
             }
 
-            return MApiSwapCexEstimateRequest(
+            return MApiSwapEstimateRequest(
                 from = tokenToSend.swapSlug,
                 to = tokenToReceive.swapSlug,
-                fromAmount = CoinUtils.toBigDecimal(amount, tokenToSend.decimals)
+                slippage = null,
+                fromAmount = CoinUtils.toBigDecimal(amount, tokenToSend.decimals),
+                toAmount = null,
+                fromAddress = wallet.addressByChain[tokenToSend.mBlockchain?.name],
+                toAddress = wallet.addressByChain[tokenToReceive.mBlockchain?.name],
+                cexLabel = null,
+                shouldTryDiesel = null,
+                walletVersion = null,
+                isFromAmountMax = null,
+                toncoinBalance = null
             )
         }
 }

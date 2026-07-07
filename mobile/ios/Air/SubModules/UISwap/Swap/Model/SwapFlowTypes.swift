@@ -9,6 +9,7 @@ struct SwapConfirmationAmounts: Equatable {
 struct CrosschainFromWalletConfirmation {
     let selling: TokenAmount
     let buying: TokenAmount
+    let cexLabel: ApiSwapCexLabel?
 }
 
 indirect enum SwapRoute {

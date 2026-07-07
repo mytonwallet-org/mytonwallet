@@ -4,9 +4,10 @@
  * Types specific to the WalletConnect v2 protocol adapter.
  */
 
-import type { ProposalTypes, Verify } from '@walletconnect/types';
+import type { PaymentOption } from '@walletconnect/pay';
+import type { AuthTypes, ProposalTypes, Verify } from '@walletconnect/types';
 
-import type { ApiChain, ApiNetwork, EVMChain } from '../../../types';
+import type { ApiBaseCurrency, ApiChain, ApiNetwork } from '../../../types';
 
 // =============================================================================
 // CAIP (Chain Agnostic Improvement Proposal) Types
@@ -63,6 +64,10 @@ export interface WalletConnectSessionProposal {
   params: ProposalTypes.Struct;
   /** Present for relay sessions (WalletKit); omitted for extension/in-app synthetic proposals. */
   verifyContext?: Verify.Context;
+  /** One-click auth: approve/reject via session_authenticate APIs */
+  isSessionAuthenticate?: boolean;
+  /** Populated auth payload for SIWE signing (one-click auth only) */
+  authenticatePayload?: AuthTypes.PayloadParams;
 }
 
 export interface WalletConnectSignRequest {
@@ -76,6 +81,7 @@ export interface WalletConnectSignRequest {
   /** EIP-712 typed data (eth_signTypedData_v4); takes precedence over `data` for signing */
   eip712?: WalletConnectEip712Params;
   isEthSign?: boolean;
+  isSessionAuthenticate?: boolean;
 }
 
 // =============================================================================
@@ -178,16 +184,6 @@ export const EVM_CHAIN_IDS: ChainIdByChain = {
   'eip155:998': { chain: 'hyperliquid', network: 'testnet' },
 };
 
-/** Reverse lookup: (EVM chain, network) → CAIP-2 `eip155:*` id used in WalletConnect. */
-export function getEip155Caip2ForEvmChain(chain: EVMChain, network: ApiNetwork): string | undefined {
-  for (const [caip2, entry] of Object.entries(EVM_CHAIN_IDS)) {
-    if (entry.chain === chain && entry.network === network) {
-      return caip2;
-    }
-  }
-  return undefined;
-}
-
 export const CHAIN_IDS_BY_CHAIN: Record<string, ChainIdByChain> = {
   solana: SOLANA_CHAIN_IDS,
   eip155: EVM_CHAIN_IDS,
@@ -200,26 +196,71 @@ export const CHAIN_IDS: ChainIdByChain = {
 
 export type WalletCapabilities = { atomic: { status: 'unsupported' } };
 
-/**
- * Extract session chains from WalletConnect namespaces.
- */
-export function namespacesToSessionChains(
-  namespaces: WalletConnectNamespaces,
-) {
-  const chains: ChainId[] = [];
+// =============================================================================
+// WalletConnect Pay
+// =============================================================================
 
-  for (const [ns, config] of Object.entries(namespaces)) {
-    const chainVariants = CHAIN_IDS_BY_CHAIN[ns];
+export type WcPayMerchant = {
+  name: string;
+  iconUrl?: string;
+};
 
-    for (const chain of config?.chains || []) {
-      if (chainVariants[chain]) {
-        chains.push({
-          chain: chainVariants[chain].chain,
-          network: chainVariants[chain].network,
-        });
-      }
-    }
-  }
+export type WcPayAmountDisplay = {
+  assetSymbol: string;
+  assetName: string;
+  decimals: number;
+  iconUrl?: string;
+  networkName?: string;
+};
 
-  return chains;
-}
+export type WcPayFiatCurrency = Extract<ApiBaseCurrency, 'USD' | 'EUR'>;
+
+export type WcPayRawAmount = {
+  unit?: string;
+  value: string;
+  display: {
+    assetSymbol: string;
+    assetName?: string;
+    decimals: number;
+  };
+};
+
+export type WcPayFiatAmount = {
+  value: string;
+  decimals: number;
+  slug: WcPayFiatCurrency;
+};
+
+export type WcPayPaymentAmount = {
+  value: string;
+  display: WcPayAmountDisplay;
+  fiatAmount?: WcPayFiatAmount;
+};
+
+export type WcPayPaymentInfo = {
+  expiresAt: number;
+  amount?: WcPayPaymentAmount;
+};
+
+export type WcPayPaymentOption = {
+  id: string;
+  account: string;
+  amountValue: string;
+  slug?: string;
+  display: WcPayAmountDisplay;
+  fiatAmount?: WcPayFiatAmount;
+  etaS?: number;
+  expiresAt?: number;
+  kycUrl?: string;
+};
+
+export type WcPayContext = {
+  accountId: string;
+  paymentId: string;
+  merchant: WcPayMerchant;
+  paymentInfo?: WcPayPaymentInfo;
+  paymentOption?: WcPayPaymentOption;
+  promiseId?: string;
+  paymentLink?: string;
+  paymentOptions?: PaymentOption[];
+};

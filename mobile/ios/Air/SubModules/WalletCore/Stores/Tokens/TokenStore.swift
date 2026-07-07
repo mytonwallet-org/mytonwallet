@@ -163,7 +163,9 @@ public final class _TokenStore: Sendable {
             symbol: incoming.symbol.nilIfEmpty ?? cached.symbol,
             decimals: incoming.decimals.nilIfZero ?? cached.decimals,
             chain: incoming.chain,
+            type: incoming.type ?? cached.type,
             tokenAddress: incoming.tokenAddress?.nilIfEmpty ?? cached.tokenAddress,
+            tokenWalletAddress: incoming.tokenWalletAddress?.nilIfEmpty ?? cached.tokenWalletAddress,
             image: incoming.image?.nilIfEmpty ?? cached.image,
             isPopular: incoming.isPopular ?? cached.isPopular,
             keywords: incoming.keywords?.nilIfEmpty ?? cached.keywords,
@@ -213,6 +215,7 @@ public final class _TokenStore: Sendable {
             AppStorageHelper.save(selectedCurrency: currency.rawValue)
         }
         self.baseCurrency = currency
+        clearHistoryData()
         AppStorageHelper.save(baseCurrency: currency, tokens: tokens, currencyRates: self.currencyRates)
         WalletCoreData.notify(event: .baseCurrencyChanged(to: currency))
         scheduleSharedCacheUpdate(tokens: self.tokens, baseCurrency: currency, rates: self.currencyRates)

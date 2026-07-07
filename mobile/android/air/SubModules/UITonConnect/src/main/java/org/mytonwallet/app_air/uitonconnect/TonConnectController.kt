@@ -9,13 +9,12 @@ import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uitonconnect.viewControllers.connect.TonConnectRequestConnectVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.TonConnectRequestSendVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
 
 class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObserver {
@@ -45,14 +44,21 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                 url = link,
                 identifier = TonConnectHelper.generateId()
             )
-        ) { _, _ -> }
+        ) { _, err ->
+            if (err != null) {
+                Logger.e(Logger.LogTag.TON_CONNECT, "handleDeeplink: $err")
+            }
+        }
     }
 
     override fun onBridgeUpdate(update: ApiUpdate) {
         when (update) {
             is ApiUpdate.ApiUpdateDappConnect -> {
                 window.doOnWalletReady {
-                    WalletCore.recordTonConnectEvent("wallet-connect-request-ui-displayed", update.promiseId)
+                    WalletCore.recordTonConnectEvent(
+                        "wallet-connect-request-ui-displayed",
+                        update.promiseId
+                    )
                     // Reuse a connect modal that's already shown (e.g. a connect deeplink tapped twice) so a
                     // second request replaces the first in place instead of stacking a new sheet.
                     val existingVC =
@@ -71,7 +77,7 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                             )
                         )
                         navVC.setRoot(TonConnectRequestConnectVC(window, update))
-                        window.present(navVC)
+                        window.presentOnWalletReady(navVC)
                     }
                 }
             }
@@ -79,7 +85,10 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
             is ApiUpdate.ApiUpdateDappSendTransactions -> {
                 WalletCore.ensureAccountActivated(update.accountId) { accountChanged ->
                     window.doOnWalletReady {
-                        WalletCore.recordTonConnectEvent("wallet-transaction-confirmation-ui-displayed", update.promiseId)
+                        WalletCore.recordTonConnectEvent(
+                            "wallet-transaction-confirmation-ui-displayed",
+                            update.promiseId
+                        )
                         val loadingVC = loadingSendRequestViewController?.get()
                         if (accountChanged) {
                             while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)
@@ -108,7 +117,10 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
 
             is ApiUpdate.ApiUpdateDappSignData -> {
                 WalletCore.ensureAccountActivated(update.accountId) { accountChanged ->
-                    WalletCore.recordTonConnectEvent("wallet-sign-data-confirmation-ui-displayed", update.promiseId)
+                    WalletCore.recordTonConnectEvent(
+                        "wallet-sign-data-confirmation-ui-displayed",
+                        update.promiseId
+                    )
                     val loadingVC = loadingSendRequestViewController?.get()
                     if (accountChanged) {
                         while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)

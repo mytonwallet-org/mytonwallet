@@ -22,7 +22,7 @@ class WEmptyIconTitleSubtitleActionView(context: Context) : WView(context), WThe
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(17f, WFont.SemiBold)
+            setStyle(17f, WFont.Medium)
             setTextColor(WColor.PrimaryText)
         }
     }
@@ -50,7 +50,7 @@ class WEmptyIconTitleSubtitleActionView(context: Context) : WView(context), WThe
         }.apply {
             setPaddingDp(12, 0, 12, 0)
             gravity = Gravity.CENTER_VERTICAL
-            setStyle(14f, WFont.DemiBold)
+            setStyle(14f, WFont.Medium)
             setTextColor(WColor.Tint)
             updateTheme()
         }

@@ -153,7 +153,7 @@ open class WalletTypeView(
 
         viewLabel = WLabel(context).apply {
             text = LocaleController.getString("\$view_mode")
-            setStyle(12f, WFont.SemiBold)
+            setStyle(12f, WFont.Medium)
             setPaddingLocalized(2.dp, 0, 0, 0)
         }
 

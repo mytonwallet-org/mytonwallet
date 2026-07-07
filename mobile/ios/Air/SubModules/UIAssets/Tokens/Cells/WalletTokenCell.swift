@@ -5,6 +5,7 @@
 //  Created by Sina on 3/26/24.
 //
 
+import ContextMenuKit
 import UIComponents
 import UIKit
 import WalletContext
@@ -24,11 +25,11 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private let medium16Font = UIFont.systemFont(ofSize: 16, weight: .medium)
     private let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
     private let regular14Font = UIFont.systemFont(ofSize: 14, weight: .regular)
-
-    private static let pinningColor: UIColor = .air.altHighlight.withAlphaComponent(0.4)
     
     public var walletToken: MTokenBalance?
+    
     private var tokenImage: String?
+    private var contextMenuInteraction: ContextMenuInteraction?
 
     public var isUIAssets: Bool { false }
     
@@ -42,9 +43,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private var tokenLabelLeadingConstraint: NSLayoutConstraint!
     private var tokenNameClipTrailingConstraint: NSLayoutConstraint!
     private var tokenNameWidthConstraint: NSLayoutConstraint!
-    // left icon view
     private var iconView: IconView!
-    // pin icon view
     private var pinIconView: UIView = configured(object: UIImageView()) {
         $0.translatesAutoresizingMaskIntoConstraints = false
         $0.image = UIImage(systemName: "pin.fill")
@@ -52,13 +51,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         $0.contentMode = .scaleAspectFit
     }
 
-    // shown out of bounds of first pinned cell. This way color under navBar moves smoothly with first cell when scrolled
-    public let underNavigationBarColorView: UIView = configured(object: UIView()) {
-        $0.translatesAutoresizingMaskIntoConstraints = false
-        $0.backgroundColor = WalletTokenCell.pinningColor
-        $0.isHidden = true
-    }
-    
     // address label to show short presentation of the address
     private let tokenNameLabel: UILabel = UILabel()
     private let tokenNameFadeMask = CAGradientLayer()
@@ -88,9 +80,15 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     
     public override func prepareForReuse() {
         super.prepareForReuse()
-        underNavigationBarColorView.isHidden = true
+        setContextMenuInteraction(nil)
         amountContainer.resetReveal()
         amount2Container.resetReveal()
+    }
+
+    func setContextMenuInteraction(_ interaction: ContextMenuInteraction?) {
+        contextMenuInteraction?.detach()
+        contextMenuInteraction = interaction
+        interaction?.attach(to: self)
     }
     
     private func setupViews() {
@@ -142,14 +140,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         ])
         pinIconView.isHidden = true
 
-        self.addSubview(underNavigationBarColorView)
-        NSLayoutConstraint.activate([
-            underNavigationBarColorView.heightAnchor.constraint(equalToConstant: 100),
-            underNavigationBarColorView.bottomAnchor.constraint(equalTo: self.topAnchor),
-            underNavigationBarColorView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
-            self.trailingAnchor.constraint(equalTo: underNavigationBarColorView.trailingAnchor),
-        ])
-        
         // price
         tokenPriceLabel = UILabel()
         tokenPriceLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -224,8 +214,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
                           animated: Bool = true,
                           badgeContent: BadgeContent?,
                           isMultichain: Bool,
-                          isPinned: Bool,
-                          highlightBackgroundWhenPinned: Bool) {
+                          isPinned: Bool) {
         let previousTokenSlug = self.walletToken?.tokenSlug
         let previousBalance = self.walletToken?.balance
         let previousBaseCurrencyAmount = self.walletToken?.toBaseCurrency
@@ -245,11 +234,15 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         tokenLabelLeadingConstraint.constant =
             isPinned ? Self.tokenImageToTextSpacing + Self.pinIconSideLength + Self.pinIconSpacing : Self.tokenImageToTextSpacing
 
-        contentView.backgroundColor = isPinned && highlightBackgroundWhenPinned ? Self.pinningColor : .clear
+        contentView.backgroundColor = .clear
         
         // label
         tokenNameLabel.text = if let token {
-            MTokenBalance.displayName(apiToken: token, isStaking: walletToken.isStaking)
+            MTokenBalance.displayName(
+                apiToken: token,
+                isStaking: walletToken.isStaking,
+                strippingLabelWhenShown: badgeContent?.isTokenLabel == true
+            )
         } else {
             walletToken.tokenSlug
         }
@@ -324,6 +317,8 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
                 }
             case .chain(let chain):
                 badge.configureChain(chain: chain)
+            case .tokenLabel(let text, let style):
+                badge.configureTokenLabel(text: text, style: style)
             }
             badge.alpha = 1
         } else {

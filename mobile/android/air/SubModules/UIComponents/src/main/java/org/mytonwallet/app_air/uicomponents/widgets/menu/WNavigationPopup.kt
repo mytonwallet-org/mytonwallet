@@ -42,10 +42,9 @@ class WNavigationPopup(
     private val popupWidth: Int,
     private val windowBackgroundStyle: WMenuPopup.BackgroundStyle,
     private val backdropStyle: WMenuPopup.BackdropStyle,
+    private val usePillShadow: Boolean = false,
 ) : INavigationPopup {
 
-    private val usePillShadow: Boolean
-        get() = backdropStyle is WMenuPopup.BackdropStyle.Transparent
     companion object {
         private const val BACKDROP_BLUR_RADIUS = 14f
     }

@@ -78,7 +78,7 @@ class WActionBar(
 
     private fun createTitleLabel(): WLabel {
         return WLabel(context).apply {
-            setStyle(22F, WFont.SemiBold)
+            setStyle(22F, WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true

@@ -1,0 +1,58 @@
+.itemContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+
+  width: 100%;
+  min-width: 0;
+}
+
+// Circular icon for EIP-7702 delegated contract
+.delegateIcon {
+  flex-shrink: 0;
+
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+
+  object-fit: cover;
+}
+
+// Positioned badge overlaid on the bottom-right corner of a `small` TokenIcon,
+// mirroring the .blockchainIcon.small pattern from TokenIcon.module.scss.
+.spenderBadge {
+  position: absolute;
+  top: 0.625rem;
+  left: 0.625rem;
+
+  overflow: hidden;
+
+  width: 0.6875rem;
+  height: 0.6875rem;
+  border-radius: 50%;
+
+  object-fit: cover;
+  box-shadow: 0 0 0 0.0625rem var(--color-background-first);
+}
+
+// Circular icon container for TON wallet plugins
+.pluginIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+
+  font-size: 1rem;
+  color: var(--color-gray);
+
+  background: var(--color-background-second);
+}
+
+.transactionBanner {
+  align-self: center;
+  margin-bottom: 2rem;
+}

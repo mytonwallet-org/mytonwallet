@@ -39,6 +39,7 @@ export async function tryUpdateKnownAddresses() {
     nftSuperCollectionsDeferred.resolve();
   } catch (err) {
     logDebugError('tryUpdateKnownAddresses', err);
+    nftSuperCollectionsDeferred.resolve();
   }
 }
 

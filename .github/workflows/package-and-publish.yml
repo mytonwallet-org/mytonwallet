@@ -34,9 +34,11 @@ on:
   push:
     branches:
       - master
+      - release/**
 
 permissions:
   contents: write
+  actions: read # read this workflow's own run history to derive the RC ordinal
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -51,6 +53,7 @@ env:
   SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
   DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
   WALLET_CONNECT_PROJECT_ID: ${{ vars.WALLET_CONNECT_PROJECT_ID }}
+  WALLET_CONNECT_PAY_APP_ID: ${{ vars.WALLET_CONNECT_PAY_APP_ID }}
   AGENT_API_URL: ${{ vars.AGENT_API_URL }}
 
 jobs:
@@ -63,11 +66,28 @@ jobs:
       electron-changed: ${{ steps.filter.outputs.electron-changed }}
       android-variants: ${{ steps.filter.outputs.android-variants }}
       ios-variants: ${{ steps.filter.outputs.ios-variants }}
+      rc-number: ${{ steps.rc.outputs.rc-number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
+
+      - name: Compute RC ordinal
+        id: rc
+        if: startsWith(github.ref, 'refs/heads/release/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Nth store build cut from this release branch (each push = one run; a re-run keeps
+          # its run, so it never advances N). Feeds the -rc.N version and the build notes.
+          # Emit ONLY a bare integer or nothing: an API failure returns an error body, not a
+          # count, so anything non-numeric is discarded to empty. The Fastfiles then read "no
+          # ordinal" and omit the -rc.N label rather than letting a stray string reach the
+          # Android version name (an unquoted error body once broke the gradle build file).
+          count=$(gh api "repos/${{ github.repository }}/actions/workflows/package-and-publish.yml/runs?branch=${{ github.ref_name }}&per_page=100" --jq '.total_count' 2>/dev/null || true)
+          case "$count" in ''|*[!0-9]*) count= ;; esac
+          echo "rc-number=$count" >> "$GITHUB_OUTPUT"
 
       - name: Check changed paths
         id: filter
@@ -486,13 +506,15 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 30
-    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master') && needs.detect-changes.outputs.ios-only != 'true' && needs.detect-changes.outputs.android-variants != '[]'
+    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.ios-only != 'true' && needs.detect-changes.outputs.android-variants != '[]'
     strategy:
       fail-fast: false
       matrix:
         app_variant: ${{ fromJSON(needs.detect-changes.outputs.android-variants) }}
     env:
       APP_VARIANT: ${{ matrix.app_variant }}
+      IS_RELEASE_CANDIDATE: ${{ startsWith(github.ref, 'refs/heads/release/') && '1' || '' }}
+      RC_NUMBER: ${{ needs.detect-changes.outputs.rc-number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -613,7 +635,7 @@ jobs:
     runs-on: macos-26
     environment: production
     timeout-minutes: 30
-    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master') && needs.detect-changes.outputs.android-only != 'true' && needs.detect-changes.outputs.ios-variants != '[]'
+    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.android-only != 'true' && needs.detect-changes.outputs.ios-variants != '[]'
     strategy:
       fail-fast: false
       matrix:
@@ -621,6 +643,9 @@ jobs:
     env:
       APP_VARIANT: ${{ matrix.app_variant }}
       IOS_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      IOS_EXTERNAL_BETA_ENABLED: "true"
+      IS_RELEASE_CANDIDATE: ${{ startsWith(github.ref, 'refs/heads/release/') && '1' || '' }}
+      RC_NUMBER: ${{ needs.detect-changes.outputs.rc-number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

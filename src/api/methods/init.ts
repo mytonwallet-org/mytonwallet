@@ -1,5 +1,6 @@
 import type { ApiInitArgs, OnApiUpdate } from '../types';
 
+import { NO_MFA, NO_STAKING, NO_SWAP } from '../../config';
 import { initWindowConnector } from '../../util/windowProvider/connector';
 import * as ton from '../chains/ton';
 import { fetchBackendReferrer } from '../common/backend';
@@ -29,12 +30,12 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   methods.initAccounts(onUpdate);
   methods.initAuth(onUpdate);
   methods.initWallet(onUpdate);
-  methods.initMfa(onUpdate);
+  if (!NO_MFA) methods.initMfa(onUpdate);
   methods.initPolling(onUpdate);
   methods.initTransfer(onUpdate);
   methods.initTokens(onUpdate);
-  methods.initStaking();
-  methods.initSwap(onUpdate);
+  if (!NO_STAKING) methods.initStaking();
+  if (!NO_SWAP) methods.initSwap(onUpdate);
   methods.initNfts(onUpdate);
 
   await initProtocolManager(onUpdate, environment);

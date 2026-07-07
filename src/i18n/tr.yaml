@@ -208,7 +208,6 @@ Receiving Address: Alıcı adresi
 Fee: Ücret
 Edit: Düzenle
 Confirm: Onayla
-Coins have been sent!: Coin'ler gönderildi!
 Data Signed!: Veri imzalandı!
 Details: Detaylar
 View details: Detayları görüntüle
@@ -367,6 +366,7 @@ Driver: Sürücü
 Unlock it and open the %chain% App: Cihazın kilidi açın ve %chain% uygulamasını başlatın
 Maybe you need to check the password or change the driver.: Şifreyi kontrol etmeniz veya sürücüyü değiştirmeniz gerekebilir.
 Confirm via Ledger: Ledger aracılığıyla onaylayın
+$ledger_confirm_progress: "%2$d işlemden %1$d. işlemi onayla"
 Declined: Reddedildi
 Switch to the newly opened tab to connect Ledger.: Ledger'ı bağlamak için yeni açılan sekmeye geçin.
 Once connected, switch back to this window to proceed.: Bağlandıktan sonra devam etmek için bu pencereye geri dönün.
@@ -384,6 +384,7 @@ Encrypted Message: Şifrelenmiş Mesaj
 Message is encrypted: Mesaj şifrelenmiştir
 Agree: Kabul et
 $swap_action: Takas
+$swap_activity_title: Takas
 Swap: Takas
 You sell: Satıyorsunuz
 You buy: Alıyorsunuz
@@ -441,22 +442,26 @@ On Hold: Beklemede
 Expired: Süresi doldu
 In Progress: Devam etmekte
 Waiting for Payment: Ödeme bekleniyor
+Processing Payment: Ödeme işleniyor
+It may take a few seconds: Birkaç saniye sürebilir
 Blockchain: Blockchain
 Your address on another blockchain: Başka bir blockchaindeki adresiniz
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Satın alınan jetonları almak için lütfen %blockchain% blockchain'deki cüzdanınızın adresini girin.
 The time for sending coins is over.: Coin'leri gönderme süresi sona erdi.
 You have not sent the coins to the specified address.: Coin'leri belirtilen adrese göndermediniz.
-$swap_changelly_to_wallet_description1: "%value% tutarını %time% içinde %blockchain% blok zincirindeki bu adrese göndermelisiniz"
+$swap_cex_to_wallet_description: "%value% tutarını %time% içinde %blockchain% blok zincirindeki bu adrese göndermelisiniz"
 Exchange failed and coins were refunded to your wallet.: Takas başarısız oldu ve işlem tutarı cüzdanınıza iade edildi.
-$swap_changelly_kyc_security: "Lütfen **%email%** ile iletişime geçin ve KYC prosedürünü geçmek için **İşlem Kimliğini** sağlayın:"
 Swap Expired: Takas işleminin süresi doldu
 Address for %blockchain% transfer: "%blockchain% aktarımının adresi"
-Cross-chain exchange provided by Changelly: Changelly tarafından sağlanan cross-chain takası
-$swap_changelly_terms_of_use: kullanım şartları
-$swap_changelly_privacy_policy: gizlilik politikası
+Cross-chain exchange provided by %provider%: "%provider% tarafından sağlanan cross-chain takası"
+$swap_cex_terms_of_use: kullanım şartları
+$swap_cex_privacy_policy: gizlilik politikası
+$swap_cex_aml_kyc_policy: AML/KYC
+$swap_cex_legal_message: "%terms% ve %policy%'yi kabul ederek devam edersiniz."
+$swap_cex_legal_message_with_aml: Devam ederek, %terms% ve %policy%'yi kabul etmiş olursunuz ve transferin %aml%'ye göre doğrulama tetikleyebileceğini anlarsınız.
 Password must contain %length% digits.: Parola %length% hane içermelidir.
 Deposit Link: Para yatırma bağlantısı
-$swap_changelly_from_wallet_description: "Yakında %blockchain% blockchain'deki adresinize jetonlar gönderilecek:"
+$swap_cex_from_wallet_description: "Yakında %blockchain% blockchain'deki adresinize jetonlar gönderilecek:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Lütfen, token'ların cüzdanınızda görünmesinin birkaç saat sürebileceğini unutmayın.
 Minimum amount: Minimum %value%
 Maximum amount: Maksimum %value%
@@ -487,6 +492,28 @@ Biometrics Enabled: Biyometrik koruma etkin
 A request is already pending: Bir istek zaten beklemede
 Please confirm action using biometrics: Lütfen biyometri kullanarak işlemi onaylayın
 Scan QR Code: QR kodunu tarayın
+Open the QR scanner.: QR tarayıcıyı aç.
+"Open scanner in ${applicationName}": ${applicationName} içinde tarayıcıyı aç
+"Scan a code with ${applicationName}": ${applicationName} ile kod tara
+Scan QR: QR tara
+"Scan QR with ${applicationName}": ${applicationName} ile QR tara
+Account: Hesap
+Accounts: Hesaplar
+Networks: Ağlar
+Receive Funds: Para al
+Open the receive screen.: Alma ekranını aç.
+"Receive with ${applicationName}": ${applicationName} ile al
+"Add crypto with ${applicationName}": ${applicationName} ile kripto ekle
+"Open receive in ${applicationName}": ${applicationName} içinde almayı aç
+Send Token: Token gönder
+Open Token: Token aç
+"Open ${target} in ${applicationName}": ${applicationName} içinde ${target} aç
+"Show ${target} in ${applicationName}": ${applicationName} içinde ${target} göster
+Open the token screen.: Token ekranını aç.
+Open the send screen.: Gönderme ekranını aç.
+"Send token with ${applicationName}": ${applicationName} ile token gönder
+"Send crypto with ${applicationName}": ${applicationName} ile kripto gönder
+"Open send in ${applicationName}": ${applicationName} içinde göndermeyi aç
 Permission denied. Please grant camera permission to use the QR code scanner.: İzin reddedildi. Lütfen kameraya QR kod tarayıcısını kullanma izni verin.
 This QR Code is not supported: Bu QR kodu desteklenmiyor
 An error on the server side. Please try again.: Sunucu tarafında bir hata oluştu. Lütfen tekrar deneyin.
@@ -497,6 +524,7 @@ Russian Ruble: Rus Rublesi
 Chinese Yuan: Çin Yuanı
 Bitcoin: Bitcoin
 $max_balance: "Maks.: %balance%"
+$available_balance: "Kullanılabilir: %balance%"
 $unstake_information_instantly: Yatırdığınız tutarı anında alacaksınız
 Select Token: Token seçin
 MY: Cüzdanımdakiler
@@ -563,6 +591,7 @@ $wallet_switch_version_2: başka bir cüzdan versiyonuna geçiş yap
 or import from: veya şuradan içe aktar
 Insufficient fee: Yetersiz ücret
 $insufficient_fee: "Yetersiz ücret: %fee%"
+$dapp_insufficient_network_fee_warning: Ağ ücretini karşılamak için yeterli %token% yok
 Required: Gerekli
 Comment is too long.: Yorum çok uzun.
 Memo: Memo
@@ -599,7 +628,11 @@ Insufficient %token% for fee.%fee%: Ücret için yetersiz %token%.%fee%
 Send NFT: NFT gönder
 Send Collectible: Koleksiyon öğesi gönder
 Send Collectibles: Koleksiyon öğelerini gönder
-NFT has been sent!: NFT gönderildi!
+$nfts_burned:
+  zeroValue: "%1$d NFT yakıldı!"
+  oneValue: "%1$d NFT yakıldı!"
+  otherValue: "%1$d NFT yakıldı!"
+No NFT selected: NFT seçilmedi
 Cannot be sent: Gönderilemiyor
 NFT is for sale: NFT satılık
 More actions: Daha fazla hareket
@@ -641,8 +674,6 @@ Select All: Hepsini seç
 Collection: Koleksiyon
 Unnamed Collection: İsimsiz Koleksiyon
 Transaction ID Copied: İşlem kimliği kopyalandı
-$swap_changelly_support: "Herhangi bir sorun varsa lütfen %livechat% veya %email% ile iletişime geçin ve **İşlem Kimliğini** sağlayın:"
-Changelly Live Chat: Changelly Canlı Sohbet
 Your %blockchain% Address: "%blockchain% Adresiniz"
 My %blockchain% Address: "%blockchain% Adresim"
 "%blockchain% Address": "%blockchain% Adresi"
@@ -698,6 +729,8 @@ Open in Browser: Tarayıcıda Aç
 CopyURL: URL'yi Kopyala
 Share: Paylaş
 Unhide NFT: NFT'yi Göster
+The NFT has been hidden: NFT gizlendi
+The NFT is no longer hidden: NFT artık gizli değil
 $unhide_nft_warning: "%name%'yi göstermek istediğinizden emin misiniz? Bu NFT şüpheli görünüyor ve adı ve açıklamasıyla eşleşmeyebilir."
 Hide NFTs: NFT'leri Gizle
 Are you sure you want to hide this NFT collection containing %number% NFTs?: "%number% NFT içeren bu NFT koleksiyonunu gizlemek istediğinizden emin misiniz?"
@@ -713,6 +746,7 @@ Not Scam: Dolandırıcılık Değil
 Untitled: Başlıksız
 Multichain: Multichain
 $swap_too_small_amount: Çok küçük miktar
+$swap_slippage_violation: Takas emülasyonu kayma ihlali nedeniyle başarısız oldu. Lütfen tekrar deneyin.
 Not enough %symbol%: Yeterli %symbol% yok
 Enter Secret Words: Gizli Kelimeleri Girin
 Turn this off so you can manually download updates and verify signatures.: Bunu kapatın, böylece güncellemeleri manuel olarak indirip imzaları doğrulayabilirsiniz.
@@ -773,6 +807,8 @@ No Data: Veri Yok
 Toggle fullscreen: Tam ekranı aç/kapat
 Request is sent!: İstek gönderildi!
 Transaction ID: İşlem Kimliği
+Outgoing Transaction ID: Giden İşlem Kimliği
+Incoming Transaction ID: Gelen İşlem Kimliği
 Help Center: Yardım Merkezi
 "%app_name% Tips": "%app_name% İpuçları"
 Open %nft_marketplace%: "%nft_marketplace%'ı aç"
@@ -902,7 +938,11 @@ Some domains are about to expire: Bazı alan adlarının süresi dolmak üzere
 $domain_expire: "**%domain%** %days% sona eriyor"
 "%token% Staking": "%token% Stake Etme"
 Add Tab: Sekme Ekle
+Customize Tabs: Sekmeleri Özelleştir
 Remove Tab: Sekmeyi Kaldır
+Reset: Sıfırla
+Tabs: Sekmeler
+Tap or drag to add tabs.: Sekme eklemek için dokunun veya sürükleyin.
 $iab_tabs_count:
   zeroValue: "%1$d sekme"
   oneValue: "%1$d sekme"
@@ -994,6 +1034,7 @@ $try_new_air_version: Yerel uygulama deneyimini deneyin — daha hafif, daha hı
 $accept_terms_with_link: "%link% kabul ediyorum"
 use the wallet responsibly: Cüzdanı sorumlu bir şekilde kullanmak
 "%app_name% Resources": "%app_name% Kaynakları"
+"Resources": Kaynaklar
 Watch Video about Features: Özellikler hakkında video izleyin
 Enjoy Monthly Updates in Blog: Blog'daki aylık güncellemelerin keyfini çıkarın
 Learn New Things in Help Center: Yardım Merkezi'nde yeni şeyler öğrenin
@@ -1043,6 +1084,7 @@ Reorder: Yeniden sırala
 Reorder Tabs: Sekmeleri yeniden sırala
 Rename: Yeniden adlandır
 Customize: Özelleştir
+Manage Wallets: Cüzdanları yönet
 i18n_dragToSort: Sıralamak için sürükle
 My: Benim
 All: Tümü
@@ -1087,6 +1129,9 @@ $connect_dapp_title: '%name% ile bağlanılsın mı?'
 Choose Wallet: Cüzdan seç
 Wallet to use on %host%: '%host% için cüzdan'
 Selected Wallet: Seçili cüzdan
+Wallet to use for payment: Ödeme için cüzdan
+$wallet_connect_pay_no_options: Bu cüzdan için ödeme seçeneği yok.
+$wallet_connect_pay_try_another_wallet: Başka bir cüzdan seçmeyi deneyin.
 Connect Wallet: Cüzdanı bağla
 Connect Anyway: Yine de bağlan
 Insufficient Fee: Yetersiz ücret
@@ -1112,6 +1157,22 @@ Open: Aç
 Open in %app_name%: "%app_name%'da aç"
 Blog: Blog
 Apps: Uygulamalar
+Permissions: İzinler
+Token approvals and wallet permissions: Token onayları ve cüzdan izinleri
+Approvals & Delegations: Onaylar ve delegasyonlar
+Plugins: Eklentiler
+No Permissions: İzin yok
+Unlimited: Sınırsız
+Approved to %name%: "%name% için onaylandı"
+Wallet Delegation: Cüzdan delegasyonu
+Wallet Delegation to %name%: "%name% cüzdan delegasyonu"
+Revoke Delegation: Delegasyonu iptal et
+Are you sure you want to revoke delegation for %name%?: "%name% delegasyonunu iptal etmek istediğinizden emin misiniz?"
+Revoke: İptal et
+Revoke Approval: Onayı iptal et
+Are you sure you want to revoke approval for %token%?: "%token% için onayı iptal etmek istediğinizden emin misiniz?"
+Confirm Revoking: İptali onayla
+Unknown Plugin: Bilinmeyen eklenti
 $nft_not_found: NFT bulunamadı
 You will be able to save it again via Transfer Info with this address.: Bu adresle Transfer Bilgisi üzerinden tekrar kaydedebileceksiniz.
 Transfer Info: Transfer Bilgisi
@@ -1122,7 +1183,6 @@ Transfer Sent!: Transfer Gönderildi!
 Please confirm transfer on your Ledger: Lütfen Ledger'ınızda transferi onaylayın
 Please confirm action on your Ledger: Lütfen Ledger'ınızda işlemi onaylayın
 Not all transfers were sent successfully: Tüm transferler başarıyla gönderilmedi
-$swap_changelly_agreement_message: Devam ederek, %terms% ve %policy%'yi kabul etmiş olursunuz ve transferin %kyc%'ye göre doğrulama tetikleyebileceğini anlarsınız.
 Please confirm transfer using biometrics: Lütfen biyometri kullanarak transferi onaylayın
 $transfer_inactive_contract_error: |
   "EQ..." formatında bir adres girdiniz, ancak adres aktif değil, bu nedenle transfer tamamlanmayacak.
@@ -1171,6 +1231,7 @@ Enabling biometric confirmation will reset the passcode.: Biyometrik doğrulama 
 Confirm action with your passcode: ยืนยันการดำเนินการด้วยรหัสผ่านของคุณ
 No Image: Resim Yok
 Different blockchain. Cannot be selected: Farklı blockchain. Seçilemez
+$address_suggestion_no_chain: "%chain% yok"
 Subwallets: Alt cüzdanlar
 Other addresses for this wallet: Bu cüzdan için diğer adresler
 Current Wallet: Mevcut Cüzdan
@@ -1283,9 +1344,10 @@ $send_only_chain: Bu adrese yalnızca %chain% (%symbol%) veya %chain% tabanlı v
 Buying with card is not supported for this account.: Bu hesap kartla satın almayı desteklemiyor.
 Swapped at: Takas zamanı
 Price per: Birim fiyat
-Changelly ID: Changelly ID
-Copy Changelly ID: Changelly ID'yi kopyala
-Changelly ID Copied!: Changelly ID kopyalandı!
+Swap ID: Takas ID’si
+Swap ID for %provider%: "%provider% takası ID'si"
+Copy Swap ID: Takas ID’sini kopyala
+Swap ID Copied: Takas ID’si kopyalandı
 from: kimden
 to: kime
 Currency: Para birimi
@@ -1350,6 +1412,8 @@ Swap is not supported on this account.: Bu hesapta takas desteklenmiyor.
 "%1$@ will be returned": "%1$@ iade edilecek"
 Connecting your wallet: Cüzdanınız bağlanıyor
 Action is not possible on a view-only wallet.: Salt okunur cüzdanda bu işlem yapılamaz.
+No matching chains: Uyumlu ağ yok
+Select multichain wallet: Çoklu zincir cüzdanı seç
 Logged in with My Wallet: My Wallet ile giriş yapıldı
 You have no apps connected to this wallet.: Bu cüzdana bağlı uygulama yok.
 Asset: Varlık
@@ -1384,7 +1448,7 @@ Confirm Actions:
   otherValue: İşlemleri onayla
 "A ~ Z": A ~ Z
 "Biometric authentication not available.": Biyometrik kimlik doğrulama kullanılamıyor.
-"Changelly Payment Address": Changelly ödeme adresi
+Payment Address: Ödeme adresi
 "Wallet to use on": Kullanılacak cüzdan
 "Clipboard empty": Pano boş
 "Confirm Connect": Bağlantıyı onayla
@@ -1477,6 +1541,8 @@ $ago: "%1$d önce"
 $visited_ago: "%1$d önce ziyaret edildi"
 Notifications are disabled: Bildirimler devre dışı
 Enable in Settings: Ayarlar'da etkinleştir
+Open Link: Bağlantıyı aç
+Open in App: Uygulamada aç
 Search in Google: Google'da ara
 $remove_wallets:
   zeroValue: Cüzdanı kaldır
@@ -1565,3 +1631,20 @@ Current allocation across tracked assets: İzlenen varlıklar arasındaki mevcut
 This action is not supported in explorer mode.: Bu işlem kaşif modunda desteklenmiyor.
 $relative_today: bugün
 $relative_tomorrow: yarın
+P&L Change: Kâr/Zarar değişimi
+$swap_cex_support: "Bir şeyler ters giderse %support% ile iletişime geçin ve bu **harici takas ID’sini** sağlayın:"
+$swap_cex_hold_support: "Sağlayıcı incelemesini geçmek için lütfen %support% ile iletişime geçin ve bu **harici takas ID’sini** sağlayın:"
+$swap_cex_provider_support: "%provider% desteği"
+External Exchange ID Copied: Harici takas ID’si kopyalandı
+Email: E-posta
+Choose Token: Token seçin
+You don't have any eligible tokens for this payment: Bu ödeme için uygun token'ınız yok
+Buy, swap, or receive a supported token to continue.: Devam etmek için desteklenen bir token satın alın, takas edin veya alın.
+Are you sure you want to cancel the payment?: Ödemeyi iptal etmek istediğinizden emin misiniz?
+Cancel Payment: Ödemeyi iptal et
+Paid!: Ödendi!
+Payment: Ödeme
+Sent!: Gönderildi!
+$chart_months_short: Oca,Şub,Mar,Nis,May,Haz,Tem,Ağu,Eyl,Eki,Kas,Ara
+$chart_week_days: Pazar,Pazartesi,Salı,Çarşamba,Perşembe,Cuma,Cumartesi
+$chart_week_days_short: Paz,Pzt,Sal,Çar,Per,Cum,Cmt

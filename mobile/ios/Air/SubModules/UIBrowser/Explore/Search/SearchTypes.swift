@@ -1,7 +1,103 @@
+import Foundation
 import SwiftUI
 import UIInAppBrowser
 import WalletContext
 import WalletCore
+
+struct SearchOpenableURL {
+    enum Kind {
+        case regular
+        case deeplink
+    }
+    
+    let url: URL
+    let displayText: String
+    let kind: Kind
+
+    private init(url: URL, displayText: String, kind: Kind) {
+        self.url = url
+        self.displayText = displayText
+        self.kind = kind
+    }
+
+    @MainActor
+    init?(_ text: String) {
+        guard let url = URL(string: text) else { return nil }
+        
+        // Deeplink
+        if let deeplink = Deeplink(url: url),  deeplink.isAllowedFromExploreSearchBar {
+            self = SearchOpenableURL(
+                url: url,
+                displayText: SearchURLMatching.stripHttpScheme(from: text),
+                kind: .deeplink
+            )
+            return
+        }
+                
+        // Regular URL: https only for now
+        if SearchURLMatching.hasHttpScheme(text), url.host() != nil {
+            self = SearchOpenableURL(
+                url: url,
+                displayText: SearchURLMatching.stripHttpScheme(from: text),
+                kind: .regular
+            )
+            return
+        }
+        
+        return nil
+    }
+    
+    var actionTitle: String {
+        switch kind {
+        case .regular:
+            lang("Open Link")
+        case .deeplink:
+            lang("Open in App")
+        }
+    }
+}
+
+enum SearchURLMatching {
+    static func hasHttpScheme(_ url: String) -> Bool {
+        url.lowercased().hasPrefix("https://")
+    }
+
+    static func stripHttpScheme(from url: String) -> String {
+        let prefix = "https://"
+        guard url.lowercased().hasPrefix(prefix) else { return url }
+        return String(url.dropFirst(prefix.count))
+    }
+        
+    private static func hasScheme(_ text: String) -> Bool {
+        guard let url = URL(string: text) else { return false }
+        return url.scheme != nil
+    }
+    
+    static func urlContains(_ url: String, searchText: String) -> Bool {
+        guard !searchText.isEmpty else { return false }
+        
+        if hasScheme(searchText) {
+            return url.lowercased().hasPrefix(searchText.lowercased())
+        }
+        
+        return url.lowercased().contains(searchText.lowercased())
+    }
+
+    static func urlHasPrefix(_ url: String, prefix: String, autoPrefixForHttps: Bool = true) -> Bool {
+        guard !prefix.isEmpty else { return false }
+        
+        // for https we can search without scheme
+        if autoPrefixForHttps && hasHttpScheme(url) {
+            let strippedUrl = stripHttpScheme(from: url)
+            let strippedText = stripHttpScheme(from: prefix)
+            return !strippedUrl.isEmpty &&
+                   !strippedText.isEmpty &&
+                   strippedUrl.lowercased().starts(with: strippedText.lowercased())
+        }
+
+        return url.lowercased().hasPrefix(prefix.lowercased())
+    }
+}
 
 struct SearchQuery: Equatable {
     let text: String
@@ -24,6 +120,7 @@ enum SearchSectionID: Hashable {
     case recentSearches
     case sitesAndDapps
     case history
+    case openLink
     case searchInGoogle
 }
 
@@ -34,6 +131,7 @@ enum SearchSectionOrder {
     static let wallets = 10
     static let sitesAndDapps = 20
     static let history = 30
+    static let openLink = 40
     static let searchInGoogle = 40
 }
 
@@ -156,6 +254,8 @@ struct ExploreSearchActions {
     let openDapp: (ApiDapp) -> Void
     let openHistory: (BrowserHistoryItem) -> Void
     let openWallet: (MAccount) -> Void
+    let submitSearch: (String) -> Void
+    let openUrl: (SearchOpenableURL) -> Void
     let openExternalURL: (_ url: String, _ appUrl: String?) -> Void
     let showTemporaryViewAccount: (_ network: ApiNetwork, _ addressOrDomainByChain: [String: String]) -> Void
     let insertToSearchString: (_ text: String) -> Void

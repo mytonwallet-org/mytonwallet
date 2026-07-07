@@ -122,7 +122,11 @@ public class NftsEditingNavigator {
     public lazy var cancelEditingBarButtonItem = UIBarButtonItem.cancelTextButtonItem { [weak self] in
         self?.cancelEditing()
     }
-    
+
+    public lazy var cancelXEditingBarButtonItem = UIBarButtonItem.cancelXButtonItem { [weak self] in
+        self?.cancelEditing()
+    }
+
     public lazy var commitEditingBarButtonItem = UIBarButtonItem.doneButtonItem { [weak self] in
         self?.manager?.stopEditing(isCanceled: false)
     }

@@ -6,6 +6,8 @@ import WalletContext
 import Dependencies
 import Perception
 
+private let revealDuration: TimeInterval = 5
+
 public final class WSensitiveData<Content: UIView>: WTouchPassView {
     
     public enum Alignment {
@@ -27,7 +29,18 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     
     private var _isDisabled: Bool = false
     private var isRevealed = false
+    private var lastReportedMaskVisible: Bool?
+    private var revealResetWorkItem: DispatchWorkItem?
     private nonisolated(unsafe) var observationToken: NSObjectProtocol?
+    
+    /// Called when local mask visibility changes. `true` = mask visible (balance hidden), `false` = revealed or globally visible.
+    public var onMaskStateChanged: ((Bool) -> Void)? {
+        didSet {
+            if let onMaskStateChanged, let lastReportedMaskVisible {
+                onMaskStateChanged(lastReportedMaskVisible)
+            }
+        }
+    }
 
     public init(cols: Int, rows: Int, cellSize: CGFloat, cornerRadius: CGFloat, theme: ShyMask.Theme, alignment: Alignment) {
         self._cols = cols
@@ -109,6 +122,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     public func addContent(_ content: Content) {
         assert(!content.translatesAutoresizingMaskIntoConstraints)
         self.content = content
+        cancelRevealReset()
         isRevealed = false
         contentContainer.addSubview(content)
         NSLayoutConstraint.activate([
@@ -121,6 +135,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     }
 
     private func resetRevealAndUpdateSensitiveData() {
+        cancelRevealReset()
         isRevealed = false
         updateSensitiveData()
     }
@@ -137,8 +152,10 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         let isGloballyHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden
         if !isGloballyHidden {
             isRevealed = false
+            cancelRevealReset()
         }
         let isSensitiveDataHidden = isGloballyHidden && !isRevealed
+        notifyMaskStateChangedIfNeeded(isSensitiveDataHidden)
         setupMaskIfNeeded(isSensitiveDataHidden: isSensitiveDataHidden)
         if isSensitiveDataHidden {
             self.shyMask?.startUpdates()
@@ -155,6 +172,16 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         }
     }
     
+    private func notifyMaskStateChangedIfNeeded(_ isMaskVisible: Bool) {
+        guard lastReportedMaskVisible != isMaskVisible else { return }
+        lastReportedMaskVisible = isMaskVisible
+        onMaskStateChanged?(isMaskVisible)
+    }
+    
+    public var maskSize: CGSize {
+        CGSize(width: CGFloat(_cols) * _cellSize, height: CGFloat(_rows) * _cellSize)
+    }
+    
     /// This must have been the `sizeThatFits` implementation but to avoid any involved layout breakdown for existing consumers, let's create a new method.
     /// - Note: in hidden mode the width returned is the mask one!
     public func contentSizeThatFits(_ size: CGSize) -> CGSize {
@@ -162,7 +189,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         
         let isSensitiveDataHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden && !isRevealed
         if isSensitiveDataHidden {
-            let maskSize = CGSize(width: CGFloat(_cols) * _cellSize, height: CGFloat(_rows) * _cellSize)
+            let maskSize = self.maskSize
             if result == nil {
                 result = maskSize
             } else {
@@ -199,6 +226,23 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     @objc private func onMaskTap() {
         isRevealed = true
         updateSensitiveData()
+        scheduleRevealReset()
+    }
+
+    private func scheduleRevealReset() {
+        cancelRevealReset()
+        guard !isDisabled, AppStorageHelper.isSensitiveDataHidden else { return }
+
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.resetRevealAndUpdateSensitiveData()
+        }
+        revealResetWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + revealDuration, execute: workItem)
+    }
+
+    private func cancelRevealReset() {
+        revealResetWorkItem?.cancel()
+        revealResetWorkItem = nil
     }
     
     public var isDisabled: Bool {
@@ -229,6 +273,8 @@ public struct SensitiveDataViewModifier: ViewModifier {
     private var cellSize: CGFloat?
     private var theme: ShyMask.Theme
     private var cornerRadius: CGFloat
+    private var onMaskStateChanged: ((Bool) -> Void)?
+    private var onReveal: (() -> Void)?
     
     @Dependency(\.sensitiveData.isHidden) private var isSensitiveDataHidden
     @State private var isRevealed = false
@@ -237,13 +283,24 @@ public struct SensitiveDataViewModifier: ViewModifier {
         isSensitiveDataHidden && !isRevealed
     }
     
-    public init(alignment: Alignment, cols: Int, rows: Int, cellSize: CGFloat?, theme: ShyMask.Theme = .adaptive, cornerRadius: CGFloat) {
+    public init(
+        alignment: Alignment,
+        cols: Int,
+        rows: Int,
+        cellSize: CGFloat?,
+        theme: ShyMask.Theme = .adaptive,
+        cornerRadius: CGFloat,
+        onMaskStateChanged: ((Bool) -> Void)? = nil,
+        onReveal: (() -> Void)? = nil
+    ) {
         self.alignment = alignment
         self.cols = cols
         self.rows = rows
         self.cellSize = cellSize
         self.theme = theme
         self.cornerRadius = cornerRadius
+        self.onMaskStateChanged = onMaskStateChanged
+        self.onReveal = onReveal
     }
     
     @ViewBuilder
@@ -261,6 +318,7 @@ public struct SensitiveDataViewModifier: ViewModifier {
                                         .clipShape(.rect(cornerRadius: cornerRadius))
                                         .onTapGesture {
                                             isRevealed = true
+                                            onReveal?()
                                         }
                                 }
                             }
@@ -270,12 +328,24 @@ public struct SensitiveDataViewModifier: ViewModifier {
                 }
             }
             .animation(.default, value: shouldHideSensitiveData)
+            .onAppear {
+                onMaskStateChanged?(shouldHideSensitiveData)
+            }
+            .onChange(of: shouldHideSensitiveData) { isMaskVisible in
+                onMaskStateChanged?(isMaskVisible)
+            }
             .onChange(of: isSensitiveDataHidden) { newValue in
                 if !newValue {
                     isRevealed = false
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .updateSensitiveData)) { _ in
+                isRevealed = false
+            }
+            .task(id: isRevealed) {
+                guard isRevealed, isSensitiveDataHidden else { return }
+                try? await Task.sleep(for: .seconds(revealDuration))
+                guard !Task.isCancelled, isSensitiveDataHidden else { return }
                 isRevealed = false
             }
         }
@@ -330,6 +400,12 @@ public struct SensitiveDataInPlaceViewModifier: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: .updateSensitiveData)) { _ in
                 isRevealed = false
             }
+            .task(id: isRevealed) {
+                guard isRevealed, isSensitiveDataHidden else { return }
+                try? await Task.sleep(for: .seconds(revealDuration))
+                guard !Task.isCancelled, isSensitiveDataHidden else { return }
+                isRevealed = false
+            }
         }
     }
     
@@ -337,9 +413,29 @@ public struct SensitiveDataInPlaceViewModifier: ViewModifier {
 
 public extension View {
     @ViewBuilder
-    func sensitiveData(alignment: Alignment, cols: Int, rows: Int, cellSize: CGFloat?, theme: ShyMask.Theme, cornerRadius: CGFloat) -> some View {
+    func sensitiveData(
+        alignment: Alignment,
+        cols: Int,
+        rows: Int,
+        cellSize: CGFloat?,
+        theme: ShyMask.Theme,
+        cornerRadius: CGFloat,
+        onMaskStateChanged: ((Bool) -> Void)? = nil,
+        onReveal: (() -> Void)? = nil
+    ) -> some View {
         self
-            .modifier(SensitiveDataViewModifier(alignment: alignment, cols: cols, rows: rows, cellSize: cellSize, theme: theme, cornerRadius: cornerRadius))
+            .modifier(
+                SensitiveDataViewModifier(
+                    alignment: alignment,
+                    cols: cols,
+                    rows: rows,
+                    cellSize: cellSize,
+                    theme: theme,
+                    cornerRadius: cornerRadius,
+                    onMaskStateChanged: onMaskStateChanged,
+                    onReveal: onReveal
+                )
+            )
     }
     
     @ViewBuilder

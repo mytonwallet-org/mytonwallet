@@ -18,6 +18,7 @@ import WalletCoreTypes
         presentationStyle: ProtectedActionPresentationStyle,
         useBioOnPresent: Bool,
         completionBehavior: ProtectedActionCompletionBehavior,
+        prefersNavigationTitleWithCustomHeader: Bool,
         mfaTitle: String?
     ) async throws -> Result?
     static func copyString(_ string: String?, toastMessage: String)
@@ -26,6 +27,7 @@ import WalletCoreTypes
     static func openTipsChannel()
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity)
     static func saveTemporaryViewAccount(accountId: String)
+    static func scanAndHandleQR(accountContext: AccountContext)
     static func scanQR() async -> ScanResult?
     static func setSensitiveDataIsHidden(_ newValue: Bool)
     static func shareUrl(_ url: URL)
@@ -40,9 +42,9 @@ import WalletCoreTypes
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?)
+    static func showCustomizeAppTabs()
     static func showCustomizeWallet(accountId: String?)
     static func showDeleteAccount(accountId: String)
-    static func showDeleteSelectedAccounts(accountIds: [String])
     static func showEarn(accountContext: AccountContext, tokenSlug: String?)
     static func showError(error: Error?)
     static func showExplore()
@@ -64,7 +66,7 @@ import WalletCoreTypes
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String])
-    static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?)
+    static func showToast(_ config: ToastConfig)
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String)
     static func showTokenBySlug(_ slug: String)
@@ -95,6 +97,7 @@ public extension AppActionsProtocol {
         presentationStyle: ProtectedActionPresentationStyle = .push,
         useBioOnPresent: Bool = true,
         completionBehavior: ProtectedActionCompletionBehavior = .popAuth,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         mfaTitle: String? = nil
     ) async throws -> Result? {
         try await Self.authorizeProtectedAction(
@@ -108,14 +111,20 @@ public extension AppActionsProtocol {
             presentationStyle: presentationStyle,
             useBioOnPresent: useBioOnPresent,
             completionBehavior: completionBehavior,
+            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             mfaTitle: mfaTitle
         )
     }
 
-    static func showToast(style: ToastStyle = .standard, icon: ToastIcon? = nil, message: String, duration: Double? = nil,
-                          actionTitle: String? = nil, action: (() -> ())? = nil) {
-        showToast(style: style, icon: icon, message: message, duration: duration ?? 3, actionTitle: actionTitle, action: action)
+    static func showToast(style: ToastStyle? = nil, icon: ToastIcon? = nil, message: String, duration: Double? = nil,
+                          transition: ToastTransition? = nil, actionTitle: String? = nil, action: (() -> ())? = nil) {
+        showToast(.init(
+            style: style, icon: icon, message: message,
+            duration: duration, transition: transition,
+            actionTitle: actionTitle, action: action)
+        )
     }
+    
     static func showMultisend() {
         guard let url = URL(string: MYTONWALLET_MULTISEND_DAPP_URL) else {
             assertionFailure()
@@ -137,6 +146,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
         presentationStyle: ProtectedActionPresentationStyle,
         useBioOnPresent: Bool,
         completionBehavior: ProtectedActionCompletionBehavior,
+        prefersNavigationTitleWithCustomHeader: Bool,
         mfaTitle: String?
     ) async throws -> Result? { nil }
     static func copyString(_ string: String?, toastMessage: String) { }
@@ -144,6 +154,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?) { }
     static func openTipsChannel() { }
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity) { }
+    static func scanAndHandleQR(accountContext: AccountContext) { }
     static func scanQR() async -> ScanResult? { nil }
     static func saveTemporaryViewAccount(accountId: String) { }
     static func setSensitiveDataIsHidden(_ newValue: Bool) { }
@@ -160,8 +171,8 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showConnectedDapps(push: Bool) { }
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?) { }
     static func showCustomizeWallet(accountId: String?) { }
+    static func showCustomizeAppTabs() { }
     static func showDeleteAccount(accountId: String) { }
-    static func showDeleteSelectedAccounts(accountIds: [String]) { }
     static func showEarn(accountContext: AccountContext, tokenSlug: String?) { }
     static func showError(error: Error?) { }
     static func showExplore() { }
@@ -183,7 +194,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) { }
-    static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?) { }
+    static func showToast(_ config: ToastConfig) { }
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String) { }
     static func showTokenBySlug(_ slug: String) { }

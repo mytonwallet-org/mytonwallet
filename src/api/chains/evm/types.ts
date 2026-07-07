@@ -62,7 +62,7 @@ export type ZerionTransaction = {
   id: string;
   attributes: {
     address: string;
-    operation_type: 'trade' | 'receive' | 'send' | 'execute' | 'approve';
+    operation_type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'delegate' | 'revoke_delegation';
     hash: string;
     mined_at_block: number;
     mined_at: string;
@@ -73,9 +73,15 @@ export type ZerionTransaction = {
     fee: ZerionTokenAmount;
     transfers: (ZerionTokenTransfer | ZerionNftTransfer)[];
     approvals: (Omit<ZerionTokenAmount, 'price' | 'value'> & {
+      fungible_info?: ZerionFungibleInfo;
       sender: string;
       act_id: string;
     })[];
+    delegations?: {
+      address: string;
+      act_id: string;
+      chain_id?: string;
+    }[];
     application_metadata?: {
       name?: string;
       icon?: { url: string };
@@ -85,7 +91,7 @@ export type ZerionTransaction = {
     flags: { is_trash: boolean };
     acts: {
       id: string;
-      type: 'trade' | 'receive' | 'send' | 'execute' | 'approve';
+      type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'delegate' | 'revoke_delegation';
       application_metadata?: ZerionTransaction['attributes']['application_metadata'];
     }[];
     paymaster?: string;

@@ -54,7 +54,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         ellipsize = TextUtils.TruncateAt.END
         isSingleLine = true
 
-        setStyle(adaptiveFontSize(), WFont.DemiBold)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setTextColor(WColor.PrimaryText)
     }
 

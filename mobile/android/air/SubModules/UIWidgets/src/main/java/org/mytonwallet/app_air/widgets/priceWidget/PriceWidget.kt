@@ -453,7 +453,7 @@ class PriceWidget : AppWidgetProvider() {
                 config.tokenSymbol ?: "",
                 size = 20,
                 color = Color.WHITE,
-                FontUtils.semiBold(context)
+                FontUtils.medium(context)
             )
         )
         val baseCurrency =
@@ -468,7 +468,7 @@ class PriceWidget : AppWidgetProvider() {
                     ?.toString(9, baseCurrency?.sign ?: "", 9, true) ?: "",
                 size = 18,
                 color = Color.WHITE,
-                FontUtils.nunitoExtraBold(context)
+                FontUtils.balance(context)
             )
         )
         val currentPriceSmallBitmap = if (forcedCompact) null else TextUtils.textToBitmap(
@@ -480,7 +480,7 @@ class PriceWidget : AppWidgetProvider() {
                     ?.toString(9, baseCurrency?.sign ?: "", 9, true) ?: "",
                 size = 18,
                 color = Color.WHITE,
-                FontUtils.nunitoExtraBold(context)
+                FontUtils.balance(context)
             )
         )
         val priceDate1SmallBitmap = if (forcedCompact) null else TextUtils.textToBitmap(
@@ -538,7 +538,7 @@ class PriceWidget : AppWidgetProvider() {
                             ?.toString(9, baseCurrency?.sign ?: "", 9, true) ?: "",
                         size = 32,
                         color = Color.WHITE,
-                        FontUtils.nunitoExtraBold(context)
+                        FontUtils.balance(context)
                     )
                 )
             )

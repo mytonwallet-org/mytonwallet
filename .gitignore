@@ -38,4 +38,6 @@ mobile/plugins/native-enclave/android/build/
 AGENTS.md
 .agent/tasks
 .codex/agents
+.xcodebuildmcp/
 .build
+/worktrees/

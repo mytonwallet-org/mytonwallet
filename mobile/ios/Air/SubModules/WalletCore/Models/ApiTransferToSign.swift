@@ -1,9 +1,11 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 
 public protocol ApiTransferToSignProtocol: Equatable, Hashable, Codable, Sendable {
+    var chain: ApiChain? { get }
     var toAddress: String { get }
     var amount: BigInt { get }
     var rawPayload: String? { get }
@@ -12,13 +14,15 @@ public protocol ApiTransferToSignProtocol: Equatable, Hashable, Codable, Sendabl
 }
 
 public struct ApiTransferToSign: ApiTransferToSignProtocol, Equatable, Hashable, Codable, Sendable {
+    public var chain: ApiChain?
     public var toAddress: String
     public var amount: BigInt
     public var rawPayload: String?
     public var payload: ApiParsedPayload?
     public var stateInit: String?
     
-    public init(toAddress: String, amount: BigInt, rawPayload: String? = nil, payload: ApiParsedPayload? = nil, stateInit: String? = nil) {
+    public init(chain: ApiChain? = nil, toAddress: String, amount: BigInt, rawPayload: String? = nil, payload: ApiParsedPayload? = nil, stateInit: String? = nil) {
+        self.chain = chain
         self.toAddress = toAddress
         self.amount = amount
         self.rawPayload = rawPayload
@@ -26,7 +30,8 @@ public struct ApiTransferToSign: ApiTransferToSignProtocol, Equatable, Hashable,
         self.stateInit = stateInit
     }
     
-    public init<T: ApiTransferToSignProtocol>(_ value: T) {
+    public init<T: ApiTransferToSignProtocol>(_ value: T, chain: ApiChain? = nil) {
+        self.chain = chain ?? value.chain
         self.toAddress = value.toAddress
         self.amount = value.amount
         self.rawPayload = value.rawPayload

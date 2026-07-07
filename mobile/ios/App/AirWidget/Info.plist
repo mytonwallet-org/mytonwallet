@@ -4,11 +4,9 @@
 <dict>
 	<key>UIAppFonts</key>
 	<array>
-		<string>../../AirModules_WalletResources.bundle/Nunito-ExtraBold.ttf</string>
 		<string>../../AirModules_WalletResources.bundle/CalSans-Regular.ttf</string>
 		<string>../../AirModules_WalletResources.bundle/SFCompactDisplayMedium.otf</string>
 		<string>../../AirModules_WalletResources.bundle/SFCompactRoundedBold.otf</string>
-		<string>../../AirModules_WalletResources.bundle/SFCompactRoundedSemibold.otf</string>
 	</array>
 	<key>NSExtension</key>
 	<dict>

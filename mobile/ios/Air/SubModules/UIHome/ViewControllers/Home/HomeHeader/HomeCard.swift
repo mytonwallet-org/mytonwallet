@@ -74,6 +74,7 @@ final class HomeCard: UICollectionViewCell {
         }
         cardBackground.isAccessibilityElement = false
         cardBackground.accessibilityElementsHidden = true
+        cardBackground.isUserInteractionEnabled = false
         contentView.addSubview(cardBackground)
         NSLayoutConstraint.activate([
             cardBackground.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -255,6 +256,8 @@ final class HomeCard: UICollectionViewCell {
     private func updateAccessibilityState(headerViewModel: HomeHeaderViewModel) {
         let isCollapsed = headerViewModel.isCollapsed
         let isHidden = headerViewModel.isCardHidden
+        cardContentMaskingContainer.isUserInteractionEnabled = !isCollapsed && !isHidden
+        collapsedContent.isUserInteractionEnabled = isCollapsed && !isHidden
         cardContent.accessibilityElementsHidden = isCollapsed || isHidden
         collapsedContent.accessibilityElementsHidden = !isCollapsed || isHidden
     }

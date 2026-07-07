@@ -7,6 +7,33 @@ import WalletContext
 
 private let log = Log("InAppBrowserPageVC")
 
+private struct InAppBrowserBridgeEvent<Event: Encodable>: Encodable {
+    let type = DappConnectMessageType.event
+    let event: Event
+}
+
+private struct DappDisconnectBridgeEvent: Encodable {
+    let event = "disconnect"
+    let id: Int
+    let payload = DappDisconnectBridgeEventPayload()
+}
+
+private struct DappDisconnectBridgeEventPayload: Encodable {}
+
+private func normalizedOrigin(_ origin: String?) -> String? {
+    guard let origin,
+          let components = URLComponents(string: origin),
+          let scheme = components.scheme?.lowercased(),
+          let host = components.host?.lowercased() else {
+        return nil
+    }
+    var normalized = "\(scheme)://\(host)"
+    if let port = components.port {
+        normalized += ":\(port)"
+    }
+    return normalized
+}
+
 protocol InAppBrowserPageDelegate: AnyObject {
     func inAppBrowserPageStateChanged(_ browserPageVC: InAppBrowserPageVC)
     func inAppBrowserPage(_ browserPageVC: InAppBrowserPageVC, wantsOpenNewPageWith config: InAppBrowserPageConfig)
@@ -226,7 +253,41 @@ final class InAppBrowserPageVC: WViewController {
     }
 
     func hasOrigin(_ origin: String) -> Bool {
-        state.url.origin == origin
+        guard let pageOrigin = normalizedOrigin(state.url.origin),
+              let targetOrigin = normalizedOrigin(origin) else {
+            return false
+        }
+        return pageOrigin == targetOrigin
+    }
+
+    func emitDappDisconnectEvent() {
+        Task { @MainActor [weak self] in
+            await self?.emitBridgeEvent(
+                DappDisconnectBridgeEvent(id: Int(Date().timeIntervalSince1970 * 1000))
+            )
+        }
+    }
+
+    private func emitBridgeEvent<Event: Encodable>(_ event: Event) async {
+        guard let webView else { return }
+        do {
+            let message = InAppBrowserBridgeEvent(event: event)
+            let jsonData = try JSONEncoder().encode(message)
+            guard let resultInJSON = String(data: jsonData, encoding: .utf8) else { return }
+            _ = try await webView.callAsyncJavaScript(
+                """
+                window.dispatchEvent(new MessageEvent('message', {
+                  data: resultInJSON
+                }));
+                """,
+                arguments: [
+                    "resultInJSON": resultInJSON,
+                ],
+                contentWorld: .page
+            )
+        } catch {
+            log.error("failed to emit dapp bridge event: \(error, .public)")
+        }
     }
 
     func childConfig(url: URL) -> InAppBrowserPageConfig {
@@ -282,7 +343,21 @@ final class InAppBrowserPageVC: WViewController {
     }
 }
 
+@MainActor
 extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
+
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame
+                 frame: WKFrameInfo, type: WKMediaCaptureType,
+                 decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void) {
+        switch type {
+        case .microphone, .cameraAndMicrophone:
+            decisionHandler(.deny)
+        case .camera:
+            decisionHandler(.prompt)
+        @unknown default:
+            decisionHandler(.deny)
+        }
+    }
 
     // Fetches the first declared favicon href from the page, falling back to /favicon.ico.
     private static let fetchFaviconScript = """
@@ -334,39 +409,26 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             return .cancel
         }
 
-        let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", SELF_PROTOCOL_SCHEME]
-        var shouldStart = true
-        var shouldDismiss = false
-
-        if let scheme = url.scheme, allowedSchemes.contains(scheme) {
+        switch resolveInAppBrowserNavigationUrlRouting(url, shouldOpenInNewPage: navigationAction.targetFrame == nil) {
+        case .consume:
+            webView.stopLoading()
+            return .cancel
+        case .handleDeeplink(let source):
+            webView.stopLoading()
+            if WalletContextManager.delegate?.handleDeeplink(url: url, source: source) ?? false {
+                dismissAfterHandledDeeplink()
+            }
+            return .cancel
+        case .openSystemUrl:
             webView.stopLoading()
             openSystemUrl(url)
-            shouldStart = false
-            if scheme == SELF_PROTOCOL_SCHEME {
-                shouldDismiss = true
-            }
-        }
-
-        if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
-            shouldStart = false
-            shouldDismiss = true
-        }
-        defer {
-            if shouldDismiss {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                    self.presentingViewController?.dismiss(animated: true)
-                }
-            }
-        }
-        if shouldStart {
-            let scheme = url.scheme?.lowercased()
-            if navigationAction.targetFrame == nil, scheme == "http" || scheme == "https" {
-                openNewPage(url: url)
-                return .cancel
-            } else {
-                return .allow
-            }
-        } else {
+            return .cancel
+        case .openNewPage:
+            openNewPage(url: url)
+            return .cancel
+        case .allow:
+            return .allow
+        case .ignore:
             return .cancel
         }
     }
@@ -378,7 +440,30 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        delegate?.inAppBrowserPage(self, createWebViewWith: configuration, for: navigationAction)
+        switch resolveInAppBrowserWebKitPopupUrlRouting(navigationAction.request.url) {
+        case .consume, .allow, .ignore:
+            return nil
+        case .handleDeeplink(let source):
+            if let url = navigationAction.request.url {
+                if WalletContextManager.delegate?.handleDeeplink(url: url, source: source) ?? false {
+                    dismissAfterHandledDeeplink()
+                }
+            }
+            return nil
+        case .openSystemUrl:
+            if let url = navigationAction.request.url {
+                openSystemUrl(url)
+            }
+            return nil
+        case .openNewPage:
+            return delegate?.inAppBrowserPage(self, createWebViewWith: configuration, for: navigationAction)
+        }
+    }
+
+    private func dismissAfterHandledDeeplink() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+            self.presentingViewController?.dismiss(animated: true)
+        }
     }
 
     func webViewDidClose(_ webView: WKWebView) {

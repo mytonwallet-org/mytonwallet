@@ -38,17 +38,17 @@ class FeeDetailsContentView(
 ) : WView(context), WThemedView {
 
     private val finalFeeLabel = WLabel(context).apply {
-        setStyle(14f, WFont.SemiBold)
+        setStyle(14f, WFont.Medium)
         text = LocaleController.getString("Final Fee")
     }
 
     private val excessFeeLabel = WLabel(context).apply {
-        setStyle(14f, WFont.SemiBold)
+        setStyle(14f, WFont.Medium)
         text = LocaleController.getString("Excess")
     }
 
     private val finalFeeValueLabel = WLabel(context).apply {
-        setStyle(14f, WFont.SemiBold)
+        setStyle(14f, WFont.Medium)
         maxLines = 1
         gravity =
             Gravity.CENTER_VERTICAL or if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
@@ -56,7 +56,7 @@ class FeeDetailsContentView(
     }
 
     private val excessFeeValueLabel = WLabel(context).apply {
-        setStyle(14f, WFont.SemiBold)
+        setStyle(14f, WFont.Medium)
         maxLines = 2
         gravity =
             Gravity.CENTER_VERTICAL or if (LocaleController.isRTL) Gravity.LEFT else Gravity.RIGHT

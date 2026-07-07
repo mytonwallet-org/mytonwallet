@@ -10,7 +10,6 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
-import SwiftUI
 import Dependencies
 import Perception
 
@@ -19,12 +18,13 @@ private let log = Log("SettingsVC")
 @MainActor
 public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver, UICollectionViewDelegate {
     
-    typealias Section = SettingsSection.Section
-    typealias Row = SettingsItem.Identifier
+    private typealias Section = SettingsSection.Section
+    private typealias Row = SettingsItem.Identifier
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>!
-    private var settingsHeaderView: SettingsHeaderView!
+    private var settingsHeaderView = SettingsHeaderView()
+    private var navBarBlurView: UIView?
     private var pauseReloadData: Bool = false
     private var isExpandedSplitLayout: Bool {
         splitViewController?.isCollapsed == false
@@ -32,15 +32,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         
     @Dependency(\.accountStore.currentAccountId) private var currentAccountId
     @Dependency(\.accountStore.orderedAccountIds) private var orderedAccountIds
-    
-    public override var hideNavigationBar: Bool {
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            false
-        } else {
-            true
-        }
-    }
-    
+        
     public override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -51,34 +43,24 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         pauseReloadData = false
-        configHeader()
+        updateHeader()
         reloadData(animated: false)
+        syncScrollDrivenChrome()
     }
-    
-    // MARK: - Setup settings
-    func setupViews() {
-        view.backgroundColor = .air.groupedBackground
-        
-        settingsHeaderView = SettingsHeaderView()
-        
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            // set title to get blurred background
-            navigationItem.attributedTitle = AttributedString(lang("Settings"), attributes: AttributeContainer([.foregroundColor: UIColor.clear]))
-            navigationItem.leftItemsSupplementBackButton = true
-            navigationItem.leftBarButtonItem = UIBarButtonItem(
-                title: lang("Receive"),
-                image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
-                primaryAction: UIAction { [weak self] _ in self?.showReceiveWithQR() }
-            )
-            navigationItem.rightBarButtonItem = UIBarButtonItem(
-                title: lang("More"),
-                image: UIImage(systemName: "ellipsis")?.withRenderingMode(.alwaysTemplate),
-                menu: makeMoreMenu()
-            )
-            navigationItem.titleView = settingsHeaderView.headerTouchTarget
-        } else {
-            additionalSafeAreaInsets = UIEdgeInsets(top: settingsHeaderView.layoutGeometry.legacyNavBarHeight, left: 0, bottom: 0, right: 0)
-        }
+
+    private func setupViews() {
+        navigationItem.leftItemsSupplementBackButton = true
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: lang("Receive"),
+            image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
+            primaryAction: UIAction { [weak self] _ in self?.showReceiveWithQR() }
+        )
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: lang("More"),
+            image: UIImage(systemName: "ellipsis")?.withRenderingMode(.alwaysTemplate),
+            menu: makeMoreMenu()
+        )
+        navigationItem.titleView = settingsHeaderView.headerTouchTarget
         
         var _configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         _configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
@@ -116,13 +98,19 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
         collectionView.allowsSelection = true
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.showsHorizontalScrollIndicator = false
         collectionView.contentInset.top = settingsHeaderView.layoutGeometry.scrollTopContentInset
         collectionView.backgroundColor = .air.groupedBackground
-        if #available(iOS 26, iOSApplicationExtension 26, *) {
-            collectionView.topEdgeEffect.style = .soft
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            collectionView.topEdgeEffect.isHidden = true
         }
 
-        let listCellRegistration = AccountListCell.makeRegistration()
+        let listCellRegistration = AccountListCell.makeRegistration(
+            contextMenuConfigurationProvider: { accountId in
+                WalletNameContextMenu.makeConfiguration(accountId: { accountId })
+            }
+        )
         
         dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { [weak self] (collectionView, indexPath, itemIdentifier) -> UICollectionViewCell? in
             guard let self else { fatalError() }
@@ -154,7 +142,6 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
         dataSource.apply(makeSnapshot(), animatingDifferences: false)
         
-        // Add table view
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -163,17 +150,31 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         
-        // Add header view
+        view.backgroundColor = .air.groupedBackground
+
+        navBarBlurView = addCustomNavigationBarBackground(color: .air.groupedBackground)
+        navBarBlurView?.alpha = 0
+        navigationBarProgressiveBlurDelta = 24
+        navigationBarProgressiveBlurMinY = max(0, settingsHeaderView.layoutGeometry.fullScrollRange - navigationBarProgressiveBlurDelta)
+ 
+        settingsHeaderView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(settingsHeaderView)
-        settingsHeaderView.setupViews(moreMenu: makeMoreMenu())
-        settingsHeaderView.delegate = self
         NSLayoutConstraint.activate([
             settingsHeaderView.topAnchor.constraint(equalTo: view.topAnchor),
             settingsHeaderView.leftAnchor.constraint(equalTo: view.leftAnchor),
             settingsHeaderView.rightAnchor.constraint(equalTo: view.rightAnchor)
         ])
-                
+
+        syncScrollDrivenChrome()
+
         collectionView.reloadData()
+    }
+
+    private func syncScrollDrivenChrome() {
+        guard let collectionView else { return }
+        let offset = collectionView.contentOffset.y + collectionView.adjustedContentInset.top
+        settingsHeaderView.update(scrollOffset: offset)
+        navBarBlurView?.alpha = calculateNavigationBarProgressiveBlurProgress(offset)
     }
         
     public override func scrollToTop(animated: Bool) {
@@ -248,9 +249,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         showDeleteAccountAlert(
             accountToDelete: removingAccount,
             isCurrentAccount: isCurrentAccount,
-            onSuccess: { [weak self] in
+            onSuccess: {
                 if isCurrentAccount {
-                    self?.tabBarController?.selectedIndex = 0
+                    AppActions.showHome(popToRoot: true)
                 }
                 callback(true)
             },
@@ -266,7 +267,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         )
     }
     
-    @objc func onVersionMultipleTap(_ gesture: UIGestureRecognizer) {
+    @objc private func onVersionMultipleTap(_ gesture: UIGestureRecognizer) {
         if gesture.state == .ended {
             (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.showDebugView()
         }
@@ -294,7 +295,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     
     // MARK: Data source
     
-    func makeSnapshot() -> NSDiffableDataSourceSnapshot<SettingsVC.Section, SettingsVC.Row> {
+    private func makeSnapshot() -> NSDiffableDataSourceSnapshot<SettingsVC.Section, SettingsVC.Row> {
         var snapshot = NSDiffableDataSourceSnapshot<SettingsVC.Section, SettingsVC.Row>()
         snapshot.appendSections([.header])
         snapshot.appendItems([.editWalletName])
@@ -358,7 +359,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         return snapshot
     }
     
-    func value(for item: SettingsItem) -> String? {
+    private func value(for item: SettingsItem) -> String? {
         if let value = item.value {
             // item already has a cached value on the item model
             return value
@@ -399,7 +400,6 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView.deselectItem(at: indexPath, animated: true)
     }
     
-    // scroll delegation
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         if collectionView.contentSize.height + view.safeAreaInsets.vertical > collectionView.frame.height {
             let requiredInset: CGFloat = max(16.0, collectionView.frame.height + 56.0 - collectionView.contentSize.height - view.safeAreaInsets.vertical)
@@ -408,7 +408,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        settingsHeaderView.update(scrollOffset: scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
+        syncScrollDrivenChrome()
     }
     
     public func scrollViewWillEndDragging(_ scrollView: UIScrollView,
@@ -419,7 +419,6 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         let lg = settingsHeaderView.layoutGeometry
         let fullScrollRange = lg.fullScrollRange
         
-        // snap to views
         if realTargetY > 0 && collectionView.contentSize.height + view.safeAreaInsets.vertical > collectionView.frame.height {
             if realTargetY < fullScrollRange {
                 var isGoingDown = targetContentOffset.pointee.y > scrollView.contentOffset.y
@@ -445,12 +444,12 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [self] in
                     pauseReloadData = false
                     reloadData(animated: false)
-                    configHeader()
+                    updateHeader()
                     navigationController?.popToRootViewController(animated: false)
                 }
 
             case .accountNameChanged:
-                configHeader()
+                updateHeader()
 
             case .balanceChanged:
                 updateHeaderBalance()
@@ -480,15 +479,15 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
     }
     
-    private func configHeader() {
+    private func updateHeader() {
         if !pauseReloadData {
-            settingsHeaderView?.config()
+            settingsHeaderView.updateAll()
         }
     }
     
     private func updateHeaderBalance() {
         if !pauseReloadData {
-            settingsHeaderView?.updateBalance()
+            settingsHeaderView.updateBalance()
         }
     }
     
@@ -504,11 +503,5 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                 dataSource.apply(snapshot, animatingDifferences: false)
             }
         }
-    }
-}
-
-extension SettingsVC: @MainActor SettingsHeaderViewDelegate {
-    func settingsHeaderViewDidTapQRCodeButton() {
-        showReceiveWithQR()
     }
 }

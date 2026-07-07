@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
+import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -38,6 +39,27 @@ object TonConnectHelper {
         val t = System.currentTimeMillis()
         val secureRandom = SecureRandom()
         return t.toString() + "_" + secureRandom.nextLong().toString()
+    }
+
+    fun emitDappDisconnectEventJs(): String {
+        val message = """
+            {
+                "type": "${WebViewBridgeMessageType.EVENT.key}",
+                "event": {
+                    "event": "disconnect",
+                    "id": ${System.currentTimeMillis()},
+                    "payload": {}
+                }
+            }
+        """.trimIndent()
+        val messageJson = JSONObject(message).toString()
+        return """
+        (function() {
+            window.dispatchEvent(new MessageEvent('message', {
+                data: ${JSONObject.quote(messageJson)}
+            }));
+        })();
+        """
     }
 
     fun injectBridge(): String {
@@ -94,7 +116,9 @@ object TonConnectHelper {
                     }
                     if (message.type === '${WebViewBridgeMessageType.EVENT.key}') {
                         window._mtwAir_eventListeners.forEach(function(listener) {
-                            listener(message.event);
+                            try {
+                                listener(message.event);
+                            } catch (e) {}
                         });
                     }
                 } catch (err) {}

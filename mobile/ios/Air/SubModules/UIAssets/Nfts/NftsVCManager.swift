@@ -34,6 +34,20 @@ public class NftsVCManager {
         try? await Task.sleep(nanoseconds: 200_000_000)
     }
     
+    var isCollectiblesHidden: Bool {
+        tabsViewModel.isCollectiblesHidden
+    }
+
+    func setCollectiblesHidden(_ isHidden: Bool) async throws {
+        beginUpdate()
+        defer { endUpdate() }
+        
+        _ = try? await tabsViewModel.setCollectiblesHidden(isHidden)
+        
+        // Temporary fix until the WalletAssetsViewModel refactoring. Wait a little until all changes went through write/read/observe DB
+        try? await Task.sleep(nanoseconds: 200_000_000)
+    }
+    
     func startSelection(in viewController: NftsVC) {
         beginUpdate()
         defer { endUpdate() }

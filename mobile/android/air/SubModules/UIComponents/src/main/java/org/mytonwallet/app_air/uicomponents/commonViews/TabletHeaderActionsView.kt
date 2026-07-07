@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import androidx.core.view.isVisible
 import kotlin.math.roundToInt
@@ -229,7 +230,8 @@ class TabletHeaderActionsView(
             anchorView,
             items,
             positioning = Positioning.BELOW,
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            usePillShadow = true
         )
     }
 
@@ -376,12 +378,13 @@ class TabletHeaderActionsView(
         }
         this.account = account
         val isMainNet = account?.isMainnet == true
+        val isLpToken = TokenStore.getToken(tokenSlug)?.isLpToken == true
         setBuyVisibility(isSellAllowed())
         setSellVisibility(isSellAllowed())
         setReceiveVisibility(account?.supportsReceiveScreen == true)
         setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
-        setSwapVisibility(account?.supportsSwap == true)
+        setSwapVisibility(account?.supportsSwap == true && !isLpToken)
         updateEarnTitle(account, tokenSlug)
     }
 
@@ -441,7 +444,7 @@ class TabletHeaderActionsView(
         }
         val label: WLabel = WLabel(context).apply {
             setSingleLine()
-            setStyle(14f, WFont.DemiBold)
+            setStyle(14f, WFont.Medium)
             text = item.title
         }
 

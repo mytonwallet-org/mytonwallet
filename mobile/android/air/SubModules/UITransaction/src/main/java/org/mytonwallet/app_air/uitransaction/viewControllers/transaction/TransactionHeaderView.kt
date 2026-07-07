@@ -73,7 +73,7 @@ class TransactionHeaderView(
     ).apply {
         textAlignment = TEXT_ALIGNMENT_CENTER
         amountView.lbl.apply {
-            typeface = WFont.NunitoExtraBold.typeface
+            typeface = WFont.Balance.typeface
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
         }
         layoutParams = LayoutParams(0, amountView.lbl.lineHeight)

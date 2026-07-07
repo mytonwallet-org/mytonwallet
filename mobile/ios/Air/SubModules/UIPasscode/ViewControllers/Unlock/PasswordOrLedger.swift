@@ -27,6 +27,7 @@ public enum ProtectedActionPresenter {
         presentationStyle: ProtectedActionPresentationStyle = .push,
         useBioOnPresent: Bool = true,
         completionBehavior: ProtectedActionCompletionBehavior = .popAuth,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         mfaTitle: String? = nil
     ) async throws -> Result? {
         try await viewController._authorizeProtectedAction(
@@ -39,6 +40,7 @@ public enum ProtectedActionPresenter {
             presentationStyle: presentationStyle,
             useBioOnPresent: useBioOnPresent,
             completionBehavior: completionBehavior,
+            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             mfaTitle: mfaTitle
         )
     }
@@ -55,16 +57,17 @@ private extension UIViewController {
         presentationStyle: ProtectedActionPresentationStyle = .push,
         useBioOnPresent: Bool = true,
         completionBehavior: ProtectedActionCompletionBehavior = .popAuth,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         mfaTitle: String? = nil
     ) async throws -> Result? {
         if account.isHardware {
             guard let ledgerSignData else {
-                throw BridgeCallError.message(.unsupportedHardwareContract, nil)
+                throw DisplayError(text: lang("Transaction to this smart contract is not yet supported by Ledger."))
             }
             let signData = try await ledgerSignData()
             let fromAddress = ledgerFromAddress ?? account.firstAddress
             guard !fromAddress.isEmpty else {
-                throw BridgeCallError.customMessage("No account address", nil)
+                throw SdkError.unexpected(message: "No account address")
             }
             try await _authorizeLedger(
                 title: title,
@@ -87,6 +90,7 @@ private extension UIViewController {
                 passwordAction: passwordAction,
                 useBioOnPresent: useBioOnPresent,
                 completionBehavior: completionBehavior,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 mfaTitle: mfaTitle ?? title
             )
         case .sheet:
@@ -97,6 +101,7 @@ private extension UIViewController {
                 passwordAction: passwordAction,
                 useBioOnPresent: useBioOnPresent,
                 completionBehavior: completionBehavior,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 mfaTitle: mfaTitle ?? title
             )
         }
@@ -121,7 +126,7 @@ private extension UIViewController {
             throw error
         }
         if let error = result.protectedActionError {
-            let bridgeError = BridgeCallError(message: error, payload: result)
+            let bridgeError = SdkError.apiReturnedError(error: error, context: result)
             passwordOrLedgerLog.error("Protected action returned MFA error: \(bridgeError, .public)")
             throw bridgeError
         }
@@ -155,6 +160,7 @@ private extension UIViewController {
         passwordAction: @escaping (String) async throws -> Result,
         useBioOnPresent: Bool,
         completionBehavior: ProtectedActionCompletionBehavior,
+        prefersNavigationTitleWithCustomHeader: Bool,
         mfaTitle: String
     ) async throws -> Result {
         if let passcode = await biometricPasscodeIfAvailable(useBioOnPresent: useBioOnPresent) {
@@ -191,6 +197,7 @@ private extension UIViewController {
                 replacedTitle: nil,
                 subtitle: nil,
                 customHeaderVC: headerVC,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 animatedPresentation: false,
                 dissmissWhenAuthorized: false,
                 shouldBeThemedLikeHeader: false,
@@ -269,10 +276,11 @@ private extension UIViewController {
         passwordAction: @escaping (String) async throws -> Result,
         useBioOnPresent: Bool,
         completionBehavior: ProtectedActionCompletionBehavior,
+        prefersNavigationTitleWithCustomHeader: Bool,
         mfaTitle: String
     ) async throws -> Result {
         guard navigationController != nil else {
-            throw BridgeCallError.customMessage("No navigation controller", nil)
+            throw SdkError.unexpected(message: "No navigation controller")
         }
         let vc = self
         let headerVC = UIHostingController(rootView: headerView)
@@ -285,6 +293,7 @@ private extension UIViewController {
                 title: title,
                 customHeaderVC: headerVC,
                 useBioOnPresent: useBioOnPresent,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 onAuthTask: { password, onTaskDone in
                     Task {
                         do {

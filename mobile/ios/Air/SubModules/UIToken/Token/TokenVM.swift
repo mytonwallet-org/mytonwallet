@@ -79,6 +79,9 @@ import WReachability
     }
     
     internal func refreshTransactions() {
+        guard selectedToken.type != .lp_token else {
+            return
+        }
         loadPriceHistory(period: selectedPeriod)
     }
     
@@ -120,6 +123,17 @@ import WReachability
             await _loadPriceHistory(period: period, retriesLeft: retriesLeft)
         }
     }
+
+    private func resetPriceHistoryAndReload() {
+        loadHistoryTask.withLock { tasks in
+            for task in tasks.values {
+                task.cancel()
+            }
+            tasks.removeAll()
+        }
+        allHistoryData.withLock { $0 = [:] }
+        loadPriceHistory(period: selectedPeriod)
+    }
 }
 
 extension TokenVM: WalletCoreData.EventsObserver {
@@ -129,7 +143,10 @@ extension TokenVM: WalletCoreData.EventsObserver {
             if accountId == self.accountId {
                 tokenVMDelegate?.dataUpdated(isUpdateEvent: false)
             }
-        case .tokensChanged, .baseCurrencyChanged, .hideTinyTransfersChanged:
+        case .baseCurrencyChanged:
+            resetPriceHistoryAndReload()
+            tokenVMDelegate?.dataUpdated(isUpdateEvent: false)
+        case .tokensChanged, .hideTinyTransfersChanged:
             tokenVMDelegate?.dataUpdated(isUpdateEvent: false)
         case .accountChanged:
             tokenVMDelegate?.accountChanged()

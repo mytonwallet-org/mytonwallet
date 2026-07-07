@@ -62,6 +62,7 @@ function Agent({
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [areHintsOpen, setAreHintsOpen] = useState(false);
   const [isConfirmClearOpen, openClearConfirm, closeClearConfirm] = useFlag();
+  const [isReadyToShow, markReadyToShow] = useFlag();
   const [editingMessageId, setEditingMessageId] = useState<number | undefined>();
 
   const messagesRef = useRef<HTMLDivElement>();
@@ -181,6 +182,25 @@ function Agent({
       scrollToBottom();
     }
   }, [isActive, isViewportAtEnd]);
+
+  // On first open, jump to the bottom instantly before revealing the list, so it never scrolls into place.
+  // The scroll container has CSS `scroll-behavior: smooth`, so we must use `scrollTo({ behavior: 'instant' })` —
+  // a plain `scrollTop =` assignment would animate the jump and show the list sliding down from the top.
+  useLayoutEffect(() => {
+    if (!isActive || !isInitialLoadComplete || isReadyToShow) return;
+
+    requestForcedReflow(() => {
+      const el = messagesRef.current;
+      const scrollHeight = el?.scrollHeight;
+
+      return () => {
+        if (el && scrollHeight !== undefined) {
+          el.scrollTo({ top: scrollHeight, behavior: 'instant' });
+        }
+        markReadyToShow();
+      };
+    });
+  }, [isActive, isInitialLoadComplete, isReadyToShow]);
 
   useEffect(() => {
     if (!isActive || isViewportAtEnd || !isAtBottomRef.current) return;
@@ -396,7 +416,7 @@ function Agent({
         ref={messagesRef}
         className={buildClassName(
           styles.messages,
-          !isInitialLoadComplete && styles.hidden,
+          !isReadyToShow && styles.hidden,
           'custom-scroll',
         )}
         items={viewportIds}

@@ -17,12 +17,16 @@ extension Api {
         try await bridge.callApi("swapBuildTransfer", accountId, password, request, decoding: ApiSwapBuildResponse.self)
     }
     
-    public static func swapSubmit(accountId: String, password: String, transfers: [ApiSwapTransfer], historyItem: ApiSwapHistoryItem, isGasless: Bool?) async throws -> ApiSwapSubmitResult {
-        try await bridge.callApi("swapSubmit", accountId, password, transfers, historyItem, isGasless, decoding: ApiSwapSubmitResult.self)
+    public static func swapSubmit(chain: ApiChain, accountId: String, password: String, transfers: [ApiSwapTransfer]?, historyItem: ApiSwapHistoryItem, isGasless: Bool?, transaction: String?) async throws -> ApiSwapSubmitResult {
+        try await bridge.callApi("swapSubmit", chain, accountId, password, transfers, historyItem, isGasless, transaction, decoding: ApiSwapSubmitResult.self)
     }
     
     public static func swapEstimate(accountId: String, request: ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse {
-        try await bridge.callApi("swapEstimate", accountId, request, decoding: ApiSwapEstimateResponse.self)
+        let response = try await bridge.callApi("swapEstimate", accountId, request, decoding: ApiSwapEstimateRouteResponse.self)
+        guard case .dex(let estimate) = response else {
+            throw SdkError.unexpected(message: "Unexpected CEX estimate response", context: response)
+        }
+        return estimate
     }
     
     /// - Important: call through TokenStore
@@ -39,8 +43,27 @@ extension Api {
         return pairs
     }
     
-    public static func swapCexEstimate(swapEstimateOptions: ApiSwapCexEstimateOptions) async throws -> ApiSwapCexEstimateResponse? {
-        return try await bridge.callApi("swapCexEstimate", swapEstimateOptions, decoding: ApiSwapCexEstimateResponse.self)
+    public static func swapCexEstimate(accountId: String, swapEstimateOptions: ApiSwapCexEstimateOptions) async throws -> ApiSwapCexEstimateResponse? {
+        let request = ApiSwapEstimateRequest(
+            from: swapEstimateOptions.from,
+            to: swapEstimateOptions.to,
+            slippage: nil,
+            fromAmount: swapEstimateOptions.fromAmount,
+            toAmount: nil,
+            fromAddress: swapEstimateOptions.fromAddress,
+            toAddress: swapEstimateOptions.toAddress,
+            cexLabel: swapEstimateOptions.cexLabel,
+            shouldTryDiesel: nil,
+            swapVersion: nil,
+            toncoinBalance: nil,
+            walletVersion: nil,
+            isFromAmountMax: swapEstimateOptions.isFromAmountMax
+        )
+        let response = try await bridge.callApi("swapEstimate", accountId, request, decoding: ApiSwapEstimateRouteResponse.self)
+        guard case .cex(let estimate) = response else {
+            throw SdkError.unexpected(message: "Unexpected DEX estimate response", context: response)
+        }
+        return estimate
     }
     
     public static func swapCexValidateAddress(params: ApiSwapCexValidateAddressParams) async throws -> ApiSwapCexValidateAddressResult {
@@ -51,8 +74,8 @@ extension Api {
         try await bridge.callApi("swapCexCreateTransaction", accountId, password, params, decoding: ApiSwapCexCreateTransactionResult.self)
     }
 
-    public static func swapCexSubmit(chain: ApiChain, options: ApiSubmitTransferOptions, swapId: String) async throws -> ApiSubmitTransferResult {
-        try await bridge.callApi("swapCexSubmit", chain, options, swapId, decoding: ApiSubmitTransferResult.self)
+    public static func swapCexSubmit(chain: ApiChain, options: ApiSubmitTransferOptions, swapId: String) async throws -> ApiSwapSubmitResult {
+        try await bridge.callApi("swapCexSubmit", chain, options, swapId, decoding: ApiSwapSubmitResult.self)
     }
 
     public static func confirmSwapMfaRequest(accountId: String, swapId: String, txHash: String) async throws {
@@ -64,17 +87,20 @@ extension Api {
         }
     }
 
-    public static func fetchSwaps(accountId: String, ids: [String]) async throws -> ApiFetchSwapsResult {
-        try await bridge.callApi("fetchSwaps", accountId, ids, decoding: ApiFetchSwapsResult.self)
+    public static func fetchSwaps(accountId: String, items: [ApiFetchSwapItem]) async throws -> ApiFetchSwapsResult {
+        try await bridge.callApi("fetchSwaps", accountId, items, decoding: ApiFetchSwapsResult.self)
     }
 }
 
 // MARK: Types
 
 public struct ApiSwapBuildResponse: Codable, Sendable {
-    public let id: String
-    public var transfers: [ApiSwapTransfer]
+    public let id: String?
+    public var transfers: [ApiSwapTransfer]?
     public let fee: BigInt?
+    public let chain: ApiChain?
+    public let transaction: String?
+    public let error: ApiAnyDisplayError?
 }
 
 public struct ApiSwapSubmitResult: Codable, Sendable {
@@ -92,10 +118,12 @@ extension ApiSwapSubmitResult: MfaProtectedActionResult {
 public struct ApiSwapCexValidateAddressParams: Encodable, Sendable {
     public var slug: String
     public var address: String
+    public var cexLabel: ApiSwapCexLabel?
 
-    public init(slug: String, address: String) {
+    public init(slug: String, address: String, cexLabel: ApiSwapCexLabel? = nil) {
         self.slug = slug
         self.address = address
+        self.cexLabel = cexLabel
     }
 }
 
@@ -112,4 +140,40 @@ public struct ApiSwapCexCreateTransactionResult: Decodable, Sendable {
 public struct ApiFetchSwapsResult: Decodable, Sendable {
     public var nonExistentIds: [String]
     public var swaps: [ApiSwapActivity]
+}
+
+public struct ApiFetchSwapItem: Encodable, Hashable, Sendable {
+    public var id: String
+    public var chain: ApiChain?
+
+    public init(id: String, chain: ApiChain?) {
+        self.id = id
+        self.chain = chain
+    }
+}
+
+public enum ApiSwapEstimateRouteResponse: Decodable, Sendable {
+    case dex(ApiSwapEstimateResponse)
+    case cex(ApiSwapCexEstimateResponse)
+
+    private enum CodingKeys: String, CodingKey {
+        case route
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let route = try container.decodeIfPresent(String.self, forKey: .route)
+        switch route {
+        case "dex":
+            self = .dex(try ApiSwapEstimateResponse(from: decoder))
+        case "cex":
+            self = .cex(try ApiSwapCexEstimateResponse(from: decoder))
+        default:
+            if let dex = try? ApiSwapEstimateResponse(from: decoder) {
+                self = .dex(dex)
+            } else {
+                self = .cex(try ApiSwapCexEstimateResponse(from: decoder))
+            }
+        }
+    }
 }

@@ -76,6 +76,9 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     WRecyclerViewDataSource, TokenVM.Delegate, WThemedView, WProtectedView {
     override val TAG = "Token"
 
+    private val isLpToken: Boolean
+        get() = token.isLpToken
+
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar: Boolean
         get() {
@@ -297,6 +300,9 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         setItemAnimator(null)
         clipToPadding = false
     }
+
+    override val topBlurView: View?
+        get() = topBlurReversedCornerView
 
     private val topBlurReversedCornerView = ReversedCornerView(
         context, ReversedCornerView.Config(
@@ -565,7 +571,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         return when (section) {
-            HEADER_SECTION -> 3
+            HEADER_SECTION -> if (isLpToken) 2 else 3
 
             TRANSACTION_SECTION -> if ((showingTransactions?.size ?: 0) > 0)
                 (showingTransactions?.size ?: 0)
@@ -677,6 +683,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             TRANSACTION_CELL -> {
                 val cell =
                     ActivityCell(recyclerView, withoutTagAndComment = false, isFirstInDay = null)
+                cell.allowNftMenu = true
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
                 }
@@ -686,6 +693,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             TRANSACTION_SMALL_CELL -> {
                 val cell =
                     ActivityCell(recyclerView, withoutTagAndComment = true, isFirstInDay = false)
+                cell.allowNftMenu = true
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
                 }
@@ -695,6 +703,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             TRANSACTION_SMALL_FIRST_IN_DAY_CELL -> {
                 val cell =
                     ActivityCell(recyclerView, withoutTagAndComment = true, isFirstInDay = true)
+                cell.allowNftMenu = true
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
                 }
@@ -844,15 +853,17 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             skeletonRecyclerView.paddingBottom
         )
-        topBlurReversedCornerView.updateLayoutParams {
-            height = (navigationController?.getSystemBars()?.top ?: 0) +
-                TokenHeaderView.navDefaultHeight +
-                ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
-        }
-        headerView.updateLayoutParams {
-            height = (navigationController?.getSystemBars()?.top ?: 0) +
-                TokenHeaderView.navDefaultHeight + headerView.contentHeight
-        }
+        if (topBlurReversedCornerView.layoutParams != null)
+            topBlurReversedCornerView.updateLayoutParams {
+                height = (navigationController?.getSystemBars()?.top ?: 0) +
+                    TokenHeaderView.navDefaultHeight +
+                    ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
+            }
+        if (headerView.layoutParams != null)
+            headerView.updateLayoutParams {
+                height = (navigationController?.getSystemBars()?.top ?: 0) +
+                    TokenHeaderView.navDefaultHeight + headerView.contentHeight
+            }
         if (headerView.parent == headerCell)
             headerCell?.setConstraints {
                 toCenterX(headerView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())

@@ -33,6 +33,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
     public var walletSettingsListLayout: String?
     public var walletSettingsCurrentFilter: String?
     public var walletSettingsFilterOrder: [String]
+    public var appTabOrder: [String]
 
     public init(
         id: Int64 = SINGLETON_TABLE_ROW_ID,
@@ -52,7 +53,8 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         walletTokensLimit: Int = defaultWalletTokensLimit,
         walletSettingsListLayout: String? = nil,
         walletSettingsCurrentFilter: String?  = nil,
-        walletSettingsFilterOrder: [String] = []
+        walletSettingsFilterOrder: [String] = [],
+        appTabOrder: [String] = []
     ) {
         self.id = id
         self.theme = theme
@@ -72,6 +74,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         self.walletSettingsListLayout = walletSettingsListLayout
         self.walletSettingsCurrentFilter = walletSettingsCurrentFilter
         self.walletSettingsFilterOrder = walletSettingsFilterOrder
+        self.appTabOrder = appTabOrder
     }
 
     @MainActor public init(global: GlobalStorage, currentAccountId: String? = nil) {

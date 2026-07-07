@@ -79,6 +79,22 @@ $subheaderReleaseHeight: 1.25rem;
   }
 }
 
+.itemWithMenu {
+  border-radius: var(--border-radius-with-menu, 1rem);
+  background: var(--color-background-first);
+
+  &::after {
+    content: none;
+  }
+}
+
+.itemHiding {
+  pointer-events: none;
+  opacity: 0;
+
+  @include mixins.transition(opacity 200ms ease-out);
+}
+
 .icon {
   $desktopIconScale: math.div(22, 24);
   $fontSize: 1.5rem;

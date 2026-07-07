@@ -1,4 +1,5 @@
 import UIKit
+import ContextMenuKit
 import UIComponents
 import UIHome
 import WalletCore
@@ -13,10 +14,6 @@ private let sidebarEdgeGradientWidth: CGFloat = 16
 private let sidebarTopContentInset: CGFloat = 20
 private let sidebarTopGradientSolidInset = S.homeInsetSectionCornerRadius
 
-@MainActor
-protocol SplitRootSidebarViewControllerDelegate: AnyObject {
-    func splitRootSidebarDidSelectTab(_ tab: SplitRootTab)
-}
 
 @MainActor
 final class SplitRootSidebarViewController: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, Sendable {
@@ -26,7 +23,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     }
     
     private enum Item: Hashable {
-        case tab(SplitRootTab)
+        case tab(AppTabId)
         case account(String)
         case walletSettings
         case addAccount
@@ -41,11 +38,12 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     private var accountSelectorHeightConstraint: NSLayoutConstraint?
     private let updateStatusAccountContext = AccountContext(source: .current)
     private lazy var updateStatusView = UpdateStatusView(accountContext: updateStatusAccountContext)
+    private var titleMenuInteraction: ContextMenuInteraction?
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     
-    private var selectedTab: SplitRootTab { viewModel.selectedTab }
+    private var selectedTab: AppTabId { viewModel.selectedTab }
         
     private var activateAccountTask: Task<Void, Never>?
     private var setUpdatingAfterDelayTask: Task<Void, Never>?
@@ -64,6 +62,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         navigationItem.largeTitleDisplayMode = .never
         setupViews()
         WalletCoreData.add(eventObserver: self)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleLanguageDidChange(_:)), name: .languageDidChange, object: nil)
         applySnapshot(animated: false)
         updateStatusViewState(animated: false)
         updateTheme()
@@ -79,8 +78,13 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         updateStatusViewState(animated: false)
     }
     
-    func setSelectedTab(_ tab: SplitRootTab) {
+    func setSelectedTab(_ tab: AppTabId) {
         viewModel.onTabTap(tab)
+    }
+
+    func applyTabConfiguration(_ orderedIds: [AppTabId]) {
+        guard isViewLoaded else { return }
+        applySnapshot(animated: true)
     }
     
     func focusAccount(_ accountId: String?, animated: Bool) {
@@ -91,6 +95,15 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     
     private func setupViews() {
         navigationItem.titleView = updateStatusView
+        let titleMenuInteraction = ContextMenuInteraction(
+            triggers: [.longPress],
+            pressAnimation: .default(transformMode: .sublayerTransform)
+        ) { [weak self] _ in
+            self?.makeTitleMenuConfiguration()
+        }
+        titleMenuInteraction.attach(to: updateStatusView)
+        self.titleMenuInteraction = titleMenuInteraction
+
         accountSelector.minimumHomeCardFontScale = 0
         
         accountSelector.translatesAutoresizingMaskIntoConstraints = false
@@ -188,16 +201,20 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         collectionView.verticalScrollIndicatorInsets.top = sidebarTopContentInset
         collectionView.delegate = self
         
-        let tabRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, SplitRootTab> { cell, _, tab in
+        let registry = AppTabManager.shared
+        let tabRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, AppTabId> { cell, _, tab in
             cell.configurationUpdateHandler = { [weak self] cell, _ in
                 guard let self else { return }
                 let isSelected = tab == self.viewModel.selectedTab
+                let registration = registry.registration(for: tab)
+                let icon = registration?.sidebarIcon ?? UIImage()
+                let title = registration?.titleProvider() ?? tab.rawValue
                 cell.contentConfiguration = UIHostingConfiguration {
                     HStack {
-                        Image(uiImage: tab.icon)
+                        Image(uiImage: icon)
                             .renderingMode(.template)
                             .frame(width: 34, height: 34)
-                        Text(tab.title)
+                        Text(title)
                             .font(.system(size: 17, weight: isSelected ? .semibold : .regular))
                     }
                     .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .leading)
@@ -212,7 +229,14 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
             }
         }
         
-        let accountRegistration = AccountListCell.makeRegistration(showBalance: true, normalBackground: .clear, showCurrentAccountHighlight: true)
+        let accountRegistration = AccountListCell.makeRegistration(
+            showBalance: true,
+            normalBackground: .clear,
+            showCurrentAccountHighlight: true,
+            contextMenuConfigurationProvider: { accountId in
+                WalletNameContextMenu.makeConfiguration(accountId: { accountId })
+            }
+        )
         
         let actionRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             cell.accessories = []
@@ -255,7 +279,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.tabs])
-        snapshot.appendItems(SplitRootTab.visibleTabs.map(Item.tab), toSection: .tabs)
+        snapshot.appendItems(AppTabManager.shared.orderedTabIds.map(Item.tab), toSection: .tabs)
         
         snapshot.appendSections([.accounts])
         let accounts = AccountStore.orderedAccountIds
@@ -318,6 +342,15 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         }
     }
     
+    private func makeTitleMenuConfiguration() -> ContextMenuConfiguration {
+        WalletNameContextMenu.makeConfiguration(
+            accountId: { [updateStatusAccountContext] in
+                updateStatusAccountContext.account.id
+            },
+            sourceSpacing: 0
+        )
+    }
+
     private func updateAccountSelectorHeightIfNeeded() {
         guard let accountSelectorHeightConstraint else { return }
         let width = view.bounds.width
@@ -346,11 +379,15 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         }
     }
     
+    @objc private func handleLanguageDidChange(_ notification: Notification) {
+        applySnapshot(animated: false)
+    }
+
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return false }
         switch item {
-        case .tab(let tab):
-            viewModel.onTabTap(tab)
+        case .tab(let tabId):
+            viewModel.onTabTap(tabId)
         case .account(let accountId):
             selectAccount(accountId)
         case .walletSettings:

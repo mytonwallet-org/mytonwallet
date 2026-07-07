@@ -1,5 +1,5 @@
 import { Address } from '@ton/core';
-import { Cell, Dictionary, type TupleReader } from '@ton/core';
+import { Cell, type TupleReader } from '@ton/core';
 
 import type { ApiNetwork } from '../../../types/misc';
 
@@ -7,6 +7,7 @@ import { MFA_EXTENSION_CODE_HASH, MFA_MASTER_ADDRESS } from '../../../../config'
 import safeExec from '../../../../util/safeExec';
 import { getTonClient } from '../util/tonCore';
 import { ApiServerError } from '../../../errors';
+import { getW5WalletExtensionAddresses } from '../wallet';
 
 import { getContractCode } from './MfaExtension';
 import { MfaMaster } from './MfaMaster';
@@ -18,24 +19,7 @@ export function readCellOpt(stack: TupleReader): Cell | undefined {
 }
 
 export async function resolveMfaExtensionAddress(network: ApiNetwork, walletAddress: Address) {
-  const client = getTonClient(network);
-
-  const { stack, exit_code } = await client.runMethodWithError(walletAddress, 'get_extensions');
-
-  if (exit_code !== 0) return;
-
-  const cell = stack.readCellOpt();
-  if (!cell) return;
-
-  const dict = Dictionary.loadDirect(
-    Dictionary.Keys.BigUint(256),
-    Dictionary.Values.BigInt(1),
-    cell,
-  );
-
-  const extensions = dict.keys().map((key) =>
-    `0:${key.toString(16).padStart(64, '0')}`,
-  );
+  const extensions = await getW5WalletExtensionAddresses(network, walletAddress.toString());
 
   const extensionCodeHashLibraryRef = getContractCode().hash();
   const extensionCodeHashFull = MFA_EXTENSION_CODE_HASH
@@ -43,7 +27,7 @@ export async function resolveMfaExtensionAddress(network: ApiNetwork, walletAddr
     : undefined;
 
   for (const extension of extensions) {
-    const { code } = await client.getAddressInfo(extension);
+    const { code } = await getTonClient(network).getAddressInfo(extension);
     // Inactive addresses return `code: ""`.
     if (!code) continue;
 

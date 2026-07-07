@@ -4,7 +4,7 @@ import { getActions, withGlobal } from '../../../../global';
 import type { ApiChain, ApiStakingState } from '../../../../api/types';
 import type { AccountChain, AccountType, UserToken } from '../../../../global/types';
 
-import { PRIORITY_TOKENS, STAKED_TOKEN_SLUGS } from '../../../../config';
+import { STAKED_TOKEN_SLUGS } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
 import {
   selectAccount,
@@ -13,7 +13,7 @@ import {
   selectCurrentAccountTokens,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
-import { getChainTitle } from '../../../../util/chain';
+import { CHAIN_DISPLAY_ORDER, getChainTitle } from '../../../../util/chain';
 import { copyTextToClipboard } from '../../../../util/clipboard';
 import { toBig } from '../../../../util/decimals';
 import { buildArrayCollectionByKey } from '../../../../util/iteratees';
@@ -36,13 +36,9 @@ import ViewModeIcon from './ViewModeIcon';
 
 import styles from './Card.module.scss';
 
-const CHAIN_ORDER = PRIORITY_TOKENS.reduce((acc, token) => {
-  if (!acc.has(token.chain)) {
-    acc.set(token.chain, acc.size);
-  }
-
-  return acc;
-}, new Map<ApiChain, number>());
+const CHAIN_ORDER = new Map<ApiChain, number>(
+  CHAIN_DISPLAY_ORDER.map((chain, index) => [chain, index]),
+);
 
 function calculateChainBalanceUsd(
   chain: ApiChain,

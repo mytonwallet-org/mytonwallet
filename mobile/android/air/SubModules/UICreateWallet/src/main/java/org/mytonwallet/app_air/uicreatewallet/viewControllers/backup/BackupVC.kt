@@ -62,7 +62,7 @@ class BackupVC(
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             text = LocaleController.getString("Create Backup")
-            setStyle(28f, WFont.SemiBold)
+            setStyle(28f, WFont.Medium)
             setTextColor(WColor.PrimaryText.color)
             gravity = Gravity.CENTER
         }

@@ -27,7 +27,7 @@ private let log = Log("OnchainSwapEstimateEngine")
             let selling = input.selling
             let buying = input.buying
             guard let fromAddress = account.getAddress(chain: selling.token.chain) else {
-                throw BridgeCallError.customMessage("Missing account address", nil)
+                throw SdkError.unexpected(message: "Missing account address")
             }
             let toncoinBalance = account.balances[TONCOIN_SLUG].flatMap { MDouble.forBigInt($0, decimals: 9) }
             let isFromAmountMax = changedFrom == .selling && input.isMaxAmount

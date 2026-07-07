@@ -1,4 +1,9 @@
-import type { ApiBaseCurrency, ApiPortfolioHistoryParams, ApiPortfolioHistoryResponse } from '../types';
+import type {
+  ApiBaseCurrency,
+  ApiPortfolioHistoryParams,
+  ApiPortfolioHistoryResponse,
+  ApiPortfolioPnlChangeResponse,
+} from '../types';
 
 import { DEFAULT_PRICE_CURRENCY, PORTFOLIO_API_URL } from '../../config';
 import { DAY } from '../../util/dateFormat';
@@ -8,7 +13,7 @@ const DEFAULT_PORTFOLIO_HISTORY_DAYS = 365;
 const DEFAULT_PORTFOLIO_HISTORY_DENSITY = '1d';
 const ALLOWED_DENSITIES = new Set(['5m', '1h', '4h', '1d']);
 
-type PortfolioHistoryEndpoint = 'net-worth-history' | 'pnl-cumulative-history' | 'pnl-history';
+type PortfolioHistoryEndpoint = 'net-worth-history' | 'pnl-cumulative-history' | 'pnl-history' | 'pnl-change';
 
 export async function fetchPortfolioNetWorthHistory(
   wallets: string[],
@@ -37,6 +42,16 @@ export async function fetchPortfolioPnlHistory(
 ) {
   return fetchJson<ApiPortfolioHistoryResponse>(
     buildPortfolioHistoryUrl('pnl-history', wallets, baseCurrency, params),
+  );
+}
+
+export async function fetchPortfolioPnlChange(
+  wallets: string[],
+  baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
+  params?: ApiPortfolioHistoryParams,
+) {
+  return fetchJson<ApiPortfolioPnlChangeResponse>(
+    buildPortfolioHistoryUrl('pnl-change', wallets, baseCurrency, params),
   );
 }
 

@@ -37,7 +37,6 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     private var decryptedComment: String? = nil
     private var activity: ApiActivity { viewModel.activity }
     private var detentChange: Date = .distantPast
-    private var lastDetailsFetchActivityId: String?
     
     public override func loadView() {
         super.loadView()
@@ -83,7 +82,7 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     
     public override func viewDidLoad() {
         super.viewDidLoad()
-        fetchDetailsIfNeeded(for: activity)
+        viewModel.fetchDetailsIfNeeded()
     }
 
     private func updateTheme() {
@@ -299,9 +298,8 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
 
         if let newActivity {
             withAnimation {
-                viewModel.activity = newActivity
+                _ = viewModel.updateActivity(newActivity)
             }
-            fetchDetailsIfNeeded(for: newActivity)
         }
     }
 
@@ -327,33 +325,6 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
 
         let difference = abs(replacementAmount.value - originalAmount.value)
         return difference <= abs(originalAmount.value) * 0.1
-    }
-
-    private func fetchDetailsIfNeeded(for activity: ApiActivity) {
-        guard activity.shouldLoadDetails == true else {
-            if lastDetailsFetchActivityId == activity.id {
-                lastDetailsFetchActivityId = nil
-            }
-            return
-        }
-
-        let activityId = activity.id
-        guard lastDetailsFetchActivityId != activityId else { return }
-        lastDetailsFetchActivityId = activityId
-
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let accountId = self.viewModel.accountContext.accountId
-                let detailedActivity = try await ActivityStore.fetchActivityDetails(accountId: accountId, activity: activity)
-                guard self.viewModel.activity.id == activityId else { return }
-                self.viewModel.activity = detailedActivity
-            } catch {
-                if self.lastDetailsFetchActivityId == activityId {
-                    self.lastDetailsFetchActivityId = nil
-                }
-            }
-        }
     }
 
     private func applyDetailsCollapsePolicy() {

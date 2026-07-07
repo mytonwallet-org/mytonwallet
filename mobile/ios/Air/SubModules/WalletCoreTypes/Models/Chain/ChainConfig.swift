@@ -77,6 +77,10 @@ public struct ChainConfig: Sendable {
     public var isOnRampSupported: Bool = true
     /// Whether off-ramp providers support this chain
     public var isOffRampSupported: Bool = true
+    /// Whether the chain supports on-chain swaps
+    public var isOnchainSwapSupported: Bool = false
+    /// Whether on-chain swaps can be estimated from the buy amount
+    public var canSwapByBuyAmount: Bool = false
     /// Whether the chain supports sending asset transfers with a comment
     public var isTransferPayloadSupported: Bool
     /// Whether the chain supports comment encrypting
@@ -147,15 +151,15 @@ public struct ChainConfig: Sendable {
 private let DEFAULT_CHAIN_ORDER: [ApiChain] = [
     .ethereum,
     .solana,
+    .hyperliquid,
     .ton,
     .tron,
-    .bnb,
-    .hyperliquid,
     .base,
+    .bnb,
+    .polygon,
+    .avalanche,
     .arbitrum,
-   .monad,
-   .polygon,
-   .avalanche,
+    .monad,
 ]
 private let GRAM_CHAIN_ORDER: [ApiChain] = [
     .ton,
@@ -199,7 +203,7 @@ private let SOLANA_USDT_MAINNET_ADDRESS = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8
 private let SOLANA_USDC_MAINNET_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 private let MYCOIN_MAINNET_ADDRESS = "EQCFVNlRb-NHHDQfv3Q9xvDXBLJlay855_xREsq5ZDX6KN-w"
-private let MYCOIN_MAINNET_IMAGE = "https://imgproxy.mytonwallet.org/imgproxy/Qy038wCBKISofJ0hYMlj6COWma330cx3Ju1ZSPM2LRU/rs:fill:200:200:1/g:no/aHR0cHM6Ly9teXRvbndhbGxldC5pby9sb2dvLTI1Ni1ibHVlLnBuZw.webp"
+private let MYCOIN_MAINNET_IMAGE = "https://mytonwallet.io/logo-256-blue.png"
 
 private let MYCOIN_TESTNET_SLUG = "ton-kqawlxpebw"
 private let MYCOIN_TESTNET_ADDRESS = "kQAWlxpEbwhCDFX9gp824ee2xVBhAh5VRSGWfbNFDddAbQoQ"
@@ -305,7 +309,7 @@ private extension ApiToken {
     static var mycoinMainnet: ApiToken {
         ApiToken(
             slug: MYCOIN_SLUG,
-            name: "MyTonWallet Coin",
+            name: "My Wallet Coin",
             symbol: "MY",
             decimals: 9,
             chain: .ton,
@@ -317,7 +321,7 @@ private extension ApiToken {
     static var mycoinTestnet: ApiToken {
         ApiToken(
             slug: MYCOIN_TESTNET_SLUG,
-            name: "MyTonWallet Coin",
+            name: "My Wallet Coin",
             symbol: "MY",
             decimals: 9,
             chain: .ton,
@@ -415,6 +419,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         title: "TON",
         isDnsSupported: true,
         canBuyWithCardInRussia: true,
+        isOnchainSwapSupported: true,
+        canSwapByBuyAmount: true,
         isTransferPayloadSupported: true,
         isEncryptedCommentSupported: true,
         canTransferFullNativeBalance: true,
@@ -572,6 +578,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         title: "Solana",
         isDnsSupported: false,
         canBuyWithCardInRussia: false,
+        isOnchainSwapSupported: true,
+        canSwapByBuyAmount: false,
         isTransferPayloadSupported: true,
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,

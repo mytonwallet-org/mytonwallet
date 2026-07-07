@@ -1,3 +1,5 @@
+import type { LovelyChartDatasetParams, LovelyChartParams } from 'lovely-chart';
+
 import type {
   ApiPortfolioHistoryDataset, ApiPortfolioHistoryResponse,
 } from '../../../api/types';
@@ -7,40 +9,15 @@ import type { LangFn } from '../../../hooks/useLang';
 const MIN_VISIBLE_VALUE = 0.01;
 
 // LovelyChart renders '5min'/'hour' as HH:mm and 'day' as a date
-const LABEL_TYPE_BY_DENSITY: Record<string, GraphKitParams['labelType']> = {
+const LABEL_TYPE_BY_DENSITY: Record<string, LovelyChartParams['labelType']> = {
   '5m': '5min',
   '1h': 'hour',
   '4h': 'dayHour',
   '1d': 'day',
 };
 
-export type GraphKitDataset = {
-  name: string;
-  // Omitted when the backend provides no color; LovelyChart then assigns one from its default palette
-  color?: string;
-  // null marks a gap: LovelyChart breaks the line there (line/bar); area collapses it to 0 upstream
-  values: (number | null)[];
-};
-
-export type GraphKitParams = {
-  title: string;
-  type: 'area' | 'pie' | 'line' | 'bar';
-  labelType: 'day' | 'hour' | '5min' | 'dayHour' | 'text';
-  labels: number[];
-  datasets: GraphKitDataset[];
-  valuePrefix?: string;
-  // When `true`, a leading minus sign is moved before the currency prefix: -$0.1 instead of $-0.1
-  prefixIsCurrency?: boolean;
-  isStacked?: boolean;
-  isDonut?: boolean;
-  withGradient?: boolean;
-  limitDate?: number;
-  hideCaption?: boolean;
-  onLimitedRangeClick?: NoneToVoidFunction;
-};
-
 export interface ChartData {
-  params: GraphKitParams;
+  params: LovelyChartParams;
   isAssetLimitExceeded?: boolean;
 }
 
@@ -73,8 +50,28 @@ export function buildShareChartParams(
   lang: LangFn,
   response: ApiPortfolioHistoryResponse,
   baseCurrencySymbol: string,
-) {
-  return buildPieChartParams(lang, lang('Portfolio Share'), response, baseCurrencySymbol);
+): ChartData | undefined {
+  // 100%-stacked area of allocation over time; clicking a date zooms into the donut for that date.
+  // With `isPercentage` set and no custom `onZoom`, LovelyChart's `shouldZoomToShares` builds the
+  // per-date circle itself, reusing the overview datasets and their colors
+  const base = buildSeriesChartParams(lang, 'area', lang('Portfolio Share'), response, baseCurrencySymbol);
+  if (!base) return undefined;
+
+  // Zero-sum columns make LovelyChart's percentage path divide 0/0 = NaN and break the render
+  const { datasets, labels } = dropEmptyColumns(base.params.datasets, base.params.labels);
+
+  return {
+    params: {
+      ...base.params,
+      datasets,
+      labels,
+      isPercentage: true,
+      zoomType: 'donut',
+      initialZoom: 'last',
+      zoomOutLabel: lang('Zoom Out'),
+    },
+    isAssetLimitExceeded: base.isAssetLimitExceeded,
+  };
 }
 
 function buildSeriesChartParams(
@@ -85,10 +82,10 @@ function buildSeriesChartParams(
   baseCurrencySymbol: string,
   onLimitedRangeClick?: NoneToVoidFunction,
 ): ChartData | undefined {
-  // LovelyChart opens on the last 20% of the x-axis, so the backend's future null tail would render short ranges empty
+  // The minimap opens full-width (minimapRange 'full'), so drop the backend's future `null` tail to avoid an empty right edge
   const trimmed = trimFutureTail(response.datasets);
 
-  // Area can't show gaps: dust and null collapse to 0, fully-dust assets dropped. Line/bar keep null as a gap
+  // Area can't show gaps: dust and `null` collapse to `0`, fully-dust assets dropped. Line/bar keep `null` as a gap.
   const isArea = type === 'area';
   const kept = trimmed.filter((dataset) => (isArea ? hasVisibleValue(dataset) : hasValue(dataset)));
   if (kept.length === 0) return undefined;
@@ -97,62 +94,38 @@ function buildSeriesChartParams(
   const grid = kept[0].points;
   if (grid.length === 0) return undefined;
 
-  const datasets: GraphKitDataset[] = kept.map((dataset) => ({
+  const valuesByDataset = kept.map(
+    (dataset) => dataset.points.map(([, value]) => (isArea ? clampToVisible(value) : value)),
+  );
+
+  // Drop the empty leading points the backend pads onto the grid. A `LovelyChart` bug divides each
+  // `isPercentage` point by the per-point sum, so an all-zero leading point gives `0 / 0 = NaN` and
+  // breaks the stacked-area path.
+  const startIndex = findFirstNonEmptyIndex(valuesByDataset, isArea);
+
+  const datasets: LovelyChartDatasetParams[] = kept.map((dataset, i) => ({
     name: getDisplayName(lang, dataset),
     color: dataset.color,
-    values: dataset.points.map(([, value]) => (isArea ? clampToVisible(value) : value)),
+    values: valuesByDataset[i].slice(startIndex),
   }));
 
   const limitDate = response.historyScanCursor !== undefined ? response.historyScanCursor * 1000 : undefined;
 
-  const params: GraphKitParams = {
+  const params: LovelyChartParams = {
     title,
     type,
     labelType: LABEL_TYPE_BY_DENSITY[response.density] ?? 'day',
-    labels: grid.map(([timestamp]) => timestamp * 1000),
+    dateLocale: buildDateLocale(lang),
+    labels: grid.slice(startIndex).map(([timestamp]) => timestamp * 1000),
     datasets,
     valuePrefix: baseCurrencySymbol,
-    prefixIsCurrency: true,
+    isCurrencyPrefix: true,
     isStacked: type !== 'line' && datasets.length > 1,
+    // Show the minimap opened on the full range (the library default would be the last 20%)
+    withMinimap: true,
+    minimapRange: 'full',
     limitDate,
     onLimitedRangeClick: limitDate !== undefined ? onLimitedRangeClick : undefined,
-  };
-
-  return { params, isAssetLimitExceeded: response.isAssetLimitExceeded };
-}
-
-function buildPieChartParams(
-  lang: LangFn,
-  title: string,
-  response: ApiPortfolioHistoryResponse,
-  baseCurrencySymbol: string,
-): ChartData | undefined {
-  // LovelyChart sorts tooltip stats by value desc but draws sectors in array order; sort here so
-  // sectors and tooltip labels stay aligned
-  const slices = (response.datasets ?? [])
-    .map((dataset) => ({ dataset, value: getLatestValue(dataset) }))
-    .filter((slice) => slice.value > 0)
-    .sort((a, b) => b.value - a.value);
-  if (slices.length === 0) return undefined;
-
-  const datasets: GraphKitDataset[] = slices.map(({ dataset, value }) => ({
-    name: getDisplayName(lang, dataset),
-    color: dataset.color,
-    values: [value],
-  }));
-
-  const params: GraphKitParams = {
-    title,
-    type: 'pie',
-    labelType: 'text',
-    labels: [Date.now()],
-    datasets,
-    valuePrefix: baseCurrencySymbol,
-    prefixIsCurrency: true,
-    isStacked: true,
-    isDonut: true,
-    withGradient: true,
-    hideCaption: true,
   };
 
   return { params, isAssetLimitExceeded: response.isAssetLimitExceeded };
@@ -178,17 +151,30 @@ function clampToVisible(value: number | null) {
   return typeof value === 'number' && value >= MIN_VISIBLE_VALUE ? value : 0;
 }
 
-function getLatestValue(dataset: ApiPortfolioHistoryDataset) {
-  let latestValue = 0;
-  let latestTimestamp = -Infinity;
-  for (const [timestamp, value] of dataset.points) {
-    if (typeof value === 'number' && timestamp > latestTimestamp) {
-      latestTimestamp = timestamp;
-      latestValue = value;
-    }
+// First index with content (clamped non-zero for area, non-null for line/bar); everything before it
+// is an empty leading block the backend padded onto the grid
+function findFirstNonEmptyIndex(valuesByDataset: Array<Array<number | null>>, isArea: boolean) {
+  const length = valuesByDataset[0]?.length ?? 0;
+  for (let i = 0; i < length; i++) {
+    // eslint-disable-next-line no-null/no-null
+    const hasContent = valuesByDataset.some((values) => (isArea ? values[i] !== 0 : values[i] !== null));
+    if (hasContent) return i;
   }
+  return 0;
+}
 
-  return latestValue;
+// Keep only the columns where some dataset is non-zero, dropping the matching labels in sync
+function dropEmptyColumns(datasets: LovelyChartDatasetParams[], labels: LovelyChartParams['labels']) {
+  const kept: number[] = [];
+  for (let j = 0; j < labels.length; j++) {
+    if (datasets.some((dataset) => (dataset.values[j] ?? 0) !== 0)) kept.push(j);
+  }
+  if (kept.length === labels.length) return { datasets, labels };
+
+  return {
+    datasets: datasets.map((dataset) => ({ ...dataset, values: kept.map((j) => dataset.values[j]) })),
+    labels: kept.map((j) => labels[j]),
+  };
 }
 
 function getDisplayName(lang: LangFn, dataset: ApiPortfolioHistoryDataset) {
@@ -199,4 +185,12 @@ function getDisplayName(lang: LangFn, dataset: ApiPortfolioHistoryDataset) {
   if (contract) return contract;
 
   return lang('Asset %1$@').replace('%1$@', String(dataset.assetId));
+}
+
+function buildDateLocale(lang: LangFn): LovelyChartParams['dateLocale'] {
+  return {
+    months: lang('$chart_months_short').split(',').map((s) => s.trim()),
+    weekDays: lang('$chart_week_days').split(',').map((s) => s.trim()),
+    weekDaysShort: lang('$chart_week_days_short').split(',').map((s) => s.trim()),
+  };
 }

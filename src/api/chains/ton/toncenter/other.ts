@@ -82,6 +82,9 @@ function buildWalletInfo(state: WalletState, addressBook: AddressBook): ApiWalle
     seqno: 'seqno' in state ? state.seqno : 0,
     lastTxId: state.last_transaction_hash ? buildTxId(state.last_transaction_hash) : undefined,
     domain: addressBook[state.address].domain ?? undefined,
+    interface: addressBook[state.address].interfaces
+      ? addressBook[state.address]?.interfaces?.[0] ?? undefined
+      : undefined,
   };
 }
 

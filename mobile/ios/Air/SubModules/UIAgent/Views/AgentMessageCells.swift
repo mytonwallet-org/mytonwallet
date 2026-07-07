@@ -1,6 +1,10 @@
 import UIKit
 import WalletContext
 
+enum AgentContentLayout {
+    static let maxContentWidth: CGFloat = 580
+}
+
 private enum AgentMessageCellMetrics {
     static let horizontalInset: CGFloat = 16
     static let compactHorizontalLimit: CGFloat = 72
@@ -85,7 +89,27 @@ protocol AgentContextMenuPresentingCell: UICollectionViewCell {
     func contextMenuPreview() -> UITargetedPreview?
 }
 
+private extension UICollectionViewCell {
+    func setupCenteredContentLayoutGuide(_ guide: UILayoutGuide) {
+        contentView.addLayoutGuide(guide)
+
+        let widthConstraint = guide.widthAnchor.constraint(equalTo: contentView.widthAnchor)
+        widthConstraint.priority = UILayoutPriority(999)
+
+        NSLayoutConstraint.activate([
+            guide.topAnchor.constraint(equalTo: contentView.topAnchor),
+            guide.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            guide.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            guide.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor),
+            guide.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor),
+            guide.widthAnchor.constraint(lessThanOrEqualToConstant: AgentContentLayout.maxContentWidth),
+            widthConstraint
+        ])
+    }
+}
+
 final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCell, UITextViewDelegate {
+    private let contentLayoutGuide = UILayoutGuide()
     private let bubbleStackView = UIStackView()
     private let bubbleView = AgentBubbleBackgroundView()
     private let contentStackView = UIStackView()
@@ -96,11 +120,11 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private var onActionTap: (() -> Void)?
     private var onURLTap: ((URL) -> Void)?
 
-    private lazy var leadingConstraint = bubbleStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: AgentMessageCellMetrics.horizontalInset)
-    private lazy var trailingConstraint = bubbleStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -AgentMessageCellMetrics.horizontalInset)
-    private lazy var leadingLimitConstraint = bubbleStackView.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: AgentMessageCellMetrics.compactHorizontalLimit)
-    private lazy var trailingLimitConstraint = bubbleStackView.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -AgentMessageCellMetrics.compactHorizontalLimit)
-    private lazy var maxWidthConstraint = bubbleStackView.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: AgentMessageCellMetrics.maxWidthMultiplier)
+    private lazy var leadingConstraint = bubbleStackView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor, constant: AgentMessageCellMetrics.horizontalInset)
+    private lazy var trailingConstraint = bubbleStackView.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor, constant: -AgentMessageCellMetrics.horizontalInset)
+    private lazy var leadingLimitConstraint = bubbleStackView.leadingAnchor.constraint(greaterThanOrEqualTo: contentLayoutGuide.leadingAnchor, constant: AgentMessageCellMetrics.compactHorizontalLimit)
+    private lazy var trailingLimitConstraint = bubbleStackView.trailingAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.trailingAnchor, constant: -AgentMessageCellMetrics.compactHorizontalLimit)
+    private lazy var maxWidthConstraint = bubbleStackView.widthAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.widthAnchor, multiplier: AgentMessageCellMetrics.maxWidthMultiplier)
     private lazy var bubbleStackViewBottomConstraint = bubbleStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
     private lazy var bubbleMinimumWidthConstraint = bubbleView.widthAnchor.constraint(greaterThanOrEqualToConstant: AgentMessageCellMetrics.minimumBubbleWidth)
     private lazy var bubbleMinimumHeightConstraint = bubbleView.heightAnchor.constraint(greaterThanOrEqualToConstant: AgentMessageCellMetrics.minimumBubbleHeight)
@@ -218,6 +242,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         contentView.backgroundColor = .clear
         clipsToBounds = false
         contentView.clipsToBounds = false
+        setupCenteredContentLayoutGuide(contentLayoutGuide)
 
         bubbleStackView.translatesAutoresizingMaskIntoConstraints = false
         bubbleStackView.axis = .vertical
@@ -386,6 +411,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
 }
 
 final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresentingCell {
+    private let contentLayoutGuide = UILayoutGuide()
     private let label = UILabel()
     private lazy var bottomConstraint = label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
 
@@ -447,6 +473,7 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
     private func setupViews() {
         backgroundColor = .clear
         contentView.backgroundColor = .clear
+        setupCenteredContentLayoutGuide(contentLayoutGuide)
 
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = AgentMessageCellMetrics.systemFont
@@ -457,8 +484,8 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         NSLayoutConstraint.activate([
             label.topAnchor.constraint(equalTo: contentView.topAnchor),
             bottomConstraint,
-            label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 40),
-            label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -40)
+            label.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor, constant: 40),
+            label.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor, constant: -40)
         ])
     }
 
@@ -487,11 +514,12 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
 }
 
 final class AgentTypingIndicatorCell: UICollectionViewCell {
+    private let contentLayoutGuide = UILayoutGuide()
     private let bubbleView = AgentBubbleBackgroundView()
     private let dotsView = AgentTypingDotsView()
 
-    private lazy var leadingConstraint = bubbleView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: AgentMessageCellMetrics.horizontalInset)
-    private lazy var trailingLimitConstraint = bubbleView.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -AgentMessageCellMetrics.compactHorizontalLimit)
+    private lazy var leadingConstraint = bubbleView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor, constant: AgentMessageCellMetrics.horizontalInset)
+    private lazy var trailingLimitConstraint = bubbleView.trailingAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.trailingAnchor, constant: -AgentMessageCellMetrics.compactHorizontalLimit)
     private lazy var bottomConstraint = bubbleView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
 
     override init(frame: CGRect) {
@@ -535,6 +563,7 @@ final class AgentTypingIndicatorCell: UICollectionViewCell {
         contentView.backgroundColor = .clear
         clipsToBounds = false
         contentView.clipsToBounds = false
+        setupCenteredContentLayoutGuide(contentLayoutGuide)
 
         bubbleView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(bubbleView)

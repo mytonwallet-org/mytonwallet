@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .dropdown {
   --offset-y-value: calc(100% - 3.25rem);
   --offset-x-value: 0;
@@ -48,4 +50,10 @@
       background-color: var(--color-input-button-background-purple-hover) !important;
     }
   }
+}
+
+.rwaStockIcon {
+  border-radius: 0.375rem !important;
+
+  @include mixins.squircleIcon();
 }

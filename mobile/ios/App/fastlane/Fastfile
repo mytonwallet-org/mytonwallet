@@ -9,6 +9,27 @@ def env_value(name, fallback = nil)
   value.nil? || value.empty? ? fallback : value
 end
 
+# RC_NUMBER must be a bare integer; anything else (empty, or an API error body that slipped
+# through the workflow) is treated as absent so it can never reach the version name or notes.
+def rc_ordinal
+  n = env_value('RC_NUMBER')
+  n.to_s.match?(/\A\d+\z/) ? n : nil
+end
+
+# Compact provenance line for the top of the build notes: RC label + version, build time,
+# and short commit. On release/* the workflow supplies RC_NUMBER (the Nth store build off the
+# branch), so RC builds read "RC 26.7.0-rc.2 ..."; ordinary builds just lead with the version.
+def build_meta_line(version)
+  rc_number = rc_ordinal
+  is_rc = !env_value('IS_RELEASE_CANDIDATE').nil? && !rc_number.nil?
+  sha = (env_value('GITHUB_SHA') || '')[0, 7]
+  stamp = Time.now.utc.strftime('%Y-%m-%d %H:%M')
+  head = is_rc ? "RC #{version}-rc.#{rc_number}" : version
+  parts = [head, "#{stamp} UTC"]
+  parts << sha unless sha.nil? || sha.empty?
+  parts.join(' · ')
+end
+
 $variant = env_value('APP_VARIANT', 'mytonwallet').downcase
 $variant_config = {
   'mytonwallet' => {
@@ -46,6 +67,7 @@ $app_identifier_widget = env_value('IOS_APP_IDENTIFIER_WIDGET', $config[:app_ide
 $profile_name_widget = env_value('IOS_PROFILE_NAME_WIDGET', $config[:profile_name_widget])
 $scheme_widget = env_value('IOS_WIDGET_SCHEME', $config[:scheme_widget])
 $testflight_group = env_value('IOS_TESTFLIGHT_GROUP', $config[:testflight_group])
+$external_beta_enabled = env_value('IOS_EXTERNAL_BETA_ENABLED', 'false') == 'true'
 $metadata_path = env_value('IOS_METADATA_PATH')
 $asc_key_id = env_value('APP_STORE_CONNECT_KEY_ID', 'TL49GJ73DP')
 $asc_issuer_id = env_value('APP_STORE_CONNECT_ISSUER_ID', '519080b4-bc5f-4d06-a889-a69254108348')
@@ -59,6 +81,7 @@ puts "$app_identifier_widget: #{$app_identifier_widget}"
 puts "$profile_name_widget: #{$profile_name_widget}"
 puts "$scheme_widget: #{$scheme_widget}"
 puts "$testflight_group: #{$testflight_group}"
+puts "$external_beta_enabled: #{$external_beta_enabled}"
 
 $project_data = nil
 $plist_data = nil
@@ -130,7 +153,7 @@ platform :ios do
   end
 
   lane :beta do
-    update_version_and_build_number
+    version, _build_number = update_version_and_build_number
 
     build_app(
       workspace: $workspace_path,
@@ -146,13 +169,21 @@ platform :ios do
     )
 
     changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
-    external_beta_enabled = false
-    upload_to_testflight(
+
+    upload_params = {
       app_identifier: $app_identifier,
-      distribute_external: external_beta_enabled,
-      groups: external_beta_enabled ? $testflight_group : nil,
-      beta_app_description: "Bug fixes and performance improvements"
-    )
+      distribute_external: $external_beta_enabled,
+      groups: $external_beta_enabled ? $testflight_group : nil,
+      beta_app_description: "Bug fixes and performance improvements",
+    }
+
+    # Prepend the compact provenance line to the "What to Test" notes so a tester can pin down
+    # the exact build (RC ordinal, build time, commit); the notes are the per-build field a
+    # TestFlight tester sees. Applies to every build; RC builds lead with the RC label.
+    base_notes = lane_context[SharedValues::FL_CHANGELOG] || ""
+    upload_params[:changelog] = "#{build_meta_line(version)}\n\n#{base_notes}"
+
+    upload_to_testflight(upload_params)
   end
 
   lane :release do

@@ -10,6 +10,7 @@ struct SwapEstimateInput: Equatable, Sendable {
     let maxAmount: BigInt?
     let slippage: Double
     let previousNetworkFee: MDouble?
+    let cexLabel: ApiSwapCexLabel?
 
     init(
         accountId: String,
@@ -19,7 +20,8 @@ struct SwapEstimateInput: Equatable, Sendable {
         isMaxAmount: Bool,
         maxAmount: BigInt?,
         slippage: Double,
-        previousNetworkFee: MDouble? = nil
+        previousNetworkFee: MDouble? = nil,
+        cexLabel: ApiSwapCexLabel? = nil
     ) {
         self.accountId = accountId
         self.selling = selling
@@ -29,6 +31,7 @@ struct SwapEstimateInput: Equatable, Sendable {
         self.maxAmount = maxAmount
         self.slippage = slippage
         self.previousNetworkFee = previousNetworkFee
+        self.cexLabel = cexLabel
     }
 
     var inputAmount: BigInt {

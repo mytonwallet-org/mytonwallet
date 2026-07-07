@@ -81,7 +81,7 @@ final class ContextMenuPageView: UIView {
         super.traitCollectionDidChange(previousTraitCollection)
 
         if previousTraitCollection?.userInterfaceStyle != self.traitCollection.userInterfaceStyle {
-            self.updateColors()
+            self.updateSelectionColors()
         }
     }
 
@@ -363,8 +363,7 @@ final class ContextMenuPageView: UIView {
     }
 
     private func updateColors() {
-        self.selectionView.backgroundColor = ContextMenuVisuals.highlightTintColor(for: self.traitCollection)
-        self.selectionView.setContextMenuMonochromaticEffect(tintColor: self.selectionView.backgroundColor)
+        self.updateSelectionColors()
 
         self.elements.forEach { element in
             switch element {
@@ -374,6 +373,11 @@ final class ContextMenuPageView: UIView {
                 separatorView.updateColors()
             }
         }
+    }
+
+    private func updateSelectionColors() {
+        self.selectionView.backgroundColor = ContextMenuVisuals.highlightTintColor(for: self.traitCollection)
+        self.selectionView.setContextMenuMonochromaticEffect(tintColor: self.selectionView.backgroundColor)
     }
 
     private func rowIndex(at contentPoint: CGPoint) -> Int? {

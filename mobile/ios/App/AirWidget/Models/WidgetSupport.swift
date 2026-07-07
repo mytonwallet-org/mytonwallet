@@ -34,7 +34,6 @@ func lang(_ keyAndDefault: String) -> String {
 
 public enum CompactRoundedWeight {
     case bold
-    case semibold
 }
 
 public extension UIFont {
@@ -42,8 +41,6 @@ public extension UIFont {
         switch weight {
         case .bold:
             UIFont(name: "SFCompactRounded-Bold", size: size)!
-        case .semibold:
-            UIFont(name: "SFCompactRounded-Semibold", size: size)!
         }
     }
 }

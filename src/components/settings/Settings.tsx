@@ -81,6 +81,7 @@ import SettingsDisclaimer from './SettingsDisclaimer';
 import SettingsHeader from './SettingsHeader';
 import SettingsHiddenNfts from './SettingsHiddenNfts';
 import SettingsLanguage from './SettingsLanguage';
+import SettingsPermissions from './SettingsPermissions';
 import SettingsPushNotifications from './SettingsPushNotifications';
 import SettingsSecurity from './SettingsSecurity';
 import SettingsTokenList from './SettingsTokenList';
@@ -293,6 +294,10 @@ function Settings({
     setSettingsState({ state: SettingsState.Disclaimer });
   }
 
+  function handlePermissionsOpen() {
+    setSettingsState({ state: SettingsState.Permissions });
+  }
+
   const handleBackClick = useLastCallback(() => {
     switch (renderingKey) {
       case SettingsState.HiddenNfts:
@@ -390,6 +395,11 @@ function Settings({
     markWithAllWalletVersions();
     handlCloseDeveloperModal();
     handleOpenWalletVersion();
+  });
+
+  const handleOpenPermissionsFromDev = useLastCallback(() => {
+    handlCloseDeveloperModal();
+    handlePermissionsOpen();
   });
 
   useEffect(() => {
@@ -876,6 +886,13 @@ function Settings({
             onBackClick={handleBackClickToAssets}
           />
         );
+      case SettingsState.Permissions:
+        return (
+          <SettingsPermissions
+            isActive={isActive && isSlideActive}
+            onBackClick={handleBackClick}
+          />
+        );
     }
   }
 
@@ -896,7 +913,9 @@ function Settings({
           isOpen={isDeveloperModalOpen}
           isTestnet={isTestnet}
           isCopyStorageEnabled={isCopyStorageEnabled}
+          isViewMode={isViewMode}
           onShowAllWalletVersions={handleShowAllWalletVersions}
+          onOpenPermissions={handleOpenPermissionsFromDev}
           onClose={handlCloseDeveloperModal}
         />
       )}

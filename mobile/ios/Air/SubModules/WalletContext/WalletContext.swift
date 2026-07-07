@@ -19,9 +19,22 @@ public typealias UnfairLock = OSAllocatedUnfairLock
     var isFirstLaunch: Bool { get }
 }
 
-public enum DeeplinkOpenSource {
+public enum DeeplinkOpenSource: Equatable {
     case generic
     case exploreSearchBar
+    case inAppBrowser
+    case qrScan
+}
+
+public extension DeeplinkOpenSource {
+    var canRouteOfframp: Bool {
+        switch self {
+        case .generic, .exploreSearchBar:
+            true
+        case .inAppBrowser, .qrScan:
+            false
+        }
+    }
 }
 
 @MainActor public protocol WalletContextDelegate: NSObject, Sendable {

@@ -5,7 +5,7 @@ import WalletCore
 import WalletContext
 
 @MainActor
-private enum RootContainerLayout: String {
+enum RootContainerLayout: String {
     case tab
     case split
 
@@ -49,6 +49,16 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
         super.viewDidLoad()
         view.backgroundColor = .black
         updateLayoutIfNeeded()
+
+        AppTabManager.shared.addObserver(self) { [weak self] ids in
+            self?.applyTabConfigurationToActiveContainer(ids)
+        }
+    }
+
+    nonisolated deinit {
+        MainActor.assumeIsolated {
+            AppTabManager.shared.removeObserver(self)
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -83,6 +93,7 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
         let navigationState = activeContentViewController.flatMap(AdaptiveRootNavigationState.init)
         let contentViewController = makeContentViewController(for: layout)
         contentViewController.loadViewIfNeeded()
+        applyTabConfiguration(to: contentViewController, ids: AppTabManager.shared.orderedTabIds)
         navigationState?.apply(to: contentViewController, layout: layout)
         install(contentViewController, layout: layout, width: width)
     }
@@ -97,7 +108,14 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
     private func makeContentViewController(for layout: RootContainerLayout) -> UIViewController {
         switch layout {
         case .tab:
-            HomeTabBarController()
+            HomeTabBarController(
+                navControllerFactory: { [layout] id in
+                    AppTabManager.shared.makeNavigationController(for: id, layout: layout)
+                },
+                tabLabelProvider: { id in
+                    AppTabManager.shared.title(for: id)
+                }
+            )
         case .split:
             SplitRootViewController()
         }
@@ -127,25 +145,38 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
 
     private var horizontalSizeClassDescription: String {
         switch traitCollection.horizontalSizeClass {
-        case .compact:
-            "compact"
-        case .regular:
-            "regular"
-        case .unspecified:
-            "unspecified"
-        @unknown default:
-            "unknown"
+        case .compact:    "compact"
+        case .regular:    "regular"
+        case .unspecified: "unspecified"
+        @unknown default: "unknown"
         }
     }
 
+    private func applyTabConfiguration(to viewController: UIViewController, ids: [AppTabId]) {
+        switch viewController {
+        case let tbc as HomeTabBarController:
+            tbc.applyTabConfiguration(ids)
+        case let split as SplitRootViewController:
+            split.applyTabConfiguration(ids)
+        default:
+            break
+        }
+    }
+
+    private func applyTabConfigurationToActiveContainer(_ ids: [AppTabId]) {
+        guard let vc = activeContentViewController else { return }
+        applyTabConfiguration(to: vc, ids: ids)
+    }
 }
 
+/// Captures the navigation stacks of all live tabs when the root layout is about to change
+/// (e.g. iPad rotation from split → compact), then restores them into the new container.
 @MainActor
 private struct AdaptiveRootNavigationState {
-    let selectedTab: AdaptiveRootTab
+    let selectedTabId: AppTabId
     let homePath: [AdaptiveRootHomeStackItem]?
     let focusedHomeAccountId: String?
-    let navigationStacks: [AdaptiveRootTab: [UIViewController]]
+    let navigationStacks: [AppTabId: [UIViewController]]
 
     init?(viewController: UIViewController) {
         switch viewController {
@@ -159,16 +190,16 @@ private struct AdaptiveRootNavigationState {
     }
 
     private init(tabBarController: HomeTabBarController) {
-        selectedTab = AdaptiveRootTab(tabBarController.currentTab)
+        selectedTabId = tabBarController.currentTabId
         var homePath: [AdaptiveRootHomeStackItem]?
-        var navigationStacks: [AdaptiveRootTab: [UIViewController]] = [:]
-        for tab in AdaptiveRootTab.allCases {
-            if tab == .home {
-                if let stack = tabBarController.takeNavigationStack(for: tab.homeTab, keepingRoot: true) {
+        var navigationStacks: [AppTabId: [UIViewController]] = [:]
+        for id in AppTabManager.shared.orderedTabIds {
+            if id == .wallet {
+                if let stack = tabBarController.takeNavigationStack(for: id, keepingRoot: true) {
                     homePath = Self.homePath(from: stack)
                 }
-            } else if let stack = tabBarController.takeNavigationStack(for: tab.homeTab, keepingRoot: false) {
-                navigationStacks[tab] = stack
+            } else if let stack = tabBarController.takeNavigationStack(for: id, keepingRoot: false) {
+                navigationStacks[id] = stack
             }
         }
         self.homePath = homePath
@@ -177,16 +208,16 @@ private struct AdaptiveRootNavigationState {
     }
 
     private init(splitRootViewController: SplitRootViewController) {
-        selectedTab = AdaptiveRootTab(splitRootViewController.currentTab)
+        selectedTabId = splitRootViewController.currentTabId
         var homePath: [AdaptiveRootHomeStackItem]?
-        var navigationStacks: [AdaptiveRootTab: [UIViewController]] = [:]
-        for tab in AdaptiveRootTab.allCases {
-            if tab == .home {
-                if let stack = splitRootViewController.takeNavigationStack(for: tab.splitRootTab, keepingRoot: true) {
+        var navigationStacks: [AppTabId: [UIViewController]] = [:]
+        for id in AppTabManager.shared.orderedTabIds {
+            if id == .wallet {
+                if let stack = splitRootViewController.takeNavigationStack(for: id, keepingRoot: true) {
                     homePath = Self.homePath(from: stack)
                 }
-            } else if let stack = splitRootViewController.takeNavigationStack(for: tab.splitRootTab, keepingRoot: false) {
-                navigationStacks[tab] = stack
+            } else if let stack = splitRootViewController.takeNavigationStack(for: id, keepingRoot: false) {
+                navigationStacks[id] = stack
             }
         }
         self.homePath = homePath
@@ -198,23 +229,26 @@ private struct AdaptiveRootNavigationState {
         switch viewController {
         case let tabBarController as HomeTabBarController:
             if let homeStack = homeStack(for: layout) {
-                tabBarController.setNavigationStack(homeStack, for: .home)
+                tabBarController.setNavigationStack(homeStack, for: .wallet)
             }
-            for (tab, stack) in navigationStacks {
-                tabBarController.setNavigationStack(stack, for: tab.homeTab)
+            for (id, stack) in navigationStacks {
+                tabBarController.setNavigationStack(stack, for: id)
             }
-            tabBarController.selectedIndex = selectedTab.homeTab.rawValue
+            let orderedIds = AppTabManager.shared.orderedTabIds
+            if let idx = orderedIds.firstIndex(of: selectedTabId) {
+                tabBarController.selectedIndex = idx
+            }
         case let splitRootViewController as SplitRootViewController:
             if let homeStack = homeStack(for: layout) {
-                splitRootViewController.setNavigationStack(homeStack, for: .home)
+                splitRootViewController.setNavigationStack(homeStack, for: .wallet)
             }
-            for (tab, stack) in navigationStacks {
-                splitRootViewController.setNavigationStack(stack, for: tab.splitRootTab)
+            for (id, stack) in navigationStacks {
+                splitRootViewController.setNavigationStack(stack, for: id)
             }
             if let focusedHomeAccountId {
                 splitRootViewController.focusSidebarAccount(accountId: focusedHomeAccountId, animated: false)
             }
-            splitRootViewController.select(tab: selectedTab.splitRootTab)
+            splitRootViewController.select(tab: selectedTabId)
         default:
             break
         }
@@ -258,10 +292,8 @@ private struct AdaptiveRootNavigationState {
 
     private func makeHomeRoot(for layout: RootContainerLayout, accountSource: AccountSource) -> UIViewController {
         switch layout {
-        case .tab:
-            HomeVC(accountSource: accountSource)
-        case .split:
-            SplitHomeVC(accountSource: accountSource)
+        case .tab:   HomeVC(accountSource: accountSource)
+        case .split: SplitHomeVC(accountSource: accountSource)
         }
     }
 }
@@ -269,65 +301,4 @@ private struct AdaptiveRootNavigationState {
 private enum AdaptiveRootHomeStackItem {
     case home(accountSource: AccountSource)
     case viewController(UIViewController)
-}
-
-private enum AdaptiveRootTab: CaseIterable, Hashable {
-    case home
-    case agent
-    case explore
-    case settings
-
-    init(_ tab: HomeTabBarController.Tab) {
-        switch tab {
-        case .home:
-            self = .home
-        case .agent:
-            self = .agent
-        case .explore:
-            self = .explore
-        case .settings:
-            self = .settings
-        @unknown default:
-            self = .home
-        }
-    }
-
-    init(_ tab: SplitRootTab) {
-        switch tab {
-        case .home:
-            self = .home
-        case .agent:
-            self = .agent
-        case .explore:
-            self = .explore
-        case .settings:
-            self = .settings
-        }
-    }
-
-    var splitRootTab: SplitRootTab {
-        switch self {
-        case .home:
-            .home
-        case .agent:
-            .agent
-        case .explore:
-            .explore
-        case .settings:
-            .settings
-        }
-    }
-
-    var homeTab: HomeTabBarController.Tab {
-        switch self {
-        case .home:
-            .home
-        case .agent:
-            .agent
-        case .explore:
-            .explore
-        case .settings:
-            .settings
-        }
-    }
 }

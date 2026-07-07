@@ -57,7 +57,7 @@ class SettingsHeaderView(
 
     private val walletNameLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(22f, WFont.SemiBold)
+            setStyle(22f, WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true

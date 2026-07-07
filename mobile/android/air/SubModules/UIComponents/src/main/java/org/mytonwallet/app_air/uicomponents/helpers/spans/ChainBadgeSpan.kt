@@ -27,7 +27,7 @@ class ChainBadgeSpan(
         style = Paint.Style.FILL
         color = textColorInt
         textSize = textSizePx
-        typeface = WFont.DemiBold.typeface
+        typeface = WFont.Medium.typeface
     }
     private val textWidthPx = textPaint.measureText(text)
     private val textHeightPx = textPaint.fontMetrics.let { it.descent - it.ascent }

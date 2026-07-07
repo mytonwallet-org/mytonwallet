@@ -9,10 +9,7 @@ import {
   ANIMATED_STICKER_TINY_ICON_PX,
   ANIMATION_END_DELAY,
   ANIMATION_LEVEL_MIN,
-  CHANGELLY_LIVE_CHAT_URL,
-  CHANGELLY_SECURITY_EMAIL,
-  CHANGELLY_SUPPORT_EMAIL,
-  CHANGELLY_WAITING_DEADLINE,
+  CEX_WAITING_DEADLINE,
 } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
 import { resolveSwapAsset } from '../../../../global/helpers';
@@ -27,8 +24,10 @@ import { getChainTitle, getIsSupportedChain } from '../../../../util/chain';
 import { formatFullDay, formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
 import { shareUrl } from '../../../../util/share';
+import { getCexExternalExchangeId } from '../../../../util/swap/cex';
 import getChainNetworkName from '../../../../util/swap/getChainNetworkName';
 import { getIsInternalSwap, getSwapType } from '../../../../util/swap/getSwapType';
+import { getSwapTransactionIdRows } from '../../../../util/swap/transactionIds';
 import { getChainBySlug, getIsNativeToken } from '../../../../util/tokens';
 import { getExplorerTransactionUrl, getViewTransactionUrl } from '../../../../util/url';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
@@ -40,6 +39,7 @@ import useLastCallback from '../../../../hooks/useLastCallback';
 import usePrevDuringAnimation from '../../../../hooks/usePrevDuringAnimation';
 import useQrCode from '../../../../hooks/useQrCode';
 
+import CexSupportText from '../../../common/CexSupportText';
 import Countdown from '../../../common/Countdown';
 import SwapTokensInfo from '../../../common/SwapTokensInfo';
 import TransactionFee from '../../../common/TransactionFee';
@@ -51,6 +51,12 @@ import ModalHeader from '../../../ui/ModalHeader';
 
 import modalStyles from '../../../ui/Modal.module.scss';
 import styles from './TransactionModal.module.scss';
+
+const cexSupportClassNames = {
+  description: styles.cexDescription,
+  descriptionBold: styles.cexDescriptionBold,
+  supportContact: styles.cexSupportContact,
+};
 
 type StateProps = {
   accountChains?: Account['byChain'];
@@ -64,9 +70,9 @@ type StateProps = {
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 };
 
-const CHANGELLY_EXPIRE_CHECK_STATUSES = new Set(['new', 'waiting']);
-const CHANGELLY_PENDING_STATUSES = new Set(['new', 'waiting', 'confirming', 'exchanging', 'sending']);
-const CHANGELLY_ERROR_STATUSES = new Set(['failed', 'expired', 'refunded', 'overdue']);
+const CEX_EXPIRE_CHECK_STATUSES = new Set(['new', 'waiting']);
+const CEX_PENDING_STATUSES = new Set(['new', 'waiting', 'confirming', 'exchanging', 'sending']);
+const CEX_ERROR_STATUSES = new Set(['failed', 'expired', 'refunded', 'overdue']);
 const ONCHAIN_ERROR_STATUSES = new Set(['failed', 'expired']);
 
 function SwapActivityModal({
@@ -103,6 +109,7 @@ function SwapActivityModal({
     timestamp,
     networkFee = '0',
     ourFee = '0',
+    ourFeeMode,
     shouldLoadDetails,
     extra,
   } = renderedActivity ?? {};
@@ -119,7 +126,6 @@ function SwapActivityModal({
   let isCexWaiting = false;
   let isCexPending = false;
   let isExpired = false;
-  let cexTransactionId = '';
   let title = '';
   let titleBadge: string | undefined;
   let isTitleBadgeWarning = false;
@@ -159,17 +165,16 @@ function SwapActivityModal({
 
     if (cex) {
       isCountdownFinished = timestamp
-        ? (timestamp + CHANGELLY_WAITING_DEADLINE - Date.now() < 0)
+        ? (timestamp + CEX_WAITING_DEADLINE - Date.now() < 0)
         : false;
-      isExpired = CHANGELLY_EXPIRE_CHECK_STATUSES.has(cex.status) && isCountdownFinished;
+      isExpired = CEX_EXPIRE_CHECK_STATUSES.has(cex.status) && isCountdownFinished;
       shouldRenderCexInfo = cex.status !== 'finished';
-      isPending = !isExpired && CHANGELLY_PENDING_STATUSES.has(cex.status);
+      isPending = !isExpired && CEX_PENDING_STATUSES.has(cex.status);
       isCexPending = isPending;
-      isCexError = isExpired || CHANGELLY_ERROR_STATUSES.has(cex.status);
+      isCexError = isExpired || CEX_ERROR_STATUSES.has(cex.status);
       isCexHold = cex.status === 'hold';
       isCexWaiting = cex.status === 'waiting'
         && !isExpired && !getShouldSkipSwapWaitingStatus(renderedActivity, accountChains ?? {});
-      cexTransactionId = cex.transactionId;
     } else {
       isPending = getIsActivityPendingForUser(renderedActivity);
       isError = ONCHAIN_ERROR_STATUSES.has(status);
@@ -221,13 +226,15 @@ function SwapActivityModal({
     selectToken({ slug: tokenSlug });
   });
 
-  const swapTransactionInfo = renderedActivity ? getTransactionHash(renderedActivity) : undefined;
+  const swapTransactionInfo = renderedActivity ? getSwapTransactionIdRows(renderedActivity)[0] : undefined;
   const swapChain = swapTransactionInfo?.chain && getIsSupportedChain(swapTransactionInfo.chain)
     ? swapTransactionInfo.chain
     : undefined;
 
   const handleShareClick = useLastCallback(() => {
-    const url = getViewTransactionUrl(swapChain!, swapTransactionInfo!.hash, isTestnet);
+    if (!swapChain || !swapTransactionInfo?.hash) return;
+
+    const url = getViewTransactionUrl(swapChain, swapTransactionInfo.hash, isTestnet);
     void shareUrl(url);
   });
 
@@ -308,27 +315,28 @@ function SwapActivityModal({
     );
   }
 
+  function renderCexTransactionId() {
+    const cex = renderedActivity?.cex;
+    const externalExchangeId = getCexExternalExchangeId(cex);
+
+    if (!externalExchangeId) return undefined;
+
+    return (
+      <InteractiveTextField
+        text={externalExchangeId}
+        copyNotification={lang('External Exchange ID Copied')}
+        noSavedAddress
+        noExplorer
+      />
+    );
+  }
+
   function renderCexInformation() {
     if (isCexHold) {
       return (
         <div className={styles.textFieldWrapper}>
-          <span className={styles.changellyDescription}>
-            {lang('$swap_changelly_kyc_security', {
-              email: (
-                <span className={styles.changellyDescriptionBold}>
-                  {CHANGELLY_SECURITY_EMAIL}
-                </span>
-              ),
-            })}
-          </span>
-          {cexTransactionId && (
-            <InteractiveTextField
-              text={cexTransactionId}
-              copyNotification={lang('Transaction ID Copied')}
-              noSavedAddress
-              noExplorer
-            />
-          )}
+          <CexSupportText cex={renderedActivity?.cex} isHold classNames={cexSupportClassNames} />
+          {renderCexTransactionId()}
         </div>
       );
     }
@@ -338,39 +346,14 @@ function SwapActivityModal({
         {cexErrorMessage && <span className={styles.errorCexMessage}>{cexErrorMessage}</span>}
 
         {isCexPending && (
-          <span className={buildClassName(styles.changellyDescription)}>
+          <span className={buildClassName(styles.cexDescription)}>
             {lang('Please note that it may take up to a few hours for tokens to appear in your wallet.')}
           </span>
         )}
         {isCountdownFinished && (
           <>
-            <span className={styles.changellyDescription}>
-              {lang('$swap_changelly_support', {
-                livechat: (
-                  <a
-                    href={CHANGELLY_LIVE_CHAT_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={styles.changellyDescriptionBold}
-                  >
-                    {lang('Changelly Live Chat')}
-                  </a>
-                ),
-                email: (
-                  <span className={styles.changellyDescriptionBold}>
-                    {CHANGELLY_SUPPORT_EMAIL}
-                  </span>
-                ),
-              })}
-            </span>
-            {cexTransactionId && (
-              <InteractiveTextField
-                text={cexTransactionId}
-                copyNotification={lang('Transaction ID Copied')}
-                noSavedAddress
-                noExplorer
-              />
-            )}
+            <CexSupportText cex={renderedActivity?.cex} classNames={cexSupportClassNames} />
+            {renderCexTransactionId()}
           </>
         )}
       </div>
@@ -395,27 +378,31 @@ function SwapActivityModal({
     );
   }
 
-  function renderTransactionId() {
-    const transactionHash = renderedActivity && getTransactionHash(renderedActivity);
-    if (!transactionHash) return undefined;
-    const { hash, chain } = transactionHash;
-    const transactionUrl = getExplorerTransactionUrl(chain, hash, isTestnet, selectedExplorerIds?.[chain]);
+  function renderTransactionIds() {
+    if (!renderedActivity) return undefined;
 
-    return (
-      <div className={styles.textFieldWrapper}>
-        <span className={styles.textFieldLabel}>
-          {lang('Transaction ID')}
-        </span>
-        <InteractiveTextField
-          noSavedAddress
-          address={hash}
-          addressUrl={transactionUrl}
-          chain={chain}
-          isTransaction
-          copyNotification={lang('Transaction ID Copied')}
-        />
-      </div>
-    );
+    const transactionIdRows = getSwapTransactionIdRows(renderedActivity);
+    if (!transactionIdRows.length) return undefined;
+
+    return transactionIdRows.map(({ label, hash, chain }) => {
+      const transactionUrl = getExplorerTransactionUrl(chain, hash, isTestnet, selectedExplorerIds?.[chain]);
+
+      return (
+        <div key={`${label}-${hash}`} className={styles.textFieldWrapper}>
+          <span className={styles.textFieldLabel}>
+            {lang(label)}
+          </span>
+          <InteractiveTextField
+            noSavedAddress
+            address={hash}
+            addressUrl={transactionUrl}
+            chain={chain}
+            isTransaction
+            copyNotification={lang('Transaction ID Copied')}
+          />
+        </div>
+      );
+    });
   }
 
   function renderFee() {
@@ -423,11 +410,12 @@ function SwapActivityModal({
       return undefined;
     }
 
+    const isOurFeeIncluded = ourFeeMode === 'included';
     const terms = getIsNativeToken(renderedActivity?.from) ? {
-      native: Big(networkFee).add(ourFee).toString(),
+      native: isOurFeeIncluded ? networkFee : Big(networkFee).add(ourFee).toString(),
     } : {
       native: networkFee,
-      token: ourFee,
+      token: isOurFeeIncluded ? undefined : ourFee,
     };
 
     return (
@@ -475,20 +463,20 @@ function SwapActivityModal({
       const chain = getIsSupportedChain(fromToken?.chain) ? fromToken.chain : undefined;
 
       return (
-        <div className={styles.changellyInfoBlock}>
+        <div className={styles.cexInfoBlock}>
           {renderFee()}
-          <span className={styles.changellyDescription}>{lang('$swap_changelly_to_wallet_description1', {
+          <span className={styles.cexDescription}>{lang('$swap_cex_to_wallet_description', {
             value: (
-              <span className={styles.changellyDescriptionBold}>
+              <span className={styles.cexDescriptionBold}>
                 {formatCurrencyExtended(Number(fromAmount), fromToken?.symbol ?? '', true)}
               </span>
             ),
             blockchain: (
-              <span className={styles.changellyDescriptionBold}>
+              <span className={styles.cexDescriptionBold}>
                 {getChainNetworkName(fromToken?.chain)}
               </span>
             ),
-            time: <Countdown timestamp={timestamp ?? 0} deadline={CHANGELLY_WAITING_DEADLINE} />,
+            time: <Countdown timestamp={timestamp ?? 0} deadline={CEX_WAITING_DEADLINE} />,
           })}
           </span>
           <InteractiveTextField
@@ -540,7 +528,7 @@ function SwapActivityModal({
         <div className={styles.infoBlock}>
           {renderSwapInfo()}
           {shouldRenderCexInfo && renderCexInformation()}
-          {renderTransactionId()}
+          {renderTransactionIds()}
         </div>
         {shouldRenderFooter && (
           <div className={buildClassName(styles.footer, shouldUseGridFooter && styles.swapFooter)}>
@@ -592,27 +580,6 @@ export default memo(
     };
   })(SwapActivityModal),
 );
-
-function getTransactionHash({ id, cex, hashes, from }: ApiSwapActivity) {
-  const chain = getChainBySlug(from);
-
-  if (!cex) {
-    return {
-      hash: parseTxId(id).hash,
-      chain,
-    };
-  }
-
-  if (!hashes[0]) {
-    return undefined;
-  }
-
-  return {
-    hash: hashes[0],
-    chain, // Assuming the backend always returns the "from" transaction hash as the first hash
-  };
-}
-
 function AddressQr({ isActive, address }: { isActive: boolean; address: string }) {
   const { qrCodeRef, isInitialized } = useQrCode({
     address,

@@ -217,6 +217,16 @@ public final class SettingsStore: Sendable {
         }
     }
 
+    public var appTabOrder: [String] {
+        _row.withLock { $0.appTabOrder }
+    }
+
+    public func setAppTabOrder(_ order: [String]) {
+        update {
+            $0.appTabOrder = order
+        }
+    }
+
     private func update(_ mutate: (inout MSettings) -> Void) {
         var row = _row.withLock { $0 }
         let oldRow = row

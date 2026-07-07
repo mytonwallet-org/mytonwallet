@@ -48,7 +48,7 @@ class NotificationSettingsHeaderCell(
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         setTextColor(WColor.Tint)
-        setStyle(14f, WFont.DemiBold)
+        setStyle(14f, WFont.Medium)
         setPaddingDp(20, 17, 20, 9)
     }
 

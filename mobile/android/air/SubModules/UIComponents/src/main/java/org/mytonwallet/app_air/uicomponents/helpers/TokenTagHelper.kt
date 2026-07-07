@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
 import org.mytonwallet.app_air.walletcore.SOLANA_USDC_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
@@ -32,10 +33,12 @@ class TokenTagHelper(context: Context) {
         id = View.generateViewId()
         textAlignment = View.TEXT_ALIGNMENT_CENTER
         setPadding(4.5f.dp.roundToInt(), 4.dp, 4.5f.dp.roundToInt(), 0)
-        setStyle(11f, WFont.SemiBold)
+        setStyle(11f, WFont.Medium)
     }
 
-    private var isShowingStaticTag = false
+    private enum class StaticTagStyle { REGULAR, STOCK }
+
+    private var staticTagStyle: StaticTagStyle? = null
     private var wasShowingTagLabel: Boolean? = null
     private var cachedStakingTagDrawable: GradientDrawable? = null
     private var cachedNotStakingTagDrawable: GradientDrawable? = null
@@ -52,7 +55,8 @@ class TokenTagHelper(context: Context) {
             TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> { configureStaticTag("TRC-20"); true }
             TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> { configureStaticTag("TON"); true }
             SOLANA_USDT_SLUG, SOLANA_USDC_SLUG -> { configureStaticTag("Solana"); true }
-            else -> configureStakingTag(accountId, token, tokenBalance)
+            else -> configureStakingTag(accountId, token, tokenBalance) ||
+                configureLabelTag(token)
         }
         updateLabelSpacing(cell, topLeftLabel, topRightView, shouldShow)
     }
@@ -61,9 +65,7 @@ class TokenTagHelper(context: Context) {
         tagLabel.updateTheme()
         cachedStakingTagDrawable = null
         cachedNotStakingTagDrawable = null
-        if (isShowingStaticTag) {
-            tagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
-        }
+        staticTagStyle?.let { applyStaticTagStyle(it) }
     }
 
     private fun getTagDrawable(hasStaking: Boolean, cornerRadius: Float = 8f): GradientDrawable {
@@ -76,11 +78,39 @@ class TokenTagHelper(context: Context) {
         }
     }
 
-    private fun configureStaticTag(text: String) {
-        isShowingStaticTag = true
+    private fun configureStaticTag(
+        text: String,
+        style: StaticTagStyle = StaticTagStyle.REGULAR
+    ) {
+        staticTagStyle = style
         tagLabel.setAmount(text)
-        tagLabel.setGradientColor(arrayOf(WColor.SecondaryText, WColor.SecondaryText))
-        tagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
+        applyStaticTagStyle(style)
+    }
+
+    private fun applyStaticTagStyle(style: StaticTagStyle) {
+        when (style) {
+            StaticTagStyle.REGULAR -> {
+                tagLabel.setGradientColor(arrayOf(WColor.SecondaryText, WColor.SecondaryText))
+                tagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
+            }
+
+            StaticTagStyle.STOCK -> {
+                tagLabel.setGradientColor(arrayOf(WColor.StockBadge, WColor.StockBadge))
+                tagLabel.setBackgroundColor(
+                    WColor.StockBadge.color.solidColorWithAlpha(38),
+                    8f.dp
+                )
+            }
+        }
+    }
+
+    private fun configureLabelTag(token: MToken?): Boolean {
+        val label = token?.label?.takeIf { it.isNotBlank() } ?: return false
+        configureStaticTag(
+            label,
+            if (token.isRwaStock) StaticTagStyle.STOCK else StaticTagStyle.REGULAR
+        )
+        return true
     }
 
     private fun configureStakingTag(
@@ -88,12 +118,12 @@ class TokenTagHelper(context: Context) {
         token: MToken?,
         tokenBalance: MTokenBalance?
     ): Boolean {
-        isShowingStaticTag = false
+        staticTagStyle = null
         if (tokenBalance?.isVirtualStakingRow != true && token?.isEarnAvailable != true) return false
         val stakingState = accountId?.let {
             StakingStore.getStakingState(it)?.stakingState(token?.slug ?: "")
         } ?: return false
-        val apy = stakingState.annualYield ?: return false
+        val apy = stakingState.annualYield.takeIf { it > 0f } ?: return false
         val hasStakingAmount = stakingState.balance > BigInteger.ZERO
         val shouldShow = tokenBalance?.isVirtualStakingRow == true || !hasStakingAmount
         if (shouldShow) {

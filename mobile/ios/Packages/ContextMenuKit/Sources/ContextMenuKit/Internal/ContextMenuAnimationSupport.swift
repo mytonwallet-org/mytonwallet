@@ -4,8 +4,10 @@ enum ContextMenuAnimationSupport {
     static let springMass: CGFloat = 5.0
     static let springStiffness: CGFloat = 900.0
     static let appearDuration: CFTimeInterval = 0.42
+    static let appearAlphaDuration: CFTimeInterval = 0.05
     static let appearDamping: CGFloat = 104.0
     static let disappearDuration: CFTimeInterval = 0.2
+    static let collapsedScale: CGFloat = 0.01
 
     static func adjustFrameRate(animation: CAAnimation) {
         let maxFps = Float(UIScreen.main.maximumFramesPerSecond)
@@ -88,7 +90,7 @@ extension CALayer {
             from: from as NSNumber,
             to: to as NSNumber,
             duration: duration,
-            timingFunction: .linear,
+            timingFunction: .easeInEaseOut,
             removeOnCompletion: removeOnCompletion
         )
     }

@@ -64,7 +64,7 @@ class SwapHeaderView(
     ).apply {
         textAlignment = TEXT_ALIGNMENT_CENTER
         contentView.apply {
-            typeface = WFont.NunitoExtraBold.typeface
+            typeface = WFont.Balance.typeface
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 28f)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
         }
@@ -77,7 +77,7 @@ class SwapHeaderView(
     ).apply {
         textAlignment = TEXT_ALIGNMENT_CENTER
         contentView.apply {
-            typeface = WFont.NunitoExtraBold.typeface
+            typeface = WFont.Balance.typeface
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 44f)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
         }

@@ -28,6 +28,8 @@ public struct MtwCardBackground: View {
                 ZStack {
                     if let imageUrl = nft?.metadata?.mtwCardBackgroundUrl {
                         KFImage(source: .network(imageUrl))
+                            .retry(maxCount: 3, interval: .accumulated(1))
+                            .cacheOriginalImage()
                             .resizable()
                             .fade(duration: 0.15)
                             .loadDiskFileSynchronously(false)

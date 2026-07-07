@@ -142,7 +142,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/mytonwallet-org/hw-transport-ios-ble",
-            revision: "5046ed005e6ce721b533d332ed0744a52d6510b4"
+            revision: "dbfb781e0c883e533acc06c54ca395adb9fbd862"
         ),
         .package(
             url: "https://github.com/mytonwallet-org/swift-bigint",
@@ -200,7 +200,6 @@ let package = Package(
                 .process("Resources/Animations"),
                 .process("Resources/Assets.xcassets"),
                 .process("Resources/Fonts"),
-                .process("Resources/JS"),
                 .process("Resources/Sounds"),
                 .process("Resources/Strings"),
             ],
@@ -539,6 +538,7 @@ let package = Package(
                 "UIActivityList",
                 "WalletCore",
                 "WalletContext",
+                "WalletCoreTypes",
                 .product(name: "GRDB", package: "grdb.swift"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 "UISwap",
@@ -583,6 +583,14 @@ let package = Package(
                 "UISwap",
                 "WalletCore",
                 "WalletContext",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "UIComponentsTests",
+            dependencies: [
+                "UIComponents",
+                "WalletResources",
             ]
         ),
     ],

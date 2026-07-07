@@ -3,16 +3,30 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import SwiftNavigation
+
+private let swapLog = Log("SwapVC")
 
 public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
+    private struct ActivityCompletionState {
+        var sdkCallsCompleted = false
+        var activity: ApiActivity?
+    }
+
     private var swapModel: SwapModel!
     @AccountContext private var account: MAccount
+    private let isAccountSwitchingAllowed: Bool
     
-    private var hostingController: UIHostingController<SwapView>!
+    private var hostingController: UIHostingController<SwapView>?
 
-    private var continueButton: WButton { bottomButton! }
+    private var continueButton: WButton?
     private var continueButtonConstraint: NSLayoutConstraint?
+    private var pendingButtonConfiguration: SwapButtonConfiguration?
+    private var appliedButtonConfiguration: SwapButtonConfiguration?
+    private lazy var accountSwitcher = AccountSwitcher(configuration: .init(accountSupport: .swap)) { [weak self] accountId in
+        self?.selectAccount(accountId: accountId)
+    }
     private let bottomButtonBackgroundView = EdgeGradientView()
     private var bottomButtonBackgroundBottomConstraint: NSLayoutConstraint?
     private var isKeyboardVisible = false
@@ -24,10 +38,17 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     }
 
     private var currentTokenSelectionSide: SwapSide?
-    private var awaitingActivity = false
+    private var activityCompletionState: ActivityCompletionState?
 
-    public init(accountContext: AccountContext, defaultSellingToken: String? = nil, defaultBuyingToken: String? = nil, defaultSellingAmount: Double? = nil) {
+    public init(
+        accountContext: AccountContext,
+        defaultSellingToken: String? = nil,
+        defaultBuyingToken: String? = nil,
+        defaultSellingAmount: Double? = nil,
+        isAccountSwitchingAllowed: Bool = false
+    ) {
         self._account = accountContext
+        self.isAccountSwitchingAllowed = isAccountSwitchingAllowed
         super.init(nibName: nil, bundle: nil)
         self.swapModel = SwapModel(
             delegate: self,
@@ -48,6 +69,12 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         setupViews()
         
         WKeyboardObserver.observeKeyboard(delegate: self)
+
+        observe { [weak self] in
+            guard let self else { return }
+            _ = account.id
+            updateLeftNavigationItem()
+        }
         
         Task {
             _ = try? await TokenStore.updateSwapAssets()
@@ -56,24 +83,33 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        guard activityCompletionState == nil else { return }
         swapModel.setStage(.editing)
     }
 
     private func setupViews() {
         navigationItem.title = lang("Swap")
+        navigationItem.leftItemsSupplementBackButton = true
         addCloseNavigationItemIfNeeded()
 
-        self.hostingController = addHostingController(makeView(), constraints: .fill)
+        let hostingController = addHostingController(makeView(), constraints: .fill)
+        self.hostingController = hostingController
         
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(containerPressed))
         tapGestureRecognizer.cancelsTouchesInView = true
         hostingController.view.addGestureRecognizer(tapGestureRecognizer)
 
-        _ = addBottomButton(bottomConstraint: false)
-        setupBottomButtonBackground()
+        let continueButton = addBottomButton(bottomConstraint: false)
+        self.continueButton = continueButton
+        setupBottomButtonBackground(continueButton: continueButton)
         continueButton.isEnabled = false
         continueButton.configureTitle(sellingToken: swapModel.input.sellingToken, buyingToken: swapModel.input.buyingToken)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
+        if let pendingButtonConfiguration {
+            pendingButtonConfiguration.apply(to: continueButton)
+            appliedButtonConfiguration = pendingButtonConfiguration
+            self.pendingButtonConfiguration = nil
+        }
         
         let c = startWithKeyboardActive ? -max(WKeyboardObserver.keyboardHeight, 291) + 50 : -34
         let constraint = continueButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16 + c)
@@ -83,7 +119,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         updateTheme()
     }
 
-    private func setupBottomButtonBackground() {
+    private func setupBottomButtonBackground(continueButton: WButton) {
         bottomButtonBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         bottomButtonBackgroundView.isUserInteractionEnabled = false
         bottomButtonBackgroundView.direction = .bottom
@@ -158,12 +194,12 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
             let crosschainSwapVC = CrosschainFromWalletVC(
                 sellingToken: confirmation.selling,
                 buyingToken: confirmation.buying,
+                cexLabel: confirmation.cexLabel,
                 accountContext: _account,
-                onContinue: { [weak self] payoutAddress, sourceViewController in
+                onContinue: { [weak self] payoutAddress, _ in
                     self?.startSwapFlow(
                         presentCrosschain: false,
                         payoutAddress: payoutAddress,
-                        presentingViewController: sourceViewController,
                         failureStage: .externalAddress
                     )
                 }
@@ -174,7 +210,6 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private func startSwapFlow(
         presentCrosschain: Bool,
         payoutAddress: String? = nil,
-        presentingViewController: UIViewController? = nil,
         failureStage: SwapStage = .editing
     ) {
         guard let confirmationAmounts = swapModel.confirmationAmounts() else {
@@ -188,6 +223,10 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         headerVC.view.backgroundColor = .clear
 
         swapModel.setStage(.confirming)
+        resetActivityCompletion()
+        if !presentCrosschain {
+            activityCompletionState = ActivityCompletionState()
+        }
         Task {
             do {
                 let result: SwapExecutionResult? = try await AppActions.authorizeProtectedAction(
@@ -197,40 +236,51 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
                     headerView: headerVC.rootView,
                     passwordAction: { [weak self] passcode in
                         guard let self else { throw CancellationError() }
-                        awaitingActivity = !presentCrosschain
                         return try await swapModel.swapNow(
                             confirmation: confirmationAmounts,
                             passcode: passcode,
                             payoutAddress: payoutAddress
                         )
                     },
+                    completionBehavior: .keepAuthForReplacement,
                     mfaTitle: lang("Confirm Swap")
                 )
-                guard let result else { return }
-                handleSwapSuccess(result.activity, presentCrosschain: presentCrosschain)
+                swapLog.info("[temp] sdk flow finished presentCrosschain=\(presentCrosschain, .public) hasResult=\((result != nil), .public) hasActivity=\((result?.activity != nil), .public) hasMfaRequestHash=\((result?.mfaRequestHash != nil), .public)")
+                guard let result else {
+                    resetActivityCompletion()
+                    return
+                }
+                handleSwapSuccess(result, presentCrosschain: presentCrosschain)
             } catch is CancellationError {
-                awaitingActivity = false
+                resetActivityCompletion()
                 swapModel.setStage(failureStage)
             } catch {
-                let bridgeError = (error as? BridgeCallError) ?? .unknown(baseError: error)
-                handleSwapFailure(bridgeError, failureStage: failureStage)
+                handleSwapFailure(error, failureStage: failureStage)
             }
         }
     }
 
-    private func handleSwapSuccess(_ activity: ApiActivity?, presentCrosschain: Bool) {
-        swapModel.setStage(.complete)
+    private func handleSwapSuccess(_ result: SwapExecutionResult, presentCrosschain: Bool) {
         if presentCrosschain {
-            awaitingActivity = false
-            if let swap = activity?.swap {
+            resetActivityCompletion()
+            swapModel.setStage(.complete)
+            if let swap = result.activity?.swap {
                 let crosschainSwapVC = CrosschainToWalletVC(swap: swap, accountId: nil)
-                navigationController?.pushViewController(crosschainSwapVC, animated: true)
+                if let navigationController {
+                    let coordinator = ContentReplaceAnimationCoordinator()
+                    coordinator.replaceNavigationTop(with: crosschainSwapVC, in: navigationController) {}
+                }
             }
+            return
         }
+
+        recordSwapActivities(result.activity.map { [$0] } ?? [], source: "sdkResult")
+        activityCompletionState?.sdkCallsCompleted = true
+        showSwapActivityIfReady()
     }
 
-    private func handleSwapFailure(_ error: BridgeCallError, failureStage: SwapStage = .editing) {
-        awaitingActivity = false
+    private func handleSwapFailure(_ error: any Error, failureStage: SwapStage = .editing) {
+        resetActivityCompletion()
         swapModel.setStage(failureStage)
         showAlert(error: error) { [weak self] in
             guard let self else { return }
@@ -238,12 +288,49 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         }
     }
 
-    private func handleSwapResult(_ result: Result<SwapExecutionResult, BridgeCallError>, presentCrosschain: Bool, failureStage: SwapStage = .editing) {
-        switch result {
-        case .success(let result):
-            handleSwapSuccess(result.activity, presentCrosschain: presentCrosschain)
-        case .failure(let error):
-            handleSwapFailure(error, failureStage: failureStage)
+    private func recordSwapActivities(_ activities: [ApiActivity], source: String) {
+        guard let activity = activities.first(where: { $0.swap != nil }) else { return }
+        swapLog.info("[temp] captured swap activity source=\(source, .public) id=\(activity.id, .public)")
+        activityCompletionState?.activity = activity
+    }
+
+    private func showSwapActivityIfReady() {
+        guard
+            let activityCompletionState,
+            activityCompletionState.sdkCallsCompleted,
+            let activity = activityCompletionState.activity
+        else {
+            return
+        }
+        resetActivityCompletion()
+        swapModel.setStage(.complete)
+        AppActions.showActivityDetails(accountId: account.id, activity: activity, context: .swapConfirmation)
+    }
+
+    private func resetActivityCompletion() {
+        activityCompletionState = nil
+    }
+
+    private func updateLeftNavigationItem() {
+        guard IS_DEBUG_OR_TESTFLIGHT, isAccountSwitchingAllowed else {
+            navigationItem.setLeftBarButtonItems(nil, animated: true)
+            return
+        }
+
+        accountSwitcher.update(selectedAccountId: account.id)
+        let items = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
+            ? [accountSwitcher.barButtonItem]
+            : nil
+        navigationItem.setLeftBarButtonItems(items, animated: true)
+    }
+
+    private func selectAccount(accountId: String) {
+        Task {
+            do {
+                try await swapModel.onAccountSelected(accountId: accountId)
+            } catch {
+                AppActions.showError(error: error)
+            }
         }
     }
 
@@ -284,9 +371,9 @@ extension SwapVC: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .newLocalActivity(let update):
-            handleNewActivities(accountId: update.accountId, activities: update.activities)
+            handleNewActivities(accountId: update.accountId, activities: update.activities, source: "newLocalActivity")
         case .newActivities(let update):
-            handleNewActivities(accountId: update.accountId, activities: (update.pendingActivities ?? []) + update.activities)
+            handleNewActivities(accountId: update.accountId, activities: (update.pendingActivities ?? []) + update.activities, source: "newActivities")
         case .balanceChanged(let accountId):
             if accountId == account.id {
                 swapModel.refreshBalances()
@@ -296,22 +383,27 @@ extension SwapVC: WalletCoreData.EventsObserver {
         }
     }
 
-    private func handleNewActivities(accountId: String, activities: [ApiActivity]) {
-        guard awaitingActivity, accountId == account.id else { return }
-        guard let activity = activities.first(where: { activity in
-            if case .swap = activity {
-                return true
-            }
-            return false
-        }) else { return }
-        awaitingActivity = false
-        AppActions.showActivityDetails(accountId: accountId, activity: activity, context: .swapConfirmation)
+    private func handleNewActivities(accountId: String, activities: [ApiActivity], source: String) {
+        guard accountId == account.id, activityCompletionState != nil else { return }
+        recordSwapActivities(activities, source: source)
+        showSwapActivityIfReady()
     }
 }
 
 extension SwapVC: SwapModelDelegate {
     func applyButtonConfiguration(_ config: SwapButtonConfiguration) {
+        guard let continueButton else {
+            if pendingButtonConfiguration?.hasSamePresentation(as: config) == true {
+                return
+            }
+            pendingButtonConfiguration = config
+            return
+        }
+        if appliedButtonConfiguration?.hasSamePresentation(as: config) == true {
+            return
+        }
         config.apply(to: continueButton)
+        appliedButtonConfiguration = config
     }
 
     func executeSwapCommand(_ command: SwapCommand) {

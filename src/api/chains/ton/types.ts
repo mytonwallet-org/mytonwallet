@@ -120,7 +120,7 @@ export type GetAddressInfoResponse = {
   state: 'uninitialized' | 'active';
 };
 
-export type ApiSubmitMultiTransferResult = {
+export type ApiSubmitSingleFATransferResult = {
   messages: TonTransferParams[];
   amount: string;
   seqno: number;
@@ -129,11 +129,15 @@ export type ApiSubmitMultiTransferResult = {
   msgHashNormalized: string;
   paymentLink?: string;
   withW5Gasless?: boolean;
-} | {
-  mfaRequest: SignedMfaRequest;
-} | {
-  error: string;
 };
+
+export type ApiSubmitMultiTransferResult =
+  | ApiSubmitSingleFATransferResult
+  | {
+    mfaRequest: SignedMfaRequest;
+  } | {
+    error: string;
+  };
 
 export type ApiEmulationWithFallbackResult = (
   { isFallback: false } & ApiEmulationResult |

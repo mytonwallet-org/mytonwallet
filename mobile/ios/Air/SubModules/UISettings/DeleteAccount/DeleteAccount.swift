@@ -54,6 +54,7 @@ private func makeDeleteAccountWarningText(account: MAccount) -> String {
 
 @MainActor public func showDeleteSelectedAccountsAlert(
     accountsIdsToDelete: [String],
+    onWillDelete: (() -> Void)? = nil,
     onSuccess: (() -> Void)? = nil,
     onCancel: (() -> Void)? = nil,
     onFailure: ((Error) -> Void)? = nil
@@ -92,6 +93,7 @@ private func makeDeleteAccountWarningText(account: MAccount) -> String {
         button: lang("Remove"),
         buttonStyle: .destructive,
         buttonPressed: {
+            onWillDelete?()
             Task { @MainActor in
                 do {
                     // Use the user's ordering so the fallback is the first surviving wallet, not an arbitrary one

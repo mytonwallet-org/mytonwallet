@@ -26,7 +26,7 @@ public struct SendComposeView: View {
                     Group {
                         if model.shouldShowDomainScamWarning {
                             WarningView(
-                                text: lang("$domain_like_scam_warning", arg1: "[\(lang("$help_center_prepositional"))](\(model.domainScamHelpUrl.absoluteString))"),
+                                text: model.domainScamWarningMarkdown,
                                 kind: .error
                             )
                             .padding(.horizontal, 16)
@@ -179,7 +179,7 @@ fileprivate struct AmountSection: View {
     }
 
     func onTokenTapped() {
-        let walletTokens = model.$account.balances.map { (key: String, value: BigInt) in
+        let walletTokens = model.$account.walletTokens ?? model.$account.balances.map { (key: String, value: BigInt) in
             MTokenBalance(tokenSlug: key, balance: value, isStaking: false)
         }
         let vc = SendCurrencyVC(
@@ -191,7 +191,7 @@ fileprivate struct AmountSection: View {
             onSelect: { token in }
         )
         vc.onSelect = { [weak model] newToken in
-            model?.onTokenSelected(newToken: newToken)
+            model?.onTokenSelected(newToken: newToken, source: .user)
             topViewController()?.dismiss(animated: true)
         }
         let nav = WNavigationController(rootViewController: vc)

@@ -86,7 +86,7 @@ addActionHandler('showAnyAccountTx', async (global, actions, { txId, accountId, 
   ]);
 
   if (txId.startsWith('swap:')) {
-    const result = await callApi('fetchSwaps', accountId, [txId]);
+    const result = await callApi('fetchSwaps', accountId, [{ id: txId, chain }]);
     const swapActivity = result?.swaps[0];
 
     if (swapActivity) {
@@ -777,7 +777,15 @@ addActionHandler('closePortfolio', (global, actions) => {
     actions.openSettings();
   }
 
-  return { ...global, isPortfolioOpen: undefined, portfolioReturnTo: undefined };
+  const nextGlobal = { ...global, isPortfolioOpen: undefined, portfolioReturnTo: undefined };
+
+  // `switchToPortfolio` parks the landscape content tab on `Portfolio`; restore a real tab on close
+  // so the content area isn't left frozen, and the persisted value doesn't get stuck
+  if (selectCurrentAccountState(nextGlobal)?.activeContentTab === ContentTab.Portfolio) {
+    return updateCurrentAccountState(nextGlobal, { activeContentTab: ContentTab.Overview });
+  }
+
+  return nextGlobal;
 });
 
 addActionHandler('openFullscreen', (global) => {

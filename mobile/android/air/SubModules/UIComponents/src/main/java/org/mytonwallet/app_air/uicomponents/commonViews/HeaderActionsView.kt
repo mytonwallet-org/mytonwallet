@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import kotlin.math.roundToInt
 
@@ -182,7 +183,8 @@ class HeaderActionsView(
             anchorView,
             items,
             positioning = Positioning.BELOW,
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            usePillShadow = true
         )
     }
 
@@ -208,7 +210,7 @@ class HeaderActionsView(
         REPEAT,
         SHARE,
         WALLET_SETTINGS,
-        WALLET_RENAME,
+        WALLET_MENU,
         EDIT,
         BACK,
     }
@@ -342,10 +344,11 @@ class HeaderActionsView(
     override fun updateActions(account: MAccount?, tokenSlug: String?) {
         this.account = account
         val isMainNet = account?.isMainnet == true
+        val isLpToken = TokenStore.getToken(tokenSlug)?.isLpToken == true
         setReceiveVisibility(account?.supportsReceiveScreen == true)
         setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
-        setSwapVisibility(account?.supportsSwap == true)
+        setSwapVisibility(account?.supportsSwap == true && !isLpToken)
         updateEarnTitle(account, tokenSlug)
     }
 

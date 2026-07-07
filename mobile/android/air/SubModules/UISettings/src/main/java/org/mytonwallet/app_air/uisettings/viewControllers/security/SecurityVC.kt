@@ -318,6 +318,32 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         }
     )
 
+    private val spacer4 = WBaseView(context)
+
+    private val allowSuspiciousActionsRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Allow Suspicious Actions"),
+        isChecked = AccountStore.activeAccountId?.let {
+            WGlobalStorage.getIsAllowSuspiciousActions(it)
+        } ?: false,
+        isFirst = true,
+        isLast = true,
+        onChange = { isChecked ->
+            AccountStore.activeAccountId?.let {
+                WGlobalStorage.setIsAllowSuspiciousActions(it, isChecked)
+            }
+        }
+    )
+
+    private val allowSuspiciousActionsFooterLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(13f)
+            text = LocaleController.getString("\$allow_suspicious_actions_description")
+            gravity = android.view.Gravity.START
+            setTextColor(WColor.SecondaryText)
+        }
+    }
+
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.setPaddingLocalized(
@@ -342,6 +368,9 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         v.addView(appLockContainerView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appLockFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+        v.addView(allowSuspiciousActionsRow, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(allowSuspiciousActionsFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(spacer4, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
         v.addView(disableScreenRecordWarningRow)
         v.setConstraints {
             if (AccountStore.activeAccount?.isViewOnly != true) {
@@ -369,7 +398,12 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             topToBottom(appLockFooterLabel, appLockContainerView, 8f)
             toCenterX(appLockFooterLabel, 16f)
             topToBottom(spacer3, appLockFooterLabel, 4f)
-            topToBottom(disableScreenRecordWarningRow, spacer3)
+            topToBottom(allowSuspiciousActionsRow, spacer3)
+            toCenterX(allowSuspiciousActionsRow)
+            topToBottom(allowSuspiciousActionsFooterLabel, allowSuspiciousActionsRow, 8f)
+            toCenterX(allowSuspiciousActionsFooterLabel, 16f)
+            topToBottom(spacer4, allowSuspiciousActionsFooterLabel, 4f)
+            topToBottom(disableScreenRecordWarningRow, spacer4)
             toBottomPx(
                 disableScreenRecordWarningRow,
                 (navigationController?.bottomInset ?: 0)

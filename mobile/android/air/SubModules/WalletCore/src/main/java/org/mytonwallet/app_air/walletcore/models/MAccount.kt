@@ -170,6 +170,11 @@ class MAccount(
             return byChain.keys.size > 1
         }
 
+    val isMultisig: Boolean
+        get() {
+            return byChain.values.any { it.isMultisig == true }
+        }
+
     val isMainnet: Boolean
         get() {
             return network.isMainnet
@@ -186,6 +191,11 @@ class MAccount(
     val supportsSwap: Boolean
         get() {
             return isMainnet && accountType == AccountType.MNEMONIC
+        }
+
+    val supportsWalletConnectPay: Boolean
+        get() {
+            return accountType == AccountType.MNEMONIC && isMultichain
         }
 
     val supportsBuyWithCard: Boolean
@@ -252,6 +262,11 @@ class MAccount(
 
     fun isChainSupported(chain: String): Boolean {
         return byChain.containsKey(chain)
+    }
+
+    fun supports(requiredChains: List<ApiDappSessionChain>): Boolean {
+        if (requiredChains.isEmpty()) return true
+        return requiredChains.all { isChainSupported(it.chain) }
     }
 
     fun dappChain(chain: String): ApiDappSessionChain? {

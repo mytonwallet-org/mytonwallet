@@ -10,6 +10,30 @@ enum SwapButtonTitle {
     case issue(SwapIssue)
 }
 
+private enum SwapButtonPresentationIdentity: Equatable {
+    case swap(template: String, sellingSymbol: String, buyingSymbol: String)
+    case text(String)
+}
+
+extension SwapButtonTitle {
+    fileprivate var presentationIdentity: SwapButtonPresentationIdentity {
+        switch self {
+        case .swap(let sellingToken, let buyingToken):
+            .swap(
+                template: lang("$swap_from_to"),
+                sellingSymbol: sellingToken.symbol,
+                buyingSymbol: buyingToken.symbol
+            )
+        case .continue:
+            .text(lang("Continue"))
+        case .authorizeDiesel(let token):
+            .text(lang("Authorize %token% Fee", arg1: token.symbol))
+        case .issue(let issue):
+            .text(issue.buttonTitle)
+        }
+    }
+}
+
 enum SwapButtonState: Equatable {
     case invalidPair
     case emptyAmount
@@ -25,6 +49,20 @@ struct SwapButtonConfiguration {
     let title: SwapButtonTitle
     let isEnabled: Bool
     let showLoading: Bool
+    private let presentationIdentity: SwapButtonPresentationIdentity
+
+    init(title: SwapButtonTitle, isEnabled: Bool, showLoading: Bool) {
+        self.title = title
+        self.isEnabled = isEnabled
+        self.showLoading = showLoading
+        self.presentationIdentity = title.presentationIdentity
+    }
+
+    func hasSamePresentation(as other: SwapButtonConfiguration) -> Bool {
+        presentationIdentity == other.presentationIdentity
+            && isEnabled == other.isEnabled
+            && showLoading == other.showLoading
+    }
 
     @MainActor func apply(to button: WButton) {
         switch title {
@@ -74,9 +112,10 @@ extension WButton {
             let attr = NSMutableAttributedString()
             attr.append(NSAttributedString(string: String(a[0])))
             let config = UIImage.SymbolConfiguration(font: WButton.font, scale: .small)
-            let image = UIImage(systemName: "chevron.forward", withConfiguration: config)!
-            let attachment = NSTextAttachment(image: image)
-            attr.append(NSAttributedString(attachment: attachment))
+            if let image = UIImage(systemName: "chevron.forward", withConfiguration: config) {
+                let attachment = NSTextAttachment(image: image)
+                attr.append(NSAttributedString(attachment: attachment))
+            }
             attr.append(NSAttributedString(string: String(a[1])))
             attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
             setAttributedTitle(attr, for: .normal)

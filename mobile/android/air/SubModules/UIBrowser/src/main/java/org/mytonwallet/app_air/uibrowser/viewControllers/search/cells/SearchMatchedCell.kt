@@ -40,7 +40,7 @@ class SearchMatchedCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(adaptiveFontSize(), WFont.SemiBold)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(WColor.PrimaryText)

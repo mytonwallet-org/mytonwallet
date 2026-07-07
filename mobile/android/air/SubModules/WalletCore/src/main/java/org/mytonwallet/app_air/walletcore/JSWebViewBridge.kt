@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -31,6 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
 import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapLong
 import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapString
 import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
@@ -90,8 +92,28 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     injectIfNeeded(onBridgeReady)
                 }
             }
+
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: RenderProcessGoneDetail?
+            ): Boolean {
+                val didCrash = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                    detail?.didCrash() else null
+                Logger.e(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "onRenderProcessGone: didCrash=$didCrash"
+                )
+                isRenderProcessGone = true
+                injecting = false
+                injected = false
+                WalletCore.onBridgeRenderProcessGone(this@JSWebViewBridge)
+                return true
+            }
         }
     }
+
+    var isRenderProcessGone: Boolean = false
+        private set
 
     private var injecting: Boolean = false
     var injected: Boolean = false
@@ -604,6 +626,13 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     val isExternal = objectJSONObject.optBoolean("isExternal", false)
                     ensureMainThread {
                         WalletCore.notifyEvent(WalletEvent.OpenUrl(url, isExternal))
+                    }
+                }
+
+                "showError" -> {
+                    val error = objectJSONObject.optString("error").takeIfNotBlank()
+                    ensureMainThread {
+                        WalletContextManager.delegate?.get()?.showError(error)
                     }
                 }
 

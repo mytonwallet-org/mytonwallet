@@ -2,6 +2,7 @@ package org.mytonwallet.uihome.home
 
 import android.content.Context
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -27,7 +28,6 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.TabletHeaderActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderSpaceCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.DirectionalTouchHandler
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -47,12 +47,14 @@ import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
+import org.mytonwallet.app_air.uiwalletconnectpay.WalletConnectPayController
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
@@ -202,6 +204,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         TonConnectController(window!!)
     }
 
+    private val walletConnectPayController by lazy {
+        WalletConnectPayController(window!!)
+    }
+
     private fun isSellAllowed(): Boolean {
         return homeVM.showingAccount?.supportsBuyWithCard == true// && ConfigStore.isLimited != true
     }
@@ -303,6 +309,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
 
     var panelHeaderView: HomeHeaderView? = null
+        set(value) {
+            field = value
+            value?.updateMintIconVisibility()
+            value?.updatePromotion()
+        }
 
     val overrideAccountIds: Array<String>?
         get() = (mode as? MScreenMode.SingleWallet)?.let { arrayOf(it.accountId) }
@@ -489,7 +500,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                             return@build
                         }
                     }
-                    val validDeeplink = WalletContextManager.delegate?.get()?.handleDeeplink(qr)
+                    val validDeeplink = WalletContextManager.delegate?.get()?.handleDeeplink(
+                        qr,
+                        DeeplinkOpenSource.QR_SCAN
+                    )
                     if (validDeeplink == true)
                         return@build
                     if (URLUtil.isValidUrl(qr)) {
@@ -543,9 +557,16 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 window?.present(navVC)
             }
 
-            HeaderActionsView.Identifier.WALLET_RENAME -> {
+            HeaderActionsView.Identifier.WALLET_MENU -> {
                 val account = headerView.centerAccount ?: homeVM.showingAccount ?: return
-                AccountDialogHelpers.presentRename(this, account)
+                WalletNameMenuHelper.present(
+                    viewController = this,
+                    anchor = stickyHeaderView.updateStatusView,
+                    account = account,
+                    onManageWallets = {
+                        onClick(HeaderActionsView.Identifier.WALLET_SETTINGS)
+                    }
+                )
             }
 
             HeaderActionsView.Identifier.EDIT -> {
@@ -558,6 +579,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
         }
     }
+
+    override val topBlurView: View
+        get() = topBlurReversedCornerView
 
     private val topBlurReversedCornerView = ReversedCornerView(
         context, ReversedCornerView.Config(blurRootView = activityListViewsContainer)
@@ -608,8 +632,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             configureAccountViews(shouldLoadNewWallets = true, skipSkeletonOnCache = false)
         }
 
-        if (mode == MScreenMode.Default)
+        if (mode == MScreenMode.Default) {
             tonConnectController.onCreate()
+            walletConnectPayController.onCreate()
+        }
 
         updateTheme()
     }
@@ -653,7 +679,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             homeVM.removeTemporaryAccount()
         _actionsView?.onDestroy()
         phoneHeaderView.onDestroy()
-        tonConnectController.onDestroy()
+        if (mode == MScreenMode.Default) {
+            walletConnectPayController.onDestroy()
+            tonConnectController.onDestroy()
+        }
         allActivityListViews.forEach {
             it.onDestroy()
         }
@@ -1081,9 +1110,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     override fun update(state: UpdateStatusView.State, animated: Boolean) {
-        if (homeVM.isGeneralDataAvailable && !homeVM.calledReady) {
+        val walletContextDelegate = WalletContextManager.delegate?.get()
+        val shouldNotifyWalletReady = homeVM.isGeneralDataAvailable &&
+            (!homeVM.calledReady || walletContextDelegate?.isWalletReady() == false)
+        if (shouldNotifyWalletReady) {
             homeVM.calledReady = true
-            WalletContextManager.delegate?.get()?.walletIsReady()
+            walletContextDelegate?.walletIsReady()
         }
         val accountNotLoadedYet = !homeVM.isGeneralDataAvailable &&
             state == UpdateStatusView.State.Updating &&
@@ -1233,6 +1265,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     override fun accountConfigChanged() {
         phoneHeaderView.updateMintIconVisibility()
         phoneHeaderView.updatePromotion()
+        panelHeaderView?.updateMintIconVisibility()
+        panelHeaderView?.updatePromotion()
     }
 
     override fun seasonalThemeChanged() {

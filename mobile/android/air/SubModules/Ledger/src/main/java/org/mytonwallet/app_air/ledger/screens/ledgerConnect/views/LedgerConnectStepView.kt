@@ -76,18 +76,26 @@ class LedgerConnectStepView(context: Context, stepText: String) : WView(context)
     }
 
     fun setError(errorMessage: CharSequence?) {
-        if ((errorLabel.text ?: "") == (errorMessage ?: ""))
+        setSecondaryLine(errorMessage)
+    }
+
+    fun setSubtitle(subtitle: CharSequence?) {
+        setSecondaryLine(subtitle)
+    }
+
+    private fun setSecondaryLine(message: CharSequence?) {
+        if ((errorLabel.text ?: "") == (message ?: ""))
             return
 
         val baseHeight =
             stepStatusView.height.coerceAtLeast(stepLabel.height + 5)
 
-        errorLabel.text = errorMessage
-        if (!errorMessage.isNullOrEmpty()) {
+        errorLabel.text = message
+        if (!message.isNullOrEmpty()) {
             errorLabel.measure(stepLabel.width.exactly, MeasureSpec.UNSPECIFIED)
         }
 
-        if (errorMessage.isNullOrEmpty()) {
+        if (message.isNullOrEmpty()) {
             animateHeight(baseHeight)
             errorLabel.fadeOut()
         } else {

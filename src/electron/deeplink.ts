@@ -3,6 +3,7 @@ import path from 'path';
 
 import { ElectronAction, ElectronEvent } from './types';
 
+import { validateIpcSender } from './ipcSecurity';
 import {
   focusMainWindow, IS_LINUX, IS_MAC_OS, IS_WINDOWS, mainWindow,
 } from './utils';
@@ -11,7 +12,9 @@ const TON_PROTOCOL = 'ton';
 const TONCONNECT_PROTOCOL = 'tc';
 const TONCONNECT_PROTOCOL_SELF = 'mytonwallet-tc';
 const SELF_PROTOCOL = 'mtw';
-const WALLETCONNECT_PROTOCOL = 'wc';
+const WALLETCONNECT_SCHEME = 'wc';
+const WALLETCONNECT_DEEPLINK_SCHEME = 'mywallet-wc';
+const WALLETCONNECT_DEEPLINK = 'mywallet-wc://';
 
 let deeplinkUrl: string | undefined;
 
@@ -21,16 +24,20 @@ export function initDeeplink() {
       app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL_SELF, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(SELF_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
-      app.setAsDefaultProtocolClient(WALLETCONNECT_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+      app.setAsDefaultProtocolClient(WALLETCONNECT_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
+      app.setAsDefaultProtocolClient(WALLETCONNECT_DEEPLINK_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
     }
   } else {
     app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL);
     app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL_SELF);
     app.setAsDefaultProtocolClient(SELF_PROTOCOL);
-    app.setAsDefaultProtocolClient(WALLETCONNECT_PROTOCOL);
+    app.setAsDefaultProtocolClient(WALLETCONNECT_SCHEME);
+    app.setAsDefaultProtocolClient(WALLETCONNECT_DEEPLINK_SCHEME);
   }
 
   ipcMain.handle(ElectronAction.TOGGLE_DEEPLINK_HANDLER, (event, isEnabled: boolean) => {
+    validateIpcSender(event);
+
     if (!isEnabled) {
       app.removeAsDefaultProtocolClient(TON_PROTOCOL);
       return;
@@ -100,5 +107,6 @@ function getIsDeeplink(url: string) {
     || url.startsWith(`${TONCONNECT_PROTOCOL}://`)
     || url.startsWith(`${TONCONNECT_PROTOCOL_SELF}://`)
     || url.startsWith(`${SELF_PROTOCOL}://`)
-    || url.startsWith(`${WALLETCONNECT_PROTOCOL}:`);
+    || url.startsWith(`${WALLETCONNECT_SCHEME}:`)
+    || url.startsWith(WALLETCONNECT_DEEPLINK);
 }

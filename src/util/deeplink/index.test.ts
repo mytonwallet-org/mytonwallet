@@ -293,6 +293,7 @@ describe('processSelfDeeplink', () => {
       openReceiveModal: jest.fn(),
       openTemporaryViewAccount: jest.fn(),
       switchToPortfolio: jest.fn(),
+      addSavedAddress: jest.fn(),
     };
 
     // Setup mock global state
@@ -693,6 +694,32 @@ describe('processSelfDeeplink', () => {
           comment: 'Hello',
         }),
       );
+    });
+  });
+
+  describe('In-app browser source boundary', () => {
+    it('should not start offramp transfer from in-app browser self deeplink', async () => {
+      await processDeeplink(
+        `mtw://offramp?depositWalletAddress=${TEST_TON_ADDRESS}&baseCurrencyCode=ton&baseCurrencyAmount=1`,
+        true,
+      );
+
+      expect(mockActions.addSavedAddress).not.toHaveBeenCalled();
+      expect(mockActions.startTransfer).not.toHaveBeenCalled();
+    });
+
+    it('should still process regular transfer deeplinks from in-app browser', async () => {
+      await processDeeplink(`ton://transfer/${TEST_TON_ADDRESS}?amount=1&text=${TEST_COMMENT}`, true);
+
+      expect(mockActions.startTransfer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toAddress: TEST_TON_ADDRESS,
+          tokenSlug: TONCOIN.slug,
+          amount: 1n,
+          comment: TEST_COMMENT,
+        }),
+      );
+      expect(mockActions.addSavedAddress).not.toHaveBeenCalled();
     });
   });
 

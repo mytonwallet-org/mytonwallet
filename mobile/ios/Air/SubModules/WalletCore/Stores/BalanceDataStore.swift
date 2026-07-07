@@ -279,17 +279,20 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
 
         walletTokens.removeAll(where: { prefs.isTokenHidden(slug: $0.tokenSlug, isStaking: $0.isStaking) })
 
+        var stakingSlugsToAutoPin: [String] = []
         var walletStaked: [MTokenBalance] = stakingData?.stateById.values.compactMap { stakingState in
             let fullBalance = getFullStakingBalance(state: stakingState)
-            return if fullBalance > 0 {
-                MTokenBalance(tokenSlug: stakingState.tokenSlug, balance: fullBalance, isStaking: true)
-            } else {
-                nil
+            guard fullBalance > 0 else {
+                return nil
             }
+            if getHasPositiveStakingYield(state: stakingState) {
+                stakingSlugsToAutoPin.append(stakingState.tokenSlug)
+            }
+            return MTokenBalance(tokenSlug: stakingState.tokenSlug, balance: fullBalance, isStaking: true)
         } ?? []
 
-        if !walletStaked.isEmpty {
-            assetsAndActivityDataStore.autoPinStakingIfNeeded(accountId: account.id, slugs: walletStaked.map(\.tokenSlug))
+        if !stakingSlugsToAutoPin.isEmpty {
+            assetsAndActivityDataStore.autoPinStakingIfNeeded(accountId: account.id, slugs: stakingSlugsToAutoPin)
         }
 
         for token in walletStaked {

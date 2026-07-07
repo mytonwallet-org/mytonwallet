@@ -32,6 +32,13 @@ class BleServiceStateMachine(
     internal var negotiatedMtu = -1
     private val bleReceiver = BleReceiver()
 
+    private val supportedServiceUUIDs = setOf(
+        BleManager.NANO_X_SERVICE_UUID.toUUID(),
+        BleManager.STAX_SERVICE_UUID.toUUID(),
+        BleManager.FLEX_SERVICE_UUID.toUUID(),
+        BleManager.APEX_SERVICE_UUID.toUUID(),
+    )
+
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private lateinit var timeoutJob: Job
     private lateinit var pairingCallbackFlow: BlePairingCallbackFlow
@@ -266,10 +273,7 @@ class BleServiceStateMachine(
     private fun parseServices(services: List<BluetoothGattService>): BleDeviceService? {
         var deviceService: BleDeviceService? = null
         services.forEach { service ->
-            if (service.uuid == BleManager.NANO_X_SERVICE_UUID.toUUID()
-                || service.uuid == BleManager.STAX_SERVICE_UUID.toUUID()
-                || service.uuid == BleManager.FLEX_SERVICE_UUID.toUUID()
-            ) {
+            if (service.uuid in supportedServiceUUIDs) {
                 Timber.d("Service UUID ${service.uuid}")
 
                 val bleServiceBuilder: BleDeviceService.Builder =
@@ -278,17 +282,20 @@ class BleServiceStateMachine(
                     when (characteristic.uuid) {
                         BleManager.nanoXWriteWithResponseCharacteristicUUID.toUUID(),
                         BleManager.staxWriteWithResponseCharacteristicUUID.toUUID(),
-                        BleManager.flexWriteWithResponseCharacteristicUUID.toUUID() -> {
+                        BleManager.flexWriteWithResponseCharacteristicUUID.toUUID(),
+                        BleManager.apexWriteWithResponseCharacteristicUUID.toUUID() -> {
                             bleServiceBuilder.setWriteCharacteristic(characteristic)
                         }
                         BleManager.nanoXWriteWithoutResponseCharacteristicUUID.toUUID(),
                         BleManager.staxWriteWithoutResponseCharacteristicUUID.toUUID(),
-                        BleManager.flexWriteWithoutResponseCharacteristicUUID.toUUID() -> {
+                        BleManager.flexWriteWithoutResponseCharacteristicUUID.toUUID(),
+                        BleManager.apexWriteWithoutResponseCharacteristicUUID.toUUID() -> {
                             bleServiceBuilder.setWriteNoAnswerCharacteristic(characteristic)
                         }
                         BleManager.nanoXNotifyCharacteristicUUID.toUUID(),
                         BleManager.staxNotifyCharacteristicUUID.toUUID(),
-                        BleManager.flexNotifyCharacteristicUUID.toUUID() -> {
+                        BleManager.flexNotifyCharacteristicUUID.toUUID(),
+                        BleManager.apexNotifyCharacteristicUUID.toUUID() -> {
                             bleServiceBuilder.setNotifyCharacteristic(characteristic)
                         }
                     }

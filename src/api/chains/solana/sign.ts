@@ -11,7 +11,7 @@ import {
 import nacl from 'tweetnacl';
 
 import type { DappProtocolType, UnifiedSignDataPayload } from '../../dappProtocols';
-import type { ApiAnyDisplayError, ApiSignedTransfer } from '../../types';
+import type { ApiAnyDisplayError, ApiNetwork, ApiSignedTransfer } from '../../types';
 import { ApiCommonError } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
@@ -46,6 +46,35 @@ export async function signPayload(
   return { result: getBase58Decoder().decode(signature) };
 }
 
+export function partiallySignTransaction(
+  network: ApiNetwork,
+  privateKey: string,
+  transaction: string,
+): { signedBytes: Uint8Array; signatureBytes: Uint8Array } {
+  const txBytes = getBase64Encoder().encode(transaction);
+
+  const decoder = getTransactionDecoder();
+  const decodedTransaction = decoder.decode(txBytes);
+
+  const signer = getSignerFromPrivateKey(network, privateKey);
+
+  const signatureBytes = nacl.sign.detached(new Uint8Array(decodedTransaction.messageBytes), signer.secretKey);
+
+  const signedTransaction = Object.freeze({
+    ...decodedTransaction,
+    signatures: Object.freeze({
+      ...decodedTransaction.signatures,
+      [signer.address]: signatureBytes,
+    }),
+  });
+
+  const encoder = getTransactionEncoder();
+
+  const signedBytes = encoder.encode(signedTransaction);
+
+  return { signedBytes: new Uint8Array(signedBytes), signatureBytes };
+}
+
 export async function signTransfer(
   accountId: string,
   transaction: string,
@@ -56,32 +85,18 @@ export async function signTransfer(
 
   const { network } = parseAccountId(accountId);
 
-  const txBytes = getBase64Encoder().encode(transaction);
-
-  const decoder = getTransactionDecoder();
-  const decodedTransaction = decoder.decode(txBytes);
-
   const privateKey = (await fetchPrivateKeyString(accountId, password))!;
-  const signer = getSignerFromPrivateKey(network, privateKey);
 
-  const mySignatureBytes = nacl.sign.detached(new Uint8Array(decodedTransaction.messageBytes), signer.secretKey);
-
-  const signedTransaction = Object.freeze({
-    ...decodedTransaction,
-    signatures: Object.freeze({
-      ...decodedTransaction.signatures,
-      [signer.address]: mySignatureBytes,
-    }),
-  });
-
-  const encoder = getTransactionEncoder();
-
-  const signedBytes = encoder.encode(signedTransaction);
+  const { signedBytes, signatureBytes } = partiallySignTransaction(
+    network,
+    privateKey,
+    transaction,
+  );
 
   const outputDecoder = isLegacyOutput ? getBase58Decoder() : getBase64Decoder();
 
   const serializedTransaction = outputDecoder.decode(signedBytes) as Base58EncodedBytes;
-  const serializedSignature = outputDecoder.decode(mySignatureBytes);
+  const serializedSignature = outputDecoder.decode(signatureBytes);
 
   return [{
     chain: 'solana',

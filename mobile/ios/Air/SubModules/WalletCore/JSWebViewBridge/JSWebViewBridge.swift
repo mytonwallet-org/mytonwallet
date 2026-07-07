@@ -100,7 +100,7 @@ let LOGGING_FETCH = """
 private let log = Log("JSWebViewBridge")
 private let console = Log("console")
 private var sdkIndexFileURL: URL {
-    AirBundle.url(forResource: IS_GRAM_WALLET ? "index-gramwallet" : "index", withExtension: "html")!
+    Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "JS")!
 }
 private let sdkReadAccessURL = sdkIndexFileURL.deletingLastPathComponent()
 
@@ -206,55 +206,83 @@ public class JSWebViewBridge: UIViewController {
         let argsString = String(data: jsonData, encoding: .utf8)!
         
         if self.webView == nil { // app switched to legacy mode
-            throw BridgeCallError.customMessage("Switched to legacy app", nil)
+            throw SdkError.sdkNotReady(methodName: methodName, reason: "Switched to legacy app")
         }
         if !isApiReady {
             await waitUntilBridgeIsReady()
         }
         guard self.webView != nil else {
-            throw BridgeCallError.customMessage("Switched to legacy app", nil)
+            throw SdkError.sdkNotReady(methodName: methodName, reason: "Switched to legacy app")
         }
         
         let webView = self.webView!
+        let rawResult: Any?
         do {
-            let rawResult = try await webView.callAsyncJavaScript(CALL_API, arguments: ["methodName": methodName, "argsString": argsString], contentWorld: .page)
-            if let rawResult {
-                return try (rawResult as? String).orThrow()
-            } else {
-                return nil
-            }
+            rawResult = try await webView.callAsyncJavaScript(CALL_API, arguments: ["methodName": methodName, "argsString": argsString], contentWorld: .page)
         } catch {
             try _parseError(error, methodName: methodName)
         }
+        guard let rawResult else {
+            return nil
+        }
+        guard let responseString = rawResult as? String else {
+            throw SdkError.invalidResponse(
+                methodName: methodName,
+                reason: "SDK returned unsupported response type \(type(of: rawResult))",
+                data: String(describing: rawResult)
+            )
+        }
+        return responseString
     }
     
     private func _parseError(_ error: any Error, methodName: String) throws -> Never {
         log.fault("callAsyncJavaScript callApi(\(methodName, .public)) error \(error, .public)")
+        if let error = error as? SdkError {
+            throw error
+        }
+        if error is CancellationError || Task.isCancelled {
+            throw CancellationError()
+        }
         if let error = error as? WKError {
             switch error.code {
             case .javaScriptExceptionOccurred:
-                if let m = error.errorUserInfo["WKJavaScriptExceptionMessage"] as? String, let errorMessage = try? JSONSerialization.jsonObject(withString: m) {
-                    if let message = errorMessage as? String {
-                        throw BridgeCallError(message: message, payload: error)
-                    } else if let dict = errorMessage as? [String: Any], let message = dict["message"] as? String {
-                        throw BridgeCallError(message: message, payload: errorMessage)
-                    } else {
-                        throw BridgeCallError(message: error.localizedDescription, payload: errorMessage)
+                if let message = error.errorUserInfo["WKJavaScriptExceptionMessage"] as? String {
+                    let exception = SdkJavaScriptException(methodName: methodName, exceptionMessage: message)
+                    if exception.message == "err! callApi not found!" {
+                        throw SdkError.sdkNotReady(methodName: methodName, reason: exception.message)
                     }
+                    throw SdkError.javaScriptException(exception)
                 }
             case .javaScriptResultTypeIsUnsupported:
                 log.fault("javaScriptResultTypeIsUnsupported")
-//                assertionFailure()
+                throw SdkError.invalidResponse(
+                    methodName: methodName,
+                    reason: error.localizedDescription,
+                    data: nil
+                )
             default:
                 break
             }
         }
-        throw BridgeCallError(message: error.localizedDescription, payload: error)
+        throw SdkError.unexpected(
+            message: error.localizedDescription,
+            context: String(describing: error)
+        )
     }
     
     nonisolated(nonsending) func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> sending Any? {
         if let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args)) {
-            return try JSONSerialization.jsonObject(withString: responseString)
+            do {
+                return try JSONSerialization.jsonObject(withString: responseString)
+            } catch {
+                try SdkError.tryToParseStringAsErrorAndThrow(dataString: responseString)
+                throw SdkError.decoding(SdkDecodingError(
+                    methodName: methodName,
+                    responseType: "Any",
+                    underlyingError: error,
+                    data: responseString
+                ))
+            }
         } else {
             return nil
         }
@@ -262,11 +290,23 @@ public class JSWebViewBridge: UIViewController {
     
     nonisolated(nonsending) func callApi<each E: Encodable & Sendable, T: Decodable & Sendable>(_ methodName: String, _ args: repeat each E, decoding: T.Type) async throws -> T {
         let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
+        guard let responseString else {
+            throw SdkError.invalidResponse(
+                methodName: methodName,
+                reason: "SDK returned no response for \(T.self)",
+                data: nil
+            )
+        }
         do {
-            return try JSONDecoder().decode(T.self, fromString: responseString.orThrow())
+            return try JSONDecoder().decode(T.self, fromString: responseString)
         } catch {
-            try BridgeCallError.tryToParseStringAsErrorAndThrow(dataString: responseString)
-            throw error
+            try SdkError.tryToParseStringAsErrorAndThrow(dataString: responseString)
+            throw SdkError.decoding(SdkDecodingError(
+                methodName: methodName,
+                responseType: String(describing: T.self),
+                underlyingError: error,
+                data: responseString
+            ))
         }
     }
     
@@ -276,8 +316,13 @@ public class JSWebViewBridge: UIViewController {
             do {
                 return try JSONDecoder().decode(T.self, fromString: responseString)
             } catch {
-                try BridgeCallError.tryToParseStringAsErrorAndThrow(dataString: responseString)
-                throw error
+                try SdkError.tryToParseStringAsErrorAndThrow(dataString: responseString)
+                throw SdkError.decoding(SdkDecodingError(
+                    methodName: methodName,
+                    responseType: "\(T.self)?",
+                    underlyingError: error,
+                    data: responseString
+                ))
             }
         } else {
             return nil
@@ -287,10 +332,14 @@ public class JSWebViewBridge: UIViewController {
     nonisolated(nonsending) func callApiVoid<each E: Encodable>(_ methodName: String, _ args: repeat each E, tryToParseError: Bool = true, assertIsNil: Bool = true) async throws {
         let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
         if tryToParseError, let responseString {
-            try BridgeCallError.tryToParseStringAsErrorAndThrow(dataString: responseString)
+            try SdkError.tryToParseStringAsErrorAndThrow(dataString: responseString)
         }
-        if assertIsNil {
-            assert(responseString == nil, "no return value expected")
+        if assertIsNil, let responseString {
+            throw SdkError.invalidResponse(
+                methodName: methodName,
+                reason: "SDK returned a response for a void API call",
+                data: responseString
+            )
         }
     }
     
@@ -680,6 +729,97 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         assertionFailure("dappSignData decode failed: \(error)")
                     }
 
+                case "walletConnectPayLoading":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayLoading.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayLoading(value))
+                    } catch {
+                        log.fault("walletConnectPayLoading decode failed: \(error, .public)")
+                    }
+                case "walletConnectPayCloseLoading":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayCloseLoading.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayCloseLoading(value))
+                    } catch {
+                        log.fault("walletConnectPayCloseLoading decode failed: \(error, .public)")
+                    }
+                case "walletConnectPaySignTransaction":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPaySignTransaction.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPaySignTransaction(value))
+                    } catch {
+                        log.fault("walletConnectPaySignTransaction decode failed: \(error, .public)")
+                        assertionFailure("walletConnectPaySignTransaction decode failed: \(error)")
+                    }
+                case "walletConnectPaySignTransactionComplete":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPaySignTransactionComplete.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPaySignTransactionComplete(value))
+                    } catch {
+                        log.fault("walletConnectPaySignTransactionComplete decode failed: \(error, .public)")
+                    }
+                case "walletConnectPaySignData":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPaySignData.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPaySignData(value))
+                    } catch {
+                        log.fault("walletConnectPaySignData decode failed: \(error, .public)")
+                        assertionFailure("walletConnectPaySignData decode failed: \(error)")
+                    }
+                case "walletConnectPaySignDataComplete":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPaySignDataComplete.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPaySignDataComplete(value))
+                    } catch {
+                        log.fault("walletConnectPaySignDataComplete decode failed: \(error, .public)")
+                    }
+                case "walletConnectPayDataCollection":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayDataCollection.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayDataCollection(value))
+                    } catch {
+                        log.fault("walletConnectPayDataCollection decode failed: \(error, .public)")
+                        assertionFailure("walletConnectPayDataCollection decode failed: \(error)")
+                    }
+                case "walletConnectPayDataCollectionComplete":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayDataCollectionComplete.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayDataCollectionComplete(value))
+                    } catch {
+                        log.fault("walletConnectPayDataCollectionComplete decode failed: \(error, .public)")
+                    }
+                case "walletConnectPayOptionSelection":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayOptionSelection.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayOptionSelection(value))
+                    } catch {
+                        log.fault("walletConnectPayOptionSelection decode failed: \(error, .public)")
+                        assertionFailure("walletConnectPayOptionSelection decode failed: \(error)")
+                    }
+                case "walletConnectPayOptionSelectionComplete":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayOptionSelectionComplete.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayOptionSelectionComplete(value))
+                    } catch {
+                        log.fault("walletConnectPayOptionSelectionComplete decode failed: \(error, .public)")
+                    }
+                case "walletConnectPayProcessing":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayProcessing.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayProcessing(value))
+                    } catch {
+                        log.fault("walletConnectPayProcessing decode failed: \(error, .public)")
+                        assertionFailure("walletConnectPayProcessing decode failed: \(error)")
+                    }
+                case "walletConnectPayPaymentComplete":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.WalletConnectPayPaymentComplete.self, from: data)
+                        WalletCoreData.notify(event: .walletConnectPayPaymentComplete(value))
+                    } catch {
+                        log.fault("walletConnectPayPaymentComplete decode failed: \(error, .public)")
+                        assertionFailure("walletConnectPayPaymentComplete decode failed: \(error)")
+                    }
+
                 case "dappDisconnect":
                     if let accountId = data["accountId"] as? String, let origin = data["url"] as? String {
                         WalletCoreData.notify(event: .dappDisconnect(accountId: accountId, origin: origin))
@@ -694,7 +834,12 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                     break
 
                 case "dappCloseLoading":
-                    break
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.DappCloseLoading.self, from: data)
+                        WalletCoreData.notify(event: .dappCloseLoading(update))
+                    } catch {
+                        log.error("dappCloseLoading: \(error, .public)")
+                    }
                     
                 case "updateAccountDomainData":
                     do {
@@ -706,7 +851,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
 
                 case "showError":
                     if let error = data["error"] as? String {
-                        let error = BridgeCallError(message: error, payload: nil)
+                        let error = SdkError.apiReturnedError(error: error, context: nil)
                         Task { @MainActor in
                             AppActions.showError(error: error)
                         }

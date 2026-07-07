@@ -3,16 +3,31 @@ import UIKit
 public struct ContextMenuConfiguration {
     public var rootPage: ContextMenuPage
     public var backdrop: ContextMenuBackdropStyle
+    public var backdropBlurPolicy: ContextMenuBackdropBlurPolicy
     public var style: ContextMenuStyle
 
     public init(
         rootPage: ContextMenuPage,
         backdrop: ContextMenuBackdropStyle = .defaultBlurred(),
+        backdropBlurPolicy: ContextMenuBackdropBlurPolicy = .enabled,
         style: ContextMenuStyle = .default
     ) {
         self.rootPage = rootPage
         self.backdrop = backdrop
+        self.backdropBlurPolicy = backdropBlurPolicy
         self.style = style
+    }
+
+    func resolved(for sourceView: UIView) -> ContextMenuConfiguration {
+        guard backdropBlurPolicy == .disabledInRegularWidth,
+              sourceView.contextMenuUsesRegularWidthLayout,
+              case let .blurred(_, dimAlpha) = backdrop else {
+            return self
+        }
+
+        var configuration = self
+        configuration.backdrop = .dimmed(alpha: dimAlpha)
+        return configuration
     }
 }
 
@@ -130,6 +145,26 @@ public enum ContextMenuBackdropStyle {
         dimAlpha: CGFloat = 0.14
     ) -> ContextMenuBackdropStyle {
         .blurred(style: style, dimAlpha: dimAlpha)
+    }
+}
+
+public enum ContextMenuBackdropBlurPolicy: Equatable, Sendable {
+    case enabled
+    case disabledInRegularWidth
+}
+
+private extension UIView {
+    var contextMenuUsesRegularWidthLayout: Bool {
+        switch traitCollection.horizontalSizeClass {
+        case .regular:
+            return true
+        case .compact:
+            return false
+        case .unspecified:
+            return window?.traitCollection.horizontalSizeClass == .regular
+        @unknown default:
+            return false
+        }
     }
 }
 

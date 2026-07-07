@@ -291,7 +291,7 @@ final class RootViewController: UIViewController {
 
     private func installInteractions() {
         let tapInteraction = ContextMenuInteraction(triggers: [.tap]) { [weak self] _ in
-            self?.makeConfiguration(preset: .baseline) ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+            self?.makeConfiguration(preset: .baseline)
         }
         tapInteraction.attach(to: self.tapBubble)
 
@@ -301,22 +301,22 @@ final class RootViewController: UIViewController {
                 mask: .roundedAttachmentRect(cornerRadius: 28.0, cornerCurve: .continuous)
             )
         ) { [weak self] _ in
-            self?.makeConfiguration(preset: .portal) ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+            self?.makeConfiguration(preset: .portal)
         }
         portalInteraction.attach(to: self.portalBubble)
 
         let holdInteraction = ContextMenuInteraction(triggers: [.longPress]) { [weak self] _ in
-            self?.makeConfiguration(preset: .longPress) ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+            self?.makeConfiguration(preset: .longPress)
         }
         holdInteraction.attach(to: self.holdBubble)
 
         let scrollingInteraction = ContextMenuInteraction(triggers: [.tap, .longPress]) { [weak self] _ in
-            self?.makeConfiguration(preset: .scrolling) ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+            self?.makeConfiguration(preset: .scrolling)
         }
         scrollingInteraction.attach(to: self.scrollingBubble)
 
         let customRowsInteraction = ContextMenuInteraction(triggers: [.tap, .longPress]) { [weak self] _ in
-            self?.makeConfiguration(preset: .customRows) ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+            self?.makeConfiguration(preset: .customRows)
         }
         customRowsInteraction.attach(to: self.customRowsBubble)
 
@@ -326,10 +326,10 @@ final class RootViewController: UIViewController {
     private func makeSwiftUIDemoContainer() -> UIView {
         let rootView = SwiftUIContextMenuDemoView(
             portalConfiguration: { [weak self] in
-                self?.makeSwiftUIConfiguration(title: "SwiftUI portal source") ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+                self?.makeSwiftUIConfiguration(title: "SwiftUI portal source")
             },
             plainConfiguration: { [weak self] in
-                self?.makeSwiftUIConfiguration(title: "SwiftUI plain source") ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+                self?.makeSwiftUIConfiguration(title: "SwiftUI plain source")
             },
             portalSourceViewProvider: { [weak self] in
                 self?.swiftUIDemoContainerView

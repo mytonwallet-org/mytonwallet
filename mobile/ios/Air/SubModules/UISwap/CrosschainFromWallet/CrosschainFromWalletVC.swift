@@ -15,12 +15,14 @@ final class CrosschainFromWalletVC: WViewController {
     init(
         sellingToken: TokenAmount,
         buyingToken: TokenAmount,
+        cexLabel: ApiSwapCexLabel?,
         accountContext: AccountContext,
         onContinue: @escaping (String, UIViewController) -> Void
     ) {
         self.model = CrosschainFromWalletModel(
             sellingToken: sellingToken,
             buyingToken: buyingToken,
+            cexLabel: cexLabel,
             accountContext: accountContext
         )
         self.onContinue = onContinue

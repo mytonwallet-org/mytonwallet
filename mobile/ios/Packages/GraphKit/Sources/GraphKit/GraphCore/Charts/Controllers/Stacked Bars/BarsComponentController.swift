@@ -50,6 +50,11 @@ class BarsComponentController: GeneralChartComponentController {
 
         super.init(isZoomed: isZoomed)
     }
+
+    func setHidesVerticalAxisLabels(_ hidesVerticalAxisLabels: Bool) {
+        verticalScalesRenderer.drawLabels = !hidesVerticalAxisLabels
+        secondaryScalesRenderer?.drawLabels = !hidesVerticalAxisLabels
+    }
     
     override func initialize(chartsCollection: ChartsCollection, initialDate: Date, totalHorizontalRange _: ClosedRange<CGFloat>, totalVerticalRange _: ClosedRange<CGFloat>) {
         let (width, chartBars, totalHorizontalRange, totalVerticalRange) = BarChartRenderer.BarsData.initialComponents(chartsCollection: chartsCollection, separate: self.step)

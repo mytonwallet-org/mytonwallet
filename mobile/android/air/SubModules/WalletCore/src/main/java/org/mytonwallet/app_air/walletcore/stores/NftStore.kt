@@ -31,6 +31,16 @@ object NftStore : IStore {
     // Drained on the round's final batch (`streamedAddresses != null` on `setNfts`).
     private val pendingNewMtwCardsByAccount = ConcurrentHashMap<String, MutableList<ApiNft>>()
 
+    private val mintingAccountIds = ConcurrentHashMap.newKeySet<String>()
+
+    fun isCardMinting(accountId: String): Boolean = mintingAccountIds.contains(accountId)
+
+    fun setCardMinting(accountId: String, isMinting: Boolean) {
+        val changed = if (isMinting) mintingAccountIds.add(accountId)
+        else mintingAccountIds.remove(accountId)
+        if (changed) WalletCore.notifyEvent(WalletEvent.CardMintingStateChanged(accountId))
+    }
+
     fun interface PaletteExtractor {
         fun extract(nft: ApiNft, onResult: (Int?) -> Unit)
     }
@@ -453,6 +463,7 @@ object NftStore : IStore {
 
     fun removeAccount(accountId: String) {
         pendingNewMtwCardsByAccount.remove(accountId)
+        mintingAccountIds.remove(accountId)
         synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.remove(accountId) }
     }
 
@@ -487,6 +498,7 @@ object NftStore : IStore {
         cachedHasHiddenNfts.clear()
         ignoredExpiringAddressesByAccount.clear()
         pendingNewMtwCardsByAccount.clear()
+        mintingAccountIds.clear()
         checkOwnershipHandler.removeCallbacks(checkOwnershipRunnable)
         synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.clear() }
         paletteExtractor = null

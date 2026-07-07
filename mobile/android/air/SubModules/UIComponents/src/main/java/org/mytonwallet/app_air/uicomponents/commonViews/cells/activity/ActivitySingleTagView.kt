@@ -13,9 +13,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
@@ -53,7 +55,7 @@ class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedVi
 
     fun configure(nft: ApiNft) {
         imageView.setNftImage(nft.image)
-        titleLabel.text = nft.name
+        titleLabel.text = nft.name?.takeIfNotBlank() ?: LocaleController.getString("NFT")
         subtitleLabel.text = nft.collectionName
     }
 

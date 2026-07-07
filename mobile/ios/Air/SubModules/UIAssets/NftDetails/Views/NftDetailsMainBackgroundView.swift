@@ -21,7 +21,7 @@ struct NftDetailsBackground {
         private var deviceScale: CGFloat { max(window?.screen.scale ?? traitCollection.displayScale, 1) }
         private let colorSpace = CGColorSpaceCreateDeviceRGB()
         private var lastLayoutSizeForPrepare: CGSize = .init(width: -1, height: -1)
-        private var fallbackColor: UIColor
+        private let colorResolver: NftDetailsColorResolver
         private var isTransitionFpsCapActive = false
         private var isLowResDrawableActive = false
 
@@ -32,8 +32,8 @@ struct NftDetailsBackground {
         }
         private var preparedRender = PreparedRender()
 
-        init() {
-            fallbackColor = NftDetailsContentPalette.defaultBackgroundColor
+        init(colorResolver: NftDetailsColorResolver) {
+            self.colorResolver = colorResolver
             super.init(frame: .zero)
             setup()
         }
@@ -47,8 +47,6 @@ struct NftDetailsBackground {
                 assertionFailure()
                 return
             }
-            
-            updateFallbackColor()
             
             commandQueue = device.makeCommandQueue()
             ciContext = CIContext(mtlDevice: device, options: [
@@ -117,7 +115,6 @@ struct NftDetailsBackground {
             let size = bounds.size
             guard size.width > 0, size.height > 0 else { return }
 
-            // For now it always has the best resolution. Tune when needed
             let k = isLowRes ? 0.2 : 1.0
             isLowResDrawableActive = isLowRes
             let newSize = CGSize(width: size.width * deviceScale * k, height: size.height * deviceScale * k)
@@ -152,21 +149,8 @@ struct NftDetailsBackground {
             metalView?.isPaused = (window == nil)
         }
         
-        private func updateFallbackColor() {
-            fallbackColor = NftDetailsContentPalette.defaultBackgroundColor.resolvedColor(with: traitCollection)
-        }
-        
-        override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-            super.traitCollectionDidChange(previousTraitCollection)
-            
-            if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-                updateFallbackColor()
-                render()
-            }
-        }
-        
         private func solidColorImage(extent: CGRect, color: UIColor?) -> CIImage {
-            let uiColor = color ?? fallbackColor
+            let uiColor = color ?? colorResolver.fallbackColor
             return CIImage(color: CIColor(cgColor: uiColor.cgColor)).cropped(to: extent)
         }
                 
@@ -222,7 +206,7 @@ struct NftDetailsBackground {
                     let filter = CIFilter.swipeTransition()
                     filter.targetImage = rightSideImage
                     filter.inputImage = leftSideImage
-                    filter.angle = -.pi
+                    filter.angle = effectiveUserInterfaceLayoutDirection == .rightToLeft ? 0 : -.pi
                     filter.time = Float(progress)
                     filter.width = Float(extent.width * 3)
                     filter.opacity = 0
@@ -307,5 +291,35 @@ struct NftDetailsBackground {
         
         var description: String { "<\(pageState), expanded: \(isExpanded), showPreview: \(shouldShowPreview)>" }
         var preferLowResolutionRender: Bool { !shouldShowPreview }
+    }
+}
+
+extension NftDetailsPageTransitionState where Page == NftDetailsBackground.PageModel {
+    func edgeColor(fallback: UIColor) -> UIColor {
+        switch self {
+        case .staticPage(let page):
+            return page.backgroundColor ?? fallback
+        case .transition(let left, let right, let progress):
+            return (left.backgroundColor ?? fallback)
+                .blend(with: right.backgroundColor ?? fallback, fraction: progress)
+        }
+    }
+}
+
+private extension UIColor {
+    func blend(with other: UIColor, fraction: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        guard getRed(&r1, green: &g1, blue: &b1, alpha: &a1),
+              other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2) else {
+            return fraction < 0.5 ? self : other
+        }
+        let t = max(0, min(1, fraction))
+        return UIColor(
+            red: r1 + (r2 - r1) * t,
+            green: g1 + (g2 - g1) * t,
+            blue: b1 + (b2 - b1) * t,
+            alpha: a1 + (a2 - a1) * t
+        )
     }
 }

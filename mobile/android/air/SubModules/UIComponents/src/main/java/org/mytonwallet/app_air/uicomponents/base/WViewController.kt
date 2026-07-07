@@ -179,7 +179,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         isKeyboardOpen = (window?.imeInsets?.bottom ?: 0) > 0
         updateBlurPaddings()
         navigationBar?.insetsUpdated()
-        activeDialog?.insetsUpdated()
+        activeDialogs.forEach { it.insetsUpdated() }
         if (isInCenteredWindow && !centeredWindowCloseButtonAdded) {
             if (navigationBar?.addCloseButton() == true)
                 centeredWindowCloseButtonAdded = true
@@ -431,17 +431,26 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         navigationController?.pop()
     }
 
-    var activeDialog: WDialog? = null
-        private set
+    private val _activeDialogs = mutableListOf<WDialog>()
+    val activeDialogs: List<WDialog> get() = _activeDialogs
+    val topActiveDialog: WDialog? get() = _activeDialogs.lastOrNull()
 
-    fun setActiveDialog(dialog: WDialog?) {
-        activeDialog = dialog
+    fun addActiveDialog(dialog: WDialog) {
+        _activeDialogs.add(dialog)
+    }
+
+    fun removeActiveDialog(dialog: WDialog) {
+        _activeDialogs.remove(dialog)
+    }
+
+    fun dismissActiveDialogs() {
+        _activeDialogs.toList().forEach { it.dismiss() }
     }
 
     // Return FALSE if consumed the back event.
     open fun onBackPressed(): Boolean {
-        if (activeDialog != null) {
-            activeDialog?.dismiss()
+        topActiveDialog?.let {
+            it.dismiss()
             return false
         }
         return true
@@ -478,6 +487,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             addTopCornerRadius()
         if (shouldDisplayBottomBar && !isInCenteredWindow)
             addBottomCornerRadius()
+        updateBlurPaddings()
     }
 
     open fun viewWillAppear() {
@@ -533,6 +543,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     open fun onDestroy() {
         isDestroyed = true
         frameMonitor?.stopMonitoring()
+        dismissActiveDialogs()
         view.removeAllViews()
     }
     //////////////////////////////////////////////////
@@ -683,6 +694,9 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     private var overrideShowTopBlurView: Boolean? = null
     var topReversedCornerView: ReversedCornerView? = null
         private set
+
+    open val topBlurView: View?
+        get() = topReversedCornerView ?: navigationBar
 
     private fun addTopCornerRadius() {
         topReversedCornerView = ReversedCornerView(

@@ -57,7 +57,10 @@ class SwapSendAddressOutputVC(
     toAmount: BigInteger?,
     payinAddress: String,
     transactionId: String,
-    cexLabel: String? = null
+    cexLabel: String? = null,
+    providerName: String? = null,
+    supportUrl: String? = null,
+    supportEmail: String? = null
 ) : WViewControllerWithModelStore(context) {
     override val TAG = "SwapSendAddressOutput"
 
@@ -186,31 +189,40 @@ class SwapSendAddressOutputVC(
 
         val hint =
             LocaleController.getString("Please note that it may take up to a few hours for tokens to appear in your wallet.")
-        val supportText = LocaleController.getSpannableStringWithKeyValues(
-            "\$swap_changelly_support", listOf(
-                Pair(
-                    "%livechat%",
-                    SpanHelpers.buildSpannable(
-                        LocaleController.getString("Changelly Live Chat"),
-                        InAppBrowserUrlSpan("https://support.changelly.com/support/home", null)
-                    )
-                ),
-                Pair(
-                    "%email%",
-                    SpanHelpers.buildSpannable(
-                        "support@changelly.org",
-                        URLSpan("mailto:support@changelly.org")
-                    )
-                )
-            )
-        ).toProcessedSpannableStringBuilder()
-
         text = SpannableStringBuilder()
             .append(hint)
             .apply {
-                if (cexLabel == null || cexLabel == "changelly") {
+                if (providerName != null && (supportUrl != null || supportEmail != null)) {
+                    val supportLabel = LocaleController.getString("\$swap_cex_provider_support")
+                        .replace("%provider%", providerName)
                     append("\n\n")
-                    append(supportText)
+                    append(
+                        LocaleController.getSpannableStringWithKeyValues(
+                            "\$swap_cex_support",
+                            listOf(
+                                Pair(
+                                    "%support%",
+                                    supportUrl?.let {
+                                        SpanHelpers.buildSpannable(
+                                            supportLabel,
+                                            InAppBrowserUrlSpan(it, null)
+                                        )
+                                    } ?: supportLabel
+                                )
+                            )
+                        ).toProcessedSpannableStringBuilder()
+                    )
+                    supportEmail?.let {
+                        append("\n")
+                        append(LocaleController.getString("Email"))
+                        append("\n")
+                        append(
+                            SpanHelpers.buildSpannable(
+                                it,
+                                URLSpan("mailto:$it")
+                            )
+                        )
+                    }
                 }
             }
         maxWidth = (332 + 20 + 20).dp

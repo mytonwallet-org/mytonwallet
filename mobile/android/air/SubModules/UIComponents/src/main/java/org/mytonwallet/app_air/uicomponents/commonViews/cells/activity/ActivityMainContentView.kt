@@ -61,7 +61,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     }
 
     private val topLeftLabel = WLabel(context).apply {
-        setStyle(adaptiveFontSize(), WFont.DemiBold)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         setTextColor(WColor.PrimaryText)

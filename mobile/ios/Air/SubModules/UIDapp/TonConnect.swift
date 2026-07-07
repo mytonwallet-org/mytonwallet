@@ -81,6 +81,8 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         switch event {
         case .dappLoading(let update):
             await handleLoading(update: update)
+        case .dappCloseLoading(let update):
+            await handleCloseLoading(update: update)
         case .dappConnect(let update):
             await handleConnect(update: update)
         case .dappSendTransactions(let update):
@@ -135,6 +137,36 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         let nc = WNavigationController(rootViewController: vc)
         self.placeholderNc = nc
         presentAndRecord(nc)
+    }
+
+    @MainActor func handleCloseLoading(update: ApiUpdate.DappCloseLoading) async {
+        guard let nc = placeholderNc,
+              isPlaceholder(nc.visibleViewController, for: update.connectionType) else {
+            return
+        }
+        placeholderNc = nil
+        if lastPresented === nc {
+            lastPresented = nil
+        }
+        await withCheckedContinuation { continuation in
+            nc.dismiss(animated: true) {
+                continuation.resume()
+            }
+        }
+    }
+
+    @MainActor private func isPlaceholder(_ vc: UIViewController?, for connectionType: ApiDappConnectionType) -> Bool {
+        switch connectionType {
+        case .connect:
+            guard let vc = vc as? ConnectDappVC else { return false }
+            return vc.viewModel.update == nil
+        case .sendTransaction:
+            guard let vc = vc as? SendDappVC else { return false }
+            return vc.request == nil
+        case .signData:
+            guard let vc = vc as? SignDataVC else { return false }
+            return vc.update == nil
+        }
     }
 
     @MainActor func handleAlreadyConnected(update: ApiUpdate.DappAlreadyConnected) async {
@@ -205,10 +237,10 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         if account.getChainInfo(chain: .ton)?.mfa != nil {
             let result = try await Api.createDappConnectMfaRequest(accountId: accountId, password: passcode)
             if let error = result.error {
-                throw BridgeCallError(message: error, payload: result)
+                throw SdkError.apiReturnedError(error: error, context: result)
             }
             guard let mfaRequestHash = result.mfaRequestHash else {
-                throw BridgeCallError.unknown(baseError: result)
+                throw SdkError.unexpected(message: "Missing dapp connect MFA request hash", context: result)
             }
             return DappConnectSubmitResult(
                 promiseId: request.promiseId,
@@ -289,12 +321,17 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         Api.recordTonConnectEvent(eventName: "wallet-transaction-accepted", promiseId: request.promiseId)
         let account = AccountStore.get(accountId: request.accountId)
         let chain = request.operationChain
-        let address = account.getAddress(chain: chain) ?? ""
+        guard let address = account.getAddress(chain: chain) else {
+            throw DisplayError(text: lang("No matching chains"))
+        }
+        guard request.transactions.allSatisfy({ $0.chain == nil || $0.chain == chain }) else {
+            throw DisplayError(text: lang("Unexpected error"))
+        }
         let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
         let result = try await Api.signDappTransfersProtected(
             dappChain: dappChain,
             accountId: request.accountId,
-            messages: request.transactions.map(ApiTransferToSign.init),
+            messages: request.transactions.map { ApiTransferToSign($0, chain: chain) },
             options: .init(
                 password: password,
                 vestingAddress: request.vestingAddress,
@@ -355,7 +392,9 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         Api.recordTonConnectEvent(eventName: "wallet-sign-data-accepted", promiseId: update.promiseId)
         let account = AccountStore.get(accountId: update.accountId)
         let chain = update.operationChain
-        let address = account.getAddress(chain: chain) ?? ""
+        guard let address = account.getAddress(chain: chain) else {
+            throw DisplayError(text: lang("No matching chains"))
+        }
         let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
         let result = try await Api.signDappData(
             dappChain: dappChain,

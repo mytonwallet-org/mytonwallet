@@ -176,7 +176,7 @@ open class NftHeaderView(
     }
 
     val titleLabel = WLabel(context).apply {
-        setStyle(26f, WFont.SemiBold)
+        setStyle(26f, WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
         setSingleLine(true)

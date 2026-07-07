@@ -33,6 +33,7 @@ import {
   IS_IOS,
 } from '../../util/windowEnvironment';
 
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import useEffectOnce from '../../hooks/useEffectOnce';
 import useFlag from '../../hooks/useFlag';
 import useKeyboardListNavigation from '../../hooks/useKeyboardListNavigation';
@@ -88,6 +89,7 @@ const SHORT_ADDRESS_SHIFT = 4;
 const SHORT_SINGLE_ADDRESS_SHIFT = 11;
 const MIN_ADDRESS_LENGTH_TO_SHORTEN = SHORT_SINGLE_ADDRESS_SHIFT * 2;
 const SAVED_ADDRESS_OPEN_DELAY = 300;
+const SEARCH_DEBOUNCE_MS = 200;
 
 function AddressInput({
   ref,
@@ -135,6 +137,8 @@ function AddressInput({
   const isQrScannerSupported = useQrScannerSupport();
   const inputId = useUniqueId('address-');
 
+  const searchValue = useDebouncedValue(value, SEARCH_DEBOUNCE_MS);
+
   const addressBookAccountIds = useMemo(() => {
     if (!accounts) return [];
 
@@ -166,7 +170,7 @@ function AddressInput({
     supportedChains,
     otherAccountIds: addressBookAccountIds,
     currentChain: addressBookChain,
-    searchValue: value,
+    searchValue,
     orderedAccountIds,
   });
 

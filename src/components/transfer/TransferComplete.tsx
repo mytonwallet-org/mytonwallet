@@ -75,7 +75,7 @@ function TransferComplete({
 
   return (
     <>
-      <ModalHeader title={lang(isNftTransfer ? 'NFT has been sent!' : 'Coins have been sent!')} onClose={onClose} />
+      <ModalHeader title={lang('Sent!')} onClose={onClose} />
 
       <div className={modalStyles.transitionContent}>
         {isNftTransfer ? (

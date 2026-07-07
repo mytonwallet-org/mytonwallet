@@ -8,6 +8,20 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import java.lang.ref.WeakReference
 
+enum class DeeplinkOpenSource {
+    OS_EXTERNAL,
+    IN_APP_BROWSER,
+    INTERNAL_UI,
+    QR_SCAN,
+    AGENT;
+
+    val requiresFreshAuth: Boolean
+        get() = this != INTERNAL_UI
+
+    val canRouteOfframp: Boolean
+        get() = this == OS_EXTERNAL || this == INTERNAL_UI || this == AGENT
+}
+
 interface WalletContextManagerDelegate {
     fun restartApp()
     fun getAddAccountVC(network: MBlockchainNetwork): Any
@@ -28,7 +42,10 @@ interface WalletContextManagerDelegate {
     fun protectedModeChanged()
     fun lockScreen()
     fun isAppUnlocked(): Boolean
-    fun handleDeeplink(deeplink: String): Boolean
+    fun handleDeeplink(
+        deeplink: String,
+        source: DeeplinkOpenSource = DeeplinkOpenSource.OS_EXTERNAL
+    ): Boolean
     fun openASingleWallet(
         network: MBlockchainNetwork,
         addressByChainString: Map<String, String>,
@@ -37,7 +54,9 @@ interface WalletContextManagerDelegate {
 
     fun walletIsReady()
     fun isWalletReady(): Boolean
+    fun showError(error: String?)
     fun switchToLegacy()
+    fun recreateBridge()
 
     fun bindQrCodeButton(
         context: Context,

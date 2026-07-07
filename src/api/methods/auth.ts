@@ -308,6 +308,8 @@ export async function getLedgerWallets(
   startWalletIndex: number,
   count: number,
 ): Promise<ApiLedgerWalletInfo[] | { error: ApiAnyDisplayError }> {
+  if (process.env.NO_LEDGER === '1') throw new Error('Ledger is disabled');
+
   const { getLedgerDeviceInfo } = await import('../common/ledger');
   const { driver, deviceId, deviceName } = await getLedgerDeviceInfo();
 

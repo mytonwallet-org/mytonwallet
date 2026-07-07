@@ -33,7 +33,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
-class WNavigationController(
+open class WNavigationController(
     val window: WWindow,
     val presentationConfig: PresentationConfig = PresentationConfig()
 ) : CoordinatorLayout(window), WThemedView {
@@ -71,7 +71,10 @@ class WNavigationController(
             val windowHeight = window.windowView.height
             return windowHeight in 1..<WWindow.CENTERED_WINDOW_MIN_HEIGHT_DP.dp
         }
-    val isCenteredWindow: Boolean
+
+    open val centeredWindowWidth: Int? = null
+
+    open val isCenteredWindow: Boolean
         get() {
             if (!isWideLayout)
                 return false
@@ -239,6 +242,7 @@ class WNavigationController(
         val windowHeight = window.windowView.height.takeIf { it > 0 } ?: return
         updateLayoutParams { height = newNavHeight }
         this.y = (windowHeight - newNavHeight).toFloat()
+        topVC.view.requestLayout()
     }
 
     // Re-establish the resting bottom-sheet layout + behaviour. Used when a centered window becomes a

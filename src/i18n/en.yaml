@@ -203,7 +203,6 @@ Receiving Address: Receiving Address
 Fee: Fee
 Edit: Edit
 Confirm: Confirm
-Coins have been sent!: Coins have been sent!
 Data Signed!: Data Signed!
 Details: Details
 View details: View details
@@ -360,6 +359,7 @@ Driver: Driver
 Unlock it and open the %chain% App: Unlock it and open the %chain% App
 Maybe you need to check the password or change the driver.: Maybe you need to check the password or change the driver.
 Confirm via Ledger: Confirm via Ledger
+$ledger_confirm_progress: "Confirm %1$d of %2$d"
 Declined: Declined
 Switch to the newly opened tab to connect Ledger.: Switch to the newly opened tab to connect Ledger.
 Once connected, switch back to this window to proceed.: Once connected, switch back to this window to proceed.
@@ -377,6 +377,7 @@ Encrypted Message: Encrypted Message
 Message is encrypted: Message is encrypted
 Agree: Agree
 $swap_action: Swap
+$swap_activity_title: Swap
 Swap: Swap
 You sell: You sell
 You buy: You buy
@@ -434,22 +435,26 @@ On Hold: On Hold
 Expired: Expired
 In Progress: In Progress
 Waiting for Payment: Waiting for Payment
+Processing Payment: Processing Payment
+It may take a few seconds: It may take a few seconds
 Blockchain: Blockchain
 Your address on another blockchain: Your address on another blockchain
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.
 The time for sending coins is over.: The time for sending coins is over.
 You have not sent the coins to the specified address.: You have not sent the coins to the specified address.
-$swap_changelly_to_wallet_description1: Send %value% to this address in %blockchain% blockchain within %time%
+$swap_cex_to_wallet_description: Send %value% to this address in %blockchain% blockchain within %time%
 Exchange failed and coins were refunded to your wallet.: Exchange failed and coins were refunded to your wallet.
-$swap_changelly_kyc_security: "Please contact **%email%** and provide **Transaction ID** to pass the KYC procedure:"
 Swap Expired: Swap Expired
 Address for %blockchain% transfer: Address for %blockchain% transfer
-Cross-chain exchange provided by Changelly: Cross-chain exchange provided by Changelly
-$swap_changelly_terms_of_use: terms of use
-$swap_changelly_privacy_policy: privacy policy
+Cross-chain exchange provided by %provider%: Cross-chain exchange provided by %provider%
+$swap_cex_terms_of_use: terms of use
+$swap_cex_privacy_policy: privacy policy
+$swap_cex_aml_kyc_policy: AML/KYC
+$swap_cex_legal_message: "By continuing, you agree to the %terms% and %policy%."
+$swap_cex_legal_message_with_aml: By continuing, you agree to the %terms% and %policy% and understand that the transfer may trigger verification according to %aml%.
 Password must contain %length% digits.: Password must contain %length% digits.
 Deposit Link: Deposit Link
-$swap_changelly_from_wallet_description: "Tokens will be sent to your address in %blockchain% blockchain soon:"
+$swap_cex_from_wallet_description: "Tokens will be sent to your address in %blockchain% blockchain soon:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Please note that it may take up to a few hours for tokens to appear in your wallet.
 Minimum amount: Minimum %value%
 Maximum amount: Maximum %value%
@@ -480,6 +485,28 @@ Biometrics Enabled: Biometrics Enabled
 A request is already pending: A request is already pending
 Please confirm action using biometrics: Please confirm action using biometrics
 Scan QR Code: Scan QR Code
+Open the QR scanner.: Open the QR scanner.
+"Open scanner in ${applicationName}": Open scanner in ${applicationName}
+"Scan a code with ${applicationName}": Scan a code with ${applicationName}
+Scan QR: Scan QR
+"Scan QR with ${applicationName}": Scan QR with ${applicationName}
+Account: Account
+Accounts: Accounts
+Networks: Networks
+Receive Funds: Receive Funds
+Open the receive screen.: Open the receive screen.
+"Receive with ${applicationName}": Receive with ${applicationName}
+"Add crypto with ${applicationName}": Add crypto with ${applicationName}
+"Open receive in ${applicationName}": Open receive in ${applicationName}
+Send Token: Send Token
+Open Token: Open Token
+"Open ${target} in ${applicationName}": Open ${target} in ${applicationName}
+"Show ${target} in ${applicationName}": Show ${target} in ${applicationName}
+Open the token screen.: Open the token screen.
+Open the send screen.: Open the send screen.
+"Send token with ${applicationName}": Send token with ${applicationName}
+"Send crypto with ${applicationName}": Send crypto with ${applicationName}
+"Open send in ${applicationName}": Open send in ${applicationName}
 Permission denied. Please grant camera permission to use the QR code scanner.: Permission denied. Please grant camera permission to use the QR code scanner.
 This QR Code is not supported: This QR Code is not supported
 An error on the server side. Please try again.: An error on the server side. Please try again.
@@ -490,6 +517,7 @@ Russian Ruble: Russian Ruble
 Chinese Yuan: Chinese Yuan
 Bitcoin: Bitcoin
 $max_balance: "Max: %balance%"
+$available_balance: "Available: %balance%"
 $unstake_information_instantly: You will get your deposit instantly
 Select Token: Select Token
 MY: My
@@ -558,6 +586,7 @@ $wallet_switch_version_2: switch to another wallet version
 or import from: or import from
 Insufficient fee: Insufficient fee
 $insufficient_fee: "Insufficient fee: %fee%"
+$dapp_insufficient_network_fee_warning: Insufficient %token% to cover network fee
 Required: Required
 Comment is too long.: Comment is too long.
 Memo: Memo
@@ -593,7 +622,11 @@ Insufficient %token% for fee.%fee%: Insufficient %token% for fee.%fee%
 Send NFT: Send NFT
 Send Collectible: Send Collectible
 Send Collectibles: Send Collectibles
-NFT has been sent!: NFT has been sent!
+$nfts_burned:
+  zeroValue: "%1$d NFTs have been burned!"
+  oneValue: "%1$d NFT has been burned!"
+  otherValue: "%1$d NFTs have been burned!"
+No NFT selected: No NFT selected
 Cannot be sent: Cannot be sent
 NFT is for sale: NFT is for sale
 More actions: More actions
@@ -637,8 +670,11 @@ Select All: Select All
 Collection: Collection
 Unnamed Collection: Unnamed Collection
 Transaction ID Copied: Transaction ID Copied
-$swap_changelly_support: "If there are any problems, please contact %livechat% or %email% and provide **Transaction ID**:"
-Changelly Live Chat: Changelly Live Chat
+External Exchange ID Copied: External Exchange ID Copied
+$swap_cex_support: "If something went wrong, contact %support% and provide this **external exchange ID**:"
+$swap_cex_hold_support: "Please contact %support% and provide this **external exchange ID** to pass provider review:"
+$swap_cex_provider_support: "%provider% support"
+Email: Email
 Your %blockchain% Address: Your %blockchain% Address
 My %blockchain% Address: My %blockchain% Address
 "%blockchain% Address": "%blockchain% Address"
@@ -694,6 +730,8 @@ Open in Browser: Open in Browser
 CopyURL: Copy URL
 Share: Share
 Unhide NFT: Unhide NFT
+The NFT has been hidden: The NFT has been hidden
+The NFT is no longer hidden: The NFT is no longer hidden
 $unhide_nft_warning: Are you sure you want to unhide %name%? This NFT looks suspicious and may not match its name and description.
 Hide NFTs: Hide NFTs
 Are you sure you want to hide this NFT collection containing %number% NFTs?: Are you sure you want to hide this NFT collection containing %number% NFTs?
@@ -709,6 +747,7 @@ Not Scam: Not Scam
 Untitled: Untitled
 Multichain: Multichain
 $swap_too_small_amount: Too small amount
+$swap_slippage_violation: Swap emulation failed due to slippage violation. Please try again.
 Not enough %symbol%: Not enough %symbol%
 Enter Secret Words: Enter Secret Words
 Turn this off so you can manually download updates and verify signatures.: Turn this off so you can manually download updates and verify signatures.
@@ -769,6 +808,8 @@ No Data: No Data
 Toggle fullscreen: Toggle fullscreen
 Request is sent!: Request is sent!
 Transaction ID: Transaction ID
+Outgoing Transaction ID: Outgoing Transaction ID
+Incoming Transaction ID: Incoming Transaction ID
 Help Center: Help Center
 "%app_name% Tips": "%app_name% Tips"
 Open %nft_marketplace%: Open %nft_marketplace%
@@ -898,7 +939,11 @@ Some domains are about to expire: Some domains are about to expire
 $domain_expire: "**%domain%** expires %days%"
 "%token% Staking": "%token% Staking"
 Add Tab: Add Tab
+Customize Tabs: Customize Tabs
 Remove Tab: Remove Tab
+Reset: Reset
+Tabs: Tabs
+Tap or drag to add tabs.: Tap or drag to add tabs.
 $iab_tabs_count:
   zeroValue: "%1$d tabs"
   oneValue: "%1$d tab"
@@ -991,6 +1036,7 @@ $try_new_air_version: Try the native app experience — lighter, faster, and bui
 $accept_terms_with_link: I agree to %link%
 use the wallet responsibly: use the wallet responsibly
 "%app_name% Resources": "%app_name% Resources"
+"Resources": Resources
 Watch Video about Features: Watch Video About Features
 Enjoy Monthly Updates in Blog: Enjoy Monthly Updates in Blog
 Learn New Things in Help Center: Learn New Things in Help Center
@@ -1040,6 +1086,7 @@ Reorder: Reorder
 Reorder Tabs: Reorder Tabs
 Rename: Rename
 Customize: Customize
+Manage Wallets: Manage Wallets
 i18n_dragToSort: Drag to sort
 My: My
 All: All
@@ -1084,6 +1131,9 @@ $connect_dapp_title: Connect to %name%?
 Choose Wallet: Choose Wallet
 Wallet to use on %host%: Wallet to use on %host%
 Selected Wallet: Selected Wallet
+Wallet to use for payment: Wallet to use for payment
+$wallet_connect_pay_no_options: No payment options available for this wallet.
+$wallet_connect_pay_try_another_wallet: Try selecting another wallet.
 Connect Wallet: Connect Wallet
 Connect Anyway: Connect Anyway
 Insufficient Fee: Insufficient Fee
@@ -1109,6 +1159,22 @@ Open: Open
 Open in %app_name%: Open in %app_name%
 Blog: Blog
 Apps: Apps
+Permissions: Permissions
+Token approvals and wallet permissions: Token approvals and wallet permissions
+Approvals & Delegations: Approvals & Delegations
+Plugins: Plugins
+No Permissions: No Permissions
+Unlimited: Unlimited
+Approved to %name%: Approved to %name%
+Wallet Delegation: Wallet Delegation
+Wallet Delegation to %name%: Wallet Delegation to %name%
+Revoke Delegation: Revoke Delegation
+Are you sure you want to revoke delegation for %name%?: Are you sure you want to revoke delegation for %name%?
+Revoke: Revoke
+Revoke Approval: Revoke Approval
+Are you sure you want to revoke approval for %token%?: Are you sure you want to revoke approval for %token%?
+Confirm Revoking: Confirm Revoking
+Unknown Plugin: Unknown Plugin
 $nft_not_found: NFT not found
 You will be able to save it again via Transfer Info with this address.: You will be able to save it again via Transfer Info with this address.
 Transfer Info: Transfer Info
@@ -1119,7 +1185,6 @@ Transfer Sent!: Transfer Sent!
 Please confirm transfer on your Ledger: Please confirm transfer on your Ledger
 Please confirm action on your Ledger: Please confirm action on your Ledger
 Not all transfers were sent successfully: Not all transfers were sent successfully
-$swap_changelly_agreement_message: By continuing, you agree to the %terms% and %policy% and understand that the transfer may trigger verification according to %kyc%.
 Please confirm transfer using biometrics: Please confirm transfer using biometrics
 $transfer_inactive_contract_error: |
   You entered an address in the "EQ..." format, but the address is not active, so the transfer will not be completed.
@@ -1168,6 +1233,7 @@ Enabling biometric confirmation will reset the passcode.: Enabling biometric con
 Confirm action with your passcode: Confirm action with your passcode
 No Image: No Image
 Different blockchain. Cannot be selected: Different blockchain. Cannot be selected
+$address_suggestion_no_chain: No %chain%
 Subwallets: Subwallets
 Other addresses for this wallet: Other addresses for this wallet
 Current Wallet: Current Wallet
@@ -1281,9 +1347,10 @@ $send_only_chain: Send only %chain% (%symbol%) or %chain%-based assets to this a
 Buying with card is not supported for this account.: Buying with card is not supported for this account.
 Swapped at: Swapped at
 Price per: Price per
-Changelly ID: Changelly ID
-Copy Changelly ID: Copy Changelly ID
-Changelly ID Copied!: Changelly ID Copied!
+Swap ID: Swap ID
+Swap ID for %provider%: Swap ID for %provider%
+Copy Swap ID: Copy Swap ID
+Swap ID Copied: Swap ID Copied
 from: from
 to: to
 Currency: Currency
@@ -1348,6 +1415,7 @@ Swap is not supported on this account.: Swap is not supported on this account.
 "%1$@ will be returned": "%1$@ will be returned"
 Connecting your wallet: Connecting your wallet
 Action is not possible on a view-only wallet.: Action is not possible on a view-only wallet.
+No matching chains: No compatible networks
 Logged in with My Wallet: Logged in with My Wallet
 You have no apps connected to this wallet.: You have no apps connected to this wallet.
 Asset: Asset
@@ -1382,7 +1450,7 @@ Confirm Actions:
   otherValue: Confirm Actions
 "A ~ Z": "A ~ Z"
 "Biometric authentication not available.": "Biometric authentication not available."
-"Changelly Payment Address": "Changelly Payment Address"
+Payment Address: Payment Address
 "Wallet to use on": "Wallet to use on"
 "Clipboard empty": "Clipboard empty"
 "Confirm Connect": "Confirm Connect"
@@ -1475,6 +1543,8 @@ $ago: "%1$d ago"
 $visited_ago: Visited %1$d ago
 Notifications are disabled: Notifications are disabled
 Enable in Settings: Enable in Settings
+Open Link: Open Link
+Open in App: Open in App
 Search in Google: Search in Google
 $remove_wallets:
   zeroValue: "Remove Wallet"
@@ -1563,3 +1633,16 @@ Day-by-day profit and loss: Day-by-day profit and loss
 This action is not supported in explorer mode.: This action is not supported in explorer mode.
 $relative_today: today
 $relative_tomorrow: tomorrow
+P&L Change: P&L Change
+Choose Token: Choose Token
+You don't have any eligible tokens for this payment: You don't have any eligible tokens for this payment
+Buy, swap, or receive a supported token to continue.: Buy, swap, or receive a supported token to continue.
+Are you sure you want to cancel the payment?: Are you sure you want to cancel the payment?
+Cancel Payment: Cancel Payment
+Paid!: Paid!
+Payment: Payment
+Sent!: Sent!
+$chart_months_short: Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec
+$chart_week_days: Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday
+$chart_week_days_short: Sun,Mon,Tue,Wed,Thu,Fri,Sat
+Select multichain wallet: Select multichain wallet

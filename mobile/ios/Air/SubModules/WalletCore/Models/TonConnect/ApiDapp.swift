@@ -16,6 +16,7 @@ public enum ApiDappUrlTrustStatus: String, Codable, Equatable, Hashable, Sendabl
 
 public struct ApiDapp: Equatable, Hashable, Sendable {
     
+    public let protocolType: ApiDappProtocolType?
     public let url: String
     public let name: String
     public let iconUrl: String
@@ -24,16 +25,24 @@ public struct ApiDapp: Equatable, Hashable, Sendable {
     public let connectedAt: Int?
     public let urlTrustStatus: ApiDappUrlTrustStatus?
     public let sse: ApiSseOptions?
+    public let wcTopic: String?
+    public let wcPairingTopic: String?
+    public let chains: [ApiDappSessionChain]?
     
     public init(
+        protocolType: ApiDappProtocolType? = nil,
         url: String,
         name: String,
         iconUrl: String,
         manifestUrl: String? = nil,
         connectedAt: Int?,
         urlTrustStatus: ApiDappUrlTrustStatus?,
-        sse: ApiSseOptions?
+        sse: ApiSseOptions?,
+        wcTopic: String? = nil,
+        wcPairingTopic: String? = nil,
+        chains: [ApiDappSessionChain]? = nil
     ) {
+        self.protocolType = protocolType
         self.url = url
         self.name = name
         self.iconUrl = iconUrl
@@ -41,11 +50,15 @@ public struct ApiDapp: Equatable, Hashable, Sendable {
         self.connectedAt = connectedAt
         self.urlTrustStatus = urlTrustStatus
         self.sse = sse
+        self.wcTopic = wcTopic
+        self.wcPairingTopic = wcPairingTopic
+        self.chains = chains
     }
 }
 
 extension ApiDapp: Codable {
     enum CodingKeys: String, CodingKey {
+        case protocolType
         case url
         case name
         case iconUrl
@@ -54,16 +67,23 @@ extension ApiDapp: Codable {
         case urlTrustStatus
         case isUrlEnsured
         case sse
+        case wcTopic
+        case wcPairingTopic
+        case chains
     }
     
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        protocolType = try c.decodeIfPresent(ApiDappProtocolType.self, forKey: .protocolType)
         url = try c.decode(String.self, forKey: .url)
         name = try c.decode(String.self, forKey: .name)
         iconUrl = try c.decode(String.self, forKey: .iconUrl)
         manifestUrl = try c.decodeIfPresent(String.self, forKey: .manifestUrl)
         connectedAt = try c.decodeIfPresent(Int.self, forKey: .connectedAt)
         sse = try c.decodeIfPresent(ApiSseOptions.self, forKey: .sse)
+        wcTopic = try c.decodeIfPresent(String.self, forKey: .wcTopic)
+        wcPairingTopic = try c.decodeIfPresent(String.self, forKey: .wcPairingTopic)
+        chains = try c.decodeIfPresent([ApiDappSessionChain].self, forKey: .chains)
         if let trust = try c.decodeIfPresent(String.self, forKey: .urlTrustStatus) {
             urlTrustStatus = ApiDappUrlTrustStatus(rawValue: trust) ?? .unknown
         } else if let legacy = try c.decodeIfPresent(Bool.self, forKey: .isUrlEnsured) {
@@ -75,6 +95,7 @@ extension ApiDapp: Codable {
     
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(protocolType, forKey: .protocolType)
         try c.encode(url, forKey: .url)
         try c.encode(name, forKey: .name)
         try c.encode(iconUrl, forKey: .iconUrl)
@@ -82,6 +103,9 @@ extension ApiDapp: Codable {
         try c.encodeIfPresent(connectedAt, forKey: .connectedAt)
         try c.encodeIfPresent(urlTrustStatus, forKey: .urlTrustStatus)
         try c.encodeIfPresent(sse, forKey: .sse)
+        try c.encodeIfPresent(wcTopic, forKey: .wcTopic)
+        try c.encodeIfPresent(wcPairingTopic, forKey: .wcPairingTopic)
+        try c.encodeIfPresent(chains, forKey: .chains)
     }
 }
 
@@ -104,6 +128,15 @@ extension ApiDapp {
     public var shouldShowUrlTrustStatusWarning: Bool {
         resolvedUrlTrustStatus != .verified
     }
+    
+    public static let loadingStub = ApiDapp(
+        url: "https://example.com",
+        name: "Some App",
+        iconUrl: "",
+        connectedAt: nil,
+        urlTrustStatus: nil,
+        sse: nil
+    )
 }
 
 // MARK: Sample data

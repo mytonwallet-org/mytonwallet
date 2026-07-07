@@ -1,5 +1,5 @@
 {
-  "originHash" : "d08a62b79bbcbbbcbc607bacc177c006df3ec41b20b3e3845bb276c2d17327cb",
+  "originHash" : "f0fa2cb57091bed0237a0fd33edf2323f624901dda74fbf666a5910f6f9f6ae5",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -122,7 +122,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mytonwallet-org/hw-transport-ios-ble",
       "state" : {
-        "revision" : "5046ed005e6ce721b533d332ed0744a52d6510b4"
+        "revision" : "dbfb781e0c883e533acc06c54ca395adb9fbd862"
       }
     },
     {

@@ -92,8 +92,10 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
+import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVC
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import org.mytonwallet.uihome.home.views.header.seasonal.SeasonalOverlayView
 import java.math.BigInteger
@@ -193,7 +195,7 @@ class WalletCardView(
         smartDecimalsAlpha = true
         reducedDecimalsAlpha = 191
         smartDecimalsColor = true
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         containerWidth = window.windowView.width - 34.dp
         onAnimationStateChanged = { isAnimating ->
             if (isAnimating) {
@@ -260,7 +262,7 @@ class WalletCardView(
     private val balanceChangeLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
         lbl.setPadding(8.dp, 3.dp, 8.dp, 3.dp)
-        lbl.setStyle(adaptiveFontSize(), WFont.NunitoSemiBold)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl.compoundDrawablePadding = 0
         lbl.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, balanceChangeChevron, null)
         lbl.foreground = WRippleDrawable.create(14f.dp).apply {
@@ -336,10 +338,9 @@ class WalletCardView(
         setOnClickListener {
             if (mode == HomeHeaderView.Mode.Collapsed)
                 return@setOnClickListener
-            val url = ExplorerHelpers.getMtwCardsUrl(
-                AccountStore.activeAccount?.network ?: MBlockchainNetwork.MAINNET
-            )
-            WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
+            window.navigationControllers.lastOrNull()?.let {
+                MintCardVC.present(it)
+            }
         }
         background = mintIconRipple
         isGone = true
@@ -728,6 +729,7 @@ class WalletCardView(
         }
         updateAddressLabel()
         updateCardImage()
+        updateMintIconVisibility()
         walletTypeView.configure(account)
         balanceAmount = null
         animateBalance(
@@ -838,9 +840,13 @@ class WalletCardView(
     }
 
     fun updateMintIconVisibility() {
-        mintIcon.isGone =
-            WGlobalStorage.getCardsInfo(account?.accountId ?: "") == null &&
-                !WGlobalStorage.isCardMinting(account?.accountId ?: "")
+        val accountId = account?.accountId
+        val eligible = account?.network?.isMainnet == true &&
+            account?.isViewOnly == false &&
+            ConfigStore.isLimited != true
+        val hasCardsOrMinting = accountId != null &&
+            (WGlobalStorage.getCardsInfo(accountId) != null || NftStore.isCardMinting(accountId))
+        mintIcon.isGone = !(eligible && hasCardsOrMinting)
     }
 
     fun updatePromotion() {

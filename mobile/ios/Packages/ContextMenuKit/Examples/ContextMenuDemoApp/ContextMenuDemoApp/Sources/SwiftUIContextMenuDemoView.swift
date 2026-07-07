@@ -3,8 +3,8 @@ import ContextMenuKit
 
 @available(iOS 16.0, *)
 struct SwiftUIContextMenuDemoView: View {
-    let portalConfiguration: () -> ContextMenuConfiguration
-    let plainConfiguration: () -> ContextMenuConfiguration
+    let portalConfiguration: () -> ContextMenuConfiguration?
+    let plainConfiguration: () -> ContextMenuConfiguration?
     let portalSourceViewProvider: (() -> UIView?)?
 
     var body: some View {

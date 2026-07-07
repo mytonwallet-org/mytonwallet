@@ -1,6 +1,6 @@
 import type { ApiBaseCurrency, ApiPriceHistoryPeriod } from '../../api/types';
 import type {
-  GlobalState, PortfolioHistoryBundle, PortfolioHistoryByAccountId, PortfolioNetChange, PortfolioState,
+  GlobalState, PortfolioHistoryBundle, PortfolioHistoryByAccountId, PortfolioPnlChange, PortfolioState,
 } from '../types';
 
 export function updatePortfolio(global: GlobalState, partial: Partial<PortfolioState>): GlobalState {
@@ -35,12 +35,12 @@ export function updateHistoryBundle(
   };
 }
 
-export function updateNetChangeByAccountId(
-  byAccountId: Record<string, PortfolioNetChange> | undefined,
+export function updatePnlChangeByAccountId(
+  byAccountId: Record<string, PortfolioPnlChange> | undefined,
   accountId: string,
-  netChange?: PortfolioNetChange,
-): Record<string, PortfolioNetChange> {
-  if (!netChange) {
+  pnlChange?: PortfolioPnlChange,
+): Record<string, PortfolioPnlChange> {
+  if (!pnlChange) {
     if (!byAccountId?.[accountId]) return byAccountId ?? {};
 
     const next = { ...byAccountId };
@@ -48,5 +48,5 @@ export function updateNetChangeByAccountId(
     return next;
   }
 
-  return { ...byAccountId, [accountId]: netChange };
+  return { ...byAccountId, [accountId]: pnlChange };
 }

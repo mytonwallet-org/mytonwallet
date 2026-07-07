@@ -22,7 +22,7 @@ class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
         isSingleLine = true
         maxLines = 1
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setStyle(14f, WFont.DemiBold)
+        setStyle(14f, WFont.Medium)
         setTextColor(WColor.Tint)
         movementMethod = LinkMovementMethod.getInstance()
         highlightColor = Color.TRANSPARENT

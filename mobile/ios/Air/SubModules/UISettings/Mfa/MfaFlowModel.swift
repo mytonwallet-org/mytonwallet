@@ -67,7 +67,7 @@ final class MfaFlowModel: ObservableObject {
 
     func confirmInstall(passcode: String) async throws {
         guard let installCandidateUser, installCandidateUser.id?.nilIfEmpty != nil else {
-            let error = BridgeCallError.customMessage("Telegram account is missing required id.", nil)
+            let error = DisplayError(text: "Telegram account is missing required id.")
             log.error("confirmInstall failed: \(error, .public)")
             throw error
         }

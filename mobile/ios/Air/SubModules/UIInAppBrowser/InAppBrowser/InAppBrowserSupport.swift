@@ -27,7 +27,6 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
     private weak var observedSheetController: MinimizableSheetController?
     private var state: BrowserState = .closed
     private var systemSheetDismissBehavior: SystemSheetDismissBehavior = .minimizeToMinimizableSheet
-    private var pendingDisconnectReloadOrigins: Set<String> = []
 
     private var sheetContainerViewController: MinimizableSheetContainerViewController? {
         UIApplication.shared.sceneKeyWindow?.rootViewController?
@@ -40,6 +39,16 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
 
     private var sheetController: MinimizableSheetController? {
         sheetContainerViewController?.sheetController
+    }
+
+    private var resolvedBrowser: InAppBrowserVC? {
+        if let browser {
+            return browser
+        }
+        if let browser = sheetViewController?.browser {
+            return browser
+        }
+        return nil
     }
 
     private override init() {
@@ -57,19 +66,11 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
             if state == .minimized {
                 closeBrowser(animated: false)
             }
-        case .dappDisconnect(accountId: let accountId, origin: let origin):
-            guard accountId == AccountStore.accountId,
-                  let browser,
-                  browser.hasPage(origin: origin) else {
+        case .dappDisconnect(accountId: _, origin: let origin):
+            guard let browser = resolvedBrowser else {
                 break
             }
-            // Reloading a minimized (offscreen) web view has no effect, so defer the reload
-            // until the browser is brought back to the foreground.
-            if state == .minimizableSheetPresented || state == .systemSheetPresented {
-                browser.reloadPages(origin: origin)
-            } else {
-                pendingDisconnectReloadOrigins.insert(origin)
-            }
+            browser.emitDappDisconnectEvent(origin: origin)
         default:
             break
         }
@@ -243,7 +244,6 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
         case .expanded:
             if browser != nil {
                 state = .minimizableSheetPresented
-                performPendingDisconnectReloadIfNeeded()
             } else {
                 state = .closed
             }
@@ -260,15 +260,6 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
         }
     }
 
-    private func performPendingDisconnectReloadIfNeeded() {
-        guard let browser, !pendingDisconnectReloadOrigins.isEmpty else { return }
-        let origins = pendingDisconnectReloadOrigins
-        pendingDisconnectReloadOrigins.removeAll()
-        for origin in origins {
-            browser.reloadPages(origin: origin)
-        }
-    }
-
     private func finalizeClosedState() {
         if let browser, browser.presentingViewController != nil {
             browser.dismiss(animated: false)
@@ -280,6 +271,5 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
         browser = nil
         state = .closed
         systemSheetDismissBehavior = .minimizeToMinimizableSheet
-        pendingDisconnectReloadOrigins.removeAll()
     }
 }

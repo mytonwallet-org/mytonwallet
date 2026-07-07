@@ -9,16 +9,20 @@ public final class LedgerAddAccountVC: WViewController {
     
     public var onDone: ((LedgerAddAccountVC) -> ())?
     
-    let showBackButton: Bool
-    var hostingController: UIHostingController<LedgerAddAccountView>? = nil
-    var model: LedgerAddAccountModel
+    private var hostingController: UIHostingController<LedgerAddAccountView>? = nil
+    private var model: LedgerAddAccountModel
+    private var initialDelay: Bool
     
-    public init(model: LedgerAddAccountModel, showBackButton: Bool) {
+    public init(model: LedgerAddAccountModel, autoStart: Bool = true) {
         self.model = model
-        self.showBackButton = showBackButton
+        self.initialDelay = !autoStart
+        
         super.init(nibName: nil, bundle: nil)
+        
         model.onDone = { [weak self] in self?.handleOnDone() }
         model.onCancel = { [weak self] in self?.handleOnCancel() }
+        
+        title = lang("Connect Ledger")
     }
     
     @MainActor required init?(coder: NSCoder) {
@@ -31,20 +35,12 @@ public final class LedgerAddAccountVC: WViewController {
     }
 
     private func setupViews() {
-        title = lang("Connect Ledger")
-        if !showBackButton {
-            navigationItem.leftBarButtonItem = .cancelTextButtonItem { [weak self] in
-                self?.dismiss(animated: true)
-            }
-        }
-
         self.hostingController = addHostingController(makeView(), constraints: .fill)
-
         updateTheme()
     }
     
     private func makeView() -> LedgerAddAccountView {
-        LedgerAddAccountView(viewModel: self.model.viewModel)
+        LedgerAddAccountView(viewModel: model.viewModel)
     }
     
     private func updateTheme() {
@@ -53,6 +49,13 @@ public final class LedgerAddAccountVC: WViewController {
     
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        if !initialDelay {
+            model.start()
+        }
+        initialDelay = false
+    }
+    
+    public func start() {
         model.start()
     }
     

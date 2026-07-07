@@ -112,7 +112,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     val titleLabel: WScaleLabel by lazy {
         WScaleLabel(context).apply {
-            setStyle(20F, WFont.SemiBold)
+            setStyle(20F, WFont.Medium)
         }
     }
 
@@ -618,7 +618,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             ),
             positioning = WMenuPopup.Positioning.BELOW,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp),
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            usePillShadow = true
         )
     }
 

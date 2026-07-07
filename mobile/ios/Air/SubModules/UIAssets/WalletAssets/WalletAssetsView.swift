@@ -13,7 +13,7 @@ final class WalletAssetsView: WTouchPassView {
     let walletTokensVC: WalletTokensVC
     private let walletCollectiblesView: WSegmentedControllerContent
 
-    var onScrollingOffsetChanged: ((CGFloat) -> Void)?
+    var onScrollingOffsetChanged: ((_ progress: CGFloat, _ animated: Bool) -> Void)?
     var scrollProgress: CGFloat = 0
 
     init(walletTokensVC: WalletTokensVC, walletCollectiblesView: WSegmentedControllerContent) {
@@ -41,9 +41,9 @@ final class WalletAssetsView: WTouchPassView {
             ),
         ],
         scrollContentMargin: 16,
-        onScrollProgressChanged: { [weak self] progress in
+        onScrollProgressChanged: { [weak self] progress, animated in
             self?.scrollProgress = progress
-            self?.onScrollingOffsetChanged?(progress)
+            self?.onScrollingOffsetChanged?(progress, animated)
         }
     )
     
@@ -57,7 +57,7 @@ final class WalletAssetsView: WTouchPassView {
             tabsContainer.topAnchor.constraint(equalTo: topAnchor),
             tabsContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
-        tabsContainer.onScrollProgressChanged?(0)
+        tabsContainer.onScrollProgressChanged?(0, false)
         
         updateTheme()
     }

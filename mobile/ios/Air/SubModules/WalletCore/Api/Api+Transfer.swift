@@ -10,7 +10,7 @@ extension Api {
         do {
             return try await bridge.callApi("checkTransactionDraft", chain, options, decoding: ApiCheckTransactionDraftResult.self)
         } catch {
-            if let bridgeError = error as? BridgeCallError, case .message(_, let data) = bridgeError, let data {
+            if let bridgeError = error as? SdkError, case .apiReturnedError(_, _, let data) = bridgeError, let data {
                 return try JSONSerialization.decode(ApiCheckTransactionDraftResult.self, from: data)
             }
             throw error

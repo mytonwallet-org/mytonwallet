@@ -105,7 +105,7 @@ private class AgentHintCardView(
 
     init {
         titleLabel.setStyle(15f)
-        titleLabel.typeface = WFont.SemiBold.typeface
+        titleLabel.typeface = WFont.Medium.typeface
         titleLabel.isSingleLine = true
         titleLabel.useCustomEmoji = true
         titleLabel.text = hint.title

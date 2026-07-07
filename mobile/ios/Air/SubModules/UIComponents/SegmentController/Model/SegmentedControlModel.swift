@@ -67,9 +67,10 @@ public final class SegmentedControlModel {
     }
     
     public func setRawProgress(_ rawProgress: CGFloat) {
+        guard rawProgress.isFinite else { return }
         let count = items.count
         guard count >= 2, self.rawProgress != rawProgress else { return }
-        let index = min(count - 2, Int(rawProgress))
+        let index = min(count - 2, max(0, Int(rawProgress)))
         let progress = rawProgress - CGFloat(index)
         let item1 = items[index]
         let item2 = items[index + 1]

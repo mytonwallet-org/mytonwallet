@@ -36,7 +36,7 @@ class ToastView(context: Context) : WView(context), WThemedView {
     }
 
     private val textLabel = WLabel(context).apply {
-        setStyle(16f, WFont.DemiBold)
+        setStyle(16f, WFont.Medium)
         setTextColor(WColor.PrimaryText)
         gravity = Gravity.CENTER_VERTICAL
         maxLines = 2
@@ -47,7 +47,7 @@ class ToastView(context: Context) : WView(context), WThemedView {
     private val actionRipple = WRippleDrawable.create(16f.dp)
 
     private val actionLabel = WLabel(context).apply {
-        setStyle(16f, WFont.DemiBold)
+        setStyle(16f, WFont.Medium)
         setTextColor(WColor.Tint)
         gravity = Gravity.CENTER
         setPaddingDp(8)

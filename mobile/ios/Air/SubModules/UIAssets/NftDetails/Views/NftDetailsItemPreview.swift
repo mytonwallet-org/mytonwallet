@@ -195,7 +195,7 @@ class NftDetailsItemPreview: UIView, NftDetailsFullScreenOverlayContent {
                 setImage(nil, nil)
                 spinner.startAnimating()
             case .failed:
-                let badImage = NftDetailsImage.errorPlaceholderImage()
+                let badImage = NftDetailsImage.noImagePlaceholderImage()
                 setImage(badImage, badImage)
                 spinner.stopAnimating()
             }

@@ -29,6 +29,8 @@ object Logger {
         //DEEPLINK("Deeplink"),
 
         WALLET_CORE("WalletCore"),
+        TON_CONNECT("TonConnect"),
+        WALLET_PAY("WalletPay"),
         JS_DEBUG_ERROR("JSErr"),
         JS_WEBVIEW_BRIDGE("JSBridge"),
         PASSCODE_CONFIRM("PassConf"),

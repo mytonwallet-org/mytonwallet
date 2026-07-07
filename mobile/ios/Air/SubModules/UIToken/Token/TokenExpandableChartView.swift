@@ -1,6 +1,5 @@
 //
 //  TokenExpandableChartView.swift
-//  MyTonWalletAir
 //
 //  Created by Sina on 11/11/24.
 //
@@ -13,11 +12,11 @@ import WalletContext
 
 fileprivate let chartAxisDateFormatter = DateFormatter()
 
-fileprivate func applyTint(to dataSet: LineChartDataSet) {
-    dataSet.colors = [.tintColor]
-    dataSet.highlightColor = .tintColor
+fileprivate func applyTint(to dataSet: LineChartDataSet, tintColor: UIColor) {
+    dataSet.colors = [tintColor]
+    dataSet.highlightColor = tintColor
 
-    let gradientColors = [UIColor.tintColor.withAlphaComponent(0.2).cgColor, UIColor.clear.cgColor]
+    let gradientColors = [tintColor.withAlphaComponent(0.2).cgColor, UIColor.clear.cgColor]
     let gradient = CGGradient(
         colorsSpace: CGColorSpaceCreateDeviceRGB(),
         colors: gradientColors as CFArray,
@@ -70,6 +69,13 @@ final class TokenExpandableChartView: UIView {
     override func tintColorDidChange() {
         super.tintColorDidChange()
         refreshChartTint()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            refreshChartTint()
+        }
     }
 
     func configure(token: ApiToken, historyData: [[Double]]?, onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void) {
@@ -377,20 +383,22 @@ final class TokenExpandableChartView: UIView {
         refreshChartTint()
     }
 
-    private func refreshChartTint() {
+    private func refreshChartTint(updateRangeSnapshot: Bool = true) {
+        let tintColor = tintColor.resolvedColor(with: traitCollection)
+        
         [collapsedChartData, expandedChartData, rangeChartData]
             .compactMap { $0 }
             .forEach { data in
                 data.dataSets
                     .compactMap { $0 as? LineChartDataSet }
-                    .forEach { applyTint(to: $0) }
+                    .forEach { applyTint(to: $0, tintColor: tintColor) }
             }
 
         collapsedChart.notifyDataSetChanged()
         expandedChart.notifyDataSetChanged()
         rangeChart.chartView.notifyDataSetChanged()
 
-        if rangeChart.chartView.data != nil {
+        if updateRangeSnapshot, rangeChart.chartView.data != nil {
             rangeChart.imageView.image = rangeChart.chartView.asImage(padding: 0)
         }
     }
@@ -521,7 +529,6 @@ final class TokenExpandableChartView: UIView {
             collapsedDataSet.drawHorizontalHighlightIndicatorEnabled = false
             collapsedDataSet.lineWidth = 1
             collapsedDataSet.mode = .cubicBezier
-            applyTint(to: collapsedDataSet)
             let collapsedChartData = LineChartData(dataSet: collapsedDataSet)
 
             let expandedDataSet = collapsedDataSet.copy() as! LineChartDataSet
@@ -545,11 +552,11 @@ final class TokenExpandableChartView: UIView {
                     self.collapsedChart.data = self.collapsedChartData
                 }
                 self.expandedChart.data = self.expandedChartData
-                if !rangeOnly && !isTogglingChart {
+                let shouldUpdateRangeChart = !rangeOnly && !isTogglingChart
+                if shouldUpdateRangeChart {
                     self.rangeChart.chartView.data = self.collapsedChartData
-                    let image = self.rangeChart.chartView.asImage(padding: 0)
-                    self.rangeChart.imageView.image = image
                 }
+                self.refreshChartTint(updateRangeSnapshot: shouldUpdateRangeChart)
                 if !scopedDataEntries.isEmpty {
                     let shouldResetHighlight = periodChanged
                         || self.expandedChart.highlighted.isEmpty
@@ -658,7 +665,7 @@ final class TokenExpandableChartView: UIView {
         let (startWidth, startHeight, startTop, startRight) = isExpanded ? collapsedPoints : expandedPoints
         let (endWidth, endHeight, endTop, endRight) = isExpanded ? expandedPoints : collapsedPoints
 
-        let updateBlock: (CGFloat, CGFloat) -> () = { [self] (progress: CGFloat, value: CGFloat) in
+        let updateBlock: (CGFloat, CGFloat) -> () = { [self] progress, value in
             heightConstraint.constant = value
 
             // Animate line charts
@@ -667,23 +674,24 @@ final class TokenExpandableChartView: UIView {
             let currentTop = startTop + (endTop - startTop) * CGFloat(progress)
             let currentRight = startRight + (endRight - startRight) * CGFloat(progress)
 
-            chartAnimationViewWidthAnchor.constant = currentWidth
-            chartAnimationViewHeightAnchor.constant = currentHeight
+            chartAnimationViewWidthAnchor.constant = max(1, currentWidth)
+            chartAnimationViewHeightAnchor.constant = max(1, currentHeight)
             chartAnimationViewTopAnchor.constant = currentTop
             chartAnimationViewRightAnchor.constant = currentRight
 
             if isExpanded {
                 largeChartImageView.alpha = progress
-                smallChartImageView.alpha = 1 - progress * 2
-                rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : 2 * (progress - 0.5)
-                timeFrameSwitcherView.alpha = 2 * (progress - 0.5)
+                smallChartImageView.alpha = max(0, 1 - progress * 2)
+                rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : max(0, 2 * (progress - 0.5))
+                timeFrameSwitcherView.alpha = max(0, 2 * (progress - 0.5))
             } else {
-                smallChartImageView.alpha = (progress - 0.5) * 2
+                smallChartImageView.alpha = max(0, (progress - 0.5) * 2)
                 largeChartImageView.alpha = 1 - progress
-                rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : 1 - 2 * progress
-                timeFrameSwitcherView.alpha = 1 - 2 * progress
+                rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : max(0, 1 - 2 * progress)
+                timeFrameSwitcherView.alpha = max(0, 1 - 2 * progress)
             }
 
+            layoutIfNeeded()
             onHeightChange()
         }
 
@@ -701,14 +709,28 @@ final class TokenExpandableChartView: UIView {
             collapsedChart.isHidden = true
             expandedChart.isHidden = true
             lineChartAnimationView.alpha = 1
-            drawChart(period: self.displayedPeriod, historyData: nil, range: selectedRange, rangeOnly: false)
+
+            UIView.performWithoutAnimation {
+                chartAnimationViewWidthAnchor.constant = max(1, startWidth)
+                chartAnimationViewHeightAnchor.constant = max(1, startHeight)
+                chartAnimationViewTopAnchor.constant = startTop
+                chartAnimationViewRightAnchor.constant = startRight
+                layoutIfNeeded()
+            }
+
             updateBlock(0, heightConstraint.constant)
-            let heightAnimator = ValueAnimator(startValue: heightConstraint.constant, endValue: targetHeight, duration: 0.18)
+            let heightAnimator = ValueAnimator(
+                startValue: heightConstraint.constant,
+                endValue: targetHeight,
+                duration: 0.55,
+                dampingRatio: 0.93
+            )
             heightAnimator.addUpdateBlock { progress, value in
                 updateBlock(progress, value)
             }
             heightAnimator.addCompletionBlock { [weak self] in
                 guard let self else { return }
+                onHeightChange()
                 AppStorageHelper.isTokenChartExpanded = isExpanded
                 drawChart(period: displayedPeriod, historyData: historyData, range: selectedRange, rangeOnly: false) { [weak self] in
                     guard let self else { return }
@@ -720,7 +742,13 @@ final class TokenExpandableChartView: UIView {
                 }
             }
             heightAnimator.start()
-            UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut]) { [self] in
+            UIView.animate(
+                withDuration: 0.55,
+                delay: 0,
+                usingSpringWithDamping: 0.93,
+                initialSpringVelocity: 0,
+                options: []
+            ) { [self] in
                 arrowImageView.transform = arrowImageView.transform.rotated(by: .pi)
                 loadingIndicator.transform = isExpanded ? .identity.scaledBy(x: 1.2, y: 1.2) : .identity
             }

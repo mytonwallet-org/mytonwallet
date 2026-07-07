@@ -25,7 +25,7 @@ extension ApiUpdate {
             promiseId: String,
             accountId: String,
             dapp: ApiDapp,
-            operationChain: ApiChain = .ton,
+            operationChain: ApiChain,
             transactions: [ApiDappTransfer],
             activities: [ApiActivity]? = nil,
             fee: BigInt? = nil,
@@ -69,7 +69,7 @@ extension ApiUpdate {
             self.promiseId = try container.decode(String.self, forKey: .promiseId)
             self.accountId = try container.decode(String.self, forKey: .accountId)
             self.dapp = try container.decode(ApiDapp.self, forKey: .dapp)
-            self.operationChain = (try? container.decodeIfPresent(ApiChain.self, forKey: .operationChain)) ?? FALLBACK_CHAIN
+            self.operationChain = try container.decode(ApiChain.self, forKey: .operationChain)
             self.transactions = try container.decode([ApiDappTransfer].self, forKey: .transactions)
             self.activities = try container.decodeIfPresent([ApiActivity].self, forKey: .activities)
             self.fee = try? container.decodeIfPresent(BigInt.self, forKey: .fee)
@@ -152,6 +152,20 @@ extension ApiUpdate.DappSendTransactions {
 
     @MainActor public func hasSufficientBalance(accountContext: AccountContext) -> Bool {
         insufficientTokens(accountContext: accountContext) == nil
+    }
+
+    @MainActor public func isEmulationFeeInsufficient(accountContext: AccountContext) -> Bool {
+        guard emulation != nil else { return false }
+
+        let nativeSlug = operationChain.nativeToken.slug
+        let availableBalance = accountContext.balances[balanceSlug(for: nativeSlug)] ?? 0
+        let nativeTransferAmount = transactions.reduce(0) { $0 + $1.amount }
+        let knownNetworkFee = transactions.reduce(0) { $0 + $1.networkFee }
+        let feeToCheck = max(emulation?.realFee ?? 0, knownNetworkFee)
+
+        guard feeToCheck > 0 else { return false }
+
+        return availableBalance < nativeTransferAmount + feeToCheck
     }
 
     @MainActor public func tokenToDisplay(accountContext: AccountContext) -> TokenDisplayInfo {

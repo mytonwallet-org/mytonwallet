@@ -1,10 +1,11 @@
 import type { StorageKey } from '../api/storages/types';
 
-import { ACTIVE_TAB_STORAGE_KEY, INDEXED_DB_NAME, INDEXED_DB_STORE_NAME } from '../config';
+import { INDEXED_DB_NAME, INDEXED_DB_STORE_NAME } from '../config';
+import { buildRestoreLocalStorageScript, getRestorableLocalStorageEntries } from './storageScripts';
 import { checkIsWebContentsUrlAllowed, mainWindow } from './utils';
 
-let localStorage: Record<string, any> | undefined;
-let idb: { key: StorageKey; value: any }[] | undefined;
+let capturedLocalStorage: Record<string, any> | undefined;
+let capturedIdb: { key: StorageKey; value: any }[] | undefined;
 
 export function captureStorage(): Promise<[void, void]> {
   return Promise.all([captureLocalStorage(), captureIdb()]);
@@ -22,7 +23,7 @@ async function captureLocalStorage(): Promise<void> {
     return;
   }
 
-  localStorage = await contents.executeJavaScript('({ ...localStorage });');
+  capturedLocalStorage = await contents.executeJavaScript('({ ...localStorage });');
 }
 
 async function captureIdb(): Promise<void> {
@@ -33,7 +34,7 @@ async function captureIdb(): Promise<void> {
     return;
   }
 
-  idb = await contents.executeJavaScript(`
+  capturedIdb = await contents.executeJavaScript(`
     new Promise((resolve) => {
       const request = window.indexedDB.open('${INDEXED_DB_NAME}');
 
@@ -76,7 +77,7 @@ async function captureIdb(): Promise<void> {
 }
 
 export async function restoreLocalStorage(): Promise<void> {
-  if (!localStorage) {
+  if (!capturedLocalStorage) {
     return;
   }
 
@@ -87,18 +88,17 @@ export async function restoreLocalStorage(): Promise<void> {
     return;
   }
 
-  await contents.executeJavaScript(
-    Object.keys(localStorage)
-      .filter((key: string) => key !== ACTIVE_TAB_STORAGE_KEY)
-      .map((key: string) => `localStorage.setItem('${key}', JSON.stringify(${localStorage![key]}))`)
-      .join(';'),
-  );
+  const entries = getRestorableLocalStorageEntries(capturedLocalStorage);
 
-  localStorage = undefined;
+  if (entries.length) {
+    await contents.executeJavaScript(buildRestoreLocalStorageScript(entries));
+  }
+
+  capturedLocalStorage = undefined;
 }
 
 export async function restoreIdb(): Promise<void> {
-  if (!idb) {
+  if (!capturedIdb) {
     return;
   }
 
@@ -128,7 +128,7 @@ export async function restoreIdb(): Promise<void> {
         const transaction = db.transaction(['${INDEXED_DB_STORE_NAME}'], 'readwrite');
         const store = transaction.objectStore('${INDEXED_DB_STORE_NAME}');
 
-        ${JSON.stringify(idb)}.forEach(item => {
+        ${JSON.stringify(capturedIdb)}.forEach(item => {
           store.put(item.value, item.key);
         });
 
@@ -148,5 +148,5 @@ export async function restoreIdb(): Promise<void> {
     });
   `);
 
-  idb = undefined;
+  capturedIdb = undefined;
 }

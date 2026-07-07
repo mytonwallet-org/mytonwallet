@@ -1,10 +1,8 @@
-
 import SwiftUI
 import WalletContext
 import WalletCore
 import UIComponents
 import UIPasscode
-import Ledger
 import Perception
 
 struct AccountTypePickerView: View {
@@ -12,6 +10,7 @@ struct AccountTypePickerView: View {
     var network: ApiNetwork
     var onHeightChange: (CGFloat) -> ()
     var onViewAddress: () -> ()
+    var onLedger: () -> ()
 
     @Environment(\.dismiss) var dismiss
 
@@ -89,7 +88,7 @@ struct AccountTypePickerView: View {
         }
     }
 
-    func onCreate() {
+    private func onCreate() {
         dismiss()
         if let vc = topViewController() {
             UnlockVC.presentAuth(on: vc, onDone: { passcode in
@@ -108,7 +107,7 @@ struct AccountTypePickerView: View {
         }
     }
 
-    func onCreateSubwallet() {
+    private func onCreateSubwallet() {
         dismiss()
         if let vc = topViewController() {
             UnlockVC.presentAuth(on: vc, onDone: { passcode in
@@ -135,36 +134,13 @@ struct AccountTypePickerView: View {
         }
     }
 
-    func onImport() {
+    private func onImport() {
         dismiss()
         if let vc = topViewController() {
             UnlockVC.presentAuth(on: vc, onDone: { passcode in
                 Task { @MainActor in
                     let introModel = IntroModel(network: network, password: passcode)
                     let importWalletVC = ImportWalletVC(introModel: introModel)
-                    let navVC = WNavigationController(rootViewController: importWalletVC)
-                    topViewController()?.present(navVC, animated: true)
-                }
-            }, cancellable: true)
-        }
-    }
-
-    func onLedger() {
-        dismiss()
-        if let vc = topViewController() {
-            UnlockVC.presentAuth(on: vc, onDone: { passcode in
-                Task { @MainActor in
-                    let introModel = IntroModel(network: network, password: passcode)
-                    let model = await LedgerAddAccountModel()
-                    let importWalletVC = LedgerAddAccountVC(model: model, showBackButton: false)
-                    let hadExistingAccounts = !AccountStore.accountsById.isEmpty
-                    importWalletVC.onDone = { _ in
-                        introModel.onDone(
-                            successKind: .imported,
-                            hadExistingAccounts: hadExistingAccounts,
-                            accountIds: model.importedAccountIds
-                        )
-                    }
                     let navVC = WNavigationController(rootViewController: importWalletVC)
                     topViewController()?.present(navVC, animated: true)
                 }

@@ -28,6 +28,13 @@
   line-height: 1.25rem;
   color: var(--color-black);
   white-space: nowrap;
+
+  // The shared `.glare-text` shimmer is tuned for the light text of a wallet card; retune it to the
+  // section's dark-on-light text so the value stays legible (theme-aware) while it refreshes
+  &:global(.glare-text) {
+    --glare-main: var(--color-black);
+    --glare-accent: rgba(var(--color-black-rgb), 0.3);
+  }
 }
 
 .label {

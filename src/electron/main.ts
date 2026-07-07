@@ -6,6 +6,7 @@ import { IS_PRODUCTION } from '../config';
 import { initDeeplink } from './deeplink';
 import { setupSecrets } from './secrets';
 import { IS_LINUX, IS_MAC_OS, MTW_GTK_VERSION } from './utils';
+import { setupWalletConnectPayCollectHandlers } from './walletConnectPayCollect';
 import { createWindow, setupCloseHandlers, setupElectronActionHandlers } from './window';
 
 // Must be set before app is ready
@@ -35,6 +36,7 @@ app.on('ready', () => {
 
   createWindow();
   setupElectronActionHandlers();
+  setupWalletConnectPayCollectHandlers();
   setupCloseHandlers();
   setupSecrets();
 });

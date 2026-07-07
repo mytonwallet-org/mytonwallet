@@ -1,16 +1,20 @@
+@use "../../../styles/mixins";
+
 @use "../../../styles/scssVariables" as v;
-
-// LovelyChart renders its own DOM, so these rules restyle its `.lovely-chart--*` classes
-// inside the portfolio chart cards (`.portfolio-chart-card` / `.portfolio-chart-card-pie`)
-
-.portfolio-chart-card-pie .lovely-chart--minimap,
-.portfolio-chart-card .lovely-chart--header {
-  display: none;
-}
 
 .portfolio-chart-card {
   .lovely-chart--container {
     font-family: v.$fontFamily;
+  }
+
+  // Title is hidden - we render our own SectionHeader
+  .lovely-chart--header {
+    display: none;
+  }
+
+  .lovely-chart--header-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
   }
 
   .lovely-chart--tools {
@@ -45,41 +49,41 @@
     &.lovely-chart--state-checked.lovely-chart--dark-content {
       color: #1F2933;
     }
-  }
 
-  .lovely-chart--button .lovely-chart--button-label {
-    padding: 0;
-    font-weight: 600;
-    line-height: 1.25;
-  }
-
-  .lovely-chart--button.lovely-chart--state-checked .lovely-chart--button-label {
-    transform: none;
-    color: inherit;
-  }
-
-  .lovely-chart--button .lovely-chart--button-check {
-    position: static;
-
-    overflow: hidden;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    width: 0;
-    height: 0.875rem;
-
-    transition: opacity 200ms ease;
-
-    &::after {
-      position: static;
-      margin: 0;
+    .lovely-chart--button-label {
+      padding: 0;
+      font-weight: 600;
+      line-height: 1.25;
     }
-  }
 
-  .lovely-chart--button.lovely-chart--state-checked .lovely-chart--button-check {
-    width: 0.875rem;
-    margin-right: 0.25rem;
+    &.lovely-chart--state-checked .lovely-chart--button-label {
+      transform: none;
+      color: inherit;
+    }
+
+    .lovely-chart--button-check {
+      position: static;
+
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      width: 0;
+      height: 0.875rem;
+
+      @include mixins.transition(opacity 200ms);
+
+      &::after {
+        position: static;
+        margin: 0;
+      }
+    }
+
+    &.lovely-chart--state-checked .lovely-chart--button-check {
+      width: 0.875rem;
+      margin-right: 0.25rem;
+    }
   }
 
   .lovely-chart--tooltip {
@@ -88,5 +92,24 @@
     & > canvas {
       margin-top: 0;
     }
+  }
+}
+
+// While zoomed into the single-date pie, `Chart.tsx` mirrors the zoomed state onto the card as this class
+.portfolio-chart-card-share.portfolio-chart-card-zoomed {
+  // Overlay the header above the tooltip capture layer so the zoom-out control stays clickable
+  .lovely-chart--header {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    left: 0;
+
+    display: block;
+  }
+
+  // While zoomed the minimap is frozen on the overview with its handles glued to the date; keep it inert
+  .lovely-chart--minimap {
+    pointer-events: none;
   }
 }

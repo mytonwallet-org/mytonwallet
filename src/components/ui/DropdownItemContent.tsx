@@ -55,7 +55,7 @@ function DropdownItemContent<T extends string>({
 
     return (
       <span className={buildClassName('icon', styles.itemIcon, iconClassName)}>
-        <img src={item.icon} alt="" className={styles.itemMainIcon} />
+        <img src={item.icon} alt="" className={buildClassName(styles.itemMainIcon, item.iconClassName)} />
         {item.overlayIcon && (
           <img
             src={item.overlayIcon}

@@ -54,7 +54,9 @@ final class WalletSeeAllCell: WHighlightCollectionViewCell {
     
     private func setupViews() {
         contentView.backgroundColor = .clear
-        contentView.heightAnchor.constraint(equalToConstant: Self.defaultHeight).isActive = true
+        let heightConstraint = contentView.heightAnchor.constraint(equalToConstant: Self.defaultHeight)
+        heightConstraint.priority = .defaultHigh
+        heightConstraint.isActive = true
         contentView.addSubview(leadingIconView)
         contentView.addSubview(seeAllLabel)
         contentView.addSubview(badge)

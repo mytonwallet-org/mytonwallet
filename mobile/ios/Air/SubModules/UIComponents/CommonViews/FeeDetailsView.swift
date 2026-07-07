@@ -62,7 +62,7 @@ public struct FeeDetailsView: View {
             .padding(.horizontal, 12)
             
             HStack(spacing: 3) {
-                Text(amount: realAmount, format: .init(maxDecimals: 4, precision: fee.realFee?.precision))
+                Text(amount: realAmount, format: .init(preset: .fee, precision: fee.realFee?.precision))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: true)
                     .padding(.vertical, 11)
@@ -74,7 +74,7 @@ public struct FeeDetailsView: View {
                     .clipShape(.rect(cornerRadius: 4))
                 
                 if showExcess {
-                    Text(amount: excessAmount, format: .init(maxDecimals: 4, precision: .approximate))
+                    Text(amount: excessAmount, format: .init(preset: .fee, precision: .approximate))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: true)
                         .padding(.vertical, 11)
@@ -94,8 +94,7 @@ public struct FeeDetailsView: View {
     @ViewBuilder
     var explaination: some View {
         VStack(alignment: .leading, spacing: 12) {
-            let precision = fee.fullFee?.precision
-            Text(showExcess ? "**\(Text(amount: fullAmount, format: .init(maxDecimals: precision == .exact ? nil : 4, roundHalfUp: true, precision: precision)))** need to be immediately debited from your wallet to pay the fee. Part of this will be returned in GRAM to you as excess within a few minutes." : "**\(Text(amount: fullAmount, format: .init()))** will be immediately debited from your wallet to pay the fee.")
+            fullFeeExplanation
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -111,5 +110,15 @@ public struct FeeDetailsView: View {
             }
         }
         .padding(.horizontal, 12)
+    }
+
+    private var fullFeeExplanation: Text {
+        let precision = fee.fullFee?.precision
+
+        if showExcess {
+            return Text("**\(Text(amount: fullAmount, format: .init(preset: .fee, roundHalfUp: true, precision: precision)))** need to be immediately debited from your wallet to pay the fee. Part of this will be returned in GRAM to you as excess within a few minutes.")
+        }
+
+        return Text("**\(Text(amount: fullAmount, format: .init(preset: .fee)))** will be immediately debited from your wallet to pay the fee.")
     }
 }

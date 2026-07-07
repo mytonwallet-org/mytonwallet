@@ -27,6 +27,10 @@ public final class CrosschainToWalletVC: WViewController {
                 payoutAddress: cex?.payoutAddress ?? "",
                 payinExtraId: cex?.payinExtraId,
                 exchangerTxId: cex?.transactionId ?? "",
+                cexLabel: swap.cexLabel,
+                providerName: cex?.providerName,
+                supportUrl: cex?.supportUrl,
+                supportEmail: cex?.supportEmail,
                 createdAt: Date(timeIntervalSince1970: TimeInterval(swap.timestamp / 1000)),
                 cexStatus: cex?.status,
                 isInternalSwap: Self.isInternalSwap(
@@ -54,6 +58,10 @@ public final class CrosschainToWalletVC: WViewController {
                 payoutAddress: "",
                 payinExtraId: nil,
                 exchangerTxId: exchangerTxId,
+                cexLabel: .changelly,
+                providerName: nil,
+                supportUrl: nil,
+                supportEmail: nil,
                 createdAt: dt,
                 cexStatus: nil,
                 isInternalSwap: false

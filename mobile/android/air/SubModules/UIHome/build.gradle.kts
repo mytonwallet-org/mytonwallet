@@ -58,6 +58,7 @@ dependencies {
     implementation(project("$airSubModulePath:UITransaction"))
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:UITonConnect"))
+    implementation(project("$airSubModulePath:UIWalletConnectPay"))
     implementation(project("$airSubModulePath:UIWidgetsConfigurations"))
     implementation(project("$airSubModulePath:OverScroll"))
     implementation(project("$airSubModulePath:WalletContext"))

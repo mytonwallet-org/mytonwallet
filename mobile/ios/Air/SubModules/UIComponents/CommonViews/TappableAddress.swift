@@ -136,15 +136,17 @@ public struct TappableAddressFull: View {
     var accountContext: AccountContext
     let model: AddressViewModel
     let compactAddressWithName: Bool
+    let wrapsAddressWithName: Bool
     
     let openInBrowser: (URL) -> () = { url in
         AppActions.openInBrowser(url)
     }
     
-    public init(accountContext: AccountContext,  model: AddressViewModel, compactAddressWithName: Bool = true) {
+    public init(accountContext: AccountContext,  model: AddressViewModel, compactAddressWithName: Bool = true, wrapsAddressWithName: Bool = false) {
         self.accountContext = accountContext
         self.model = model
         self.compactAddressWithName = compactAddressWithName
+        self.wrapsAddressWithName = wrapsAddressWithName
     }
     
     private func text(forModel model: AddressViewModel) -> Text {
@@ -152,7 +154,7 @@ public struct TappableAddressFull: View {
         
         if let name = model.name {
             let nameText = Text(name)
-            let separator = Text("\u{A0}·\u{A0}").foregroundColor(.air.secondaryLabel)
+            let separator = Text(wrapsAddressWithName ? "\n" : "\u{A0}·\u{A0}").foregroundColor(.air.secondaryLabel)
             let addrText = Text(
                 formatAddressAttributed(
                     address,

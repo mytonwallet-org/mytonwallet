@@ -1,5 +1,5 @@
 //
-//  ExploreVC.swift
+//  Row.swift
 //  UIBrowser
 //
 //  Created by Sina on 6/25/24.

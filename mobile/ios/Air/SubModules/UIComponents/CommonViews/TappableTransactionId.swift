@@ -64,18 +64,20 @@ public struct TappableTransactionId: View {
 }
 
     
-public struct ChangellyTransactionId: View {
+public struct SwapProviderTransactionId: View {
     
     var id: String
+    var trackingUrl: URL?
     
-    public init(id: String) {
+    public init(id: String, trackingUrl: URL? = nil) {
         self.id = id
+        self.trackingUrl = trackingUrl
     }
     
     public var body: some View {
         
         let tx: Text = Text(
-            id
+            formatStartEndAddress(id)
         )
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             tx
@@ -91,32 +93,36 @@ public struct ChangellyTransactionId: View {
     }
 
     private func makeMenuConfiguration() -> ContextMenuConfiguration {
-        ContextMenuConfiguration(
-            rootPage: ContextMenuPage(items: [
-                .action(
-                    ContextMenuAction(
-                        title: lang("Copy"),
-                        icon: .airBundle("SendCopy"),
-                        handler: {
-                            UIPasteboard.general.string = id
-                            AppActions.showToast(icon: .animatedCopy, message: lang("Transaction ID Copied"))
-                            Haptics.play(.lightTap)
-                        }
-                    )
-                ),
+        var items: [ContextMenuItem] = [
+            .action(
+                ContextMenuAction(
+                    title: lang("Copy Swap ID"),
+                    icon: .airBundle("SendCopy"),
+                    handler: {
+                        UIPasteboard.general.string = id
+                        AppActions.showToast(icon: .animatedCopy, message: lang("Swap ID Copied"))
+                        Haptics.play(.lightTap)
+                    }
+                )
+            )
+        ]
+
+        if let trackingUrl {
+            items.append(
                 .action(
                     ContextMenuAction(
                         title: lang("Open in Explorer"),
                         icon: .airBundle("SendGlobe"),
                         handler: {
-                            if let encodedId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-                               let url = URL(string: "https://changelly.com/track/\(encodedId)") {
-                                AppActions.openInBrowser(url)
-                            }
+                            AppActions.openInBrowser(trackingUrl)
                         }
                     )
-                ),
-            ]),
+                )
+            )
+        }
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
             backdrop: .none
         )
     }

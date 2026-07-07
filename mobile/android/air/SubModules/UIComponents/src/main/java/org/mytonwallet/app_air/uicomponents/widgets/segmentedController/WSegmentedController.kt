@@ -38,6 +38,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
@@ -236,13 +237,13 @@ class WSegmentedController(
         val v = WView(context)
         v.clipChildren = clipContent
         v.clipToPadding = clipContent
-        val clearSegmentedControlWidth = if (forceCenterTabs && pilledTabs) WRAP_CONTENT else 0
         val clearSegmentedControlHeight = if (pilledTabs) PILLED_TABS_HEIGHT.dp else navHeight
         v.addView(
             clearSegmentedControl,
-            ViewGroup.LayoutParams(clearSegmentedControlWidth, clearSegmentedControlHeight)
+            ViewGroup.LayoutParams(WRAP_CONTENT, clearSegmentedControlHeight)
         )
         v.setConstraints {
+            constrainedWidth(clearSegmentedControl.id, true)
             toTopPx(
                 clearSegmentedControl,
                 if (pilledTabs) {
@@ -453,7 +454,11 @@ class WSegmentedController(
         else {
             if (isFullScreen) {
                 blurSourceContainerView.setBackgroundColor(WColor.SecondaryBackground.color)
-                reversedCornerView.setBlurOverlayColor(WColor.SecondaryBackground)
+                reversedCornerView.updateTheme()
+                reversedCornerView.setBlurOverlayColor(
+                    WColor.SecondaryBackground,
+                    if (WGlobalStorage.isBlurEnabled()) null else 255
+                )
             } else {
                 blurSourceContainerView.setBackgroundColor(WColor.Background.color)
                 contentView.setBackgroundColor(WColor.Background.color)

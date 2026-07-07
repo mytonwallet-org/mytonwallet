@@ -33,9 +33,9 @@ extension DisplayAssetTab {
 
     var isDeletableSegment: Bool {
         switch self {
-        case .tokens, .nfts:
+        case .tokens:
             false
-        case .nftCollectionFilter:
+        case .nftCollectionFilter, .nfts:
             true
         }
     }
@@ -69,6 +69,7 @@ public final class WalletAssetsTabContextMenuProviders {
     private let nftsVCManager: NftsVCManager
     private let sourceViewProvider: () -> UIView?
     private let onReorder: () -> Void
+    private let onSelectTab: ((DisplayAssetTab) -> Void)?
     private let includesTokenLimitActions: Bool
     private var contextMenuProviders: [DisplayAssetTab: SegmentedControlContextMenuProvider] = [:]
 
@@ -77,12 +78,14 @@ public final class WalletAssetsTabContextMenuProviders {
         nftsVCManager: NftsVCManager,
         sourceViewProvider: @escaping () -> UIView?,
         onReorder: @escaping () -> Void,
+        onSelectTab: ((DisplayAssetTab) -> Void)? = nil,
         includesTokenLimitActions: Bool = true
     ) {
         self.accountSource = accountSource
         self.nftsVCManager = nftsVCManager
         self.sourceViewProvider = sourceViewProvider
         self.onReorder = onReorder
+        self.onSelectTab = onSelectTab
         self.includesTokenLimitActions = includesTokenLimitActions
     }
 
@@ -95,14 +98,27 @@ public final class WalletAssetsTabContextMenuProviders {
         switch tab {
         case .tokens:
             configuration = makeTokensMenuConfig(
+                nftsVCManager: nftsVCManager,
                 onReorder: onReorder,
+                onSelectTab: onSelectTab,
                 includesTokenLimitActions: includesTokenLimitActions
             )
         case .nfts:
-            configuration = makeCollectiblesMenuConfig(accountSource: accountSource, onReorder: onReorder)
+            configuration = makeCollectiblesMenuConfig(
+                accountSource: accountSource,
+                onReorder: onReorder,
+                onHide: { [weak nftsVCManager] in
+                    Task {
+                        try? await nftsVCManager?.setCollectiblesHidden(true)
+                    }
+                }
+            )
+
         case let .nftCollectionFilter(filter):
             configuration = makeNftCollectionMenuConfig(
+                nftsVCManager: nftsVCManager,
                 onReorder: onReorder,
+                onSelectTab: onSelectTab,
                 onHide: { [weak nftsVCManager] in
                     Task {
                         try? await nftsVCManager?.setIsFavorited(filter: filter, isFavorited: false)
@@ -117,7 +133,11 @@ public final class WalletAssetsTabContextMenuProviders {
                 mask: .roundedAttachmentRect(cornerRadius: 12.0, cornerCurve: .circular),
                 showsBackdropCutout: true
             ),
-            configuration: configuration
+            configuration: {
+                var menuConfiguration = configuration()
+                menuConfiguration.backdropBlurPolicy = .disabledInRegularWidth
+                return menuConfiguration
+            }
         )
         contextMenuProviders[tab] = provider
         return provider
@@ -125,9 +145,10 @@ public final class WalletAssetsTabContextMenuProviders {
 }
 
 @MainActor
-func makeCollectiblesMenuConfig(
+private func makeCollectiblesMenuConfig(
     accountSource: AccountSource,
-    onReorder: @escaping () -> Void
+    onReorder: @escaping () -> Void,
+    onHide: @escaping () -> Void
 ) -> () -> ContextMenuConfiguration {
     return {
         @Dependency(\.accountStore) var accountStore
@@ -284,6 +305,16 @@ func makeCollectiblesMenuConfig(
             )
             items.append(.separator)
         }
+        
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Hide Tab"),
+                    icon: .system("pin.slash"),
+                    handler: onHide
+                )
+            )
+        )
 
         items.append(
             .action(
@@ -303,35 +334,52 @@ func makeCollectiblesMenuConfig(
 }
 
 @MainActor
-func makeNftCollectionMenuConfig(
+private func makeNftCollectionMenuConfig(
+    nftsVCManager: NftsVCManager,
     onReorder: @escaping () -> Void,
-    onHide: (() -> Void)?
+    onSelectTab: ((DisplayAssetTab) -> Void)?,
+    onHide: @escaping () -> Void,
 ) -> () -> ContextMenuConfiguration {
-    return {
+    return { [weak nftsVCManager] in
         var items: [ContextMenuItem] = []
 
-        if let onHide {
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Hide Tab"),
+                    icon: .system("pin.slash"),
+                    handler: onHide
+                )
+            )
+        )
+
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Reorder Tabs"),
+                    icon: .airBundle("MenuReorder26"),
+                    handler: onReorder
+                )
+            )
+        )
+
+        if nftsVCManager?.isCollectiblesHidden == true {
             items.append(
                 .action(
                     ContextMenuAction(
-                        title: lang("Hide Tab"),
-                        icon: .system("pin.slash"),
-                        handler: onHide
+                        title: lang("Show Collectibles"),
+                        icon: .system("pin"),
+                        handler: {
+                            Task {
+                                try? await nftsVCManager?.setCollectiblesHidden(false)
+                                onSelectTab?(.nfts)
+                            }
+                        }
                     )
                 )
             )
         }
 
-        items.append(
-            .action(
-                ContextMenuAction(
-                    title: lang("Reorder Tabs"),
-                    icon: .airBundle("MenuReorder26"),
-                    handler: onReorder
-                )
-            )
-        )
-
         return ContextMenuConfiguration(
             rootPage: ContextMenuPage(items: items),
             style: walletAssetsMenuStyle
@@ -340,11 +388,13 @@ func makeNftCollectionMenuConfig(
 }
 
 @MainActor
-func makeTokensMenuConfig(
+private func makeTokensMenuConfig(
+    nftsVCManager: NftsVCManager,
     onReorder: @escaping () -> Void,
-    includesTokenLimitActions: Bool = true
+    onSelectTab: ((DisplayAssetTab) -> Void)?,
+    includesTokenLimitActions: Bool
 ) -> () -> ContextMenuConfiguration {
-    return {
+    return { [weak nftsVCManager] in
         var items: [ContextMenuItem] = []
         if includesTokenLimitActions {
             let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
@@ -398,6 +448,23 @@ func makeTokensMenuConfig(
                 )
             )
         )
+        
+        if nftsVCManager?.isCollectiblesHidden == true {
+            items.append(
+                .action(
+                    ContextMenuAction(
+                        title: lang("Show Collectibles"),
+                        icon: .system("pin"),
+                        handler: {
+                            Task {
+                                try? await nftsVCManager?.setCollectiblesHidden(false)
+                                onSelectTab?(.nfts)
+                            }
+                        }
+                    )
+                )
+            )
+        }
 
         return ContextMenuConfiguration(
             rootPage: ContextMenuPage(items: items),

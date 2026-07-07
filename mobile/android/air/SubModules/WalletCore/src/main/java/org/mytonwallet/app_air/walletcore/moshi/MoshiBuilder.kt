@@ -42,6 +42,12 @@ class MoshiBuilder {
                         .withDefaultValue(null)
                 )
                 .add(
+                    PolymorphicJsonAdapterFactory.of(MWalletPermission::class.java, "kind")
+                        .withSubtype(MWalletPermission.Approval::class.java, "approval")
+                        .withSubtype(MWalletPermission.Delegation::class.java, "delegation")
+                        .withDefaultValue(null)
+                )
+                .add(
                     PolymorphicJsonAdapterFactory.of(ApiUpdate::class.java, "type")
                         .withSubtype(
                             ApiUpdate.ApiUpdateDappSendTransactions::class.java,
@@ -90,6 +96,54 @@ class MoshiBuilder {
                         .withSubtype(
                             ApiUpdate.ApiUpdateUpdateAccount::class.java,
                             "updateAccount"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayLoading::class.java,
+                            "walletConnectPayLoading"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayCloseLoading::class.java,
+                            "walletConnectPayCloseLoading"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPaySignTransaction::class.java,
+                            "walletConnectPaySignTransaction"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPaySignTransactionComplete::class.java,
+                            "walletConnectPaySignTransactionComplete"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPaySignData::class.java,
+                            "walletConnectPaySignData"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPaySignDataComplete::class.java,
+                            "walletConnectPaySignDataComplete"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayDataCollection::class.java,
+                            "walletConnectPayDataCollection"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayDataCollectionComplete::class.java,
+                            "walletConnectPayDataCollectionComplete"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayOptionSelection::class.java,
+                            "walletConnectPayOptionSelection"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayOptionSelectionComplete::class.java,
+                            "walletConnectPayOptionSelectionComplete"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayProcessing::class.java,
+                            "walletConnectPayProcessing"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateWalletConnectPayPaymentComplete::class.java,
+                            "walletConnectPayPaymentComplete"
                         )
                         .withDefaultValue(null)
                 )

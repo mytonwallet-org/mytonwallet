@@ -65,6 +65,9 @@ public class WSegmentedController: WTouchPassView {
     private let capsuleFillColor: UIColor?
     private weak var delegate: Delegate?
 
+    private var scrollTrackingProxy: _ScrollTrackingProxy?
+    private var scrollTrackingGeneration: Int = 0
+
     public private(set) var model: SegmentedControlModel
 
     public let blurView = WBlurView()
@@ -354,23 +357,50 @@ public class WSegmentedController: WTouchPassView {
 
     @objc public func handleSegmentChange(to index: Int, animated: Bool) {
         let targetPoint = CGPoint(x: CGFloat(index) * scrollView.frame.width, y: 0)
-        let progress = targetPoint.x / scrollView.frame.width
-        if animated {
+        let progress = CGFloat(index)
+        let needsMovement = abs(scrollView.contentOffset.x - targetPoint.x) > 0.5
+        if animated && needsMovement {
             delegate?.segmentedControllerDidStartDragging()
-            withAnimation(.spring(duration: 0.25)) {
-                segmentedControl.model.setRawProgress(progress)
-            }
+            let generation = startScrollTracking()
             UIView.animateAdaptive(duration: animationSpeed.duration) { [self] in
                 scrollView.setContentOffset(targetPoint, animated: false)
-                delegate?.segmentedController(scrollOffsetChangedTo: progress)
             } completion: { [weak self] _ in
-                self?.delegate?.segmentedControllerDidEndScrolling()
+                guard let self, scrollTrackingGeneration == generation else { return }
+                stopScrollTracking(generation: generation)
+                segmentedControl.model.setRawProgress(progress)
+                delegate?.segmentedController(scrollOffsetChangedTo: progress)
+                delegate?.segmentedControllerDidEndScrolling()
             }
         } else {
             scrollView.setContentOffset(targetPoint, animated: false)
             delegate?.segmentedController(scrollOffsetChangedTo: progress)
+            if animated {
+                delegate?.segmentedControllerDidEndScrolling()
+            }
         }
         updateNavBar(index: index, animated: animated)
+    }
+
+    private func startScrollTracking() -> Int {
+        scrollTrackingGeneration &+= 1
+        scrollTrackingProxy?.stop()
+        scrollTrackingProxy = _ScrollTrackingProxy(self)
+        return scrollTrackingGeneration
+    }
+
+    private func stopScrollTracking(generation: Int) {
+        guard scrollTrackingGeneration == generation else { return }
+        scrollTrackingProxy?.stop()
+        scrollTrackingProxy = nil
+    }
+
+    fileprivate func updateModelFromScrollPresentation() {
+        let frameWidth = scrollView.frame.width
+        guard frameWidth > 0 else { return }
+        let layer = scrollView.layer.presentation() ?? scrollView.layer
+        let progress = layer.bounds.origin.x / frameWidth
+        segmentedControl.model.setRawProgress(progress)
+        delegate?.segmentedController(scrollOffsetChangedTo: progress)
     }
 
     private func onInnerScroll(y: CGFloat, animated: Bool) {
@@ -421,11 +451,38 @@ public class WSegmentedController: WTouchPassView {
     }
 }
 
+@MainActor
+private final class _ScrollTrackingProxy: NSObject {
+    private weak var controller: WSegmentedController?
+    private var displayLink: CADisplayLink?
+
+    init(_ controller: WSegmentedController) {
+        self.controller = controller
+        super.init()
+        let link = CADisplayLink(target: self, selector: #selector(tick(_:)))
+        link.add(to: .main, forMode: .common)
+        displayLink = link
+    }
+
+    func stop() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+
+    @objc private func tick(_ link: CADisplayLink) {
+        guard let controller else {
+            stop()
+            return
+        }
+        controller.updateModelFromScrollPresentation()
+    }
+}
+
 extension WSegmentedController: UIScrollViewDelegate {
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard scrollView.frame.width > 0 else { return }
         let progress = scrollView.contentOffset.x / scrollView.frame.width
-        if scrollView.isDragging {
+        if scrollView.isDragging || scrollView.isDecelerating {
             segmentedControl.model.setRawProgress(progress)
             delegate?.segmentedController(scrollOffsetChangedTo: progress)
         }
@@ -449,17 +506,15 @@ extension WSegmentedController: UIScrollViewDelegate {
         } else if (targetContentOffset.pointee.x - scrollView.contentOffset.x) < -scrollView.frame.width {
             targetContentOffset.pointee.x += scrollView.frame.width
         }
-        let progress = targetContentOffset.pointee.x / scrollView.frame.width
-        UIView.animateAdaptive(duration: animationSpeed.duration) { [self] in
-            withAnimation(.spring(duration: 0.25)) {
-                segmentedControl.model.setRawProgress(progress)
-                scrollView.setContentOffset(targetContentOffset.pointee, animated: false)
-                delegate?.segmentedController(scrollOffsetChangedTo: progress)
-            }
-        } completion: { [weak self] _ in
-            if !scrollView.isTracking {
-                self?.delegate?.segmentedControllerDidEndScrolling()
-            }
+    }
+
+    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            delegate?.segmentedControllerDidEndScrolling()
         }
+    }
+
+    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        delegate?.segmentedControllerDidEndScrolling()
     }
 }

@@ -1,19 +1,23 @@
 import type { DieselStatus } from '../../global/types';
 import type { StakingPoolConfig } from '../chains/ton/contracts/JettonStaking/StakingPool';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
-import type { ApiCountryCode, ApiLoyaltyType, ApiMtwCardType, ApiTokenWithPrice } from './misc';
+import type { ApiChain, ApiCountryCode, ApiLoyaltyType, ApiMtwCardType, ApiTokenWithPrice } from './misc';
 
 export type ApiTokenDetails = Pick<ApiTokenWithPrice, 'slug' | 'type' | 'priceUsd' | 'percentChange24h'>;
 
-export type ApiSwapDexLabel = 'dedust' | 'ston';
+export type ApiSwapDexLabel = 'dedust' | 'ston' | 'jupiter';
+export type ApiSwapCexLabel = 'changelly' | 'near-intents';
+export type ApiSwapFeeMode = 'extra' | 'included';
 
 export type ApiSwapEstimateRequest = {
   from: string;
   to: string;
-  slippage: number;
+  slippage?: number;
   fromAmount?: string;
   toAmount?: string;
-  fromAddress: string;
+  fromAddress?: string;
+  toAddress?: string;
+  cexLabel?: ApiSwapCexLabel;
   shouldTryDiesel?: boolean;
   swapVersion?: 1 | 2;
   toncoinBalance?: string;
@@ -60,9 +64,15 @@ export type ApiSwapEstimateVariant = {
   dieselFee?: string;
 };
 
-export type ApiSwapEstimateResponse = ApiSwapEstimateRequest & {
-  toAmount: string;
+export type ApiSwapDexEstimateResponse = {
+  route: 'dex';
+  from: string;
+  to: string;
   fromAmount: string;
+  toAmount: string;
+  slippage?: number;
+  fromAddress?: string;
+  shouldTryDiesel?: boolean;
   toMinAmount: string;
   impact: number;
   dexLabel: ApiSwapDexLabel;
@@ -79,24 +89,54 @@ export type ApiSwapEstimateResponse = ApiSwapEstimateRequest & {
   dieselFee?: string;
 };
 
-export type ApiSwapBuildRequest = Pick<ApiSwapEstimateResponse,
-  'from'
-  | 'to'
-  | 'fromAddress'
-  | 'dexLabel'
-  | 'fromAmount'
-  | 'toAmount'
-  | 'toMinAmount'
-  | 'slippage'
-  | 'shouldTryDiesel'
-  | 'swapVersion'
-  | 'networkFee'
-  | 'swapFee'
-  | 'ourFee'
-  | 'dieselFee'
-  | 'routes'
-> & {
+export type ApiSwapCexEstimateResponse = {
+  route: 'cex';
+  cexLabel: ApiSwapCexLabel;
+  providerName?: string;
+  termsOfUseUrl?: string;
+  privacyPolicyUrl?: string;
+  amlKycPolicyUrl?: string;
+  from: string;
+  fromAmount: string;
+  to: string;
+  toAmount: string;
+  swapFee: string;
+  ourFee?: string;
+  ourFeePercent?: number;
+  ourFeeMode?: ApiSwapFeeMode;
+  fromMin: string;
+  fromMax: string;
+};
+
+export type ApiSwapEstimateResponse = ApiSwapDexEstimateResponse | ApiSwapCexEstimateResponse;
+
+export type ApiSwapBuildTransactionRequest = {
+  from: string;
+  to: string;
+  fromAmount: string;
+  fromAddress: string;
+  toAmount?: string;
+  toMinAmount?: string;
+  slippage?: number;
+  dexLabel?: ApiSwapDexLabel;
+  swapVersion?: ApiSwapVersion;
+  networkFee?: string;
+  shouldTryDiesel?: boolean;
+  dieselFee?: string;
   walletVersion?: ApiTonWalletVersion;
+  routes?: ApiSwapRoute[][];
+  /** TON address that owns/authenticates the backend swap history row; backend auth token is checked for it. */
+  historyAddress?: string;
+  /** CEX only: explicit provider label when caller intentionally selects a CEX provider. */
+  cexLabel?: ApiSwapCexLabel;
+  /** CEX only */
+  toAddress?: string;
+  /** CEX only */
+  payoutExtraId?: string;
+  /** Forwarded for both DEX and CEX */
+  swapFee?: string;
+  /** Client-side only: used by validateDexSwapTransfers, not consumed by the backend */
+  ourFee?: string;
 };
 
 export type ApiSwapTransfer = {
@@ -105,9 +145,27 @@ export type ApiSwapTransfer = {
   payload: string;
 };
 
-export type ApiSwapBuildResponse = {
+export type ApiSwapBuildTransferResponse = {
+  chain: ApiChain;
   id: string;
-  transfers: ApiSwapTransfer[];
+  transfers?: ApiSwapTransfer[];
+  withDiesel?: boolean;
+  // Solana specific
+  transaction?: string;
+};
+
+export type ApiSwapBuildTransactionResponse =
+  | ({ route: 'dex' } & ApiSwapBuildTransferResponse)
+  | ({ route: 'cex' } & ApiSwapCexCreateTransactionResponse);
+
+export type ApiSwapExecuteTransactionResult = {
+  swapId: string;
+  success: boolean;
+  signature: string;
+  code: number;
+  error?: string;
+  inputAmountResult?: string;
+  outputAmountResult?: string;
 };
 
 // Swap assets and history
@@ -134,11 +192,21 @@ export type ApiSwapPairAsset = {
   isReverseProhibited?: boolean;
 };
 
+export type ApiSwapTransactionId = {
+  hash: string;
+  chain: ApiChain;
+};
+export type ApiSwapTransactionIds = {
+  outgoing?: ApiSwapTransactionId;
+  incoming?: ApiSwapTransactionId;
+};
+
 export type ApiSwapHistoryItem = BaseApiSwapHistoryItem & {
   id: string;
   timestamp: number;
   lt?: number;
   ourFee?: string;
+  ourFeeMode?: ApiSwapFeeMode;
   /**
    * Swap confirmation status
    * Both 'pendingTrusted' and 'pending' mean the swap is awaiting confirmation by the blockchain.
@@ -155,7 +223,9 @@ export type ApiSwapHistoryItem = BaseApiSwapHistoryItem & {
    */
   status: 'pending' | 'pendingTrusted' | 'confirmed' | 'completed' | 'failed' | 'expired';
   hashes: string[];
+  transactionIds: ApiSwapTransactionIds;
   isCanceled?: boolean;
+  cexLabel?: ApiSwapCexLabel;
   cex?: {
     /** The address to send the "from" token to */
     payinAddress: string;
@@ -165,6 +235,9 @@ export type ApiSwapHistoryItem = BaseApiSwapHistoryItem & {
     payinExtraId?: string;
     status: ApiSwapCexTransactionStatus;
     transactionId: string;
+    providerName?: string;
+    supportUrl?: string;
+    supportEmail?: string;
   };
 };
 
@@ -183,28 +256,14 @@ export type BaseApiSwapHistoryItem = {
 type ApiSwapCexTransactionStatus = 'new' | 'waiting' | 'confirming' | 'exchanging' | 'sending' | 'finished'
   | 'failed' | 'refunded' | 'hold' | 'overdue' | 'expired';
 
-export type ApiSwapCexEstimateRequest = {
-  from: string;
-  fromAmount: string;
-  to: string;
-};
-
-export type ApiSwapCexEstimateResponse = {
-  from: string;
-  fromAmount: string;
-  to: string;
-  toAmount: string;
-  swapFee: string;
-  // additional
-  fromMin: string;
-  fromMax: string;
-};
-
 export type ApiSwapCexCreateTransactionRequest = {
   from: string;
   fromAmount: string;
-  /** Always TON address */
+  /** Source-chain address used as refund/sender by providers that need it. */
   fromAddress: string;
+  /** TON address that owns/authenticates the backend swap history row; backend auth token is checked for it. */
+  historyAddress?: string;
+  cexLabel?: ApiSwapCexLabel;
   to: string;
   /** Any chain address */
   toAddress: string;

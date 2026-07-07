@@ -20,6 +20,7 @@ import {
 import {
   selectAccountStakingState,
   selectAccountStakingStatesBySlug,
+  selectAccountState,
   selectCurrentAccountId,
   selectIsHardwareAccount,
 } from '../../selectors';
@@ -429,7 +430,18 @@ addActionHandler('openStakingInfoOrStart', (global, actions) => {
     return;
   }
 
-  const stakingState = selectAccountStakingState(global, currentAccountId);
+  let stakingState = selectAccountStakingState(global, currentAccountId);
+
+  // Prefer the currently viewed token over the last one selected in the modal, when it supports staking
+  const currentTokenSlug = selectAccountState(global, currentAccountId)?.currentTokenSlug;
+  if (currentTokenSlug && stakingState.tokenSlug !== currentTokenSlug) {
+    const activeTokenStakingState = selectAccountStakingStatesBySlug(global, currentAccountId)[currentTokenSlug];
+    if (activeTokenStakingState) {
+      global = updateAccountStaking(global, currentAccountId, { stakingId: activeTokenStakingState.id });
+      setGlobal(global);
+      stakingState = activeTokenStakingState;
+    }
+  }
 
   if (getIsActiveStakingState(stakingState)) {
     actions.openStakingInfo();

@@ -43,13 +43,13 @@ class SubwalletCell(
 
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(adaptiveFontSize(), WFont.SemiBold)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 
     private val badgeLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(10f, WFont.SemiBold)
+        lbl.setStyle(10f, WFont.Medium)
         lbl.setPadding(3.dp, 0, 3.dp, 0)
         lbl
     }

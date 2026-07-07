@@ -83,15 +83,15 @@ public final class MfaConfirmationVC: WViewController {
     }
 
     private func shouldStopPolling(for error: any Error) -> Bool {
-        guard let error = error as? BridgeCallError else {
+        guard let error = error as? SdkError else {
             return false
         }
         switch error {
-        case .message(let message, _):
+        case .message(let message):
             return message != .serverError
-        case .unknown:
+        case .sdkNotReady, .decoding, .invalidResponse:
             return false
-        case .customMessage, .apiReturnedError:
+        case .apiReturnedError, .javaScriptException, .unexpected:
             return true
         }
     }

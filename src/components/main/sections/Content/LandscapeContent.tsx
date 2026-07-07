@@ -187,7 +187,9 @@ function LandscapeContent({
   const activeTabId = tabs[activeTabIndex]?.id;
 
   function renderHeader() {
-    if (hasNftSelection) return <NftSelectionHeader />;
+    const isNftSelectionVisible = hasNftSelection
+      && (activeContentTab === ContentTab.Nft || Boolean(currentCollection));
+    if (isNftSelectionVisible) return <NftSelectionHeader />;
     if (currentCollection) {
       return <NftCollectionHeader collection={currentCollection} key={currentCollection.address} />;
     }

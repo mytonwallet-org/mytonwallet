@@ -35,6 +35,7 @@ public final class NftPreviewLarge: UIView {
         mediaView.isUserInteractionEnabled = true
         mediaView.mediaContentMode = .scaleAspectFill
         mediaView.animationRenderingConfiguration = .activityPreviewDefault
+        mediaView.disablesAnimationPlaybackInLowPowerMode = true
         mediaView.layer.cornerRadius = 12
         mediaView.layer.cornerCurve = .continuous
         mediaView.layer.masksToBounds = true

@@ -2,7 +2,7 @@ import React, { memo, useEffect, useMemo, useRef } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiBaseCurrency, ApiPriceHistoryPeriod, ApiStakingState } from '../../api/types';
-import type { PortfolioHistoryBundle, UserToken } from '../../global/types';
+import type { PortfolioHistoryBundle, PortfolioPnlChange, UserToken } from '../../global/types';
 
 import { ANIMATION_LEVEL_MIN } from '../../config';
 import {
@@ -17,8 +17,7 @@ import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { formatDateRange } from '../../util/dateFormat';
 import { toBig } from '../../util/decimals';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
-import { computeNetChange } from '../../util/portfolio/computeNetChange';
-import { DEFAULT_PORTFOLIO_TIME_RANGE } from '../../util/portfolio/timeRange';
+import { DEFAULT_PORTFOLIO_TIME_RANGE, getTimeRangeStartTs } from '../../util/portfolio/timeRange';
 import { getFullStakingBalance } from '../../util/staking';
 import { captureControlledSwipe, SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
@@ -49,7 +48,8 @@ interface OwnProps {
 interface StateProps {
   currentAccountId?: string;
   bundle?: PortfolioHistoryBundle;
-  isRefreshing?: boolean;
+  pnlChange?: PortfolioPnlChange;
+  isPnlChangeUpdating?: boolean;
   error?: string;
   tokens?: UserToken[];
   stakingStates?: ApiStakingState[];
@@ -63,7 +63,8 @@ function Portfolio({
   isActive,
   currentAccountId,
   bundle,
-  isRefreshing,
+  pnlChange,
+  isPnlChangeUpdating,
   error,
   tokens,
   stakingStates,
@@ -151,13 +152,16 @@ function Portfolio({
 
   const totalAmount = balanceValues ? Number(balanceValues.primaryValue) : 0;
 
-  const netChange = useMemo(() => (
-    bundle?.netWorth ? computeNetChange(bundle.netWorth, timeRange) : undefined
-  ), [bundle?.netWorth, timeRange]);
-
   const dateRange = useMemo(() => {
-    return netChange ? formatDateRange(lang.code!, netChange.startTs, netChange.endTs) : undefined;
-  }, [netChange, lang.code]);
+    // While updating, `pnlChange` may be buffered from a previous range - don't show its stale window
+    if (!isPnlChangeUpdating && pnlChange?.startTs !== undefined && pnlChange.endTs !== undefined) {
+      return formatDateRange(lang.code!, pnlChange.startTs, pnlChange.endTs);
+    }
+
+    // Fall back to the nominal selected period
+    const startTs = getTimeRangeStartTs(timeRange);
+    return startTs !== undefined ? formatDateRange(lang.code!, startTs, Date.now()) : undefined;
+  }, [pnlChange, isPnlChangeUpdating, lang.code, timeRange]);
 
   const segmentsByTokenKind = useMemo(
     () => (tokens ? buildSegmentsByTokenKind(lang, tokens, baseCurrency) : []),
@@ -183,7 +187,12 @@ function Portfolio({
           <section className={styles.section}>
             <SectionHeader title={lang('Overview')} range={dateRange} />
 
-            <Balance totalAmount={totalAmount} baseCurrency={baseCurrency} netChange={netChange} />
+            <Balance
+              totalAmount={totalAmount}
+              baseCurrency={baseCurrency}
+              pnlChange={pnlChange}
+              isPnlChangeUpdating={isPnlChangeUpdating}
+            />
           </section>
 
           <div ref={railContainerRef} className={styles.insightsRailContainer}>
@@ -220,8 +229,9 @@ function Portfolio({
             bundle={bundle}
             baseCurrencySymbol={baseCurrencySymbol}
             dateRange={dateRange}
-            isRefreshing={isRefreshing}
             error={error}
+            dataKey={`${currentAccountId}_${baseCurrency}`}
+            noAnimation={noAnimation}
           />
         </div>
 
@@ -241,11 +251,18 @@ export default memo(
     const bundle = currentAccountId
       ? selectPortfolioHistoryBundle(global, currentAccountId, baseCurrency, timeRange)
       : undefined;
+    const freshPnlChange = bundle?.pnlChange;
+    const lastPnlChange = currentAccountId ? portfolio?.pnlChangeByAccountId?.[currentAccountId] : undefined;
+    const isPortfolioLoading = Boolean(portfolio?.isLoading || portfolio?.isRefreshing);
+    const pnlChange = freshPnlChange
+      ?? (isPortfolioLoading && lastPnlChange?.baseCurrency === baseCurrency ? lastPnlChange : undefined);
+    const isPnlChangeUpdating = isPortfolioLoading && (pnlChange === undefined || pnlChange !== freshPnlChange);
 
     return {
       currentAccountId,
       bundle,
-      isRefreshing: portfolio?.isRefreshing,
+      pnlChange,
+      isPnlChangeUpdating,
       error: portfolio?.error,
       tokens: selectCurrentAccountTokens(global),
       stakingStates: currentAccountId ? selectAccountStakingStates(global, currentAccountId) : undefined,

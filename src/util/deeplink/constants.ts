@@ -12,3 +12,7 @@ export const TONCONNECT_UNIVERSAL_URL = IS_GRAM_WALLET
   : 'https://connect.mytonwallet.org';
 export const CHECKIN_URL = 'https://checkin.mytonwallet.org';
 export const WALLETCONNECT_PROTOCOL = 'wc:';
+export const WALLETCONNECT_DEEPLINK = 'mywallet-wc://';
+export const WALLETCONNECT_UNIVERSAL_URLS = IS_GRAM_WALLET
+  ? ['https://connect.gramwallet.io/wc']
+  : ['https://connect.mywallet.io/wc', 'https://connect.mytonwallet.org/wc'];

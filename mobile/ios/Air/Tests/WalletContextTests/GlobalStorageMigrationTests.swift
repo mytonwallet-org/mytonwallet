@@ -88,6 +88,63 @@ struct GlobalStorageMigrationTests {
     }
 
     @Test
+    func `recent web migration tail is applied`() async throws {
+        let storage = makeStorage([
+            "stateVersion": 54,
+            "accounts": [
+                "byId": [
+                    "0-ton-mainnet": [
+                        "type": "mnemonic",
+                        "byChain": [
+                            "ton": [
+                                "address": "EQtail",
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            "byAccountId": [
+                "0-ton-mainnet": [
+                    "activeContentTab": 1,
+                    "landscapeActionsActiveTabIndex": 2,
+                    "activities": [
+                        "idsMain": ["activity-id"],
+                    ],
+                    "nfts": [
+                        "ownedMtwCardAddresses": ["EQcard"],
+                    ],
+                ],
+            ],
+            "settings": [
+                "byAccountId": [
+                    "0-ton-mainnet": [
+                        "walletTokensLimit": 7,
+                    ],
+                ],
+            ],
+            "portfolio": [
+                "netChangeByAccountId": [
+                    "0-ton-mainnet": 10,
+                ],
+                "other": true,
+            ],
+        ])
+
+        try await storage.migrate(persist: false)
+
+        #expect(storage["stateVersion"] as? Int == STATE_VERSION)
+        #expect(storage["byAccountId.0-ton-mainnet.activeContentTab"] == nil)
+        #expect(storage["byAccountId.0-ton-mainnet.landscapeActionsActiveTabIndex"] == nil)
+        #expect(storage["byAccountId.0-ton-mainnet.activities"] == nil)
+        #expect(storage["byAccountId.0-ton-mainnet.nfts.ownedMwCardAddresses"] as? [String] == ["EQcard"])
+        #expect(storage["byAccountId.0-ton-mainnet.nfts.ownedMtwCardAddresses"] == nil)
+        #expect(storage["settings.byAccountId.0-ton-mainnet.overviewCellSize"] as? String == "small")
+        #expect(storage["settings.byAccountId.0-ton-mainnet.walletTokensLimit"] == nil)
+        #expect(storage["portfolio.netChangeByAccountId"] == nil)
+        #expect(storage["portfolio.other"] as? Bool == true)
+    }
+
+    @Test
     func `nil version without accounts remains a migration failure`() async {
         let storage = makeStorage([:])
         var didThrowMissingVersion = false

@@ -82,6 +82,8 @@ object WGlobalStorage {
     private const val CURRENT_ACCOUNT_ID = "currentAccountId"
     private const val CURRENT_TEMPORARY_VIEW_ACCOUNT_ID = "currentTemporaryViewAccountId"
     private const val ACTIVE_THEME = "settings.theme"
+    private const val ACTIVE_FONT = "settings.font"
+    private const val IS_ROUNDED_BALANCE_FONT_ACTIVE = "settings.roundedBalanceFont"
     private const val ARE_ROUNDED_TOOLBARS_ACTIVE = "settings.roundedToolbars"
     private const val IS_TESTNET = "settings.isTestnet"
     private const val ARE_ANIMATIONS_ACTIVE = "settings.animationLevel"
@@ -356,6 +358,26 @@ object WGlobalStorage {
 
     fun setActiveTheme(theme: String) {
         globalStorageProvider.set(ACTIVE_THEME, theme, IGlobalStorageProvider.PERSIST_INSTANT)
+    }
+
+    fun getActiveFont(): String? {
+        return globalStorageProvider.getString(ACTIVE_FONT)
+    }
+
+    fun setActiveFont(font: String) {
+        globalStorageProvider.set(ACTIVE_FONT, font, IGlobalStorageProvider.PERSIST_INSTANT)
+    }
+
+    fun isRoundedBalanceFontActive(): Boolean {
+        return globalStorageProvider.getBool(IS_ROUNDED_BALANCE_FONT_ACTIVE) ?: true
+    }
+
+    fun setIsRoundedBalanceFontActive(active: Boolean) {
+        globalStorageProvider.set(
+            IS_ROUNDED_BALANCE_FONT_ACTIVE,
+            active,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
     }
 
     fun setAreRoundedToolbarsActive(active: Boolean) {
@@ -637,9 +659,23 @@ object WGlobalStorage {
         )
     }
 
+    fun getIsAllowSuspiciousActions(accountId: String): Boolean {
+        return globalStorageProvider.getBool(
+            "settings.byAccountId.$accountId.isAllowSuspiciousActions"
+        ) == true
+    }
+
+    fun setIsAllowSuspiciousActions(accountId: String, isEnabled: Boolean) {
+        globalStorageProvider.set(
+            "settings.byAccountId.$accountId.isAllowSuspiciousActions",
+            if (isEnabled) true else null,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
     fun getOwnedMtwCardAddresses(accountId: String): Set<String> {
         val arr = globalStorageProvider.getArray(
-            "byAccountId.$accountId.nfts.ownedMtwCardAddresses"
+            "byAccountId.$accountId.nfts.ownedMwCardAddresses"
         ) ?: return emptySet()
         val result = LinkedHashSet<String>(arr.length())
         for (i in 0 until arr.length()) {
@@ -652,7 +688,7 @@ object WGlobalStorage {
         val array = JSONArray()
         addresses.forEach { array.put(it) }
         globalStorageProvider.set(
-            "byAccountId.$accountId.nfts.ownedMtwCardAddresses",
+            "byAccountId.$accountId.nfts.ownedMwCardAddresses",
             array,
             IGlobalStorageProvider.PERSIST_NORMAL
         )
@@ -967,10 +1003,6 @@ object WGlobalStorage {
         return globalStorageProvider.getBool("byAccountId.$accountId.config.isMfaEnabled") == true
     }
 
-    fun isCardMinting(accountId: String): Boolean {
-        return globalStorageProvider.getBool("byAccountId.$accountId.isCardMinting") == true
-    }
-
     fun isMultichain(accountId: String): Boolean {
         return globalStorageProvider.keysIn("accounts.byId.$accountId.byChain").size > 1
     }
@@ -1073,7 +1105,7 @@ object WGlobalStorage {
         )
     }
 
-    private const val LAST_STATE: Int = 54
+    private const val LAST_STATE: Int = 59
 
     fun migrate() {
         // Lock the storage
@@ -1413,6 +1445,52 @@ object WGlobalStorage {
             LocaleController.setApplicationLocale(
                 globalStorageProvider.getString(LANG_CODE) ?: WLanguage.ENGLISH.langCode
             )
+        }
+
+        if (currentState < 55) {
+            clearActivities()
+        }
+
+        // State 55→56: walletTokensLimit (numeric Top-N preset) replaced by overviewCellSize enum
+        if (currentState < 56) {
+            for (accountId in accountIds(network = null)) {
+                val limitKey = "settings.byAccountId.$accountId.walletTokensLimit"
+                val cellSizeKey = "settings.byAccountId.$accountId.overviewCellSize"
+                val limit = globalStorageProvider.getInt(limitKey)
+                if (limit != null && !globalStorageProvider.contains(cellSizeKey)) {
+                    val cellSize = when {
+                        limit <= 7 -> "small"
+                        limit < 30 -> "medium"
+                        else -> "big"
+                    }
+                    globalStorageProvider.set(cellSizeKey, cellSize, IGlobalStorageProvider.PERSIST_NO)
+                }
+                globalStorageProvider.remove(limitKey, IGlobalStorageProvider.PERSIST_NO)
+            }
+        }
+
+        // State 56→57: nfts.ownedMtwCardAddresses renamed to ownedMwCardAddresses (MTW → MW rebrand)
+        if (currentState < 57) {
+            for (accountId in accountIds(network = null)) {
+                val oldKey = "byAccountId.$accountId.nfts.ownedMtwCardAddresses"
+                val newKey = "byAccountId.$accountId.nfts.ownedMwCardAddresses"
+                val addresses = globalStorageProvider.getArray(oldKey) ?: continue
+                globalStorageProvider.set(newKey, addresses, IGlobalStorageProvider.PERSIST_NO)
+                globalStorageProvider.remove(oldKey, IGlobalStorageProvider.PERSIST_NO)
+            }
+        }
+
+        // State 57→58: Net Change was replaced by PnL Change
+        if (currentState < 58) {
+            globalStorageProvider.remove(
+                "portfolio.netChangeByAccountId",
+                IGlobalStorageProvider.PERSIST_NO
+            )
+        }
+
+        // State 58→59: clear cached activities
+        if (currentState < 59) {
+            clearActivities()
         }
 
         // Update and unlock the storage

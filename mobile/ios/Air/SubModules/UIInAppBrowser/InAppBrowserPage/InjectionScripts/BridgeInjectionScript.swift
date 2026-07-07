@@ -57,7 +57,9 @@ struct BridgeInjectionScript {
                     }
                     if (message.type === '\(DappConnectMessageType.event)') {
                         window._mtwAir_eventListeners.forEach(function(listener) {
-                            listener(message.event);
+                            try {
+                                listener(message.event);
+                            } catch (e) {}
                         });
                     }
                 } catch (err) {}

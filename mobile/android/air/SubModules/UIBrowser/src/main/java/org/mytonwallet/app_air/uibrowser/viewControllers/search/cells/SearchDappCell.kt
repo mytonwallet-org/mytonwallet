@@ -42,7 +42,7 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(adaptiveFontSize(), WFont.SemiBold)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(WColor.PrimaryText)
@@ -62,7 +62,7 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
     }
 
     private val openButton = WLabel(context).apply {
-        setStyle(14f, WFont.SemiBold)
+        setStyle(14f, WFont.Medium)
         text =
             LocaleController.getString("Open")
         gravity = Gravity.CENTER

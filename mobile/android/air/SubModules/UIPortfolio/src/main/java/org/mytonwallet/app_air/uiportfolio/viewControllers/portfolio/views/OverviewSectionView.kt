@@ -39,7 +39,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     private val titleLabel = WLabel(context).apply {
         id = generateViewId()
         text = LocaleController.getString("Overview")
-        setStyle(14f, WFont.DemiBold)
+        setStyle(14f, WFont.Medium)
         setTextColor(WColor.Tint)
     }
     private val dateRangeLabel = WLabel(context).apply {
@@ -48,7 +48,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         setTextColor(WColor.SecondaryText)
     }
     private val totalValueLabel = WLabel(context).apply {
-        setStyle(16f, WFont.DemiBold)
+        setStyle(16f, WFont.Medium)
         setPadding(0, 0, 16.dp, 0)
     }
     private val totalValueContainer = WSensitiveDataContainer(
@@ -69,7 +69,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     }
     private val netChangeLabel = WLabel(context).apply {
         id = generateViewId()
-        setStyle(16f, WFont.DemiBold)
+        setStyle(16f, WFont.Medium)
         setTextColor(WColor.PrimaryText)
     }
     private val netChangeContainer = WSensitiveDataContainer(
@@ -83,7 +83,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     ).apply { id = generateViewId() }
     private val netPctLabel = WLabel(context).apply {
         id = generateViewId()
-        setStyle(13f, WFont.DemiBold)
+        setStyle(13f, WFont.Medium)
     }
     private val netCaptionLabel = WLabel(context).apply {
         id = generateViewId()

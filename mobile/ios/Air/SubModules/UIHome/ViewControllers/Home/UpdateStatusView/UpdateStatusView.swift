@@ -1,6 +1,5 @@
 //
 //  UpdateStatusView.swift
-//  UIWalletHome
 //
 //  Created by Sina on 5/4/23.
 //

@@ -3,16 +3,18 @@ import { useEffect, useRef, useState } from '../../../lib/teact/teact';
 import type { ApiBaseCurrency, ApiChain, ApiToken } from '../../../api/types';
 import type { Theme } from '../../../global/types';
 
-import { SELF_UNIVERSAL_HOST_URL } from '../../../config';
+import { SELF_UNIVERSAL_HOST_URL, TONCOIN } from '../../../config';
+import { buildAvanchangeUrl } from '../../../util/avanchange';
 import { getChainConfig } from '../../../util/chain';
 import { toDecimal } from '../../../util/decimals';
 import { getMaxTransferAmount } from '../../../util/fee/transferFee';
 import { callApi } from '../../../api';
 
-const SUPPORTED_CURRENCIES: ApiBaseCurrency[] = ['EUR'];
+const MOONPAY_CURRENCY: ApiBaseCurrency = 'EUR';
 
 interface UseOffRampUrlParams {
   isOpen: boolean;
+  currency: ApiBaseCurrency;
   chain?: ApiChain;
   address?: string;
   token?: ApiToken;
@@ -29,6 +31,7 @@ interface UseOffRampUrlResult {
 
 export default function useOffRampUrl({
   isOpen,
+  currency,
   chain,
   address,
   token,
@@ -42,6 +45,8 @@ export default function useOffRampUrl({
   const isOpenRef = useRef(isOpen);
   isOpenRef.current = isOpen;
   const { slug: tokenSlug, decimals: tokenDecimals } = token || {};
+  // Avanchange sells GRAM, so it only applies on the TON chain regardless of the picked currency
+  const isAvanchange = currency === 'RUB' && chain === 'ton';
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,8 +56,36 @@ export default function useOffRampUrl({
     }
   }, [isOpen]);
 
+  // `address`/`balance` here are the TON wallet and GRAM balance. Build the dreamwalkers URL
+  // synchronously, no backend call.
   useEffect(() => {
-    if (!isOpen || !address || !chain || balance === undefined || !tokenSlug || !accountId) return undefined;
+    if (!isOpen || !isAvanchange) return;
+
+    if (!address) {
+      setUrl(undefined);
+      return;
+    }
+
+    const amount = balance && balance > 0n ? toDecimal(balance, TONCOIN.decimals) : undefined;
+
+    setUrl(buildAvanchangeUrl({
+      address,
+      give: 'GRAM',
+      take: 'CARDRUB',
+      type: 'sell',
+      amount,
+    }));
+    setError(undefined);
+    setIsLoading(false);
+  }, [isOpen, isAvanchange, address, balance]);
+
+  // MoonPay (EUR): resolve the off-ramp URL from the backend with the max transferable amount
+  useEffect(() => {
+    if (!isOpen || isAvanchange || !address || !chain || balance === undefined || !tokenSlug || !accountId) {
+      return undefined;
+    }
+
+    setIsLoading(true);
 
     let isCancelled = false;
 
@@ -101,7 +134,7 @@ export default function useOffRampUrl({
           chain,
           address,
           theme: appTheme,
-          currency: SUPPORTED_CURRENCIES[0],
+          currency: MOONPAY_CURRENCY,
           amount: toDecimal(maxAmount, tokenDecimals),
           baseUrl: `${SELF_UNIVERSAL_HOST_URL}/offramp/`,
         });
@@ -127,7 +160,7 @@ export default function useOffRampUrl({
     return () => {
       isCancelled = true;
     };
-  }, [accountId, address, appTheme, balance, chain, tokenDecimals, isOpen, tokenSlug]);
+  }, [accountId, address, appTheme, balance, chain, tokenDecimals, isOpen, isAvanchange, tokenSlug]);
 
   return { url, error, isLoading };
 }

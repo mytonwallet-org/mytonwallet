@@ -33,6 +33,7 @@
 				<string>tc</string>
 				<string>gramwallet-tc</string>
 				<string>gramwallet</string>
+				<string>gramwallet-wc</string>
 				<string>wc</string>
 			</array>
 		</dict>
@@ -51,17 +52,17 @@
 	<string>Bluetooth access is needed to connect Ledger.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>The app enables the scanning of various barcodes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is requested by the website opened in the built-in browser.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>For an easier and faster operation verification.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Photo library access is needed to download NFTs.</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>AirModules_WalletResources.bundle/Nunito-ExtraBold.ttf</string>
 		<string>AirModules_WalletResources.bundle/CalSans-Regular.ttf</string>
 		<string>AirModules_WalletResources.bundle/SFCompactDisplayMedium.otf</string>
 		<string>AirModules_WalletResources.bundle/SFCompactRoundedBold.otf</string>
-		<string>AirModules_WalletResources.bundle/SFCompactRoundedSemibold.otf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

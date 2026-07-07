@@ -24,13 +24,15 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class WalletSelectionVC(
     context: Context,
     private val dappHost: String,
-    private val requiresProof: Boolean
+    private val requiresProof: Boolean,
+    private val requiredChains: List<ApiDappSessionChain> = emptyList()
 ) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
     override val TAG = "WalletSelection"
 
@@ -208,6 +210,7 @@ class WalletSelectionVC(
     }
 
     private fun isWalletSelectable(account: MAccount): Boolean {
+        if (!account.supports(requiredChains)) return false
         val hasTonWallet = account.tonAddress != null
         if (!hasTonWallet) return false
         // View-only accounts can't sign. Block them whenever the dapp needs a

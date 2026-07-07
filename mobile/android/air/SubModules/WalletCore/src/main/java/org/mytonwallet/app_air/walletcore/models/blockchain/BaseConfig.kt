@@ -18,6 +18,7 @@ object BaseConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_base_light
 
     override val qrIcon = org.mytonwallet.app_air.icons.R.drawable.ic_blockchain_base_128_qr
+    override val displayColor = "#0052FF".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#424DB8".toColorInt(),
         "#2050A1".toColorInt(),

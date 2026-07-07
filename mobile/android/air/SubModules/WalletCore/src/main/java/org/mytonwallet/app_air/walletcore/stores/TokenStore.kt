@@ -181,6 +181,7 @@ object TokenStore : IStore {
         cmcSlug = cmcSlug,
         color = color,
         codeHash = codeHash,
+        label = label,
         priceUsd = priceUsd,
         percentChange24h = percentChange24h,
     )

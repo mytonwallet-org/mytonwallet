@@ -50,7 +50,7 @@ class HeaderCell(
 
     val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(14f, WFont.DemiBold)
+            setStyle(14f, WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             isSelected = true

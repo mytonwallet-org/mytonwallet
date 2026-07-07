@@ -13,6 +13,7 @@ public struct ApiSwapHistoryItem: Codable, Sendable {
     public let timestamp: Int64
     public let lt: Int64?
     public let from: String
+    public let fromAddress: String?
     public let fromAmount: MDouble
     public let to: String
     public let toAmount: MDouble
@@ -20,6 +21,8 @@ public struct ApiSwapHistoryItem: Codable, Sendable {
     public let networkFee: MDouble?
     public let swapFee: MDouble
     public let ourFee: MDouble?
+    public let ourFeeMode: String?
+    public let cexLabel: ApiSwapCexLabel?
     
     /**
      * Swap confirmation status
@@ -34,23 +37,28 @@ public struct ApiSwapHistoryItem: Codable, Sendable {
      */
     public let status: ApiSwapStatus
     public var hashes: [String]
+    public var transactionIds: ApiSwapTransactionIds
     public let isCanceled: Bool?
     public let cex: ApiSwapCexTransactionExtras?
     
-    public static func makeFrom(swapBuildRequest: ApiSwapBuildRequest, swapTransferData: ApiSwapBuildResponse) -> ApiSwapHistoryItem {
+    public static func makeFrom(swapBuildRequest: ApiSwapBuildRequest, swapId: String) -> ApiSwapHistoryItem {
         ApiSwapHistoryItem(
-            id: swapTransferData.id,
+            id: swapId,
             timestamp: Int64(Date().timeIntervalSince1970 * 1000),
             lt: nil,
             from: swapBuildRequest.from,
+            fromAddress: swapBuildRequest.fromAddress,
             fromAmount: swapBuildRequest.fromAmount,
             to: swapBuildRequest.to,
-            toAmount: swapBuildRequest.toAmount,
+            toAmount: swapBuildRequest.toAmount ?? .zero,
             networkFee:  swapBuildRequest.networkFee,
-            swapFee: swapBuildRequest.swapFee,
+            swapFee: swapBuildRequest.swapFee ?? .zero,
             ourFee: swapBuildRequest.ourFee,
-            status: .pending,
+            ourFeeMode: nil,
+            cexLabel: nil,
+            status: .pendingTrusted,
             hashes: [],
+            transactionIds: .init(),
             isCanceled: nil,
             cex: nil
         )

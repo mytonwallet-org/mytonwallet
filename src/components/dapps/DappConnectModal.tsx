@@ -190,6 +190,10 @@ function DappConnectModal({
     });
   });
 
+  function getIsAccountCompatible(byChain: Account['byChain']) {
+    return !dapp?.chains?.length || dapp.chains.every(({ chain }) => Boolean(byChain[chain]));
+  }
+
   function renderAccountSelector() {
     const account = accounts?.[selectedAccount];
     if (!account) return undefined;
@@ -237,9 +241,9 @@ function DappConnectModal({
           </span>
           <div className={styles.accountList}>
             {(orderedAccounts ?? []).map(([accountId, { title, byChain, type }]) => {
-              const hasTonWallet = Boolean(byChain.ton);
+              const isCompatible = getIsAccountCompatible(byChain);
               const accountHasMfa = Boolean(byChain.ton?.mfa);
-              const isDisabled = !hasTonWallet || ((!!requiredProof || accountHasMfa) && isViewAccount(type));
+              const isDisabled = !isCompatible || ((!!requiredProof || accountHasMfa) && isViewAccount(type));
               const isSelected = accountId === selectedAccount;
               const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
               const balanceData = balancesByAccountId?.[accountId];
@@ -272,6 +276,7 @@ function DappConnectModal({
       && isViewAccount(accounts?.[selectedAccount]?.type)
       && (requiredProof || isMfaEnabled),
     );
+    const isSelectedAccountCompatible = getIsAccountCompatible(accounts?.[selectedAccount]?.byChain ?? {});
 
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
@@ -299,12 +304,18 @@ function DappConnectModal({
           <p className={styles.dappLargePreviewDescription}>{lang('$connect_dapp_description')}</p>
         </div>
         {shouldRenderAccountSelector && renderAccountSelector()}
+        {!isSelectedAccountCompatible && (
+          <div className={buildClassName(styles.multichainWarning, styles.warning)}>
+            <div className={styles.warningTitle}>{lang('No matching chains')}</div>
+            {lang('Select multichain wallet')}
+          </div>
+        )}
 
         <div className={styles.footer}>
           <Button
             isPrimary
             isDestructive={dapp?.urlTrustStatus === 'dangerous'}
-            isDisabled={isViewMode}
+            isDisabled={isViewMode || !isSelectedAccountCompatible}
             className={modalStyles.buttonFullWidth}
             onClick={handleSubmit}
           >

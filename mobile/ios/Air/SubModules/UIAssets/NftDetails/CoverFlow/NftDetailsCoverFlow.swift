@@ -20,8 +20,9 @@ protocol CoverFlowDelegate: AnyObject {
 }
 
 class _CoverFlowView: UIView, UIScrollViewDelegate {
-    private var selectedIdx = 0
-    private let models: [NftDetailsItemModel]
+    private var selectedModelId: String?
+    private var models: [NftDetailsItemModel]
+    private var modelById: [String: NftDetailsItemModel] = [:]
     
     private enum UserImpact {
         case tapped, scrolling
@@ -31,6 +32,12 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     private var hapticPlayedIdFor: Int?
     private var isExternalDriving = false
     private var externalDrivenIndex: CGFloat?
+
+    /// True while applying a programmatic model change (`setModels` / `removeModel`). During the diff
+    /// apply the orthogonal scroll view briefly reports a transient tile as centered, which would
+    /// otherwise fire `coverFlowDidSelectModel` and drive the pager to the wrong page. The explicit
+    /// `selectModel(...)` in the apply completion is the source of truth for the selection instead.
+    private var suppressSelectionNotifications = false
     private weak var internalScrollView: UIScrollView?
     private var lastExternalSyncedIndex: CGFloat?
 
@@ -45,14 +52,14 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     }
     
     private enum Item: Hashable {
-        case coverFlowItem(modelIndex: Int)
+        case coverFlowItem(modelId: String)
     }
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
     private let thumbnailDownloader: ImageDownloader
-    private weak var colorCache: NftDetailsColorCache?
+    private let colorResolver: NftDetailsColorResolver
     private var tileCornerRadius: CGFloat
 
     weak var delegate: CoverFlowDelegate?
@@ -65,11 +72,13 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
         }
     }
     
-    init(models: [NftDetailsItemModel], itemSize: CGFloat, thumbnailDownloader: ImageDownloader, colorCache: NftDetailsColorCache?, tileCornerRadius: CGFloat) {
+    init(models: [NftDetailsItemModel], itemSize: CGFloat, thumbnailDownloader: ImageDownloader, colorResolver: NftDetailsColorResolver, tileCornerRadius: CGFloat) {
         self.models = models
+        self.modelById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        self.selectedModelId = models.first?.id
         self.itemSize = itemSize
         self.thumbnailDownloader = thumbnailDownloader
-        self.colorCache = colorCache
+        self.colorResolver = colorResolver
         self.tileCornerRadius = tileCornerRadius
         
         super.init(frame: .fromSize(width: 400, height: itemSize))
@@ -152,7 +161,8 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
                 // Only sync `selectedIdx` when the orthogonal scroll offset agrees with `minDistanceIndex`; otherwise
                 // a stale `scrollOffset` / pre-scroll layout pass reports row 0 as centered and would wrongly notify
                 // `coverFlowDidSelectModel` for that item while `selectedIdx` already matches an external selection.
-                if self.userImpact == nil && !self.isExternalDriving && self.externalDrivenIndex == nil,
+                if self.userImpact == nil && !self.isExternalDriving && self.externalDrivenIndex == nil
+                    && !self.suppressSelectionNotifications,
                    let sv = self.internalScrollView {
                     let rawRow = (sv.contentOffset.x + sv.adjustedContentInset.left) / itemSpacing
                     if abs(rawRow - CGFloat(minDistanceIndex)) < 0.5 {
@@ -162,18 +172,20 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
                 
                 if let userImpact = self.userImpact, let delegate = self.delegate {
                     if let centeredItem = items.first(where: { $0.indexPath.row == minDistanceIndex }),
-                       case .coverFlowItem(let itemIndex) = self.dataSource.itemIdentifier(for: centeredItem.indexPath) {
-                        let idx = CGFloat(itemIndex)
+                       case .coverFlowItem(let modelId) = self.dataSource.itemIdentifier(for: centeredItem.indexPath),
+                       let model = self.modelById[modelId] {
+                        let row = centeredItem.indexPath.row
+                        let idx = CGFloat(row)
                         let position = idx - scrollOffset.x / itemSpacing
                         let progress = clamp(-position, to: -0.5...0.5)
                         if abs(progress) > 0.40 && userImpact == .scrolling {
-                            let newHapticPlayedIdFor = progress > 0 ? itemIndex : itemIndex - 1
+                            let newHapticPlayedIdFor = progress > 0 ? row : row - 1
                             if hapticPlayedIdFor != newHapticPlayedIdFor {
                                 Haptics.play(.selection)
                                 hapticPlayedIdFor = newHapticPlayedIdFor
                             }
                         }
-                        delegate.onCoverFlowScrollProgress(progress, currentModel: models[itemIndex])
+                        delegate.onCoverFlowScrollProgress(progress, currentModel: model)
                     }
                 }
             }
@@ -181,13 +193,13 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
         }
                 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        let cellRegistration = UICollectionView.CellRegistration<_Cell, Int> { [weak self] cell, _, itemIndex in
-            guard let self else { return }
+        let cellRegistration = UICollectionView.CellRegistration<_Cell, String> { [weak self] cell, _, modelId in
+            guard let self, let model = self.modelById[modelId] else { return }
             
             cell.tile.delegate = self
             cell.tile.thumbnailDownloader = self.thumbnailDownloader
-            cell.tile.colorCache = self.colorCache
-            cell.tile.configure(with: models[itemIndex], tileCornerRadius: self.tileCornerRadius)
+            cell.tile.colorResolver = self.colorResolver
+            cell.tile.configure(with: model, tileCornerRadius: self.tileCornerRadius)
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
@@ -199,7 +211,7 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
         
         var snapshot = dataSource.snapshot()
         snapshot.appendSections([.main])
-        snapshot.appendItems(models.map { Item.coverFlowItem(modelIndex: $0.index) })
+        snapshot.appendItems(models.map { Item.coverFlowItem(modelId: $0.id) })
         dataSource.apply(snapshot)
         
         addSubview(collectionView)
@@ -255,7 +267,9 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
             if internalScrollView != nil {
                 needsInitialScroll = false
                 lastCollectionViewWidth = newFrame.width
-                scrollTo(index: selectedIdx, animated: false)
+                if let selectedModelId {
+                    scrollTo(modelId: selectedModelId, animated: false)
+                }
             }
         } else {
             updateInternalScrollView()
@@ -282,7 +296,12 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
         externalDrivenIndex = nil
         lastExternalSyncedIndex = nil
         userImpact = .scrolling
-        hapticPlayedIdFor = selectedIdx
+        hapticPlayedIdFor = selectedRow
+    }
+
+    private var selectedRow: Int? {
+        guard let selectedModelId else { return nil }
+        return dataSource.indexPath(for: .coverFlowItem(modelId: selectedModelId))?.row
     }
     
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
@@ -312,16 +331,17 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     
     /// `row` is the collection-view section-0 item index (0…n-1), not `NftDetailsItemModel.index`.
     private func updateFocusedItem(atCollectionRow row: Int) {
-        guard case .coverFlowItem(let itemIndex) = dataSource.itemIdentifier(for: IndexPath(item: row, section: 0)),
-              itemIndex != selectedIdx,
+        guard case .coverFlowItem(let modelId) = dataSource.itemIdentifier(for: IndexPath(item: row, section: 0)),
+              modelId != selectedModelId,
+              let model = modelById[modelId],
               let delegate else { return }
-        selectedIdx = itemIndex
-        delegate.coverFlowDidSelectModel(models[itemIndex])
+        selectedModelId = modelId
+        delegate.coverFlowDidSelectModel(model)
     }
 
     @discardableResult
-    private func scrollTo(index: Int, animated: Bool) -> Bool {
-        guard let indexPath = dataSource.indexPath(for: .coverFlowItem(modelIndex: index)),
+    private func scrollTo(modelId: String, animated: Bool) -> Bool {
+        guard let indexPath = dataSource.indexPath(for: .coverFlowItem(modelId: modelId)),
               let scrollView = internalScrollView else { return false }
         let idx = CGFloat(indexPath.row)
         let offset = CGPoint(x: -scrollView.adjustedContentInset.left + idx * itemSpacing, y: 0)
@@ -334,29 +354,68 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     private func syncScrollPositionToSelectionIfNeeded() {
         guard bounds.width > 0,
               let sv = internalScrollView,
+              let selectedModelId,
               dataSource.snapshot().numberOfItems > 0,
-              let indexPath = dataSource.indexPath(for: .coverFlowItem(modelIndex: selectedIdx))
+              let indexPath = dataSource.indexPath(for: .coverFlowItem(modelId: selectedModelId))
         else { return }
         let targetRow = indexPath.row
         let rawIdx = (sv.contentOffset.x + sv.adjustedContentInset.left) / itemSpacing
         guard abs(rawIdx - CGFloat(targetRow)) > 0.05 else { return }
-        scrollTo(index: selectedIdx, animated: false)
+        scrollTo(modelId: selectedModelId, animated: false)
     }
 
     func selectModel(_ model: NftDetailsItemModel) {
         externalDrivenIndex = nil
         lastExternalSyncedIndex = nil
 
-        let index = model.index
-        selectedIdx = index
-        if !scrollTo(index: index, animated: false) {
+        selectedModelId = model.id
+        if !scrollTo(modelId: model.id, animated: false) {
             needsInitialScroll = true
+        }
+    }
+
+    func removeModel(id: String, newModels: [NftDetailsItemModel], newSelectedModel: NftDetailsItemModel, animated: Bool) {
+        guard modelById[id] != nil else { return }
+        self.models = newModels
+        self.modelById = Dictionary(newModels.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+        externalDrivenIndex = nil
+        lastExternalSyncedIndex = nil
+        selectedModelId = newSelectedModel.id
+
+        var snapshot = dataSource.snapshot()
+        snapshot.deleteItems([.coverFlowItem(modelId: id)])
+        suppressSelectionNotifications = true
+        dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
+            self?.selectModel(newSelectedModel)
+            self?.suppressSelectionNotifications = false
+        }
+    }
+
+    /// Reconciles the cover flow to an arbitrary new model list (insertions, removals and reorders),
+    /// keyed by NFT id, then focuses `newSelectedModel`.
+    func setModels(_ newModels: [NftDetailsItemModel], newSelectedModel: NftDetailsItemModel, animated: Bool) {
+        self.models = newModels
+        self.modelById = Dictionary(newModels.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+        externalDrivenIndex = nil
+        lastExternalSyncedIndex = nil
+        selectedModelId = newSelectedModel.id
+
+        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        snapshot.appendSections([.main])
+        snapshot.appendItems(newModels.map { Item.coverFlowItem(modelId: $0.id) })
+        suppressSelectionNotifications = true
+        dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
+            self?.selectModel(newSelectedModel)
+            self?.suppressSelectionNotifications = false
         }
     }
 
     /// The tile for the currently focused item, if that cell is in the collection view’s visible window (`cellForItem` is non-nil).
     private func currentActiveCoverFlowTile() -> NftDetailsItemCoverFlowTile? {
-        guard let indexPath = dataSource.indexPath(for: .coverFlowItem(modelIndex: selectedIdx)),
+        guard let selectedModelId,
+              let indexPath = dataSource.indexPath(for: .coverFlowItem(modelId: selectedModelId)),
               let cell = collectionView.cellForItem(at: indexPath) as? _Cell else { return nil }
         return cell.tile
     }
@@ -369,7 +428,7 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     /// The call is a no-op while the user is scrolling the cover flow themselves.
     func setCoverFlowProgress(progress: CGFloat, currentModel: NftDetailsItemModel) {
         guard userImpact == nil else { return }
-        guard let indexPath = dataSource.indexPath(for: .coverFlowItem(modelIndex: currentModel.index)) else { return }
+        guard let indexPath = dataSource.indexPath(for: .coverFlowItem(modelId: currentModel.id)) else { return }
 
         isExternalDriving = true
         let idx = CGFloat(indexPath.row)
@@ -409,15 +468,15 @@ extension _CoverFlowView: NftDetailsItemCoverFlowTileDelegate {
     
     func nftDetailsItemCoverFlowTile(_ tile: NftDetailsItemCoverFlowTile, didSelectModel model: NftDetailsItemModel, longTap: Bool) {
         if longTap {
-            if selectedIdx == model.index {
+            if selectedModelId == model.id {
                 self.delegate?.coverFlowDidTapModel(model, view: tile, longTap: true)
             }
         } else {
-            if selectedIdx == model.index {
+            if selectedModelId == model.id {
                 self.delegate?.coverFlowDidTapModel(model, view: tile, longTap: false)
             } else {
                 self.userImpact = .tapped
-                self.scrollTo(index: model.index, animated: true)
+                self.scrollTo(modelId: model.id, animated: true)
             }
         }
     }

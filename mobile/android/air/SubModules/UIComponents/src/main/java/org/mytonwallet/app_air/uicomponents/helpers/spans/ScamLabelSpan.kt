@@ -21,7 +21,7 @@ class ScamLabelSpan(private val text: String) : ReplacementSpan() {
     private val borderWidthPx = 1.2f.dp
     private val textSizePx = 11f.sp
     private val textColor = WColor.Red.color
-    private val textTypeface = WFont.SemiBold.typeface
+    private val textTypeface = WFont.Medium.typeface
 
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE

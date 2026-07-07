@@ -10,6 +10,7 @@ public enum PasscodeAuthPresenter {
         title: String,
         customHeaderVC: UIViewController,
         useBioOnPresent: Bool = true,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         onAuthTask: @escaping (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void,
         onDone: @escaping (_ passcode: String) -> Void
     ) {
@@ -18,6 +19,7 @@ public enum PasscodeAuthPresenter {
             replacedTitle: nil,
             subtitle: nil,
             customHeaderVC: customHeaderVC,
+            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             animatedPresentation: false,
             dissmissWhenAuthorized: false,
             shouldBeThemedLikeHeader: false,
@@ -36,6 +38,7 @@ public enum PasscodeAuthPresenter {
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
         onDone: @escaping (_ passcode: String?) -> Void,
         cancellable: Bool,
@@ -52,6 +55,7 @@ public enum PasscodeAuthPresenter {
                 replacedTitle: replacedTitle,
                 subtitle: subtitle,
                 customHeaderVC: customHeaderVC,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 dissmissWhenAuthorized: false,
                 onAuthTask: onAuthTask,
                 onDone: onDone,
@@ -100,6 +104,7 @@ public enum PasscodeAuthPresenter {
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         authTask: (@MainActor (_ passcode: String) async -> Void)? = nil
     ) async -> String? {
         guard AuthSupport.accountsSupportAppLock else {
@@ -126,6 +131,7 @@ public enum PasscodeAuthPresenter {
                 replacedTitle: replacedTitle,
                 subtitle: subtitle,
                 customHeaderVC: customHeaderVC,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 onAuthTask: onAuthTask,
                 onDone: { password in
                     lock.lock()

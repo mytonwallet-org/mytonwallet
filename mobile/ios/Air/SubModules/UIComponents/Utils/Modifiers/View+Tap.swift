@@ -142,11 +142,13 @@ fileprivate struct FrameTrackerModifier: ViewModifier {
     private let onFrameChange: (CGRect) -> Void
 
     /// Optimization to not call onFrameChange when view is out of scroll area.
-    @State private var isVisible: Bool? = if #available(iOS 18.0, *) {
-        nil
-    } else {
-        true // before iOS 18.0 onScrollVisibilityChange not available, so observe always
-    }
+    @State private var isVisible: Bool? = {
+        if #available(iOS 18.0, *) {
+            nil
+        } else {
+            true // before iOS 18.0 onScrollVisibilityChange not available, so observe always
+        }
+    }()
 
     init(coordinateSpace: String,
          emitChangesWhenOffscreen: Bool,

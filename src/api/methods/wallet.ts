@@ -4,6 +4,7 @@ import type { DappProtocolType, DappSignDataResult } from '../dappProtocols';
 import type { ApiDappRequestConfirmation } from '../dappProtocols/adapters/tonConnect/types';
 import type {
   OnApiUpdate } from '../types';
+import type { ApiRevokeWalletPermissionOptions, ApiTonPlugin, ApiWalletPermission } from '../types/misc';
 import {
   type ApiAccountWithMnemonic,
   type ApiAnyDisplayError,
@@ -12,6 +13,7 @@ import {
   type ApiSignedTransfer,
 } from '../types';
 
+import { parseAccountId } from '../../util/account';
 import { logDebugError } from '../../util/logs';
 import chains from '../chains';
 import {
@@ -133,4 +135,25 @@ export function verifyLedgerWalletAddress(
   chain: ApiChain,
 ): Promise<string | { error: ApiAnyDisplayError }> {
   return chains[chain].verifyLedgerWalletAddress(accountId);
+}
+
+export async function fetchWalletPermissions(accountId: string, chain: ApiChain): Promise<ApiWalletPermission[]> {
+  const { network } = parseAccountId(accountId);
+  const address = await fetchStoredAddress(accountId, chain);
+
+  return chains[chain].fetchWalletPermissions(network, address);
+}
+
+export async function fetchWalletPlugins(accountId: string): Promise<ApiTonPlugin[]> {
+  const { network } = parseAccountId(accountId);
+  const address = await fetchStoredAddress(accountId, 'ton');
+
+  return chains.ton.fetchWalletPlugins(network, address);
+}
+
+export async function revokeWalletPermission(
+  chain: ApiChain,
+  options: ApiRevokeWalletPermissionOptions,
+): Promise<{ txId: string } | { error: ApiAnyDisplayError }> {
+  return chains[chain].revokeWalletPermission(options);
 }

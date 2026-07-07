@@ -172,7 +172,7 @@ class ReceiveVC private constructor(
 
     val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(22F, WFont.SemiBold)
+        lbl.setStyle(22F, WFont.Medium)
         lbl.gravity = Gravity.CENTER
         lbl.text =
             LocaleController.getString("Add Crypto")

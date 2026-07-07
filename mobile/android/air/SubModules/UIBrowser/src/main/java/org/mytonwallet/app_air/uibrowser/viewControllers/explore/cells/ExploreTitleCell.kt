@@ -19,7 +19,7 @@ class ExploreTitleCell(context: Context) :
     WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(28f, WFont.SemiBold)
+            setStyle(28f, WFont.Medium)
             setTextColor(WColor.PrimaryText)
         }
     }

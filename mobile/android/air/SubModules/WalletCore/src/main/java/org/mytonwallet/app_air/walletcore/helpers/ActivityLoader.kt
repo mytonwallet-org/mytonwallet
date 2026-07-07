@@ -531,7 +531,8 @@ class ActivityLoader(
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.ReceivedNewActivities -> handleReceivedNewActivities(walletEvent)
-            WalletEvent.HideTinyTransfersChanged -> handleHideTinyTransfersChanged()
+            WalletEvent.HideTinyTransfersChanged -> handleFilterChanged()
+            WalletEvent.NftsUpdated -> handleFilterChanged()
             else -> {}
         }
     }
@@ -552,7 +553,7 @@ class ActivityLoader(
         )
     }
 
-    private fun handleHideTinyTransfersChanged() {
+    private fun handleFilterChanged() {
         processorQueue.execute {
             updateShowingTransactions(isUpdateEvent = false)
         }

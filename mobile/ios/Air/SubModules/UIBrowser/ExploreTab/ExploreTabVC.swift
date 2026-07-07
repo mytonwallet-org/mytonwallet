@@ -7,10 +7,25 @@ import UIDapp
 public class ExploreTabVC: WViewController {
     private let exploreVC = ExploreVC()
     private let searchView = ExploreSearch()
+    private var navBarBlurView: UIView?
+    private let navigationHeader = NavigationHeader2()
+    private let largeExploreTitleLabel = UILabel()
+    
+    private struct State {
+        var isLargeTitleVisible: Bool?
+        var isNavigationTitleVisible: Bool?
+        var isSearchActive: Bool = false
+        var lastScrollOffset: CGFloat = 0
+    }
+    private var state = State()
 
     private static let deeplinkSchemes: Set<String> = ["ton", "tc", TONCONNECT_PROTOCOL_SCHEME, "wc", SELF_PROTOCOL_SCHEME]
     private static var deeplinkUniversalHosts: Set<String> {
-        var hosts = SELF_UNIVERSAL_URL_HOSTS.union(["walletconnect.com"])
+        var hosts = SELF_UNIVERSAL_URL_HOSTS.union([
+            "walletconnect.com",
+            "pay.walletconnect.com",
+            "pay.walletconnect.org",
+        ])
         if let tonConnectUniversalHost = URL(string: TONCONNECT_UNIVERSAL_URL)?.host?.lowercased() {
             hosts.insert(tonConnectUniversalHost)
         }
@@ -22,38 +37,30 @@ public class ExploreTabVC: WViewController {
         setupViews()
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        syncNavChrome()
+    }
+
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         view.endEditing(true)
     }
     
-    func setupViews() {
-        view.backgroundColor = .air.background
-      
-        // Improvement: move navigationItem setup of Explore screen to ExploreVC | merge with ExploreVC to 1 class
-        navigationItem.title = lang("Explore")
-        if #available(iOS 26, *) {
-            navigationItem.largeTitleDisplayMode = .inline
-            let p = NSMutableParagraphStyle()
-            p.firstLineHeadIndent = 4
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithDefaultBackground()
-            appearance.largeTitleTextAttributes = [
-                .paragraphStyle: p,
-            ]
-            navigationItem.standardAppearance = appearance
-            navigationItem.scrollEdgeAppearance = appearance
-        } else if #available(iOS 17, *) {
-            navigationItem.largeTitleDisplayMode = .inline
-            navigationController?.navigationBar.prefersLargeTitles = true
-        } else {
-            navigationController?.navigationBar.prefersLargeTitles = true
-            navigationItem.largeTitleDisplayMode = .always
-        }
-        
+    private func setupViews() {
         addChild(exploreVC)
         exploreVC.didMove(toParent: self)
         view.addStretchedToBounds(subview: exploreVC.view)
+
+        navigationHeader.setTitle(lang("Explore"), fixedColor: true)
+        navigationItem.titleView = navigationHeader
+        navBarBlurView = addCustomNavigationBarBackground(color: .air.groupedBackground)
+        
+        exploreVC.onScrollOffsetChange = { [weak self] offset in
+            guard let self else { return }
+            state.lastScrollOffset = offset
+            syncNavChrome()
+        }
 
         exploreVC.onSelectAny = { [weak self] in
             guard let self else { return }
@@ -83,21 +90,97 @@ public class ExploreTabVC: WViewController {
         }
         searchView.viewModel.onActiveChange = { [weak self] isActive in
             guard let self else { return }
-            self.navigationItem.title = isActive ? nil : lang("Explore")
-            self.exploreVC.searchActiveDidChange(isActive)
+            state.isSearchActive = isActive
+            exploreVC.searchActiveDidChange(isActive)
+            applySearchModeChange()
+            syncNavChrome()
         }
 
         exploreVC.onSubmitSearch = { [weak self] text in
             self?.onSubmit(text)
         }
 
+        exploreVC.onGoogleSearch = { [weak self] text in
+            self?.onGoogleSearch(text)
+        }
+        
         exploreVC.onInsertToSearchString = { [weak self] text in
             self?.searchView.viewModel.string = text
         }
         
         updateTheme()
+
+        largeExploreTitleLabel.text = lang("Explore")
+        largeExploreTitleLabel.font = .systemFont(ofSize: 34, weight: .bold)
+        largeExploreTitleLabel.textColor = .label
+        largeExploreTitleLabel.accessibilityTraits = .header
+        largeExploreTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(largeExploreTitleLabel)
+        NSLayoutConstraint.activate([
+            largeExploreTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            largeExploreTitleLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -8),
+        ])
     }
-    
+
+    private func applySearchModeChange() {
+        state.lastScrollOffset = 0
+        state.isLargeTitleVisible = false
+        state.isNavigationTitleVisible = false
+        UIView.performWithoutAnimation {
+            navBarBlurView?.alpha = 0
+            largeExploreTitleLabel.alpha = 0
+            navigationHeader.visibilityAlpha = 0
+        }
+        applyNavChromeAccessibility(isLargeTitleVisible: false, isNavigationTitleVisible: false)
+    }
+
+    private func syncNavChrome() {
+        
+        let isLargeTitleVisible: Bool
+        let isNavigationTitleVisible: Bool
+
+        if state.isSearchActive {
+            isLargeTitleVisible = false
+            isNavigationTitleVisible = false
+            navBarBlurView?.alpha = 0
+        } else {
+            let progress = calculateNavigationBarProgressiveBlurProgress(state.lastScrollOffset)
+            navBarBlurView?.alpha = progress
+            if state.isLargeTitleVisible == true {
+                isLargeTitleVisible = progress <= 0.7
+            } else {
+                isLargeTitleVisible = progress <= 0.1
+            }
+            isNavigationTitleVisible = true
+        }
+        
+        applyNavChromeAccessibility(isLargeTitleVisible: isLargeTitleVisible, isNavigationTitleVisible: isNavigationTitleVisible)
+
+        if state.isLargeTitleVisible != isLargeTitleVisible || state.isNavigationTitleVisible != isNavigationTitleVisible {
+            state.isLargeTitleVisible = isLargeTitleVisible
+            state.isNavigationTitleVisible = isNavigationTitleVisible
+            UIView.animate(withDuration: 0.2) {
+                self.largeExploreTitleLabel.alpha = isLargeTitleVisible ? 1 : 0
+                self.navigationHeader.visibilityAlpha = isNavigationTitleVisible ? (isLargeTitleVisible ? 0 : 1) : 0
+            }
+        }
+    }
+
+    private func applyNavChromeAccessibility(
+        isLargeTitleVisible: Bool,
+        isNavigationTitleVisible: Bool
+    ) {
+        let showLargeTitle = isLargeTitleVisible && !state.isSearchActive
+        let showCompactTitle = isNavigationTitleVisible && !isLargeTitleVisible && !state.isSearchActive
+
+        largeExploreTitleLabel.isAccessibilityElement = showLargeTitle
+        navigationHeader.accessibilityElementsHidden = !showCompactTitle
+        if let titleLabel = navigationHeader.contentView as? UILabel {
+            titleLabel.isAccessibilityElement = showCompactTitle
+            titleLabel.accessibilityTraits = .header
+        }
+    }
+
     private func updateTheme() {
         view.backgroundColor = .air.background
     }
@@ -111,6 +194,9 @@ public class ExploreTabVC: WViewController {
     }
 
     private static func deeplinkURLCandidate(from text: String) -> URL? {
+        if isWalletConnectPayPaymentId(text) {
+            return URL(string: text)
+        }
         if let url = URL(string: text), url.scheme != nil {
             return url
         }
@@ -121,13 +207,16 @@ public class ExploreTabVC: WViewController {
     }
 
     private static func isDeeplinkURLCandidate(_ url: URL) -> Bool {
+        if isWalletConnectPayPaymentId(url.absoluteString) {
+            return true
+        }
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return false
         }
         if let scheme = components.scheme?.lowercased(), deeplinkSchemes.contains(scheme) {
             return true
         }
-        guard let host = components.host?.lowercased(), deeplinkUniversalHosts.contains(host) else {
+        guard let host = components.host?.lowercased(), isDeeplinkUniversalHost(host) else {
             return false
         }
         if host == "walletconnect.com" {
@@ -136,11 +225,32 @@ public class ExploreTabVC: WViewController {
         return true
     }
 
+    private static func isDeeplinkUniversalHost(_ host: String) -> Bool {
+        if deeplinkUniversalHosts.contains(host) {
+            return true
+        }
+        return host.hasSuffix(".pay.walletconnect.com") || host.hasSuffix(".pay.walletconnect.org")
+    }
+
+    private static func isWalletConnectPayPaymentId(_ text: String) -> Bool {
+        text.hasPrefix("pay_")
+    }
+
     private func clearSearchAfterSubmit() {
         view.endEditing(true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.searchView.viewModel.string = ""
             self.view.endEditing(true)
+        }
+    }
+    
+    private func onGoogleSearch(_ text: String) {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var components = URLComponents(string: "https://www.google.com/search")!
+        components.queryItems = [URLQueryItem(name: "q", value: trimmedText)]
+        if let url = components.url {
+            saveRecentSearch(trimmedText)
+            AppActions.openInBrowser(url, title: nil, injectDappConnect: false, historyTag: exploreHistoryTag)
         }
     }
     
@@ -152,26 +262,30 @@ public class ExploreTabVC: WViewController {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
 
-        if let deeplinkURL = Self.deeplinkURLCandidate(from: trimmedText) {
-            let deeplinkHandled = WalletContextManager.delegate?.handleDeeplink(url: deeplinkURL, source: .exploreSearchBar) ?? false
-            if deeplinkHandled {
+        if let openableUrl = SearchOpenableURL(trimmedText), case .deeplink = openableUrl.kind {
+            let isHandled = WalletContextManager.delegate?.handleDeeplink(url: openableUrl.url, source: .exploreSearchBar) ?? false
+            if isHandled {
                 clearSearchAfterSubmit()
-                return
-            }
-            if Self.isDeeplinkURLCandidate(deeplinkURL) {
+            } else {
                 error()
-                return
             }
+            return
+        }
+
+        if let deeplinkURL = Self.deeplinkURLCandidate(from: trimmedText),
+           Self.isDeeplinkURLCandidate(deeplinkURL) {
+            let isHandled = WalletContextManager.delegate?.handleDeeplink(url: deeplinkURL, source: .exploreSearchBar) ?? false
+            if isHandled {
+                clearSearchAfterSubmit()
+            } else {
+                error()
+            }
+            return
         }
 
         var urlString = trimmedText
         if !urlString.contains("://") && !urlString.contains(".") {
-            var components = URLComponents(string: "https://www.google.com/search")!
-            components.queryItems = [URLQueryItem(name: "q", value: urlString)]
-            if let url = components.url {
-                saveRecentSearch(trimmedText)
-                AppActions.openInBrowser(url, title: nil, injectDappConnect: false, historyTag: exploreHistoryTag)
-            }
+            onGoogleSearch(urlString)
         } else {
             if !urlString.contains("://") {
                 urlString = "https://" + urlString

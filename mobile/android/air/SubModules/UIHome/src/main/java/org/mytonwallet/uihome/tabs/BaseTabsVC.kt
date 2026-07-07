@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -215,7 +216,10 @@ abstract class BaseTabsVC(context: Context) :
                 val url = walletEvent.url
                 if (walletEvent.isExternal) {
                     context.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
-                } else if (WalletContextManager.delegate?.get()?.handleDeeplink(url) != true) {
+                } else if (WalletContextManager.delegate?.get()?.handleDeeplink(
+                        url,
+                        DeeplinkOpenSource.INTERNAL_UI
+                    ) != true) {
                     if (canOpenExternally(url)) {
                         context.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
                     } else if (url.lowercase().startsWith("https://")) {

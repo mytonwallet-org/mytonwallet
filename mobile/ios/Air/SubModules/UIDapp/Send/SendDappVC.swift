@@ -209,7 +209,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         errorLabel.isHidden = insufficientTokens == nil
 
         let isEnabled = if let request {
-            !request.combinedInfo.isScam && insufficientTokens == nil
+            canSend(request: request, insufficientTokens: insufficientTokens)
         } else {
             false
         }
@@ -222,21 +222,17 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
             sendButton.isEnabled = isEnabled
         }
     }
+
+    private func canSend(request: ApiUpdate.DappSendTransactions, insufficientTokens: String?) -> Bool {
+        !request.combinedInfo.isScam && insufficientTokens == nil
+    }
     
     private func makeView() -> SendDappViewOrPlaceholder {
-        if let request {
-            return SendDappViewOrPlaceholder(content: .sendDapp(SendDappContentView(
-                accountContext: _account,
-                request: request,
-                operationChain: request.operationChain,
-                onShowDetail: showDetail(_:),
-            )))
-        } else {
-            return SendDappViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
-                account: account,
-                connectionType: .sendTransaction,
-            )))
-        }
+        SendDappViewOrPlaceholder(
+            accountContext: _account,
+            request: request,
+            onShowDetail: showDetail(_:),
+        )
     }
     
     private func showDetail(_ tx: ApiDappTransfer) {
@@ -273,6 +269,11 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     @objc func onSend() {
         guard let request else { return }
+        guard canSend(request: request, insufficientTokens: request.insufficientTokens(accountContext: $account)) else { return }
+        submit(request: request)
+    }
+
+    private func submit(request: ApiUpdate.DappSendTransactions) {
         Task {
             do {
                 _ = try await AppActions.authorizeProtectedAction(
@@ -401,6 +402,7 @@ private enum SendDappPreview {
             promiseId: "",
             accountId: "",
             dapp: dapp,
+            operationChain: .ton,
             transactions: transfers,
             emulation: Emulation(activities: activities, realFee: 123456),
             shouldHideTransfers: nil
@@ -438,21 +440,21 @@ private class SheetPreviewContainer: UIViewController {
 // Preview has quirks: it keeps the previous preview content after switching
 // So here is a dirty solution: Uncomment the variant you need, keep the others commented out.
 
-@available(iOS 18, *)
-#Preview("Placeholder") {
-    SheetPreviewContainer(
-        SendDappVC(placeholderAccountId: nil, isWaitingForRequest: false)
-    )
-}
-
 //@available(iOS 18, *)
-//#Preview("Send — Single Transaction") {
-//    let request = SendDappPreview.makeRequest(
-//        transfers: [SendDappPreview.transfer1],
-//        activities: [SendDappPreview.activity1]
+//#Preview("Placeholder") {
+//    SheetPreviewContainer(
+//        SendDappVC(placeholderAccountId: nil, isWaitingForRequest: false)
 //    )
-//    return SheetPreviewContainer(SendDappVC(request: request, onCancel: {}))
 //}
+
+@available(iOS 18, *)
+#Preview("Send — Single Transaction") {
+    let request = SendDappPreview.makeRequest(
+        transfers: [SendDappPreview.transfer1],
+        activities: [SendDappPreview.activity1]
+    )
+    return SheetPreviewContainer(SendDappVC(request: request, onCancel: {}))
+}
 
 //@available(iOS 18, *)
 //#Preview("Send — Multiple Transactions") {

@@ -1,6 +1,5 @@
 //
 //  TokenChartCell.swift
-//  MyTonWalletAir
 //
 //  Created by Sina on 10/28/25.
 //
@@ -41,7 +40,6 @@ final class TokenChartCell: FirstRowCell {
         contentView.addSubview(chartContainerView!)
         NSLayoutConstraint.activate([
             chartContainerView!.topAnchor.constraint(equalTo: contentView.topAnchor),
-            chartContainerView!.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             chartContainerView!.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalInset),
             chartContainerView!.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalInset),
         ])

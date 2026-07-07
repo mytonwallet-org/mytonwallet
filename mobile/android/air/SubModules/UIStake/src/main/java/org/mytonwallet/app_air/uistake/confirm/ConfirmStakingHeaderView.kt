@@ -43,7 +43,7 @@ class ConfirmStakingHeaderView @JvmOverloads constructor(
         id = generateViewId()
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 44.dp)
         textAlignment = TEXT_ALIGNMENT_CENTER
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
 
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 44f)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)

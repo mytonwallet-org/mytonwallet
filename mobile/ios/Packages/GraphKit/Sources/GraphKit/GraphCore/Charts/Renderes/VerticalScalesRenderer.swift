@@ -41,6 +41,11 @@ class VerticalScalesRenderer: BaseChartRenderer {
         }
     }
     var labelsFont: NSFont = .systemFont(ofSize: 11)
+    var drawLabels: Bool = true {
+        didSet {
+            setNeedsDisplay()
+        }
+    }
 
     func setHorizontalLinesVisible(_ visible: Bool, animated: Bool) {
         let destinationValue: CGFloat = visible ? 1 : 0
@@ -167,12 +172,14 @@ class VerticalScalesRenderer: BaseChartRenderer {
             }
         }
         
-        drawVerticalLabels(verticalLabelsAndLines, attributes: [.foregroundColor: labelsColor.withAlphaComponent(labelColorAlpha * generalAlpha),
-                                                                .font: labelsFont])
-        for animatedLabesAndLines in animatedVerticalLabelsAndLines {
-            drawVerticalLabels(animatedLabesAndLines.labels,
-                               attributes: [.foregroundColor: labelsColor.withAlphaComponent(animatedLabesAndLines.alphaAnimator.current * labelColorAlpha * generalAlpha),
-                                            .font: labelsFont])
+        if drawLabels {
+            drawVerticalLabels(verticalLabelsAndLines, attributes: [.foregroundColor: labelsColor.withAlphaComponent(labelColorAlpha * generalAlpha),
+                                                                    .font: labelsFont])
+            for animatedLabesAndLines in animatedVerticalLabelsAndLines {
+                drawVerticalLabels(animatedLabesAndLines.labels,
+                                   attributes: [.foregroundColor: labelsColor.withAlphaComponent(animatedLabesAndLines.alphaAnimator.current * labelColorAlpha * generalAlpha),
+                                                .font: labelsFont])
+            }
         }
         
         context.resetClip()

@@ -73,6 +73,17 @@ export class BalanceStream {
   #balances?: ApiBalanceBySlug;
   #balancesDeferred = new Deferred();
 
+  /**
+   * A client-local monotonic clock used to order balance writes from the two sources that update
+   * `#balances`: HTTP polls (full snapshots) and socket deltas (per-token pushes). A poll stamps its
+   * version when it starts (a lower bound on the snapshot's freshness), a socket delta stamps when it
+   * applies (always the newest data at that moment). The clock has no relation to wall time.
+   */
+  #clock = 0;
+
+  /** Per-slug `#clock` version of the value currently stored in `#balances` for that slug. */
+  #balanceVersionBySlug = new Map<string, number>();
+
   #walletWatcher: WalletWatcher;
   #fallbackPollingOptions: FallbackPollingOptions;
   #fallbackPollingScheduler?: FallbackPollingScheduler;
@@ -280,6 +291,9 @@ export class BalanceStream {
           return;
         }
 
+        // Capture the freshness version before awaiting, so a socket delta that arrives during the
+        // fetch is recognised as newer than this snapshot.
+        const pollVersion = ++this.#clock;
         const crosschainBalances
         = await this.#fetchCrosschainBalancesCb?.(this.#network, this.#address, this.#sendUpdateTokens);
 
@@ -299,7 +313,7 @@ export class BalanceStream {
             });
           }
 
-          this.#setAllBalances(crosschainBalances);
+          this.#setAllBalances(crosschainBalances, pollVersion);
           this.#balancesDeferred.resolve();
         }
 
@@ -308,10 +322,13 @@ export class BalanceStream {
 
       const throttledFetchBalances = this.#loadingConcurrencyLimiter?.wrap(this.#fetchBalancesCb)
         ?? this.#fetchBalancesCb;
+      // Capture the freshness version before awaiting, so a socket delta that arrives during the
+      // fetch is recognised as newer than this snapshot.
+      const pollVersion = ++this.#clock;
       const newBalances = await throttledFetchBalances(this.#network, this.#address, this.#sendUpdateTokens);
       if (this.#isDestroyed) return;
 
-      this.#setAllBalances(newBalances);
+      this.#setAllBalances(newBalances, pollVersion);
       this.#balancesDeferred.resolve();
     } finally {
       if (!this.#isDestroyed) {
@@ -320,24 +337,88 @@ export class BalanceStream {
     }
   };
 
-  #setAllBalances(newBalances: ApiBalanceBySlug) {
-    if (!areDeepEqual(this.#balances, newBalances)) {
-      this.#balances = newBalances;
+  /**
+   * Applies an HTTP poll snapshot as a version-gated merge rather than a blind full replace. A slug
+   * is updated or removed only when the poll's `pollVersion` is at least as fresh as the version
+   * already stored for that slug, so a slow poll that started before a socket delta cannot clobber
+   * (or drop) the slug that delta refreshed. With no interleaving (every stored version is at most
+   * `pollVersion`) this is equivalent to the previous full-replace behaviour.
+   */
+  #setAllBalances(newBalances: ApiBalanceBySlug, pollVersion: number) {
+    // Fast path: nothing advanced the clock since this poll captured its version, so no socket delta
+    // interleaved and the snapshot is a straight full replace. Clearing the version map keeps it
+    // bounded; an empty map reads as "oldest", which is the safe default for the next poll/delta.
+    if (this.#clock === pollVersion) {
+      this.#balanceVersionBySlug.clear();
+      if (!areDeepEqual(this.#balances, newBalances)) {
+        this.#balances = newBalances;
+        this.#updateListeners.runCallbacks(this.#balances, 'poll');
+      }
+      return;
+    }
+
+    // Slow path: a socket delta interleaved; merge per-slug by version.
+    const merged: ApiBalanceBySlug = {};
+
+    // Keep slugs that a newer source updated and that this snapshot does not refresh.
+    for (const slug of Object.keys(this.#balances ?? {})) {
+      if (!(slug in newBalances) && pollVersion < (this.#balanceVersionBySlug.get(slug) ?? -1)) {
+        merged[slug] = this.#balances![slug];
+      }
+    }
+
+    // Apply this snapshot's slugs unless a newer source already wrote a fresher value.
+    for (const [slug, balance] of Object.entries(newBalances)) {
+      if (pollVersion >= (this.#balanceVersionBySlug.get(slug) ?? -1)) {
+        merged[slug] = balance;
+        this.#balanceVersionBySlug.set(slug, pollVersion);
+      } else {
+        merged[slug] = this.#balances![slug];
+      }
+    }
+
+    // Forget versions of slugs that are no longer present to keep the map bounded.
+    for (const slug of this.#balanceVersionBySlug.keys()) {
+      if (!(slug in merged)) {
+        this.#balanceVersionBySlug.delete(slug);
+      }
+    }
+
+    if (!areDeepEqual(this.#balances, merged)) {
+      this.#balances = merged;
       this.#updateListeners.runCallbacks(this.#balances, 'poll');
     }
   }
 
   #setBalancesPartially(newBalances: BalanceByTokenAddress) {
     const newBySlug = balanceByTokenAddressToBySlug(this.#chain, newBalances);
-    const hasChanged = !this.#balances || !areDeepEqual(pick(this.#balances, Object.keys(newBySlug)), newBySlug);
 
-    if (hasChanged) {
-      this.#balances = {
-        ...this.#balances,
-        ...newBySlug,
-      };
-      this.#updateListeners.runCallbacks(this.#balances, 'socket');
+    // Keep only the slugs whose value actually changes. A no-op re-emit (the same value pushed
+    // again at a later finality) must not advance `#clock` or any slug version, otherwise it would
+    // out-version and block a genuinely fresher in-flight poll in `#setAllBalances`.
+    const changedBySlug: ApiBalanceBySlug = {};
+    for (const [slug, balance] of Object.entries(newBySlug)) {
+      if (!this.#balances || this.#balances[slug] !== balance) {
+        changedBySlug[slug] = balance;
+      }
     }
+
+    const changedSlugs = Object.keys(changedBySlug);
+    if (!changedSlugs.length) {
+      return;
+    }
+
+    // A genuine socket delta is the newest data at apply time, so its changed slugs are stamped now.
+    const version = ++this.#clock;
+    for (const slug of changedSlugs) {
+      this.#balanceVersionBySlug.set(slug, version);
+    }
+
+    this.#balances = {
+      ...this.#balances,
+      ...changedBySlug,
+    };
+    this.#updateListeners.runCallbacks(this.#balances, 'socket');
   }
 }
 

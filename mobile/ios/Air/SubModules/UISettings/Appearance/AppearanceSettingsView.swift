@@ -22,6 +22,11 @@ struct AppearanceSettingsView: View {
                 }
                 themeSection
                 PaletteAndCardSection()
+                
+                if IS_DEBUG_OR_TESTFLIGHT_DEFAULT {
+                    AppTabsSection()
+                }
+                
                 OtherAppearanceSettingsSection()
                     .padding(.bottom, 48)
             }

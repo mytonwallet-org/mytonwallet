@@ -30,6 +30,7 @@ private let log = Log("Home-WalletAssets")
     
     private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
     private var lastMeasuredWidth: CGFloat = 0
+    private var calculatedTabHeights: [ObjectIdentifier: CGFloat] = [:]
     
     private lazy var tabContextMenuProviders = WalletAssetsTabContextMenuProviders(
         accountSource: accountSource,
@@ -39,6 +40,10 @@ private let log = Log("Home-WalletAssets")
         },
         onReorder: { [weak self] in
             self?.onSegmentsReorder()
+        },
+        onSelectTab: { [weak self] tab in
+            guard let self,let index = tabsViewModel.displayTabs.firstIndex(of: tab) else { return }
+            walletAssetsView.tabsContainer.handleSegmentChange(to: index, animated: true)
         }
     )
 
@@ -88,12 +93,12 @@ private let log = Log("Home-WalletAssets")
         walletAssetsView.tabsContainer.handleSegmentChange(to: 0, animated: true)
     }
         
-    func _displayTabsChanged(force: Bool) {
+    func _displayTabsChanged(force: Bool, animated: Bool) {
         nftsVCManager.beginUpdate()
         defer {
             nftsVCManager.endUpdate()
         }
-        
+
         let displayTabs = tabsViewModel.displayTabs
         var tabViewControllersToRemove = tabViewControllers
         var newTabsViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
@@ -111,6 +116,7 @@ private let log = Log("Home-WalletAssets")
         }
         
         self.tabViewControllers = newTabsViewControllers
+        invalidateCalculatedTabHeights()
                 
         let vcs = displayTabs.map { tabViewControllers[$0]! }
         let items: [WSegmentedPagerItem] = displayTabs.enumerated().map { index, tab in
@@ -118,7 +124,8 @@ private let log = Log("Home-WalletAssets")
         }
         walletAssetsView.tabsContainer.replace(
             items: items,
-            force: force
+            force: force,
+            animated: animated
         )
         
         // now remove "orphaned" tabs
@@ -132,8 +139,10 @@ private let log = Log("Home-WalletAssets")
     
     private func makeViewControllerForTab(_ tab: DisplayAssetTab) -> any WSegmentedControllerContent & UIViewController {
         switch tab {
-        case .tokens, .nfts:
+        case .tokens:
             fatalError("created once")
+        case .nfts:
+            return nftsVC!
         case .nftCollectionFilter(let filter):
             return NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .compact, filter: filter)
         }
@@ -157,6 +166,7 @@ private let log = Log("Home-WalletAssets")
         super.viewDidLoad()
         
         tokensVC?.onHeightChanged = { [weak self] animated in
+            self?.invalidateCalculatedTabHeights()
             self?.headerHeightChanged(animated: animated)
         }
         
@@ -173,13 +183,14 @@ private let log = Log("Home-WalletAssets")
             }
             
             if newState.heightChanged(since: oldState) {
+                self.invalidateCalculatedTabHeights()
                 self.headerHeightChanged(animated: true)
             }
         }
         
-        walletAssetsView.onScrollingOffsetChanged = { [weak self] _ in
+        walletAssetsView.onScrollingOffsetChanged = { [weak self] _, animated in
             guard let self else { return }
-            self.headerHeightChanged(animated: true)
+            self.headerHeightChanged(animated: animated)
             
             if self.editingNavigator.state.editingState == .selection {
                 self.editingNavigator.cancelEditing()
@@ -210,7 +221,7 @@ private let log = Log("Home-WalletAssets")
         WalletCoreData.add(eventObserver: self)
         
         tabsViewModel.delegate = self
-        _displayTabsChanged(force: true)
+        _displayTabsChanged(force: true, animated: false)
                 
         walletAssetsView.tabsContainer.model.onItemsReorder = { [weak self] items in
             guard let self else { return }            
@@ -262,6 +273,7 @@ private let log = Log("Home-WalletAssets")
         let width = view.bounds.width
         guard width > 0, width != lastMeasuredWidth else { return }
         lastMeasuredWidth = width
+        invalidateCalculatedTabHeights()
         headerHeightChanged(animated: false)
     }
 
@@ -291,8 +303,18 @@ private let log = Log("Home-WalletAssets")
     }
 
     private func calculatedHeight(for content: any WSegmentedControllerContent) -> CGFloat {
+        let id = ObjectIdentifier(content as AnyObject)
+        if let height = calculatedTabHeights[id] {
+            return height
+        }
         prepareForHeightCalculation(content)
-        return content.calculateHeight(isHosted: false)
+        let height = content.calculateHeight(isHosted: false)
+        calculatedTabHeights[id] = height
+        return height
+    }
+
+    private func invalidateCalculatedTabHeights() {
+        calculatedTabHeights.removeAll(keepingCapacity: true)
     }
 
     private func forEachEmptyStateAnimationController(_ body: (WalletAssetsEmptyStateAnimationControlling) -> Void) {
@@ -399,7 +421,7 @@ private let log = Log("Home-WalletAssets")
 }
 
 extension WalletAssetsVC: WalletAssetsViewModelDelegate {
-    public func walletAssetModelDidChangeDisplayTabs() {
-        _displayTabsChanged(force: false)
+    public func walletAssetModelDidChangeDisplayTabs(dueToAccountSwitch: Bool) {
+        _displayTabsChanged(force: false, animated: dueToAccountSwitch)
     }
 }

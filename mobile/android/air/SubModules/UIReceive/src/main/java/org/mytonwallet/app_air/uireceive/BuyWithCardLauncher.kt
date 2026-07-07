@@ -48,7 +48,7 @@ object BuyWithCardLauncher {
                     ApiMethod.Other.GetMoonpayOnrampUrl(
                         ApiMethod.Other.GetMoonpayOnrampUrl.Params(
                             chain = chain,
-                            address = AccountStore.activeAccount?.addressByChain[chain] ?: "",
+                            addressByChain = AccountStore.activeAccount?.addressByChain ?: emptyMap(),
                             theme = activeTheme,
                             currency = baseCurrency.currencyCode
                         )

@@ -99,7 +99,7 @@ private class _NavBarContainer: UIView {
         
         let model = segmentedControl.model
         let width = min(bounds.width, model.calculateContentWidth(includeBackground: true))
-        let navMidInContainer = navBar.convert(CGPoint(x: navBar.bounds.midX, y: 0), to: self).x
+        let navMidInContainer = navBar.convert(CGPoint(x: navBar.bounds.inset(by: navBar.safeAreaInsets).midX, y: 0), to: self).x
         let offset = navMidInContainer - bounds.midX
         let halfSlack = max(0, bounds.width - width) / 2
         centerXConstraint.constant = offset.clamped(to: -halfSlack...halfSlack)

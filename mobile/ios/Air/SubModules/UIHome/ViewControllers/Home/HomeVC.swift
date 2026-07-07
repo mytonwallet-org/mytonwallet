@@ -37,7 +37,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     var popRecognizer: InteractivePopRecognizer?
     /// `headerContainerView` is used to set colored background under safe area and also under the collection view when scrolling down. (bounce mode)
-    private var headerContainerView: WTouchPassView!
+    private var headerContainerView = WTouchPassView()
     /// `headerContainerViewHeightConstraint` is used to animate the header background on the first load's animation.
     private var headerContainerViewHeightConstraint: NSLayoutConstraint? = nil
 
@@ -67,10 +67,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private(set) lazy var balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel,
                                                                 accountSource: homeVM.$account.source,
                                                                 delegate: self)
-    private var headerBlurView: WBlurView!
-    private let bottomSeparatorView = UIView()
+    private var headerBlurView: UIView?
     private var titleMenuInteraction: ContextMenuInteraction?
-    private var isHeaderContextMenuActive = false
 
     private var windowSafeAreaGuide = UILayoutGuide()
     private var windowSafeAreaGuideContraint: NSLayoutConstraint!
@@ -159,7 +157,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     // MARK: - Setup home views
-    func setupViews() {
+    
+    private func setupViews() {
         view.backgroundColor = .air.headerBackground
 
         navigationItem.titleView = {
@@ -168,16 +167,15 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             header.addGestureRecognizer(g)
             let titleMenuInteraction = ContextMenuInteraction(
                 triggers: [.longPress],
+                pressAnimation: .default(transformMode: .sublayerTransform),
+                activationViewProvider: { [weak self] _ in
+                    self?.balanceHeaderView.updateStatusView
+                },
                 activationHitTestProvider: { [weak self] sourceView, point in
                     self?.isPointInUpdateStatusView(point, from: sourceView) ?? false
-                },
-                onWillPresent: { [weak self] in self?.isHeaderContextMenuActive = true },
-                onDidDismiss: { [weak self] in self?.isHeaderContextMenuActive = false }
+                }
             ) { [weak self] _ in
-                self?.makeTitleMenuConfiguration() ?? ContextMenuConfiguration(
-                    rootPage: ContextMenuPage(items: []),
-                    backdrop: .none
-                )
+                self?.makeTitleMenuConfiguration()
             }
             titleMenuInteraction.attach(to: header)
             self.titleMenuInteraction = titleMenuInteraction
@@ -185,18 +183,33 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         }()
 
         navigationController?.setNavigationBarHidden(false, animated: false)
-        if !IOS_26_MODE_ENABLED {
-            configureNavigationItemWithTransparentBackground()
-        }
 
         view.addLayoutGuide(windowSafeAreaGuide)
         windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
         windowSafeAreaGuideContraint.isActive = true
 
+        // Must be created before the collection view's data source, because the assets custom
+        // section cell registration reads `walletAssetsVC.view` / `walletAssetsVC.computedHeight()`.
+        // Otherwise a dequeue/layout pass that runs before this assignment crashes on the implicitly
+        // unwrapped optional.
+        walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
+        addChild(walletAssetsVC)
+        walletAssetsVC.loadViewIfNeeded()
+        walletAssetsVC.didMove(toParent: self)
+        walletAssetsVC.editingNavigator.onStateChange = { [weak self] _, newState in
+            guard let self else { return }
+            if newState.editingState == .selection {
+                walletAssetsVC.editingNavigator.installToolbar(into: view)
+            }
+            updateNavigationItem()
+        }
+
         super.setupCollectionView(collectionViewBottomConstraint: homeBottomInset)
+        if #available(iOS 26, iOSApplicationExtension 26, *) {
+            collectionView.topEdgeEffect.isHidden = true
+        }
 
         // header container view (used to make animating views on start, possible)
-        headerContainerView = WTouchPassView()
         headerContainerView.accessibilityIdentifier = "headerContainerView"
         headerContainerView.shouldAcceptTouchesOutside = true
         headerContainerView.translatesAutoresizingMaskIntoConstraints = false
@@ -218,35 +231,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             balanceHeaderView.bottomAnchor.constraint(equalTo: headerContainerView.bottomAnchor).withPriority(.defaultHigh)
         ])
 
-        headerBlurView = WBlurView()
-        headerContainerView.insertSubview(headerBlurView, at: 0)
-        NSLayoutConstraint.activate([
-            headerBlurView.leadingAnchor.constraint(equalTo: headerContainerView.leadingAnchor),
-            headerBlurView.trailingAnchor.constraint(equalTo: headerContainerView.trailingAnchor),
-            headerBlurView.topAnchor.constraint(equalTo: headerContainerView.topAnchor),
-            headerBlurView.bottomAnchor.constraint(equalTo: windowSafeAreaGuide.topAnchor, constant: BalanceHeaderView.minHeight)
-        ])
-
-        headerBlurView.alpha = 0
-
-        bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
-        bottomSeparatorView.isUserInteractionEnabled = false
-        bottomSeparatorView.backgroundColor = UIColor { .air.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
-        bottomSeparatorView.alpha = 0
-        view.addSubview(bottomSeparatorView)
-        NSLayoutConstraint.activate([
-            bottomSeparatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 0),
-            bottomSeparatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 0),
-            bottomSeparatorView.heightAnchor.constraint(equalToConstant: 0.333),
-            bottomSeparatorView.bottomAnchor.constraint(equalTo: headerBlurView.bottomAnchor),
-        ])
-
-        if IOS_26_MODE_ENABLED {
-            headerBlurView.isHidden = true
-            bottomSeparatorView.isHidden = true
-        }
-
-        navigationBarProgressiveBlurDelta = 16
+        headerBlurView = addCustomNavigationBarBackground(color: .air.headerBackground)
+        headerBlurView?.alpha = 0
 
         // activate swipe back for presenting views on navigation controller (with hidden navigation bar)
         setInteractiveRecognizer()
@@ -281,18 +267,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
                                              constant: 50).withPriority(.init(900)), // will be broken when assets push it from below and out of frame; button height constrain has priority = 800
         ])
         actionsVC.didMove(toParent: self)
-
-        walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
-        addChild(walletAssetsVC)
-        walletAssetsVC.loadViewIfNeeded()
-        walletAssetsVC.didMove(toParent: self)
-        walletAssetsVC.editingNavigator.onStateChange = { [weak self] _, newState in
-            guard let self else { return }
-            if newState.editingState == .selection {
-                walletAssetsVC.editingNavigator.installToolbar(into: view)
-            }
-            updateNavigationItem()
-        }
 
         let spacing: CGFloat = IOS_26_MODE_ENABLED ? -112 : -100
         NSLayoutConstraint.activate([
@@ -377,7 +351,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         updateNavigationItem()
     }
 
-    func appearedForFirstTime() {
+    private func appearedForFirstTime() {
         Task {
             await changeAccountTo(accountId: homeVM.account.id, isNew: false)
         }
@@ -476,14 +450,17 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         // `contentInset` is not applied until `scrollViewWillEndDragging` so inset is calculated here based on expansion state
         let topContentInset = (collectionView.adjustedContentInset.top - collectionView.contentInset.top) + (headerViewModel.state == .expanded ? expansionInset : 0.0)
         balanceHeaderView.updateHeight(scrollOffset: collectionView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
-        updateHeaderBlur(y: collectionView.contentOffset.y + collectionView.contentInset.top)
+        updateHeaderBlur()
         headerViewModel.scrollOffsetChanged(to: collectionView.contentOffset.y + (collectionView.adjustedContentInset.top - collectionView.contentInset.top))
     }
 
-    func updateHeaderBlur(y: CGFloat) {
-        let progress = calculateNavigationBarProgressiveBlurProgress(y)
-        bottomSeparatorView.alpha = progress
-        headerBlurView.alpha = progress
+    private func updateHeaderBlur() {
+        var progress = 0.0
+        if let waFrame = walletAssetsVC?.view.convert(walletAssetsVC.view.bounds, to: view) {
+            let y = view.safeAreaInsets.top - waFrame.origin.y + navigationBarProgressiveBlurDelta
+            progress = calculateNavigationBarProgressiveBlurProgress(y)
+        }
+        headerBlurView?.alpha = progress
     }
 
     // MARK: - Variable height
@@ -499,7 +476,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         return actionsHeight > 0 ? actionsHeight + 16 : 0
     }
     var assetsHeight: CGFloat {
-        walletAssetsVC.computedHeight()
+        walletAssetsVC?.computedHeight() ?? 0
     }
 
     // MARK: Collection view placeholders
@@ -529,6 +506,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         customSectionIDs(for: displayedActivitiesAccountId)
     }
     private func configureAssetsCustomSection(cell: HomeAssetsRowCell) {
+        guard let walletAssetsVC else { return }
         cell.configure(assetsView: walletAssetsVC.view, height: assetsCustomSectionHeight)
     }
     private func configureCustomSections() {
@@ -556,11 +534,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private var appliedHeaderHeightWithoutAssets: CGFloat?
     private var appliedHeaderPlaceholderHeight: CGFloat?
     private var appliedAssetsCustomSectionHeight: CGFloat?
-
-    public override var navigationBarProgressiveBlurMinY: CGFloat {
-        get { bhvHeight + actionsHeightWithSpacer - 50 }
-        set { _ = newValue }
-    }
 
     private func updateHeaderBottomConstraint() {
         headerBottomConstraint?.constant = -actionsHeightWithSpacer
@@ -612,23 +585,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     @objc private func scanPressed() {
-        Task {
-            if let result = await AppActions.scanQR() {
-                switch result {
-                case .url(let url):
-                    let deeplinkHandled = WalletContextManager.delegate?.handleDeeplink(url: url) ?? false
-                    if !deeplinkHandled {
-                        AppActions.showError(error: BridgeCallError.customMessage(lang("This QR Code is not supported"), nil))
-                    }
-
-                case .address(address: let addr, possibleChains: let chains):
-                    AppActions.showSend(accountContext: actionsVC.$account, prefilledValues: .init(
-                        address: addr,
-                        token: chains.first?.nativeToken.slug
-                    ))
-                }
-            }
-        }
+        AppActions.scanAndHandleQR(accountContext: actionsVC.$account)
     }
 
     @objc private func lockPressed() {
@@ -660,7 +617,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     @objc private func onHeaderTap(_ recognizer: UITapGestureRecognizer) {
         guard recognizer.state == .ended else { return }
-        guard !isHeaderContextMenuActive else { return }
         guard let sourceView = recognizer.view else { return }
 
         if isPointInUpdateStatusView(recognizer.location(in: sourceView), from: sourceView) {
@@ -675,22 +631,9 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     private func makeTitleMenuConfiguration() -> ContextMenuConfiguration {
-        ContextMenuConfiguration(
-            rootPage: ContextMenuPage(items: [
-                .action(
-                    ContextMenuAction(
-                        title: lang("Rename"),
-                        icon: .system("pencil.line"),
-                        handler: { [weak self] in
-                            guard let self else { return }
-                            AppActions.showRenameAccount(accountId: homeVM.account.id)
-                        }
-                    )
-                )
-            ]),
-            backdrop: .none,
-            style: ContextMenuStyle(minWidth: 180)
-        )
+        WalletNameContextMenu.makeConfiguration(accountId: { [homeVM] in
+            homeVM.account.id
+        })
     }
 
     private func updateNavigationItem() {
@@ -704,7 +647,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
         case .selection:
             leadingItemGroups += navigator.selectAllBarButtonItem.asSingleItemGroup()
-            trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
+            trailingItemGroups += navigator.cancelXEditingBarButtonItem.asSingleItemGroup()
         case nil:
             if navigationController?.viewControllers.count == 1 {
                 if let leadingItem = WNavigationBarIconGroup(items: [scanNavigationItem]).barButtonItem {

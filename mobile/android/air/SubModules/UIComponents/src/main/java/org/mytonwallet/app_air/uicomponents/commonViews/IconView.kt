@@ -2,7 +2,6 @@ package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -43,11 +42,6 @@ class IconView(
     private val swapGradientCache = mutableMapOf<MApiTransaction.UIStatus, GradientDrawable>()
     private var failedTransactionDrawable: GradientDrawable? = null
 
-    private var abbreviationText: String = ""
-    private val textPaint = AccountAvatarRenderer.createTextPaint(
-        AccountAvatarRenderer.getTextSizeForViewSize(viewSize)
-    )
-
     init {
         isFocusable = false
         isClickable = false
@@ -60,7 +54,6 @@ class IconView(
             toBottom(activityImageView)
         }
 
-        setWillNotDraw(false)
         updateTheme()
     }
 
@@ -70,26 +63,11 @@ class IconView(
     }
 
     fun updateTheme() {
-        AccountAvatarRenderer.updatePaintTheme(textPaint)
         activityImageView.updateTheme()
         clearCache()
     }
 
-    override fun dispatchDraw(canvas: Canvas) {
-        super.dispatchDraw(canvas)
-        if (abbreviationText.isNotEmpty()) {
-            AccountAvatarRenderer.drawCenteredText(
-                canvas,
-                abbreviationText,
-                activityImageView.left + activityImageView.width / 2f,
-                activityImageView.top + activityImageView.height / 2f,
-                textPaint
-            )
-        }
-    }
-
     fun config(transaction: MApiTransaction.Transaction) {
-        abbreviationText = ""
         val iconRes = transaction.type?.getIcon() ?: if (transaction.isIncoming) {
             org.mytonwallet.app_air.walletcontext.R.drawable.ic_act_received
         } else {
@@ -130,7 +108,6 @@ class IconView(
     }
 
     fun config(swap: MApiTransaction.Swap) {
-        abbreviationText = ""
         val subImageAnimation = if (swap.isInProgress) {
             if (ThemeManager.isDark)
                 R.raw.clock_dark_gray
@@ -157,7 +134,6 @@ class IconView(
         showChain: Boolean = false,
         showPercentBadge: Boolean = false
     ) {
-        abbreviationText = ""
         activityImageView.imageView.setPadding(0)
 
         activityImageView.set(
@@ -170,7 +146,6 @@ class IconView(
     }
 
     fun config(token: MToken?, showChain: Boolean = true) {
-        abbreviationText = ""
         if (token != null) {
             activityImageView.set(
                 Content.of(
@@ -188,7 +163,6 @@ class IconView(
         gradientStartColor: String?,
         gradientEndColor: String?,
     ) {
-        abbreviationText = ""
         activityImageView.imageView.setPadding((viewSize - 14.dp) / 2)
 
         iconDrawableRes?.let { res ->
@@ -204,7 +178,6 @@ class IconView(
     }
 
     fun setImageDrawable(drawable: Drawable?, padding: Int = 0) {
-        abbreviationText = ""
         activityImageView.imageView.setPadding(padding)
         activityImageView.imageView.setImageDrawable(drawable)
         activityImageView.imageView.background = null

@@ -5,6 +5,7 @@ import WalletCoreTypes
 
 public struct ApiDappTransfer: ApiTransferToSignProtocol, Equatable, Hashable, Decodable, Sendable {
     
+    public var chain: ApiChain?
     public var toAddress: String
     public var amount: BigInt
     public var rawPayload: String?
@@ -19,7 +20,8 @@ public struct ApiDappTransfer: ApiTransferToSignProtocol, Equatable, Hashable, D
     public var displayedToAddress: String
     public var networkFee: BigInt
     
-    public init(toAddress: String, amount: BigInt, rawPayload: String? = nil, payload: ApiParsedPayload? = nil, stateInit: String? = nil, isScam: Bool? = nil, isDangerous: Bool, normalizedAddress: String, displayedToAddress: String, networkFee: BigInt) {
+    public init(chain: ApiChain? = nil, toAddress: String, amount: BigInt, rawPayload: String? = nil, payload: ApiParsedPayload? = nil, stateInit: String? = nil, isScam: Bool? = nil, isDangerous: Bool, normalizedAddress: String, displayedToAddress: String, networkFee: BigInt) {
+        self.chain = chain
         self.toAddress = toAddress
         self.amount = amount
         self.rawPayload = rawPayload

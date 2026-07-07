@@ -37,7 +37,6 @@ public struct WUIIconViewToken: UIViewRepresentable {
         ])
         uiView.setChainSize(chainSize, borderWidth: chainBorderWidth, horizontalOffset: chainHorizontalOffset, verticalOffset: chainVerticalOffset)
         uiView.config(with: token, isStaking: isStaking, isWalletView: isWalletView, shouldShowChain: showldShowChain)
-        uiView.imageView.layer.cornerRadius = size/2
         return uiView
     }
     
@@ -46,4 +45,3 @@ public struct WUIIconViewToken: UIViewRepresentable {
         uiView.config(with: token, isStaking: isStaking, isWalletView: isWalletView, shouldShowChain: showldShowChain)
     }
 }
-

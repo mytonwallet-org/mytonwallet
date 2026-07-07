@@ -1,6 +1,5 @@
 //
 //  WalletSettingsEmptyCell.swift
-//  MyTonWalletAir
 //
 //  Created by nikstar on 04.11.2025.
 //

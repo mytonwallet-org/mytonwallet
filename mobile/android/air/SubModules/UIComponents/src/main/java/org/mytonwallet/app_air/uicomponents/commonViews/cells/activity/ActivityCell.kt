@@ -2,6 +2,8 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells.activity
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.Path
+import android.graphics.RectF
 import android.text.TextUtils
 import android.view.View
 import android.view.ViewGroup
@@ -19,26 +21,35 @@ import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
+import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import kotlin.math.roundToInt
 
@@ -83,9 +94,12 @@ class ActivityCell(
         }
         return resources.displayMetrics.widthPixels
     }
+
     private val bigRadius get() = ViewConstants.BLOCK_RADIUS.dp
 
     var onTap: ((MApiTransaction) -> Unit)? = null
+
+    var allowNftMenu: Boolean = false
     private var transaction: MApiTransaction? = null
     private var transactionAddressName: String? = null
     private var positioning: Positioning? = null
@@ -313,12 +327,78 @@ class ActivityCell(
 
         if (txn?.isNft != true || nft == null) {
             singleTagView?.visibility = GONE
+            setOnLongClickListener(null)
+            isLongClickable = false
             return
         }
 
         val tagView = singleTagView ?: createTagView().also { singleTagView = it }
         tagView.visibility = VISIBLE
         tagView.configure(nft)
+        tagView.updateTheme()
+
+        if (!allowNftMenu) {
+            setOnLongClickListener(null)
+            isLongClickable = false
+            return
+        }
+
+        setOnLongClickListener {
+            WMenuPopup.present(
+                this,
+                listOf(
+                    WMenuPopup.Item(
+                        org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden,
+                        LocaleController.getString("Hide NFT"),
+                    ) {
+                        NftStore.hideNft(nft)
+                    }
+                ),
+                popupWidth = WRAP_CONTENT,
+                yOffset = (-20).dp,
+                positioning = WMenuPopup.Positioning.BELOW,
+                centerHorizontally = true,
+                windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(
+                    contentCutoutPath(roundRadius = bigRadius)
+                ),
+                backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
+                usePillShadow = true,
+            )
+            true
+        }
+    }
+
+    private fun contentCutoutPath(roundRadius: Float): Path {
+        val cellLocation = getLocationOnScreen()
+        val contentTop = mainContentView.getLocationOnScreen().y.toFloat()
+        val left = cellLocation.x.toFloat()
+        val right = (cellLocation.x + width).toFloat()
+        val bottom = (cellLocation.y + height).toFloat()
+        val contentAreaBounds = PopupHelpers.popupHost?.getContentAreaBounds()
+        val windowTopVC = (context as? WWindow)?.topViewController
+        val topVC = (windowTopVC as? ITabsVC)
+            ?.activeNavigationController?.viewControllers?.lastOrNull()
+            ?: windowTopVC
+        val topBlurView = topVC?.topBlurView
+        val topBlurBottom = topBlurView?.let {
+            val cornerRadius = (it as? ReversedCornerView)?.cornerRadius ?: 0f
+            it.getLocationOnScreen().y + it.height - cornerRadius
+        } ?: 0f
+        val clampTop = maxOf(
+            topBlurBottom,
+            contentAreaBounds?.top?.toFloat() ?: 0f
+        )
+        val clampedTop = maxOf(contentTop, clampTop)
+        val clampedBottom = contentAreaBounds?.let { minOf(bottom, it.bottom.toFloat()) } ?: bottom
+        return Path().apply {
+            if (clampedBottom <= clampedTop) return@apply
+            addRoundRect(
+                RectF(left, clampedTop, right, clampedBottom),
+                roundRadius,
+                roundRadius,
+                Path.Direction.CW
+            )
+        }
     }
 
     private fun createTagView(): ActivitySingleTagView {

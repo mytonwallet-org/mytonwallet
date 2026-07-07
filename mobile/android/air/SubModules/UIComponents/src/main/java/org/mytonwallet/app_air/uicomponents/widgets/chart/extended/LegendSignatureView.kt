@@ -124,13 +124,13 @@ open class LegendSignatureView(
         content.orientation = LinearLayout.VERTICAL
 
         time.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
-        time.typeface = WFont.DemiBold.typeface
+        time.typeface = WFont.Medium.typeface
         hourTime.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
-        hourTime.typeface = WFont.DemiBold.typeface
+        hourTime.typeface = WFont.Medium.typeface
         footerLabelView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
-        footerLabelView.typeface = WFont.DemiBold.typeface
+        footerLabelView.typeface = WFont.Medium.typeface
         footerValueView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
-        footerValueView.typeface = WFont.DemiBold.typeface
+        footerValueView.typeface = WFont.Medium.typeface
 
         chevron.setImageDrawable(chevronDrawable)
 
@@ -568,7 +568,7 @@ open class LegendSignatureView(
                     layoutParams = LinearLayout.LayoutParams(36.dp, LayoutParams.WRAP_CONTENT)
                     visibility = GONE
                     gravity = Gravity.START
-                    typeface = WFont.DemiBold.typeface
+                    typeface = WFont.Medium.typeface
                     setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f)
                 }
                 root.addView(percentage)
@@ -590,7 +590,7 @@ open class LegendSignatureView(
 
             signature.gravity = Gravity.START
             value.gravity = Gravity.END
-            value.typeface = WFont.DemiBold.typeface
+            value.typeface = WFont.Medium.typeface
             value.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f)
             signature.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f)
         }

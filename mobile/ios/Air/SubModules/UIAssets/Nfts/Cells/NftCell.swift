@@ -61,6 +61,7 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         contentView.addSubview(imageContainerView)
 
         mediaView.translatesAutoresizingMaskIntoConstraints = false
+        mediaView.disablesAnimationPlaybackInLowPowerMode = true
         imageContainerView.addSubview(mediaView)
 
         noImagePlaceholderView.translatesAutoresizingMaskIntoConstraints = false

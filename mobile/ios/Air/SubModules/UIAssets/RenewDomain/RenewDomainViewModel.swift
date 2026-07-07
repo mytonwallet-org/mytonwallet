@@ -95,7 +95,7 @@ import Dependencies
         var activityIds: [String] = []
         for entry in result {
             if let error = entry.error {
-                throw BridgeCallError(message: error, payload: result)
+                throw SdkError.apiReturnedError(error: error, context: result)
             }
             if let mfaRequestHash = entry.mfaRequestHash {
                 return ApiMfaProtectedResult(mfaRequestHash: mfaRequestHash)

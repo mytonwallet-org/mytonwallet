@@ -8,7 +8,9 @@ import type { Theme } from '../../../global/types';
 
 import { CURRENCIES } from '../../../config';
 import { selectAccount, selectCurrentAccountId } from '../../../global/selectors';
+import { buildAvanchangeUrl } from '../../../util/avanchange';
 import buildClassName from '../../../util/buildClassName';
+import { mapValues } from '../../../util/iteratees';
 import { callApi } from '../../../api';
 
 import useAppTheme from '../../../hooks/useAppTheme';
@@ -25,7 +27,7 @@ import styles from './OnRampWidgetModal.module.scss';
 
 interface StateProps {
   chain?: ApiChain;
-  address?: string;
+  byChain?: Partial<Record<ApiChain, { address: string }>>;
   countryCode?: ApiCountryCode;
   baseCurrency: ApiBaseCurrency;
   theme: Theme;
@@ -34,12 +36,10 @@ interface StateProps {
 type CardType = 'avanchange' | 'moonpay';
 
 const ANIMATION_TIMEOUT = 200;
-// eslint-disable-next-line @stylistic/max-len
-const AVANCHANGE_URL_TEMPLATE = 'https://dreamwalkers.io/ru/mytonwallet/?wallet={address}&give=CARDRUB&take=TON&type=buy';
 const SUPPORTED_CURRENCIES = new Set<ApiBaseCurrency>(['USD', 'EUR', 'RUB']);
 
 function OnRampWidgetModal({
-  chain, address, countryCode, baseCurrency, theme,
+  chain, byChain, countryCode, baseCurrency, theme,
 }: StateProps) {
   const {
     closeOnRampWidgetModal,
@@ -56,6 +56,8 @@ function OnRampWidgetModal({
     getDefaultCardCurrency(baseCurrency, countryCode),
   );
 
+  // Address of the chain the user opened "Buy" from - used for `isOpen` and the Avanchange URL
+  const address = chain ? byChain?.[chain]?.address : undefined;
   const isOpen = Boolean(chain) && Boolean(address);
 
   const dropdownItems = useMemo<DropdownItem<ApiBaseCurrency>[]>(
@@ -91,16 +93,23 @@ function OnRampWidgetModal({
     const cardType = getCardType(chain, selectedCurrency);
 
     if (cardType === 'avanchange') {
-      setIframeSrc(buildAvanchangeUrl(address));
+      setIframeSrc(buildAvanchangeUrl({
+        address,
+        give: 'CARDRUB',
+        take: 'GRAM',
+        type: 'buy',
+      }));
 
       return;
     }
 
     const loadMoonpayCard = async () => {
       try {
+        const addressByChain = byChain && mapValues(byChain, (wallet) => wallet.address);
+
         const response = await callApi('getMoonpayOnrampUrl', {
           chain,
-          address,
+          addressByChain,
           theme: appTheme,
           currency: selectedCurrency,
         });
@@ -119,7 +128,7 @@ function OnRampWidgetModal({
     };
 
     void loadMoonpayCard();
-  }, [address, appTheme, chain, isOpen, lang, selectedCurrency]);
+  }, [address, appTheme, byChain, chain, isOpen, lang, selectedCurrency]);
 
   const handleCardTypeChange = useLastCallback((value: ApiBaseCurrency) => {
     setIsLoading(true);
@@ -223,7 +232,7 @@ export default memo(withGlobal((global): StateProps => {
 
   return {
     chain,
-    address: chain && byChain?.[chain]?.address,
+    byChain,
     countryCode,
     baseCurrency,
     theme: global.settings.theme,
@@ -240,8 +249,4 @@ function getDefaultCardCurrency(baseCurrency?: ApiBaseCurrency, countryCode?: Ap
 
 function getCardType(chain: ApiChain, currency: ApiBaseCurrency): CardType {
   return currency === 'RUB' ? 'avanchange' : 'moonpay';
-}
-
-function buildAvanchangeUrl(address: string): string {
-  return AVANCHANGE_URL_TEMPLATE.replace('{address}', encodeURIComponent(address));
 }

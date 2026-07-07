@@ -1,5 +1,6 @@
 import type { ApiActivity } from '../../../api/types';
 
+import { getIsHiddenNftActivity } from '../../../util/activities';
 import { mergeSortedActivities } from '../../../util/activities/order';
 import { getIsTransactionWithPoisoning } from '../../../util/poisoningHash';
 import { throttle, waitFor } from '../../../util/schedulers';
@@ -75,12 +76,16 @@ async function fetchPastActivities(accountId: string, slug?: string) {
     }
 
     const { areTinyTransfersHidden } = global.settings;
+    const { blacklistedNftAddresses, whitelistedNftAddresses } = selectAccountState(global, accountId) || {};
 
     const filteredResult = activities.filter((tx) => {
       const shouldHide = tx.kind === 'transaction'
         && (
           getIsTransactionWithPoisoning(tx)
-          || (areTinyTransfersHidden && getIsTinyOrScamTransaction(tx))
+          || (areTinyTransfersHidden && (
+            getIsTinyOrScamTransaction(tx)
+            || getIsHiddenNftActivity(tx, blacklistedNftAddresses, whitelistedNftAddresses)
+          ))
         );
 
       return !shouldHide;

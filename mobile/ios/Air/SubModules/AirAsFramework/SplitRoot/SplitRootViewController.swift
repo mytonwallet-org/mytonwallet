@@ -1,9 +1,6 @@
 import UIKit
-import UIBrowser
-import UIAgent
 import UIComponents
 import UIHome
-import UISettings
 import UIAssets
 import WalletCore
 import WalletContext
@@ -11,68 +8,38 @@ import SwiftNavigation
 
 private let sidebarEdgeFadeWidth: CGFloat = 32
 
-private final class LazySplitRootNavigationController: WNavigationController {
-    private let makeRootViewController: () -> UIViewController
-    private var didInstallRootViewController = false
-
-    init(makeRootViewController: @escaping () -> UIViewController) {
-        self.makeRootViewController = makeRootViewController
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        ensureRootViewControllerInstalled()
-    }
-
-    func ensureRootViewControllerInstalled() {
-        guard !didInstallRootViewController else { return }
-        didInstallRootViewController = true
-        viewControllers = [makeRootViewController()]
-    }
-
-    func resetRootViewController() {
-        didInstallRootViewController = true
-        viewControllers = [makeRootViewController()]
-    }
-
-    func setPreservedViewControllers(_ viewControllers: [UIViewController]) {
-        didInstallRootViewController = true
-        self.viewControllers = viewControllers
-    }
+private struct SidebarEdgeCoverEntry {
+    let navigationController: WNavigationController
+    let view: EdgeGradientView
+    let color: UIColor
+    let isVisible: () -> Bool
 }
 
 @MainActor
 final class SplitRootViewController: UISplitViewController, VisibleContentProviding {
 
-    private let viewModel = SplitRootViewModel()
+    private let viewModel: SplitRootViewModel
 
     private let sidebarViewController: SplitRootSidebarViewController
     private let sidebarNavigationController: WNavigationController
-    private var sidebarEdgeCoverEntries: [(navigationController: WNavigationController, view: EdgeGradientView, color: UIColor)] = []
+    private var sidebarEdgeCoverEntries: [SidebarEdgeCoverEntry] = []
 
-    private(set) var homeNavigationController: WNavigationController
-    private(set) var agentNavigationController: WNavigationController
-    private(set) var exploreNavigationController: WNavigationController
-    private(set) var settingsNavigationController: WNavigationController
+    /// All live navigation controllers keyed by their tab id.
+    private var navControllersByTabId: [AppTabId: WNavigationController]
 
     var visibleContentProviderViewController: UIViewController {
         currentNavigationController.visibleViewController ?? currentNavigationController
     }
 
-    private var selectedTab: SplitRootTab { viewModel.selectedTab }
-    var currentTab: SplitRootTab { selectedTab }
+    private var selectedTab: AppTabId { viewModel.selectedTab }
+    var currentTabId: AppTabId { selectedTab }
 
-    func takeNavigationStack(for tab: SplitRootTab, keepingRoot: Bool) -> [UIViewController]? {
-        let navigationController = navigationController(for: tab)
+    func takeNavigationStack(for id: AppTabId, keepingRoot: Bool) -> [UIViewController]? {
+        guard let navigationController = navControllersByTabId[id] else { return nil }
         if navigationController.viewControllers.isEmpty,
-           selectedTab == tab,
-           let lazyNavigationController = navigationController as? LazySplitRootNavigationController {
-            lazyNavigationController.ensureRootViewControllerInstalled()
+           selectedTab == id,
+           let lazyNC = navigationController as? AppTabLazyNavigationController {
+            lazyNC.ensureRootViewControllerInstalled()
         }
         let stack = navigationController.viewControllers
         guard !stack.isEmpty else { return nil }
@@ -84,33 +51,33 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         return stack
     }
 
-    func setNavigationStack(_ stack: [UIViewController], for tab: SplitRootTab) {
+    func setNavigationStack(_ stack: [UIViewController], for id: AppTabId) {
         guard !stack.isEmpty else { return }
-        let navigationController = navigationController(for: tab)
-        if let lazyNavigationController = navigationController as? LazySplitRootNavigationController {
-            lazyNavigationController.setPreservedViewControllers(stack)
+        let navigationController: WNavigationController
+        if let existing = navControllersByTabId[id] {
+            navigationController = existing
+        } else {
+            guard let nc = AppTabManager.shared.makeNavigationController(for: id, layout: .split) else { return }
+            navControllersByTabId[id] = nc
+            navigationController = nc
+        }
+        if let lazyNC = navigationController as? AppTabLazyNavigationController {
+            lazyNC.setPreservedViewControllers(stack)
         } else {
             navigationController.setViewControllers(stack, animated: false)
         }
-        if selectedTab == tab {
-            onTabSelect(tab: tab)
+        if selectedTab == id {
+            onTabSelect(tab: id)
         }
     }
 
     init() {
+        self.navControllersByTabId = [:]
+
+        let viewModel = SplitRootViewModel()
+        self.viewModel = viewModel
         self.sidebarViewController = SplitRootSidebarViewController(viewModel: viewModel)
         self.sidebarNavigationController = WNavigationController(rootViewController: sidebarViewController)
-
-        self.homeNavigationController = WNavigationController(rootViewController: SplitHomeVC())
-        self.agentNavigationController = LazySplitRootNavigationController {
-            AgentEntryPoint.makeRootViewController()
-        }
-        self.exploreNavigationController = LazySplitRootNavigationController {
-            ExploreTabVC()
-        }
-        self.settingsNavigationController = LazySplitRootNavigationController {
-            SettingsVC()
-        }
 
         super.init(style: .doubleColumn)
     }
@@ -130,12 +97,11 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         updatePrimaryColumnWidthFraction()
 
         setViewController(sidebarNavigationController, for: .primary)
-        setViewController(homeNavigationController, for: .secondary)
-        sidebarViewController.setSelectedTab(.home)
+        // Secondary column and tab-specific setup (edge covers, sidebar selection) are
+        // deferred to applyTabConfiguration, called by AdaptiveRootViewController right
+        // after loadViewIfNeeded(), so nav controllers are not needed here.
 
         view.backgroundColor = .black
-        installSidebarEdgeCover(in: homeNavigationController, color: .air.groupedBackground)
-        installSidebarEdgeCover(in: exploreNavigationController, color: .air.background)
 
         observe { [weak self] in
             guard let self else { return }
@@ -144,8 +110,9 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
         viewModel.onCurrentTabTap = { [weak self] tab in
             guard let self else { return }
-            let nc = navigationController(for: tab)
-            showDetailViewController(nc, sender: self)
+            if let nc = navControllersByTabId[tab] {
+                showDetailViewController(nc, sender: self)
+            }
         }
     }
 
@@ -153,6 +120,51 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         super.viewDidLayoutSubviews()
         updatePrimaryColumnWidthFraction()
         updateSidebarEdgeCoverFrames()
+    }
+
+    func applyTabConfiguration(_ orderedIds: [AppTabId]) {
+        let currentId = selectedTab
+
+        // Build nav controllers for newly added tabs.
+        for id in orderedIds where navControllersByTabId[id] == nil {
+            navControllersByTabId[id] = AppTabManager.shared.makeNavigationController(for: id, layout: .split)
+        }
+
+        // Remove nav controllers for tabs no longer in the list.
+        let removedIds = Set(navControllersByTabId.keys).subtracting(orderedIds)
+        for id in removedIds {
+            navControllersByTabId.removeValue(forKey: id)
+        }
+
+        // Install sidebar edge covers for all tabs (idempotent; color comes from registration).
+        for id in orderedIds {
+            if let color = AppTabManager.shared.registration(for: id)?.sidebarEdgeCoverColor {
+                installSidebarEdgeCoverIfNeeded(for: id, color: color)
+            }
+        }
+
+        // Notify sidebar to refresh its tab list.
+        sidebarViewController.applyTabConfiguration(orderedIds)
+
+        // If the currently selected tab was removed, fall back to wallet.
+        if !orderedIds.contains(currentId) {
+            viewModel.selectedTab = .wallet
+        }
+
+        // Show the current tab in the secondary column (handles initial setup too).
+        onTabSelect(tab: viewModel.selectedTab)
+    }
+
+    private func installSidebarEdgeCoverIfNeeded(for id: AppTabId, color: UIColor) {
+        guard let nc = navControllersByTabId[id],
+              !sidebarEdgeCoverEntries.contains(where: { $0.navigationController === nc }) else { return }
+        if id == .wallet {
+            installSidebarEdgeCover(in: nc, color: color) { [weak nc] in
+                nc?.viewControllers.count == 1
+            }
+        } else {
+            installSidebarEdgeCover(in: nc, color: color)
+        }
     }
 
     private func updatePrimaryColumnWidthFraction() {
@@ -165,16 +177,15 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         preferredPrimaryColumnWidthFraction = isMini ? 0.34 : 0.29
     }
 
-    func select(tab: SplitRootTab, popToRoot: Bool = false) {
+    func select(tab: AppTabId, popToRoot: Bool = false) {
         viewModel.selectedTab = tab
-        if popToRoot {
-            let nc = navigationController(for: tab)
+        if popToRoot, let nc = navControllersByTabId[tab] {
             nc.popToRootViewController(animated: true)
         }
     }
 
-    func onTabSelect(tab: SplitRootTab) {
-        let nc = navigationController(for: tab)
+    func onTabSelect(tab: AppTabId) {
+        guard let nc = navControllersByTabId[tab] else { return }
         if isCollapsed {
             if viewController(for: .secondary) !== nc {
                 showDetailViewController(nc, sender: self)
@@ -185,14 +196,12 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     func isHomeRootSelected() -> Bool {
-        selectedTab == .home && homeNavigationController.viewControllers.first is SplitHomeVC
+        selectedTab == .wallet && navControllersByTabId[.wallet]?.viewControllers.first is SplitHomeVC
     }
 
     func pushOnHome(_ viewController: UIViewController) -> Bool {
-        guard selectedTab == .home else {
-            return false
-        }
-        homeNavigationController.pushViewController(viewController, animated: true)
+        guard selectedTab == .wallet, let homeNC = navControllersByTabId[.wallet] else { return false }
+        homeNC.pushViewController(viewController, animated: true)
         return true
     }
 
@@ -201,10 +210,8 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     func debugOnly_resetAgentRoot() {
-        guard let agentNavigationController = agentNavigationController as? LazySplitRootNavigationController else {
-            return
-        }
-        agentNavigationController.resetRootViewController()
+        guard let agentNC = navControllersByTabId[.agent] as? AppTabLazyNavigationController else { return }
+        agentNC.resetRootViewController()
     }
 
     func showExplore() {
@@ -212,7 +219,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     func showHome(popToRoot: Bool) {
-        select(tab: .home, popToRoot: popToRoot)
+        select(tab: .wallet, popToRoot: popToRoot)
         if let rootViewController = view.window?.rootViewController, rootViewController.presentedViewController != nil {
             rootViewController.dismiss(animated: true)
         }
@@ -220,33 +227,39 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
 
     func showSettings(path: [UIViewController]) {
         select(tab: .settings, popToRoot: false)
-        (settingsNavigationController as? LazySplitRootNavigationController)?.ensureRootViewControllerInstalled()
-        guard let rootViewController = settingsNavigationController.viewControllers.first else { return }
-        settingsNavigationController.setViewControllers([rootViewController] + path, animated: false)
+        guard let settingsNC = navControllersByTabId[.settings] else { return }
+        (settingsNC as? AppTabLazyNavigationController)?.ensureRootViewControllerInstalled()
+        guard let rootViewController = settingsNC.viewControllers.first else { return }
+        settingsNC.setViewControllers([rootViewController] + path, animated: false)
     }
 
     func showTemporaryViewAccount(accountId: String) {
-        select(tab: .home, popToRoot: false)
+        if let rootVC = view.window?.rootViewController, rootVC.presentedViewController != nil {
+            rootVC.dismiss(animated: true)
+        }
+        select(tab: .wallet, popToRoot: false)
         focusSidebarAccount(accountId: accountId, animated: true)
 
-        if let splitHomeVC = homeNavigationController.topViewController as? SplitHomeVC,
+        guard let homeNC = navControllersByTabId[.wallet] else { return }
+        if let splitHomeVC = homeNC.topViewController as? SplitHomeVC,
            isTemporarySplitHome(splitHomeVC, accountId: accountId) {
             return
         }
 
         dismissTemporaryViewAccountIfNeeded(animated: false)
         let vc = SplitHomeVC(accountSource: .accountId(accountId))
-        homeNavigationController.pushViewController(vc, animated: true)
+        homeNC.pushViewController(vc, animated: true)
     }
 
     func dismissTemporaryViewAccountIfNeeded(animated: Bool) {
-        let hasTemporaryHomeInStack = homeNavigationController.viewControllers.contains { viewController in
+        guard let homeNC = navControllersByTabId[.wallet] else { return }
+        let hasTemporaryHomeInStack = homeNC.viewControllers.contains { viewController in
             guard let splitHomeVC = viewController as? SplitHomeVC else { return false }
             guard case .accountId = splitHomeVC.splitHomeAccountContext.source else { return false }
             return true
         }
         guard hasTemporaryHomeInStack else { return }
-        homeNavigationController.popToRootViewController(animated: animated)
+        homeNC.popToRootViewController(animated: animated)
         syncSidebarFocusWithHomeStack(animated: animated)
     }
 
@@ -278,11 +291,12 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     func syncSidebarFocusWithHomeStack(animated: Bool) {
-        guard selectedTab == .home else {
+        guard selectedTab == .wallet else {
             focusSidebarAccount(accountId: nil, animated: animated)
             return
         }
-        guard let splitHomeVC = homeNavigationController.topViewController as? SplitHomeVC,
+        guard let homeNC = navControllersByTabId[.wallet],
+              let splitHomeVC = homeNC.topViewController as? SplitHomeVC,
               case .accountId(let accountId) = splitHomeVC.splitHomeAccountContext.source else {
             focusSidebarAccount(accountId: nil, animated: animated)
             return
@@ -291,7 +305,9 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     private var currentNavigationController: WNavigationController {
-        navigationController(for: selectedTab)
+        navControllersByTabId[selectedTab]
+            ?? navControllersByTabId[.wallet]
+            ?? { fatalError("wallet nav controller missing — required tab invariant broken") }()
     }
 
     private func isTemporarySplitHome(_ splitHomeVC: SplitHomeVC, accountId: String) -> Bool {
@@ -300,32 +316,30 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         return splitHomeAccountId == accountId
     }
 
-    private func navigationController(for tab: SplitRootTab) -> WNavigationController {
-        switch tab {
-        case .home:
-            homeNavigationController
-        case .agent:
-            agentNavigationController
-        case .explore:
-            exploreNavigationController
-        case .settings:
-            settingsNavigationController
-        }
-    }
-
     private static func makeNavigationStackPlaceholder() -> UIViewController {
         let viewController = UIViewController()
         viewController.view.backgroundColor = .black
         return viewController
     }
 
-    private func installSidebarEdgeCover(in navigationController: WNavigationController, color: UIColor) {
+    private func installSidebarEdgeCover(
+        in navigationController: WNavigationController,
+        color: UIColor,
+        isVisible: @escaping () -> Bool = { true }
+    ) {
         let edgeCoverView = EdgeGradientView()
         edgeCoverView.color = color.withAlphaComponent(0.8)
         edgeCoverView.isHidden = true
         navigationController.view.clipsToBounds = false
         navigationController.view.addSubview(edgeCoverView)
-        sidebarEdgeCoverEntries.append((navigationController, edgeCoverView, color))
+        sidebarEdgeCoverEntries.append(
+            SidebarEdgeCoverEntry(
+                navigationController: navigationController,
+                view: edgeCoverView,
+                color: color,
+                isVisible: isVisible
+            )
+        )
     }
 
     private func updateSidebarEdgeCoverFrames() {
@@ -369,17 +383,18 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
             direction = isRightToLeft ? .trailing : .leading
         }
 
-        for (navigationController, edgeCoverView, color) in sidebarEdgeCoverEntries {
-            guard navigationController.view.window != nil else {
-                edgeCoverView.isHidden = true
+        for entry in sidebarEdgeCoverEntries {
+            guard entry.navigationController.view.window != nil,
+                  entry.isVisible() else {
+                entry.view.isHidden = true
                 continue
             }
-            edgeCoverView.color = color.withAlphaComponent(0.8)
-            edgeCoverView.direction = direction
-            edgeCoverView.solidEdgeLength = outerGap
-            edgeCoverView.frame = navigationController.view.convert(targetFrame, from: view)
-            edgeCoverView.isHidden = false
-            navigationController.view.bringSubviewToFront(edgeCoverView)
+            entry.view.color = entry.color.withAlphaComponent(0.8)
+            entry.view.direction = direction
+            entry.view.solidEdgeLength = outerGap
+            entry.view.frame = entry.navigationController.view.convert(targetFrame, from: view)
+            entry.view.isHidden = false
+            entry.navigationController.view.bringSubviewToFront(entry.view)
         }
     }
 

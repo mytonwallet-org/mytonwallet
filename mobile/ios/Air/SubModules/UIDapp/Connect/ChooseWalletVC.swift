@@ -11,6 +11,7 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
     
     public let host: String
     public let allowViewAccounts: Bool
+    public let requiredChains: [ApiDappSessionChain]
     public let onSelect: (String) -> Void
     
     @Dependency(\.accountStore) private var accountStore
@@ -22,9 +23,10 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
         case main
     }
     
-    public init(host: String, allowViewAccounts: Bool, onSelect: @escaping (String) -> Void) {
+    public init(host: String, allowViewAccounts: Bool, requiredChains: [ApiDappSessionChain] = [], onSelect: @escaping (String) -> Void) {
         self.host = host
         self.allowViewAccounts = allowViewAccounts
+        self.requiredChains = requiredChains
         self.onSelect = onSelect
         super.init(nibName: nil, bundle: nil)
     }
@@ -67,13 +69,14 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
             content.textProperties.color = .air.secondaryLabel
             supplementaryView.contentConfiguration = content
         }
-        let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, String> { [allowViewAccounts] cell, _, accountId in
+        let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, String> { [allowViewAccounts, requiredChains] cell, _, accountId in
             let accountContext = AccountContext(accountId: accountId)
             cell.configurationUpdateHandler = { cell, state in
                 cell.contentConfiguration = UIHostingConfiguration {
                     WithPerceptionTracking {
                         let account = accountContext.account
-                        let isDisabled = account.isView && (!allowViewAccounts || account.getChainInfo(chain: .ton)?.mfa != nil)
+                        let isIncompatible = !Self.account(account, supports: requiredChains)
+                        let isDisabled = isIncompatible || account.isView && (!allowViewAccounts || account.getChainInfo(chain: .ton)?.mfa != nil)
                         AccountListCell(accountContext: accountContext, isReordering: state.isEditing, showCurrentAccountHighlight: true)
                             .allowsHitTesting(!isDisabled)
                             .opacity(isDisabled ? 0.4 : 1)
@@ -115,6 +118,9 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
     private func isAccountSelectable(indexPath: IndexPath) -> Bool {
         if let accountId = dataSource?.itemIdentifier(for: indexPath) {
             let account = accountStore.get(accountId: accountId)
+            guard Self.account(account, supports: requiredChains) else {
+                return false
+            }
             if account.isView && account.getChainInfo(chain: .ton)?.mfa != nil {
                 return false
             }
@@ -127,6 +133,13 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
         if let accountId = dataSource?.itemIdentifier(for: indexPath) {
             onSelect(accountId)
             presentingViewController?.dismiss(animated: true)
+        }
+    }
+
+    private static func account(_ account: MAccount, supports requiredChains: [ApiDappSessionChain]) -> Bool {
+        guard !requiredChains.isEmpty else { return true }
+        return requiredChains.allSatisfy { chain in
+            account.supports(chain: chain.chain)
         }
     }
 }

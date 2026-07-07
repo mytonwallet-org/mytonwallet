@@ -5,17 +5,17 @@ import android.graphics.Typeface
 import androidx.core.content.res.ResourcesCompat
 import org.mytonwallet.app_air.walletbasecontext.R
 
-// TODO:: Maybe we can use user's active font from settings later, instead of misans
+// TODO:: Maybe we can use user's active font from settings later, instead of the system font
 object FontUtils {
-    fun nunitoExtraBold(context: Context): Typeface {
-        return ResourcesCompat.getFont(context, R.font.nunito_extra_bold)!!
+    fun balance(context: Context): Typeface {
+        return ResourcesCompat.getFont(context, R.font.google_sans_flex_round_bold)!!
     }
 
-    fun semiBold(context: Context): Typeface {
-        return ResourcesCompat.getFont(context, R.font.misans_semibold)!!
+    fun medium(context: Context): Typeface {
+        return Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }
 
     fun regular(context: Context): Typeface {
-        return ResourcesCompat.getFont(context, R.font.misans_regular)!!
+        return Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
 }

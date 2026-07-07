@@ -147,7 +147,20 @@ export const TON_CONNECT_ANALYTICS_URL = 'https://analytics.ton.org';
 
 export const WALLET_CONNECT_BRIDGE_PATTERNS = 'https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org';
 
+/** WalletConnect Pay API + collect iframe (multi-level subdomains; not covered by `*.walletconnect.com`). */
+export const WALLET_CONNECT_PAY_CONNECT_ORIGINS = [
+  'https://api.pay.walletconnect.com/',
+  'https://api.pay.walletconnect.org/',
+  'https://staging.api.pay.walletconnect.org/',
+  'https://pay.walletconnect.com/',
+];
+
+export const WALLET_CONNECT_PAY_FRAME_ORIGINS = [
+  'https://pay.walletconnect.com/',
+];
+
 export const WALLET_CONNECT_PROJECT_ID = process.env.WALLET_CONNECT_PROJECT_ID || '';
+export const WALLET_CONNECT_PAY_APP_ID = process.env.WALLET_CONNECT_PAY_APP_ID || '';
 
 export const TRON_MAINNET_API_URL = process.env.TRON_MAINNET_API_URL || 'https://tronapi.mytonwallet.org';
 export const TRON_TESTNET_API_URL = process.env.TRON_TESTNET_API_URL || 'https://api.shasta.trongrid.io';
@@ -216,20 +229,14 @@ export const IFRAME_WHITELIST = [
 ];
 export const SUBPROJECT_URL_MASK = 'https://*.mywallet.io';
 
-export const CHANGELLY_SUPPORT_EMAIL = 'support@changelly.com';
-export const CHANGELLY_LIVE_CHAT_URL = 'https://changelly.com/';
-export const CHANGELLY_SECURITY_EMAIL = 'security@changelly.com';
-export const CHANGELLY_TERMS_OF_USE = 'https://changelly.com/terms-of-use';
-export const CHANGELLY_PRIVACY_POLICY = 'https://changelly.com/privacy-policy';
-export const CHANGELLY_AML_KYC = 'https://changelly.com/aml-kyc';
-export const CHANGELLY_WAITING_DEADLINE = 3 * 60 * 60 * 1000; // 3 hours
+export const CEX_WAITING_DEADLINE = 3 * 60 * 60 * 1000; // 3 hours
 
 export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-310';
+export const LANG_CACHE_NAME = 'mtw-lang-320';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -284,6 +291,21 @@ export const LANG_LIST: LangItem[] = [{
 }];
 
 export const IS_STAKING_DISABLED = IS_CORE_WALLET;
+
+// Blacklist-style feature flags (default unset = feature ON). Each is substituted at build time by
+// `EnvironmentPlugin`, so it both drives Webpack dead-code elimination (drops code + npm deps) and is
+// readable at runtime to silence behaviour/network for anything still bundled.
+export const NO_TON = process.env.NO_TON === '1';
+export const NO_TRON = process.env.NO_TRON === '1';
+export const NO_SOLANA = process.env.NO_SOLANA === '1';
+export const NO_EVM = process.env.NO_EVM === '1';
+export const NO_WALLETCONNECT = process.env.NO_WALLETCONNECT === '1';
+export const NO_SWAP = process.env.NO_SWAP === '1';
+export const NO_STAKING = process.env.NO_STAKING === '1';
+export const NO_PORTFOLIO = process.env.NO_PORTFOLIO === '1';
+export const NO_MFA = process.env.NO_MFA === '1';
+export const NO_LEDGER = process.env.NO_LEDGER === '1';
+export const NO_NOTIFICATIONS = process.env.NO_NOTIFICATIONS === '1';
 export const VALIDATION_PERIOD_MS = 65_536_000; // 18.2 h.
 export const ONE_TON = 1_000_000_000n;
 export const DEFAULT_FEE = 15_000_000n; // 0.015 TON
@@ -425,7 +447,7 @@ export const MYCOIN_MAINNET = {
   decimals: 9,
   chain: 'ton',
   minterAddress: 'EQCFVNlRb-NHHDQfv3Q9xvDXBLJlay855_xREsq5ZDX6KN-w',
-  image: 'https://imgproxy.mytonwallet.org/imgproxy/Qy038wCBKISofJ0hYMlj6COWma330cx3Ju1ZSPM2LRU/rs:fill:200:200:1/g:no/aHR0cHM6Ly9teXRvbndhbGxldC5pby9sb2dvLTI1Ni1ibHVlLnBuZw.webp',
+  image: 'https://mytonwallet.io/logo-256-blue.png',
 } as const;
 
 export const MYCOIN_TESTNET = {
@@ -662,13 +684,19 @@ export const ALL_STAKING_POOLS = [
   TON_TSUSDE.tokenAddress,
 ];
 
+// Native tokens in the UI display order (see CHAIN_DISPLAY_ORDER). Drives the empty-wallet token order.
 export const PRIORITY_TOKENS = [
   ETH,
   SOLANA,
+  HYPERLIQUID,
   TONCOIN,
   TRX,
+  BASE,
   BNB,
-  HYPERLIQUID,
+  POLYGON,
+  AVALANCHE,
+  ARBITRUM,
+  MONAD,
 ] as ApiToken[];
 
 export const INIT_SWAP_ASSETS: Record<'in' | 'out', ApiSwapAsset> = {
@@ -690,6 +718,7 @@ export const DEFAULT_TRANSFER_TOKEN_SLUG = TONCOIN.slug;
 export const SWAP_DEX_LABELS: Record<ApiSwapDexLabel, string> = {
   dedust: 'DeDust',
   ston: 'STON.fi',
+  jupiter: 'Jupiter',
 };
 
 export const ACTIVE_TAB_STORAGE_KEY = IS_CORE_WALLET

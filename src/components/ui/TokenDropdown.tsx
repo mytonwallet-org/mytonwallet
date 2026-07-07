@@ -3,7 +3,7 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import type { ApiTokenWithPrice } from '../../api/types';
 
 import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
-import { getIsNativeToken } from '../../util/tokens';
+import { getIsNativeToken, getIsRwaStockToken } from '../../util/tokens';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -12,7 +12,7 @@ import Dropdown, { type DropdownItem } from './Dropdown';
 
 import styles from './TokenDropdown.module.scss';
 
-export type TokenWithId = Pick<ApiTokenWithPrice, 'slug' | 'symbol' | 'image' | 'chain'> & {
+export type TokenWithId = Pick<ApiTokenWithPrice, 'slug' | 'symbol' | 'image' | 'chain' | 'keywords'> & {
   /**
    * The token unique id to use instead of slug.
    * Made for cases when there multiple dropdown items with the same token.
@@ -105,6 +105,7 @@ export function tokenToDropdownItem(token: TokenWithId, isMultichainAccount?: bo
   return {
     value: getTokenId(token),
     icon: token.image,
+    iconClassName: getIsRwaStockToken(token) ? styles.rwaStockIcon : undefined,
     overlayIcon: isMultichainAccount && !getIsNativeToken(token.slug) ? getChainNetworkIcon(token.chain) : undefined,
     name: token.symbol,
   };

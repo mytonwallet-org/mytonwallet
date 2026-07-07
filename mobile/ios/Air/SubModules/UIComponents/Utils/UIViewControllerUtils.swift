@@ -75,37 +75,53 @@ public extension UIViewController {
                       button: lang("OK")) {
                 onOK?()
             }
-        } else if let error = error as? BridgeCallError {
+        } else if let error = error as? SdkError {
             switch error {
-            case .message(let bridgeCallErrorMessages, _):
-                if bridgeCallErrorMessages == .serverError {
-                    showNetworkAlert(onOK: onOK)
+            case .message(let message):
+                showAlert(apiError: message, onOK: onOK)
+            case .apiReturnedError(let rawError, let displayError, _):
+                if let displayError {
+                    showAlert(apiError: displayError, onOK: onOK)
                 } else {
                     showAlert(title: lang("Error"),
-                              text: bridgeCallErrorMessages.toLocalized,
+                              text: rawError,
                               button: lang("OK")) {
                         onOK?()
                     }
                 }
-            case .customMessage(let string, _):
+            default:
                 showAlert(title: lang("Error"),
-                          text: string,
+                          text: error.errorDescription ?? error.localizedDescription,
                           button: lang("OK")) {
                     onOK?()
                 }
-            case .apiReturnedError(let error, _):
-                if let knownError = BridgeCallErrorMessages(rawValue: error) {
-                    showAlert(error: BridgeCallError.message(knownError, nil), onOK: onOK)
-                } else {
-                    showAlert(error: BridgeCallError.customMessage(error, nil), onOK: onOK)
-                }
-            default:
-                showAlert(error: BridgeCallError.message(.serverError, nil), onOK: onOK)
             }
+        } else if let error = error as? ApiAnyDisplayError {
+            showAlert(apiError: error, onOK: onOK)
         } else if let error = error as? LocalizedError {
-            showAlert(error: BridgeCallError.customMessage(error.errorDescription ?? error.localizedDescription, nil), onOK: onOK)
+            showAlert(title: lang("Error"),
+                      text: error.errorDescription ?? error.localizedDescription,
+                      button: lang("OK")) {
+                onOK?()
+            }
         } else {
-            showAlert(error: BridgeCallError.customMessage(error.localizedDescription, nil), onOK: onOK)
+            showAlert(title: lang("Error"),
+                      text: error.localizedDescription,
+                      button: lang("OK")) {
+                onOK?()
+            }
+        }
+    }
+
+    @MainActor private func showAlert(apiError: ApiAnyDisplayError, onOK: (() -> Void)? = nil) {
+        if apiError == .serverError {
+            showNetworkAlert(onOK: onOK)
+        } else {
+            showAlert(title: lang("Error"),
+                      text: apiError.toLocalized,
+                      button: lang("OK")) {
+                onOK?()
+            }
         }
     }
     

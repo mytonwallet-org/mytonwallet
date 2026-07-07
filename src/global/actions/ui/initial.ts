@@ -142,15 +142,18 @@ addActionHandler('afterInit', (global, actions) => {
 
   if (!IS_EXPLORER) return;
 
-  void callApi('clearStorageForExplorerMode');
+  void (async () => {
+    await callApi('waitDataPreload');
+    await callApi('clearStorageForExplorerMode');
 
-  const deeplinkUrl = getDeeplinkFromLocation();
+    const deeplinkUrl = getDeeplinkFromLocation();
 
-  if (deeplinkUrl) {
-    void processDeeplink(deeplinkUrl);
-  } else {
-    actions.showToast({ message: getTranslation('$explorer_mode_warning') });
-  }
+    if (deeplinkUrl) {
+      await processDeeplink(deeplinkUrl);
+    } else {
+      actions.showToast({ message: getTranslation('$explorer_mode_warning') });
+    }
+  })();
 });
 
 async function tryAutoImportTestMnemonic(actions: any) {

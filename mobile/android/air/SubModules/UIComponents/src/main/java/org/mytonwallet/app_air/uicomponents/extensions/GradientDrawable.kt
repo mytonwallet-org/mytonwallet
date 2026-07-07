@@ -18,6 +18,12 @@ fun GradientDrawable.setRounding(rounding: Content.Rounding) {
             this.cornerRadii = FloatArray(8) { rounding.radius }
         }
 
+        is Content.Rounding.RadiusRatio -> {
+            this.shape = GradientDrawable.RECTANGLE
+            val radius = minOf(bounds.width(), bounds.height()) * rounding.ratio
+            this.cornerRadii = FloatArray(8) { radius }
+        }
+
         else -> {}
     }
 }

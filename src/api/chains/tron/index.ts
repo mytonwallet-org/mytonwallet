@@ -39,6 +39,8 @@ const tronSdk: ChainSdk<'tron'> = {
   fetchEstimateDiesel,
   submitGasfullTransfer,
   submitGaslessTransfer: notSupported,
+  buildOnchainSwapTransfer: notSupported,
+  submitOnchainSwapTransfer: notSupported,
   getAddressInfo,
   getWalletBalance,
   getWalletAssets,
@@ -52,6 +54,9 @@ const tronSdk: ChainSdk<'tron'> = {
   checkNftTransferDraft: notSupported,
   submitNftTransfers: notSupported,
   checkNftOwnership: notSupported,
+  fetchWalletPermissions: notSupported,
+  revokeWalletPermission: notSupported,
+  fetchWalletPlugins: notSupported,
 };
 
 export default tronSdk;

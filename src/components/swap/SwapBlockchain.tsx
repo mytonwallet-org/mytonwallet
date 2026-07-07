@@ -4,6 +4,7 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
+import type { ApiSwapCexLabel } from '../../api/types';
 import { SwapState, SwapType, type UserSwapToken } from '../../global/types';
 
 import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../config';
@@ -38,6 +39,7 @@ interface OwnProps {
   toAddress?: string;
   tokenIn?: UserSwapToken;
   tokenOut?: UserSwapToken;
+  cexLabel?: ApiSwapCexLabel;
 }
 
 const SHORT_ADDRESS_SHIFT = 14;
@@ -49,6 +51,7 @@ function SwapBlockchain({
   toAddress = '',
   tokenIn,
   tokenOut,
+  cexLabel,
 }: OwnProps) {
   const {
     cancelSwap,
@@ -118,6 +121,7 @@ function SwapBlockchain({
     const response = await callApi('swapCexValidateAddress', {
       slug: tokenOut!.slug,
       address,
+      cexLabel,
     });
 
     if (!response) {

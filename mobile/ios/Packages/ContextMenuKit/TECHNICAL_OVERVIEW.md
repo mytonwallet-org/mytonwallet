@@ -255,6 +255,7 @@ Files:
 Implemented:
 
 - spring animation helper with Telegram-like timing constants
+- shared collapsed scale and alpha durations for source-anchored appear/dismiss
 - alpha and basic transform helpers
 - directional pan validation that rejects the wrong axis early
 
@@ -262,6 +263,7 @@ Telegram references:
 
 - `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerExtractedPresentationNode.swift:1237-1240`
 - `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerActionsStackNode.swift:1444-1490`
+- `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerImpl.swift:572-599`
 
 ## Implemented Behavior Mapping
 
@@ -407,7 +409,7 @@ Current parity level:
 Implemented in `ContextMenuKit`:
 
 - keep menu host alpha at `0` until animate-in starts
-- animate menu alpha from `0`
+- animate menu alpha from `0` over `0.05s`
 - animate `transform.scale` from `0.01` to `1.0`
 - animate position additively from source delta to zero
 - fade in blur/dim backdrop separately
@@ -420,10 +422,11 @@ Telegram references:
 
 - `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerExtractedPresentationNode.swift:1237-1240`
 - `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerExtractedPresentationNode.swift:1369-1418`
+- `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerImpl.swift:572-599`
 
 Important note:
 
-- the current extraction copied the non-extractable menu path
+- Telegram has multiple context-menu animation paths; this package follows the normal/reference action-container path's `0.01` collapsed scale and fast action-stack alpha fade
 - Telegram also has a richer extracted-container animation path in `ContextControllerActionsStackNode.NavigationContainer.animateIn(...)`
 
 Current parity level:
@@ -450,6 +453,7 @@ Telegram references:
 
 - `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerExtractedPresentationNode.swift:1736-1772`
 - `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerExtractedPresentationNode.swift:1716-1735`
+- `submodules/TelegramUI/Components/ContextControllerImpl/Sources/ContextControllerImpl.swift:724-789`
 
 Current parity level:
 

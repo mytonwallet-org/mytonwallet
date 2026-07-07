@@ -12,11 +12,10 @@ class NftDetailsItemCoverFlowTile: UIView {
     private var lottieViewer: NftDetailsLottieViewer?
     private var selectionSubscription: NftDetailsItemModel.Subscription?
     private var cornerRadius: CGFloat?
-    private var shadowCornerRadius: CGFloat?
-    private var shadowSize: CGSize?
     private var retryCount = 0
     private var retryWorkItem: DispatchWorkItem?
     private let maxRetryCount = 20
+    private var imageLoadSucceeded = false
 
     private let imageView: UIImageView = {
         let iv = UIImageView()
@@ -33,10 +32,17 @@ class NftDetailsItemCoverFlowTile: UIView {
         s.color = .secondaryLabel
         return s
     }()
-    
+
+    private let forSaleTagView = NftForSaleTagView()
+    private var forSaleTagTopConstraint: NSLayoutConstraint?
+    private var forSaleTagTrailingConstraint: NSLayoutConstraint?
+
+    private var processedImageSubscription: NftDetailsItemModel.Subscription?
+    private var displayStateSubscription: NftDetailsItemModel.Subscription?
+
     weak var delegate: NftDetailsItemCoverFlowTileDelegate?
     weak var thumbnailDownloader: ImageDownloader?
-    weak var colorCache: NftDetailsColorCache?
+    var colorResolver: NftDetailsColorResolver?
 
     init() {
         super.init(frame: .square(100))
@@ -53,6 +59,13 @@ class NftDetailsItemCoverFlowTile: UIView {
         spinner.translatesAutoresizingMaskIntoConstraints = false
         addSubview(spinner)
 
+        forSaleTagView.style = .compact
+        addSubview(forSaleTagView)
+        let forSaleTagTopConstraint = forSaleTagView.topAnchor.constraint(equalTo: topAnchor, constant: -NftForSaleTagView.Style.compact.topOverlap)
+        let forSaleTagTrailingConstraint = forSaleTagView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -NftForSaleTagView.Style.compact.trailingInset)
+        self.forSaleTagTopConstraint = forSaleTagTopConstraint
+        self.forSaleTagTrailingConstraint = forSaleTagTrailingConstraint
+
         NSLayoutConstraint.activate([
             imageView.topAnchor.constraint(equalTo: topAnchor),
             imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -61,6 +74,9 @@ class NftDetailsItemCoverFlowTile: UIView {
 
             spinner.centerXAnchor.constraint(equalTo: centerXAnchor),
             spinner.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            forSaleTagTopConstraint,
+            forSaleTagTrailingConstraint,
         ])
 
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
@@ -85,16 +101,6 @@ class NftDetailsItemCoverFlowTile: UIView {
         NotificationCenter.default.removeObserver(self)
     }
     
-    override func layoutSubviews() {
-        super.layoutSubviews()
-
-        if let cornerRadius, bounds.size != shadowSize || shadowCornerRadius != cornerRadius {
-            shadowSize = bounds.size
-            shadowCornerRadius = cornerRadius
-            layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius).cgPath
-        }
-    }
-    
     @objc private func handleTap() {
         guard let model else { return }
         delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: model, longTap: false)
@@ -111,10 +117,21 @@ class NftDetailsItemCoverFlowTile: UIView {
 
     func prepareForCollectionViewReuse() {
         cancelRetry()
+        imageLoadSucceeded = false
         spinner.stopAnimating()
         spinner.color = .secondaryLabel
         imageView.image = nil
         imageView.backgroundColor = .air.groupedItem
+        forSaleTagView.isHidden = true
+        forSaleTagTrailingConstraint?.constant = -NftForSaleTagView.Style.compact.trailingInset
+
+        // Reset visibility driven by external state. The selected tile is hidden behind the preview via
+        // `setSelectedTileVisible` (tile `alpha = 0`), and lottie playback fades the underlay image
+        // (`imageView.alpha = 0`). Neither is reset by the steps above, so a recycled cell could come
+        // back fully transparent. `removeLottieViewer` also restores `imageView.alpha`.
+        removeLottieViewer()
+        alpha = 1
+        imageView.alpha = 1
     }
     
     private func cancelRetry() {
@@ -156,11 +173,16 @@ class NftDetailsItemCoverFlowTile: UIView {
                     DispatchQueue.main.async {
                         switch result {
                         case .success:
+                            self.imageLoadSucceeded = true
                             self.spinner.stopAnimating()
                             self.imageView.backgroundColor = nil
                         case let .failure(error):
                             if error.isTaskCancelled || error.isNotCurrentTask {
                                return // let's ignore this, still show loading
+                            }
+                            if error.isNotFound {
+                                self.updateAsFailedDownload()
+                                return
                             }
                             self.scheduleRetry(for: model)
                         }
@@ -168,32 +190,36 @@ class NftDetailsItemCoverFlowTile: UIView {
                 }
             )
         } else {
-            spinner.stopAnimating()
-            imageView.image = NftDetailsImage.noImagePlaceholderImage()
-            imageView.backgroundColor = nil
+            updateAsFailedDownload()
         }
     }
     
     private func scheduleRetry(for model: NftDetailsItemModel) {
-        guard self.model === model, imageView.image == nil else { return }
+        guard self.model === model, !imageLoadSucceeded else { return }
         guard retryCount < maxRetryCount else {
-            updateAsfFailedDownload()
+            updateAsFailedDownload()
             return
         }
         retryCount += 1
         let delay = min(Double(retryCount) * 2.0, 15.0)
         let item = DispatchWorkItem { [weak self] in
-            guard let self, self.model === model, self.imageView.image == nil else { return }
+            guard let self, self.model === model, !self.imageLoadSucceeded else { return }
             self.startOrResumeThumbnailLoad(for: model)
         }
         retryWorkItem = item
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
-    private func updateAsfFailedDownload() {
+    private func showPlaceholderImage(_ image: UIImage?) {
         spinner.stopAnimating()
-        imageView.image = NftDetailsImage.errorPlaceholderImage()
-        imageView.backgroundColor = nil
+        UIView.transition(with: imageView, duration: 0.22, options: .transitionCrossDissolve) {
+            self.imageView.image = image
+            self.imageView.backgroundColor = nil
+        }
+    }
+
+    private func updateAsFailedDownload() {
+        showPlaceholderImage(NftDetailsImage.noImagePlaceholderImage())
     }
 
     private func applySpinnerStyle(for backgroundColor: UIColor?) {
@@ -204,6 +230,11 @@ class NftDetailsItemCoverFlowTile: UIView {
         spinner.color = color.isLightColor
             ? UIColor(white: 0.15, alpha: 0.7)  
             : UIColor(white: 1.0,  alpha: 0.8)
+    }
+
+    private func updateOverlays(for model: NftDetailsItemModel, animated: Bool = false) {
+        forSaleTagView.isHidden = !model.isOnSale
+        bringSubviewToFront(forSaleTagView)
     }
 
     func configure(with model: NftDetailsItemModel, tileCornerRadius: CGFloat) {
@@ -217,19 +248,14 @@ class NftDetailsItemCoverFlowTile: UIView {
         if self.model !== model {
             cancelRetry()
             retryCount = 0
+            imageLoadSucceeded = false
             removeLottieViewer()
 
             self.model = model
             imageView.alpha = 1
             imageView.image = nil
 
-            var color = UIColor.air.groupedItem
-            if let colorCache {
-                let (_, cachedColor) = colorCache.color(forKey: model.id)
-                if let cachedColor {
-                    color = cachedColor
-                }
-            }
+            let color = colorResolver?.currentBaseColor(for: model) ?? UIColor.air.groupedItem
             imageView.backgroundColor = color
             applySpinnerStyle(for: color)
 
@@ -240,9 +266,23 @@ class NftDetailsItemCoverFlowTile: UIView {
                     self.applySelectionDrivenLottie(for: model)
                 }
             }
+            processedImageSubscription = .init(model: model, event: .processedImageUpdated, tag: "CoverFlowTile/Color") { [weak self] in
+                guard let self, self.model === model else { return }
+                DispatchQueue.main.async {
+                    self.updateOverlays(for: model)
+                }
+            }
+            displayStateSubscription = .init(model: model, event: .displayStateChanged, tag: "CoverFlowTile/DisplayState") { [weak self] in
+                guard let self, self.model === model else { return }
+                DispatchQueue.main.async {
+                    self.updateOverlays(for: model, animated: true)
+                }
+            }
             setNeedsLayout()
         }
         
+        updateOverlays(for: model)
+
         if window != nil {
             startOrResumeThumbnailLoad(for: model)
         }
@@ -268,6 +308,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         } else {
             removeLottieViewer()
         }
+        bringSubviewToFront(forSaleTagView)
     }
 }
 

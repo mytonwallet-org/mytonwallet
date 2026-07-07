@@ -13,7 +13,7 @@ import { getTransferSolInstructionDataDecoder } from '../../../lib/solana-progra
 import { fetchJson } from '../../../util/fetch';
 import { parseTokenOperation } from './util/programParsers';
 import { updateActivityMetadata } from '../../common/helpers';
-import { NETWORK_CONFIG, SOLANA_PROGRAM_IDS } from './constants';
+import { DEFAULT_FEE, NETWORK_CONFIG, SOLANA_PROGRAM_IDS } from './constants';
 
 const SIMPLE_PROGRAMS = new Set([
   ...SOLANA_PROGRAM_IDS.system,
@@ -35,8 +35,6 @@ function getFakeTransfer(rawTx: string, isDangerous: boolean): ApiDappTransfer {
     networkFee: 0n,
   };
 }
-
-const DEFAULT_FEE = 5000n;
 
 export async function parseTransactionForPreview(rawTx: string, address: string, network: ApiNetwork) {
   const txBytes = getBase64Encoder().encode(rawTx);
@@ -78,6 +76,7 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
             swapFee: '0',
             status: 'completed',
             hashes: [],
+            transactionIds: {},
           })],
           realFee: BigInt(swap.networkFee),
         };

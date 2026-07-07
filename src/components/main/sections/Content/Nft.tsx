@@ -272,6 +272,7 @@ function Nft({
       {!isSelectionEnabled && !isSelectionEnabledForCurrentNft && (
         <NftMenu
           nft={nft}
+          isWidget={isWidget}
           isContextMenuMode={Boolean(contextMenuAnchor)}
           dnsExpireInDays={dnsExpireInDays}
           menuAnchor={menuAnchor}

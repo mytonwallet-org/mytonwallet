@@ -7,7 +7,7 @@ import {
   MINT_CARD_REFUND_COMMENT,
   MW_CARDS_COLLECTION,
 } from '../../../config';
-import { getActivityIdReplacements } from '../../../util/activities';
+import { getActivityIdReplacements, getIsHiddenNftActivity } from '../../../util/activities';
 import { playIncomingTransactionSound } from '../../../util/notificationSound';
 import { getIsTransactionWithPoisoning, updatePoisoningCacheFromActivities } from '../../../util/poisoningHash';
 import { waitFor } from '../../../util/schedulers';
@@ -109,7 +109,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       global = replaceCurrentSwapId(global, replacedIds);
       global = replaceCurrentActivityId(global, accountId, replacedIds);
 
-      notifyAboutNewActivities(global, newConfirmedActivities);
+      notifyAboutNewActivities(global, accountId, newConfirmedActivities);
       updatePoisoningCacheFromActivities(newConfirmedActivities);
 
       if (!IS_CORE_WALLET) {
@@ -152,10 +152,13 @@ addActionHandler('apiUpdate', (global, actions, update) => {
   }
 });
 
-function notifyAboutNewActivities(global: GlobalState, newActivities: ApiActivity[]) {
+function notifyAboutNewActivities(global: GlobalState, accountId: string, newActivities: ApiActivity[]) {
   if (!global.settings.canPlaySounds) {
     return;
   }
+
+  const { areTinyTransfersHidden } = global.settings;
+  const { blacklistedNftAddresses, whitelistedNftAddresses } = selectAccountState(global, accountId) || {};
 
   const shouldPlaySound = newActivities.some((activity) => {
     return activity.kind === 'transaction'
@@ -163,8 +166,11 @@ function notifyAboutNewActivities(global: GlobalState, newActivities: ApiActivit
       && activity.status === 'completed'
       && (Date.now() - activity.timestamp < TX_AGE_TO_PLAY_SOUND)
       && !(
-        global.settings.areTinyTransfersHidden
-        && getIsTinyOrScamTransaction(activity, global.tokenInfo?.bySlug[activity.slug])
+        areTinyTransfersHidden
+        && (
+          getIsTinyOrScamTransaction(activity, global.tokenInfo?.bySlug[activity.slug])
+          || getIsHiddenNftActivity(activity, blacklistedNftAddresses, whitelistedNftAddresses)
+        )
       )
       && !getIsTransactionWithPoisoning(activity);
   });

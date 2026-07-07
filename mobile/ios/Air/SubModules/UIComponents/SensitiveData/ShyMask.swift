@@ -73,8 +73,10 @@ public final class ShyMask: UIView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    isolated deinit {
-        updateTimer?.invalidate()
+    deinit {
+        MainActor.assumeIsolated {
+            updateTimer?.invalidate()
+        }
     }
     
     private func setupLayers() {

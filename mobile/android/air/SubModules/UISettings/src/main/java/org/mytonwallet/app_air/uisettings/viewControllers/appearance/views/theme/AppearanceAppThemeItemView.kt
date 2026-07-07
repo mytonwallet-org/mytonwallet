@@ -55,7 +55,7 @@ class AppearanceAppThemeItemView(
 
     private val nameLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(14f, WFont.DemiBold)
+        lbl.setStyle(14f, WFont.Medium)
         lbl.text = when (identifier) {
             ThemeManager.THEME_SYSTEM -> {
                 LocaleController.getString("System")

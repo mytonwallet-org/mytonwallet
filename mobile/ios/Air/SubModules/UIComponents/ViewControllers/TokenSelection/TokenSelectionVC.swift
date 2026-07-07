@@ -91,6 +91,10 @@ public class TokenSelectionVC: WViewController {
     private var secondaryAmountMode: TokenCell.SecondaryAmountMode {
         myAssetsDisplayMode == .swap ? .tokenPrice : .balanceValue
     }
+    
+    private var shouldSaveSelectedApiToken: Bool {
+        myAssetsDisplayMode != .swap
+    }
 
     @AccountContext(source: .current) private var account: MAccount
     
@@ -288,9 +292,11 @@ public class TokenSelectionVC: WViewController {
                 secondaryAmountMode: secondaryAmountMode
             ) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.slug) else { return }
-                AssetsAndActivityDataStore.update(accountId: account.id, update: { settings in
-                    settings.saveImportedToken(slug: tokenSlug)
-                })
+                if shouldSaveSelectedApiToken {
+                    AssetsAndActivityDataStore.update(accountId: account.id, update: { settings in
+                        settings.saveImportedToken(slug: tokenSlug)
+                    })
+                }
                 delegate?.didSelect(token: token)
                 navigationController?.popViewController(animated: true)
             }

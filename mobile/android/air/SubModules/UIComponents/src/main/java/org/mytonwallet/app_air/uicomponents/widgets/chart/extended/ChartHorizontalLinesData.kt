@@ -204,10 +204,10 @@ class ChartHorizontalLinesData(
             maxValue: Long,
             minValue: Long,
         ): AxisTickValues {
-            var adjustedMinValue = minValue
+            var adjustedMinValue = min(maxValue, minValue)
             val diff = maxValue - adjustedMinValue
             return when {
-                diff == 0L -> {
+                diff <= 0L -> {
                     adjustedMinValue--
                     AxisTickValues(adjustedMinValue, adjustedMinValue + 2L, 1L, 3)
                 }

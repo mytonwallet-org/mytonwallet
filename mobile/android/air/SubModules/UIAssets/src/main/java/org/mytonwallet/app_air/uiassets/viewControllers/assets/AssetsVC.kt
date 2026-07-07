@@ -558,7 +558,7 @@ class AssetsVC(
                 }
 
                 assetsVM.moveItem(fromPosition, toPosition, shouldSave = saveOnDrag)
-                displayedAssetRows = assetsVM.assetRows
+                displayedAssetRows = assetsVM.assetRows.take(itemsCountToShow)
                 rvAdapter.notifyItemMoved(fromPosition, toPosition)
 
                 return true
@@ -985,7 +985,8 @@ class AssetsVC(
                     items,
                     popupWidth = WRAP_CONTENT,
                     positioning = WMenuPopup.Positioning.ALIGNED,
-                    backdropStyle = WMenuPopup.BackdropStyle.Transparent
+                    backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+                    usePillShadow = true
                 )
             }
         }
@@ -1017,12 +1018,12 @@ class AssetsVC(
     private fun syncAssetRows(forceReload: Boolean = false) {
         val prevRows = displayedAssetRows
         val newRows = assetsVM.assetRows
-        displayedAssetRows = newRows
+        displayedAssetRows = newRows.take(itemsCountToShow)
         if (forceReload) {
             rvAdapter.reloadData()
             return
         }
-        rvAdapter.applyChanges(prevRows, newRows, NFTS_SECTION, false)
+        rvAdapter.applyChanges(prevRows, displayedAssetRows, NFTS_SECTION, false)
     }
 
     override fun setupViews() {
@@ -1641,17 +1642,17 @@ class AssetsVC(
         return 1
     }
 
-    private val displayedNftCount: Int
+    private val itemsCountToShow: Int
         get() = if (viewMode == ViewMode.THUMB && window?.isWideLayout != true) {
             val rows = if (assetsVM.nftsCount > 3) 2 else 1
-            min(displayedAssetRows.size, rows * THUMB_GRID_MAX_COLUMNS)
+            min(assetsVM.assetRows.size, rows * THUMB_GRID_MAX_COLUMNS)
         } else {
-            displayedAssetRows.size
+            assetsVM.assetRows.size
         }
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         return when (section) {
-            NFTS_SECTION -> displayedNftCount
+            NFTS_SECTION -> displayedAssetRows.size
             else -> throw IllegalStateException()
         }
     }
@@ -1890,8 +1891,9 @@ class AssetsVC(
             if (viewMode == ViewMode.THUMB) {
                 updateRecyclerViewPaddingForCentering()
             }
-            val newDisplayedNftCount = displayedNftCount
+            val newDisplayedNftCount = itemsCountToShow
             if (newDisplayedNftCount != lastDisplayedNftCount) {
+                displayedAssetRows = assetsVM.assetRows.take(newDisplayedNftCount)
                 lastDisplayedNftCount = newDisplayedNftCount
                 rvAdapter.reloadData()
             } else {

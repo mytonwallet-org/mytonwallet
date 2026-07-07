@@ -11,10 +11,10 @@ import TransportWebUSB from '@ledgerhq/hw-transport-webusb';
 import type { HIDTransport } from '@mytonwallet/capacitor-usb-hid';
 import type { ICapacitorUSBDevice } from '@mytonwallet/capacitor-usb-hid/dist/esm/definitions';
 
-import type BleTransport from '../../lib/ledger-hw-transport-ble/BleTransport';
 import type { LedgerTransport } from './types';
 
 import { IS_CAPACITOR } from '../../config';
+import BleTransport from '../../lib/ledger-hw-transport-ble/BleTransport';
 import { logDebug, logDebugError } from '../logs';
 import { pause } from '../schedulers';
 import { IS_ANDROID_APP } from '../windowEnvironment';
@@ -151,6 +151,27 @@ export async function connectLedger(preferredTransport?: LedgerTransport) {
   } catch (err) {
     logDebugError('connectLedger', err);
     return false;
+  }
+}
+
+export async function disconnectLedger(options: { force?: boolean } = {}) {
+  const activeTransport = transport;
+  transport = undefined;
+  currentLedgerTransport = undefined;
+
+  try {
+    if (options.force && activeTransport instanceof BleTransport) {
+      const didDisconnect = await BleConnector?.disconnect();
+      if (!didDisconnect) {
+        await BleTransport.disconnectDevice(activeTransport.id, activeTransport.onDisconnect);
+      }
+      return;
+    }
+
+    BleConnector?.stop();
+    await activeTransport?.close();
+  } catch (err) {
+    logDebugError('disconnectLedger', err);
   }
 }
 

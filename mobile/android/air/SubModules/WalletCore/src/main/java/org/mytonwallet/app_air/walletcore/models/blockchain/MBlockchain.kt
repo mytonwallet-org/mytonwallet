@@ -132,6 +132,7 @@ enum class MBlockchain(
         val maxTransferToken: BigDecimal
     )
 
+    val displayColor get() = config?.displayColor
     val gas get() = config?.gas
     val symbolIcon get() = config?.symbolIcon
     val symbolIconPadded get() = config?.symbolIconPadded
@@ -140,6 +141,8 @@ enum class MBlockchain(
     val feeCheckAddress get() = config?.feeCheckAddress
     val isCommentSupported get() = config?.isCommentSupported
     val isEncryptedCommentSupported get() = config?.isEncryptedCommentSupported
+    val isOnchainSwapSupported get() = config?.isOnchainSwapSupported ?: false
+    val canSwapByBuyAmount get() = config?.canSwapByBuyAmount ?: false
     val multiWalletSupport get() = config?.multiWalletSupport
 
     fun isValidAddress(address: String) =
@@ -174,6 +177,11 @@ enum class MBlockchain(
     val qrIcon: Int
         get() {
             return config?.qrIcon ?: icon
+        }
+
+    val nativeIcon: Int
+        get() {
+            return config?.nativeIcon ?: icon
         }
 
     companion object {

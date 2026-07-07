@@ -1,4 +1,5 @@
 
+import ContextMenuKit
 import Kingfisher
 import UIKit
 import UIComponents
@@ -100,6 +101,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
 
     weak var delegate: Delegate? = nil
     var activity: ApiActivity?
+    private var contextMenuInteraction: ContextMenuInteraction?
     private var trackedValue: Double?
 
     private var viewModel: ActivityCellViewModel?
@@ -122,6 +124,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         amountContainer.resetReveal()
         amount2Container.resetReveal()
         nftView.stopNftAnimationPlayback()
+        setContextMenuInteraction(nil)
     }
 
     @objc private func itemSelected() {
@@ -284,6 +287,12 @@ public class ActivityCell: WHighlightCollectionViewCell {
         updateTheme()
     }
 
+    func setContextMenuInteraction(_ interaction: ContextMenuInteraction?) {
+        contextMenuInteraction?.detach()
+        contextMenuInteraction = interaction
+        interaction?.attach(to: self)
+    }
+
     private func updateTheme() {
         baseBackgroundColor = UIColor.air.groupedItem
         contentView.backgroundColor = .clear
@@ -340,7 +349,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         iconView.config(with: activity)
 
         configureWithoutAnimation {
-            configureTitle(activity: activity)
+            configureTitle(activity: activity, accountChains: accountContext.account.supportedChains)
             configureDetails(.init(activity: activity, accountContext: accountContext, isEmulation: false))
             configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
             configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
@@ -366,7 +375,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             if shouldShowCenteredTitle {
                 configureCenteredLabel(activity: activity)
             }
-            configureTitle(activity: activity, isEmulation: true)
+            configureTitle(activity: activity, isEmulation: true, accountChains: accountContext.account.supportedChains)
             configureDetails(.init(activity: activity, accountContext: accountContext, isEmulation: true))
             centeredLabelIfLoaded?.isHidden = !shouldShowCenteredTitle
             titleLabel.isHidden = shouldShowCenteredTitle
@@ -423,11 +432,11 @@ public class ActivityCell: WHighlightCollectionViewCell {
         centeredLabel.text = activity.displayTitle.future
     }
 
-    func configureTitle(activity: ApiActivity, isEmulation: Bool = false) {
+    func configureTitle(activity: ApiActivity, isEmulation: Bool = false, accountChains: Set<ApiChain>? = nil) {
         if isEmulation {
             titleLabel.text = activity.displayTitle.future
         } else {
-            titleLabel.text = activity.displayTitleResolvedOptimistic
+            titleLabel.text = activity.resolvedOptimisticDisplayTitle(accountChains: accountChains)
         }
 
         if activity.isScamTransaction {
@@ -609,7 +618,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         case .swap(let swap):
             if let fromToken = swap.fromToken, let toToken = swap.toToken {
                 let fromDecimalAmount = DecimalAmount.fromDouble(-swap.fromAmount.value, fromToken)
-                let from = fromDecimalAmount.formatted(.compact, showMinus: true)
+                let from = fromDecimalAmount.formatted(.defaultAdaptive, showMinus: true, roundHalfUp: false)
                 amountLabel.attributedText = swapAmountText(text: from, swap: swap, isFrom: true)
                 amountIcons.setSwapMode(fromToken: fromToken, toToken: toToken)
             } else {
@@ -676,7 +685,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         case .swap(let swap):
             if let toToken = swap.toToken {
                 let toDecimalAmount = DecimalAmount.fromDouble(swap.toAmount.value, toToken)
-                let to = toDecimalAmount.formatted(.compact, showPlus: true, showMinus: false)
+                let to = toDecimalAmount.formatted(.defaultAdaptive, showPlus: true, showMinus: false, roundHalfUp: false)
                 amount2Label.attributedText = swapAmountText(text: to, swap: swap, isFrom: false)
             } else {
                 amount2Label.attributedText = nil

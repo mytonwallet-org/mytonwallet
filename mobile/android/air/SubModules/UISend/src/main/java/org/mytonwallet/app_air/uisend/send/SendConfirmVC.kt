@@ -67,7 +67,8 @@ class SendConfirmVC(
     private val slug: String,
     private val name: String? = null,
     private val isScam: Boolean = false,
-    private val isSell: Boolean = false
+    private val isSell: Boolean = false,
+    private val shouldRequireFreshAuth: Boolean = false
 ) : WViewController(context) {
     override val TAG = "SendConfirm"
 
@@ -575,7 +576,8 @@ class SendConfirmVC(
                     },
                     LocaleController.getString("Confirm")
                 ),
-                task = { passcode -> task?.invoke(passcode) }
+                task = { passcode -> task?.invoke(passcode) },
+                ignoreBiometry = shouldRequireFreshAuth
             ))
     }
 }

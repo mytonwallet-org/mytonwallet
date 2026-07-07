@@ -15,7 +15,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     let model: SendModel
     private var awaitingActivity = false
     private var confirmationSucceeded = false
-    private var pendingLocalActivity: ApiActivity?
+    private var pendingLocalActivities: [ApiActivity] = []
 
     public init(model: SendModel) {
         self.model = model
@@ -27,8 +27,12 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         switch event {
         case .newLocalActivity(let update):
             guard awaitingActivity, update.accountId == model.account.id else { return }
-            if let activity = update.activities.first {
-                pendingLocalActivity = activity
+            for activity in matchingLocalActivities(update.activities) {
+                if !pendingLocalActivities.contains(where: { activityCompletionKey($0) == activityCompletionKey(activity) }) {
+                    pendingLocalActivities.append(activity)
+                }
+            }
+            if !pendingLocalActivities.isEmpty {
                 showPendingActivityIfReady()
             }
         default:
@@ -63,6 +67,10 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     private func setupViews() {        
         var continueTitle: String
         var title: String
+
+        if model.isScamRecipient {
+            continueButton = WButton(style: .destructive)
+        }
                 
         switch model.mode {
         case .sendNft:
@@ -194,16 +202,52 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     private func showPendingActivityIfReady() {
-        guard awaitingActivity, confirmationSucceeded, let activity = pendingLocalActivity else { return }
+        guard awaitingActivity, confirmationSucceeded else { return }
+        if model.mode.isNftRelated {
+            resetActivityCompletionState()
+            Haptics.play(.success)
+            showNftSuccess()
+            return
+        }
+
+        guard let activity = pendingLocalActivities.first else { return }
         resetActivityCompletionState()
         Haptics.play(.success)
         AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: activityDetailsContext)
     }
 
+    private func matchingLocalActivities(_ activities: [ApiActivity]) -> [ApiActivity] {
+        guard model.mode.isNftRelated else {
+            return Array(activities.prefix(1))
+        }
+        let nftAddresses = Set(model.nfts.map(\.address))
+        return activities.filter { activity in
+            guard let nft = activity.transaction?.nft else { return false }
+            return nftAddresses.contains(nft.address)
+        }
+    }
+
+    private func activityCompletionKey(_ activity: ApiActivity) -> String {
+        if let nftAddress = activity.transaction?.nft?.address {
+            return "\(activity.id):\(nftAddress)"
+        }
+        return activity.id
+    }
+
+    private func showNftSuccess() {
+        guard let navigationController else { return }
+        let vc = ActionSuccessVC(variant: .sendNft(model))
+        vc.navigationItem.hidesBackButton = true
+        let coordinator = ContentReplaceAnimationCoordinator()
+        coordinator.replaceNavigationTop(with: vc, in: navigationController) {
+            vc.animateToCollapsed()
+        }
+    }
+
     private func resetActivityCompletionState() {
         awaitingActivity = false
         confirmationSucceeded = false
-        pendingLocalActivity = nil
+        pendingLocalActivities = []
     }
     
     @objc func goBackPressed() {

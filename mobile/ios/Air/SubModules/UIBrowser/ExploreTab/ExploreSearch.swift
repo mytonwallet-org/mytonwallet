@@ -74,7 +74,7 @@ private struct ExploreSearchView: View {
         return EdgeInsets(top: v,
                           leading: viewModel.isActive ? 16 : 12,
                           bottom: v,
-                          trailing: viewModel.isActive ? 16 : 12)
+                          trailing: 16)
     }
 
     private var searchBarHeight: CGFloat {
@@ -132,37 +132,40 @@ private struct ExploreSearchView: View {
     @ViewBuilder
     private var searchField: some View {
         WithPerceptionTracking {
+            let isActive = viewModel.isActive
             let prompt = Text(lang("Search app or enter address"))
-                .font(viewModel.isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
-                .foregroundColor(viewModel.isActive ? .secondary : .air.primaryLabel)
+                .font(isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
+                .foregroundColor(isActive ? .secondary : .air.primaryLabel)
 
             @Perception.Bindable var vm = viewModel
             
-            let searchFieldContent = HStack(spacing: 4) {
+            let searchFieldContent = HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(viewModel.isActive ? .secondary : Color.air.primaryLabel)
+                    .foregroundStyle(isActive ? .secondary : Color.air.primaryLabel)
                 TextField(
                     text: $vm.string,
                     prompt: prompt,
                     label: { EmptyView() }
                 )
-                    .fixedSize(horizontal: !viewModel.isActive, vertical: true)
+                    .fixedSize(horizontal: !isActive, vertical: true)
+                    .lineLimit(1)
                     .focused($isFocused)
-                    .multilineTextAlignment(.leading)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
+                    .textContentType(.init(rawValue: ""))
                     .keyboardType(.webSearch)
                     .submitLabel(.go)
+                    .writingToolsDisabled()
                     .frame(height: 42)
                 if !viewModel.string.isEmpty {
                     inlineClearButton
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            .frame(maxWidth: viewModel.isActive ? .infinity : nil, alignment: .leading)
+            .frame(maxWidth: isActive ? .infinity : nil, alignment: .leading)
             .padding(searchFieldPadding)
             .contentShape(Rectangle())
-            .onTapGesture { if !isFocused { isFocused = true } }
+            .simultaneousGesture(TapGesture().onEnded { if !isFocused { isFocused = true } })
 
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
                 GlassEffectContainer {

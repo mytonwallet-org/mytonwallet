@@ -58,11 +58,13 @@ class ActivityHelpers {
             hideTinyIfRequired: Boolean,
             checkSlug: String?,
         ): List<MApiTransaction>? {
+            val hideTiny = hideTinyIfRequired && WGlobalStorage.getAreTinyTransfersHidden()
             return array?.filter { transaction ->
                 transaction.shouldHide != true &&
                     !transaction.isPoisoning(accountId) &&
+                    !transaction.isHiddenNftActivity(accountId) &&
                     (checkSlug == null || activityBelongsToSlug(transaction, checkSlug)) &&
-                    (!hideTinyIfRequired || !WGlobalStorage.getAreTinyTransfersHidden() || !transaction.isTinyOrScam)
+                    (!hideTiny || !transaction.isTinyOrScam)
             }
         }
 

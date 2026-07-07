@@ -745,6 +745,7 @@ function parseJettonSwap(action: SwapAction, options: ParseOptions): ParsedActio
     ourFee: '0',
     status: resolveActivityStatus(isPending, isSuccess, options.finality),
     hashes: [],
+    transactionIds: {},
     externalMsgHashNorm: action.trace_external_hash_norm ?? action.trace_external_hash,
     shouldLoadDetails: true,
   };

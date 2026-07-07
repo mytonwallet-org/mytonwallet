@@ -15,11 +15,17 @@ import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.FontFamily
+import org.mytonwallet.app_air.uicomponents.helpers.FontManager
+import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
@@ -33,6 +39,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -88,6 +95,64 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             configure(AccountStore.activeAccount)
         }
     }
+
+    private val appFontDropdownView = WEditableItemView(context).apply {
+        id = generateViewId()
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
+        setText(FontManager.activeFont.displayName)
+    }
+    private val appFontView: KeyValueRowView by lazy {
+        KeyValueRowView(
+            context,
+            LocaleController.getString("App Font"),
+            "",
+            KeyValueRowView.Mode.PRIMARY,
+            isLast = false,
+        ).apply {
+            setValueView(appFontDropdownView)
+            setOnClickListener {
+                WMenuPopup.present(
+                    appFontDropdownView,
+                    FontFamily.entries.map {
+                        WMenuPopup.Item(
+                            null,
+                            it.displayName,
+                            false
+                        ) {
+                            if (FontManager.activeFont != it) {
+                                Logger.d(
+                                    Logger.LogTag.SETTINGS,
+                                    "appFontView: fontChanged=${it.displayName}"
+                                )
+                                FontManager.setActiveFont(context, it)
+                                appFontDropdownView.setText(it.displayName)
+                                WalletContextManager.delegate?.get()?.restartApp()
+                            }
+                        }
+                    },
+                    popupWidth = WRAP_CONTENT,
+                    positioning = WMenuPopup.Positioning.BELOW,
+                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                        appFontDropdownView,
+                        roundRadius = 16f.dp
+                    )
+                )
+            }
+        }
+    }
+
+    private val roundedBalanceFontRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Rounded Balance Font"),
+        isChecked = WGlobalStorage.isRoundedBalanceFontActive(),
+        isLast = true,
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "roundedBalanceFontRow: isChecked=$isChecked")
+            WGlobalStorage.setIsRoundedBalanceFontActive(isChecked)
+            FontManager.init(context)
+            WalletContextManager.delegate?.get()?.restartApp()
+        }
+    )
 
     /*private val appIconView: AppearanceAppIconView by lazy {
         val v = AppearanceAppIconView(window!!.applicationContext)
@@ -290,6 +355,8 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(seasonalThemingRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(appFontView, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(roundedBalanceFontRow, ConstraintLayout.LayoutParams(0, 50.dp))
         // Set initial enabled state based on roundedCornersRow
         if (!roundedCornersRow.isChecked) {
             roundedToolbarsRow.isEnabled = false
@@ -322,7 +389,12 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             toCenterX(animationsRow)
             topToBottom(seasonalThemingRow, animationsRow)
             toCenterX(seasonalThemingRow)
-            toBottom(seasonalThemingRow)
+            // Group 3: App Font
+            topToBottom(appFontView, seasonalThemingRow, ViewConstants.GAP.toFloat())
+            toCenterX(appFontView)
+            topToBottom(roundedBalanceFontRow, appFontView)
+            toCenterX(roundedBalanceFontRow)
+            toBottom(roundedBalanceFontRow)
         }
         v.setPadding(0, 0, 0, navigationController?.bottomInset ?: 0)
         v
@@ -361,6 +433,8 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
     override fun updateTheme() {
         super.updateTheme()
         bottomReversedCornerView?.resumeBlurring()
+
+        appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
 
         if (switchToLegacyCell == null) {
             appThemeView.setBackgroundColor(

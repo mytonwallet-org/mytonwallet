@@ -1,12 +1,22 @@
+@use "../../../styles/mixins";
+
 .grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
 
+  @include mixins.transition(opacity 200ms);
+
   @media (min-width: 1100px) {
     grid-template-columns: 1fr 1fr;
     gap: 1.25rem 1rem;
   }
+}
+
+// Previous-range charts kept on screen while the next range loads: dimmed and non-interactive
+.stale {
+  pointer-events: none;
+  opacity: 0.5;
 }
 
 .placeholder {

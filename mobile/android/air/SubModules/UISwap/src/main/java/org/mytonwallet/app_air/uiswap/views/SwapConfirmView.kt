@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
@@ -53,7 +54,7 @@ class SwapConfirmView(context: Context) :
     private val tokenToSendTextView = AppCompatTextView(context).apply {
         id = generateViewId()
         textAlignment = TEXT_ALIGNMENT_CENTER
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 28f)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
         setSingleLine()
@@ -66,7 +67,7 @@ class SwapConfirmView(context: Context) :
     private val tokenToReceiveTextView = AppCompatTextView(context).apply {
         id = generateViewId()
         textAlignment = TEXT_ALIGNMENT_CENTER
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 44f)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
         setSingleLine()
@@ -119,7 +120,7 @@ class SwapConfirmView(context: Context) :
             fromAmount?.negate()?.toString(
                 decimals = fromToken.decimals,
                 currency = fromToken.symbol ?: "",
-                currencyDecimals = fromToken.decimals,
+                currencyDecimals = fromAmount.smartDecimalsCount(fromToken.decimals),
                 showPositiveSign = false
             )
         tokenToSendTextView.text = sendAmount?.let {
@@ -130,7 +131,7 @@ class SwapConfirmView(context: Context) :
         val receiveAmount = toAmount?.toString(
             decimals = toToken.decimals,
             currency = toToken.symbol ?: "",
-            currencyDecimals = toToken.decimals,
+            currencyDecimals = toAmount.smartDecimalsCount(toToken.decimals),
             showPositiveSign = true
         )
         tokenToReceiveTextView.text = receiveAmount?.let {

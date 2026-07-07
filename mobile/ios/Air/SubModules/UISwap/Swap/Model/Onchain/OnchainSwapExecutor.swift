@@ -11,10 +11,13 @@ import WalletContext
         passcode: String
     ) async throws -> SwapExecutionResult {
         guard let swapEstimate else {
-            throw BridgeCallError.customMessage("Missing swap estimate", nil)
+            throw SdkError.unexpected(message: "Missing swap estimate")
         }
         guard let fromAddress = account.getAddress(chain: confirmation.selling.token.chain) else {
-            throw BridgeCallError.customMessage("Missing account address", nil)
+            throw SdkError.unexpected(message: "Missing account address")
+        }
+        guard let historyAddress = account.crosschainIdentifyingFromAddress else {
+            throw SdkError.unexpected(message: "Missing TON history address")
         }
         let validationInput = SwapValidationInput(
             sellingToken: confirmation.selling.token,
@@ -28,14 +31,18 @@ import WalletContext
             swapEstimate: swapEstimate,
             account: account
         )
+        guard let fromAmount = swapEstimate.fromAmount, let toAmount = swapEstimate.toAmount else {
+            throw SdkError.unexpected(message: "Missing swap estimate amount", context: swapEstimate)
+        }
 
         let swapBuildRequest = ApiSwapBuildRequest(
             from: swapEstimate.from,
             to: swapEstimate.to,
             fromAddress: fromAddress,
+            historyAddress: historyAddress,
             dexLabel: swapEstimate.dexLabel,
-            fromAmount: swapEstimate.fromAmount ?? .zero,
-            toAmount: swapEstimate.toAmount ?? .zero,
+            fromAmount: fromAmount,
+            toAmount: toAmount,
             toMinAmount: swapEstimate.toMinAmount,
             slippage: slippage,
             shouldTryDiesel: shouldTryDiesel,
@@ -48,10 +55,24 @@ import WalletContext
             dieselFee: swapEstimate.dieselFee
         )
         let transferData = try await Api.swapBuildTransfer(accountId: account.id, password: passcode, request: swapBuildRequest)
-        let historyItem = ApiSwapHistoryItem.makeFrom(swapBuildRequest: swapBuildRequest, swapTransferData: transferData)
-        let result = try await Api.swapSubmit(accountId: account.id, password: passcode, transfers: transferData.transfers, historyItem: historyItem, isGasless: shouldTryDiesel)
+        if let error = transferData.error {
+            throw SdkError.apiReturnedError(error: error.rawValue, context: transferData)
+        }
+        guard let swapId = transferData.id, let chain = transferData.chain else {
+            throw SdkError.unexpected(message: "Invalid swap build response", context: transferData)
+        }
+        let historyItem = ApiSwapHistoryItem.makeFrom(swapBuildRequest: swapBuildRequest, swapId: swapId)
+        let result = try await Api.swapSubmit(
+            chain: chain,
+            accountId: account.id,
+            password: passcode,
+            transfers: transferData.transfers,
+            historyItem: historyItem,
+            isGasless: shouldTryDiesel,
+            transaction: transferData.transaction
+        )
         if let error = result.error {
-            throw BridgeCallError(message: error, payload: result)
+            throw SdkError.apiReturnedError(error: error, context: result)
         }
         return SwapExecutionResult(activity: nil, swapId: result.swapId, mfaRequestHash: result.mfaRequestHash)
     }

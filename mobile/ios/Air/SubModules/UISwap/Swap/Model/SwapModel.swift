@@ -147,6 +147,29 @@ private enum SwapModelIntent: Sendable {
         applyCurrentButtonConfiguration()
     }
 
+    func onAccountSelected(accountId: String) async throws {
+        guard accountId != account.id else { return }
+
+        try await AccountStore.activateAccount(accountId: accountId)
+
+        debounceTask?.cancel()
+        estimateTask?.cancel()
+        isInputDebouncePending = false
+        estimateGate.reset()
+        clearEstimates()
+        $account.accountId = accountId
+        input.refreshTokenBalanceFromAccount()
+        updateSwapType(selling: input.sellingTokenAmount, buying: input.buyingTokenAmount)
+        refreshInputMaxAmountContext()
+
+        if currentEstimateInput() != nil {
+            beginEstimating(changedFrom: input.inputSource)
+            submitCurrentEstimate(visible: true)
+        } else {
+            finishEstimating()
+        }
+    }
+
     var displayImpactWarning: Double? {
         flow(for: swapType).priceImpactWarning(state: flowState)
     }
@@ -188,7 +211,7 @@ private enum SwapModelIntent: Sendable {
         payoutAddress: String? = nil
     ) async throws -> SwapExecutionResult {
         guard confirmation == confirmationAmounts() else {
-            throw BridgeCallError.customMessage("Swap input changed", nil)
+            throw DisplayError(text: "Swap input changed")
         }
         return try await flow(for: swapType).performSwap(context: .init(
             swapType: swapType,
@@ -387,7 +410,8 @@ private extension SwapModel {
             isMaxAmount: input.isUsingMax,
             maxAmount: input.maxAmount ?? input.tokenBalance,
             slippage: slippage.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS),
-            previousNetworkFee: flow(for: swapType).previousNetworkFee(state: flowState)
+            previousNetworkFee: flow(for: swapType).previousNetworkFee(state: flowState),
+            cexLabel: swapType == .onChain ? nil : crosschain.cexEstimate?.cexLabel
         )
         return estimateInput.inputAmount > 0 ? estimateInput : nil
     }

@@ -55,14 +55,14 @@ public struct MFee: Equatable, Hashable, Codable, Sendable {
         var result = ""
         if let native = terms.native, native > 0 {
             let nativeAmount = TokenAmount(native, nativeToken)
-            result += nativeAmount.formatted(.defaultAdaptive)
+            result += nativeAmount.formatted(.fee)
         }
         if let tokenAmount = terms.token, tokenAmount > 0 {
             if !result.isEmpty {
                 result += " + "
             }
             let tokenAmount = TokenAmount(tokenAmount, token)
-            result += tokenAmount.formatted(.defaultAdaptive)
+            result += tokenAmount.formatted(.fee)
         }
         if let stars = terms.stars, stars > 0 {
             if !result.isEmpty {

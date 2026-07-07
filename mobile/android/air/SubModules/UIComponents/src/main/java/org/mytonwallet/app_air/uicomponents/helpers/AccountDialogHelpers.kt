@@ -54,6 +54,10 @@ class AccountDialogHelpers {
                 addView(input, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             }
 
+            val presentingVC = viewController.takeIf { !it.isDisappeared }
+                ?: viewController.window?.topViewController
+                ?: viewController
+
             WDialog(
                 container,
                 WDialog.Config(
@@ -61,7 +65,7 @@ class AccountDialogHelpers {
                     actionButton = WDialogButton.Config(
                         title = LocaleController.getString("OK"),
                         onTap = {
-                            viewController.view.hideKeyboard()
+                            presentingVC.view.hideKeyboard()
                             val newWalletName = input.text.toString().trim()
                             if (newWalletName.isNotEmpty()) {
                                 AccountStore.renameAccount(account, newWalletName)
@@ -69,7 +73,7 @@ class AccountDialogHelpers {
                         }
                     )
                 )
-            ).presentOn(viewController)
+            ).presentOn(presentingVC)
         }
 
         fun presentSignOut(window: WWindow, account: MAccount) {

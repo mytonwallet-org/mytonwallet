@@ -36,10 +36,35 @@ import Dependencies
     
     var isDisabled: Bool {
         if let update {
+            guard isSelectedAccountCompatible else {
+                return true
+            }
             let requiresSigning = update.proof != nil || accountContext.account.getChainInfo(chain: .ton)?.mfa != nil
             return requiresSigning && accountContext.account.isView
         }
         return true
+    }
+
+    var disabledReason: String? {
+        if !isSelectedAccountCompatible {
+            return lang("No matching chains")
+        }
+        if isDisabled {
+            return lang("Action is not possible on a view-only wallet.")
+        }
+        return nil
+    }
+
+    var requiredChains: [ApiDappSessionChain] {
+        update?.dapp.chains ?? []
+    }
+
+    private var isSelectedAccountCompatible: Bool {
+        guard !requiredChains.isEmpty else { return true }
+        let account = accountContext.account
+        return requiredChains.allSatisfy { chain in
+            account.supports(chain: chain.chain)
+        }
     }
     
     func onSelectWallet() {
@@ -47,6 +72,7 @@ import Dependencies
         let vc = ChooseWalletVC(
             host: update.dapp.displayUrl,
             allowViewAccounts: update.proof == nil,
+            requiredChains: requiredChains,
             onSelect: { [weak self] in self?.onWalletSelected(accountId: $0) }
         )
         let nc = WNavigationController(rootViewController: vc)

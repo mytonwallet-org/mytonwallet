@@ -1,6 +1,5 @@
 //
 //  WalletSettingsAddButton.swift
-//  UISettings
 //
 //  Created by nikstar on 02.11.2025.
 //
@@ -17,20 +16,62 @@ import UIKitNavigation
 struct WalletSettingsAddButton: View {
     
     let viewModel: WalletSettingsViewModel
+
+    @State private var animatedContent: BottomButtonContent
+
+    private enum BottomButtonContent: Equatable {
+        case hidden
+        case add
+        case delete
+    }
+    
+    private var bottomButtonContent: BottomButtonContent {
+        switch viewModel.mode {
+        case .reordering:
+            return .hidden
+        case .select:
+            return .delete
+        case .normal:
+            return viewModel.isDeletingAccounts ? .delete : .add
+        }
+    }
+
+    init(viewModel: WalletSettingsViewModel) {
+        self.viewModel = viewModel
+        let initial: BottomButtonContent = {
+            switch viewModel.mode {
+            case .reordering: return .hidden
+            case .select:     return .delete
+            case .normal:     return viewModel.isDeletingAccounts ? .delete : .add
+            }
+        }()
+        self._animatedContent = State(initialValue: initial)
+    }
     
     var body: some View {
         WithPerceptionTracking {
-            if viewModel.isReordering {
-                if viewModel.preferredLayout == .list {
-                    ZStack {
-                        fadeGradient
-                        deleteButton
-                    }
-                }
-            } else {
-                ZStack {
+            ZStack {
+                if animatedContent != .hidden {
                     fadeGradient
-                    addButton
+                        .transition(.opacity)
+                }
+
+                if animatedContent != .hidden {
+                    Group {
+                        switch animatedContent {
+                        case .add:
+                            addButton
+                        default:
+                            deleteButton
+                        }
+                    }
+                    .id(animatedContent)
+                    .transition(.move(edge: .bottom))
+                }
+            }
+            .onChange(of: bottomButtonContent) { new in
+                withAnimation(new != .hidden ? .spring(duration: 0.48, bounce: 0.18) : .smooth(duration: 0.28)) {
+                    animatedContent = new
                 }
             }
         }
@@ -48,20 +89,29 @@ struct WalletSettingsAddButton: View {
 
     private var deleteButton: some View {
         let count = viewModel.selectedAccountIds.count
+        let isDeleting = viewModel.isDeletingAccounts
         
         return Button(action: onDelete) {
-                Text(lang("$remove_wallets", arg1: count))
-                    .padding(.horizontal, 20)
-            }
-            .buttonStyle(.airSecondaryDestructive.withLegacyShadow())
-            .fixedSize()
-            .disabled(count == 0)
+            Text(lang("$remove_wallets", arg1: count))
+                .padding(.horizontal, 20)
+                .opacity(isDeleting ? 0 : 1)
+                .overlay {
+                    if isDeleting {
+                        WUIActivityIndicator()
+                    }
+                }
+        }
+        .buttonStyle(.airSecondaryDestructive.withLegacyShadow())
+        .fixedSize()
+        .disabled(isDeleting || count == 0)
             .padding(.top, 16)
             .padding(.bottom, 28)
             .animation(.smooth(duration: 0.2), value: count)
+            .animation(.smooth(duration: 0.2), value: isDeleting)
     }
 
     private func onDelete() {
+        guard !viewModel.isDeletingAccounts else { return }
         viewModel.deleteSelectedWallets()
     }
 

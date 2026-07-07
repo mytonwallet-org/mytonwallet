@@ -14,6 +14,8 @@
     <string name="app_help_url" translatable="false">https://help.mywallet.io</string>
     <string name="app_help_scam_url_en" translatable="false">https://help.mywallet.io/intro/scams/leaked-seed-phrases</string>
     <string name="app_help_scam_url_ru" translatable="false">https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy</string>
+    <string name="app_help_domain_scam_url_en" translatable="false">https://help.mywallet.io/intro/scams/.ton-domain-scams</string>
+    <string name="app_help_domain_scam_url_ru" translatable="false">https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton</string>
     <string name="app_support_telegram_url" translatable="false">https://t.me/mysupport</string>
     <string name="app_tips_telegram_username_en" translatable="false">MyTonWalletTips</string>
     <string name="app_tips_telegram_username_ru" translatable="false">MyTonWalletTipsRu</string>

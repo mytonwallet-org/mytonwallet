@@ -308,6 +308,10 @@ public final class ExplorerHelper {
         explorerMenuIconNames[selectedExplorerId(for: chain)] ?? "SendGlobe"
     }
 
+    public static func selectedExplorerHasMenuIconAsset(for chain: ApiChain) -> Bool {
+        explorerMenuIconNames[selectedExplorerId(for: chain)] != nil
+    }
+
     private typealias ExplorerConfig = ChainConfig.Explorer
 
     private static let explorerMenuIconNames = [

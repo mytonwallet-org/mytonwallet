@@ -1,6 +1,5 @@
 //
 //  AccountTypePickerVC.swift
-//  AirAsFramework
 //
 //  Created by nikstar on 25.08.2025.
 //
@@ -10,6 +9,7 @@ import SwiftUI
 import WalletContext
 import WalletCore
 import UIComponents
+import Ledger
 
 public final class AccountTypePickerVC: CreateWalletBaseVC {
     
@@ -17,9 +17,9 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
     
     private var hostingController: UIHostingController<AccountTypePickerView>?
     private let navHeight: CGFloat = 60
-    private var addWalletVC: AddViewWalletVC?
-    private var titleLabel: UILabel?
-
+    private let navHeader = NavigationHeader2()
+    private var vcSwitchingInProgress = false
+    
     public init(network: ApiNetwork) {
         self.network = network
         super.init(nibName: nil, bundle: nil)
@@ -32,15 +32,9 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
     public override func viewDidLoad() {
         super.viewDidLoad()
         
-        let title = network == .testnet ? "\(lang("Add Wallet")) (Testnet)" : lang("Add Wallet")
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
-        titleLabel.textColor = .label
-        titleLabel.accessibilityTraits = .header
-        titleLabel.sizeToFit()
-        navigationItem.titleView = titleLabel
-        self.titleLabel = titleLabel
+        navHeader.setTitle(network == .testnet ? "\(lang("Add Wallet")) (Testnet)" : lang("Add Wallet"))
+        navigationItem.titleView = navHeader
+        
         addCloseNavigationItemIfNeeded()
         
         hostingController = addHostingController(makeView()) { [view] child in
@@ -60,7 +54,8 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
         AccountTypePickerView(
             network: network,
             onHeightChange: { [weak self] height in self?.onHeightChange(height) },
-            onViewAddress: { [weak self] in self?.openAddViewWallet() }
+            onViewAddress: { [weak self] in self?.openAddViewWallet() },
+            onLedger: { [weak self] in self?.openAddLedgerWallet() }
         )
     }
     
@@ -73,32 +68,43 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
         }
     }
 
+    private func replaceContent(with vc: UIViewController, newTitle: String?, completion: (() -> Void)? = nil) {
+        let coordinator = ContentReplaceAnimationCoordinator()
+        guard coordinator.replaceContentInPresentedSheet(self, with: vc, completion: completion) else {
+            vcSwitchingInProgress = false
+            return 
+        }
+        navHeader.setTitleAnimated(newTitle ?? "")
+    }
+    
+    private func openAddLedgerWallet() {
+        guard !vcSwitchingInProgress else { return }
+        vcSwitchingInProgress = true
+
+        Task { @MainActor in
+            let introModel = IntroModel(network: network, password: nil)
+            let model = await LedgerAddAccountModel()
+            let importWalletVC = LedgerAddAccountVC(model: model, autoStart: false)
+            let hadExistingAccounts = !AccountStore.accountsById.isEmpty
+            importWalletVC.onDone = { _ in
+                introModel.onDone(
+                    successKind: .imported,
+                    hadExistingAccounts: hadExistingAccounts,
+                    accountIds: model.importedAccountIds
+                )
+            }
+            replaceContent(with: importWalletVC, newTitle: importWalletVC.title) {
+                importWalletVC.start()
+            }
+        }
+    }
+    
     private func openAddViewWallet() {
-        guard addWalletVC == nil else { return }
+        guard !vcSwitchingInProgress else { return }
+        vcSwitchingInProgress = true
         
         let vc = AddViewWalletVC(introModel: IntroModel(network: network, password: nil))
-        vc.view.frame = view.bounds
-        vc.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        addChild(vc)
-        view.addSubview(vc.view)
-        vc.didMove(toParent: self)
-        addWalletVC = vc
-        
-        guard let sheet = navigationController?.sheetPresentationController else {
-            assertionFailure()
-            return
-        }
-        
-        UIView.performWithoutAnimation {
-            vc.view.alpha = 0
-            vc.view.layoutIfNeeded()
-        }
-        sheet.animateChanges {
-            sheet.detents = [.large()]
-            sheet.selectedDetentIdentifier = .large
-            vc.view.alpha = 1.0
-            self.titleLabel?.alpha = 0
-        }
+        replaceContent(with: vc, newTitle: nil)
     }
 }
 

@@ -82,7 +82,7 @@ class MfaConfirmHeaderView(
 
     private val titleLabel = WLabel(context).apply {
         id = generateViewId()
-        setStyle(28f, WFont.SemiBold)
+        setStyle(28f, WFont.Medium)
         gravity = Gravity.CENTER
         text = titleText
     }

@@ -317,6 +317,11 @@ func makeMigrator() -> DatabaseMigrator {
             t.add(column: "portfolioTimeRange", .text)
         }
     }
+    migrator.registerMigration("v18") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "appTabOrder", .jsonText).defaults(to: "[]").notNull()
+        }
+    }
 
     return migrator
 }

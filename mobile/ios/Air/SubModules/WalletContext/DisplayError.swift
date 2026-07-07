@@ -11,3 +11,9 @@ public struct DisplayError: Error {
         self.text = text
     }
 }
+
+extension DisplayError: LocalizedError {
+    public var errorDescription: String? {
+        text
+    }
+}

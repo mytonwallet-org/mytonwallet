@@ -135,7 +135,7 @@ class IntroVC(
 
     val titleLabel = WLabel(view.context).apply {
         text = LocaleController.getString(context.getString(BaseR.string.app_locale_name_key))
-        setStyle(32f, WFont.NunitoExtraBold)
+        setStyle(32f, WFont.Balance)
         setTextColor(WColor.PrimaryText)
     }
 

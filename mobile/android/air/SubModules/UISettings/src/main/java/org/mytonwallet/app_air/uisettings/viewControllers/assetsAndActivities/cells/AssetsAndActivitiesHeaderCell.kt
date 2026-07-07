@@ -152,7 +152,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val addTokenLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(14f, WFont.DemiBold)
+        lbl.setStyle(14f, WFont.Medium)
         lbl.text =
             LocaleController.getString("Add Token")
         lbl

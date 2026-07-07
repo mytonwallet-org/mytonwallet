@@ -1,12 +1,21 @@
 import type { Period } from './utils';
 
+import { CircuitOpenError } from '../../../util/circuit-breaker';
 import { focusAwareDelay, onFocusAwareDelay } from '../../../util/focusAwareDelay';
 import { logDebugError } from '../../../util/logs';
+import { random } from '../../../util/random';
 import { throttle } from '../../../util/schedulers';
 import { ApiServerError } from '../../errors';
 import { periodToMs } from './utils';
 
 export type PollCallback = (isInitial?: boolean) => MaybePromise<void>;
+
+/**
+ * The maximum fraction by which a scheduled delay can be randomly extended.
+ * Many clients schedule the same periods in unison, so a positive per-delay
+ * jitter de-phases their polls and flattens the resulting load waves.
+ */
+const JITTER_RATIO = 0.2;
 
 export interface FallbackPollingOptions {
   /** Whether `poll` should be called when the polling object is created */
@@ -63,7 +72,7 @@ export class FallbackPollingScheduler {
     if (this.#isDestroyed) return;
     this.#schedulePolling(true);
     // On the very first connect, skip the poll when pollOnStart already issued one.
-    // On every reconnect, always poll to catch updates missed during the outage.
+    // On every reconnect, poll immediately to catch updates missed during the outage.
     if (this.#hasEverConnected || !this.#options.pollOnStart) {
       this.#poll(true);
     }
@@ -100,10 +109,9 @@ export class FallbackPollingScheduler {
     try {
       await this.#rawPoll(isInitial);
     } catch (err: unknown) {
-      // Polling re-issues requests, so any `ApiServerError` encountered here
-      // (transport, 4xx, 5xx) is suppressed - alerting on each cycle just
-      // creates user-visible noise scaled by poller count.
-      if (err instanceof ApiServerError) {
+      // Polling re-issues requests, so transient HTTP failures are suppressed -
+      // alerting on each cycle just creates user-visible noise scaled by poller count.
+      if (err instanceof ApiServerError || err instanceof CircuitOpenError) {
         logDebugError('FallbackPollingScheduler poll failed (suppressed)', err);
         return;
       }
@@ -121,7 +129,8 @@ export class FallbackPollingScheduler {
     const nextPause = isSocketConnected ? forcedPollingPeriod : pollingPeriod;
 
     const schedule = (isFirst?: boolean) => {
-      this.#cancelScheduledPoll = onFocusAwareDelay(...periodToMs(isFirst ? firstPause : nextPause), () => {
+      const delay = jitterPeriodMs(periodToMs(isFirst ? firstPause : nextPause));
+      this.#cancelScheduledPoll = onFocusAwareDelay(...delay, () => {
         schedule();
         this.#poll();
       });
@@ -129,4 +138,19 @@ export class FallbackPollingScheduler {
 
     schedule(true);
   }
+}
+
+/**
+ * Extends a `periodToMs` tuple by a single shared random ratio up to `JITTER_RATIO`, keeping every
+ * delay within `[period, period * (1 + JITTER_RATIO)]`. Both elements are scaled by the same factor,
+ * so each gets a spread proportional to its own period (a shared absolute offset would under-jitter
+ * the larger `forceMs`), and `forceMs >= ms` is preserved because the factor is identical and `>= 1`
+ * and `Math.round` is monotonic (`onFocusAwareDelay` relies on `forceMs - ms` being non-negative).
+ */
+function jitterPeriodMs([ms, forceMs]: [number, number]): [number, number] {
+  // A single shared multiplier keeps both delays jittered by the same fraction (so `forceMs >= ms`
+  // is preserved) while giving each its own period-proportional spread, unlike a shared absolute
+  // offset which under-jitters the larger (notFocused) period.
+  const factor = 1 + random(0, Math.round(JITTER_RATIO * 1000)) / 1000;
+  return [Math.round(ms * factor), Math.round(forceMs * factor)];
 }

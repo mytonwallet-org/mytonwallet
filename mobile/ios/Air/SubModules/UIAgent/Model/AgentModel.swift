@@ -6,7 +6,7 @@ typealias AgentItemID = UUID
 
 @MainActor
 protocol AgentModelDelegate: AnyObject {
-    func agentModelDidReloadTimeline(animated: Bool)
+    func agentModelDidReloadTimeline(animated: Bool, reconfigureItemIDs: [AgentItemID])
     func agentModelDidUpdateItems(_ ids: [AgentItemID], animated: Bool, scrollToBottom: Bool)
     func agentModelDidUpdateHints(animated: Bool)
 }
@@ -219,7 +219,7 @@ final class AgentModel {
             orderedItemIDs.append(item.id)
             itemsByID[item.id] = item
         }
-        delegate?.agentModelDidReloadTimeline(animated: animated)
+        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
         if !message.isStreaming {
             persistStableTimelineIfNeeded()
         }
@@ -228,7 +228,7 @@ final class AgentModel {
     private func appendDirectly(_ item: AgentTimelineItem, animated: Bool) {
         orderedItemIDs.append(item.id)
         itemsByID[item.id] = item
-        delegate?.agentModelDidReloadTimeline(animated: animated)
+        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
         if case .message(let message) = item, !message.isStreaming {
             persistStableTimelineIfNeeded()
         }
@@ -332,7 +332,7 @@ final class AgentModel {
         message.action = nil
         message.systemStyle = nil
         baseItems[index] = .message(message)
-        setTimeline(baseItems, animated: true)
+        setTimeline(baseItems, animated: true, reconfigureItemIDs: [id])
     }
 
     private func conversationHistory(before itemIndex: Int) -> [AgentBackendConversationMessage] {
@@ -357,7 +357,7 @@ final class AgentModel {
         let timelineItems = Self.timelineItemsByInsertingDateMessages(into: items)
         orderedItemIDs = timelineItems.map(\.id)
         itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
-        delegate?.agentModelDidReloadTimeline(animated: animated)
+        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
         persistStableTimelineIfNeeded()
     }
 
@@ -424,11 +424,15 @@ final class AgentModel {
         setTimeline(baseItems, animated: animated)
     }
 
-    private func setTimeline(_ baseItems: [AgentTimelineItem], animated: Bool) {
+    private func setTimeline(
+        _ baseItems: [AgentTimelineItem],
+        animated: Bool,
+        reconfigureItemIDs: [AgentItemID] = []
+    ) {
         let timelineItems = Self.timelineItemsByInsertingDateMessages(into: baseItems)
         orderedItemIDs = timelineItems.map(\.id)
         itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
-        delegate?.agentModelDidReloadTimeline(animated: animated)
+        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: reconfigureItemIDs)
         persistStableTimelineIfNeeded()
     }
 

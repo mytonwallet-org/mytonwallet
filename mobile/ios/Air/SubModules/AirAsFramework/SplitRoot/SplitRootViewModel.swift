@@ -1,13 +1,14 @@
 import Perception
+import WalletContext
 
 @Perceptible
 @MainActor
 final class SplitRootViewModel {
-    
-    var selectedTab: SplitRootTab = .home
-    var onCurrentTabTap: (SplitRootTab) -> () = { _ in }
-    
-    func onTabTap(_ tab: SplitRootTab) {
+
+    var selectedTab: AppTabId = .wallet
+    var onCurrentTabTap: (AppTabId) -> Void = { _ in }
+
+    func onTabTap(_ tab: AppTabId) {
         if tab != selectedTab {
             selectedTab = tab
         } else {

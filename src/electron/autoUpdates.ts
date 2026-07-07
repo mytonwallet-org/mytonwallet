@@ -7,6 +7,7 @@ import { ElectronAction, ElectronEvent } from './types';
 import { PRODUCTION_URL } from '../config';
 import getIsAppUpdateNeeded from '../util/getIsAppUpdateNeeded';
 import { pause } from '../util/schedulers';
+import { validateIpcSender } from './ipcSecurity';
 import {
   forceQuit, IS_MAC_OS, IS_PREVIEW, IS_WINDOWS, mainWindow, store,
 } from './utils';
@@ -29,7 +30,9 @@ export function setupAutoUpdates() {
 
   void checkForUpdates();
 
-  ipcMain.handle(ElectronAction.INSTALL_UPDATE, () => {
+  ipcMain.handle(ElectronAction.INSTALL_UPDATE, (event) => {
+    validateIpcSender(event);
+
     if (IS_MAC_OS || IS_WINDOWS) {
       forceQuit.enable();
     }

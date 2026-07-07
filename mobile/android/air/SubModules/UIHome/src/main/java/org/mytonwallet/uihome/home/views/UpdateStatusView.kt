@@ -23,7 +23,7 @@ class UpdateStatusView(
         private const val LOADING_TEXT_SIZE = 16f
         private val LOADING_FONT = WFont.Medium
         private const val LOADED_TEXT_SIZE = 20f
-        private val LOADED_FONT = WFont.SemiBold
+        private val LOADED_FONT = WFont.Medium
     }
 
     sealed class State {

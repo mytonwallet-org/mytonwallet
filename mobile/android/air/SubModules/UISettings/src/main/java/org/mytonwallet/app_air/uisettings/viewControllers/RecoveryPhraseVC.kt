@@ -109,7 +109,7 @@ open class RecoveryPhraseVC(
             val redWarningStart = length
             append(LocaleController.getString("Other apps will be able to read your secret words!"))
             setSpan(
-                WTypefaceSpan(WFont.SemiBold.typeface, WColor.Red.color),
+                WTypefaceSpan(WFont.Medium.typeface, WColor.Red.color),
                 redWarningStart,
                 length,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -118,7 +118,7 @@ open class RecoveryPhraseVC(
     }
 
     private val copyToClipboardButton = WLabel(context).apply {
-        setStyle(17f, WFont.SemiBold)
+        setStyle(17f, WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
         text =
             LocaleController.getString("Copy to Clipboard")

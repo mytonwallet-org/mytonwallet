@@ -26,7 +26,7 @@ class WordListItemView(
     private val wordLabel: WLabel by lazy {
         val lbl = WLabel(context)
         lbl.setLineSpacing(4f.dp, 1f)
-        lbl.setStyle(17F, WFont.SemiBold)
+        lbl.setStyle(17F, WFont.Medium)
         lbl.gravity = Gravity.LEFT
         lbl
     }

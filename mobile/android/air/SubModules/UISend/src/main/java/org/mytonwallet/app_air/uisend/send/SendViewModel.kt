@@ -293,7 +293,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             val baseCurrency: MBaseCurrency
         ) : InputStateFull() {
 
-            val tokenPrice: BigDecimal = token.price?.let {
+            val tokenPrice: BigDecimal = token.price?.takeIf { it.isFinite() }?.let {
                 BigDecimal.valueOf(it).stripTrailingZeros()
             } ?: BigDecimal.ZERO
 
@@ -733,6 +733,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
     companion object {
         val INVALID_ADDRESS_ERRORS = setOf(
             MApiAnyDisplayError.DOMAIN_NOT_RESOLVED,
+            MApiAnyDisplayError.INVALID_ADDRESS,
             MApiAnyDisplayError.INVALID_TO_ADDRESS,
             MApiAnyDisplayError.INVALID_ADDRESS_FORMAT
         )
@@ -785,6 +786,15 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             estimated: DraftResult?,
             isMemoRequired: Boolean
         ): ButtonState {
+            val chain = TokenStore.getToken(input.input.tokenSlug)?.mBlockchain
+            if (chain != null &&
+                AccountStore.activeAccount?.byChain?.get(chain.name)?.isMultisig == true
+            ) {
+                return ButtonState(
+                    ButtonStatus.Error,
+                    LocaleController.getString("Multisig sending disabled")
+                )
+            }
             val destination = input.input.destination
             if (destination.isEmpty()) {
                 return ButtonState(
@@ -792,7 +802,6 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     LocaleController.getString("Enter Address")
                 )
             }
-            val chain = TokenStore.getToken(input.input.tokenSlug)?.mBlockchain
             val isValidAddress =
                 destination != AccountStore.activeAccount?.tronAddress &&
                     (

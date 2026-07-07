@@ -63,6 +63,10 @@ public func getIsActiveStakingState(state: ApiStakingState) -> Bool {
         || (state.unclaimedRewards != nil && state.unclaimedRewards! > MIN_ACTIVE_STAKING_REWARDS)
 }
 
+public func getHasPositiveStakingYield(state: ApiStakingState) -> Bool {
+    return state.apy > 0
+}
+
 public func getIsLongUnstake(state: ApiStakingState, amount: BigInt?) -> Bool? {
     switch state.type {
     case .nominators:

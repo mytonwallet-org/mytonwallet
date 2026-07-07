@@ -31,8 +31,18 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     public var roundHalfUp: Bool
     public var precision: DecimalAmountFormatPrecision?
     public var showSymbol: Bool
+    public var zeroCountSubscriptMinCount: Int?
     
-    public init(preset: AdaptivePreset<Kind>? = nil, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundHalfUp: Bool = true, precision: DecimalAmountFormatPrecision? = nil, showSymbol: Bool = true) {
+    public init(
+        preset: AdaptivePreset<Kind>? = nil,
+        maxDecimals: Int? = nil,
+        showPlus: Bool = false,
+        showMinus: Bool = true,
+        roundHalfUp: Bool = true,
+        precision: DecimalAmountFormatPrecision? = nil,
+        showSymbol: Bool = true,
+        zeroCountSubscriptMinCount: Int? = nil
+    ) {
         self.adaptivePreset = preset
         self.maxDecimals = maxDecimals
         self.showPlus = showPlus
@@ -40,11 +50,13 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
         self.roundHalfUp = roundHalfUp
         self.precision = precision
         self.showSymbol = showSymbol
+        self.zeroCountSubscriptMinCount = zeroCountSubscriptMinCount
     }
     
     public func format(_ value: FormatInput) -> String {
         let prefix = precision?.prefix ?? ""
         let maxDecimals = adaptivePreset?.resolve(value) ?? maxDecimals
+        let zeroCountSubscriptMinCount = zeroCountSubscriptMinCount ?? adaptivePreset?.zeroCountSubscriptMinCount
         return prefix + formatBigIntText(
             value.amount,
             currency: showSymbol ? value.symbol : nil,
@@ -54,14 +66,31 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
             decimalsCount: maxDecimals,
             forceCurrencyToRight: value.forceCurrencyToRight,
             roundHalfUp: roundHalfUp,
-            isShortened: adaptivePreset == .baseCurrencyEquivalentShortened
+            isShortened: adaptivePreset == .baseCurrencyEquivalentShortened,
+            zeroCountSubscriptMinCount: zeroCountSubscriptMinCount
         )
     }
 }
 
 extension DecimalAmount {
-    public func formatted(_ preset: AdaptivePreset<Backing>?, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundHalfUp: Bool = true, precision: DecimalAmountFormatPrecision? = nil) -> String {
-        DecimalAmountFormatStyle(preset: preset, maxDecimals: maxDecimals, showPlus: showPlus, showMinus: showMinus, roundHalfUp: roundHalfUp, precision: precision).format(self)
+    public func formatted(
+        _ preset: AdaptivePreset<Backing>?,
+        maxDecimals: Int? = nil,
+        showPlus: Bool = false,
+        showMinus: Bool = true,
+        roundHalfUp: Bool = true,
+        precision: DecimalAmountFormatPrecision? = nil,
+        zeroCountSubscriptMinCount: Int? = nil
+    ) -> String {
+        DecimalAmountFormatStyle(
+            preset: preset,
+            maxDecimals: maxDecimals,
+            showPlus: showPlus,
+            showMinus: showMinus,
+            roundHalfUp: roundHalfUp,
+            precision: precision,
+            zeroCountSubscriptMinCount: zeroCountSubscriptMinCount
+        ).format(self)
     }
 }
 

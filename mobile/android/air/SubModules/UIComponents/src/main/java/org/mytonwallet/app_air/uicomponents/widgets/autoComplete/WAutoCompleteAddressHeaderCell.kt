@@ -30,7 +30,7 @@ class WAutoCompleteAddressHeaderCell(context: Context) :
 
     private val label: HeaderCell by lazy {
         HeaderCell(context, 20f).apply {
-            titleLabel.setStyle(14f, WFont.DemiBold)
+            titleLabel.setStyle(14f, WFont.Medium)
         }
     }
 

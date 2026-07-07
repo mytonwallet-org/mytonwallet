@@ -10,4 +10,9 @@ extension ApiUpdate {
         public var isWaitingForRequest: Bool?
         public var returnUrl: String?
     }
+
+    public struct DappCloseLoading: Equatable, Hashable, Codable, Sendable {
+        public var type = "dappCloseLoading"
+        public var connectionType: ApiDappConnectionType
+    }
 }

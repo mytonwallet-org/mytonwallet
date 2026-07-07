@@ -11,13 +11,15 @@ public final class ExploreVC: WViewController {
     let exploreVM: ExploreVM = .init()
     var onSelectAny: () -> () = {}
     var onSubmitSearch: (String) -> () = { _ in }
+    var onGoogleSearch: (String) -> () = { _ in }
     var onInsertToSearchString: (String) -> () = { _ in }
+    var onScrollOffsetChange: ((CGFloat) -> Void)?
 
     private let viewOutput = ViewOutput()
     private let externalEvents = ExternalEvents()
     private let observedViewState = ObservedViewState()
 
-    private var trimmedSearchString: String = "" // Improvement: move searchBar to this screen
+    private var trimmedSearchString: String = ""
     private var isSearchActive: Bool = false
 
     private var searchCoordinator: ExploreSearchCoordinator?
@@ -33,10 +35,8 @@ public final class ExploreVC: WViewController {
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(4))
             guard let self = self else { return }
-            if !isViewLoaded { // preload
-                exploreVM.loadExploreSites() // Improvement: viewDidLoad can happen just after this moment
-                // if data is already in loading state, no need to call loadExploreSites()
-            }
+            if !isViewLoaded {
+                exploreVM.loadExploreSites()             }
         }
     }
 
@@ -46,34 +46,17 @@ public final class ExploreVC: WViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
 
-        let titleFixingScrollView = initialSetup()
-        bind(titleFixingScrollView: titleFixingScrollView)
+        initialSetup()
+        bind()
 
         exploreVM.refresh()
     }
 
-    public override func scrollToTop(animated _: Bool) {
-        observedViewState.scrollToTop()
+    public override func scrollToTop(animated: Bool) {
+        observedViewState.scrollToTop(animated: animated)
     }
 
-    private func initialSetup() -> NavBarTitleFixingScrollView? {
-        let titleFixingScrollView: NavBarTitleFixingScrollView? = if #available(iOS 26.0, *) {
-            nil
-        } else {
-            configured(object: NavBarTitleFixingScrollView()) {
-                $0.showsVerticalScrollIndicator = false
-                $0.contentInsetAdjustmentBehavior = .never
-                $0.alpha = 0
-                let fakeContent = UIView()
-                $0.addStretchedToBounds(subview: fakeContent)
-                NSLayoutConstraint.activate([
-                    fakeContent.widthAnchor.constraint(equalTo: $0.widthAnchor),
-                    fakeContent.heightAnchor.constraint(equalToConstant: 1),
-                ])
-                view.addStretchedToBounds(subview: $0) // must be added first
-            }
-        }
-
+    private func initialSetup() {
         let rootView = ScreenView(viewState: observedViewState, viewOutput: viewOutput)
         let hostingController = UIHostingController(rootView: rootView)
         hostingController.view.backgroundColor = .clear
@@ -82,13 +65,11 @@ public final class ExploreVC: WViewController {
         view.addStretchedToBounds(subview: hostingController.view)
         addChild(hostingController)
         hostingController.didMove(toParent: self)
-
-        return titleFixingScrollView
     }
 
-    private func bind(titleFixingScrollView: NavBarTitleFixingScrollView?) {
+    private func bind() {
         setupSearchCoordinator()
-        bindViewOutput(titleFixingScrollView: titleFixingScrollView)
+        bindViewOutput()
 
         BrowserHistoryStore.shared.onLoaded
             .sink(withUnretained: self) { uSelf, _ in uSelf.updateViewState(forceSearch: true) }
@@ -110,11 +91,12 @@ public final class ExploreVC: WViewController {
             .removeDuplicates()
             .sink(withUnretained: self) { uSelf, isActive in
                 uSelf.isSearchActive = isActive
-                uSelf.updateViewState(forceSearch: true)
+                uSelf.updateViewState(forceSearch: true, animated: false)
+                uSelf.observedViewState.scrollToTop(animated: false)
             }.store(in: &cancelBag)
     }
 
-    private func bindViewOutput(titleFixingScrollView: NavBarTitleFixingScrollView?) {
+    private func bindViewOutput() {
         cancelBag.formUnion([
             viewOutput.connectedDappDidTap.sink { [exploreVM] connectedDappURL in
                 if let connected = exploreVM.connectedDapps[connectedDappURL], let url = URL(string: connected.url) {
@@ -131,8 +113,8 @@ public final class ExploreVC: WViewController {
             viewOutput.trendingDappDidTap
                 .merge(with: viewOutput.dappFromFolderDidTap)
                 .sink(withUnretained: self) { uSelf, apiSite in
-                    uSelf.view.window?.endEditing(true)
-                    uSelf.onSelectAny()
+                    uSelf.commitSelection()
+                    
                     if uSelf.exploreVM.exploreSites[apiSite.url] == nil {
                         Log.shared.error("inconsistency between UI and data ")
                     }
@@ -151,17 +133,15 @@ public final class ExploreVC: WViewController {
                 let exploreVC = ExploreCategoryVC(exploreVM: uSelf.exploreVM, categoryId: categoryId)
                 uSelf.navigationController?.pushViewController(exploreVC, animated: true)
             },
-        ])
 
-        if let titleFixingScrollView {
-            viewOutput.scrollOffsetDidChange.sink { [titleFixingScrollView] scrollOffset in
-                titleFixingScrollView.swiftuiDidUpdate(verticalOffset: scrollOffset)
-            }.store(in: &cancelBag)
-        }
+            viewOutput.scrollOffsetDidChange
+                .sink { [weak self] offset in self?.onScrollOffsetChange?(offset) },
+        ])
     }
 
-    private func updateViewState(forceSearch: Bool = false) {
+    private func updateViewState(forceSearch: Bool = false, animated: Bool = true) {
         let shouldRestrictSites = ConfigStore.shared.shouldRestrictSites
+        
         if isSearchActive {
             let query = SearchQuery(text: trimmedSearchString, shouldRestrictSites: shouldRestrictSites)
             if forceSearch || query != lastSearchQuery {
@@ -174,14 +154,23 @@ public final class ExploreVC: WViewController {
         searchCoordinator?.cancel()
         lastSearchQuery = nil
         currentSearchResult = nil
+        
         let sections = Self.makeBrowsingSections(
-            exploreVM: exploreVM,
+            connectedDapps: Array(exploreVM.connectedDapps.values.apply(Array.init)),
+            featuredTitle: exploreVM.featuredTitle,
+            exploreSites: exploreVM.exploreSites.values.apply(Array.init),
+            siteCategories: exploreVM.exploreCategories.values.apply(Array.init),
             shouldRestrictSites: shouldRestrictSites,
             isLockdownModeEnabled: WalletCoreData.isLockdownModeEnabled
         )
-        observedViewState.updateBrowsing(sections: sections)
+        observedViewState.updateBrowsing(sections: sections, animated: animated)
     }
-
+    
+    private func commitSelection() {
+        view.window?.endEditing(true)
+        onSelectAny()
+    }
+    
     private func setupSearchCoordinator() {
         let actions = ExploreSearchActions(
             openSite: { [weak self] site in
@@ -194,8 +183,8 @@ public final class ExploreVC: WViewController {
                 self?.openSearchURL(item.url, title: item.title)
             },
             openWallet: { [weak self] account in
-                self?.view.window?.endEditing(true)
-                self?.onSelectAny()
+                self?.commitSelection()
+                
                 Task {
                     do {
                         _ = try await AccountStore.activateAccount(accountId: account.id)
@@ -205,19 +194,34 @@ public final class ExploreVC: WViewController {
                     }
                 }
             },
+            submitSearch: { [weak self] text in
+                self?.onSubmitSearch(text)
+            },
+            openUrl: { [weak self] openableUrl in
+                switch openableUrl.kind {
+                case .deeplink:
+                    let isHandled = WalletContextManager.delegate?.handleDeeplink(url: openableUrl.url, source: .exploreSearchBar)
+                    if isHandled != true {
+                        Haptics.play(.error)
+                        return
+                    }
+                case .regular:
+                    AppActions.openInBrowser(openableUrl.url, title: nil, injectDappConnect: true, historyTag: exploreHistoryTag)
+                }
+                self?.commitSelection()
+            },
             openExternalURL: { [weak self] url, appUrl in
                 self?.openSearchURL(url, appUrlString: appUrl, title: nil, externally: true)
             },
             showTemporaryViewAccount: { [weak self] network, addressOrDomainByChain in
-                self?.view.window?.endEditing(true)
-                self?.onSelectAny()
+                self?.commitSelection()
                 AppActions.showTemporaryViewAccount(network: network, addressOrDomainByChain: addressOrDomainByChain)
             },
             insertToSearchString: { [weak self] text in
                 self?.onInsertToSearchString(text)
             },
             searchGoogle: { [weak self] text in
-                self?.onSubmitSearch(text)
+                self?.onGoogleSearch(text)
             },
             clearRecentSearches: { [weak self] tag in
                 self?.clearRecentSearches(tag: tag)
@@ -254,8 +258,7 @@ public final class ExploreVC: WViewController {
     }
 
     private func openSearchURL(_ urlString: String, appUrlString: String? = nil, title: String?, externally: Bool = false) {
-        view.window?.endEditing(true)
-        onSelectAny()
+        commitSelection()
         
         // trying to open installed app, if requested and available
         if let appUrlString, let appUrl = URL(string: appUrlString), UIApplication.shared.canOpenURL(appUrl) {
@@ -290,74 +293,5 @@ extension ExploreVC {
     private struct ExternalEvents {
         let searchStringDidChange = PassthroughSubject<String, Never>()
         let searchActiveDidChange = PassthroughSubject<Bool, Never>()
-    }
-}
-
-import OrderedCollections
-
-/// SwiftUI’s ScrollView doesn't trigger the navigation bar's title resizing behavior based on the scroll offset.
-/// So use UIKit-based UIScrollView to mirror SwiftUI scroll position to signalize scroll offset to UIKit.
-/// By tracking the last few scroll offsets and checking the scroll direction (ascending or descending), it ensures the
-/// navigation bar's title resizes correctly in sync with the scroll, even during slow scrolling.
-@available(iOS, deprecated: 26.0, message: "SwiftUI scroll is observed correctly in iOS 26")
-fileprivate final class NavBarTitleFixingScrollView: UIScrollView {
-    private var offsets: OrderedSet<CGFloat> = [0] // in iOS 16 equal values can appear, OrderedSet keep offsets unique
-    private var assumedTitleSize: LayoutSizeVariant = .regular
-
-    func swiftuiDidUpdate(verticalOffset scrollOffset: CGFloat) {
-        if #unavailable(iOS 26.0) {
-            guard offsets.append(scrollOffset).inserted else { return }
-            if offsets.count > 4 { offsets.removeFirst() }
-
-            switch checkOrder(offsets) {
-            case .ascending:
-                if scrollOffset > 15 {
-                    contentOffset.y = scrollOffset
-                    if assumedTitleSize == .regular {
-                        assumedTitleSize = .compact // we really don't know whether it become large or not, this is logical flag
-                    }
-                }
-
-            case .descending:
-                if scrollOffset < 0 {
-                    // negative offset is important for navBar title work correct
-                    contentOffset.y = scrollOffset
-                }
-                if scrollOffset < 5, assumedTitleSize == .compact {
-                    assumedTitleSize = .regular
-                    contentOffset.y = scrollOffset
-                }
-
-            case .unordered: break
-            }
-        }
-    }
-
-    private enum SequenceOrder {
-        case ascending
-        case descending
-        case unordered
-    }
-
-    private func checkOrder<T: Comparable & Hashable>(_ offset: OrderedSet<T>) -> SequenceOrder {
-        guard offset.count > 1 else { return .unordered }
-
-        var order: SequenceOrder = .unordered
-        for i in 1 ..< offset.count {
-            if offset[i] > offset[i - 1] {
-                if order == .unordered {
-                    order = .ascending // Found the first ascending pair
-                } else if order == .descending {
-                    return .unordered // Was descending, now ascending, so unordered
-                }
-            } else if offset[i] < offset[i - 1] {
-                if order == .unordered {
-                    order = .descending // Found the first descending pair
-                } else if order == .ascending {
-                    return .unordered // Was ascending, now descending, so unordered
-                }
-            }
-        }
-        return order
     }
 }

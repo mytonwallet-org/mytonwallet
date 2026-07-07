@@ -10,7 +10,8 @@ protocol NftDetailsPagerDelegate: NftDetailsActionsDelegate {
 final class NftDetailsPagerView: UIView {
     typealias ItemModel = NftDetailsItemModel
     
-    private let models: [ItemModel]
+    private var models: [ItemModel]
+    private let colorResolver: NftDetailsColorResolver
     private weak var delegate: NftDetailsPagerDelegate?
     private(set) var currentIndex: Int
 
@@ -48,17 +49,18 @@ final class NftDetailsPagerView: UIView {
         let view: NftDetailsPageView
     }
 
-    private var pageViewCache: [Int: PageViewCacheItem] = [:]
+    private var pageViewCache: [String: PageViewCacheItem] = [:]
 
     private var heightConstraint: NSLayoutConstraint!
     private var collectionView: CollectionView!
     private var flowLayout: UICollectionViewFlowLayout!
-    private var dataSource: UICollectionViewDiffableDataSource<_Section, Int>!
+    private var dataSource: UICollectionViewDiffableDataSource<_Section, String>!
 
     private enum _Section: Hashable { case main }
 
     init(
         models: [ItemModel],
+        colorResolver: NftDetailsColorResolver,
         currentIndex: Int,
         layoutGeometry: LayoutGeometry,
         delegate: NftDetailsPagerDelegate,
@@ -67,6 +69,7 @@ final class NftDetailsPagerView: UIView {
         assert(layoutGeometry.pageWidth > 0)
 
         self.models = models
+        self.colorResolver = colorResolver
         self.currentIndex = currentIndex
         self.layoutGeometry = layoutGeometry
         self.delegate = delegate
@@ -120,20 +123,21 @@ final class NftDetailsPagerView: UIView {
             heightConstraint,
         ])
         
-        let cellRegistration = UICollectionView.CellRegistration<_PageCell, Int> { [weak self] cell, indexPath, modelIndex in
-            guard let self else { return }
-            assert(indexPath.row == modelIndex)
-            let pv = self.getOrCreatePageView(for: modelIndex)
+        let cellRegistration = UICollectionView.CellRegistration<_PageCell, String> { [weak self] cell, _, modelId in
+            // In RTL the physical item order is reversed, so resolve the logical model by id
+            // instead of using `indexPath.row` (which is the physical position).
+            guard let self, let index = self.models.firstIndex(where: { $0.id == modelId }) else { return }
+            let pv = self.getOrCreatePageView(for: index)
             cell.setPageView(pv)
         }
 
-        dataSource = UICollectionViewDiffableDataSource<_Section, Int>(collectionView: collectionView) { cv, indexPath, item in
+        dataSource = UICollectionViewDiffableDataSource<_Section, String>(collectionView: collectionView) { cv, indexPath, item in
             cv.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: item)
         }
 
-        var snapshot = NSDiffableDataSourceSnapshot<_Section, Int>()
+        var snapshot = NSDiffableDataSourceSnapshot<_Section, String>()
         snapshot.appendSections([.main])
-        snapshot.appendItems(Array(0..<models.count))
+        snapshot.appendItems(arrangedModelIds)
         dataSource.apply(snapshot, animatingDifferences: false)
 
         scrollToIndex(currentIndex, animated: false)
@@ -142,7 +146,8 @@ final class NftDetailsPagerView: UIView {
 
     private func getOrCreatePageView(for index: Int, layout: Bool = true) -> NftDetailsPageView {
         let idx = normalizeIndex(index)
-        if let cached = pageViewCache[idx] {
+        let model = models[idx]
+        if let cached = pageViewCache[model.id] {
             if layout {
                 cached.view.updateWith(layoutGeometry: layoutGeometry.toPageGeometry(), isExpanded: isExpanded)
             }
@@ -151,14 +156,71 @@ final class NftDetailsPagerView: UIView {
         }
         
         let pv = NftDetailsPageView(
-            model: models[idx],
+            model: model,
+            colorResolver: colorResolver,
             layoutGeometry: layoutGeometry.toPageGeometry(),
             isExpanded: isExpanded,
             delegate: self
         )
-        pageViewCache[idx] = .init(view: pv)
+        pageViewCache[model.id] = .init(view: pv)
         pv.model.requestImage()
         return pv
+    }
+
+    func removeModel(id: String, newModels: [ItemModel], newCurrentIndex: Int, animated: Bool) {
+        guard models.contains(where: { $0.id == id }) else { return }
+        self.models = newModels
+
+        if let cached = pageViewCache.removeValue(forKey: id) {
+            cached.view.removeFromSuperview()
+        }
+
+        currentIndex = normalizeIndex(newCurrentIndex)
+
+        var snapshot = dataSource.snapshot()
+        snapshot.deleteItems([id])
+        dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
+            guard let self else { return }
+            self.ignoreDidScroll = true
+            // Force layout so `contentSize` reflects the new item count before scrolling, otherwise
+            // `setContentOffset` clamps to a stale (shorter) content width and lands one page short.
+            self.collectionView.layoutIfNeeded()
+            self.scrollToIndex(self.currentIndex, animated: false)
+            self.ignoreDidScroll = false
+            self.updateHeight()
+        }
+    }
+
+    /// Reconciles the pager to an arbitrary new model list (insertions, removals and reorders),
+    /// keyed by NFT id, then re-centers on `newCurrentIndex`. Cached page views for ids that are
+    /// no longer present are torn down so they don't linger.
+    func setModels(_ newModels: [ItemModel], newCurrentIndex: Int, animated: Bool) {
+        let newIds = Set(newModels.map(\.id))
+        for (id, cached) in pageViewCache where !newIds.contains(id) {
+            cached.view.removeFromSuperview()
+            pageViewCache.removeValue(forKey: id)
+        }
+
+        self.models = newModels
+        currentIndex = normalizeIndex(newCurrentIndex)
+
+        var snapshot = NSDiffableDataSourceSnapshot<_Section, String>()
+        snapshot.appendSections([.main])
+        snapshot.appendItems(arrangedModelIds)
+        // Apply synchronously (no animation needed for a re-selection) and reposition through the same
+        // path the first appearance uses: `needsInitialScroll` + `layoutSubviews`. Scrolling inside the
+        // async `apply` completion raced with the appearance-transition layout, which restored the old
+        // offset and left the page one off; deferring to `layoutSubviews` makes it land reliably.
+        dataSource.apply(snapshot, animatingDifferences: false)
+
+        needsInitialScroll = true
+        setNeedsLayout()
+
+        ignoreDidScroll = true
+        collectionView.layoutIfNeeded()
+        scrollToIndex(currentIndex, animated: false)
+        ignoreDidScroll = false
+        updateHeight()
     }
 
     private func onLayoutGeometryChanged() {
@@ -188,7 +250,7 @@ final class NftDetailsPagerView: UIView {
         let newIndex = normalizeIndex(index)
         guard newIndex != currentIndex else { return }
         
-        let targetOffsetX = CGFloat(newIndex) * layoutGeometry.pageWidth
+        let targetOffsetX = contentOffsetX(forLogicalIndex: newIndex)
         if abs(collectionView.contentOffset.x - targetOffsetX) < 1 {
             setCurrentIndex(newIndex, animated: false)
         } else {
@@ -197,7 +259,7 @@ final class NftDetailsPagerView: UIView {
     }
 
     private func scrollToIndex(_ index: Int, animated: Bool) {
-        let offset = CGPoint(x: CGFloat(index) * layoutGeometry.pageWidth, y: 0)
+        let offset = CGPoint(x: contentOffsetX(forLogicalIndex: index), y: 0)
         collectionView.setContentOffset(offset, animated: animated)
     }
 
@@ -211,8 +273,53 @@ final class NftDetailsPagerView: UIView {
     /// progress is in [-0.5, 0.5]: -0.5 = halfway to previous item, 0.5 = halfway to next.
     func syncPagerWithCoverFlow(_ progress: CGFloat, currentModel: ItemModel) {
         guard !isExpanded else { return }
-        let targetOffsetX = (CGFloat(currentModel.index) + CGFloat(progress)) * layoutGeometry.pageWidth
+        let logicalProgress = CGFloat(currentModel.index) + progress
+        let targetOffsetX = contentOffsetX(forLogicalProgress: logicalProgress)
         collectionView.setContentOffset(CGPoint(x: targetOffsetX, y: 0), animated: false)
+    }
+
+    // MARK: - RTL-aware page positioning
+    //
+    // `UICollectionViewFlowLayout` does not mirror itself for right-to-left languages, so the content
+    // always grows left→right. To make the pager read right-to-left we reverse the physical item order
+    // and translate between *logical* indices/progress (0 = first model) and *physical* content offsets.
+
+    private var usesRightToLeftPageLayout: Bool {
+        effectiveUserInterfaceLayoutDirection == .rightToLeft
+    }
+
+    private var arrangedModelIds: [String] {
+        let ids = models.map(\.id)
+        return usesRightToLeftPageLayout ? ids.reversed() : ids
+    }
+
+    private var maxPageProgress: CGFloat {
+        CGFloat(max(models.count - 1, 0))
+    }
+
+    private func physicalPage(forLogicalIndex index: Int) -> Int {
+        let logicalIndex = normalizeIndex(index)
+        if let item = dataSource?.indexPath(for: models[logicalIndex].id)?.item {
+            return item
+        }
+        return usesRightToLeftPageLayout ? models.count - 1 - logicalIndex : logicalIndex
+    }
+
+    private func contentOffsetX(forLogicalIndex index: Int) -> CGFloat {
+        CGFloat(physicalPage(forLogicalIndex: index)) * layoutGeometry.pageWidth
+    }
+
+    private func contentOffsetX(forLogicalProgress progress: CGFloat) -> CGFloat {
+        let logicalProgress = min(max(progress, 0), maxPageProgress)
+        let physicalProgress = usesRightToLeftPageLayout ? maxPageProgress - logicalProgress : logicalProgress
+        return physicalProgress * layoutGeometry.pageWidth
+    }
+
+    private func logicalProgress(forContentOffsetX offsetX: CGFloat) -> CGFloat {
+        let pageWidth = layoutGeometry.pageWidth
+        guard pageWidth > 0 else { return CGFloat(currentIndex) }
+        let physicalProgress = min(max(offsetX / pageWidth, 0), maxPageProgress)
+        return usesRightToLeftPageLayout ? maxPageProgress - physicalProgress : physicalProgress
     }
 
     private let animationDuration: TimeInterval = 0.35
@@ -373,8 +480,8 @@ extension NftDetailsPagerView: UICollectionViewDelegate {
         // Derive progress from the raw scroll offset rather than the stale `currentIndex`
         // so that fast multi-page swipes are reflected by the cover flow and background
         // on every frame, even before `currentIndex` is updated at the end of deceleration.
-        let rawIndex = offsetX / pageWidth
-        let leftIndex = normalizeIndex(Int(rawIndex))
+        let rawIndex = logicalProgress(forContentOffsetX: offsetX)
+        let leftIndex = normalizeIndex(Int(floor(rawIndex)))
         let rightIndex = normalizeIndex(leftIndex + 1)
         let frac = rawIndex - CGFloat(leftIndex)
 
@@ -410,7 +517,7 @@ extension NftDetailsPagerView: UICollectionViewDelegate {
     }
 
     private func handleScrollEnd(scrollView: UIScrollView) {
-        let pageIndex = normalizeIndex(Int(round(scrollView.contentOffset.x / layoutGeometry.pageWidth)))
+        let pageIndex = normalizeIndex(Int(round(logicalProgress(forContentOffsetX: scrollView.contentOffset.x))))
         guard pageIndex != currentIndex else { return }
 
         let newPageView = getOrCreatePageView(for: pageIndex)
@@ -480,8 +587,15 @@ extension NftDetailsPagerView {
         }
         
         private func isAtFirstPageEdge() -> Bool {
-            let minOffsetX = -adjustedContentInset.left
-            return contentOffset.x <= minOffsetX + 1
+            // The first (logical) page is the one the interactive back gesture should pop from. In RTL the
+            // physical page order is reversed, so that page sits at the *maximum* content offset, not the minimum.
+            if effectiveUserInterfaceLayoutDirection == .rightToLeft {
+                let maxOffsetX = contentSize.width + adjustedContentInset.right - bounds.width
+                return contentOffset.x >= maxOffsetX - 1
+            } else {
+                let minOffsetX = -adjustedContentInset.left
+                return contentOffset.x <= minOffsetX + 1
+            }
         }
         
         private func locationIsInLeadingEdgeStrip(_ x: CGFloat) -> Bool {

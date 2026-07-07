@@ -224,11 +224,15 @@ class LedgerSigner implements Signer {
   ) {}
 
   async signTonProof(proof: TonConnectProof) {
+    if (process.env.NO_LEDGER === '1') throw new Error('Ledger is disabled');
+
     const { signTonProofWithLedger } = await import('../ledger');
     return signTonProofWithLedger(this.network, this.wallet, proof);
   }
 
   async signTransactions(transactions: PreparedTransactionToSign[], isTonConnect?: boolean) {
+    if (process.env.NO_LEDGER === '1') throw new Error('Ledger is disabled');
+
     const { signTonTransactionsWithLedger } = await import('../ledger');
     return signTonTransactionsWithLedger(this.network, this.wallet, transactions, this.subwalletId, isTonConnect);
   }

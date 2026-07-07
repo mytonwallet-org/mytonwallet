@@ -20,6 +20,7 @@ import {
 } from './nfts';
 import { getIsLedgerAppOpen } from './other';
 import { setupActivePolling, setupInactivePolling } from './polling';
+import { buildOnchainSwapTransfer, submitOnchainSwapTransfer } from './swap';
 import { fetchToken, importToken } from './tokens';
 import { fetchTransactionById } from './transactionInfo';
 import {
@@ -29,7 +30,16 @@ import {
   submitGasfullTransfer,
   submitGaslessTransfer,
 } from './transfer';
-import { fetchBalances, getWalletBalance, verifyLedgerWalletAddress } from './wallet';
+import {
+  fetchBalances,
+  fetchWalletPlugins,
+  getWalletBalance,
+  verifyLedgerWalletAddress,
+} from './wallet';
+
+const notSupported = () => {
+  throw new Error('Not supported in TON');
+};
 
 const tonSdk: ChainSdk<'ton'> = {
   fetchActivitySlice,
@@ -49,6 +59,8 @@ const tonSdk: ChainSdk<'ton'> = {
   fetchEstimateDiesel,
   submitGasfullTransfer,
   submitGaslessTransfer,
+  buildOnchainSwapTransfer,
+  submitOnchainSwapTransfer,
   getAddressInfo: checkToAddress,
   getWalletBalance,
   getWalletAssets: fetchBalances,
@@ -67,6 +79,9 @@ const tonSdk: ChainSdk<'ton'> = {
   checkNftTransferDraft,
   submitNftTransfers,
   checkNftOwnership,
+  fetchWalletPermissions: notSupported,
+  revokeWalletPermission: notSupported,
+  fetchWalletPlugins,
 };
 
 export default tonSdk;

@@ -39,12 +39,12 @@ extension Api {
             return ApiSignDappProofResult(signatures: signatures)
         }
         if let error = response.error?.stringValue {
-            throw BridgeCallError.customMessage(error, response)
+            throw SdkError.apiReturnedError(error: error, context: response)
         }
         if let errorDict = response.error?.dictionaryValue, let message = errorDict["message"]?.stringValue {
-            throw BridgeCallError.customMessage(message, errorDict)
+            throw SdkError.apiReturnedError(error: message, context: errorDict)
         }
-        throw BridgeCallError.unknown(baseError: response)
+        throw SdkError.unexpected(message: "Invalid signDappProof response", context: response)
     }
     
     public static func signDappTransfers(dappChain: ApiDappSessionChain, accountId: String, messages: [ApiTransferToSign], options: ApiSignTransfersOptions?) async throws -> [ApiSignedTransfer] {
@@ -55,10 +55,10 @@ extension Api {
             options: options
         )
         if let mfaRequestHash = result.mfaRequestHash {
-            throw BridgeCallError.customMessage("Telegram confirmation is required: \(mfaRequestHash)", result)
+            throw SdkError.unexpected(message: "Telegram confirmation is required: \(mfaRequestHash)", context: result)
         }
         if let error = result.error {
-            throw BridgeCallError(message: error, payload: result)
+            throw SdkError.apiReturnedError(error: error, context: result)
         }
         return try result.signedTransfers.orThrow()
     }

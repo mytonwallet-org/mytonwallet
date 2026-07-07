@@ -1,6 +1,6 @@
 import Foundation
 
-public let STATE_VERSION: Int = 56
+public let STATE_VERSION: Int = 59
 
 private let log = Log("GlobalStorage+Migration")
 private let mainAccountId = "0-ton-mainnet"
@@ -260,6 +260,21 @@ extension GlobalStorage {
         if self.stateVersion == 55 {
             _migrateWalletTokensLimit()
             self.stateVersion = 56
+        }
+
+        if self.stateVersion == 56 {
+            _migrateOwnedMtwCardAddresses()
+            self.stateVersion = 57
+        }
+
+        if self.stateVersion == 57 {
+            _clearPortfolioNetChange()
+            self.stateVersion = 58
+        }
+
+        if self.stateVersion == 58 {
+            _clearActivities()
+            self.stateVersion = 59
         }
 
         assert(self.stateVersion == STATE_VERSION)
@@ -675,6 +690,31 @@ extension GlobalStorage {
         }
 
         update { $0["settings.byAccountId"] = settingsByAccountId }
+    }
+
+    private func _migrateOwnedMtwCardAddresses() {
+        var byAccountId = _nestedDicts("byAccountId")
+        guard !byAccountId.isEmpty else { return }
+
+        for accountId in Array(byAccountId.keys) {
+            guard var nfts = byAccountId[accountId]?["nfts"] as? [String: Any],
+                  nfts["ownedMtwCardAddresses"] != nil
+            else {
+                continue
+            }
+
+            nfts["ownedMwCardAddresses"] = nfts["ownedMtwCardAddresses"]
+            nfts["ownedMtwCardAddresses"] = nil
+            byAccountId[accountId]?["nfts"] = nfts
+        }
+
+        update { $0["byAccountId"] = byAccountId }
+    }
+
+    private func _clearPortfolioNetChange() {
+        guard var portfolio = self["portfolio"] as? [String: Any] else { return }
+        portfolio["netChangeByAccountId"] = nil
+        update { $0["portfolio"] = portfolio }
     }
 
     private func _int(_ value: Any?) -> Int? {

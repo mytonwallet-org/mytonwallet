@@ -32,6 +32,8 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             UIColor.white // FIXME: Doesn't work for white theme color
         case .destructive:
             .white
+        case .compactCapsule:
+            .label
         case .thickDestructiveCapsule:
             isEnabled ? .air.error : .air.secondaryLabel
         case .secondary, .clearBackground, .thickCapsule:
@@ -47,6 +49,12 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             .tintColor.withAlphaComponent(0.15)
         case .clearBackground:
             .clear
+        case .compactCapsule:
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                .clear
+            } else {
+                .air.secondaryFill
+            }
         case .thickDestructiveCapsule, .thickCapsule:
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
                 .clear
@@ -61,8 +69,17 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         Group {
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                if style == .compactCapsule {
+                    content(configuration: configuration)
+                        .glassEffect(Glass.regular.interactive(isEnabled), in: .capsule)
+                } else {
+                    content(configuration: configuration)
+                        .glassEffect(Glass.regular.tint(Color(backgroundColor)).interactive(isEnabled), in: .capsule)
+                }
+            } else if style == .compactCapsule {
                 content(configuration: configuration)
-                    .glassEffect(Glass.regular.tint(Color(backgroundColor)).interactive(isEnabled), in: .capsule)
+                    .background(Color(backgroundColor), in: .capsule)
+                    .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
             } else if useLegacyShadow {
                 content(configuration: configuration)
                     .background(Color(backgroundColor), in: .rect(cornerRadius: WButton.borderRadius))
@@ -87,6 +104,12 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             }
         })
         .allowsHitTesting(!isLoading)
+        .onAppear {
+            guard isLoading else { return }
+            withAnimation(.spring().delay(loadingIndicatorDelay)) {
+                isShowingLoadingIndicator = true
+            }
+        }
         .onChange(of: isLoading) { isLoading in
             withAnimation(.spring().delay(isLoading ? loadingIndicatorDelay : 0)) {
                 isShowingLoadingIndicator = isLoading
@@ -95,20 +118,61 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     }
     
     func content(configuration: Configuration) -> some View {
-        HStack  {
-            if !isShowingLoadingIndicator {
-                configuration.label
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            } else {
-                loadingIndicator
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            }
+        HStack {
+            labelContent(configuration: configuration)
         }
         .font(Font(WButton.font(for: style)))
         .foregroundStyle(Color(textColor))
         .opacity(isEnabled && isTouching ? 0.5 : 1)
-        .frame(height: IOS_26_MODE_ENABLED ? 52 : 50)
-        .frame(maxWidth: .infinity)
+        .frame(height: buttonHeight)
+        .applyModifierConditionally {
+            if style == .compactCapsule {
+                $0
+                    .padding(.horizontal, 18)
+                    .fixedSize(horizontal: true, vertical: false)
+            } else {
+                $0.frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var buttonHeight: CGFloat {
+        if style == .compactCapsule {
+            return WButton.compactHeight
+        } else {
+            return IOS_26_MODE_ENABLED ? 52 : WButton.defaultHeight
+        }
+    }
+
+    @ViewBuilder
+    private func labelContent(configuration: Configuration) -> some View {
+        if style == .compactCapsule {
+            ZStack {
+                styledLabel(configuration: configuration)
+                    .opacity(isShowingLoadingIndicator ? 0 : 1)
+                if isShowingLoadingIndicator {
+                    loadingIndicator
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
+            }
+        } else if !isShowingLoadingIndicator {
+            styledLabel(configuration: configuration)
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+        } else {
+            loadingIndicator
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+        }
+    }
+
+    @ViewBuilder
+    private func styledLabel(configuration: Configuration) -> some View {
+        if style == .compactCapsule {
+            configuration.label
+                .labelStyle(WUICompactButtonLabelStyle())
+                .lineLimit(1)
+        } else {
+            configuration.label
+        }
     }
     
     var loadingIndicator: some View {
@@ -116,9 +180,21 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     }
 }
 
+private struct WUICompactButtonLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 24, height: 22)
+            configuration.title
+        }
+    }
+}
+
 public extension PrimitiveButtonStyle where Self == WUIButtonStyle {
     static var airPrimary: WUIButtonStyle { WUIButtonStyle(style: .primary) }
     static var airSecondary: WUIButtonStyle { WUIButtonStyle(style: .secondary) }
+    static var airCompactCapsule: WUIButtonStyle { WUIButtonStyle(style: .compactCapsule) }
     static var airSecondaryDestructive: WUIButtonStyle {  WUIButtonStyle(style: .thickDestructiveCapsule) }
     static var airClearBackground: WUIButtonStyle { WUIButtonStyle(style: .clearBackground) }
     
@@ -157,9 +233,12 @@ public extension EnvironmentValues {
 
 @available(iOS 17.0, *)
 #Preview("All Styles") {
+    @Previewable @State var isLoading = true
+    
     let styles: [(String, WUIButtonStyle)] = [
         ("Primary", .airPrimary),
         ("Secondary", .airSecondary),
+        ("Compact Capsule", .airCompactCapsule),
         ("Secondary Destructive", .airSecondaryDestructive),
         ("Secondary Destructive Shadow", .airSecondaryDestructive.withLegacyShadow()),
         ("Clear", .airClearBackground),
@@ -178,9 +257,19 @@ public extension EnvironmentValues {
                         Button(action: {}) { Text("Enabled") }
                             .buttonStyle(style)
 
+                        Button(action: {}) {
+                            Label("Icon", systemImage: "plus.square.on.square")
+                        }
+                        .buttonStyle(style)
+
                         Button(action: {}) { Text("Disabled") }
                             .buttonStyle(style)
                             .disabled(true)
+                        
+                        Button(action: {}) { Text("Loading") }
+                            .buttonStyle(style)
+                            .disabled(true)
+                            .environment(\.isLoading, isLoading)
                     }
                     .padding(.horizontal)
                 }

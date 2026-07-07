@@ -1,9 +1,9 @@
+import LovelyChart from 'lovely-chart';
 import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import { NEW_CHARTS_ENABLED, SHORT_CURRENCY_SYMBOL_MAP } from '../config';
-import LovelyChart from '../../lib/LovelyChart/LovelyChart';
 
-import '../../lib/LovelyChart/LovelyChart.css';
+import 'lovely-chart/LovelyChart.css';
 import styles from './ChartPage.module.scss';
 
 // Mirrors DEFAULT_COLORS from the LovelyChart lib so we can pre-assign palette
@@ -102,7 +102,7 @@ function renderChart(
       values: ds.points.map((p: number[]) => (!shouldClampDust || p[1] >= MIN_VALUE ? p[1] : 0)),
     }));
 
-    LovelyChart.create(container, {
+    new LovelyChart(container, {
       title,
       type: chartType,
       labelType: 'day',
@@ -121,7 +121,7 @@ function renderChart(
     const labels = data.points.map((p: number[]) => p[0] * 1000);
     const values = data.points.map((p: number[]) => p[1]);
 
-    LovelyChart.create(container, {
+    new LovelyChart(container, {
       title,
       type: chartType,
       labelType: 'day',

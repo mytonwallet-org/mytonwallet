@@ -29,6 +29,13 @@
     {
       "target" : {
         "containerPath" : "container:..\/Air",
+        "identifier" : "UIComponentsTests",
+        "name" : "UIComponentsTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
         "identifier" : "UISwapTests",
         "name" : "UISwapTests"
       }

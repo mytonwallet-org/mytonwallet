@@ -1,6 +1,5 @@
 //
 //  WBlurView.swift
-//  MyTonWalletAir
 //
 //  Created by Sina on 11/26/24.
 //

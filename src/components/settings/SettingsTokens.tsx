@@ -13,7 +13,7 @@ import { stopEvent } from '../../util/domEvents';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import getDeterministicRandom from '../../util/getDeterministicRandom';
 import { buildCollectionByKey } from '../../util/iteratees';
-import getTokenName from '../main/helpers/getTokenName';
+import { getIsRwaStockToken, getTokenName } from '../../util/tokens';
 
 import useInfiniteScroll from '../../hooks/useInfiniteScroll';
 import useLang from '../../hooks/useLang';
@@ -152,6 +152,7 @@ function SettingsTokens({
           <TokenTitle
             tokenName={tokenName}
             tokenLabel={token.label}
+            isRwaStock={getIsRwaStockToken(token)}
             isPinned={isPinned}
           />
           <div className={styles.tokenDescription}>

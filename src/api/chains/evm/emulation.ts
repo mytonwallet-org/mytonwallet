@@ -205,6 +205,7 @@ export async function parseTransactionForPreview(
             swapFee: '0',
             status: 'completed',
             hashes: [],
+            transactionIds: {},
           })],
           realFee: feeForActivity,
         };

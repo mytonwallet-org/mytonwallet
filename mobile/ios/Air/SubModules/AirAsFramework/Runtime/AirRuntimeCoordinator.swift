@@ -16,8 +16,10 @@ final class AirRuntimeCoordinator: NSObject {
 
     private var nextDeeplink: Deeplink?
     private var nextNotification: UNNotification?
+    private var nextSystemActions: [AirSystemAction] = []
     private var _isWalletReady = false
     private var didSchedulePushPermissionRequest = false
+    private var startupImportError: Error?
 
     #if DEBUG
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
@@ -27,13 +29,19 @@ final class AirRuntimeCoordinator: NSObject {
         super.init()
         lockCoordinator.onUnlock = { [weak self] in
             self?.flushPendingActionsIfPossible()
+            self?.presentStartupImportErrorIfNeeded()
         }
     }
 
     func start() {
         WalletContextManager.delegate = self
+        if #available(iOS 18.4, *) {
+            TokenSpotlightIndexer.shared.start()
+        }
         TonConnect.shared.start()
         StartupTrace.mark("splash.tonConnect.start")
+        WalletConnect.shared.start()
+        StartupTrace.mark("splash.walletConnect.start")
         InAppBrowserSupport.shared.start()
         StartupTrace.mark("splash.inAppBrowserSupport.start")
         LocaleManager.rootViewController = { _ in
@@ -50,8 +58,13 @@ final class AirRuntimeCoordinator: NSObject {
         startupCoordinator.beginLaunch()
     }
 
-    func walletCoreBootstrapDidFinish() {
+    func walletCoreBootstrapDidFinish() async {
+        #if DEBUG && targetEnvironment(simulator)
+        startupImportError = await AppWalletsExport.runStartupImportIfConfigured()
+        #endif
+        
         startupCoordinator.walletCoreBootstrapDidFinish()
+        presentStartupImportErrorIfNeeded()
     }
 
     func lockApp(animated: Bool) {
@@ -61,9 +74,19 @@ final class AirRuntimeCoordinator: NSObject {
     func reset() {
         nextDeeplink = nil
         nextNotification = nil
+        nextSystemActions.removeAll()
         _isWalletReady = false
         didSchedulePushPermissionRequest = false
+        startupImportError = nil
         lockCoordinator.reset()
+    }
+
+    private func presentStartupImportErrorIfNeeded() {
+        guard let error = startupImportError else { return }
+        guard lockCoordinator.isAppUnlocked else { return }
+        guard topViewController() != nil else { return }
+        startupImportError = nil
+        AppActions.showError(error: error)
     }
 
     func handle(url: URL, source: DeeplinkOpenSource = .generic) -> Bool {
@@ -72,6 +95,14 @@ final class AirRuntimeCoordinator: NSObject {
 
     func handle(notification: UNNotification) {
         handleNotification(notification)
+    }
+
+    func handle(systemAction: AirSystemAction) {
+        if isWalletReady, lockCoordinator.isAppUnlocked {
+            perform(systemAction)
+        } else {
+            nextSystemActions.append(systemAction)
+        }
     }
 
     private func flushPendingActionsIfPossible() {
@@ -89,6 +120,199 @@ final class AirRuntimeCoordinator: NSObject {
                 self.handleNotification(nextNotification)
             }
         }
+        if !nextSystemActions.isEmpty {
+            let actions = nextSystemActions
+            nextSystemActions.removeAll()
+            DispatchQueue.main.async {
+                for action in actions {
+                    self.perform(action)
+                }
+            }
+        }
+    }
+
+    private func perform(_ systemAction: AirSystemAction) {
+        guard AccountStore.account != nil else { return }
+
+        switch systemAction {
+        case .scanQR:
+            AppActions.scanAndHandleQR(accountContext: AccountContext(source: .current))
+        case let .openReceive(accountId, chain):
+            Task {
+                await openReceive(accountId: accountId, chain: chain)
+            }
+        case let .openToken(accountId, tokenSlug):
+            Task {
+                await openToken(accountId: accountId, tokenSlug: tokenSlug)
+            }
+        case let .sendToken(accountId, recipient, tokenSlug, amount, comment):
+            Task {
+                await sendToken(
+                    accountId: accountId,
+                    recipient: recipient,
+                    tokenSlug: tokenSlug,
+                    amount: amount,
+                    comment: comment
+                )
+            }
+        }
+    }
+
+    private func openReceive(accountId: String?, chain chainRawValue: String?) async {
+        let account: MAccount
+
+        if let accountId, accountId != AccountStore.accountId {
+            do {
+                account = try await AccountStore.activateAccount(accountId: accountId)
+            } catch {
+                return
+            }
+        } else if let currentAccount = AccountStore.account {
+            account = currentAccount
+        } else {
+            return
+        }
+
+        let requestedChain = chainRawValue.flatMap(ApiChain.init(rawValue:))
+        let chain = account.supports(chain: requestedChain) ? requestedChain : nil
+        AppActions.showReceive(accountContext: AccountContext(source: .current), chain: chain)
+    }
+
+    private func openToken(accountId: String?, tokenSlug: String) async {
+        guard await activateAccountIfNeeded(accountId: accountId) != nil else { return }
+        guard let token = TokenStore.getToken(slug: tokenSlug) ?? ApiChain.allCases.first(where: { $0.nativeToken.slug == tokenSlug })?.nativeToken else { return }
+        AppActions.showToken(accountSource: .current, token: token, isInModal: false)
+    }
+
+    private func sendToken(
+        accountId: String?,
+        recipient: AirSendTokenRecipient?,
+        tokenSlug: String?,
+        amount: Double?,
+        comment: String?
+    ) async {
+        guard let account = await activateAccountIfNeeded(accountId: accountId) else { return }
+
+        let accountContext = accountId == nil
+            ? AccountContext(source: .current)
+            : AccountContext(accountId: account.id)
+        let selectedToken = tokenSlug
+            .flatMap(TokenStore.getToken(slug:))
+            .flatMap { account.supports(chain: $0.chain) ? $0 : nil }
+        let recipientToken = tokenForRecipient(recipient, senderAccount: account, selectedToken: selectedToken, accountContext: accountContext)
+        let amountToken = selectedToken ?? amount.flatMap { _ in bestToken(accountContext: accountContext) }
+        let amountValue = amount
+            .flatMap { $0 > 0 ? $0 : nil }
+            .flatMap { amount in amountToken.map { doubleToBigInt(amount, decimals: $0.decimals) } }
+        let prefilledToken = selectedToken ?? (amountValue == nil ? recipientToken : amountToken)
+        let address = addressOrDomain(for: recipient, token: prefilledToken)
+
+        AppActions.showSend(
+            accountContext: accountContext,
+            prefilledValues: SendPrefilledValues(
+                address: address,
+                amount: amountValue,
+                token: prefilledToken?.slug,
+                commentOrMemo: comment?.nilIfEmpty
+            )
+        )
+    }
+
+    private func tokenForRecipient(
+        _ recipient: AirSendTokenRecipient?,
+        senderAccount: MAccount,
+        selectedToken: ApiToken?,
+        accountContext: AccountContext
+    ) -> ApiToken? {
+        guard let recipient else { return nil }
+
+        if let selectedToken {
+            return selectedToken
+        }
+
+        switch recipient.kind {
+        case .account:
+            guard let accountId = recipient.accountId, let recipientAccount = AccountStore.accountsById[accountId] else {
+                return nil
+            }
+            if let bestToken = bestToken(accountContext: accountContext), recipientAccount.supports(chain: bestToken.chain) {
+                return bestToken
+            }
+            return senderAccount.supportedChains
+                .first { recipientAccount.supports(chain: $0) }
+                .map(TokenStore.getNativeToken(chain:))
+        case .savedAddress:
+            guard let chain = recipient.chain.flatMap(ApiChain.init(rawValue:)), senderAccount.supports(chain: chain) else {
+                return nil
+            }
+            return TokenStore.getNativeToken(chain: chain)
+        case .rawAddressOrDomain:
+            return nil
+        }
+    }
+
+    private func addressOrDomain(for recipient: AirSendTokenRecipient?, token: ApiToken?) -> String? {
+        guard let recipient else { return nil }
+
+        switch recipient.kind {
+        case .account:
+            guard
+                let accountId = recipient.accountId,
+                let token,
+                let account = AccountStore.accountsById[accountId],
+                account.supports(chain: token.chain)
+            else {
+                return nil
+            }
+            return account.getAddress(chain: token.chain)?.nilIfEmpty
+        case .savedAddress:
+            guard
+                let addressOrDomain = recipient.addressOrDomain?.nilIfEmpty,
+                let chain = recipient.chain.flatMap(ApiChain.init(rawValue:))
+            else {
+                return nil
+            }
+            if let token, token.chain != chain {
+                return nil
+            }
+            return addressOrDomain
+        case .rawAddressOrDomain:
+            return recipient.addressOrDomain?.nilIfEmpty
+        }
+    }
+
+    private func activateAccountIfNeeded(accountId: String?) async -> MAccount? {
+        guard let accountId, accountId != AccountStore.accountId else {
+            return AccountStore.account
+        }
+
+        do {
+            return try await AccountStore.activateAccount(accountId: accountId)
+        } catch {
+            return nil
+        }
+    }
+
+    private func bestToken(accountContext: AccountContext) -> ApiToken? {
+        let account = accountContext.account
+        let preferredTokenSlug = ApiToken.defaultSlugs(forNetwork: account.network, account: account).first ?? TONCOIN_SLUG
+        var maxBalance: Double = 0
+        var tokens: [String: Double] = [:]
+
+        for (tokenSlug, balance) in accountContext.balances {
+            let tokenBalance = MTokenBalance(tokenSlug: tokenSlug, balance: balance, isStaking: false)
+            guard let baseCurrencyBalance = tokenBalance.toBaseCurrency, baseCurrencyBalance > 0 else { continue }
+            maxBalance = max(maxBalance, baseCurrencyBalance)
+            tokens[tokenSlug] = baseCurrencyBalance
+        }
+
+        let mostValuableTokenSlugs = tokens.filter { _, value in value == maxBalance }.keys.sorted()
+        let tokenSlug = if let first = mostValuableTokenSlugs.first, !mostValuableTokenSlugs.contains(preferredTokenSlug) {
+            first
+        } else {
+            preferredTokenSlug
+        }
+        return TokenStore.getToken(slug: tokenSlug)
     }
 }
 
@@ -102,6 +326,10 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
         if isReady {
             StartupTrace.markOnce("wallet.ready", details: "source=AirRuntimeCoordinator")
             flushPendingActionsIfPossible()
+            presentStartupImportErrorIfNeeded()
+            if #available(iOS 18.4, *) {
+                TokenSpotlightIndexer.shared.reindexSoon()
+            }
             if !didSchedulePushPermissionRequest {
                 didSchedulePushPermissionRequest = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -185,8 +413,8 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             case .portfolio:
                 AppActions.showPortfolio(accountContext: accountContext)
 
-            case .url(let config):
-                AppActions.openInBrowser(config.url, title: config.title, injectDappConnect: config.injectDappConnect)
+            case .url(let url, let title, let injectDappConnect):
+                AppActions.openInBrowser(url, title: title, injectDappConnect: injectDappConnect)
 
             case .switchToClassic:
                 WalletContextManager.delegate?.switchToCapacitor()
@@ -298,47 +526,56 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
     }
 
     @MainActor private func _handleNotification(_ notification: UNNotification) async throws {
-        let userInfo = notification.request.content.userInfo
-        let action = userInfo["action"] as? String
-        let address = userInfo["address"] as? String ?? ""
-        guard let chain = ApiChain(rawValue: userInfo["chain"] as? String ?? "") else { return }
-        let accountId = AccountStore.orderedAccounts.first(where: { $0.getAddress(chain: chain) == address })?.id
-        if action == "openUrl" {
-            if let urlString = userInfo["url"] as? String, let url = URL(string: urlString) {
-                if userInfo["isExternal"] as? Bool == true {
-                    await UIApplication.shared.open(url)
-                } else {
-                    AppActions.openInBrowser(url, title: userInfo["title"] as? String, injectDappConnect: true)
-                }
-            }
+        let payload = PushNotificationPayload(userInfo: notification.request.content.userInfo)
+        let accountId = payload.address.flatMap { address in
+            AccountStore.orderedAccounts.first { $0.getAddress(chain: payload.chain) == address }?.id
+        }
+
+        if payload.action == .openUrl {
+            try await handleOpenUrlNotification(payload, accountId: accountId)
             return
         }
 
         guard let accountId else { return }
-        switch action {
-        case "nativeTx", "swap":
-            if chain.isSupported, let txId = userInfo["txId"] as? String {
-                AppActions.showAnyAccountTx(accountId: accountId, chain: chain, txId: txId, showError: false)
+        switch payload.action {
+        case .nativeTx, .swap:
+            if payload.chain.isSupported, let txId = payload.txId {
+                AppActions.showAnyAccountTx(accountId: accountId, chain: payload.chain, txId: txId, showError: false)
             }
-        case "jettonTx":
-            if chain.isSupported, let txId = userInfo["txId"] as? String {
-                AppActions.showAnyAccountTx(accountId: accountId, chain: chain, txId: txId, showError: false)
-            } else if let slug = userInfo["slug"] as? String {
+        case .jettonTx:
+            if payload.chain.isSupported, let txId = payload.txId {
+                AppActions.showAnyAccountTx(accountId: accountId, chain: payload.chain, txId: txId, showError: false)
+            } else if let slug = payload.slug {
                 try await AccountStore.activateAccount(accountId: accountId)
                 AppActions.showTokenBySlug(slug)
             }
-        case "staking":
-            if let stakingId = userInfo["stakingId"] as? String {
+        case .staking:
+            if let stakingId = payload.stakingId {
                 try await AccountStore.activateAccount(accountId: accountId)
                 AppActions.showEarn(accountContext: AccountContext(accountId: accountId), tokenSlug: stakingId)
             }
-        case "expiringDns":
+        case .expiringDns:
             try await AccountStore.activateAccount(accountId: accountId)
-            if let domainAddress = userInfo["domainAddress"] as? String {
+            if let domainAddress = payload.domainAddress {
                 AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [domainAddress])
             }
         default:
             break
+        }
+    }
+
+    private func handleOpenUrlNotification(_ payload: PushNotificationPayload, accountId: String?) async throws {
+        guard let url = payload.url else { return }
+        if let accountId {
+            try await AccountStore.activateAccount(accountId: accountId)
+        }
+        if deeplinkHandler.handle(url) {
+            return
+        }
+        if payload.isExternal || url.isTelegramURL {
+            await UIApplication.shared.open(url)
+        } else {
+            AppActions.openInBrowser(url, title: payload.title, injectDappConnect: true)
         }
     }
 }

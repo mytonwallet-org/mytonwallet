@@ -10,6 +10,10 @@ window.addEventListener('message', handlePageMessage);
 connectPort();
 
 function handlePageMessage(e: MessageEvent) {
+  if (e.source !== window || e.origin !== window.location.origin) {
+    return;
+  }
+
   if (e.data?.channel === PAGE_CONNECTOR_CHANNEL) {
     sendToPort(e.data);
   }

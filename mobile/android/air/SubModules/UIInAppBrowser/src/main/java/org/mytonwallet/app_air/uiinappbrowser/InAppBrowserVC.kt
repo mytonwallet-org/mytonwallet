@@ -52,6 +52,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.isBrightColor
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -63,7 +64,6 @@ import org.mytonwallet.app_air.walletcore.models.IInAppBrowser
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import java.net.URL
 import java.net.URLEncoder
@@ -306,15 +306,13 @@ class InAppBrowserVC(
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                if (url != null && handleStartedCustomSchemeNavigation(view, url)) {
+                    return
+                }
                 applyTopBarColorInitial()
                 if (config.injectDarkModeStyles)
                     IABDarkModeStyleHelpers.applyOn(webView)
-                injectedInterface?.let {
-                    webView.evaluateJavascript(TonConnectHelper.injectBridge(), null)
-                    webView.evaluateJavascript(TonConnectHelper.inject(), null)
-                    webView.evaluateJavascript(WalletConnectHelper.inject(), null)
-                    webView.evaluateJavascript(EvmConnectHelper.inject(), null)
-                }
+                injectDappConnectBridge()
                 super.onPageStarted(view, url, favicon)
             }
 
@@ -325,6 +323,7 @@ class InAppBrowserVC(
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                injectDappConnectBridge()
                 if (shouldClearHistoryOnLoad) {
                     shouldClearHistoryOnLoad = false
                     webView.clearHistory()
@@ -346,75 +345,6 @@ class InAppBrowserVC(
                 }
             }
 
-            private fun shouldOverride(url: String): Boolean {
-                val scheme = url.toUriOrNull()?.scheme?.lowercase() ?: return false
-
-                when (scheme) {
-                    "intent" -> return true
-
-                    "tel" -> {
-                        try {
-                            val intent = Intent(Intent.ACTION_DIAL)
-                            intent.data = url.toUri()
-                            window?.startActivity(intent)
-                            return true
-                        } catch (_: android.content.ActivityNotFoundException) {
-                        }
-                    }
-
-                    "geo", "mailto", "market", "tg" -> {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW)
-                            intent.data = url.toUri()
-                            window?.startActivity(intent)
-                            return true
-                        } catch (_: android.content.ActivityNotFoundException) {
-                        }
-                    }
-
-                    "sms" -> {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW)
-                            var address: String? = null
-                            val parmIndex = url.indexOf('?')
-
-                            address = if (parmIndex == -1) {
-                                url.substring(4)
-                            } else {
-                                url.substring(4, parmIndex).also {
-                                    val uri = url.toUriOrNull()
-                                    val query = uri?.query
-                                    if (query != null && query.startsWith("body=")) {
-                                        intent.putExtra("sms_body", query.substring(5))
-                                    }
-                                }
-                            }
-
-                            intent.setDataAndType(
-                                "sms:$address".toUriOrNull(),
-                                "vnd.android-dir/mms-sms"
-                            )
-                            intent.putExtra("address", address)
-                            window?.startActivity(intent)
-                            return true
-                        } catch (_: android.content.ActivityNotFoundException) {
-                        }
-                    }
-
-                    "http" -> return true
-
-                    "https" -> {}
-
-                    else -> {
-                        val isValidDeeplink =
-                            WalletContextManager.delegate?.get()?.handleDeeplink(url)
-                        if (isValidDeeplink == true)
-                            return true
-                    }
-                }
-
-                return false
-            }
         })
         if (config.allowDownloads)
             wv.setDownloadListener { url, _, _, _, _ ->
@@ -435,7 +365,9 @@ class InAppBrowserVC(
                 val href = view?.handler?.obtainMessage()
                 view?.requestFocusNodeHref(href)
                 href?.data?.getString("url")?.let { url ->
-                    webView.loadUrl(url)
+                    if (!shouldOverride(url)) {
+                        webView.loadUrl(url)
+                    }
                 }
                 return true
             }
@@ -504,6 +436,92 @@ class InAppBrowserVC(
             } else null
         } catch (_: Throwable) {
             null
+        }
+    }
+
+    private fun handleStartedCustomSchemeNavigation(view: WebView?, url: String): Boolean {
+        val scheme = url.toUriOrNull()?.scheme?.lowercase(Locale.US) ?: return false
+        if (scheme == "http" || scheme == "https") {
+            return false
+        }
+        if (!shouldOverride(url)) {
+            return false
+        }
+
+        view?.stopLoading()
+        return true
+    }
+
+    private fun shouldOverride(url: String): Boolean {
+        return when (InAppBrowserUrlRoutingDecision.resolve(url, ::handleInAppBrowserDeeplink)) {
+            InAppBrowserUrlRoutingDecision.ALLOW_WEB_VIEW -> false
+            InAppBrowserUrlRoutingDecision.CONSUME -> true
+            InAppBrowserUrlRoutingDecision.OPEN_DIAL_INTENT -> openDialIntent(url)
+            InAppBrowserUrlRoutingDecision.OPEN_SMS_INTENT -> openSmsIntent(url)
+            InAppBrowserUrlRoutingDecision.OPEN_SYSTEM_VIEW_INTENT -> openSystemViewIntent(url)
+        }
+    }
+
+    private fun injectDappConnectBridge() {
+        injectedInterface?.let {
+            webView.evaluateJavascript(TonConnectHelper.injectBridge(), null)
+            webView.evaluateJavascript(TonConnectHelper.inject(), null)
+            webView.evaluateJavascript(WalletConnectHelper.inject(), null)
+            webView.evaluateJavascript(EvmConnectHelper.inject(), null)
+        }
+    }
+
+    private fun handleInAppBrowserDeeplink(url: String, source: DeeplinkOpenSource): Boolean {
+        return WalletContextManager.delegate?.get()?.handleDeeplink(url, source) == true
+    }
+
+    private fun openDialIntent(url: String): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_DIAL)
+            intent.data = url.toUri()
+            window?.startActivity(intent)
+            true
+        } catch (_: android.content.ActivityNotFoundException) {
+            false
+        }
+    }
+
+    private fun openSystemViewIntent(url: String): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.data = url.toUri()
+            window?.startActivity(intent)
+            true
+        } catch (_: android.content.ActivityNotFoundException) {
+            false
+        }
+    }
+
+    private fun openSmsIntent(url: String): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW)
+            val parmIndex = url.indexOf('?')
+            val address = if (parmIndex == -1) {
+                url.substring(4)
+            } else {
+                url.substring(4, parmIndex).also {
+                    val uri = url.toUriOrNull()
+                    val query = uri?.query
+                    if (query != null && query.startsWith("body=")) {
+                        intent.putExtra("sms_body", query.substring(5))
+                    }
+                }
+            }
+
+            intent.setDataAndType(
+                "sms:$address".toUriOrNull(),
+                "vnd.android-dir/mms-sms"
+            )
+            intent.putExtra("address", address)
+            window?.startActivity(intent)
+            true
+        } catch (_: android.content.ActivityNotFoundException) {
+            false
         }
     }
 
@@ -995,6 +1013,15 @@ class InAppBrowserVC(
         }
     }
 
+    private fun emitDappDisconnectEvent(origin: String?) {
+        if (origin == null) return
+        val targetOrigin = normalizeOrigin(origin)
+        if (targetOrigin.isEmpty()) return
+        val pageOrigin = normalizeOrigin(webView.url ?: config.url)
+        if (pageOrigin != targetOrigin) return
+        webView.evaluateJavascript(TonConnectHelper.emitDappDisconnectEventJs(), null)
+    }
+
     private fun normalizeOrigin(uri: Uri?): String {
         if (uri == null) {
             return ""
@@ -1122,15 +1149,11 @@ class InAppBrowserVC(
                 injectedInterface?.updateAccountId(accountId)
             }
 
-            is WalletEvent.DappRemoved -> {
-                if (config.url.removeSuffix("/") == walletEvent.dapp.url) {
-                    webView.loadUrl(config.url)
+            is WalletEvent.DappDisconnect -> {
+                if (walletEvent.accountId == AccountStore.activeAccountId) {
+                    emitDappDisconnectEvent(walletEvent.origin)
                 }
             }
-
-            WalletEvent.DappsCountUpdated ->
-                if (DappsStore.dApps[AccountStore.activeAccountId].isNullOrEmpty())
-                    webView.loadUrl(config.url)
 
             else -> {}
         }

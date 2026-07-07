@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
@@ -28,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
+import org.mytonwallet.app_air.uiassets.viewControllers.views.MultisigWalletWarningView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
@@ -89,12 +91,14 @@ class ActivityListView<T>(
         val SKELETON_HEADER_CELL = WCell.Type(9)
         val SKELETON_CELL = WCell.Type(10)
         val TABLET_ASSETS_SKELETON_CELL = WCell.Type(11)
+        val MULTISIG_WARNING_CELL = WCell.Type(12)
 
         const val HEADER_SECTION = 0
-        const val ASSETS_SECTION = 1
-        const val TRANSACTION_SECTION = 2
-        const val EMPTY_VIEW_SECTION = 3
-        const val LOADING_SECTION = 4
+        const val MULTISIG_WARNING_SECTION = 1
+        const val ASSETS_SECTION = 2
+        const val TRANSACTION_SECTION = 3
+        const val EMPTY_VIEW_SECTION = 4
+        const val LOADING_SECTION = 5
 
         const val LARGE_INT = 10000
     }
@@ -526,6 +530,7 @@ class ActivityListView<T>(
             arrayOf(
                 HEADER_CELL,
                 ACTIONS_CELL,
+                MULTISIG_WARNING_CELL,
                 ASSETS_CELL,
                 TRANSACTION_CELL,
                 TRANSACTION_SMALL_CELL,
@@ -586,6 +591,31 @@ class ActivityListView<T>(
 
     val stickyCells = setOf(headerCell, actionsCell)
     var assetsCell: IHomeAssetsCell? = null
+
+    private val showMultisigWarning: Boolean
+        get() {
+            val account = AccountStore.accountById(showingAccountId) ?: return false
+            return account.isMultisig && !account.isViewOnly
+        }
+    private val multisigWarningCell: WCell by lazy {
+        WCell(
+            context, ViewGroup.LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            )
+        ).apply {
+            val banner = MultisigWalletWarningView(context)
+            addView(
+                banner,
+                LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            )
+            setConstraints {
+                toTop(banner)
+                toCenterX(banner)
+                toBottom(banner, ViewConstants.GAP.toFloat())
+            }
+        }
+    }
 
     // Owns the home assets ViewControllers so they survive a phone<->tablet cell swap (see
     // HomeAssetsVCPool). Created on first cell build; destroyed once in onDestroy. Per-ActivityListView
@@ -989,6 +1019,7 @@ class ActivityListView<T>(
     private fun reloadTransactions() {
         val startInt =
             recyclerViewNumberOfItems(recyclerView, HEADER_SECTION) +
+                recyclerViewNumberOfItems(recyclerView, MULTISIG_WARNING_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, ASSETS_SECTION)
         val count =
             recyclerViewNumberOfItems(recyclerView, TRANSACTION_SECTION) +
@@ -1002,7 +1033,7 @@ class ActivityListView<T>(
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
         return when (rv) {
             recyclerView -> {
-                if (isGeneralDataAvailable) 5 else 1
+                if (isGeneralDataAvailable) 6 else 1
             }
 
             skeletonRecyclerView -> {
@@ -1025,6 +1056,8 @@ class ActivityListView<T>(
                     HEADER_SECTION -> {
                         if (showActions) 2 else 1
                     }
+
+                    MULTISIG_WARNING_SECTION -> if (showMultisigWarning) 1 else 0
 
                     ASSETS_SECTION -> if (dataSource?.activityListReserveAssetsCell() == false) 0 else 2
 
@@ -1069,6 +1102,10 @@ class ActivityListView<T>(
                             HEADER_CELL
                         else
                             ACTIONS_CELL
+                    }
+
+                    MULTISIG_WARNING_SECTION -> {
+                        MULTISIG_WARNING_CELL
                     }
 
                     ASSETS_SECTION -> {
@@ -1146,6 +1183,10 @@ class ActivityListView<T>(
                         actionsCell
                     }
 
+                    MULTISIG_WARNING_CELL -> {
+                        multisigWarningCell
+                    }
+
                     ASSETS_CELL -> {
                         if (assetsCell == null)
                             assetsCell = createAssetsCell(dataSource)
@@ -1158,6 +1199,7 @@ class ActivityListView<T>(
                             withoutTagAndComment = false,
                             isFirstInDay = null
                         )
+                        cell.allowNftMenu = true
                         cell.onTap = { transaction ->
                             delegate?.onTransactionTap(showingAccountId!!, transaction)
                         }
@@ -1170,6 +1212,7 @@ class ActivityListView<T>(
                             withoutTagAndComment = true,
                             isFirstInDay = false
                         )
+                        cell.allowNftMenu = true
                         cell.onTap = { transaction ->
                             delegate?.onTransactionTap(showingAccountId!!, transaction)
                         }
@@ -1182,6 +1225,7 @@ class ActivityListView<T>(
                             withoutTagAndComment = true,
                             isFirstInDay = true
                         )
+                        cell.allowNftMenu = true
                         cell.onTap = { transaction ->
                             delegate?.onTransactionTap(showingAccountId!!, transaction)
                         }
@@ -1260,6 +1304,10 @@ class ActivityListView<T>(
                         }
                         (cellHolder.cell as? WThemedView)?.updateTheme()
                         return
+                    }
+
+                    MULTISIG_WARNING_SECTION -> {
+                        (cellHolder.cell.getChildAt(0) as? WThemedView)?.updateTheme()
                     }
 
                     ASSETS_SECTION -> {

@@ -1,6 +1,5 @@
 //
 //  AssetsTabVC.swift
-//  MyTonWalletAir
 //
 //  Created by Sina on 10/24/24.
 //
@@ -28,6 +27,10 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         },
         onReorder: { [weak self] in
             self?.onSegmentsReorder()
+        },
+        onSelectTab: { [weak self] tab in
+            guard let self else { return }
+            show(accountSource: accountSource, tab: tab, animated: true)
         },
         includesTokenLimitActions: false
     )
@@ -112,8 +115,8 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         segmentedController.blurView.isHidden = true
         
         updateState()
-        configureNavigationItemWithTransparentBackground()
-        addCustomNavigationBarBackground()
+
+        addCustomNavigationBarBackground(color: .air.pickerBackground)
         segmentedController.segmentedControl.embed(in: navigationItem)
         
         view.backgroundColor = .air.pickerBackground
@@ -250,22 +253,30 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
             
     private func updateNavigationAppearance() {
         let navigator = nftsVCManager.editingNavigator
+        
+        var leadingItemGroups: [UIBarButtonItemGroup] = []
+        var trailingItemGroups: [UIBarButtonItemGroup] = []
+        var setCloseButton: Bool = false
         if let editingState = navigator.state.editingState {
             segmentedController.scrollView.isScrollEnabled = false
-            navigationItem.rightBarButtonItem = navigator.commitEditingBarButtonItem
             switch editingState {
             case .reordering:
                 segmentedController.segmentedControl?.isHidden = false
-                navigationItem.leftBarButtonItem = navigator.cancelEditingBarButtonItem
+                leadingItemGroups += navigator.cancelEditingBarButtonItem.asSingleItemGroup()
+                trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
             case .selection:
                 segmentedController.segmentedControl?.isHidden = true
-                navigationItem.leftBarButtonItem = navigator.selectAllBarButtonItem
+                leadingItemGroups += navigator.selectAllBarButtonItem.asSingleItemGroup()
+                trailingItemGroups += navigator.cancelXEditingBarButtonItem.asSingleItemGroup()
             }
         } else {
             segmentedController.scrollView.isScrollEnabled = true
             segmentedController.segmentedControl?.isHidden = false
-            navigationItem.leftBarButtonItem = nil
-            navigationItem.rightBarButtonItem = nil
+            setCloseButton = true
+        }
+        navigationItem.leadingItemGroups = leadingItemGroups
+        navigationItem.trailingItemGroups = trailingItemGroups
+        if setCloseButton {
             addCloseNavigationItemIfNeeded()
         }
     }
@@ -315,7 +326,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
 }
 
 extension AssetsTabVC: WalletAssetsViewModelDelegate {
-    public func walletAssetModelDidChangeDisplayTabs() {
+    public func walletAssetModelDidChangeDisplayTabs(dueToAccountSwitch: Bool) {
         displayTabsChanged(force: false)
     }
 }

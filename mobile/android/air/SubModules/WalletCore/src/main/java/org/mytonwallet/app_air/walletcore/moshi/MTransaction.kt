@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcontext.R
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -130,12 +131,27 @@ enum class ApiSwapStatus {
 }
 
 @JsonClass(generateAdapter = true)
+data class MApiSwapTransactionRef(
+    @Json(name = "hash") val hash: String,
+    @Json(name = "chain") val chain: String
+)
+
+@JsonClass(generateAdapter = true)
+data class MApiSwapTransactionIds(
+    @Json(name = "outgoing") val outgoing: MApiSwapTransactionRef? = null,
+    @Json(name = "incoming") val incoming: MApiSwapTransactionRef? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class ApiSwapCexTransaction(
     @Json(name = "payinAddress") val payinAddress: String,
     @Json(name = "payoutAddress") val payoutAddress: String,
     @Json(name = "payinExtraId") val payinExtraId: String? = null,
     @Json(name = "status") val status: MApiSwapCexTransactionStatus?,
-    @Json(name = "transactionId") val transactionId: String
+    @Json(name = "transactionId") val transactionId: String,
+    @Json(name = "providerName") val providerName: String? = null,
+    @Json(name = "supportUrl") val supportUrl: String? = null,
+    @Json(name = "supportEmail") val supportEmail: String? = null
 )
 
 @JsonSealed("kind")
@@ -252,8 +268,11 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         @Json(name = "networkFee") val networkFee: Double? = null,
         @Json(name = "swapFee") val swapFee: Double? = null,
         @Json(name = "ourFee") val ourFee: Double? = null,
+        @Json(name = "ourFeeMode") val ourFeeMode: String? = null,
+        @Json(name = "cexLabel") val cexLabel: String? = null,
         @Json(name = "status") val status: ApiSwapStatus,
         @Json(name = "hashes") val hashes: List<String>?,
+        @Json(name = "transactionIds") val transactionIds: MApiSwapTransactionIds = MApiSwapTransactionIds(),
         @Json(name = "isCanceled") val isCanceled: Boolean? = null,
         @Json(name = "cex") val cex: ApiSwapCexTransaction? = null
     ) : MApiTransaction() {
@@ -416,11 +435,19 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         return PoisoningCacheHelper.getIsTransactionWithPoisoning(accountId, this)
     }
 
+    fun isHiddenNftActivity(accountId: String): Boolean {
+        val nft = (this as? Transaction)?.nft ?: return false
+        val isWhitelisted =
+            WGlobalStorage.getWhitelistedNftAddresses(accountId).contains(nft.address)
+        if (nft.isHidden == true && !isWhitelisted) return true
+        return WGlobalStorage.getBlacklistedNftAddresses(accountId).contains(nft.address)
+    }
+
     val isScam: Boolean
         get() {
             return when (this) {
                 is Transaction -> {
-                    return metadata?.isScam == true
+                    metadata?.isScam == true || nft?.isScam == true
                 }
 
                 else -> false

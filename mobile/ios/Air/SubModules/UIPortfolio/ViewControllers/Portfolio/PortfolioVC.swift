@@ -281,7 +281,7 @@ private enum PortfolioSectionLayout: Equatable {
     }
 }
 
-public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBackSwipeControlling {
+public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBackSwipeControlling, WSensitiveDataProtocol {
     private struct ChartViewState: Equatable {
         let errorText: String?
         let isLoading: Bool
@@ -359,6 +359,10 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         super.viewDidAppear(animated)
         viewModel.loadIfNeeded()
         registerVisibleChartGestureDependencies()
+    }
+
+    public func updateSensitiveData() {
+        refreshVisibleCells(refreshSummary: false, refreshLocalInsights: false, refreshCharts: true)
     }
 
     private func makeSectionDescriptors() -> [PortfolioSectionDescriptor] {
@@ -872,6 +876,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             ),
             isRefreshing: chartViewState.isRefreshing,
             fadesCurrentData: chartViewState.fadesCurrentData,
+            hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .totalValue),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
             }
@@ -888,6 +893,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             ),
             isRefreshing: chartViewState.isRefreshing,
             fadesCurrentData: chartViewState.fadesCurrentData,
+            hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .totalPnl),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
             }
@@ -904,6 +910,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             ),
             isRefreshing: chartViewState.isRefreshing,
             fadesCurrentData: chartViewState.fadesCurrentData,
+            hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .dailyPnl),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
             }
@@ -920,10 +927,15 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             ),
             isRefreshing: false,
             fadesCurrentData: chartViewState.fadesCurrentData,
+            hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .portfolioShare),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
             }
         )
+    }
+
+    private func shouldHideVerticalAxisLabels(for kind: PortfolioGraphKind) -> Bool {
+        kind.yAxisRepresentsBaseCurrency && AppStorageHelper.isSensitiveDataHidden
     }
 
     private func makeChartState(

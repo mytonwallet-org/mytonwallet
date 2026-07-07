@@ -123,6 +123,7 @@ const SHARE_LINK_ITEM: DropdownItem<NftMenuHandler> = {
 export default function useNftMenu({
   nft,
   isViewMode,
+  isWidget,
   dnsExpireInDays,
   linkedAddress,
   isNftBlacklisted,
@@ -133,6 +134,7 @@ export default function useNftMenu({
 }: {
   nft?: ApiNft;
   isViewMode: boolean;
+  isWidget?: boolean;
   dnsExpireInDays?: number;
   linkedAddress?: string;
   isNftBlacklisted?: boolean;
@@ -341,11 +343,11 @@ export default function useNftMenu({
       !IS_CORE_WALLET && !isScam && isNftBlacklisted && UNHIDE,
       ...(!isOnSale && !isViewMode ? [
         BURN_ITEM,
-        SELECT_ITEM,
+        !isWidget && SELECT_ITEM,
       ] : []),
     ]);
   }, [
-    nft, isViewMode, dnsExpireInDays, lang, linkedAddress, isNftBlacklisted,
+    nft, isViewMode, isWidget, dnsExpireInDays, lang, linkedAddress, isNftBlacklisted,
     isNftWhitelisted, isNftInstalled, isNftAccentColorInstalled,
   ]);
 

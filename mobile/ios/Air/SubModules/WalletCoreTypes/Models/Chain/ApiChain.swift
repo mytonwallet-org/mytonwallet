@@ -143,13 +143,6 @@ public extension ApiChain {
         return config.isOffRampSupported
     }
 
-    var isOnchainSwapSupported: Bool {
-        switch self {
-        case .ton: true
-        default: false
-        }
-    }
-    
     var isSendToSelfAllowed: Bool {
         switch self {
         case .ton: true

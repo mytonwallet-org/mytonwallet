@@ -1,6 +1,5 @@
 //
-//  WordDisplayView.swift
-//  MyTonWalletAir
+//  WordCheckModel.swift
 //
 //  Created by nikstar on 04.09.2025.
 //
@@ -28,9 +27,7 @@ final class WordCheckModel {
     var tests: [Test]
     var revealCorrect: Bool = false
     var showTryAgain: Bool = false
-    var hideAll: Bool = false
-    var interactionDisabled: Bool = false
-    
+    var hideAll: Bool = false    
     var allSelected: Bool { tests.allSatisfy { $0.selection != nil } }
     var allCorrect: Bool { tests.allSatisfy { $0.selection == $0.correctWord.word } }
     
@@ -57,7 +54,7 @@ struct Test: Identifiable {
     var id: Int { correctWord.idx }
 }
 
-func makeTest(includeWords: [WordAtIdx], words: [WordAtIdx], allWords: [String]) -> [Test] {
+private func makeTest(includeWords: [WordAtIdx], words: [WordAtIdx], allWords: [String]) -> [Test] {
     var testWords = includeWords
     let includeWordIndices = Set(includeWords.map(\.idx))
     testWords.append(contentsOf: words

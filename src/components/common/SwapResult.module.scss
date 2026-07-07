@@ -31,7 +31,7 @@
   }
 }
 
-.changellyInfoBlock {
+.cexInfoBlock {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -40,17 +40,17 @@
   margin-top: 2rem;
 }
 
-.changellyDescription {
+.cexDescription {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--color-gray-2);
   text-align: center;
 }
 
-.changellyDescriptionBold {
+.cexDescriptionBold {
   font-weight: 700;
 }
 
-.changellyTextField {
+.cexTextField {
   width: 100%;
 }

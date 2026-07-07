@@ -21,8 +21,7 @@ import UIKit
     private var displayLink: CADisplayLink?
     private var prevProgress: CGFloat
     private var animationType: AnimationType
-
-    private lazy var springCurve = SpringCurve(initialVelocity: initialVelocity)
+    private let springCurve: SpringCurve?
 
     private var updateBlock: ((_ progress: CGFloat, _ value: CGFloat) -> Void)?
     private var completionBlock: (() -> Void)?
@@ -31,13 +30,27 @@ import UIKit
                 endValue: CGFloat,
                 duration: TimeInterval,
                 initialVelocity: CGFloat = 0,
-                animationType: AnimationType = .spring) {
+                animationType: AnimationType = .spring,
+                dampingRatio: CGFloat? = nil) {
         self.startValue = startValue
         self.endValue = endValue
         self.duration = duration
         self.initialVelocity = initialVelocity
         self.animationType = animationType
         self.prevProgress = -1
+        if animationType == .spring {
+            if let dampingRatio {
+                springCurve = SpringCurve(
+                    initialVelocity: initialVelocity,
+                    dampingRatio: dampingRatio,
+                    referenceDuration: CGFloat(duration)
+                )
+            } else {
+                springCurve = SpringCurve(initialVelocity: initialVelocity)
+            }
+        } else {
+            springCurve = nil
+        }
     }
 
     public func addUpdateBlock(_ block: @escaping (_ progress: CGFloat, _ value: CGFloat) -> Void) {
@@ -66,12 +79,12 @@ import UIKit
         guard let startTime = self.startTime else { return }
         
         let elapsedTime = CACurrentMediaTime() - startTime
-        let fraction = duration > 0 ? min(elapsedTime / duration, 1.0) : 1.0
+        let fraction: CGFloat = duration > 0 ? min(elapsedTime / duration, 1.0) : 1.0
         
         var progress: CGFloat
         switch animationType {
         case .spring:
-            progress = springCurve.value(at: fraction)
+            progress = springCurve?.value(at: fraction) ?? fraction
         case .easeInOut:
             progress = CGFloat(UIView.easeInOut(Float(fraction), Float(), Float(1)))
         }
@@ -164,20 +177,47 @@ private struct SpringCurve {
 
     init(initialVelocity: CGFloat) {
         let animation = makeSpringAnimation("", initialVelocity: initialVelocity)
-        let mass = animation.mass
-        let stiffness = animation.stiffness
-        let damping = animation.damping
-        let initialVelocity = animation.initialVelocity
-        let referenceDuration = max(animation.duration, .ulpOfOne)
+        self.init(
+            initialVelocity: initialVelocity,
+            mass: animation.mass,
+            stiffness: animation.stiffness,
+            damping: animation.damping,
+            referenceDuration: animation.duration
+        )
+    }
 
+    init(
+        initialVelocity: CGFloat,
+        dampingRatio: CGFloat,
+        mass: CGFloat = 1.0,
+        stiffness: CGFloat = 280.0,
+        referenceDuration: CGFloat
+    ) {
+        let damping = dampingRatio * 2 * sqrt(stiffness * mass)
+        self.init(
+            initialVelocity: initialVelocity,
+            mass: mass,
+            stiffness: stiffness,
+            damping: damping,
+            referenceDuration: referenceDuration
+        )
+    }
+
+    private init(
+        initialVelocity: CGFloat,
+        mass: CGFloat,
+        stiffness: CGFloat,
+        damping: CGFloat,
+        referenceDuration: CGFloat
+    ) {
         self.mass = mass
         self.stiffness = stiffness
         self.damping = damping
         self.initialVelocity = initialVelocity
-        self.referenceDuration = referenceDuration
+        self.referenceDuration = max(referenceDuration, .ulpOfOne)
         self.finalProgress = max(
             SpringCurve.rawProgress(
-                at: referenceDuration,
+                at: self.referenceDuration,
                 mass: mass,
                 stiffness: stiffness,
                 damping: damping,

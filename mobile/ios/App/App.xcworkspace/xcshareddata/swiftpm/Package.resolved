@@ -122,7 +122,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mytonwallet-org/hw-transport-ios-ble",
       "state" : {
-        "revision" : "5046ed005e6ce721b533d332ed0744a52d6510b4"
+        "revision" : "dbfb781e0c883e533acc06c54ca395adb9fbd862"
       }
     },
     {

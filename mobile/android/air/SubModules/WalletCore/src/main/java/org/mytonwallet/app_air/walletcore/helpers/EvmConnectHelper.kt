@@ -242,6 +242,11 @@ object EvmConnectHelper {
                         send: (payloadOrMethod, paramsOrCallback) => this.send(payloadOrMethod, paramsOrCallback),
                         sendAsync: (payload, callback) => this.sendAsync(payload, callback),
                     };
+                    window._mtwAir_eventListeners.push((event) => {
+                        if (event && event.event === 'disconnect') {
+                            this.onDisconnect();
+                        }
+                    });
                 }
 
                 get evmChains() {
@@ -725,15 +730,21 @@ object EvmConnectHelper {
                     return result;
                 }
 
+                onDisconnect() {
+                    ++this.lastGeneratedId;
+                    this.sessionChains = [];
+                    this.selectedCaip2 = undefined;
+                    this._readCache.clear();
+                    this._silentReconnect = null;
+                    this.emit('accountsChanged', [[]]);
+                    this.emit('disconnect', [{ code: 4900, message: 'Disconnected' }]);
+                }
+
                 async disconnect() {
                     try {
                         await this.requestWc('disconnect', [{ requestId: String(++this.lastGeneratedId) }]);
                     } finally {
-                        this.sessionChains = [];
-                        this._readCache.clear();
-                        this._silentReconnect = null;
-                        this.emit('accountsChanged', [[]]);
-                        this.emit('disconnect', [{ code: 4900, message: 'Disconnected' }]);
+                        this.onDisconnect();
                     }
                 }
 

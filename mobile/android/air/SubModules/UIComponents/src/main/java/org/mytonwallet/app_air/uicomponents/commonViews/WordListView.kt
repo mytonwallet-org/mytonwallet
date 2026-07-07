@@ -52,7 +52,7 @@ class WordListView(context: Context) : WView(context) {
         } else {
             val privateKeyLabel = WLabel(context).apply {
                 setLineSpacing(4f.dp, 1f)
-                setStyle(17f, WFont.DemiBold)
+                setStyle(17f, WFont.Medium)
             }
             privateKeyLabel.text = words.first()
             addView(privateKeyLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))

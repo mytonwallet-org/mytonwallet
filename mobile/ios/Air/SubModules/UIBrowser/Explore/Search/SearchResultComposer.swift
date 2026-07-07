@@ -102,16 +102,27 @@ struct SearchResultComposer {
             )
         }
         
-        // Search google
-        let googleSection = SearchResultSection(
-            id: .searchInGoogle,
-            order: SearchSectionOrder.searchInGoogle,
-            header: SearchSectionHeader(title: lang("Search in Google")),
-            items: [
-                SearchGoogleResultItem(text: queryText, actions: actions, isCompact: !result.isEmpty || !sections.isEmpty)
-            ]
-        )
-        result.append(googleSection)
+        // Open link, Open in App or Search Google
+        let isCompactRepresentation = !result.isEmpty || !sections.isEmpty
+        if let openableURL = SearchOpenableURL(query.text) {
+            result += SearchResultSection(
+                id: .openLink,
+                order: SearchSectionOrder.openLink,
+                header: SearchSectionHeader(title: openableURL.actionTitle),
+                items: [
+                    OpenLinkResultItem(openableURL: openableURL, actions: actions, isCompact: isCompactRepresentation)
+                ]
+            )
+        } else {
+            result += SearchResultSection(
+                id: .searchInGoogle,
+                order: SearchSectionOrder.searchInGoogle,
+                header: SearchSectionHeader(title: lang("Search in Google")),
+                items: [
+                    SearchGoogleResultItem(text: queryText, actions: actions, isCompact: isCompactRepresentation)
+                ]
+            )
+        }
         
         return result
     }

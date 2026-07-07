@@ -96,7 +96,7 @@ class ImportWalletVC(
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             text = LocaleController.getString("Enter Secret Words")
-            setStyle(28f, WFont.SemiBold)
+            setStyle(28f, WFont.Medium)
             gravity = Gravity.CENTER
         }
     }
@@ -123,7 +123,7 @@ class ImportWalletVC(
 
     private val pasteButton: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(adaptiveFontSize(), WFont.SemiBold)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             text = LocaleController.getString("Paste from Clipboard")
             setTextColor(WColor.Tint.color)
             setPaddingDp(16, 8, 16, 8)
@@ -141,7 +141,7 @@ class ImportWalletVC(
                 addView(
                     WLabel(context).apply {
                         layoutParams = ViewGroup.LayoutParams(WRAP_CONTENT, MATCH_PARENT)
-                        setStyle(16f, WFont.DemiBold)
+                        setStyle(16f, WFont.Medium)
                         text = LocaleController.getString(title)
                         gravity = Gravity.CENTER
                         setPaddingDp(16, 0, 16, 0)

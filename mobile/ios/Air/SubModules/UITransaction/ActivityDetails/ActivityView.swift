@@ -228,11 +228,12 @@ struct ActivityView: View {
                 if activity.transaction?.nft == nil {
                     amountCell
                 }
-                changellyAddress
+                cexPaymentAddress
                 swapRate
                 fee
+                swapTransactionIds
                 transactionId
-                changellyId
+                swapProviderId
             } header: {
                 Text(lang("Details"))
                     .padding(.bottom, 1)
@@ -317,10 +318,14 @@ struct ActivityView: View {
     }
 
     @ViewBuilder
-    var changellyAddress: some View {
-        if let swap = activity.swap, let fromToken = swap.fromToken, !fromToken.isOnChain, let payinAddress = swap.cex?.payinAddress.nilIfEmpty {
+    var cexPaymentAddress: some View {
+        if let swap = activity.swap,
+           let cex = swap.cex,
+           let fromToken = swap.fromToken,
+           !fromToken.isOnChain,
+           let payinAddress = cex.payinAddress.nilIfEmpty {
             InsetDetailCell {
-                Text(lang("Changelly Payment Address"))
+                Text(lang("Payment Address"))
                     .font17h22()
                     .foregroundStyle(Color.air.secondaryLabel)
             } value: {
@@ -372,21 +377,25 @@ struct ActivityView: View {
         case .transaction(let transaction):
             let fee = transaction.fee
             if fee > 0 {
-                return MFee(precision: .exact, terms: .init(token: nil, native: fee, stars: nil), nativeSum: nil)
+                return MFee(
+                    precision: getIsActivityPendingForUser(activity) ? .approximate : .exact,
+                    terms: .init(token: nil, native: fee, stars: nil),
+                    nativeSum: nil
+                )
             }
         case .swap(let swap):
-            if let native = (swap.networkFee?.value).flatMap({ doubleToBigInt($0, decimals: ApiToken.TONCOIN.decimals) }) {
-                let token = TokenStore.tokens[swap.from] ?? .TONCOIN
-                let ourFee = (swap.ourFee?.value).flatMap {
+            if let native = (swap.networkFee?.value).flatMap({ doubleToBigInt($0, decimals: nativeToken.decimals) }) {
+                let token = TokenStore.tokens[swap.from] ?? nativeToken
+                let ourFee = swap.ourFeeMode == "included" ? nil : (swap.ourFee?.value).flatMap {
                     doubleToBigInt($0, decimals: token.decimals)
                 }
                 if native <= 0, (ourFee ?? 0) <= 0 {
                     return nil
                 }
-                let fromToncoin = swap.from == TONCOIN_SLUG
+                let fromNative = token.isNative
                 let terms: MFee.FeeTerms = .init(
-                    token: fromToncoin ? nil : ourFee,
-                    native: fromToncoin ? native + (ourFee ?? 0) : native,
+                    token: fromNative ? nil : ourFee,
+                    native: fromNative ? native + (ourFee ?? 0) : native,
                     stars: nil
                 )
 
@@ -405,7 +414,9 @@ struct ActivityView: View {
     var fee: some View {
         if let token {
             let chain = token.chain
-            if chain.isSupported, let fee = _computeDisplayFee(nativeToken: chain.nativeToken) {
+            let isLoading = model.isLoadingDetails
+            let fee = _computeDisplayFee(nativeToken: chain.nativeToken)
+            if chain.isSupported, isLoading || fee != nil {
                 InsetDetailCell {
                     Text(lang("Fee"))
                         .foregroundStyle(Color.air.secondaryLabel)
@@ -415,10 +426,38 @@ struct ActivityView: View {
                         nativeToken: chain.nativeToken,
                         fee: fee,
                         explainedTransferFee: nil,
-                        includeLabel: false
+                        includeLabel: false,
+                        isLoading: isLoading
                     )
                 }
             }
+        }
+    }
+
+
+    @ViewBuilder
+    var swapTransactionIds: some View {
+        if let swap = activity.swap {
+            let outgoing = swap.transactionIds.outgoing
+            let incoming = swap.transactionIds.incoming
+            if let outgoing, let incoming, outgoing.hash != incoming.hash {
+                swapTransactionIdCell(label: lang("Outgoing Transaction ID"), transactionId: outgoing)
+                swapTransactionIdCell(label: lang("Incoming Transaction ID"), transactionId: incoming)
+            } else if let transactionId = outgoing ?? incoming {
+                swapTransactionIdCell(label: lang("Transaction ID"), transactionId: transactionId)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func swapTransactionIdCell(label: String, transactionId: ApiSwapTransactionRef) -> some View {
+        InsetDetailCell {
+            Text(label)
+                .foregroundStyle(Color.air.secondaryLabel)
+                .fixedSize()
+        } value: {
+            TappableTransactionId(chain: transactionId.chain, txId: transactionId.hash)
+                .fixedSize()
         }
     }
 
@@ -438,16 +477,31 @@ struct ActivityView: View {
     }
 
     @ViewBuilder
-    var changellyId: some View {
-        if let id = activity.swap?.cex?.transactionId {
+    var swapProviderId: some View {
+        if let swap = activity.swap,
+           let cex = swap.cex,
+           let transactionId = cex.transactionId.nilIfEmpty {
+            let providerName = cex.providerName?.nilIfEmpty
             InsetDetailCell {
-                Text("Changelly ID")
+                Text(providerName.map { lang("Swap ID for %provider%", arg1: $0) } ?? lang("Swap ID"))
                     .foregroundStyle(Color.air.secondaryLabel)
-                    .fixedSize()
+                    .fixedSize(horizontal: false, vertical: true)
             } value: {
-                ChangellyTransactionId(id: id)
+                SwapProviderTransactionId(
+                    id: transactionId,
+                    trackingUrl: swapProviderTrackingUrl(swap: swap, transactionId: transactionId)
+                )
                     .fixedSize()
             }
         }
     }
+
+    private func swapProviderTrackingUrl(swap: ApiSwapActivity, transactionId: String) -> URL? {
+        guard swap.cexLabel.isChangellyOrLegacy,
+              let encodedId = transactionId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            return nil
+        }
+        return URL(string: "https://changelly.com/track/\(encodedId)")
+    }
+
 }

@@ -19,6 +19,7 @@ object TronConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_tron_light
 
     override val qrIcon = null
+    override val displayColor = "#E65850".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#A32F22".toColorInt(),
         "#9A184A".toColorInt(),

@@ -13,6 +13,7 @@ private let log = Log("LedgerBaseModel")
 public class LedgerBaseModel: Sendable {
     
     var steps: OrderedDictionary<StepId, StepStatus>
+    var stepSubtitles: [StepId: String] = [:]
     let startSteps: OrderedDictionary<StepId, StepStatus>
     
     @MainActor public let viewModel = LedgerViewModel()
@@ -118,6 +119,7 @@ public class LedgerBaseModel: Sendable {
     func handleRestart() {
         task?.cancel()
         steps = startSteps
+        stepSubtitles.removeAll()
         Task { @MainActor in
             viewModel.backEnabled = true
             viewModel.retryEnabled = false
@@ -141,6 +143,11 @@ public class LedgerBaseModel: Sendable {
             }
         }
     }
+
+    func updateStepSubtitle(_ stepId: StepId, subtitle: String?) async {
+        stepSubtitles[stepId] = subtitle
+        await updateViewModelSteps()
+    }
     
     func updateViewModelSteps() async {
         var vmSteps: [LedgerViewModel.Step] = []
@@ -148,7 +155,8 @@ public class LedgerBaseModel: Sendable {
             vmSteps.append(
                 LedgerViewModel.Step(
                     id: stepId,
-                    status: status
+                    status: status,
+                    subtitle: stepSubtitles[stepId]
                 )
             )
         }

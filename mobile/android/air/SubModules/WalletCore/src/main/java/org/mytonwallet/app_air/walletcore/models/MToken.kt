@@ -44,6 +44,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
     override val isPopular: Boolean = json.optBoolean("isPopular")
     override val chain: String = json.optString("chain").ifBlank { json.optString("blockchain") }
     val codeHash: String? = json.optString("codeHash")
+    override val label: String? = json.optString("label").ifBlank { null }
 
     var percentChange24hReal: Double = json.optDouble("percentChange24h")
     var percentChange24h: Double =
@@ -111,6 +112,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
             put("isTiny", isTiny)
             put("customPayloadApiUrl", customPayloadApiUrl)
             put("codeHash", codeHash)
+            put("label", label)
         }
         return dict
     }

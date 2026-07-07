@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.viewControllers.logs.LogsVC
+import org.mytonwallet.app_air.uisettings.viewControllers.permissions.PermissionsVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -108,6 +109,20 @@ class DebugMenuVC(context: Context) : WViewController(context) {
     // Section 3: Settings
     private val settingsTitleLabel = HeaderCell(context).apply {
         configure("Settings", titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
+    }
+
+    private val permissionsRow = KeyValueRowView(
+        context,
+        "Permissions",
+        "",
+        KeyValueRowView.Mode.PRIMARY,
+        isLast = false,
+    ).apply {
+        setOnClickListener {
+            navigationController?.tabBarController?.mainNavigationController
+                ?.push(PermissionsVC(context))
+                ?: navigationController?.push(PermissionsVC(context))
+        }
     }
 
     private val shakeToDebugRow = SwitchCell(
@@ -204,6 +219,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             addView(spacer2, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
             // Section 3: Settings
             addView(settingsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(permissionsRow)
             addView(shakeToDebugRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
             // Section 4: Info
@@ -233,7 +249,9 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                 topToBottom(spacer2, addTestnetRow)
                 // Settings
                 topToBottom(settingsTitleLabel, spacer2)
-                topToBottom(shakeToDebugRow, settingsTitleLabel)
+                topToBottom(permissionsRow, settingsTitleLabel)
+                toCenterX(permissionsRow)
+                topToBottom(shakeToDebugRow, permissionsRow)
                 toCenterX(shakeToDebugRow)
                 topToBottom(spacer3, shakeToDebugRow)
                 // Info
@@ -312,6 +330,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             0f,
         )
         shakeToDebugRow.setBackgroundColor(WColor.Background.color)
+        permissionsRow.setBackgroundColor(WColor.Background.color)
         infoTitleLabel.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,

@@ -1,6 +1,5 @@
 //
 //  WalletFilter.swift
-//  MyTonWalletAir
 //
 //  Created by nikstar on 10.11.2025.
 //

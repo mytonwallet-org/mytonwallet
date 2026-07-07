@@ -125,7 +125,7 @@ class TokenHeaderView(
     private val balanceContentView = WBalanceView(context).apply {
         primarySize = 36f
         decimalsSize = 30f
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         clipChildren = false
         clipToPadding = false
         smartDecimalsColor = true
@@ -182,7 +182,7 @@ class TokenHeaderView(
     override fun updateTheme() {
         balanceContentView.updateTheme()
         balanceContentView.apply {
-            typeface = WFont.NunitoExtraBold.typeface
+            typeface = WFont.Balance.typeface
         }
         equivalentLabel.contentView.setTextColor(WColor.SubtitleText.color)
         val moreDrawable =

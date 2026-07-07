@@ -37,6 +37,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
+import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.TokenSelectorCell
 import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -49,7 +50,7 @@ import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.SwapReceiveAddressInputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapDetailsVisibility
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapAssetInputView
-import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapChangellyView
+import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapCexProviderInfoView
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimatedHeader
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimatedInfo
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapSwapAssetsButton
@@ -115,7 +116,7 @@ class SwapVC(
                 setHorizontalPadding(0f)
         }
 
-    private val changellyView = SwapChangellyView(context)
+    private val cexProviderInfoView = SwapCexProviderInfoView(context)
 
     private val estOuterContainer = ConstraintLayout(context)
     private val estShowMoreContainer = ExpandableFrameLayout(context).apply {
@@ -237,7 +238,7 @@ class SwapVC(
             ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp)
         )
 
-        linearLayout.addView(changellyView)
+        linearLayout.addView(cexProviderInfoView)
         estShowMoreContainer.addView(estShowMore)
         estOuterContainer.addView(estLayout)
         estOuterContainer.addView(
@@ -324,7 +325,14 @@ class SwapVC(
         }
 
         collectFlow(swapViewModel.uiInputStateFlow) {
-            changellyView.expanded = it.isCex
+            val lastCex = swapViewModel.getLastResponse()?.cex
+            cexProviderInfoView.setProviderInfo(
+                lastCex?.providerName,
+                lastCex?.termsOfUseUrl,
+                lastCex?.privacyPolicyUrl,
+                lastCex?.amlKycPolicyUrl
+            )
+            cexProviderInfoView.expanded = it.isCex && lastCex?.providerName != null
             sendAmount.setAsset(it.tokenToSend)
             sendAmount.setBalance(it.tokenToSendMaxAmount)
             receiveAmount.setAsset(it.tokenToReceive)
@@ -334,7 +342,7 @@ class SwapVC(
 
             sendAmount.amountEditText.isEnabled = it.tokenToSend != null
             receiveAmount.amountEditText.apply {
-                val enabled = it.tokenToReceive != null && !it.isCex
+                val enabled = it.tokenToReceive != null && !it.isCex && it.canSwapByBuyAmount
                 isFocusable = enabled
                 isFocusableInTouchMode = enabled
                 isCursorVisible = enabled
@@ -365,6 +373,13 @@ class SwapVC(
         }
 
         collectFlow(swapViewModel.simulatedSwapFlow) { est ->
+            cexProviderInfoView.setProviderInfo(
+                est?.cex?.providerName,
+                est?.cex?.termsOfUseUrl,
+                est?.cex?.privacyPolicyUrl,
+                est?.cex?.amlKycPolicyUrl
+            )
+            cexProviderInfoView.expanded = est?.cex?.providerName != null
             if (est?.shouldShowPriceImpactWarning == true) {
                 alertView.text = priceImpactWarningMessage(est.dex?.impact)
                 animateAlertViewIn()
@@ -457,6 +472,7 @@ class SwapVC(
                         event.assets,
                         showMyAssets = true,
                         showChain = true,
+                        secondaryAmountMode = TokenSelectorCell.SecondaryAmountMode.TOKEN_PRICE,
                     ).apply {
                         setOnAssetSelectListener { asset ->
                             if (event.mode == SwapViewModel.Mode.SEND) {
@@ -493,7 +509,11 @@ class SwapVC(
                         event.estimate.fromAmount,
                         event.estimate.toAmount,
                         event.cex.payinAddress,
-                        event.cex.transactionId
+                        event.cex.transactionId,
+                        event.response.swap.cexLabel ?: event.estimate.cex?.cexLabel,
+                        event.response.swap.cex?.providerName,
+                        event.response.swap.cex?.supportUrl,
+                        event.response.swap.cex?.supportEmail
                     ),
                     onCompletion = {
                         navigationController?.removePrevViewControllers()
@@ -594,6 +614,7 @@ class SwapVC(
                         }
                     }
                 }
+                swapViewModel.onMfaConfirmed()
             },
         )
         navigationController?.push(mfaVC, onCompletion = {

@@ -29,6 +29,16 @@ public enum SignData: Sendable {
          isNftBurn: Bool?,
      )
 
+     case signNftTransfers(
+         chain: ApiChain,
+         accountId: String,
+         nfts: [ApiNft],
+         toAddress: String,
+         comment: String?,
+         realFee: BigInt?,
+         isNftBurn: Bool?,
+     )
+
     case linkDomain(
         accountId: String,
         nft: ApiNft,

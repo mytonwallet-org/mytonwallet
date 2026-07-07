@@ -1,7 +1,7 @@
 import React, { memo } from '../../../lib/teact/teact';
 
 import type { ApiBaseCurrency } from '../../../api/types';
-import type { NetChange } from '../../../util/portfolio/computeNetChange';
+import type { PortfolioPnlChange } from '../../../global/types';
 
 import buildClassName from '../../../util/buildClassName';
 import {
@@ -15,16 +15,17 @@ import styles from './Balance.module.scss';
 interface OwnProps {
   totalAmount: number;
   baseCurrency: ApiBaseCurrency;
-  netChange?: NetChange;
+  pnlChange?: PortfolioPnlChange;
+  isPnlChangeUpdating?: boolean;
 }
 
-function Balance({ totalAmount, baseCurrency, netChange }: OwnProps) {
+function Balance({ totalAmount, baseCurrency, pnlChange, isPnlChangeUpdating }: OwnProps) {
   const lang = useLang();
   const shortSymbol = getShortCurrencySymbol(baseCurrency);
 
-  const hasNetChange = netChange !== undefined && Number.isFinite(netChange.amount);
-  const isPositive = hasNetChange && netChange.amount > 0;
-  const isNegative = hasNetChange && netChange.amount < 0;
+  const hasPnlChange = pnlChange !== undefined && Number.isFinite(pnlChange.amount);
+  const isPositive = hasPnlChange && pnlChange.amount > 0;
+  const isNegative = hasPnlChange && pnlChange.amount < 0;
 
   return (
     <section className={styles.root}>
@@ -34,25 +35,27 @@ function Balance({ totalAmount, baseCurrency, netChange }: OwnProps) {
       </div>
 
       <div className={styles.column}>
-        {hasNetChange ? (
-          <div className={styles.value}>
-            <span>{formatCurrencyExtended(netChange.amount, shortSymbol)}</span>
-            {netChange.percent !== undefined && (
-              <span
-                className={buildClassName(
-                  styles.pill,
-                  isPositive && styles.pillPositive,
-                  isNegative && styles.pillNegative,
-                )}
-              >
-                {formatSignedPercent(netChange.percent)}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className={styles.value}>&mdash;</div>
-        )}
-        <div className={styles.label}>{lang('Net Change')}</div>
+        <div className={buildClassName(styles.value, isPnlChangeUpdating && 'glare-text')}>
+          {hasPnlChange ? (
+            <>
+              <span>{formatCurrencyExtended(pnlChange.amount, shortSymbol)}</span>
+              {pnlChange.percent !== undefined && (
+                <span
+                  className={buildClassName(
+                    styles.pill,
+                    isPositive && styles.pillPositive,
+                    isNegative && styles.pillNegative,
+                  )}
+                >
+                  {formatSignedPercent(pnlChange.percent)}
+                </span>
+              )}
+            </>
+          ) : (
+            <span>&mdash;</span>
+          )}
+        </div>
+        <div className={styles.label}>{lang('P&L Change')}</div>
       </div>
     </section>
   );

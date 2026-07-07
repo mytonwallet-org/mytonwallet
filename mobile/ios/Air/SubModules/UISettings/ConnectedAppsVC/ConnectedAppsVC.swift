@@ -26,6 +26,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
     private let isModal: Bool
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+    private var loadTask: Task<Void, Never>?
     
     public init(isModal: Bool) {
         self.isModal = isModal
@@ -34,6 +35,10 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        loadTask?.cancel()
     }
     
     public override func loadView() {
@@ -131,21 +136,62 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         guard let item = dataSource.itemIdentifier(for: indexPath),
               case .dapp(let dapp) = item else { return nil }
         let deleteAction = UIContextualAction(style: .destructive, title: lang("Disconnect")) { [weak self] _, _, callback in
-            self?.dapps?.removeAll(where: { $0 == dapp })
-            self?.applySnapshot(animated: true)
-            Task { @MainActor in
-                do {
-                    try await DappsStore.deleteDapp(dapp: dapp)
-                    callback(true)
-                } catch {
-                    callback(false)
-                }
-            }
+            self?.disconnectDapp(dapp, completion: callback)
         }
         deleteAction.image = UIImage(systemName: "minus.circle.fill")
         let configuration = UISwipeActionsConfiguration(actions: [deleteAction])
         configuration.performsFirstActionWithFullSwipe = true
         return configuration
+    }
+
+    private func showDappActions(_ dapp: ApiDapp) {
+        guard !(presentedViewController is UIAlertController), !(topViewController() is UIAlertController) else { return }
+
+        let alert = UIAlertController(title: dapp.name, message: dapp.displayUrl, preferredStyle: .alert)
+        let openAction = UIAlertAction(title: lang("Open"), style: .default) { [weak self] _ in
+            self?.openDapp(dapp)
+        }
+        alert.addAction(openAction)
+        alert.addAction(UIAlertAction(title: lang("Disconnect"), style: .destructive) { [weak self] _ in
+            self?.disconnectDapp(dapp)
+        })
+        alert.addAction(UIAlertAction(title: lang("Cancel"), style: .cancel))
+        alert.preferredAction = openAction
+        present(alert, animated: true)
+    }
+
+    private func openDapp(_ dapp: ApiDapp) {
+        guard let url = URL(string: dapp.url) else { return }
+        AppActions.openInBrowser(url, title: dapp.name, injectDappConnect: true)
+    }
+
+    private func disconnectDapp(_ dapp: ApiDapp, completion: ((Bool) -> Void)? = nil) {
+        guard let accountId = AccountStore.accountId else {
+            completion?(false)
+            return
+        }
+        loadTask?.cancel()
+        let uniqueId = getDappConnectionUniqueId(dapp)
+        Task { @MainActor [weak self] in
+            guard let self else {
+                completion?(false)
+                return
+            }
+            do {
+                let dapps = try await DappsStore.deleteDapp(accountId: accountId, dapp: dapp)
+                guard AccountStore.accountId == accountId else {
+                    completion?(true)
+                    return
+                }
+                self.dapps = dapps.filter { $0.url != dapp.url || getDappConnectionUniqueId($0) != uniqueId }
+                applySnapshot(animated: true)
+                completion?(true)
+            } catch {
+                completion?(false)
+                loadDapps(animated: true)
+                showAlert(error: error)
+            }
+        }
     }
     
     private func applySnapshot(animated: Bool) {
@@ -209,16 +255,20 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         }
     }
     
-    private func loadDapps() {
-        Task {
+    private func loadDapps(animated: Bool = false) {
+        loadTask?.cancel()
+        guard let accountId = AccountStore.accountId else { return }
+        loadTask = Task { @MainActor [weak self] in
             do {
-                guard let accountId = AccountStore.accountId else { return }
                 let dapps = try await Api.getDapps(accountId: accountId)
-                self.dapps = dapps
-                applySnapshot(animated: false)
+                guard !Task.isCancelled, AccountStore.accountId == accountId else { return }
+                self?.dapps = dapps
+                self?.applySnapshot(animated: animated)
             } catch {
+                guard !Task.isCancelled else { return }
                 try? await Task.sleep(for: .seconds(3))
-                loadDapps()
+                guard !Task.isCancelled else { return }
+                self?.loadDapps()
             }
         }
     }
@@ -238,10 +288,16 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
     
     private func deleteAllDapps() {
         guard let accountId = AccountStore.accountId else { return }
-        Task {
+        loadTask?.cancel()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
-                try await DappsStore.deleteAllDapps(accountId: accountId)
+                let dapps = try await DappsStore.deleteAllDapps(accountId: accountId)
+                guard AccountStore.accountId == accountId else { return }
+                self.dapps = dapps
+                applySnapshot(animated: true)
             } catch {
+                loadDapps(animated: true)
                 self.showAlert(error: error)
             }
         }
@@ -253,8 +309,8 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         switch item {
         case .disconnectAll:
             disconnectAllPressed()
-        case .dapp:
-            break
+        case .dapp(let dapp):
+            showDappActions(dapp)
         }
     }
 }
@@ -262,8 +318,12 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
 extension ConnectedAppsVC: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCore.WalletCoreData.Event) {
         switch event {
-        case .dappsCountUpdated:
-            loadDapps()
+        case .accountChanged:
+            loadDapps(animated: false)
+        case .dappsCountUpdated(let accountId):
+            if AccountStore.accountId == accountId {
+                loadDapps(animated: false)
+            }
         default:
             break
         }

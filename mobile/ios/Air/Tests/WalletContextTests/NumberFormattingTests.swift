@@ -185,6 +185,39 @@ struct WalletContextNumberFormattingTests {
     }
 
     @Test
+    func `formatBigIntText can compact leading fractional zero count`() {
+        let formatted = formatBigIntText(
+            BigInt(5_600),
+            tokenDecimals: 9,
+            zeroCountSubscriptMinCount: 5
+        )
+
+        #expect(formatted == "0.0₅56")
+    }
+
+    @Test
+    func `formatBigIntText keeps leading fractional zeroes below threshold`() {
+        let formatted = formatBigIntText(
+            BigInt(56_000),
+            tokenDecimals: 9,
+            zeroCountSubscriptMinCount: 5
+        )
+
+        #expect(formatted == "0.000056")
+    }
+
+    @Test
+    func `formatBigIntText supports multi-digit zero count subscripts`() {
+        let formatted = formatBigIntText(
+            BigInt(1),
+            tokenDecimals: 18,
+            zeroCountSubscriptMinCount: 5
+        )
+
+        #expect(formatted == "0.0₁₇1")
+    }
+
+    @Test
     func `formatBigIntText truncates when roundHalfUp is disabled`() {
         let formatted = formatBigIntText(
             BigInt(123_450),

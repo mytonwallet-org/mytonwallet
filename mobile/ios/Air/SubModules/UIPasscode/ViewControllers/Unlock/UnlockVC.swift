@@ -18,6 +18,7 @@ public class UnlockVC: WViewController {
         title: String,
         customHeaderVC: UIViewController,
         useBioOnPresent: Bool = true,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         onAuthTask: @escaping (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void,
         onDone: @escaping (_ passcode: String) -> Void
     ) {
@@ -26,6 +27,7 @@ public class UnlockVC: WViewController {
             title: title,
             customHeaderVC: customHeaderVC,
             useBioOnPresent: useBioOnPresent,
+            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             onAuthTask: onAuthTask,
             onDone: onDone
         )
@@ -39,6 +41,7 @@ public class UnlockVC: WViewController {
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
         onDone: @escaping (_ passcode: String?) -> Void,
         cancellable: Bool,
@@ -50,6 +53,7 @@ public class UnlockVC: WViewController {
             replacedTitle: replacedTitle,
             subtitle: subtitle,
             customHeaderVC: customHeaderVC,
+            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             onAuthTask: onAuthTask,
             onDone: onDone,
             cancellable: cancellable,
@@ -65,6 +69,7 @@ public class UnlockVC: WViewController {
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         authTask: (@MainActor (_ passcode: String) async -> Void)? = nil
     ) async -> String? {
         await PasscodeAuthPresenter.presentAsync(
@@ -73,6 +78,7 @@ public class UnlockVC: WViewController {
             replacedTitle: replacedTitle,
             subtitle: subtitle,
             customHeaderVC: customHeaderVC,
+            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             authTask: authTask
         )
     }
@@ -81,6 +87,7 @@ public class UnlockVC: WViewController {
     private let replacedTitle: String?
     private let subtitle: String?
     private let customHeaderVC: UIViewController?
+    private let prefersNavigationTitleWithCustomHeader: Bool
     private let animatedPresentation: Bool
     private let dissmissWhenAuthorized: Bool
     private let shouldBeThemedLikeHeader: Bool
@@ -91,6 +98,7 @@ public class UnlockVC: WViewController {
     private let onSignOutRequested: (@MainActor () async throws -> Void)?
     private let useBioOnPresent: Bool
     private let successCompletionDelay: TimeInterval
+    private var didTryBiometricOnPresent = false
     private var viewStartedDismissing: Bool = false
     private var cancelOnDisappear = true
     private var showsSignOutWhenEmpty = false
@@ -100,6 +108,7 @@ public class UnlockVC: WViewController {
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        prefersNavigationTitleWithCustomHeader: Bool = false,
         animatedPresentation: Bool = false,
         dissmissWhenAuthorized: Bool,
         shouldBeThemedLikeHeader: Bool = false,
@@ -115,6 +124,7 @@ public class UnlockVC: WViewController {
         self.replacedTitle = replacedTitle
         self.subtitle = subtitle
         self.customHeaderVC = customHeaderVC
+        self.prefersNavigationTitleWithCustomHeader = prefersNavigationTitleWithCustomHeader
         self.animatedPresentation = animatedPresentation
         self.dissmissWhenAuthorized = dissmissWhenAuthorized
         self.shouldBeThemedLikeHeader = shouldBeThemedLikeHeader
@@ -140,9 +150,7 @@ public class UnlockVC: WViewController {
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        if useBioOnPresent {
-            passcodeScreenView.tryBiometric()
-        }
+        tryBiometricOnPresentIfNeeded()
     }
 
     public override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -156,7 +164,7 @@ public class UnlockVC: WViewController {
     private var indicatorView: WActivityIndicator!
 
     var shouldShowEmptyNavigationBar: Bool {
-        IOS_26_MODE_ENABLED && customHeaderVC != nil
+        IOS_26_MODE_ENABLED && customHeaderVC != nil && !prefersNavigationTitleWithCustomHeader
     }
 
     public override var hideNavigationBar: Bool {
@@ -269,6 +277,12 @@ public class UnlockVC: WViewController {
     public func tryBiometric() {
         loadViewIfNeeded()
         passcodeScreenView?.tryBiometric()
+    }
+
+    private func tryBiometricOnPresentIfNeeded() {
+        guard useBioOnPresent, !didTryBiometricOnPresent else { return }
+        didTryBiometricOnPresent = true
+        passcodeScreenView.tryBiometric()
     }
 
     public override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) {

@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
@@ -34,6 +35,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
     // Properties //////////////////////////////////////////////////////////////////////////////////
     var primaryColor: Int? = null
     var secondaryColor: Int? = null
+    var currencyColor: Int? = null
     var currencySize = 46f
     var primarySize = 52f
     var decimalsSize = 38f
@@ -127,6 +129,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         var size = primarySize.dp
         var color = primaryColor
         var decimalsPart = false
+        var inTrailingCurrency = false
         var left = 0f
         val textMeasureCache = mutableMapOf<Pair<Char, Float>, Float>()
         prevIntegerPartWidth = integerPartWidth
@@ -136,7 +139,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             typeface = this@WBalanceView.typeface
         }
         this._text = _str?.mapIndexed { i, character ->
-            if (!decimalsPart && !character.isDigit() && i > 0 && character != ' ') {
+            if (!decimalsPart && !character.isDigit() && i > 0 && character != thinSpace) {
                 size = decimalsSize.dp
                 color = if (smartDecimalsColor && !isLargeAmount) (primaryColor
                     ?: WColor.PrimaryText.color) else secondaryColor
@@ -144,12 +147,17 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
                 integerPartWidth = left
             }
             val isBaseCurrency = i == 0 && !character.isDigit()
+            if (decimalsPart && character == ' ') {
+                inTrailingCurrency = true
+            }
+            val isCurrencyChar = isBaseCurrency || inTrailingCurrency
+            val charColor = if (isCurrencyChar) (currencyColor ?: color) else color
             val charSize = if (isBaseCurrency) currencySize.dp else size
             val key = Pair(character, charSize)
             basePaint.textSize = charSize
             if (!textMeasureCache.containsKey(key)) {
                 basePaint.measureText(character.toString()).let {
-                    if (character == ' ')
+                    if (character == thinSpace)
                         textMeasureCache[key] = it / 2
                     else
                         textMeasureCache[key] = it
@@ -161,7 +169,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             WBalanceViewCharacter(
                 character,
                 charSize,
-                overrideColor = color,
+                overrideColor = charColor,
                 decimalsPart,
                 isBaseCurrency,
                 charLeft

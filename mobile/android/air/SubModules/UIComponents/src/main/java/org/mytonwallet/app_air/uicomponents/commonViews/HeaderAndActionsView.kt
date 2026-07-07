@@ -138,7 +138,7 @@ class HeaderAndActionsView(
         }
 
         titleLabel.text = title
-        titleLabel.setStyle(28f, WFont.SemiBold)
+        titleLabel.setStyle(28f, WFont.Medium)
         titleLabel.setLineHeight(TypedValue.COMPLEX_UNIT_SP, 36f)
         subTitleLabel.text = subtitle
         subTitleLabel.setStyle(17f)

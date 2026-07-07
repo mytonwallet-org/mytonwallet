@@ -28,6 +28,39 @@ PLACEHOLDER_TYPE_OVERRIDES = {
     }
 }
 
+MAIN_APP_LOCALIZATION_KEYS = {
+    "Account",
+    "Accounts",
+    "Add crypto with ${applicationName}",
+    "Amount",
+    "Comment",
+    "Network",
+    "Networks",
+    "Open send in ${applicationName}",
+    "Open receive in ${applicationName}",
+    "Open scanner in ${applicationName}",
+    "Open ${target} in ${applicationName}",
+    "Open the QR scanner.",
+    "Open the receive screen.",
+    "Open the send screen.",
+    "Open the token screen.",
+    "Open Token",
+    "Receive",
+    "Receive Funds",
+    "Receive with ${applicationName}",
+    "Send",
+    "Send crypto with ${applicationName}",
+    "Send Token",
+    "Send token with ${applicationName}",
+    "Show ${target} in ${applicationName}",
+    "Scan a code with ${applicationName}",
+    "Scan QR",
+    "Scan QR Code",
+    "Scan QR with ${applicationName}",
+    "Token",
+    "Wallet",
+}
+
 
 def resolve_relative_to_script(path: str) -> Path:
     path_obj = Path(path)
@@ -241,7 +274,7 @@ def main():
     ap.add_argument("--source-locale", default="en", help="Source language code")
     ap.add_argument("--output", default="../../SubModules/WalletResources/Resources/Strings/Localizable.xcstrings", help="Output .xcstrings path")
     ap.add_argument("--compiled-output", default="../../SubModules/WalletResources/Resources/Strings", help="Output directory for compiled .strings and .stringsdict resources generated from the main .xcstrings catalog")
-    ap.add_argument("--push-output", default="../../../App/App/Resources/Localizable.xcstrings", help="Output .xcstrings path for push* keys in main app bundle")
+    ap.add_argument("--push-output", default="../../../App/App/Resources/Localizable.xcstrings", help="Output .xcstrings path for main app bundle keys")
     ap.add_argument("--widget-output", default="../../../App/AirWidget/Localizable.xcstrings", help="Output .xcstrings path for the widget extension bundle")
     ap.add_argument("--push-prefix", default="push_", help="Localization key prefix for push catalog")
     ap.add_argument("--skip-compiled-output", action="store_true", help="Skip compiling the main .xcstrings catalog into .strings and .stringsdict resources")
@@ -323,19 +356,19 @@ def main():
     if not args.skip_compiled_output:
         compile_catalog(source_catalog=output_path, output_dir=compiled_output_path)
 
-    push_strings = build_strings_map(
+    main_app_strings = build_strings_map(
         per_locale=per_locale,
         source_locale=args.source_locale,
         locales=locales,
-        key_predicate=lambda key: str(key).startswith(args.push_prefix),
+        key_predicate=lambda key: str(key).startswith(args.push_prefix) or key in MAIN_APP_LOCALIZATION_KEYS,
     )
-    write_catalog(output_path=push_output_path, source_locale=args.source_locale, strings=push_strings)
+    write_catalog(output_path=push_output_path, source_locale=args.source_locale, strings=main_app_strings)
 
     print(f"Wrote {output_path} with {len(strings)} entries across {len(locales)} locales.")
     print(f"Wrote {widget_output_path} with {len(strings)} entries across {len(locales)} locales.")
     if not args.skip_compiled_output:
         print(f"Compiled {output_path.name} into {compiled_output_path}.")
-    print(f"Wrote {push_output_path} with {len(push_strings)} push entries across {len(locales)} locales.")
+    print(f"Wrote {push_output_path} with {len(main_app_strings)} main app entries across {len(locales)} locales.")
     print(f"Source locale '{args.source_locale}' had {len(source_locale_files)} input files.")
     print()
 

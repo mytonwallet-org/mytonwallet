@@ -82,7 +82,7 @@ class WalletCardRowCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(adaptiveFontSize(), WFont.DemiBold)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true

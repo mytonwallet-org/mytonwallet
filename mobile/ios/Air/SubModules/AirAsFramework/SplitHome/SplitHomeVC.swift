@@ -241,7 +241,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
 
         case .selection:
             leadingItemGroups += editingNavigator!.selectAllBarButtonItem.asSingleItemGroup()
-            trailingItemGroups += editingNavigator!.commitEditingBarButtonItem.asSingleItemGroup()
+            trailingItemGroups += editingNavigator!.cancelXEditingBarButtonItem.asSingleItemGroup()
             isEditing = true
 
         case nil:

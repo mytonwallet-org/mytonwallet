@@ -38,7 +38,7 @@ class SendCurrencyVC: WViewController {
         super.init(nibName: nil, bundle: nil)
         self.walletTokens = walletTokens
         self.walletTokensBySlug = Dictionary(uniqueKeysWithValues: walletTokens.map { ($0.tokenSlug, $0) })
-        self.showingTokenSlugs = sortedForPicker(walletTokens).map(\.tokenSlug)
+        self.showingTokenSlugs = sortedForPicker(selectableWalletTokens(walletTokens)).map(\.tokenSlug)
     }
     
     required init?(coder: NSCoder) {
@@ -158,13 +158,13 @@ class SendCurrencyVC: WViewController {
     
     func filterWalletTokens() {
         guard !keyword.isEmpty else {
-            let sorted = sortedForPicker(walletTokens)
+            let sorted = sortedForPicker(selectableWalletTokens(walletTokens))
             showingTokenSlugs = sorted.map(\.tokenSlug)
             applySnapshot(animated: false)
             return
         }
         let normalizedKeyword = keyword.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let filtered = walletTokens.filter({ it in
+        let filtered = selectableWalletTokens(walletTokens).filter({ it in
             if it.tokenSlug.lowercased().contains(normalizedKeyword) {
                 return true
             }
@@ -180,6 +180,15 @@ class SendCurrencyVC: WViewController {
             tokenBalances: tokens,
             defaultTokenSlugs: defaultTokenSlugs
         )
+    }
+
+    private func selectableWalletTokens(_ tokens: [MTokenBalance]) -> [MTokenBalance] {
+        tokens.filter { walletToken in
+            guard tokenStore.tokens[walletToken.tokenSlug]?.type == .lp_token else {
+                return true
+            }
+            return walletToken.balance > 0 || walletToken.tokenSlug == currentTokenSlug
+        }
     }
     
     private func applySnapshot(animated: Bool) {

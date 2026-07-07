@@ -25,7 +25,7 @@ class PieLegendView(
         }
         signature = TextView(context).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
-            typeface = WFont.DemiBold.typeface
+            typeface = WFont.Medium.typeface
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
             maxWidth = 120.dp

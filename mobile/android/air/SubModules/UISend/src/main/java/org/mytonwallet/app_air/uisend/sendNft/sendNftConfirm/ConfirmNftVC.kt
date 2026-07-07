@@ -38,6 +38,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -236,6 +237,7 @@ class ConfirmNftVC(
     }
 
     private val feeSectionView = WView(context).apply {
+        alpha = 0f
         setPaddingDp(0f, 0f, 0f, 4f)
         addView(feeTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(feeView, ViewGroup.LayoutParams(MATCH_PARENT, 60.dp))
@@ -556,6 +558,7 @@ class ConfirmNftVC(
                     subtitle = formatFeeFiatAmount(fee),
                     isSensitiveData = false
                 )
+                feeSectionView.fadeIn()
             }
         }
         confirmButton.isLoading = false

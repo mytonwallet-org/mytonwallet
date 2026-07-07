@@ -589,7 +589,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                 if inSelectionMode {
                     toggleSelection(nftId: nftId)
                 } else {
-                    let assetVC = NftDetailsVC(accountId: account.id, nft: nft, filter: filter)
+                    let assetVC = NftDetailsVC(accountId: account.id, source: .collectionNfts(selection: nft, filter: filter))
                     navigationController?.pushViewController(assetVC, animated: true)
                 }
             }
@@ -617,6 +617,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         guard let row = dataSource?.itemIdentifier(for: indexPath) else { return nil }
         guard case .nft(let nftId) = row, let displayNft = displayNfts?[nftId] else { return nil }
         
+        MtwCardImagePreloader.preload(displayNft.nft)
         let menu = UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
             return self.makeNftCellMenu(displayNft: displayNft)
         }
@@ -635,7 +636,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         do {
             var items: [UIMenuElement] = []
             items += UIAction(title: lang("Details"), image: UIImage(systemName: "info.circle")) { [filter] _ in
-                let assetVC = NftDetailsVC(accountId: accountId, nft: nft, filter: filter)
+                let assetVC = NftDetailsVC(accountId: accountId, source: .collectionNfts(selection: nft, filter: filter))
                 self.navigationController?.pushViewController(assetVC, animated: true)
             }
             detailsSection = UIMenu(title: "", options: .displayInline, children: items)

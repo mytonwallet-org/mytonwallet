@@ -59,7 +59,7 @@ final class NftDetailsCollectionButton: UIView, NftDetailsContentColorConsumer {
         if canTap {
             attrString.append(NSAttributedString(string: "\u{2009}", attributes: [.font: font, .foregroundColor: textColor])) // narrow space
             let symbolConfig = UIImage.SymbolConfiguration(pointSize: 12, weight: .regular)
-            let chevronImage = UIImage(systemName: "chevron.right", withConfiguration: symbolConfig)?
+            let chevronImage = UIImage(systemName: "chevron.forward", withConfiguration: symbolConfig)?
                 .withTintColor(textColor, renderingMode: .alwaysOriginal)
             let attachment = NSTextAttachment()
             attachment.image = chevronImage
@@ -71,6 +71,12 @@ final class NftDetailsCollectionButton: UIView, NftDetailsContentColorConsumer {
             )
             attrString.append(NSAttributedString(attachment: attachment))
         }
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        paragraphStyle.baseWritingDirection = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
+        attrString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: attrString.length))
         
         var config = UIButton.Configuration.plain()
         config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10)
@@ -376,10 +382,9 @@ final class NftDetailsAttributesGrid: UIView, NftDetailsContentColorConsumer {
 
         keyColumnBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         keyColumnBackgroundView.layer.cornerRadius = backgroundView.cornerRadius
-        keyColumnBackgroundView.layer.maskedCorners = [
-                .layerMinXMinYCorner,  // topLeft
-                .layerMinXMaxYCorner   // bottomLeft
-            ]
+        keyColumnBackgroundView.layer.maskedCorners = effectiveUserInterfaceLayoutDirection == .rightToLeft
+            ? [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+            : [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         keyColumnBackgroundView.layer.masksToBounds = true
         addSubview(keyColumnBackgroundView)
 
@@ -512,6 +517,7 @@ private extension UILabel {
 
 extension WScalableButton: NftDetailsContentColorConsumer {
     func applyContentColorPalette(_ palette: NftDetailsContentPalette) -> Bool {
+        overrideUserInterfaceStyle = palette.baseColor.isLightColor ? .dark : .light
         imageTintColor = palette.baseColor
         titleColor = palette.baseColor
         fillColor = palette.subtleBackgroundColor

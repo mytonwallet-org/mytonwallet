@@ -50,7 +50,7 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
         currencySize = 16f
         primarySize = 18f
         decimalsSize = 13f
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
     }
 
     private val balanceContainerView = WSensitiveDataContainer(

@@ -16,7 +16,10 @@ public class Api {
     
     @MainActor public static var bridge: JSWebViewBridge {
         get throws {
-            try Api.shared.orThrow("bridge not ready").webViewBridge
+            guard let shared = Api.shared else {
+                throw SdkError.sdkNotReady(methodName: "Api.bridge", reason: "API bridge is not prepared")
+            }
+            return shared.webViewBridge
         }
     }
     

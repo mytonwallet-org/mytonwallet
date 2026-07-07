@@ -18,6 +18,7 @@ import com.facebook.fresco.ui.common.OnFadeListener
 import com.facebook.imagepipeline.image.ImageInfo
 import com.facebook.imagepipeline.request.ImageRequest
 import org.mytonwallet.app_air.uicomponents.drawable.ContentGradientDrawable
+import org.mytonwallet.app_air.uicomponents.drawable.InitialsDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setRounding
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -51,6 +52,7 @@ open class WCustomImageView @JvmOverloads constructor(
     private var content: Content? = null
     private var currentControllerId: String? = null
     private var lowResUrl: String? = null
+    private var lastRatioSize = -1
     private val path = Path()
 
     var defaultRounding: Content.Rounding = Content.Rounding.Round
@@ -74,6 +76,16 @@ open class WCustomImageView @JvmOverloads constructor(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+
+        content?.let {
+            if (getRoundingMode(it) is Content.Rounding.RadiusRatio) {
+                val size = minOf(measuredWidth, measuredHeight)
+                if (size != lastRatioSize) {
+                    lastRatioSize = size
+                    hierarchy?.roundingParams = getRoundingParams(it)
+                }
+            }
+        }
 
         val chainRadius = chainSize / 2f
 
@@ -123,6 +135,7 @@ open class WCustomImageView @JvmOverloads constructor(
     fun set(content: Content, lowResUrl: String? = null) {
         if (content == this.content && lowResUrl == this.lowResUrl)
             return
+        lastRatioSize = -1
         buildHierarchy(content)
         buildController(content, lowResUrl = lowResUrl)
         this.chainDrawable = if (content.subImageRes != 0)
@@ -146,7 +159,10 @@ open class WCustomImageView @JvmOverloads constructor(
     override fun updateTheme() {
         val content = this.content ?: return
         val placeholder = getPlaceholderMode(content)
-        if (placeholder is Content.Placeholder.Color || content.image is Content.Image.Gradient) {
+        if (placeholder is Content.Placeholder.Color ||
+            placeholder is Content.Placeholder.Initials ||
+            content.image is Content.Image.Gradient
+        ) {
             buildHierarchy(content)
             buildController(content, lowResUrl = lowResUrl)
         }
@@ -229,6 +245,10 @@ open class WCustomImageView @JvmOverloads constructor(
             is Content.Rounding.Default -> throw IllegalArgumentException()
             is Content.Rounding.Round -> RoundingParams.asCircle()
             is Content.Rounding.Radius -> RoundingParams.fromCornersRadius(rounding.radius)
+            is Content.Rounding.RadiusRatio -> {
+                val size = minOf(measuredWidth, measuredHeight).toFloat()
+                RoundingParams.fromCornersRadius(size * rounding.ratio)
+            }
         }
     }
 
@@ -247,13 +267,14 @@ open class WCustomImageView @JvmOverloads constructor(
                     content.image.key.gradientColors,
                     drawable
                 ).apply {
-                    setRounding(getRoundingMode(content))
+                    setContentRounding(getRoundingMode(content))
                 }
             }
 
             else -> when (val placeholder = getPlaceholderMode(content)) {
                 is Content.Placeholder.Default -> throw IllegalArgumentException()
                 is Content.Placeholder.Color -> placeholder.color.color.toDrawable()
+                is Content.Placeholder.Initials -> InitialsDrawable(placeholder.text)
             }
         }
     }

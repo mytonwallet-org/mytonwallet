@@ -30,6 +30,9 @@ export enum ElectronAction {
   CHANGE_APP_LAYOUT = 'change-app-layout',
 
   RESTORE_STORAGE = 'restore-storage',
+
+  OPEN_WALLET_CONNECT_PAY_COLLECT = 'open-wallet-connect-pay-collect',
+  CLOSE_WALLET_CONNECT_PAY_COLLECT = 'close-wallet-connect-pay-collect',
 }
 
 export interface ElectronApi {
@@ -56,6 +59,12 @@ export interface ElectronApi {
   changeAppLayout: (layout: AppLayout) => Promise<void>;
 
   restoreStorage: () => Promise<void>;
+
+  openWalletConnectPayCollect: (
+    url: string,
+    confirmStrings: { message: string; continueText: string; cancelText: string },
+  ) => Promise<void>;
+  closeWalletConnectPayCollect: () => Promise<void>;
 
   on: (eventName: ElectronEvent, callback: any) => VoidFunction;
 }

@@ -7,6 +7,8 @@ import WalletContext
 
 struct HeaderDappIcon: View {
     
+    static let cornerRadius: CGFloat = 16
+    
     var dapp: ApiDapp
     
     var body: some View {
@@ -18,6 +20,6 @@ struct HeaderDappIcon: View {
                     .strokeBorder(.foreground.opacity(0.1), lineWidth: 1)
             }
             .clipShape(.containerRelative)
-            .containerShape(.rect(cornerRadius: 16))
+            .containerShape(.rect(cornerRadius: Self.cornerRadius))
     }
 }

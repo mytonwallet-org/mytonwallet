@@ -75,7 +75,7 @@ class StickyHeaderView(
                 onActionClick(HeaderActionsView.Identifier.WALLET_SETTINGS)
             }
             onLongTap = {
-                onActionClick(HeaderActionsView.Identifier.WALLET_RENAME)
+                onActionClick(HeaderActionsView.Identifier.WALLET_MENU)
             }
         }
     }

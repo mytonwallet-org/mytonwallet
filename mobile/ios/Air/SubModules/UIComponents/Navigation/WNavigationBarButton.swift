@@ -58,7 +58,7 @@ public final class WNavigationBarButton {
 
 extension UIBarButtonItem {
 
-    /// Legacy OS: bold localized "Done", modern OS: Blue circle checkmark
+    /// Legacy OS: bold localized "Done", modern OS: blue circle checkmark
     public static func doneButtonItem(action: @escaping () -> Void) -> UIBarButtonItem {
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             return UIBarButtonItem(systemItem: .done, primaryAction: UIAction { _ in action() })
@@ -66,20 +66,28 @@ extension UIBarButtonItem {
         return legacyButtonItem(title: lang("Done"), style: .done, action: action)
     }
 
-    /// Legacy OS: plain localized "Cancel", modern OS: while ellipse with a text
+    /// Legacy OS: plain localized "Cancel", modern OS: white ellipse with a text
     public static func cancelTextButtonItem(action: @escaping () -> Void) -> UIBarButtonItem {
         let title = lang("Cancel")
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             return UIBarButtonItem(title: title, primaryAction: UIAction { _ in action() })
         }
-        return legacyButtonItem(title: title, style: .done, action: action)
+        return legacyButtonItem(title: title, style: .plain, action: action)
     }
 
+    /// Legacy OS: plain localized "Cancel", modern OS: a classic close/dismiss (x)
+    public static func cancelXButtonItem(action: @escaping () -> Void) -> UIBarButtonItem {
+        if #available(iOS 26, iOSApplicationExtension 26, *) {
+            return UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in action() })
+        }
+        return legacyButtonItem(title: lang("Cancel"), style: .plain, action: action)
+    }
+    
     public static func textButtonItem(text: String, action: @escaping () -> Void) -> UIBarButtonItem {
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             return UIBarButtonItem(title: text, primaryAction: UIAction { _ in action() })
         }
-        return legacyButtonItem(title: text, style: .done, action: action)
+        return legacyButtonItem(title: text, style: .plain, action: action)
     }
 
     public func asSingleItemGroup() -> UIBarButtonItemGroup {

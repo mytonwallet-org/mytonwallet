@@ -1,5 +1,7 @@
 .container {
-  position: relative;
+  // Absolute, not relative: the JS writes viewport-absolute `left`/`top`. A width-0 relative box
+  // starts at the inline-start edge, which in RTL is the right edge, shifting everything by `innerWidth`
+  position: absolute;
   z-index: var(--z-tooltip);
   transform: translateY(-0.375rem);
 
@@ -23,6 +25,9 @@
 
 .tooltip {
   position: absolute;
+  left: 0; // Intentional - horizontal alignment is set via JS
+
+  unicode-bidi: plaintext;
 
   width: max-content;
   max-width: 16rem;

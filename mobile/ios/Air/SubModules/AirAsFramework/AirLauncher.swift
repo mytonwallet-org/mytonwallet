@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Ledger
 import UIKit
 import UIAgent
 import UIComponents
@@ -66,6 +67,13 @@ public class AirLauncher {
                 runtimeCoordinator.handle(notification: pendingNotification)
                 self.pendingNotification = nil
             }
+            if !pendingSystemActions.isEmpty {
+                let actions = pendingSystemActions
+                pendingSystemActions.removeAll()
+                for action in actions {
+                    runtimeCoordinator.handle(systemAction: action)
+                }
+            }
         }
     }
 
@@ -73,6 +81,7 @@ public class AirLauncher {
     private static var hasStartedDeferredLaunch = false
     static var pendingDeeplinkURL: URL? = nil
     static var pendingNotification: UNNotification? = nil
+    static var pendingSystemActions: [AirSystemAction] = []
     static var pendingPushToken: String? = nil
     static var appUnlocked = false
     private static var hasStartedWalletCore = false
@@ -178,7 +187,7 @@ public class AirLauncher {
 
         UIApplication.shared.registerForRemoteNotifications()
         StartupTrace.mark("airLauncher.remoteNotifications.requested")
-        runtimeCoordinator?.walletCoreBootstrapDidFinish()
+        await runtimeCoordinator?.walletCoreBootstrapDidFinish()
     }
 
     private static func presentStartupFailure(_ error: any Error, phase: StartupFailurePhase) async {
@@ -226,6 +235,8 @@ public class AirLauncher {
             return
         }
 
+        await disconnectLedgerIfNeeded()
+
         isOnTheAir = false
         hasStartedWalletCore = false
         (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.switchToCapacitor()
@@ -241,6 +252,14 @@ public class AirLauncher {
                 WalletContextManager.delegate = nil
                 RootStateCoordinator.shared.reset()
             }
+        }
+    }
+
+    private static func disconnectLedgerIfNeeded() async {
+        do {
+            try await LedgerConnectionManager.shared.disconnect()
+        } catch {
+            log.error("failed to disconnect Ledger before switching to Classic: \(error, .public)")
         }
     }
 
@@ -274,6 +293,15 @@ public class AirLauncher {
             runtimeCoordinator.handle(notification: notification)
         } else {
             pendingNotification = notification
+        }
+    }
+
+    public static func handle(systemAction: AirSystemAction) {
+        guard isOnTheAir else { return }
+        if let runtimeCoordinator {
+            runtimeCoordinator.handle(systemAction: systemAction)
+        } else {
+            pendingSystemActions.append(systemAction)
         }
     }
 

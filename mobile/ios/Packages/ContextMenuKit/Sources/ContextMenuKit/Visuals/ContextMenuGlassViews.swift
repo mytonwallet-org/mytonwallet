@@ -43,14 +43,13 @@ final class ContextMenuGlassBackgroundView: UIView {
 
     func update(size: CGSize, cornerRadius: CGFloat, traits: UITraitCollection, isInteractive: Bool) {
         self.effectView.frame = CGRect(origin: .zero, size: size)
-        self.effectView.overrideUserInterfaceStyle = traits.userInterfaceStyle
         self.effectView.layer.cornerRadius = cornerRadius
         self.contentView.frame = CGRect(origin: .zero, size: size)
 
         if #available(iOS 26.0, *) {
             self.effectView.effect = ContextMenuVisuals.nativePanelEffect(for: traits, interactive: isInteractive)
         } else {
-            self.effectView.effect = ContextMenuVisuals.legacyPanelEffect()
+            self.effectView.effect = ContextMenuVisuals.legacyPanelEffect(for: traits)
 
             if let legacyTintView {
                 legacyTintView.frame = self.effectView.contentView.bounds
@@ -106,11 +105,10 @@ final class ContextMenuGlassContainerView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(size: CGSize, traits: UITraitCollection) {
+    func update(size: CGSize) {
         self.frame = CGRect(origin: .zero, size: size)
         if let nativeEffectView {
             nativeEffectView.frame = self.bounds
-            nativeEffectView.overrideUserInterfaceStyle = traits.userInterfaceStyle
         } else if let legacyContentView {
             legacyContentView.frame = self.bounds
         }
@@ -149,7 +147,7 @@ final class ContextMenuPanelView: UIView {
         let panelCornerRadius = min(self.style.panelCornerRadius, panelSize.height * 0.5)
 
         self.frame = CGRect(origin: .zero, size: containerSize)
-        self.backgroundContainer.update(size: containerSize, traits: traits)
+        self.backgroundContainer.update(size: containerSize)
         self.backgroundView.frame = CGRect(
             x: self.style.panelInset,
             y: self.style.panelInset,

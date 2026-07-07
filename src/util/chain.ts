@@ -87,6 +87,10 @@ export interface ChainConfig {
   isOnRampSupported: boolean;
   /** Whether the chain is supported by the off-ramp widget (Moonpay) */
   isOffRampSupported: boolean;
+  /** Whether the chain supports onchain swaps (DEX) */
+  isOnchainSwapSupported: boolean;
+  /** Whether onchain swaps can be estimated from the buy amount */
+  canSwapByBuyAmount?: boolean;
   /** Whether the chain supports sending asset transfers with a comment */
   isTransferPayloadSupported: boolean;
   /** Whether the chain supports comment encrypting */
@@ -159,7 +163,10 @@ export interface ChainConfig {
   formatTransferUrl?(address: string, amount?: bigint, text?: string, jettonAddress?: string): string;
 }
 
-// The supported chains are stored in the correct order, the chain with the more specific address (Regex) must be first
+// Address-matching precedence order (NOT the display order — see `CHAIN_DISPLAY_ORDER` below).
+// A pasted address is matched against chains in this order and the first match wins, so the chain with the more
+// specific address regex must come first: e.g. a TRON address also matches Solana's regex, so `tron` must precede
+// `solana`; and all EVM chains share the same regex, so the first EVM chain (`ethereum`) is the default match.
 export const CHAIN_ORDER: ApiChain[] = [
   'ton',
   'tron',
@@ -174,6 +181,23 @@ export const CHAIN_ORDER: ApiChain[] = [
   'hyperliquid',
 ];
 
+// Display order for chains everywhere in the UI. Independent of `CHAIN_ORDER`,
+// which is constrained by address-matching correctness.
+// Must contain the same chains as `CHAIN_ORDER`.
+export const CHAIN_DISPLAY_ORDER: ApiChain[] = [
+  'ethereum',
+  'solana',
+  'hyperliquid',
+  'ton',
+  'tron',
+  'base',
+  'bnb',
+  'polygon',
+  'avalanche',
+  'arbitrum',
+  'monad',
+];
+
 const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   ton: {
     title: 'TON',
@@ -181,6 +205,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: true,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: true,
     isEncryptedCommentSupported: true,
     canTransferFullNativeBalance: true,
@@ -270,6 +296,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -327,6 +354,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: true,
+    canSwapByBuyAmount: false,
     isTransferPayloadSupported: true,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -403,6 +432,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -472,6 +502,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -499,8 +530,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       testnet: undefined,
     },
     defaultEnabledSlugs: {
-      mainnet: [],
-      testnet: [],
+      mainnet: [BASE.slug],
+      testnet: [BASE.slug],
     },
     crosschainSwapSlugs: [BASE.slug],
     tokenInfo: [BASE, BASE_USDT_MAINNET, BASE_USDC_MAINNET],
@@ -537,6 +568,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -594,6 +626,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -617,8 +650,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       testnet: '',
     },
     defaultEnabledSlugs: {
-      mainnet: [],
-      testnet: [],
+      mainnet: [POLYGON.slug],
+      testnet: [POLYGON.slug],
     },
     crosschainSwapSlugs: [POLYGON.slug],
     tokenInfo: [POLYGON],
@@ -655,6 +688,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -682,8 +716,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       testnet: undefined,
     },
     defaultEnabledSlugs: {
-      mainnet: [],
-      testnet: [],
+      mainnet: [ARBITRUM.slug],
+      testnet: [ARBITRUM.slug],
     },
     crosschainSwapSlugs: [ARBITRUM.slug],
     tokenInfo: [ARBITRUM, ARBITRUM_USDC_MAINNET],
@@ -720,6 +754,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -743,8 +778,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       testnet: '',
     },
     defaultEnabledSlugs: {
-      mainnet: [],
-      testnet: [],
+      mainnet: [MONAD.slug],
+      testnet: [MONAD.slug],
     },
     crosschainSwapSlugs: [MONAD.slug],
     tokenInfo: [MONAD],
@@ -781,6 +816,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
     isOffRampSupported: true,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -804,8 +840,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       testnet: AVALANCHE_USDT_MAINNET.slug,
     },
     defaultEnabledSlugs: {
-      testnet: [],
-      mainnet: [],
+      testnet: [AVALANCHE.slug],
+      mainnet: [AVALANCHE.slug],
     },
     crosschainSwapSlugs: [AVALANCHE.slug],
     tokenInfo: [AVALANCHE, AVALANCHE_USDT_MAINNET],
@@ -842,6 +878,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canBuyWithCardInRussia: false,
     isOnRampSupported: false,
     isOffRampSupported: false,
+    isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -911,6 +948,12 @@ if (DEBUG) {
   if (missing.length) {
     throw new Error(`SUPPORTED_CHAINS is missing chains from CHAIN_CONFIG: ${missing.join(', ')}`);
   }
+
+  const displaySet = new Set(CHAIN_DISPLAY_ORDER);
+  const displayMissing = [...supportedSet].filter((k) => !displaySet.has(k));
+  if (displayMissing.length || displaySet.size !== supportedSet.size) {
+    throw new Error(`CHAIN_DISPLAY_ORDER must contain the same chains as CHAIN_ORDER: ${displayMissing.join(', ')}`);
+  }
 }
 
 export function getChainConfig(chain: ApiChain): ChainConfig {
@@ -970,6 +1013,11 @@ export function getSupportedChains() {
   return CHAIN_ORDER;
 }
 
+/** All supported chains in the UI display order (see `CHAIN_DISPLAY_ORDER`) */
+export function getDisplayOrderedChains() {
+  return CHAIN_DISPLAY_ORDER;
+}
+
 export function getChainsByStandard(chainStandard: ApiChain) {
   return getSupportedChains().filter((chain) => getChainConfig(chain).chainStandard === chainStandard);
 }
@@ -980,7 +1028,7 @@ export function getEvmChains() {
 
 /** Returns the chains supported by the given account in the proper order for showing in the UI */
 export function getOrderedAccountChains(byChain: Partial<Record<ApiChain, unknown>>) {
-  return getSupportedChains().filter((chain) => chain in byChain);
+  return getDisplayOrderedChains().filter((chain) => chain in byChain);
 }
 
 export function getChainsSupportingLedger(): ApiChain[] {

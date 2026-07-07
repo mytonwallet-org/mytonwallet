@@ -54,7 +54,7 @@ class AgentDateHeaderCell(context: Context) : WCell(
         val ssb = SpannableStringBuilder()
         ssb.append(
             dayPart,
-            WTypefaceSpan(WFont.SemiBold),
+            WTypefaceSpan(WFont.Medium),
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         ssb.append(" $timePart")

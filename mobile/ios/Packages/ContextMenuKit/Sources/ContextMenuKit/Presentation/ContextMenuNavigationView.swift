@@ -30,7 +30,12 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         self.hosts.count > 1
     }
 
-    init(rootPage: ContextMenuPage, style: ContextMenuStyle, customRowContext: ContextMenuCustomRowContext) {
+    init(
+        rootPage: ContextMenuPage,
+        style: ContextMenuStyle,
+        sourceUserInterfaceStyle: UIUserInterfaceStyle,
+        customRowContext: ContextMenuCustomRowContext
+    ) {
         self.style = style
         self.customRowContext = customRowContext
         self.panelView = ContextMenuPanelView(style: style)
@@ -39,6 +44,8 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         })
 
         super.init(frame: .zero)
+
+        self.overrideUserInterfaceStyle = sourceUserInterfaceStyle
 
         self.addSubview(self.panelView)
         self.panelView.contentView.addSubview(self.pageClipView)
@@ -54,14 +61,6 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-
-        if previousTraitCollection?.userInterfaceStyle != self.traitCollection.userInterfaceStyle {
-            self.requestLayout?()
-        }
     }
 
     func preferredPanelSize(constrainedTo size: CGSize) -> CGSize {
@@ -149,6 +148,14 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
 
     func endExternalSelection(performAction: Bool) {
         self.hosts.last?.pageView.endExternalSelection(performAction: performAction)
+    }
+
+    func updateUserInterfaceStyle(_ userInterfaceStyle: UIUserInterfaceStyle) {
+        guard userInterfaceStyle != self.overrideUserInterfaceStyle else {
+            return
+        }
+        self.overrideUserInterfaceStyle = userInterfaceStyle
+        self.requestLayout?()
     }
 
     func clearSelections() {

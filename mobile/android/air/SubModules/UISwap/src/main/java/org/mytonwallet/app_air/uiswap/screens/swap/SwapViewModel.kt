@@ -43,6 +43,7 @@ import org.mytonwallet.app_air.walletcore.api.swapSubmit
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransferPayload
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
@@ -59,6 +60,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -66,6 +68,7 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 const val DEFAULT_OUR_SWAP_FEE = 0.875
+private const val NEAR_INTENTS_CEX_LABEL = "near-intents"
 
 class SwapViewModel : ViewModel(), WalletCore.EventObserver {
 
@@ -265,10 +268,12 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         cancelScheduledSelectorOpen()
 
         val state = _inputStateFlow.value
+        val keepReverse = state.reverse && (asset.mBlockchain?.canSwapByBuyAmount ?: false)
         if (asset.slug != state.tokenToReceive?.slug) {
             _inputStateFlow.value = state.copy(
                 tokenToSend = asset,
                 tokenToSendMaxAmount = maxAvailableAmount(asset),
+                reverse = keepReverse,
                 isFromAmountMax = false
             )
             validatePair()
@@ -277,6 +282,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 tokenToSend = asset,
                 tokenToSendMaxAmount = maxAvailableAmount(asset),
                 tokenToReceive = state.tokenToSend,
+                reverse = keepReverse,
                 isFromAmountMax = false
             )
         }
@@ -329,12 +335,16 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         null
                 }
             } else state.amount
+        // After swapping, the new sell token is the previous tokenToReceive; only enable
+        // reverse (buy-amount) mode if that chain can be estimated from the buy amount.
+        val newReverse = !state.isCex && !state.reverse &&
+            (state.tokenToReceive?.mBlockchain?.canSwapByBuyAmount ?: false)
         _inputStateFlow.value = state.copy(
             tokenToSend = state.tokenToReceive,
             tokenToSendMaxAmount = maxAvailableAmount(state.tokenToReceive),
             tokenToReceive = state.tokenToSend,
             amount = newAmount,
-            reverse = if (state.isCex) false else !state.reverse,
+            reverse = newReverse,
             isFromAmountMax = false
         )
     }
@@ -698,7 +708,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         }
 
                         MBridgeError.TOO_SMALL_AMOUNT,
-                        MBridgeError.PAIR_NOT_FOUND -> it.toShortLocalized ?: ""
+                        MBridgeError.PAIR_NOT_FOUND,
+                        MBridgeError.SLIPPAGE_ERROR -> it.toShortLocalized ?: ""
 
                         else -> LocaleController.getString("Error")
                     }
@@ -802,7 +813,19 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     firstTransactionFee = BigInteger.ZERO
                 }
 
-                val cex = WalletCore.Swap.swapCexEstimate(request.estimateRequestCex)
+                val cex = WalletCore.Swap.swapCexEstimate(
+                    request.wallet.accountId,
+                    request.estimateRequestCex
+                )
+                if (cex.route != null && cex.route != "cex") {
+                    return SwapEstimateResponse(
+                        request = request,
+                        dex = null,
+                        cex = null,
+                        fee = null,
+                        error = MBridgeError.UNKNOWN
+                    )
+                }
                 cex.error?.let {
                     return SwapEstimateResponse(
                         request = request,
@@ -880,6 +903,10 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
     }
 
     private var swappedEstimateConfig: SwapEstimateResponse? = null
+
+    private var awaitingActivity = false
+    private var receivedActivity: MApiTransaction? = null
+    private var previousPendingActivities: List<String>? = null
     private suspend fun callSubmit(
         passcode: String,
         estimate: SwapEstimateResponse,
@@ -890,8 +917,15 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         val tokenToSend = estimate.request.tokenToSend
         val tokenToReceive = estimate.request.tokenToReceive
 
+        awaitingActivity = false
+        receivedActivity = null
+        previousPendingActivities =
+            ActivityStore.getLocalAndPendingActivities(accountId, null)?.map { it.id }
         try {
             estimate.dex?.let { dex ->
+                val fromAddress = tokenToSend.mBlockchain?.name?.let {
+                    estimate.request.wallet.addressByChain[it]
+                } ?: accountTonAddress
                 val build = WalletCore.Swap.swapBuildTransfer(
                     accountId,
                     passcode,
@@ -899,7 +933,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         dexLabel = estimate.request.selectedDex?.name
                             ?: dex.dexLabel?.name?.lowercase(),
                         from = dex.from,
-                        fromAddress = accountTonAddress,
+                        fromAddress = fromAddress,
+                        historyAddress = accountTonAddress,
                         fromAmount = dex.fromAmount,
                         networkFee = dex.realNetworkFee ?: dex.networkFee,
                         shouldTryDiesel = estimate.request.shouldTryDiesel,
@@ -915,13 +950,18 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     )
                 )
                 val buildId = build.id
-                val buildTransfers = build.transfers
-                if (buildId == null || buildTransfers == null) {
+                val buildChain = build.chain
+                if (build.error != null ||
+                    buildId == null ||
+                    buildChain == null ||
+                    (build.transfers == null && build.transaction == null)
+                ) {
                     swappedEstimateConfig = null
                     _eventsFlow.tryEmit(
                         Event.SwapComplete(
                             success = false,
-                            error = MBridgeError.UNKNOWN
+                            error = MBridgeError.entries.firstOrNull { it.errorName == build.error }
+                                ?: MBridgeError.UNKNOWN
                         )
                     )
                     return
@@ -929,30 +969,43 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
 
                 swappedEstimateConfig = estimate
                 val submitResult = WalletCore.Swap.swapSubmit(
+                    buildChain,
                     accountId,
                     passcode,
-                    buildTransfers,
+                    build.transfers,
                     MApiSwapHistoryItem(
                         id = buildId,
                         timestamp = System.currentTimeMillis(),
                         lt = null,
                         from = dex.from,
+                        fromAddress = fromAddress,
                         fromAmount = dex.fromAmount,
                         to = dex.to,
                         toAmount = dex.toAmount,
                         networkFee = dex.networkFee,
                         swapFee = dex.swapFee,
                         status = MApiSwapHistoryItemStatus.PENDING,
-                        txIds = emptyList(),
                         isCanceled = null,
                         cex = null
                     ),
-                    estimate.request.isDiesel
+                    estimate.request.isDiesel,
+                    build.transaction
                 )
                 submitResult.mfaRequestHash?.let { hash ->
                     _eventsFlow.tryEmit(
                         Event.MfaRequested(hash, submitResult.swapId, estimate)
                     )
+                } ?: run {
+                    if (receivedActivity != null) {
+                        _eventsFlow.tryEmit(
+                            Event.SwapComplete(
+                                success = true,
+                                activity = receivedActivity
+                            )
+                        )
+                    } else {
+                        awaitingActivity = true
+                    }
                 }
             }
 
@@ -970,6 +1023,13 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 val networkFee = if (tokenToSend.mBlockchain == MBlockchain.ton) {
                     estimate.fee?.toBigDecimal(9)?.toDouble() ?: 0.0
                 } else 0.0
+                val cexLabel = cex.cexLabel
+                val isNearIntents = cexLabel == NEAR_INTENTS_CEX_LABEL
+                val historyAddress = accountTonAddress
+                val sourceAddress = if (isNearIntents) {
+                    estimate.request.wallet.addressByChain[tokenToSend.mBlockchain?.name]
+                        ?: throw NullPointerException("source address is null")
+                } else accountTonAddress
 
                 swappedEstimateConfig = estimate
                 val result = WalletCore.Swap.swapCexCreateTransaction(
@@ -978,8 +1038,11 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     MApiSwapCexCreateTransactionRequest(
                         from = tokenToSend.swapSlug,
                         fromAmount = cex.fromAmount!!,
-                        fromAddress = accountTonAddress,
+                        fromAddress = sourceAddress,
+                        historyAddress = historyAddress,
+                        cexLabel = cexLabel,
                         to = tokenToReceive.swapSlug,
+                        toAmount = cex.toAmount,
                         toAddress = toUserAddress,
                         payoutExtraId = null,
                         swapFee = cex.swapFee!!,
@@ -988,6 +1051,25 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 )
 
                 if (estimate.request.tokenToSendIsSupported) {
+                    val depositMemo =
+                        result.swap.cex?.payinExtraId?.trim()?.takeIf { it.isNotEmpty() }
+                    if (isNearIntents && depositMemo != null && !canAutoSubmitDepositMemo(
+                            tokenToSend.mBlockchain
+                        )
+                    ) {
+                        awaitingActivity = false
+                        swappedEstimateConfig = null
+                        _eventsFlow.tryEmit(
+                            Event.SwapComplete(
+                                success = false,
+                                error = MBridgeError.UNKNOWN
+                            )
+                        )
+                        return
+                    }
+                    val payload = if (isNearIntents && depositMemo != null) {
+                        ApiTransferPayload.Comment(depositMemo, shouldEncrypt = false)
+                    } else null
                     val cexSubmit = WalletCore.Transfer.swapCexSubmit(
                         tokenToSend.mBlockchain!!, MApiSubmitTransferOptions(
                             accountId = accountId,
@@ -995,16 +1077,27 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                             toAddress = result.swap.cex!!.payinAddress,
                             amount = estimate.fromAmount ?: BigInteger.ZERO,
                             fee = estimate.fee,
+                            payload = payload,
                             tokenAddress = if (!tokenToSend.isBlockchainNative) tokenToSend.tokenAddress else null,
                             noFeeCheck = true,
                             isGasless = false,
                         ),
                         result.swap.id
                     )
-                    cexSubmit.mfaRequestHash?.let { hash ->
+                    val mfaRequestHash = cexSubmit.mfaRequestHash
+                    if (mfaRequestHash != null) {
                         _eventsFlow.tryEmit(
-                            Event.MfaRequested(hash, result.swap.id, estimate)
+                            Event.MfaRequested(mfaRequestHash, result.swap.id, estimate)
                         )
+                    } else if (receivedActivity != null) {
+                        _eventsFlow.tryEmit(
+                            Event.SwapComplete(
+                                success = true,
+                                activity = receivedActivity
+                            )
+                        )
+                    } else {
+                        awaitingActivity = true
                     }
                 } else {
                     _eventsFlow.tryEmit(
@@ -1025,16 +1118,39 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         }
     }
 
+    fun onMfaConfirmed() {
+        if (receivedActivity != null) {
+            _eventsFlow.tryEmit(
+                Event.SwapComplete(
+                    success = true,
+                    activity = receivedActivity
+                )
+            )
+        } else {
+            awaitingActivity = true
+        }
+    }
+
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
         val isSwapDone = receivedActivity is MApiTransaction.Swap &&
+            previousPendingActivities?.contains(receivedActivity.id) != true &&
             (receivedActivity.from == swappedEstimateConfig?.request?.tokenToSend?.slug ||
                 receivedActivity.from == swappedEstimateConfig?.request?.tokenToSend?.tokenAddress) &&
             (receivedActivity.to == swappedEstimateConfig?.request?.tokenToReceive?.slug ||
                 receivedActivity.to == swappedEstimateConfig?.request?.tokenToReceive?.tokenAddress)
         if (!isSwapDone)
             return
-        _eventsFlow.tryEmit(Event.SwapComplete(success = true, activity = receivedActivity))
+        if (awaitingActivity) {
+            awaitingActivity = false
+            _eventsFlow.tryEmit(Event.SwapComplete(success = true, activity = receivedActivity))
+        } else {
+            this.receivedActivity = receivedActivity
+        }
         swappedEstimateConfig = null
+    }
+
+    private fun canAutoSubmitDepositMemo(chain: MBlockchain?): Boolean {
+        return chain == MBlockchain.ton || chain == MBlockchain.solana
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

@@ -271,7 +271,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         try await Api.activateAccount(accountId: accountId, newestActivityTimestamps: timestamps)
 
         guard let account = AccountStore.accountsById[accountId] else {
-            throw BridgeCallError.unknown()
+            throw SdkError.unexpected(message: "Activated account is missing from account store", context: ["accountId": accountId])
         }
 
         if updateCurrentAccountId {

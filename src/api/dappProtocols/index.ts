@@ -20,7 +20,10 @@ import {
 
 import { logDebugError } from '../../util/logs';
 import { chains } from '../chains';
-import { getTonConnectAdapter, getWalletConnectAdapter } from './adapters';
+// Imported directly (not via the `./adapters` barrel) so the WalletConnect adapter — and its heavy
+// `@reown/walletkit` / `@walletconnect/*` / `ethers` deps — are not statically pulled in. WalletConnect is
+// registered via a `process.env.NO_WALLETCONNECT`-guarded `require` below, allowing dead-code elimination.
+import { getTonConnectAdapter } from './adapters/tonConnect';
 
 class DappProtocolManager implements AbstractDappProtocolManager {
   public adapters = new Map<DappProtocolType, DappProtocolRegistration>();
@@ -122,8 +125,9 @@ function ensureProtocolAdaptersRegistered(manager: DappProtocolManager) {
     manager.registerAdapter(getTonConnectAdapter());
   }
 
-  if (!manager.getAdapter(DappProtocolType.WalletConnect)) {
-    manager.registerAdapter(getWalletConnectAdapter());
+  if (process.env.NO_WALLETCONNECT !== '1' && !manager.getAdapter(DappProtocolType.WalletConnect)) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    manager.registerAdapter(require('./adapters/walletConnect').getWalletConnectAdapter());
   }
 }
 

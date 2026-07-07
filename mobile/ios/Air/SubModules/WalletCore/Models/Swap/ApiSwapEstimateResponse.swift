@@ -8,9 +8,10 @@
 
 public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
     
+    public var route: String?
     public var from: String
     public var to: String
-    public var slippage: Double
+    public var slippage: Double?
     public var fromAmount: MDouble?
     public var toAmount: MDouble?
     public var fromAddress: String?
@@ -37,6 +38,7 @@ public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
     public var dieselFee: MDouble?
     
     public static func ==(lhs: Self, rhs: Self) -> Bool {
+        lhs.route == rhs.route &&
         lhs.from == rhs.from &&
         lhs.to == rhs.to &&
         lhs.slippage == rhs.slippage &&
@@ -52,7 +54,6 @@ public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
         lhs.impact == rhs.impact &&
         lhs.dexLabel == rhs.dexLabel &&
         lhs.dieselStatus == rhs.dieselStatus &&
-//        lhs.other == rhs.other &&
         lhs.networkFee == rhs.networkFee &&
         lhs.realNetworkFee == rhs.realNetworkFee &&
         lhs.swapFee == rhs.swapFee &&

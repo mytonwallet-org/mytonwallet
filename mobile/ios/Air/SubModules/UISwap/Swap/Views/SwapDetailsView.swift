@@ -107,7 +107,7 @@ struct SwapDetailsView: View {
                             .foregroundStyle(Color.air.secondaryLabel)
                         Spacer(minLength: 4)
                         let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
-                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.none, maxDecimals: min(6, sellingToken.decimals)))")
+                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.compact))")
                     }
                 }
             }
@@ -212,7 +212,7 @@ struct SwapDetailsView: View {
                     )
                 } else if let tonToken = TokenStore.tokens[TONCOIN_SLUG] {
                     let fee = sellingToken.chain == .ton ? displayEstimate.realNetworkFee : displayEstimate.networkFee
-                    let feeAmountString = DecimalAmount.fromDouble(fee.value, tonToken).formatted(.defaultAdaptive)
+                    let feeAmountString = DecimalAmount.fromDouble(fee.value, tonToken).formatted(.fee)
                     Text("~\(feeAmountString)")
                 }
             }

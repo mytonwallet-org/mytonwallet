@@ -19,24 +19,45 @@ protocol RootContainerRouting {
     func showTemporaryViewAccount(accountId: String)
 }
 
+extension RootContainerRouting {
+    @MainActor
+    func showTab(_ id: AppTabId, popToRoot: Bool = false) {
+        guard AppTabManager.shared.contains(id) else {
+            presentTabModally(id, path: [])
+            return
+        }
+        if let tabVC = findActiveViewController(of: HomeTabBarController.self) {
+            tabVC.selectTab(id, popToRoot: popToRoot)
+        } else if let splitVC = findActiveViewController(of: SplitRootViewController.self) {
+            splitVC.select(tab: id, popToRoot: popToRoot)
+        }
+    }
+
+    @MainActor
+    private func presentTabModally(_ id: AppTabId, path: [UIViewController]) {
+        guard let nc = AppTabManager.shared.makeNavigationController(for: id, layout: .tab) else { return }
+        if !path.isEmpty, let root = nc.viewControllers.first {
+            nc.setViewControllers([root] + path, animated: false)
+        }
+        nc.modalPresentationStyle = .fullScreen
+        topViewController()?.present(nc, animated: true)
+    }
+}
+
+
 @MainActor
 struct TabRootContainerRouter: RootContainerRouting {
     private var tabVC: HomeTabBarController? {
-        for window in UIApplication.shared.sceneWindows {
-            if let tabVC = window.rootViewController?.descendantViewController(of: HomeTabBarController.self) {
-                return tabVC
-            }
-        }
-        return nil
+        findActiveViewController()
     }
-    
+
     func isHomeRootSelected() -> Bool {
         guard let nav = tabVC?.selectedViewController as? UINavigationController else {
             return false
         }
         return nav.viewControllers.first is HomeVC
     }
-    
+
     func pushOnHome(_ viewController: UIViewController) -> Bool {
         guard let nav = tabVC?.selectedViewController as? UINavigationController,
               nav.viewControllers.first is HomeVC else {
@@ -51,27 +72,39 @@ struct TabRootContainerRouter: RootContainerRouting {
     }
 
     func showAgent() {
-        tabVC?.switchToAgent()
+        showTab(.agent)
     }
-    
+
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter) {
         presentAssetsModally(accountSource: accountSource, selectedTab: selectedTab, collectionsFilter: collectionsFilter)
     }
-    
+
     func showExplore() {
-        tabVC?.switchToExplore()
+        showTab(.explore)
     }
-    
+
     func showHome(popToRoot: Bool) {
         tabVC?.switchToHome(popToRoot: popToRoot)
     }
-    
+
     func showSettings(path: [UIViewController]) {
-        tabVC?.switchToSettings(path: path)
+        if AppTabManager.shared.contains(.settings) {
+            tabVC?.switchToSettings(path: path)
+        } else {
+            guard let nc = AppTabManager.shared.makeNavigationController(for: .settings, layout: .tab) else { return }
+            if !path.isEmpty, let root = nc.viewControllers.first {
+                nc.setViewControllers([root] + path, animated: false)
+            }
+            nc.modalPresentationStyle = .fullScreen
+            topViewController()?.present(nc, animated: true)
+        }
     }
-    
+
     func showTemporaryViewAccount(accountId: String) {
-        tabVC?.switchToHome(popToRoot: false)
+        if let rootVC = tabVC?.view.window?.rootViewController, rootVC.presentedViewController != nil {
+            rootVC.dismiss(animated: true)
+        }
+        showTab(.wallet)
         tabVC?.homeVC?.navigationController?.pushViewController(HomeVC(accountSource: .accountId(accountId)), animated: true)
     }
 }
@@ -81,20 +114,15 @@ struct SplitRootContainerRouter: RootContainerRouting {
     var isAvailable: Bool {
         splitVC != nil
     }
-    
+
     private var splitVC: SplitRootViewController? {
-        for window in UIApplication.shared.sceneWindows {
-            if let splitVC = window.rootViewController?.descendantViewController(of: SplitRootViewController.self) {
-                return splitVC
-            }
-        }
-        return nil
+        findActiveViewController()
     }
-    
+
     func isHomeRootSelected() -> Bool {
         splitVC?.isHomeRootSelected() == true
     }
-    
+
     func pushOnHome(_ viewController: UIViewController) -> Bool {
         splitVC?.pushOnHome(viewController) == true
     }
@@ -107,9 +135,9 @@ struct SplitRootContainerRouter: RootContainerRouting {
     }
 
     func showAgent() {
-        splitVC?.showAgent()
+        showTab(.agent)
     }
-    
+
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter) {
         guard let splitVC, !splitVC.isCollapsed else {
             presentAssetsModally(accountSource: accountSource, selectedTab: selectedTab, collectionsFilter: collectionsFilter)
@@ -117,22 +145,45 @@ struct SplitRootContainerRouter: RootContainerRouting {
         }
         splitVC.showAssets(accountSource: accountSource, selectedTab: selectedTab, collectionsFilter: collectionsFilter)
     }
-    
+
     func showExplore() {
-        splitVC?.showExplore()
+        showTab(.explore)
     }
-    
+
     func showHome(popToRoot: Bool) {
-        splitVC?.showHome(popToRoot: popToRoot)
+        if AppTabManager.shared.contains(.wallet) {
+            splitVC?.showHome(popToRoot: popToRoot)
+        } else {
+            showTab(.wallet, popToRoot: popToRoot)
+        }
     }
-    
+
     func showSettings(path: [UIViewController]) {
-        splitVC?.showSettings(path: path)
+        if AppTabManager.shared.contains(.settings) {
+            splitVC?.showSettings(path: path)
+        } else {
+            guard let nc = AppTabManager.shared.makeNavigationController(for: .settings, layout: .split) else { return }
+            if !path.isEmpty, let root = nc.viewControllers.first {
+                nc.setViewControllers([root] + path, animated: false)
+            }
+            nc.modalPresentationStyle = .fullScreen
+            topViewController()?.present(nc, animated: true)
+        }
     }
-    
+
     func showTemporaryViewAccount(accountId: String) {
         splitVC?.showTemporaryViewAccount(accountId: accountId)
     }
+}
+
+@MainActor
+private func findActiveViewController<T: UIViewController>(of type: T.Type = T.self) -> T? {
+    for window in UIApplication.shared.sceneWindows {
+        if let vc = window.rootViewController?.descendantViewController(of: type) {
+            return vc
+        }
+    }
+    return nil
 }
 
 @MainActor

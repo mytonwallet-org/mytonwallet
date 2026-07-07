@@ -156,7 +156,7 @@ function DappTransactionPayload({ transaction, tokensBySlug }: OwnProps) {
         )}
       </div>
       {transaction.isDangerous && (
-        <div className={styles.warningForPayload}>{renderText(lang('$hardware_payload_warning'))}</div>
+        <div className={styles.warning}>{renderText(lang('$hardware_payload_warning'))}</div>
       )}
     </>
   );

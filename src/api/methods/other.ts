@@ -86,19 +86,19 @@ export function setLangCode(langCode: LangCode) {
 
 export async function getMoonpayOnrampUrl({
   chain,
-  address,
+  addressByChain,
   theme,
   currency,
 }: {
   chain: ApiChain;
-  address: string;
+  addressByChain?: Partial<Record<ApiChain, string>>;
   theme: Theme;
   currency: ApiBaseCurrency;
 }) {
   try {
     return await callBackendGet<{ url: string }>('/onramp-url', {
       chain,
-      address,
+      addressByChain: addressByChain && JSON.stringify(addressByChain),
       theme,
       currency: currency.toLowerCase(),
     });

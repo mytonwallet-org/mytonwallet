@@ -168,7 +168,7 @@ function DappTransferInitial({
           customTokenDecimals={tokenToDisplay.decimals}
         />
         {isDangerous && (
-          <div className={buildClassName(styles.transferWarning, styles.warningForPayload)}>
+          <div className={buildClassName(styles.transferWarning, styles.warning)}>
             {renderText(lang('$hardware_payload_warning'))}
           </div>
         )}

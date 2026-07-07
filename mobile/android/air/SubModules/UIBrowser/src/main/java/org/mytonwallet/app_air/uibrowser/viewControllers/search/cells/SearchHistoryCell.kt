@@ -87,7 +87,7 @@ class SearchHistoryCell(context: Context) :
 
         historyImageView.clear()
         historyImageView.set(Content.ofUrl(site.favicon))
-        titleLabel.setStyle(adaptiveFontSize(), WFont.SemiBold)
+        titleLabel.setStyle(adaptiveFontSize(), WFont.Medium)
         titleLabel.text = site.title
         subtitleLabel.text =
             "${site.url.toUri().host} · ${Date(site.visitDate).timeAgo("\$visited_ago")}"

@@ -31,7 +31,7 @@ type OwnProps = {
 };
 
 const ARROW_WIDTH = 0.6875 * REM;
-const GAP = 2 * REM;
+const GAP = 1.5 * REM;
 const CLOSE_TIMER_DELAY = 150;
 
 /** The component is designed to be positioned inline in text. Use a space symbol to create a gap on the left. */
@@ -90,7 +90,14 @@ const IconWithTooltip: FC<OwnProps> = ({
 
     const tooltipCenter = (window.innerWidth - tooltipWidth) / 2;
     const arrowPosition = left - tooltipCenter + width / 2 - ARROW_WIDTH / 2;
-    const horizontalOffset = arrowPosition < GAP ? GAP - arrowPosition : 0;
+    // Clamp the arrow within the tooltip's edges - the right guard is needed for RTL
+    const maxArrowPosition = tooltipWidth - GAP - ARROW_WIDTH;
+    let horizontalOffset = 0;
+    if (arrowPosition < GAP) {
+      horizontalOffset = GAP - arrowPosition;
+    } else if (arrowPosition > maxArrowPosition) {
+      horizontalOffset = maxArrowPosition - arrowPosition;
+    }
 
     const isTop = direction === 'top';
     const tooltipTop = isTop

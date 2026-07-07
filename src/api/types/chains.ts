@@ -17,10 +17,19 @@ import type {
   ApiDerivation,
   ApiNetwork,
   ApiNft,
+  ApiRevokeWalletPermissionOptions,
   ApiToken,
+  ApiTonPlugin,
+  ApiWalletPermission,
   OnUpdatingStatusChange,
 } from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
+import type {
+  ApiBuildOnchainSwapTransferOptions,
+  ApiBuildOnchainSwapTransferResult,
+  ApiSubmitOnchainSwapTransferOptions,
+  ApiSubmitOnchainSwapTransferResult,
+} from './swap';
 import type {
   ApiCheckTransactionDraftOptions,
   ApiCheckTransactionDraftResult,
@@ -168,6 +177,19 @@ export interface ChainSdk<T extends ApiChain> {
   ): Promise<ApiSubmitGaslessTransferResult | { error: string }>;
 
   //
+  // Onchain swap (DEX)
+  //
+
+  buildOnchainSwapTransfer(
+    options: ApiBuildOnchainSwapTransferOptions,
+  ): Promise<ApiBuildOnchainSwapTransferResult | { error: string }>;
+
+  submitOnchainSwapTransfer(
+    options: ApiSubmitOnchainSwapTransferOptions,
+    onUpdate: OnApiUpdate,
+  ): Promise<ApiSubmitOnchainSwapTransferResult>;
+
+  //
   // Wallet info
   //
 
@@ -272,4 +294,24 @@ export interface ChainSdk<T extends ApiChain> {
    * Checks ownership of NFT, currently used in MW NFT-cards flow
    */
   checkNftOwnership: (accountId: string, nftAddress: string) => Promise<boolean>;
+
+  /**
+   * Returns active wallet permissions: ERC-20 allowances and EIP-7702 code delegations.
+   * Returns an empty array for chains that do not support these permission types.
+   */
+  fetchWalletPermissions(network: ApiNetwork, address: string): Promise<ApiWalletPermission[]>;
+
+  /**
+   * Revokes an active wallet permission: ERC-20 approval or EIP-7702 code delegation.
+   * Returns the transaction hash on success. Unsupported chains must throw.
+   */
+  revokeWalletPermission(
+    options: ApiRevokeWalletPermissionOptions,
+  ): Promise<{ txId: string } | { error: ApiAnyDisplayError }>;
+
+  /**
+   * Returns the list of smart-contract plugins installed on the given wallet.
+   * Only supported for TON v4R2 and W5 wallets; returns an empty array for all other chains/versions.
+   */
+  fetchWalletPlugins(network: ApiNetwork, address: string): Promise<ApiTonPlugin[]>;
 }

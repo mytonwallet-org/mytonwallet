@@ -19,6 +19,7 @@ object SolanaConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_sol_light
 
     override val qrIcon = null
+    override val displayColor = "#864BFF".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#5E58BA".toColorInt(),
         "#106E73".toColorInt(),
@@ -28,6 +29,8 @@ object SolanaConfig : MBlockchainConfig {
 
     override val isCommentSupported = true
     override val isEncryptedCommentSupported = false
+    override val isOnchainSwapSupported = true
+    override val canSwapByBuyAmount = false
 
     override val burnAddress = null
     override val multiWalletSupport = MultiWalletSupport.PATH

@@ -136,6 +136,19 @@ function stop() {
   listeningSubscription = undefined;
 }
 
+async function disconnect() {
+  stop();
+  onLedgerConnected = undefined;
+
+  const connection = pairedDevice;
+  pairedDevice = undefined;
+  if (!connection) return false;
+
+  connection.bleTransport.disconnectCallback = undefined;
+  await BleTransport.disconnectDevice(connection.bleTransport.id, connection.bleTransport.onDisconnect);
+  return true;
+}
+
 function connect(): Promise<LedgerConnection> {
   return new Promise((resolve) => {
     onLedgerConnected = resolve;
@@ -160,6 +173,7 @@ async function openSettings() {
 export const BleConnector = {
   isSupported,
   connect,
+  disconnect,
   stop,
   openSettings,
 };

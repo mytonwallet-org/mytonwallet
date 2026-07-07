@@ -162,7 +162,24 @@ export function getTransactionTitle(
 
 export function isScamTransaction(transaction: ApiTransaction) {
   return Boolean(transaction.metadata?.isScam)
+    || Boolean(transaction.nft?.isScam)
     || (transaction.isIncoming && getIsTransactionWithPoisoning(transaction));
+}
+
+// A spam NFT is one the backend marked as hidden (unless the user whitelisted it) or the user blacklisted.
+// The scam case is covered by `isScamTransaction`.
+export function getIsHiddenNftActivity(
+  transaction: ApiTransaction,
+  blacklistedNftAddresses?: string[],
+  whitelistedNftAddresses?: string[],
+) {
+  const { nft } = transaction;
+
+  if (!nft) return false;
+
+  if (nft.isHidden && !whitelistedNftAddresses?.includes(nft.address)) return true;
+
+  return Boolean(blacklistedNftAddresses?.includes(nft.address));
 }
 
 export function shouldShowTransactionComment(transaction: ApiTransaction) {

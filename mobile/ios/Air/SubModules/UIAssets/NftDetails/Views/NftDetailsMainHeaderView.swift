@@ -19,11 +19,14 @@ class NftDetailsMainHeaderView: UIView {
     private let coverFlowView: _CoverFlowView
     private let preview: NftDetailsItemPreview
     private var selectedModel: NftDetailsItemModel
-    private let models: [NftDetailsItemModel]
+    private var models: [NftDetailsItemModel]
     private var fullScreenOverlay: NftDetailsFullScreenOverlay?
+    weak var overlayParentView: UIView?
 
     struct LayoutGeometry: Equatable {
         let topSafeAreaInset: CGFloat
+        let leadingSafeAreaInset: CGFloat
+        let trailingSafeAreaInset: CGFloat
         let collapsedAreaHeight: CGFloat
         let pageWidth: CGFloat
         let carouselItemSize: CGFloat = 144
@@ -78,7 +81,7 @@ class NftDetailsMainHeaderView: UIView {
     
     init(frame: CGRect, models: [NftDetailsItemModel], selectedModel: NftDetailsItemModel,
          delegate: NftDetailsMainHeaderViewDelegate, layoutGeometry: LayoutGeometry,
-         coverFlowThumbnailDownloader: ImageDownloader, colorCache: NftDetailsColorCache?) {
+         coverFlowThumbnailDownloader: ImageDownloader, colorResolver: NftDetailsColorResolver) {
         self.selectedModel = selectedModel
         self.delegate = delegate
         self.models = models
@@ -86,7 +89,7 @@ class NftDetailsMainHeaderView: UIView {
             models: models,
             itemSize: layoutGeometry.carouselItemSize,
             thumbnailDownloader: coverFlowThumbnailDownloader,
-            colorCache: colorCache,
+            colorResolver: colorResolver,
             tileCornerRadius: layoutGeometry.carouselTileCornerRadius
         )
         self.preview = NftDetailsItemPreview(layoutGeometry: .init(
@@ -113,7 +116,15 @@ class NftDetailsMainHeaderView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
 
-        gradientLayer.frame = bounds.copyWith(height: layoutGeometry.fullCollapsedHeight + 60)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradientLayer.frame = CGRect(
+            x: -layoutGeometry.leadingSafeAreaInset,
+            y: 0,
+            width: bounds.width + layoutGeometry.leadingSafeAreaInset + layoutGeometry.trailingSafeAreaInset,
+            height: layoutGeometry.fullCollapsedHeight + 60
+        )
+        CATransaction.commit()
     }
     
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -200,6 +211,26 @@ class NftDetailsMainHeaderView: UIView {
         }
     }
     
+    func removeModel(id: String, newModels: [NftDetailsItemModel], newSelectedModel: NftDetailsItemModel, animated: Bool) {
+        self.models = newModels
+        coverFlowView.removeModel(id: id, newModels: newModels, newSelectedModel: newSelectedModel, animated: animated)
+        selectedModel = newSelectedModel
+        if !state.isHidden {
+            preview.selectModel(newSelectedModel)
+        }
+    }
+
+    /// Reconciles the header (and its cover flow) to an arbitrary new model list (insertions,
+    /// removals and reorders), then focuses `newSelectedModel`.
+    func setModels(_ newModels: [NftDetailsItemModel], newSelectedModel: NftDetailsItemModel, animated: Bool) {
+        self.models = newModels
+        coverFlowView.setModels(newModels, newSelectedModel: newSelectedModel, animated: animated)
+        selectedModel = newSelectedModel
+        if !state.isHidden {
+            preview.selectModel(newSelectedModel)
+        }
+    }
+
     func syncCoverFlowWithPager(progress: CGFloat, currentModel: NftDetailsItemModel) {
         if state.isExpanded {
             coverFlowView.setSelectedTileVisible(true)
@@ -362,7 +393,7 @@ class NftDetailsMainHeaderView: UIView {
     }
     
     func openFullScreenPreview() {
-        guard fullScreenOverlay == nil, let parentView = superview else { return }
+        guard fullScreenOverlay == nil, let parentView = overlayParentView ?? superview else { return }
         
         stopExpandCollapseAnimation()
         stopTransformAnimation()
@@ -411,10 +442,16 @@ class NftDetailsMainHeaderView: UIView {
             animationDuration2 = 0.20
         }
         
-        // At this moment we have preview in the full screen overlay. We need to animate it to the collapsed position
+        guard let overlay = fullScreenOverlay else { return }
+        
         preview.cancelLottiePlayback()
         preview.prepareToCollapseAnimation(expandedWidth: layoutGeometry.pageWidth)
-        preview.centerYConstraint?.constant = layoutGeometry.previewCenterY
+        let targetCenter = convert(
+            CGPoint(x: bounds.midX, y: layoutGeometry.previewCenterY),
+            to: overlay
+        )
+        preview.centerYConstraint?.constant = targetCenter.y
+        preview.centerXConstraint?.constant = targetCenter.x - overlay.bounds.midX
         UIView.animate(
             withDuration: animationDuration1,
             delay: 0,
@@ -422,7 +459,7 @@ class NftDetailsMainHeaderView: UIView {
             initialSpringVelocity: 0.38,
             options: [.beginFromCurrentState, .curveEaseInOut],
             animations: {
-                self.preview.superview?.layoutIfNeeded()
+                overlay.layoutIfNeeded()
             },
             completion: { _ in
                 self.finalizeExitFullScreenPreviewStep()

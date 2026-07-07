@@ -28,8 +28,16 @@ struct SwapView: View {
                         )
                         .transition(.opacity)
                     case .crosschain(let swapType):
-                        SwapChangellyView()
-                            .transition(.opacity)
+                        if let cexEstimate = swapModel.crosschain.cexEstimate,
+                           let providerName = cexEstimate.providerName {
+                            SwapCexProviderInfoView(
+                                providerName: providerName,
+                                termsOfUseUrl: cexEstimate.termsOfUseUrl,
+                                privacyPolicyUrl: cexEstimate.privacyPolicyUrl,
+                                amlKycPolicyUrl: cexEstimate.amlKycPolicyUrl
+                            )
+                                .transition(.opacity)
+                        }
                         SwapCexDetailsView(
                             inputModel: swapModel.input,
                             swapEstimate: swapModel.crosschain.cexEstimate,

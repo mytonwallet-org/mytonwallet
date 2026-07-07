@@ -221,6 +221,13 @@ class BleManager internal constructor(
                 .build(),
         )
 
+        //Filter Apex service
+        filters.add(
+            ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid(UUID.fromString(APEX_SERVICE_UUID)))
+                .build(),
+        )
+
         scannedDevices = mutableListOf()
 
         val builder =
@@ -586,6 +593,12 @@ class BleManager internal constructor(
         const val flexWriteWithResponseCharacteristicUUID = "13d63400-2c97-3004-0002-4c6564676572"
         const val flexWriteWithoutResponseCharacteristicUUID =
             "13d63400-2c97-3004-0003-4c6564676572"
+
+        const val APEX_SERVICE_UUID = "13d63400-2c97-8004-0000-4c6564676572"
+        const val apexNotifyCharacteristicUUID = "13d63400-2c97-8004-0001-4c6564676572"
+        const val apexWriteWithResponseCharacteristicUUID = "13d63400-2c97-8004-0002-4c6564676572"
+        const val apexWriteWithoutResponseCharacteristicUUID =
+            "13d63400-2c97-8004-0003-4c6564676572"
     }
 
     private fun String.toDeviceModel(): BleDevice =
@@ -593,6 +606,7 @@ class BleManager internal constructor(
             equals(NANO_X_SERVICE_UUID, ignoreCase = true) -> BleDevice.NANOX
             equals(STAX_SERVICE_UUID, ignoreCase = true) -> BleDevice.STAX
             equals(FLEX_SERVICE_UUID, ignoreCase = true) -> BleDevice.FLEX
+            equals(APEX_SERVICE_UUID, ignoreCase = true) -> BleDevice.APEX
             else -> {
                 throw IllegalStateException("$this is not an known uuid")
             }

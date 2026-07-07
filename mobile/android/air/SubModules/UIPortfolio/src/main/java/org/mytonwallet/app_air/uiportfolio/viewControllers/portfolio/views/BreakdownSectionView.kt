@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import kotlin.math.abs
+import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class BreakdownSectionView(context: Context) : WView(context), WThemedView {
@@ -111,7 +112,7 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         if (cards.size != 2) return cardWidth
         val available =
             width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - ViewConstants.GAP.dp
-        return if (available > 0) available / 2 else cardWidth
+        return max(available / 2, cardWidth)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

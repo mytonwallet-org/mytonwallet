@@ -231,7 +231,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                     }
 
                     else -> {
-                        // MY Coin
+                        // My Wallet Coin
                         hasLoadedAllStakingHistoryItems = true
                         lastLoadedPage = page
                         if (historyItems.isNullOrEmpty()) showNoItemView()

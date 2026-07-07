@@ -30,7 +30,7 @@ class TitleSubtitleSelectionCell(
 
     private val titleLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(adaptiveFontSize(), WFont.DemiBold)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 

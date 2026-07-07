@@ -14,7 +14,7 @@ struct StepView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(step.id.displayTitlle)
                     .fixedSize(horizontal: false, vertical: true)
-                if let subtitle = step.status.displaySubtitle {
+                if let subtitle = step.status.displaySubtitle ?? step.subtitle {
                     Text(subtitle)
                         .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(Color.air.secondaryLabel)

@@ -24,6 +24,7 @@ struct SecurityView: View {
                 passcodeSection
                 mfaSection
                 autolockSection
+                suspiciousActionsSection
             }
         }
     }
@@ -186,6 +187,33 @@ struct SecurityView: View {
         }
         .onChange(of: autolockOption) { autolock in
             AutolockStore.shared.autolockOption = autolock
+        }
+    }
+
+    // MARK: - Suspicious actions
+
+    @ViewBuilder
+    var suspiciousActionsSection: some View {
+        let settings = accountContext.settings
+        let isAllowSuspiciousActions = settings.isAllowSuspiciousActions
+
+        InsetSection {
+            InsetDetailCell(verticalPadding: 0) {
+                Text(lang("Allow Suspicious Actions"))
+                    .frame(height: 44)
+            } value: {
+                Toggle(
+                    lang("Allow Suspicious Actions"),
+                    isOn: Binding(
+                        get: { isAllowSuspiciousActions },
+                        set: { settings.setIsAllowSuspiciousActions($0) }
+                    )
+                )
+                .toggleStyle(.switch)
+                .labelsHidden()
+            }
+        } footer: {
+            Text(lang("$allow_suspicious_actions_description"))
         }
     }
 }

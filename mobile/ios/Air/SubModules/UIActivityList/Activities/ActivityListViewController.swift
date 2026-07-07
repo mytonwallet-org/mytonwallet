@@ -1,3 +1,4 @@
+import ContextMenuKit
 import UIKit
 import UIComponents
 import WalletCore
@@ -7,6 +8,7 @@ private let log = Log("ActivityListViewController")
 
 private let appearAnimationDuration = 0.4
 private let plainSectionEstimatedHeight: CGFloat = 300
+private let nftActivityContextMenuStyle = ContextMenuStyle(minWidth: 180.0, maxWidth: 280.0)
 
 open class ActivityListViewController: WViewController, ActivityCell.Delegate, UICollectionViewDelegate {
 
@@ -193,12 +195,16 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                         accountContext: activityViewModel.accountContext,
                         delegate: self
                     )
+                    cell.setContextMenuInteraction(makeNftActivityContextMenuInteraction(for: showingTransaction))
                 } else {
                     cell.configureSkeleton()
+                    cell.setContextMenuInteraction(nil)
                 }
             case .transactionPlaceholder, .loadingMore:
                 cell.configureSkeleton()
+                cell.setContextMenuInteraction(nil)
             case .headerPlaceholder, .custom(_), .emptyPlaceholder:
+                cell.setContextMenuInteraction(nil)
                 return
             }
         }
@@ -244,6 +250,43 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         }
 
         return dataSource
+    }
+
+    private func makeNftActivityContextMenuInteraction(for activity: ApiActivity) -> ContextMenuInteraction? {
+        guard case .transaction(let transaction) = activity,
+              transaction.isIncoming,
+              transaction.status != .failed,
+              let nft = transaction.nft,
+              let accountId = activityViewModel?.accountContext.accountId else {
+            return nil
+        }
+
+        return ContextMenuInteraction(
+            triggers: [.longPress],
+            sourcePortal: ContextMenuSourcePortal(
+                mask: .roundedAttachmentRect(cornerRadius: 20.0)
+            ),
+            pressAnimation: .default(transformMode: .sublayerTransform)
+        ) { _ in
+            ContextMenuConfiguration(
+                rootPage: ContextMenuPage(
+                    items: [
+                        .action(
+                            ContextMenuAction(
+                                title: lang("Hide NFT"),
+                                icon: .airBundle("MenuHide26"),
+                                role: .destructive,
+                                handler: {
+                                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+                                }
+                            )
+                        )
+                    ]
+                ),
+                backdrop: .dimmed(alpha: 0.14),
+                style: nftActivityContextMenuStyle
+            )
+        }
     }
 
     public func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
@@ -316,6 +359,13 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         collectionView.collectionViewLayout.invalidateLayout()
     }
     
+    public func invalidateCustomSectionLayout(id: String) {
+        guard let indexPath = dataSource?.indexPath(for: .custom(id)) else { return }
+        let context = UICollectionViewLayoutInvalidationContext()
+        context.invalidateItems(at: [indexPath])
+        collectionView.collectionViewLayout.invalidateLayout(with: context)
+    }
+
     public func reconfigureCustomSection(id: String) {
         guard let dataSource else { return }
         let currentSnapshot = dataSource.snapshot()

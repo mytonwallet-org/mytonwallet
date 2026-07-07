@@ -14,7 +14,7 @@ import type {
   OnApiUpdate,
 } from '../types';
 
-import { IS_CORE_WALLET, IS_STAKING_DISABLED } from '../../config';
+import { IS_CORE_WALLET, IS_STAKING_DISABLED, NO_MFA, NO_STAKING, NO_SWAP } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import { omit } from '../../util/iteratees';
@@ -65,8 +65,8 @@ export function initPolling(_onUpdate: OnApiUpdate) {
     tryUpdateKnownAddresses(),
     tryUpdateTokens(),
     tryUpdateCurrencyRates(),
-    !IS_STAKING_DISABLED && tryUpdateSwapTokens(),
-    tryUpdateStakingCommonData(),
+    !IS_STAKING_DISABLED && !NO_SWAP && tryUpdateSwapTokens(),
+    !NO_STAKING && tryUpdateStakingCommonData(),
   ]).then(() => resolveDataPreloadPromise());
 
   void tryUpdateConfig();
@@ -96,9 +96,9 @@ function setupCommonBackendPolling() {
         await Promise.all([
           tryUpdateTokens(),
           tryUpdateKnownAddresses(),
-          !IS_STAKING_DISABLED && tryUpdateStakingCommonData(),
+          !IS_STAKING_DISABLED && !NO_STAKING && tryUpdateStakingCommonData(),
           tryUpdateConfig(),
-          tryUpdateSwapTokens(),
+          !NO_SWAP && tryUpdateSwapTokens(),
         ]);
       },
     }).stop,
@@ -242,7 +242,7 @@ export async function setActivePollingAccount(
 
     const stopPollingFns = [
       !IS_CORE_WALLET ? setupAccountConfigPolling(accountId, account).stop : undefined,
-      doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
+      !NO_MFA && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
 
       ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
         if (doesAccountHaveChain(account, chain)) {
@@ -434,7 +434,7 @@ function createInactiveAccountsPollingManager() {
     if (stopByAccount[accountId]) return;
 
     const stopFns = [
-      doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
+      !NO_MFA && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
       ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
         if (doesAccountHaveChain(account, chain)) {
           return chains[chain].setupInactivePolling(accountId, account, onUpdate);

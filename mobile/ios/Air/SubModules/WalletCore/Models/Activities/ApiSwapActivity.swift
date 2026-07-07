@@ -23,8 +23,11 @@ public struct ApiSwapActivity: BaseActivity, Codable, Equatable, Hashable, Senda
     public let networkFee: MDouble? // FIXME: Had to add ? for comatibility
     public let swapFee: MDouble? // FIXME: Had to add ? for comatibility
     public let ourFee: MDouble?
+    public let ourFeeMode: String?
+    public let cexLabel: ApiSwapCexLabel?
     public var status: ApiSwapStatus
     public let hashes: [String]?
+    public let transactionIds: ApiSwapTransactionIds
     public let isCanceled: Bool?
     public let cex: ApiSwapCexTransactionExtras?
 }
@@ -36,6 +39,22 @@ public enum ApiSwapStatus: String, Codable, Sendable {
     case completed
     case failed
     case expired
+}
+
+
+public struct ApiSwapTransactionRef: Codable, Equatable, Hashable, Sendable {
+    public let hash: String
+    public let chain: ApiChain
+}
+
+public struct ApiSwapTransactionIds: Codable, Equatable, Hashable, Sendable {
+    public let outgoing: ApiSwapTransactionRef?
+    public let incoming: ApiSwapTransactionRef?
+
+    public init(outgoing: ApiSwapTransactionRef? = nil, incoming: ApiSwapTransactionRef? = nil) {
+        self.outgoing = outgoing
+        self.incoming = incoming
+    }
 }
 
 public enum SwapDisplayStatus: Sendable, Equatable {
@@ -72,6 +91,9 @@ public struct ApiSwapCexTransactionExtras: Codable, Equatable, Hashable, Sendabl
     public let payinExtraId: String?
     public let status: ApiSwapCexTransactionStatus
     public let transactionId: String
+    public let providerName: String?
+    public let supportUrl: String?
+    public let supportEmail: String?
 }
 
 public enum ApiSwapCexTransactionStatus: String, Codable, Sendable {

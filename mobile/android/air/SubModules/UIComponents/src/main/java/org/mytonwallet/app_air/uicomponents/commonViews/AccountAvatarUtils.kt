@@ -42,11 +42,11 @@ val MAccount.abbreviation: String
 object AccountAvatarRenderer {
 
     /**
-     * Creates a Paint configured for avatar text rendering with the rounded Nunito font.
+     * Creates a Paint configured for avatar text rendering with the balance font.
      */
     fun createTextPaint(textSize: Float): Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.textSize = textSize
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         color = WColor.White.color
         textAlign = Paint.Align.CENTER
     }

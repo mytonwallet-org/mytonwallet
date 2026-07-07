@@ -22,6 +22,18 @@ func isSwapPairInAccountScope(selling: ApiToken, buying: ApiToken, accountChains
     accountChains.contains(selling.chain) || accountChains.contains(buying.chain)
 }
 
+func resolveBuyAmountInputMode(
+    swapType: SwapType,
+    sellingChain: ApiChain,
+    isReverseProhibited: Bool
+) -> SwapBuyAmountInputMode {
+    swapType == .onChain
+        && sellingChain.canSwapByBuyAmount
+        && !isReverseProhibited
+        ? .enabled
+        : .disabled
+}
+
 @MainActor final class SwapPairResolver {
     private let pairModel = SwapPairModel()
 
@@ -35,8 +47,11 @@ func isSwapPairInAccountScope(selling: ApiToken, buying: ApiToken, accountChains
         accountChains: Set<ApiChain>
     ) -> SwapBuyAmountInputMode {
         let swapType = swapType(selling: selling, buying: buying, accountChains: accountChains)
-        guard swapType == .onChain else { return .disabled }
-        return pairModel.cachedIsReverseProhibited(selling: selling, buying: buying) == false ? .enabled : .disabled
+        return resolveBuyAmountInputMode(
+            swapType: swapType,
+            sellingChain: selling.chain,
+            isReverseProhibited: pairModel.cachedIsReverseProhibited(selling: selling, buying: buying) ?? true
+        )
     }
 
     func resolve(selling: ApiToken, buying: ApiToken, accountChains: Set<ApiChain>) async throws -> SwapPairResolution {
@@ -48,15 +63,16 @@ func isSwapPairInAccountScope(selling: ApiToken, buying: ApiToken, accountChains
         } else {
             pairState = SwapPairModel.PairState(isValidPair: false, isReverseProhibited: true)
         }
-        let buyAmountInputMode: SwapBuyAmountInputMode = swapType == .onChain && !pairState.isReverseProhibited
-            ? .enabled
-            : .disabled
         return SwapPairResolution(
             selling: selling,
             buying: buying,
             swapType: swapType,
             isValidPair: isAccountScoped && pairState.isValidPair,
-            buyAmountInputMode: buyAmountInputMode
+            buyAmountInputMode: resolveBuyAmountInputMode(
+                swapType: swapType,
+                sellingChain: selling.chain,
+                isReverseProhibited: pairState.isReverseProhibited
+            )
         )
     }
 }

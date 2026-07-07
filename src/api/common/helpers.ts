@@ -62,7 +62,7 @@ export function updateActivityMetadata<T extends ApiActivity>(activity: T): T {
   }
 
   const {
-    normalizedAddress, comment, isIncoming, type, nft, status,
+    normalizedAddress, comment, isIncoming, type, nft, status, isScam,
   } = activity;
   let { metadata = {} } = activity;
   const knownAddresses = getKnownAddresses();
@@ -79,7 +79,7 @@ export function updateActivityMetadata<T extends ApiActivity>(activity: T): T {
     metadata = { ...metadata, ...knownAddresses[normalizedAddress] };
   }
 
-  if (hasScamMarkers || hasScamInComment) {
+  if (hasScamMarkers || hasScamInComment || isScam) {
     metadata.isScam = true;
   }
 

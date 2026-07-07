@@ -72,6 +72,9 @@ class TokenVM(
 
     private var lastChartUpdate: Long = 0
     private fun loadPriceHistoryChart(period: MHistoryTimePeriod, useCache: Boolean = true) {
+        // LP tokens have no chart
+        if (token.isLpToken)
+            return
         TokenStore.loadPriceHistory(
             token.slug,
             period,

@@ -71,6 +71,7 @@ open class NavigationHeader2: UILabel {
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
         isUserInteractionEnabled = true
         accessibilityElementsHidden = true
+        textColor = .clear // this is important for native iOS26 blur color management
     }
 
     @available(*, unavailable)
@@ -82,23 +83,28 @@ open class NavigationHeader2: UILabel {
     }
         
     /// In fact this sets UILabel of standard font size as the content view.
-    public func setTitle(_ title: String) {
-        
+    public func setTitle(_ title: String, fixedColor: Bool = false) {
         if let oldLabel = contentView as? UILabel {
             oldLabel.text = title
             setNeedsLayout()
             return
         }
         
-        let label = UILabel()
+        let label: UILabel = fixedColor ? FixedColorLabel() : UILabel()
         label.font = .systemFont(ofSize: 17, weight: .semibold)
         label.text = title
         label.textColor = .label
         label.numberOfLines = 1
         setContentView(label)
     }
+
+    public func setTitleAnimated(_ title: String) {
+        UIView.transition(with: self, duration: 0.25, options: .transitionCrossDissolve) {
+            self.setTitle(title)
+        }
+    }
     
-    /// Set this to override UIKit's alpha auto0management (e.g. scroll-driven fades or during transitions).
+    /// Set this to override UIKit's alpha auto-management (e.g. scroll-driven fades or during transitions).
     /// Set to nil to restore normal UIKit control.
     public var visibilityAlpha: CGFloat? {
         get { _visibilityAlpha }
@@ -124,7 +130,6 @@ open class NavigationHeader2: UILabel {
         contentView?.removeFromSuperview()
 
         contentView = view
-        
         view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view)
         centerXConstraint = view.centerXAnchor.constraint(equalTo: centerXAnchor)
@@ -222,5 +227,53 @@ open class NavigationHeader2: UILabel {
         let halfSlack = max(0, bounds.width - width) / 2
         centerXConstraint.constant = offset.clamped(to: -halfSlack...halfSlack)
         widthConstraint.constant = CGFloat(width)
+    }
+}
+
+/// A label whose color ignores the iOS 26 navigation bar's content-adaptive tinting.
+///
+/// When a scroll view is at the root of a hosting controller, iOS 26 samples the scroll
+/// content's color and flips the `userInterfaceStyle` trait on the nav bar's content so that
+/// dynamic colors (e.g. `.label`) re-resolve to stay legible over whatever is underneath.
+/// We defeat this by resolving the assigned dynamic color against the *window's* real trait
+/// collection instead of our own (flipped) one, and re-resolving on any trait change so
+/// genuine dark/light switches are still honored.
+private final class FixedColorLabel: UILabel {
+    private var sourceColor: UIColor?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: FixedColorLabel, _) in
+                view.applyResolvedColor()
+            }
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var textColor: UIColor! {
+        get { super.textColor }
+        set {
+            sourceColor = newValue
+            applyResolvedColor()
+        }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        applyResolvedColor()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        applyResolvedColor()
+    }
+
+    private func applyResolvedColor() {
+        guard let sourceColor else { return }
+        let traits = window?.traitCollection ?? traitCollection
+        super.textColor = sourceColor.resolvedColor(with: traits)
     }
 }

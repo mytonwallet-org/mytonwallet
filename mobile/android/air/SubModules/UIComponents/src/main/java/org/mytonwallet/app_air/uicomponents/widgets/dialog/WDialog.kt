@@ -50,6 +50,8 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     private var isPresented: Boolean = false
     private var fullHeight: Int = 0
     private var isAnimating = true
+    private var isDismissing = false
+    private var presentAnimator: ValueAnimator? = null
     private lateinit var parentViewController: WeakReference<WViewController>
     private var onDismissListener: (() -> Unit)? = null
 
@@ -65,7 +67,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
 
     private val titleLabel: WLabel? =
         if (config.title != null) WLabel(customView.context).apply {
-            setStyle(22f, WFont.SemiBold)
+            setStyle(22f, WFont.Medium)
             gravity = Gravity.START
             text = config.title
             setTextColor(WColor.PrimaryText)
@@ -169,11 +171,13 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
         if (isPresented)
             throw Exception("WDialog can't be presented more than once")
         val navigationParent = viewController.navigationController?.parent
+        if (viewController.isDisappeared)
+            return false
         val parentView = (navigationParent as? WView)
             ?: (navigationParent?.parent as? WView)
             ?: return false
         isPresented = true
-        viewController.setActiveDialog(this)
+        viewController.addActiveDialog(this)
         PopupHelpers.popupShown(this)
         parentViewController = WeakReference(viewController)
         parentView.hideKeyboard()
@@ -196,6 +200,8 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
             }
         }
         contentView.post {
+            if (isDismissing)
+                return@post
             if (customView.height == 0) {
                 customView.measure(contentViewWidth.atMost, 0.unspecified)
             }
@@ -220,14 +226,17 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
                         topMargin = fullHeight - 52.dp
                         rightMargin = actionButton!!.width + 24.dp
                     }
-            ValueAnimator.ofInt(0, fullHeight).apply {
+            presentAnimator = ValueAnimator.ofInt(0, fullHeight).apply {
                 duration = AnimationConstants.DIALOG_PRESENT
                 interpolator = WInterpolator.emphasized
                 addUpdateListener {
                     renderFrame(animatedValue as Int)
                 }
                 doOnEnd {
+                    if (isDismissing)
+                        return@doOnEnd
                     isAnimating = false
+                    presentAnimator = null
                 }
                 start()
             }
@@ -263,22 +272,26 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     }
 
     override fun dismiss() {
-        if (isAnimating)
-            return
         if (!isPresented)
             throw Exception("WDialog is not presented yet")
+        if (isDismissing)
+            return
+        isDismissing = true
+        val fromHeight = presentAnimator?.let { it.animatedValue as Int } ?: contentView.height
+        presentAnimator?.cancel()
+        presentAnimator = null
+        isAnimating = true
         overlayView.lockView()
         contentView.lockView()
         contentView.hideKeyboard()
-        isAnimating = true
-        ValueAnimator.ofInt(contentView.height, 0).apply {
+        ValueAnimator.ofInt(fromHeight, 0).apply {
             duration = AnimationConstants.DIALOG_DISMISS
             interpolator = WInterpolator.emphasizedAccelerate
             addUpdateListener {
                 renderFrame(animatedValue as Int)
             }
             doOnEnd {
-                parentViewController.get()?.setActiveDialog(null)
+                parentViewController.get()?.removeActiveDialog(this@WDialog)
                 (overlayView.parent as? ViewGroup)?.apply {
                     removeView(overlayView)
                     removeView(contentView)

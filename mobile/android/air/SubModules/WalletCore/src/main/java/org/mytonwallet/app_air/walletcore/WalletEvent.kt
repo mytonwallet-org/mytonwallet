@@ -66,6 +66,7 @@ sealed class WalletEvent {
     data class AccountWillChange(val fromHome: Boolean) : WalletEvent()
     data object DappsCountUpdated : WalletEvent()
     data class DappRemoved(val dapp: ApiDapp) : WalletEvent()
+    data class DappDisconnect(val accountId: String, val origin: String) : WalletEvent()
     data object StakingDataUpdated : WalletEvent()
     data object AssetsAndActivityDataUpdated : WalletEvent()
     data object HideTinyTransfersChanged : WalletEvent()
@@ -101,6 +102,7 @@ sealed class WalletEvent {
 
     data object NftCardUpdated : WalletEvent()
     data object NftDomainDataUpdated : WalletEvent()
+    data class CardMintingStateChanged(val accountId: String) : WalletEvent()
     data class LedgerDeviceModelRequest(
         val onResponse: (response: JSONObject?) -> Unit
     ) : WalletEvent()

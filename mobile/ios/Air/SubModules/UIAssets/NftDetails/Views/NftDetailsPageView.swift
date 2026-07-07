@@ -12,6 +12,7 @@ class NftDetailsPageView: UIView {
     let model: NftDetailsItemModel
 
     private weak var delegate: NftDetailsPageViewDelegate?
+    private let colorResolver: NftDetailsColorResolver
 
     private let stackView = UIStackView()
     private var headerHeightConstraint: NSLayoutConstraint!
@@ -34,8 +35,9 @@ class NftDetailsPageView: UIView {
 
     private(set) var layoutGeometry: LayoutGeometry
 
-    init(model: NftDetailsItemModel, layoutGeometry: LayoutGeometry, isExpanded: Bool, delegate: NftDetailsPageViewDelegate) {
+    init(model: NftDetailsItemModel, colorResolver: NftDetailsColorResolver, layoutGeometry: LayoutGeometry, isExpanded: Bool, delegate: NftDetailsPageViewDelegate) {
         self.model = model
+        self.colorResolver = colorResolver
         self.delegate = delegate
         self.layoutGeometry = layoutGeometry
         self.isExpanded = isExpanded
@@ -191,7 +193,7 @@ class NftDetailsPageView: UIView {
             label.text = lang("Attributes")
             label.font = .systemFont(ofSize: 17, weight: .semibold)
             label.numberOfLines = 0
-            label.contentPadding = .init(top: 0, left: grid.contentInsets.left, bottom: 0, right: 0)
+            label.contentPadding = .init(top: 0, left: grid.contentInsets.left, bottom: 0, right: grid.contentInsets.right)
             stackView.addArrangedSubview(label)
             stackView.setCustomSpacing(8, after: label)
             
@@ -255,26 +257,7 @@ class NftDetailsPageView: UIView {
     }
     
     private func updateContentColor() {
-        let baseColor: UIColor?
-        if case .loaded(let processed) = model.processedImageState { baseColor = processed.baseColor } else { baseColor = nil }
-        let c = baseColor ?? NftDetailsContentPalette.defaultBackgroundColor.resolvedColor(with: traitCollection)
-        if c.isLightColor {
-            contentColor = .init(
-                baseColor: .black,
-                subtleBackgroundColor: .black.withAlphaComponent(0.04),
-                edgeColor: .white.withAlphaComponent(0.7),
-                secondaryTextColor: .black.withAlphaComponent(0.75),
-                highlightColor: .black.withAlphaComponent(0.2),
-            )
-        } else {
-            contentColor = .init(
-                baseColor: .white,
-                subtleBackgroundColor: .white.withAlphaComponent(0.06),
-                edgeColor: .white.withAlphaComponent(0.3),
-                secondaryTextColor: .white.withAlphaComponent(0.75),
-                highlightColor: .white.withAlphaComponent(0.6),
-            )
-        }
+        contentColor = colorResolver.contentPalette(for: model)
         propagateContentColor()
     }
     

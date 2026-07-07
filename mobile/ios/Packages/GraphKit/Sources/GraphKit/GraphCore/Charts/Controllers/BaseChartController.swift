@@ -293,10 +293,18 @@ public class BaseChartController: ChartThemeContainer {
     public var detailsValueTextProvider: ChartDetailsValueTextProvider?
     public var detailsRowSortOrder: ChartDetailsRowSortOrder = .original
     public var hidesZeroDetailsRows = false
+    public var hidesVerticalAxisLabels = false {
+        didSet {
+            applyHidesVerticalAxisLabels()
+        }
+    }
     public var getDetailsData: ((Date, @escaping (ChartsCollection?) -> Void) -> Void)?
     public var setChartTitleClosure: ((String, Bool) -> Void)?
     public var setBackButtonVisibilityClosure: ((Bool, Bool) -> Void)?
     public var refreshChartToolsClosure: ((Bool) -> Void)?
+
+    func applyHidesVerticalAxisLabels() {
+    }
 
     public func didTapZoomIn(date: Date, pointIndex: Int) {
         fatalError("Abstract")

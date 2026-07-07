@@ -59,6 +59,8 @@ function SwapModal({
     payinAddress,
     payoutAddress,
     payinExtraId,
+    isManualDepositRequired,
+    currentCexLabel,
   },
   swapType,
   swapTokens,
@@ -97,6 +99,9 @@ function SwapModal({
   const [renderedTransactionTokenIn, setRenderedTransactionTokenIn] = useState(tokenIn);
   const [renderedTransactionTokenOut, setRenderedTransactionTokenOut] = useState(tokenOut);
   const [renderedActivity, setRenderedActivity] = useState<ApiActivity | undefined>();
+  const renderedCexLabel = renderedActivity?.kind === 'swap'
+    ? renderedActivity.cexLabel ?? currentCexLabel
+    : currentCexLabel;
 
   useEffect(() => {
     if (!isOpen || !activityId || !activityById?.[activityId]) {
@@ -220,6 +225,7 @@ function SwapModal({
             tokenIn={tokenIn}
             tokenOut={tokenOut}
             swapType={swapType}
+            cexLabel={currentCexLabel}
           />
         );
       case SwapState.WaitTokens:
@@ -233,6 +239,8 @@ function SwapModal({
             payinAddress={payinAddress}
             payoutAddress={payoutAddress}
             payinExtraId={payinExtraId}
+            isManualDepositRequired={isManualDepositRequired}
+            cexLabel={renderedCexLabel}
             accountChains={accountChains}
             activity={renderedActivity}
             onClose={handleModalCloseWithReset}
@@ -273,6 +281,7 @@ function SwapModal({
             amountIn={renderedTransactionAmountIn}
             amountOut={renderedTransactionAmountOut}
             swapType={renderedSwapType}
+            cexLabel={renderedCexLabel}
             toAddress={toAddress}
             onClose={handleModalCloseWithReset}
             onInfoClick={handleTransactionInfoClick}

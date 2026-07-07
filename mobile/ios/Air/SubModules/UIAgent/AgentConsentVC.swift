@@ -73,7 +73,6 @@ private final class AgentConsentVC: WViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationItem.largeTitleDisplayMode = .never
         setupViews()
     }
 
@@ -82,7 +81,6 @@ private final class AgentConsentVC: WViewController {
     }
 
     private func setupViews() {
-        view.backgroundColor = UIColor.air.background
         consentView.translatesAutoresizingMaskIntoConstraints = false
         consentView.onContinue = { [weak self] in
             self?.continueToAgent()
@@ -99,6 +97,9 @@ private final class AgentConsentVC: WViewController {
             consentView.topAnchor.constraint(equalTo: view.topAnchor),
             consentView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        view.backgroundColor = .air.background
+        addCustomNavigationBarBackground(color: .air.background)
     }
 
     private func continueToAgent() {
@@ -167,6 +168,9 @@ private final class AgentConsentView: UIView {
         scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
         scrollView.contentInsetAdjustmentBehavior = .automatic
+        if #available(iOS 26.0, *) {
+            scrollView.topEdgeEffect.isHidden = true
+        }
 
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentStack.translatesAutoresizingMaskIntoConstraints = false
@@ -211,7 +215,7 @@ private final class AgentConsentView: UIView {
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomContainerView.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomContainerView.topAnchor, constant: -200),
 
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),

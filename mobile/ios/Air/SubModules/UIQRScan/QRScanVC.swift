@@ -157,6 +157,8 @@ public final class QRScanVC: WViewController {
         let chains = ApiChain.allCases.filter { $0.isValidAddressOrDomain(string) }
         if !chains.isEmpty {
             result = .address(address: string, possibleChains: chains)
+        } else if string.hasPrefix("pay_"), let url = URL(string: string) {
+            result = .url(url: url)
         } else if let url = URL(string: string) {
             result = .url(url: url)
         } else {

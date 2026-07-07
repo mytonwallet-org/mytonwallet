@@ -55,6 +55,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
+import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
@@ -326,6 +327,16 @@ class TonConnectRequestSendVC(
         }
 
         confirmButtonView.isEnabled = true
+        updateConfirmButtonStyle()
+    }
+
+    private fun updateConfirmButtonStyle() {
+        val isDangerous =
+            update?.dapp?.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS
+        confirmButtonView.type = if (isDangerous) WButton.Type.DESTRUCTIVE else WButton.Type.PRIMARY
+        confirmButtonView.text = LocaleController.getString(
+            if (isDangerous) "Confirm Anyway" else "Confirm"
+        )
     }
 
     fun setUpdate(newUpdate: ApiUpdate.ApiUpdateDappSignRequest) {
@@ -455,7 +466,7 @@ class TonConnectRequestSendVC(
             }
 
             is TonConnectRequestSendViewModel.Event.OpenDappInBrowser -> {
-                activeDialog?.dismiss()
+                dismissActiveDialogs()
                 window?.dismissLastNav(onCompletion = {
                     WalletCore.notifyEvent(WalletEvent.OpenUrl(event.url))
                 })

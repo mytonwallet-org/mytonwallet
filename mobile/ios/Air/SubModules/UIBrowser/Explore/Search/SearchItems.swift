@@ -75,11 +75,11 @@ struct ExploreSearchResultItem: Equatable, Identifiable {
         case .site(let s):
             return s.name.lowercased().hasPrefix(keyword)
                 || s.description.lowercased().hasPrefix(keyword)
-                || s.url.lowercased().hasPrefix(keyword)
+                || SearchURLMatching.urlHasPrefix(s.url, prefix: keyword)
         case .connectedDapp(let d):
-            return d.name.lowercased().hasPrefix(keyword) || d.url.lowercased().hasPrefix(keyword)
+            return d.name.lowercased().hasPrefix(keyword) || SearchURLMatching.urlHasPrefix(d.url, prefix: keyword)
         case .history(let h):
-            return h.title.lowercased().hasPrefix(keyword) || h.url.lowercased().hasPrefix(keyword)
+            return h.title.lowercased().hasPrefix(keyword) || SearchURLMatching.urlHasPrefix(h.url, prefix: keyword)
         }
     }
 }
@@ -180,6 +180,25 @@ struct RecentSearchResultItem: SearchResultItem {
     func makeView(isTopMatch: Bool) -> AnySearchItemView {
         AnySearchItemView {
             RecentSearchItemRow(text: text, isCompact: isCompact) { performDefaultAction() }
+        }
+    }
+}
+
+@MainActor
+struct OpenLinkResultItem: SearchResultItem {
+    let openableURL: SearchOpenableURL
+    let actions: ExploreSearchActions
+    let isCompact: Bool
+
+    var id: String { "openlink_\(openableURL.url.absoluteString)" }
+
+    func performDefaultAction() {
+        actions.openUrl(openableURL)
+    }
+
+    func makeView(isTopMatch: Bool) -> AnySearchItemView {
+        AnySearchItemView {
+            RecentSearchItemRow(text: openableURL.displayText, isCompact: isCompact, iconName: "link") { performDefaultAction() }
         }
     }
 }

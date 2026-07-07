@@ -283,8 +283,9 @@ public class WScalableButton: UIControl {
             containerView.transform = CGAffineTransform(scaleX: scale, y: scale)
         }
 
-        // Keeps label unscaled until some threshold
-        let labelScale = 1 / max(scale, 0.7)
+        // Keep short labels visually stable during collapse, but let long
+        // localized labels fit the shrinking bubble.
+        let labelScale = fittingLabelScale(containerScale: scale)
         titleLabel.transform = CGAffineTransform(scaleX: labelScale, y: labelScale)
 
         // Switch compact state
@@ -310,6 +311,25 @@ public class WScalableButton: UIControl {
                 }
             }
         }
+    }
+
+    private func fittingLabelScale(containerScale: CGFloat) -> CGFloat {
+        let preferredScale = 1 / max(containerScale, 0.7)
+        guard bounds.width > 0,
+              let text = titleLabel.text?.nilIfEmpty,
+              let font = titleLabel.font else {
+            return preferredScale
+        }
+
+        let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
+        guard textWidth > 0 else {
+            return preferredScale
+        }
+
+        let minVisualHorizontalMargin: CGFloat = 3
+        let availableWidth = max(CGFloat(1), bounds.width - minVisualHorizontalMargin * 2)
+        let maxFittingScale = availableWidth / textWidth
+        return min(preferredScale, maxFittingScale)
     }
 }
 

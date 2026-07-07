@@ -421,7 +421,9 @@ class PieChartView(
                 endIndex = j
             }
         }
-        if (endIndex < startIndex) {
+        if (endIndex == -1) {
+            startIndex = 0
+        } else if (startIndex == -1 || endIndex < startIndex) {
             startIndex = endIndex
         }
         if (!force && lastEndIndex == endIndex && lastStartIndex == startIndex) {

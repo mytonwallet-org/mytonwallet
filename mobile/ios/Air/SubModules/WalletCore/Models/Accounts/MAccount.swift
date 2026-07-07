@@ -102,6 +102,10 @@ extension MAccount {
     public var supportsSwap: Bool {
         network == .mainnet && !isHardware && !isView && !ConfigStore.shared.shouldRestrictSwapsAndOnRamp
     }
+
+    public var supportsWalletConnectPay: Bool {
+        type == .mnemonic && isMultichain
+    }
     
     public var supportsEarn: Bool {
         network == .mainnet && !isView

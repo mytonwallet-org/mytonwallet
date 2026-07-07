@@ -25,6 +25,7 @@ import type {
   ApiCheckMultiTransactionDraftResult,
   ApiEmulationWithFallbackResult,
   ApiSubmitMultiTransferResult,
+  ApiSubmitSingleFATransferResult,
   PreparedTransactionToSign,
   TonTransferParams,
 } from './types';
@@ -1127,12 +1128,12 @@ async function submitMultiTransferInternal(
 //  3) simplify the implementation of swapping with Ledger
 export async function submitMultiTransfer({
   accountId, password, messages, expireAt, isGasless, noFeeCheck,
-}: SubmitMultiTransferOptions): Promise<ApiSubmitMultiTransferResult> {
+}: SubmitMultiTransferOptions): Promise<ApiSubmitSingleFATransferResult | { error: ApiAnyDisplayError }> {
   const result = await submitMultiTransferInternal({
     accountId, password, messages, expireAt, isGasless, noFeeCheck,
   });
 
-  return 'mfaRequest' in result ? { error: ApiCommonError.Unexpected } : result;
+  return 'mfaRequest' in result ? { error: ApiCommonError.Unexpected } : result as ApiSubmitSingleFATransferResult;
 }
 
 export async function submitMultiTransferWithMfa({

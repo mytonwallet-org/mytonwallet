@@ -2,7 +2,7 @@ package org.mytonwallet.app_air.uiswap.screens.swap.models
 
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
 import org.mytonwallet.app_air.walletcore.DEFAULT_SWAP_VERSION
-import org.mytonwallet.app_air.walletcore.TON_CHAIN
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDexLabel
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
@@ -19,11 +19,15 @@ data class SwapInputState(
 ) {
     val isCex = SwapHelpers.isCex(tokenToSend, tokenToReceive)
 
-    val isTonOnlySwap: Boolean
+    val isSameChainSwap: Boolean
         get() {
-            return (tokenToSend?.chain ?: TON_CHAIN) == TON_CHAIN &&
-                (tokenToReceive?.chain ?: TON_CHAIN) == TON_CHAIN
+            val sendChain = tokenToSend?.mBlockchain ?: MBlockchain.ton
+            val receiveChain = tokenToReceive?.mBlockchain ?: MBlockchain.ton
+            return sendChain == receiveChain && sendChain.isOnchainSwapSupported
         }
+
+    val canSwapByBuyAmount: Boolean
+        get() = (tokenToSend?.mBlockchain ?: MBlockchain.ton).canSwapByBuyAmount
 
     private val isSwapV3: Boolean
         get() {
@@ -32,11 +36,12 @@ data class SwapInputState(
 
     val shouldShowAllPairs: Boolean
         get() {
-            return isSwapV3 && isTonOnlySwap
+            return isSwapV3 && isSameChainSwap
         }
 
     val shouldShowAllPairsToBuy: Boolean
         get() {
-            return isSwapV3 && (tokenToSend?.chain ?: TON_CHAIN) == TON_CHAIN
+            return isSwapV3 && (tokenToSend?.mBlockchain
+                ?: MBlockchain.ton).isOnchainSwapSupported
         }
 }

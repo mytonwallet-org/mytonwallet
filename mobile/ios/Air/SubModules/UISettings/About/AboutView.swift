@@ -87,7 +87,7 @@ struct AboutView: View {
                 onTap: onLearn
             )
         } header: {
-            Text(lang("%app_name% Resources", arg1: APP_NAME))
+            Text(lang("Resources"))
         }
     }
     

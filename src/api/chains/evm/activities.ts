@@ -127,7 +127,7 @@ export async function fetchEvmTxs(options: {
   return data.data;
 }
 
-export async function parseEvmTx(
+export async function fetchEvmTx(
   chain: EVMChain,
   network: ApiNetwork,
   hash: string,
@@ -161,7 +161,7 @@ export async function collectTokensFromTransactions(
   for (const tx of rawTxs) {
     if (tx.attributes.transfers.length) {
       for (const transfer of tx.attributes.transfers) {
-        if ('fungible_info' in transfer && !tx.attributes.flags.is_trash) {
+        if ('fungible_info' in transfer) {
           const implementation = getZerionFungibleImplementation(transfer.fungible_info, zerionChain);
 
           if (implementation?.address) {
@@ -251,6 +251,7 @@ function transformUnknownTx(
     shouldHide: false,
     status: 'completed',
     externalMsgHashNorm: tx.attributes.hash,
+    isScam: tx.attributes.flags.is_trash,
   });
 }
 
@@ -309,7 +310,9 @@ function transformEvmSwap(
     swapFee: '0',
     status: 'completed',
     hashes: [],
+    transactionIds: {},
     externalMsgHashNorm: tx.attributes.hash,
+    isScam: tx.attributes.flags.is_trash,
   });
 }
 
@@ -319,10 +322,6 @@ function transformEvmTransfer(
   transfer: ZerionTokenTransfer,
   address: string,
 ): ApiActivity {
-  if (tx.attributes.flags.is_trash) {
-    return transformUnknownTx(chain, tx, address);
-  }
-
   const slug = getZerionFungibleTokenSlug(chain, getZerionChainByApiChain(chain), transfer.fungible_info);
   if (!slug) {
     return transformUnknownTx(chain, tx, address);
@@ -343,6 +342,7 @@ function transformEvmTransfer(
     normalizedAddress: normalizeAddress(address),
     fee: BigInt(tx.attributes.fee.quantity.int),
     status: 'completed',
+    isScam: tx.attributes.flags.is_trash,
   });
 }
 
@@ -379,6 +379,7 @@ function transformEvmNftTransfer(
       },
       interface: 'default',
     },
+    isScam: tx.attributes.flags.is_trash,
   });
 }
 

@@ -4,11 +4,6 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
-import OrderedCollections
-import Kingfisher
-
-private let log = Log("HiddenNftsVC")
-
 
 @MainActor
 public class HiddenNftsVC: WViewController, Sendable {
@@ -50,8 +45,11 @@ public class HiddenNftsVC: WViewController, Sendable {
     private let compactSpacing: CGFloat = 8
     
     private var contextMenuExtraBlurView: UIView?
-    
-    public init() {
+
+    private let onUnhideNft: ((String) -> Void)?
+
+    public init(onUnhideNft: ((String) -> Void)? = nil) {
+        self.onUnhideNft = onUnhideNft
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -70,14 +68,16 @@ public class HiddenNftsVC: WViewController, Sendable {
         WalletCoreData.add(eventObserver: self)
     }
     
-    private var displayNfts: OrderedDictionary<String, DisplayNft>?
+    private var cellStates: [String: HiddenNftCellViewModel] = [:]
+    /// Append-only ordered row list. New items are prepended to their section; existing items never move or leave.
+    private var trackedRows: [Row] = []
     
-    func setupViews() {
+    private func setupViews() {
         title = lang("Hidden NFTs")
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.delegate = self
+        collectionView.allowsSelection = false
         collectionView.alwaysBounceVertical = true
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
@@ -89,35 +89,37 @@ public class HiddenNftsVC: WViewController, Sendable {
         collectionView.clipsToBounds = false
         collectionView.delaysContentTouches = false
 
-        let hiddenByUserRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { [weak self] cell, indexPath, itemIdentifier in
-            guard let self else { return }
-            let displayNft: DisplayNft? = displayNfts?[itemIdentifier] ?? NftStore.getNft(accountId: AccountStore.currentAccountId, nftId: itemIdentifier)
-            cell.configurationUpdateHandler = { cell, state in
+        let hiddenByUserRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { [weak self] cell, _, itemIdentifier in
+            guard let self, let state = cellStates[itemIdentifier] else { return }
+            let onUnhideNft = self.onUnhideNft
+            cell.configurationUpdateHandler = { cell, _ in
                 cell.contentConfiguration = UIHostingConfiguration {
-                    if let displayNft {
-                        HiddenByUserCell(displayNft: displayNft, isHighlighted: state.isHighlighted, action: { isHiddenByUser in
-                            if let accountId = AccountStore.accountId {
-                                NftStore.setHiddenByUser(accountId: accountId, nftId: displayNft.id, isHidden: isHiddenByUser)
-                            }
-                        })
-                    }
+                    HiddenByUserCell(state: state, onPreviewTap: { [weak self] in
+                        self?.openNftDetails(nftId: state.displayNft.id)
+                    }, action: { isHiddenByUser in
+                        if let accountId = AccountStore.accountId {
+                            NftStore.setHiddenByUser(accountId: accountId, nftId: state.displayNft.id, isHidden: isHiddenByUser)
+                        }
+                        if !isHiddenByUser { onUnhideNft?(state.displayNft.id) }
+                    })
                 }
                 .background(Color.air.groupedItem)
                 .margins(.all, 0)
             }
         }
-        let likelyScamRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { [weak self] cell, indexPath, itemIdentifier in
-            guard let self else { return }
-            let displayNft: DisplayNft? = displayNfts?[itemIdentifier] ?? NftStore.getNft(accountId: AccountStore.currentAccountId, nftId: itemIdentifier)
-            cell.configurationUpdateHandler = { cell, state in
+        let likelyScamRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { [weak self] cell, _, itemIdentifier in
+            guard let self, let state = cellStates[itemIdentifier] else { return }
+            let onUnhideNft = self.onUnhideNft
+            cell.configurationUpdateHandler = { cell, _ in
                 cell.contentConfiguration = UIHostingConfiguration {
-                    if let displayNft {
-                        LikelyScamCell(displayNft: displayNft, isHighlighted: state.isHighlighted, action: { isUnhiddenByUser in
-                            if let accountId = AccountStore.accountId {
-                                NftStore.setHiddenByUser(accountId: accountId, nftId: displayNft.id, isHidden: !isUnhiddenByUser)
-                            }
-                        })
-                    }
+                    LikelyScamCell(state: state, onPreviewTap: { [weak self] in
+                        self?.openNftDetails(nftId: state.displayNft.id)
+                    }, action: { isUnhiddenByUser in
+                        if let accountId = AccountStore.accountId {
+                            NftStore.setHiddenByUser(accountId: accountId, nftId: state.displayNft.id, isHidden: !isUnhiddenByUser)
+                        }
+                        if isUnhiddenByUser { onUnhideNft?(state.displayNft.id) }
+                    })
                 }
                 .background(Color.air.groupedItem)
                 .margins(.all, 0)
@@ -164,7 +166,7 @@ public class HiddenNftsVC: WViewController, Sendable {
         updateTheme()
     }
     
-    func makeLayout() -> UICollectionViewCompositionalLayout {
+    private func makeLayout() -> UICollectionViewCompositionalLayout {
         var configuration = UICollectionLayoutListConfiguration.init(appearance: .insetGrouped)
         configuration.headerMode = .supplementary
         configuration.footerMode = .supplementary
@@ -196,67 +198,71 @@ public class HiddenNftsVC: WViewController, Sendable {
     }
     
     private func updateNfts() {
-        if let nfts = NftStore.getAccountNfts(accountId: AccountStore.currentAccountId) {
-            self.displayNfts = nfts
-        } else {
-            self.displayNfts = nil
+        guard let latestNfts = NftStore.getAccountNfts(accountId: AccountStore.currentAccountId) else { return }
+
+        // Discover items that belong in the list but aren't tracked yet.
+        let trackedIds = Set(trackedRows.map(\.stringValue))
+        var newHiddenByUser: [Row] = []
+        var newLikelyScam: [Row] = []
+        for (id, displayNft) in latestNfts where !trackedIds.contains(id) {
+            if displayNft.isHiddenByUser {
+                newHiddenByUser.append(.hiddenByUser(id))
+            } else if displayNft.nft.isScam == true {
+                newLikelyScam.append(.likelyScam(id))
+            }
         }
-        
-        applySnapshot(makeSnapshot(), animated: true)
+
+        let hasNewItems = !newHiddenByUser.isEmpty || !newLikelyScam.isEmpty
+        if hasNewItems {
+            // Prepend new items to the front of their respective section.
+            let existingHidden = trackedRows.filter { if case .hiddenByUser = $0 { true } else { false } }
+            let existingScam = trackedRows.filter { if case .likelyScam = $0 { true } else { false } }
+            trackedRows = newHiddenByUser + existingHidden + newLikelyScam + existingScam
+            // Create cell state objects for new items.
+            for row in newHiddenByUser + newLikelyScam {
+                if let nft = latestNfts[row.stringValue] {
+                    cellStates[row.stringValue] = HiddenNftCellViewModel(nft)
+                }
+            }
+        }
+
+        for (id, state) in cellStates {
+            if let updated = latestNfts[id] {
+                state.displayNft = updated
+            }
+        }
+
+        if hasNewItems {
+            applySnapshot(makeSnapshot(), animated: true)
+        }
     }
     
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
-        
-        if let displayNfts {
-            
-            let hiddenByUser = displayNfts
-                .filter { _, displayNft in
-                    displayNft.isHiddenByUser
-                }
-                .keys
-                .map { Row.hiddenByUser($0) }
-            if !hiddenByUser.isEmpty {
-                snapshot.appendSections([.hiddenByUser])
-                snapshot.appendItems(hiddenByUser)
-            }
-            
-            let likelyScam = displayNfts
-                .filter { _, displayNft in
-                    displayNft.nft.isScam == true
-                }
-                .keys
-                .map { Row.likelyScam($0) }
-            if !likelyScam.isEmpty {
-                snapshot.appendSections([.likelyScam])
-                snapshot.appendItems(likelyScam)
-            }
+        guard !trackedRows.isEmpty else { return snapshot }
+
+        let hiddenByUser = trackedRows.filter { if case .hiddenByUser = $0 { true } else { false } }
+        let likelyScam = trackedRows.filter { if case .likelyScam = $0 { true } else { false } }
+
+        if !hiddenByUser.isEmpty {
+            snapshot.appendSections([.hiddenByUser])
+            snapshot.appendItems(hiddenByUser)
+        }
+        if !likelyScam.isEmpty {
+            snapshot.appendSections([.likelyScam])
+            snapshot.appendItems(likelyScam)
         }
         return snapshot
     }
     
-    func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool) {
+    private func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool) {
         dataSource.apply(snapshot, animatingDifferences: animated)
     }
-}
 
-
-extension HiddenNftsVC: UICollectionViewDelegate {
-
-    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        if let nftId = dataSource.itemIdentifier(for: indexPath)?.stringValue, let nft = displayNfts?[nftId]?.nft {
-            let assetVC = NftDetailsVC(accountId: AccountStore.currentAccountId, nft: nft)
-            navigationController?.pushViewController(assetVC, animated: true)
-        }
-    }
-    
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-    }
-    
-    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-    }
-
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    private func openNftDetails(nftId: String) {
+        guard let nft = cellStates[nftId]?.displayNft.nft else { return }
+        let vc = NftDetailsVC(accountId: AccountStore.currentAccountId, source: .hiddenManagement(nft))
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
@@ -264,6 +270,8 @@ extension HiddenNftsVC: WalletCoreData.EventsObserver {
     public nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
         Task { @MainActor in
             switch event {
+            case .nftsChanged(let accountId) where accountId == AccountStore.currentAccountId:
+                updateNfts()
             default:
                 break
             }

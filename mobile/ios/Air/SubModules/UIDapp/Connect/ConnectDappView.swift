@@ -6,8 +6,6 @@ import WalletCore
 import WalletContext
 import Perception
 
-private let topMargin = 40.0
-
 struct ConnectDappViewOrPlaceholder: View {
 
     let viewModel: ConnectViewModel
@@ -15,57 +13,49 @@ struct ConnectDappViewOrPlaceholder: View {
 
     var body: some View {
         WithPerceptionTracking {
-            switch content {
-            case .placeholder(let view):
-                view
-                    .transition(.opacity.animation(.default))
-            case .connectDapp(let view):
-                view
-                    .transition(.opacity.animation(.default))
-            }
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
-            onHeightChange(height)
-        }
-    }
+            let isLoading = viewModel.update == nil
+            let dapp = viewModel.update?.dapp ?? ApiDapp.loadingStub
 
-    private enum Content {
-        case placeholder(TonConnectPlaceholder)
-        case connectDapp(ConnectDappView)
-    }
-
-    private var content: Content {
-       if let update = viewModel.update {
-           return .connectDapp(ConnectDappView(viewModel: viewModel, update: update))
-       } else {
-            return .placeholder(TonConnectPlaceholder(
-                account: viewModel.accountContext.account,
-                connectionType: .connect,
-                extraBottomPadding: viewModel.extraBottomPadding
-            ))
+            ConnectDappView(viewModel: viewModel, isLoading: isLoading, dapp: dapp)
+                .fixedSize(horizontal: false, vertical: true)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                    onHeightChange(height)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 }
 
 private struct ConnectDappView: View {
-    
     let viewModel: ConnectViewModel
-    var update: ApiUpdate.DappConnect
+    let isLoading: Bool
+    let dapp: ApiDapp
 
     var body: some View {
         WithPerceptionTracking {
-            VStack(spacing: 24) {
-                HeaderView(dapp: update.dapp)
+            VStack(spacing: 0) {
+                HeaderView(dapp: dapp)
                     .padding(.top, 40)
-                SelectSection(viewModel: viewModel)
-                if viewModel.isDisabled {
-                    WarningView(text: lang("Action is not possible on a view-only wallet."))
-                        .padding(.horizontal, 20)
-                        .padding(.top, -8)
+                    .skeletonContainer(isActive: isLoading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .safeAreaInset(edge: .bottom, spacing: 24) {
+                VStack(spacing: 24) {
+                    Text(lang("$connect_dapp_description"))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+
+                    SelectSection(viewModel: viewModel, isLoading: isLoading)
+
+                    if !isLoading, let disabledReason = viewModel.disabledReason {
+                        WarningView(text: disabledReason)
+                            .padding(.horizontal, 20)
+                            .padding(.top, -8)
+                    }
+
+                    ConnectButton(viewModel: viewModel)
+                        .padding(.bottom, viewModel.extraBottomPadding)
                 }
-                ConnectButton(viewModel: viewModel)
-                    .padding(.bottom, viewModel.extraBottomPadding)
             }
             .ignoresSafeArea(edges: .top)
         }
@@ -77,24 +67,24 @@ private struct HeaderView: View {
     var dapp: ApiDapp
 
     var body: some View {
-        VStack(spacing: 12) {
-            VStack(spacing: 16) {
-                HeaderDappIcon(dapp: dapp)
-                VStack(spacing: 4) {
-                    Text(lang("$connect_dapp_title", arg1: dapp.name))
-                        .airFont24h32(weight: .semibold)
-                    HStack {
-                        if dapp.shouldShowUrlTrustStatusWarning {
-                            DappOriginWarning(urlTrustStatus: dapp.resolvedUrlTrustStatus)
-                                .offset(y: 1)
-                        }
-                        Text(dapp.displayUrl)
-                            .foregroundStyle(.tint)
+        VStack(spacing: 16) {
+            HeaderDappIcon(dapp: dapp)
+                .skeletonPlaceholder(surface: .dark, cornerRadius: HeaderDappIcon.cornerRadius)
+            VStack(spacing: 4) {
+                Text(lang("$connect_dapp_title", arg1: dapp.name))
+                    .airFont24h32(weight: .semibold)
+                    .skeletonPlaceholder(surface: .dark, cornerRadius: 8)
+                HStack {
+                    if dapp.shouldShowUrlTrustStatusWarning {
+                        DappOriginWarning(urlTrustStatus: dapp.resolvedUrlTrustStatus)
+                            .offset(y: 1)
                     }
+                    Text(dapp.displayUrl)
+                        .foregroundStyle(.tint)
                 }
-                .padding(.horizontal, 8)
+                .skeletonPlaceholder(surface: .dark)
             }
-            Text(lang("$connect_dapp_description"))
+            .padding(.horizontal, 8)
         }
         .padding(.horizontal, 32)
         .multilineTextAlignment(.center)
@@ -104,6 +94,7 @@ private struct HeaderView: View {
 private struct SelectSection: View {
 
     let viewModel: ConnectViewModel
+    let isLoading: Bool
 
     var body: some View {
         WithPerceptionTracking {
@@ -114,6 +105,7 @@ private struct SelectSection: View {
                         InsetListChevron()
                     }
                 }
+                .allowsHitTesting(!isLoading)
             } header: {
                 Text(lang("Selected Wallet"))
                     .padding(.top, 6)
@@ -142,3 +134,35 @@ private struct ConnectButton: View {
         viewModel.update?.dapp.resolvedUrlTrustStatus == .dangerous
     }
 }
+
+#if DEBUG
+private struct ConnectDappViewOrPlaceholderPreview: View {
+    let viewModel: ConnectViewModel
+
+    var body: some View {
+        ScrollView {
+            ConnectDappViewOrPlaceholder(viewModel: viewModel, onHeightChange: { _ in })
+        }
+        .background(Color.air.sheetBackground)
+    }
+}
+
+@available(iOS 18, *)
+#Preview("Loading") {
+    @Previewable @AccountContext(source: .current) var account: MAccount
+    ConnectDappViewOrPlaceholderPreview(
+        viewModel: ConnectViewModel(accountId: account.id, update: nil, onCancel: nil)
+    )
+}
+
+@available(iOS 18, *)
+#Preview("Connect") {
+    ConnectDappViewOrPlaceholderPreview(
+        viewModel: ConnectViewModel(
+            accountId: ApiUpdate.DappConnect.sample.accountId,
+            update: .sample,
+            onCancel: {}
+        )
+    )
+}
+#endif

@@ -257,11 +257,13 @@ class SendTokenVC(
         val filteredBalances = balances.filter { balance ->
             val token = TokenStore.getToken(balance.token) ?: return@filter false
             if (selectedChain != null && token.chain != selectedChain.name) return@filter false
+            if (token.isLpToken && balance.amountValue <= BigInteger.ZERO) return@filter false
             if (search != null) {
                 val isName = token.name?.lowercase()?.contains(search) == true
                 val isSymbol = token.symbol?.lowercase()?.contains(search) == true
+                val isAddress = token.tokenAddress?.lowercase()?.contains(search) == true
                 val isKeyword = token.keywords?.any { it.lowercase().contains(search) } == true
-                if (!isName && !isSymbol && !isKeyword) return@filter false
+                if (!isName && !isSymbol && !isAddress && !isKeyword) return@filter false
             }
             true
         }

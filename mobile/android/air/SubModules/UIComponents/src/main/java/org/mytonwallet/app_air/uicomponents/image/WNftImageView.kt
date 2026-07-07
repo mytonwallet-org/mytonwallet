@@ -65,7 +65,7 @@ class WNftImageView(
     private val placeholderLabelView: AppCompatTextView by lazy {
         AppCompatTextView(context).apply {
             text = LocaleController.getString("No Image")
-            typeface = WFont.NunitoExtraBold.typeface
+            typeface = WFont.Balance.typeface
             gravity = Gravity.CENTER
 
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)

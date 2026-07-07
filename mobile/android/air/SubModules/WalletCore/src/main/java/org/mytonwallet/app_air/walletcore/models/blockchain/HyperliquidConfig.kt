@@ -17,6 +17,7 @@ object HyperliquidConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_hyperliquid_light
 
     override val qrIcon = null
+    override val displayColor = "#00AF98".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#4B6563".toColorInt(),
         "#24534B".toColorInt(),

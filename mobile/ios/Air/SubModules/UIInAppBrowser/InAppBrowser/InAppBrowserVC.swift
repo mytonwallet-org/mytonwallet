@@ -393,14 +393,14 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         currentPage?.reload()
     }
 
-    func hasPage(origin: String) -> Bool {
-        pages.contains { $0.hasOrigin(origin) }
-    }
-
-    func reloadPages(origin: String) {
+    @discardableResult
+    func emitDappDisconnectEvent(origin: String) -> Bool {
+        var didEmit = false
         for page in pages where page.hasOrigin(origin) {
-            page.reload()
+            didEmit = true
+            page.emitDappDisconnectEvent()
         }
+        return didEmit
     }
 
     private func toggleTabSwitcher() {

@@ -89,7 +89,7 @@ class AssetCell(
     private val saleInfoView: WLabel = WLabel(context).apply {
         gravity = Gravity.CENTER
         setTextColor(WColor.White)
-        setStyle(12f, WFont.SemiBold)
+        setStyle(12f, WFont.Medium)
         setBackgroundColor(WColor.Black.color.solidColorWithAlpha(102), imageCornerRadius)
         setPaddingDp(16f)
         isGone = true
@@ -100,7 +100,7 @@ class AssetCell(
         id = generateViewId()
         gravity = Gravity.CENTER
         setTextColor(Color.WHITE)
-        setStyle(12f, WFont.SemiBold)
+        setStyle(12f, WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
         marqueeRepeatLimit = -1
@@ -122,7 +122,7 @@ class AssetCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(adaptiveFontSize(nftTextSize), WFont.DemiBold)
+            setStyle(adaptiveFontSize(nftTextSize), WFont.Medium)
             setLineHeight(24f)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
@@ -256,10 +256,10 @@ class AssetCell(
             val beforeHash = match.groupValues[1]
             val fromHash = match.groupValues[2]
             SpannableStringBuilder().apply {
-                inSpans(WTypefaceSpan(WFont.DemiBold, WColor.PrimaryText)) {
+                inSpans(WTypefaceSpan(WFont.Medium, WColor.PrimaryText)) {
                     append("$beforeHash ")
                 }
-                inSpans(WTypefaceSpan(WFont.DemiBold, WColor.SecondaryText)) {
+                inSpans(WTypefaceSpan(WFont.Medium, WColor.SecondaryText)) {
                     append(fromHash)
                 }
             }

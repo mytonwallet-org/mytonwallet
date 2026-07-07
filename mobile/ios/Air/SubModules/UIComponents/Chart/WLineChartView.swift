@@ -11,7 +11,9 @@ import WalletContext
 
 public class WLineChartView: LineChartView {
     
+    private var pendingNotify = false
     private let onHighlightChange: ((_ highlight: Highlight?) -> Void)?
+    
     public init(popupDateFormatter: ((Double) -> String)? = nil,
                 popupValueFormatter: ((String) -> String)? = nil,
                 onHighlightChange: ((_ highlight: Highlight?) -> Void)? = nil) {
@@ -54,6 +56,30 @@ public class WLineChartView: LineChartView {
     public override func tintColorDidChange() {
         super.tintColorDidChange()
         setNeedsDisplay()
+    }
+
+    public override func notifyDataSetChanged() {
+        guard bounds.width > 0, bounds.height > 0 else {
+            pendingNotify = true
+            return
+        }
+        pendingNotify = false
+        super.notifyDataSetChanged()
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        if pendingNotify && bounds.width > 0 && bounds.height > 0 {
+            notifyDataSetChanged()
+        }
+    }
+
+    public override func draw(_ rect: CGRect) {
+        guard bounds.width > 0, bounds.height > 0,
+              viewPortHandler.contentWidth > 0, viewPortHandler.contentHeight > 0 else { return }
+        let mat = getTransformer(forAxis: .left).valueToPixelMatrix
+        guard abs(mat.a * mat.d - mat.b * mat.c) > .ulpOfOne else { return }
+        super.draw(rect)
     }
     
     @objc private func onLongPress(gestureRecognizer: UILongPressGestureRecognizer) {
@@ -176,10 +202,10 @@ class CustomLineChartRenderer: LineChartRenderer, @unchecked Sendable {
         let phaseY = animator.phaseY
         nonisolated(unsafe) let context = context
         MainActor.assumeIsolated {
+            guard viewPortHandler.contentWidth > 0, viewPortHandler.contentHeight > 0 else { return }
+
             let trans = dataProvider.getTransformer(forAxis: dataSet.axisDependency)
-            
-            
-            
+        
             _xBounds.set(chart: dataProvider, dataSet: dataSet, animator: animator)
             
             // Determine the highlight position
@@ -195,7 +221,9 @@ class CustomLineChartRenderer: LineChartRenderer, @unchecked Sendable {
             let cubicPath2 = CGMutablePath()
             
             let valueToPixelMatrix = trans.valueToPixelMatrix
-            
+            let matrixDeterminant = valueToPixelMatrix.a * valueToPixelMatrix.d - valueToPixelMatrix.b * valueToPixelMatrix.c
+            guard abs(matrixDeterminant) > .ulpOfOne else { return }
+
             if _xBounds.range >= 1
             {
                 var prevDx: CGFloat = 0.0
@@ -359,15 +387,14 @@ class CustomLineChartRenderer: LineChartRenderer, @unchecked Sendable {
             let dataProvider = dataProvider
         else { return }
         
-        if bounds.range <= 0
-        {
-            return
-        }
-
         if bounds.range <= 0 {
             return
         }
-        
+
+        guard viewPortHandler.contentWidth > 0, viewPortHandler.contentHeight > 0 else { return }
+        let matrixDeterminant = matrix.a * matrix.d - matrix.b * matrix.c
+        guard abs(matrixDeterminant) > .ulpOfOne else { return }
+
         let fillMin = dataSet.fillFormatter?.getFillLinePosition(dataSet: dataSet, dataProvider: dataProvider) ?? 0.0
         
         nonisolated(unsafe) let spline = spline
@@ -433,6 +460,11 @@ extension Comparable
 
 public extension WLineChartView {
     func asImage(padding: CGFloat) -> UIImage {
+        guard bounds.width > 0, bounds.height > 0,
+              viewPortHandler.contentWidth > 0, viewPortHandler.contentHeight > 0 else {
+            return UIImage()
+        }
+
         let orgAlpha = alpha
         let orgIsHidden = isHidden
         alpha = 1

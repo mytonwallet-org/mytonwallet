@@ -19,6 +19,7 @@ import {
   submitNftTransfers,
 } from './nfts';
 import { setupActivePolling, setupInactivePolling } from './polling';
+import { buildOnchainSwapTransfer, submitOnchainSwapTransfer } from './swap';
 import { fetchTransactionById } from './transactionInfo';
 import {
   checkTransactionDraft,
@@ -51,6 +52,8 @@ const solanaSdk: ChainSdk<'solana'> = {
   fetchEstimateDiesel,
   submitGasfullTransfer,
   submitGaslessTransfer,
+  buildOnchainSwapTransfer,
+  submitOnchainSwapTransfer,
   getAddressInfo,
   getWalletBalance,
   getWalletAssets: fetchAccountAssets,
@@ -70,6 +73,9 @@ const solanaSdk: ChainSdk<'solana'> = {
   checkNftTransferDraft,
   submitNftTransfers,
   checkNftOwnership,
+  fetchWalletPermissions: notSupported,
+  revokeWalletPermission: notSupported,
+  fetchWalletPlugins: notSupported,
 };
 
 export default solanaSdk;

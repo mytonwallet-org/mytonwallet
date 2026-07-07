@@ -54,6 +54,8 @@ dependencies {
     implementation(project("$airSubModulePath:WalletBaseContext"))
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:UIPasscode"))
+    implementation(project("$airSubModulePath:UISwap"))
+    implementation(project("$airSubModulePath:Ledger"))
     implementation(project("$airSubModulePath:UIReceive"))
     implementation(project("$airSubModulePath:UIPortfolio"))
     implementation(project("$airSubModulePath:UIWidgetsConfigurations"))

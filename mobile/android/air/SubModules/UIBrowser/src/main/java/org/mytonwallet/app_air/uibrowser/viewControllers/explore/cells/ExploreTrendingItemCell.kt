@@ -62,7 +62,7 @@ class ExploreTrendingItemCell(
     }
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(15f, WFont.SemiBold)
+        setStyle(15f, WFont.Medium)
         text = site.name
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -128,7 +128,7 @@ class ExploreTrendingItemCell(
 
     private val badgeLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(10f, WFont.SemiBold)
+            setStyle(10f, WFont.Medium)
             setPadding(4.dp, 2.dp, 4.dp, 2.dp)
             text = site.badgeText
         }

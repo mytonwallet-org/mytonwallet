@@ -23,7 +23,7 @@ struct SwapExecutionResult: Sendable, MfaProtectedActionResult {
             return
         }
         guard !request.txHash.isEmpty else {
-            throw BridgeCallError.customMessage("Missing MFA transaction hash", request)
+            throw SdkError.unexpected(message: "Missing MFA transaction hash", context: request)
         }
         try await Api.confirmSwapMfaRequest(accountId: accountId, swapId: swapId, txHash: request.txHash)
     }

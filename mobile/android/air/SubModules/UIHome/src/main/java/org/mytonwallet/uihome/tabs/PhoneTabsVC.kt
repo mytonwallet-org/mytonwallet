@@ -345,6 +345,12 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
                     event?.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_ENTER
                 ) {
+                    if (WalletContextManager.delegate?.get()?.handleDeeplink(text.toString()) == true) {
+                        setText("")
+                        clearFocus()
+                        hideKeyboard()
+                        return@setOnEditorActionListener true
+                    }
                     val config = searchMatchedSite?.let { searchMatchedSite ->
                         InAppBrowserConfig(
                             url = searchMatchedSite.url,
@@ -941,7 +947,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     private fun createUpdateButtonIfNeeded() {
         if (updateFloatingButton == null) {
             updateFloatingButton = WLabel(context).apply {
-                setStyle(adaptiveFontSize(), WFont.SemiBold)
+                setStyle(adaptiveFontSize(), WFont.Medium)
                 text = LocaleController.getStringWithKeyValues(
                     "Update %app_name%",
                     listOf(

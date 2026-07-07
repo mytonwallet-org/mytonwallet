@@ -7,6 +7,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import java.math.BigDecimal
 
 data class MApiSwapAsset(
@@ -20,6 +21,7 @@ data class MApiSwapAsset(
     override val image: String? = null,
     override val tokenAddress: String? = null,
     override val keywords: List<String>? = null,
+    override val label: String? = null,
     val color: String? = null
 ) : IApiToken {
 
@@ -35,7 +37,8 @@ data class MApiSwapAsset(
                 priceUsd = token.priceUsd,
                 image = token.image,
                 tokenAddress = token.tokenAddress,
-                keywords = token.keywords
+                keywords = token.keywords,
+                label = token.label
             )
         }
     }
@@ -65,18 +68,21 @@ data class MApiSwapEstimateVariant(
 data class MApiSwapEstimateRequest(
     val from: String,
     val to: String,
-    val slippage: Float,
+    val slippage: Float?,
     val fromAmount: BigDecimal?,
     val toAmount: BigDecimal?,
-    val fromAddress: String,
-    val shouldTryDiesel: Boolean,
+    val fromAddress: String?,
+    val toAddress: String? = null,
+    val cexLabel: String? = null,
+    val shouldTryDiesel: Boolean?,
     val walletVersion: MApiTonWalletVersion?,
-    val isFromAmountMax: Boolean,
-    val toncoinBalance: String
+    val isFromAmountMax: Boolean?,
+    val toncoinBalance: String?
 )
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapEstimateResponse(
+    val route: String? = null,
     val toAmount: BigDecimal,
     val fromAmount: BigDecimal,
     val toMinAmount: BigDecimal,
@@ -92,7 +98,7 @@ data class MApiSwapEstimateResponse(
     val dieselFee: String?,
     val from: String,
     val to: String,
-    val slippage: Double,
+    val slippage: Double?,
 
     /// only in v2
     val other: List<MApiSwapEstimateVariant>?,
@@ -116,6 +122,8 @@ data class MApiSwapBuildRequest(
     val slippage: Float,
     val fromAddress: String,
     val swapVersion: Int?,
+    /** TON address that owns/authenticates the backend swap history row. */
+    val historyAddress: String? = null,
     val ourFee: String?,
     val dieselFee: String?,
     val shouldTryDiesel: Boolean,
@@ -126,22 +134,27 @@ data class MApiSwapBuildRequest(
 data class MApiSwapBuildResponse(
     val id: String? = null,
     val transfers: List<MApiSwapTransfer>? = null,
-)
-
-@JsonClass(generateAdapter = true)
-data class MApiSwapCexEstimateRequest(
-    val from: String,
-    val fromAmount: BigDecimal,
-    val to: String,
+    val chain: MBlockchain? = null,
+    val transaction: String? = null,
+    val error: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapCexEstimateResponse(
+    val route: String? = null,
+    val cexLabel: String? = null,
+    val providerName: String? = null,
+    val termsOfUseUrl: String? = null,
+    val privacyPolicyUrl: String? = null,
+    val amlKycPolicyUrl: String? = null,
     val from: String? = null,
     val fromAmount: BigDecimal? = null,
     val to: String? = null,
     val toAmount: BigDecimal? = null,
     val swapFee: BigDecimal? = null,
+    val ourFee: String? = null,
+    val ourFeePercent: Double? = null,
+    val ourFeeMode: String? = null,
     val fromMin: BigDecimal? = null,
     val fromMax: BigDecimal? = null,
     val errors: List<SwapEstimateError>? = null
@@ -193,8 +206,13 @@ data class MApiSwapCexEstimateResponse(
 data class MApiSwapCexCreateTransactionRequest(
     val from: String,
     val fromAmount: BigDecimal,
-    val fromAddress: String,        // Always TON address
+    /** Source-chain refund/sender address for Near Intents; TON history address for Changelly. */
+    val fromAddress: String,
+    /** TON address that owns/authenticates the backend swap history row. */
+    val historyAddress: String? = null,
+    val cexLabel: String? = null,
     val to: String,
+    val toAmount: BigDecimal?,
     val toAddress: String,          // TON or other crypto address
     val payoutExtraId: String?,
     val swapFee: BigDecimal,        // from estimate request
@@ -221,18 +239,27 @@ data class MApiFetchSwapsResult(
 )
 
 @JsonClass(generateAdapter = true)
+data class MApiFetchSwapItem(
+    val id: String,
+    val chain: MBlockchain? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class MApiSwapHistoryItem(
     val id: String,
     val timestamp: Long,
     val lt: Long? = null,
     val from: String,
+    val fromAddress: String? = null,
     val fromAmount: BigDecimal,
     val to: String,
     val toAmount: BigDecimal,
     val networkFee: Double,
     val swapFee: BigDecimal,
+    val ourFeeMode: String? = null,
+    val cexLabel: String? = null,
     val status: MApiSwapHistoryItemStatus,
-    val txIds: List<String>,
+    val transactionIds: MApiSwapTransactionIds = MApiSwapTransactionIds(),
     val isCanceled: Boolean?,
     val cex: Cex? = null
 ) {
@@ -242,7 +269,10 @@ data class MApiSwapHistoryItem(
         val payoutAddress: String,
         val payinExtraId: String? = null,
         val status: MApiSwapCexTransactionStatus,
-        val transactionId: String
+        val transactionId: String,
+        val providerName: String? = null,
+        val supportUrl: String? = null,
+        val supportEmail: String? = null
     )
 }
 
@@ -282,13 +312,17 @@ enum class MApiSwapDexLabel {
     DEDUST,
 
     @Json(name = "ston")
-    STON;
+    STON,
+
+    @Json(name = "jupiter")
+    JUPITER;
 
     val displayName: String
         get() {
             return when (this) {
                 DEDUST -> "DeDust"
                 STON -> "STON.fi"
+                JUPITER -> "Jupiter"
             }
         }
 
@@ -297,6 +331,7 @@ enum class MApiSwapDexLabel {
             return when (this) {
                 DEDUST -> org.mytonwallet.app_air.icons.R.drawable.ic_dex_dedust
                 STON -> org.mytonwallet.app_air.icons.R.drawable.ic_dex_stonfi
+                JUPITER -> org.mytonwallet.app_air.icons.R.drawable.ic_swap_30
             }
         }
 }

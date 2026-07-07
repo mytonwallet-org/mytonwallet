@@ -49,28 +49,36 @@ export async function fetchTransactionById(
         return activity;
       }
 
-      let initiatorAddress = activity.fromAddress;
-      if (initiatorAddress.startsWith('0:')) {
-        const userFriendly = addressBook[initiatorAddress]?.user_friendly;
-        if (userFriendly) {
-          initiatorAddress = userFriendly;
+      try {
+        let initiatorAddress = activity.fromAddress;
+
+        if (initiatorAddress.startsWith('0:')) {
+          const userFriendly = addressBook[initiatorAddress]?.user_friendly;
+
+          if (userFriendly) {
+            initiatorAddress = userFriendly;
+          }
         }
+
+        const parsedTrace = parseTrace({
+          network,
+          walletAddress: initiatorAddress,
+          actions: trace.actions,
+          traceDetail: trace.trace,
+          addressBook,
+          metadata,
+          transactions: trace.transactions,
+          nftSuperCollectionsByCollectionAddress,
+        });
+
+        const filledActivity = fillActivityDetails(activity, parsedTrace);
+
+        return omit(filledActivity as ApiSwapActivity, ['ourFee']);
+      } catch (err) {
+        logDebugError('fetchTransactionById.fillActivityDetails', activity.id, err);
+
+        return activity;
       }
-
-      const parsedTrace = parseTrace({
-        network,
-        walletAddress: initiatorAddress,
-        actions: trace.actions,
-        traceDetail: trace.trace,
-        addressBook,
-        metadata,
-        transactions: trace.transactions,
-        nftSuperCollectionsByCollectionAddress,
-      });
-
-      const filledActivity = fillActivityDetails(activity, parsedTrace);
-
-      return omit(filledActivity as ApiSwapActivity, ['ourFee']);
     });
   } catch (err) {
     logDebugError('fetchTransactionById', 'ton', err);

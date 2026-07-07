@@ -15,6 +15,8 @@ interface IApiToken {
     val image: String?
     val isPopular: Boolean?
     val keywords: List<String>?
+    val label: String?
+        get() = null
 
     val mBlockchain
         get() = chain?.let { MBlockchain.valueOfOrNull(it) }
@@ -30,11 +32,29 @@ interface IApiToken {
 
     val isBlockchainNative get() = mBlockchain?.nativeSlug == slug
     val isUsdt get() = symbol == "USDT" || symbol == "USD₮"
+    val isRwaStock get() = keywords?.contains("rwa") == true
 
     val swapSlug
         get() = if (isTON) "TON" else {
             tokenAddress ?: slug
         }
+
+    fun matchesSearch(search: String): Boolean {
+        val keyword = search.trim().lowercase()
+        if (keyword.isEmpty()) return true
+        if (name?.lowercase()?.contains(keyword) == true) return true
+        if (symbol?.lowercase()?.contains(keyword) == true) return true
+        if (label?.lowercase()?.contains(keyword) == true) return true
+        if (chain?.lowercase()?.contains(keyword) == true) return true
+        if (chain?.toSearchableChainTitle()?.contains(keyword) == true) return true
+        if (tokenAddress?.lowercase()?.contains(keyword) == true) return true
+        if (keywords?.any { it.lowercase().contains(keyword) } == true) return true
+        return false
+    }
+
+    private fun String.toSearchableChainTitle(): String {
+        return replace('_', ' ').replace('-', ' ').lowercase()
+    }
 }
 
 @JsonClass(generateAdapter = true)
@@ -55,6 +75,7 @@ data class ApiTokenWithPrice(
     val isTiny: Boolean? = null,
     val customPayloadApiUrl: String? = null,
     val codeHash: String? = null,
+    override val label: String? = null,
     val priceUsd: Double?,
     val percentChange24h: Double?
 ) : IApiToken {

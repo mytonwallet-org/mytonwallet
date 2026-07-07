@@ -14,11 +14,11 @@
  */
 
 import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
-import { WalletKit } from '@reown/walletkit';
+import { isPaymentLink, WalletKit } from '@reown/walletkit';
 import { Core } from '@walletconnect/core';
-import type { SessionTypes, Verify } from '@walletconnect/types';
-import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
-import { Transaction } from 'ethers';
+import type { PaymentInfo, PaymentOption, WalletRpcAction } from '@walletconnect/pay';
+import type { AuthTypes, SessionTypes } from '@walletconnect/types';
+import { buildApprovedNamespaces, buildAuthObject, getSdkError, populateAuthPayload } from '@walletconnect/utils';
 
 import type {
   confirmDappRequestConnect,
@@ -28,24 +28,14 @@ import type {
 import type {
   ApiChain,
   ApiDappRequest,
-  ApiDappurlTrustStatusStatus,
   ApiNetwork,
   EVMChain,
   OnApiUpdate,
 } from '../../../types';
-import type { DappProtocolError } from '../../errors';
 import type { StoredDappConnection } from '../../storage';
 import type {
   DappDisconnectRequest,
   UnifiedSignDataPayload } from '../../types';
-import type {
-  ChainId,
-  EthSignParams,
-  EthSignTypedDataParams,
-  EvmTransactionParams,
-  PersonalSignParams,
-  WalletCapabilities,
-  WalletConnectEip712Params } from './types';
 import {
   type DappConnectionRequest,
   type DappConnectionResult,
@@ -60,9 +50,15 @@ import {
 } from '../../types';
 import {
   CHAIN_IDS,
+  type ChainId,
+  type EthSignParams,
+  type EthSignTypedDataParams,
   EVM_CHAIN_IDS,
-  getEip155Caip2ForEvmChain,
-  namespacesToSessionChains,
+  type EvmTransactionParams,
+  type PersonalSignParams,
+  type WalletCapabilities,
+  type WcPayContext,
+  type WcPayMerchant,
 } from './types';
 
 import {
@@ -70,18 +66,24 @@ import {
   APP_NAME,
   APP_WEBSITE_URL,
   IS_EXTENSION,
+  WALLET_CONNECT_PAY_APP_ID,
   WALLET_CONNECT_PROJECT_ID,
 } from '../../../../config';
 import { parseAccountId } from '../../../../util/account';
 import { getDappConnectionUniqueId } from '../../../../util/getDappConnectionUniqueId';
 import { logDebug, logDebugError } from '../../../../util/logs';
 import safeExec from '../../../../util/safeExec';
+import { pause } from '../../../../util/schedulers';
+import {
+  checkIsKycUrlAllowed,
+  isWalletConnectPayAccountSwitch,
+  isWalletConnectPayUserCancellation,
+} from '../../../../util/walletConnectPay';
 import chains from '../../../chains';
 import { getEvmProvider } from '../../../chains/evm/util/client';
 import {
   fetchStoredChainAccount,
   getAccountIdByAddress,
-  getCurrentAccountId,
   getCurrentAccountIdOrFail,
 } from '../../../common/accounts';
 import { createDappPromise } from '../../../common/dappPromises';
@@ -91,11 +93,40 @@ import { callHook } from '../../../hooks';
 import {
   addDapp,
   deleteDapp,
-  findLastConnectedAccount,
   getDapp,
-  getDappsState,
   updateDapp,
 } from '../../../methods/dapps';
+import { resolveWalletConnectEvmSerializedTx } from './evmTransaction';
+import {
+  ensureRequestParams,
+  formatConnectError,
+  getCurrentAccountOrFail,
+  getDappByTopic,
+  parseWalletConnectTypedData,
+  safeHost,
+  urlTrustStatusStatusFromWalletConnectVerify,
+} from './helpers';
+import {
+  authPayloadChainsToSessionChains,
+  buildSessionAuthenticateProtocolData,
+  caip2ToHexChainId,
+  getAccountChains,
+  getEip155Caip2ForEvmChain,
+  getRequestedChainsForApproval,
+  hexToEip155Caip2,
+  namespacesToSessionChains,
+  normalizeEip155HexChainId,
+  WALLET_CONNECT_SUPPORTED_AUTH_METHODS,
+} from './namespaces';
+import {
+  buildPayAccounts,
+  buildPayMerchant,
+  buildPayPaymentAmount,
+  buildPayPaymentInfo,
+  mapPayPaymentOption,
+  parsePayOptionChain,
+  trimPayContextToSigning,
+} from './payMapping';
 import { READONLY_EVM_RPC_METHODS } from './readonlyMethods';
 
 // WalletConnect deep link patterns
@@ -104,8 +135,8 @@ const WALLET_CONNECT_DEEP_LINK_PREFIXES = [
   'https://walletconnect.com/wc',
 ];
 
-const WALLET_CONNECT_EVM_FEE_BUMP_PERCENT = 10n;
-const WALLET_CONNECT_EVM_GAS_LIMIT_BUMP_PERCENT = 25n;
+const EVM_TX_FINALIZATION_POLL_MS = 2000;
+const EVM_TX_FINALIZATION_TIMEOUT_MS = 5 * 60 * 1000;
 
 // Derive the EVM chain name set from the same EVM_CHAIN_IDS map the rest of the
 // adapter uses; hardcoding here would silently drift when a new chain joins the
@@ -132,6 +163,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   // one dapp converging on the worker once their per-page TTL caches expire). Page-side and
   // worker-side dedup are not redundant — they cover different fan-in points.
   private inFlightReconnects = new Map<string, Promise<DappConnectionResult<typeof this.protocolType>>>();
+
+  private activePayContext?: WcPayContext;
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -166,11 +199,15 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         url: APP_WEBSITE_URL,
         icons: [APP_ICON_URL],
       },
+      payConfig: {
+        appId: WALLET_CONNECT_PAY_APP_ID,
+      },
     });
 
     this.walletKit.on('session_proposal', this.handleSessionProposal);
     this.walletKit.on('session_request', this.handleSessionRequest);
     this.walletKit.on('session_delete', this.handleSessionDelete);
+    this.walletKit.on('session_authenticate', this.handleSessionAuthenticate);
 
     this.initialized = true;
   }
@@ -180,6 +217,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       this.walletKit.off('session_proposal', this.handleSessionProposal);
       this.walletKit.off('session_request', this.handleSessionRequest);
       this.walletKit.off('session_delete', this.handleSessionDelete);
+      this.walletKit.off('session_authenticate', this.handleSessionAuthenticate);
     }
 
     this.initialized = false;
@@ -189,6 +227,178 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   // ---------------------------------------------------------------------------
   // WalletConnect Event Handlers (internal)
   // ---------------------------------------------------------------------------
+
+  /**
+   * Handle session authenticate (1clickAuth) request from dApp.
+   * https://docs.walletconnect.network/wallet-sdk/web/one-click-auth
+   */
+  private handleSessionAuthenticate = async (payload: WalletKitTypes.SessionAuthenticate) => {
+    let dappUniqueId = '';
+    let dappAccountId = '';
+    let dappUrl = '';
+
+    try {
+      const { id, params, verifyContext, topic } = payload;
+      const { requester, authPayload } = params;
+
+      const populatedAuthPayload = populateAuthPayload({
+        authPayload,
+        chains: Object.keys(CHAIN_IDS),
+        methods: WALLET_CONNECT_SUPPORTED_AUTH_METHODS,
+      });
+
+      if (!populatedAuthPayload.chains?.length) {
+        await this.walletKit.rejectSessionAuthenticate({
+          id,
+          reason: getSdkError('UNSUPPORTED_CHAINS'),
+        });
+        return;
+      }
+
+      const requestedChains = authPayloadChainsToSessionChains(populatedAuthPayload.chains);
+
+      if (!requestedChains.length) {
+        await this.walletKit.rejectSessionAuthenticate({
+          id,
+          reason: getSdkError('UNSUPPORTED_CHAINS'),
+        });
+        return;
+      }
+
+      const connectionRequest: DappConnectionRequest = {
+        protocolType: DappProtocolType.WalletConnect,
+        transport: 'relay',
+        requestedChains,
+        permissions: {
+          isAddressRequired: true,
+          isPasswordRequired: false,
+        },
+        protocolData: buildSessionAuthenticateProtocolData(
+          payload,
+          populatedAuthPayload,
+          verifyContext,
+        ),
+      };
+
+      const request: ApiDappRequest = {
+        url: requester.metadata.url,
+        identifier: String(id),
+      };
+
+      const result = await this.connect(request, connectionRequest, id);
+
+      if (!result.success) {
+        return;
+      }
+
+      dappUniqueId = getDappConnectionUniqueId(result.session.dapp);
+      dappAccountId = result.session.accountId;
+      dappUrl = result.session.dapp.url;
+
+      const auths = await this.signSessionAuthenticate(
+        topic,
+        populatedAuthPayload,
+        result.session.accountId,
+        dappUrl,
+        id,
+        result.session.chains,
+      );
+
+      const { session } = await this.walletKit.approveSessionAuthenticate({
+        id,
+        auths,
+      });
+
+      if (session) {
+        await updateDapp(
+          result.session.accountId,
+          result.session.dapp.url,
+          dappUniqueId,
+          { wcTopic: session.topic },
+        );
+      }
+    } catch (err) {
+      logDebugError('walletConnect:handleSessionAuthenticate', err);
+
+      try {
+        await this.walletKit.rejectSessionAuthenticate({
+          id: payload.id,
+          reason: getSdkError('USER_REJECTED'),
+        });
+      } catch (rejectErr) {
+        logDebugError('walletConnect:handleSessionAuthenticate:reject', rejectErr);
+      }
+
+      await deleteDapp(
+        dappAccountId,
+        dappUrl,
+        dappUniqueId,
+      );
+    }
+  };
+
+  private async signSessionAuthenticate(
+    topic: string,
+    authPayload: AuthTypes.PayloadParams,
+    accountId: string,
+    dappUrl: string,
+    requestId: number,
+    sessionChains: { chain: ApiChain; network: ApiNetwork; address: string }[],
+  ): Promise<AuthTypes.Cacao[]> {
+    const chainCaip2 = authPayload.chains.find((caip2) => {
+      const chainId = CHAIN_IDS[caip2];
+
+      if (!chainId) {
+        return false;
+      }
+
+      return sessionChains.some(
+        (sessionChain) => sessionChain.chain === chainId.chain && sessionChain.network === chainId.network,
+      );
+    });
+
+    if (!chainCaip2) {
+      throw new Error('No supported chain for authentication');
+    }
+
+    const chainEntry = CHAIN_IDS[chainCaip2];
+    const account = await fetchStoredChainAccount(accountId, chainEntry.chain);
+    const address = account.byChain[chainEntry.chain].address;
+    const iss = `${chainCaip2}:${address}`;
+
+    const message = this.walletKit.formatAuthMessage({
+      request: authPayload,
+      iss,
+    });
+
+    const signResult = await this.signData(
+      { url: dappUrl, accountId },
+      {
+        id: String(requestId),
+        chain: chainEntry.chain,
+        payload: {
+          url: dappUrl,
+          address,
+          data: message,
+          topic,
+          isSessionAuthenticate: true,
+          isEthSign: true,
+        },
+      },
+    );
+
+    if (!signResult.success) {
+      throw new ApiUserRejectsError();
+    }
+
+    return [
+      buildAuthObject(
+        authPayload,
+        { t: 'eip191', s: signResult.result.result },
+        iss,
+      ),
+    ];
+  };
 
   /**
    * Handle incoming session proposal from dApp.
@@ -634,11 +844,11 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       });
 
       let accountId = await getCurrentAccountOrFail();
-      const { network } = parseAccountId(accountId);
+      let { network } = parseAccountId(accountId);
 
       const { promiseId, promise } = createDappPromise();
 
-      let chains = await getAccountChains(message, network, accountId, message.requestedChains);
+      let chains = getRequestedChainsForApproval(message, network);
 
       const urlTrustStatus = request.urlTrustStatus
         ?? (message.transport === 'relay'
@@ -676,14 +886,14 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       if (promiseResult.accountId !== accountId) {
         accountId = promiseResult.accountId;
         request.accountId = accountId;
-
-        chains = await getAccountChains(message, network, accountId, message.requestedChains);
-
-        dapp = {
-          ...dapp,
-          chains,
-        };
       }
+
+      network = parseAccountId(accountId).network;
+      chains = await getAccountChains(message, network, accountId, message.requestedChains);
+      dapp = {
+        ...dapp,
+        chains,
+      };
 
       await addDapp(accountId, dapp, uniqueId);
 
@@ -726,11 +936,19 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       };
     } catch (err) {
       logDebugError('walletConnect:connect', err);
+
       if (message.transport === 'relay') {
-        await this.walletKit.rejectSession({
-          id: message.protocolData.id,
-          reason: getSdkError('USER_REJECTED'),
-        });
+        if (message.protocolData.isSessionAuthenticate) {
+          await this.walletKit.rejectSessionAuthenticate({
+            id: message.protocolData.id,
+            reason: getSdkError('USER_REJECTED'),
+          });
+        } else {
+          await this.walletKit.rejectSession({
+            id: message.protocolData.id,
+            reason: getSdkError('USER_REJECTED'),
+          });
+        }
       }
 
       safeExec(() => {
@@ -1068,7 +1286,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       let accountId: string | undefined = undefined;
 
       if (message.payload.topic) {
-        const byTopic = (await getDappByTopic(message.payload.topic, 'default'));
+        const byTopic = (await getDappByTopic(
+          message.payload.topic,
+          message.payload.isSessionAuthenticate ? 'pairing' : 'default',
+        ));
 
         if (!byTopic) {
           throw new Error(`No dApp found for topic ${message.payload.topic}`);
@@ -1128,17 +1349,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       let simplePaloadToSign: UnifiedSignDataPayload;
 
       if (!message.payload.eip712) {
-        if (message.payload.isEthSign) {
-          simplePaloadToSign = {
-            type: 'binary',
-            bytes: message.payload.data as string,
-          };
-        } else {
-          simplePaloadToSign = {
-            type: 'text',
-            text: message.payload.data as string,
-          };
-        }
+        simplePaloadToSign = {
+          type: 'binary',
+          bytes: message.payload.data as string,
+        };
       }
 
       const payloadToSign: UnifiedSignDataPayload = message.payload.eip712
@@ -1184,7 +1398,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         accountId,
       });
 
-      if (message.payload.topic) {
+      if (message.payload.topic && !message.payload.isSessionAuthenticate) {
         // EVM personal_sign/eth_sign/eth_signTypedData* expect a plain signature hex string.
         // Solana signMessage expects { signature }.
         const signatureResult = message.payload.isEthSign
@@ -1211,6 +1425,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       };
     } catch (err) {
       logDebugError('walletConnect:signData', err);
+
       if (message.payload.topic) {
         const response = {
           id: Number(message.id),
@@ -1345,16 +1560,859 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   // ---------------------------------------------------------------------------
 
   canHandleDeepLink(url: string): boolean {
-    return WALLET_CONNECT_DEEP_LINK_PREFIXES.some((prefix) => url.startsWith(prefix));
+    return WALLET_CONNECT_DEEP_LINK_PREFIXES.some((prefix) => url.startsWith(prefix))
+      || isPaymentLink(url);
   }
 
   async handleDeepLink(url: string): Promise<string | undefined> {
     try {
-      await this.walletKit.pair({ uri: url });
+      if (isPaymentLink(url)) {
+        await this.processPayment(url);
+      } else {
+        await this.walletKit.pair({ uri: url });
+      }
     } catch (err) {
       logDebugError('walletConnect:handleDeepLink', err);
     }
     return undefined;
+  }
+
+  async processPayment(paymentLink: string, accountId?: string) {
+    try {
+      const resolvedAccountId = accountId ?? await getCurrentAccountIdOrFail();
+      await this.openExtensionPopup(true);
+
+      const payAccounts = await buildPayAccounts(resolvedAccountId);
+      let selectedOption: PaymentOption;
+      let paymentId: string;
+
+      if (payAccounts.length === 0) {
+        const fakePayAccounts = await buildPayAccounts(resolvedAccountId, true);
+
+        const previewOptions = await this.walletKit.pay.getPaymentOptions({
+          paymentLink,
+          accounts: fakePayAccounts,
+          includePaymentInfo: true,
+        });
+
+        if ('resultInfo' in previewOptions && previewOptions.resultInfo) {
+          logDebug('walletConnect:processPayment:alreadyCompleted', { paymentId: previewOptions.paymentId });
+
+          return previewOptions;
+        }
+
+        ({ option: selectedOption, paymentId } = await this.showPayOptionSelection(
+          paymentLink,
+          resolvedAccountId,
+          previewOptions.paymentId,
+          [],
+          buildPayMerchant(previewOptions.info?.merchant),
+          previewOptions.info,
+          true,
+        ));
+      } else {
+        const options = await this.walletKit.pay.getPaymentOptions({
+          paymentLink,
+          accounts: payAccounts,
+          includePaymentInfo: true,
+        });
+
+        if ('resultInfo' in options && options.resultInfo) {
+          logDebug('walletConnect:processPayment:alreadyCompleted', { paymentId: options.paymentId });
+
+          return options;
+        }
+
+        if (options.info?.expiresAt && options.info.expiresAt * 1000 < Date.now()) {
+          throw new Error('Payment has expired');
+        }
+
+        ({ option: selectedOption, paymentId } = await this.showPayOptionSelection(
+          paymentLink,
+          resolvedAccountId,
+          options.paymentId,
+          options.options,
+          buildPayMerchant(options.info?.merchant),
+          options.info,
+        ));
+      }
+
+      const payAccountId = this.activePayContext!.accountId;
+
+      const isOptionExpired = selectedOption?.expiresAt
+        && ((selectedOption.expiresAt * 1000) + 10_000) < Date.now();
+
+      // If the option is expired, we need to refetch the options and find the same option.
+      // Take 10 seconds of safety margin to avoid expiration during requests/signing
+      if (isOptionExpired) {
+        const refetchedPayAccounts = await buildPayAccounts(payAccountId);
+        const refetchedOptions = await this.walletKit.pay.getPaymentOptions({
+          paymentLink,
+          accounts: refetchedPayAccounts,
+          includePaymentInfo: true,
+        });
+
+        selectedOption = refetchedOptions.options
+          .find((option) =>
+            option.amount.unit === selectedOption.amount.unit
+            && option.account === selectedOption.account,
+          )!;
+
+        if (!selectedOption) {
+          throw new Error('No payment option found after refetch');
+        }
+
+        paymentId = refetchedOptions.paymentId;
+      }
+
+      const actions = await this.walletKit.pay.getRequiredPaymentActions({
+        paymentId,
+        optionId: selectedOption.id,
+      });
+
+      const containsApprove = actions.some((action) =>
+        action.walletRpc.method === 'eth_sendTransaction' && actions.length > 1,
+      );
+
+      const operationChain = parsePayOptionChain(selectedOption.account);
+
+      if (!operationChain) {
+        throw new Error('Unsupported payment chain');
+      }
+
+      try {
+        let signatures: string[];
+
+        if (containsApprove) {
+          signatures = await this.signPayActionsWithApprove(actions, operationChain);
+        } else {
+          signatures = [];
+
+          for (const action of actions) {
+            signatures.push(await this.signPayAction(action.walletRpc));
+          }
+
+          this.onUpdate({
+            type: 'walletConnectPayProcessing',
+            accountId: payAccountId,
+            merchant: this.activePayContext!.merchant,
+            operationChain,
+          });
+        }
+
+        let result = await this.walletKit.pay.confirmPayment({
+          paymentId,
+          optionId: selectedOption.id,
+          signatures,
+        });
+
+        while (!result.isFinal) {
+          await pause(result.pollInMs ?? 2000);
+
+          result = await this.walletKit.pay.confirmPayment({
+            paymentId,
+            optionId: selectedOption.id,
+            signatures,
+          });
+        }
+
+        if (result.status !== 'succeeded') {
+          this.onUpdate({ type: 'walletConnectPayCloseLoading' });
+
+          this.onUpdate({
+            type: 'showError',
+            error: `Payment ${result.status}`,
+          });
+
+          throw new Error(`Payment ${result.status}`);
+        }
+
+        this.onUpdate({
+          type: 'walletConnectPayPaymentComplete',
+          accountId: payAccountId,
+          merchant: this.activePayContext!.merchant,
+          operationChain,
+          txId: result.info?.txId,
+          paymentAmount: result.info?.optionAmount
+            ? buildPayPaymentAmount(result.info.optionAmount)
+            : undefined,
+        });
+
+        logDebug('walletConnect:processPayment:done', {
+          paymentId,
+          status: result.status,
+          txId: result.info?.txId,
+        });
+
+        return result;
+      } finally {
+        this.activePayContext = undefined;
+      }
+    } catch (error) {
+      logDebugError('walletConnect:processPayment', error);
+
+      this.activePayContext = undefined;
+      this.onUpdate({ type: 'walletConnectPayCloseLoading' });
+
+      if (!isWalletConnectPayUserCancellation(error) && !isWalletConnectPayAccountSwitch(error)) {
+        this.onUpdate({
+          type: 'showError',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  private async signPayAction(action: WalletRpcAction) {
+    const { chainId, method, params } = action;
+    const chainEntry = CHAIN_IDS[chainId];
+
+    if (!chainEntry) {
+      throw new Error(`Unsupported Pay chain: ${chainId}`);
+    }
+
+    const parsedParams = JSON.parse(params) as unknown;
+    const namespace = chainId.split(':')[0];
+
+    switch (namespace) {
+      case 'eip155':
+        return this.signPayEvmAction(chainEntry.chain, method, parsedParams);
+      case 'solana':
+        return this.signPaySolanaAction(method, parsedParams);
+      default:
+        throw new Error(`Unsupported Pay namespace: ${namespace}`);
+    }
+  }
+
+  private async signPayActionsWithApprove(
+    actions: Awaited<ReturnType<IWalletKit['pay']['getRequiredPaymentActions']>>,
+    operationChain: ApiChain,
+  ): Promise<string[]> {
+    const signDataAction = actions.find((action) => action.walletRpc.method === 'eth_signTypedData_v4');
+    const approveAction = actions.find((action) => action.walletRpc.method === 'eth_sendTransaction');
+
+    if (!signDataAction || !approveAction) {
+      throw new Error('Invalid approve payment actions');
+    }
+
+    const signDataChainEntry = CHAIN_IDS[signDataAction.walletRpc.chainId];
+    const approveChainEntry = CHAIN_IDS[approveAction.walletRpc.chainId];
+
+    if (!signDataChainEntry || !approveChainEntry) {
+      throw new Error('Unsupported Pay chain');
+    }
+
+    const signDataParams = JSON.parse(signDataAction.walletRpc.params) as unknown;
+    const approveParams = JSON.parse(approveAction.walletRpc.params) as EvmTransactionParams[];
+
+    const { signDataSignature, approveTxHash } = await this.processPaySignDataWithApprove(
+      signDataChainEntry.chain,
+      signDataParams,
+      approveChainEntry.chain,
+      approveParams[0],
+      operationChain,
+    );
+
+    return actions.map((action) => {
+      switch (action.walletRpc.method) {
+        case 'eth_signTypedData_v4':
+          return signDataSignature;
+        case 'eth_sendTransaction':
+          return approveTxHash;
+        default:
+          throw new Error(`Unsupported Pay action in approve flow: ${action.walletRpc.method}`);
+      }
+    });
+  }
+
+  private async signPayEvmAction(
+    chain: ApiChain,
+    method: string,
+    parsedParams: unknown,
+  ) {
+    switch (method) {
+      case 'personal_sign':
+      case 'eth_sign':
+      case 'eth_signTypedData_v4':
+        return this.processPaySignData(chain, parsedParams, method);
+      case 'eth_signTransaction': {
+        const txParams = parsedParams as EvmTransactionParams[];
+
+        return this.processPayTransaction(
+          chain,
+          txParams[0],
+          true,
+        );
+      }
+
+      case 'eth_sendTransaction': {
+        const txParams = parsedParams as EvmTransactionParams[];
+
+        return this.processPayTransaction(
+          chain,
+          txParams[0],
+          false,
+        );
+      }
+
+      default:
+        throw new Error(`Unsupported Pay EVM RPC method: ${method}`);
+    }
+  }
+
+  private async signPaySolanaAction(
+    method: string,
+    parsedParams: unknown,
+  ) {
+    switch (method) {
+      case 'solana_signTransaction': {
+        const paramsList = parsedParams as Array<{ transaction: string }>;
+        const transaction = paramsList[0]?.transaction;
+
+        if (!transaction) {
+          throw new Error('Invalid params: missing transaction');
+        }
+
+        return this.processPaySolanaTransaction(transaction);
+      }
+
+      default:
+        throw new Error(`Unsupported Pay Solana RPC method: ${method}`);
+    }
+  }
+
+  private async processPaySignDataWithApprove(
+    signDataChain: ApiChain,
+    signDataParams: unknown,
+    approveChain: ApiChain,
+    approveTxParams: EvmTransactionParams,
+    operationChain: ApiChain,
+  ): Promise<{ signDataSignature: string; approveTxHash: string }> {
+    const ctx = this.activePayContext;
+
+    if (!ctx) {
+      throw new Error('walletConnect:processPaySignDataWithApprove: no active pay context');
+    }
+
+    const { accountId, merchant } = ctx;
+    const account = await fetchStoredChainAccount(accountId, signDataChain);
+
+    const walletAddress = account.byChain[signDataChain].address;
+    const { network } = parseAccountId(accountId);
+
+    const payloadToSign = this.buildPaySignDataPayload(
+      signDataParams,
+      walletAddress,
+      'eth_signTypedData_v4',
+    );
+
+    const approveAccount = await fetchStoredChainAccount(accountId, approveChain);
+    const approveWalletAddress = approveAccount.byChain[approveChain].address;
+    const caip2 = getEip155Caip2ForEvmChain(approveChain as EVMChain, network);
+
+    if (!caip2) {
+      throw new Error('Unknown EVM chain/network');
+    }
+
+    const serializedTxForPreview = await resolveWalletConnectEvmSerializedTx({
+      raw: approveTxParams,
+      chain: approveChain as EVMChain,
+      network,
+      caip2,
+      signerAddress: approveWalletAddress,
+    });
+
+    const { transfers: approveTransactions } = await this.chainDappSupports[approveChain]!.parseTransactionForPreview!(
+      serializedTxForPreview,
+      approveWalletAddress,
+      network,
+    );
+
+    try {
+      await this.openExtensionPopup(true);
+
+      this.onUpdate({
+        type: 'walletConnectPayLoading',
+        accountId,
+      });
+
+      const { promiseId, promise } = createDappPromise();
+      const approveValidUntil = Math.floor(Date.now() / 1000 + 60 * 5);
+
+      this.onUpdate({
+        type: 'walletConnectPaySignData',
+        promiseId,
+        accountId,
+        merchant,
+        operationChain: signDataChain,
+        payloadToSign,
+        paymentInfo: ctx.paymentInfo,
+        paymentOption: ctx.paymentOption,
+        containsApprove: true,
+        approveOperationChain: approveChain,
+        approveTransactions,
+        approveValidUntil,
+      });
+
+      const result = await promise as {
+        signDataSignature: string;
+        signedApproveTransactions: Parameters<
+          typeof confirmDappRequestSendTransaction<DappProtocolType.WalletConnect>
+        >[1];
+      };
+
+      if (!Array.isArray(result.signedApproveTransactions)) {
+        throw new Error('MFA confirmation is not supported for WalletConnect Pay transactions');
+      }
+
+      const signedApproveTx = result.signedApproveTransactions[0].payload.signedTx;
+      if (typeof signedApproveTx !== 'string') {
+        throw new Error('Invalid signed approve transaction');
+      }
+
+      this.onUpdate({
+        type: 'walletConnectPayProcessing',
+        accountId,
+        merchant,
+        operationChain,
+      });
+
+      const approveTxHash = await this.chainDappSupports[approveChain]!.sendSignedTransaction!(
+        signedApproveTx,
+        network,
+      );
+
+      const finalizedApproveTxHash = await this.waitForEvmTransactionFinalization(
+        network,
+        approveChain as EVMChain,
+        approveTxHash,
+      );
+
+      return {
+        signDataSignature: result.signDataSignature,
+        approveTxHash: finalizedApproveTxHash,
+      };
+    } catch (err) {
+      logDebugError('walletConnect:processPaySignDataWithApprove', err);
+      this.onUpdate({ type: 'walletConnectPayCloseLoading' });
+
+      throw err;
+    }
+  }
+
+  private buildPaySignDataPayload(
+    params: unknown,
+    walletAddress: string,
+    method: string,
+  ): UnifiedSignDataPayload {
+    switch (method) {
+      case 'eth_signTypedData_v4': {
+        const [from, typedRaw] = params as EthSignTypedDataParams;
+
+        if (chains['ethereum'].normalizeAddress(from) !== walletAddress) {
+          throw new ApiUserRejectsError('Unauthorized signer address');
+        }
+
+        const eip712 = parseWalletConnectTypedData(typedRaw);
+
+        if (!eip712) {
+          throw new Error('Invalid typed data');
+        }
+
+        return {
+          type: 'eip712',
+          domain: eip712.domain,
+          types: eip712.types,
+          primaryType: eip712.primaryType,
+          message: eip712.message,
+        };
+      }
+
+      case 'personal_sign': {
+        const [messageHex, from] = params as PersonalSignParams;
+
+        if (chains['ethereum'].normalizeAddress(from) !== walletAddress) {
+          throw new ApiUserRejectsError('Unauthorized signer address');
+        }
+
+        return {
+          type: 'binary',
+          bytes: messageHex,
+        };
+      }
+
+      case 'eth_sign': {
+        const [from, dataHex] = params as EthSignParams;
+
+        if (chains['ethereum'].normalizeAddress(from) !== walletAddress) {
+          throw new ApiUserRejectsError('Unauthorized signer address');
+        }
+
+        return {
+          type: 'binary',
+          bytes: dataHex,
+        };
+      }
+
+      default:
+        throw new Error(`Unsupported Pay sign method: ${method}`);
+    }
+  }
+
+  private async waitForEvmTransactionFinalization(
+    network: ApiNetwork,
+    chain: EVMChain,
+    txHash: string,
+  ): Promise<string> {
+    const provider = getEvmProvider(network, chain);
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < EVM_TX_FINALIZATION_TIMEOUT_MS) {
+      const transaction = await provider.getTransaction(txHash);
+
+      if (transaction?.blockNumber) {
+        return txHash;
+      }
+
+      await pause(EVM_TX_FINALIZATION_POLL_MS);
+    }
+
+    throw new Error('Transaction finalization timeout');
+  }
+
+  private async processPaySignData(
+    chain: ApiChain,
+    params: unknown,
+    method: string,
+  ): Promise<string> {
+    const ctx = this.activePayContext;
+
+    if (!ctx) {
+      throw new Error('walletConnect:processPaySignData: no active pay context');
+    }
+
+    const { accountId, merchant } = ctx;
+    const account = await fetchStoredChainAccount(accountId, chain);
+    const walletAddress = account.byChain[chain].address;
+    const payloadToSign = this.buildPaySignDataPayload(params, walletAddress, method);
+
+    try {
+      await this.openExtensionPopup(true);
+
+      this.onUpdate({
+        type: 'walletConnectPayLoading',
+        accountId,
+      });
+
+      const { promiseId, promise } = createDappPromise();
+
+      this.onUpdate({
+        type: 'walletConnectPaySignData',
+        promiseId,
+        accountId,
+        merchant,
+        operationChain: chain,
+        payloadToSign,
+        paymentInfo: ctx.paymentInfo,
+        paymentOption: ctx.paymentOption,
+      });
+
+      const result: Parameters<typeof confirmDappRequestSignData<typeof this.protocolType>>[1] = await promise;
+
+      return result.result.signature;
+    } catch (err) {
+      logDebugError('walletConnect:processPaySignData', err);
+
+      this.onUpdate({ type: 'walletConnectPayCloseLoading' });
+
+      throw err;
+    }
+  }
+
+  private async processPayTransaction(
+    chain: ApiChain,
+    txParams: EvmTransactionParams,
+    isSignOnly: boolean,
+  ): Promise<string> {
+    const ctx = this.activePayContext;
+
+    if (!ctx) {
+      throw new Error('walletConnect:processPayTransaction: no active pay context');
+    }
+
+    const { accountId, merchant } = ctx;
+    const account = await fetchStoredChainAccount(accountId, chain);
+    const walletAddress = account.byChain[chain].address;
+    const { network } = parseAccountId(accountId);
+
+    try {
+      const caip2 = getEip155Caip2ForEvmChain(chain as EVMChain, network);
+
+      if (!caip2) {
+        throw new Error('Unknown EVM chain/network');
+      }
+
+      const serializedTxForPreview = await resolveWalletConnectEvmSerializedTx({
+        raw: txParams,
+        chain: chain as EVMChain,
+        network,
+        caip2,
+        signerAddress: walletAddress,
+      });
+
+      await this.openExtensionPopup(true);
+
+      this.onUpdate({
+        type: 'walletConnectPayLoading',
+        accountId,
+      });
+
+      const { transfers, emulation } = await this.chainDappSupports[chain]!.parseTransactionForPreview!(
+        serializedTxForPreview,
+        walletAddress,
+        network,
+      );
+
+      const { promiseId, promise } = createDappPromise();
+
+      this.onUpdate({
+        type: 'walletConnectPaySignTransaction',
+        promiseId,
+        accountId,
+        merchant,
+        operationChain: chain,
+        transactions: transfers,
+        emulation,
+        paymentInfo: ctx.paymentInfo,
+        paymentOption: ctx.paymentOption,
+        validUntil: Math.floor(Date.now() / 1000 + 60 * 5),
+        isSignOnly,
+        isLegacyOutput: isSignOnly,
+      });
+
+      const signedTransactions: Parameters<
+        typeof confirmDappRequestSendTransaction<typeof this.protocolType>
+      >[1] = await promise;
+
+      if (!Array.isArray(signedTransactions)) {
+        throw new Error('MFA confirmation is not supported for WalletConnect Pay transactions');
+      }
+
+      if (!isSignOnly) {
+        const sentTransaction = await this.chainDappSupports[chain]!.sendSignedTransaction!(
+          signedTransactions[0].payload.signedTx,
+          network,
+        );
+
+        return sentTransaction;
+      }
+
+      return signedTransactions[0].payload.signature;
+    } catch (err) {
+      logDebugError('walletConnect:processPayTransaction', err);
+      this.onUpdate({ type: 'walletConnectPayCloseLoading' });
+      throw err;
+    }
+  }
+
+  private async processPaySolanaTransaction(
+    transaction: string,
+  ): Promise<string> {
+    const ctx = this.activePayContext;
+
+    if (!ctx) {
+      throw new Error('walletConnect:processPaySolanaTransaction: no active pay context');
+    }
+
+    const { accountId, merchant } = ctx;
+    const chain: ApiChain = 'solana';
+    const account = await fetchStoredChainAccount(accountId, chain);
+    const walletAddress = account.byChain[chain].address;
+    const { network } = parseAccountId(accountId);
+
+    try {
+      await this.openExtensionPopup(true);
+
+      this.onUpdate({
+        type: 'walletConnectPayLoading',
+        accountId,
+      });
+
+      const { transfers, emulation } = await this.chainDappSupports[chain]!.parseTransactionForPreview!(
+        transaction,
+        walletAddress,
+        network,
+      );
+
+      const { promiseId, promise } = createDappPromise();
+
+      this.onUpdate({
+        type: 'walletConnectPaySignTransaction',
+        promiseId,
+        accountId,
+        merchant,
+        operationChain: chain,
+        transactions: transfers,
+        emulation,
+        paymentInfo: ctx.paymentInfo,
+        paymentOption: ctx.paymentOption,
+        validUntil: Math.floor(Date.now() / 1000 + 60 * 5),
+        isSignOnly: true,
+        isLegacyOutput: false,
+        shouldHideTransfers: true,
+      });
+
+      const signedTransactions: Parameters<
+        typeof confirmDappRequestSendTransaction<typeof this.protocolType>
+      >[1] = await promise;
+
+      if (!Array.isArray(signedTransactions)) {
+        throw new Error('MFA confirmation is not supported for WalletConnect Pay transactions');
+      }
+
+      return signedTransactions[0].payload.signedTx;
+    } catch (err) {
+      logDebugError('walletConnect:processPaySolanaTransaction', err);
+      this.onUpdate({ type: 'walletConnectPayCloseLoading' });
+
+      throw err;
+    }
+  }
+
+  async refreshPayOptionSelection(paymentLink: string, accountId: string, promiseId: string) {
+    if (this.activePayContext?.promiseId !== promiseId) {
+      return;
+    }
+
+    this.activePayContext.accountId = accountId;
+
+    const payAccounts = await buildPayAccounts(accountId);
+
+    if (payAccounts.length === 0) {
+      this.activePayContext.paymentOptions = [];
+
+      this.onUpdate({
+        type: 'walletConnectPayOptionSelection',
+        promiseId,
+        paymentLink,
+        accountId,
+        merchant: this.activePayContext.merchant,
+        paymentInfo: this.activePayContext.paymentInfo,
+        options: [],
+        isLoading: false,
+        shouldSwitchWallet: true,
+      });
+
+      return;
+    }
+
+    const options = await this.walletKit.pay.getPaymentOptions({
+      paymentLink,
+      accounts: payAccounts,
+      includePaymentInfo: true,
+    });
+
+    if ('resultInfo' in options && options.resultInfo) {
+      logDebug('walletConnect:processPayment:alreadyCompleted', { paymentId: options.paymentId });
+      return;
+    }
+
+    this.activePayContext.paymentId = options.paymentId;
+    this.activePayContext.paymentOptions = options.options;
+    this.activePayContext.merchant = buildPayMerchant(options.info?.merchant);
+    this.activePayContext.paymentInfo = buildPayPaymentInfo(options.info);
+
+    this.onUpdate({
+      type: 'walletConnectPayOptionSelection',
+      promiseId,
+      paymentLink,
+      accountId,
+      merchant: this.activePayContext.merchant,
+      paymentInfo: this.activePayContext.paymentInfo,
+      options: options.options.map((option) => mapPayPaymentOption(option)),
+      isLoading: false,
+      shouldSwitchWallet: false,
+    });
+  }
+
+  private async showPayOptionSelection(
+    paymentLink: string,
+    accountId: string,
+    paymentId: string,
+    paymentOptions: PaymentOption[],
+    merchant: WcPayMerchant,
+    paymentInfo?: Pick<PaymentInfo, 'expiresAt' | 'amount'>,
+    shouldSwitchWallet = false,
+  ): Promise<{ option: PaymentOption; paymentId: string }> {
+    const { promiseId, promise } = createDappPromise();
+
+    const normalizedPaymentInfo = buildPayPaymentInfo(paymentInfo);
+
+    this.activePayContext = {
+      accountId,
+      paymentId,
+      merchant,
+      paymentInfo: normalizedPaymentInfo,
+      promiseId,
+      paymentLink,
+      paymentOptions,
+    };
+
+    this.onUpdate({
+      type: 'walletConnectPayOptionSelection',
+      promiseId,
+      paymentLink,
+      accountId,
+      merchant,
+      paymentInfo: normalizedPaymentInfo,
+      options: paymentOptions.map((option) => mapPayPaymentOption(option)),
+      isLoading: false,
+      shouldSwitchWallet,
+    });
+
+    try {
+      const optionId = await promise;
+      const selectedOption = this.activePayContext.paymentOptions?.find((option) => option.id === optionId);
+
+      if (!selectedOption) {
+        throw new Error('Invalid payment option selected');
+      }
+
+      this.activePayContext = trimPayContextToSigning(this.activePayContext, selectedOption);
+
+      if (selectedOption.collectData?.url) {
+        await this.showPayDataCollection(selectedOption.collectData.url);
+      }
+
+      return {
+        option: selectedOption,
+        paymentId: this.activePayContext.paymentId,
+      };
+    } catch (error) {
+      this.activePayContext = undefined;
+
+      throw error;
+    } finally {
+      this.onUpdate({ type: 'walletConnectPayOptionSelectionComplete' });
+    }
+  }
+
+  private async showPayDataCollection(url: string): Promise<void> {
+    if (!checkIsKycUrlAllowed(url)) {
+      throw new Error('Invalid WalletConnect Pay collect URL');
+    }
+
+    const { promiseId, promise } = createDappPromise();
+
+    this.onUpdate({ type: 'walletConnectPayDataCollection', promiseId, url });
+
+    try {
+      await promise;
+    } finally {
+      this.onUpdate({ type: 'walletConnectPayDataCollectionComplete' });
+    }
   }
 
   private async openExtensionPopup(force?: boolean) {
@@ -1389,478 +2447,4 @@ export function getWalletConnectAdapter(): DappProtocolAdapter {
  */
 export function createWalletConnectAdapter(): DappProtocolAdapter {
   return new WalletConnectAdapter();
-}
-
-/** Returns the hostname of `url` for breadcrumb logging without leaking the full URL (which may carry auth tokens). */
-function safeHost(url: string | undefined): string {
-  if (!url) return '<no-url>';
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return '<invalid-url>';
-  }
-}
-
-/**
- * WalletConnect / EIP-1474 pass `eth_signTypedData*` params as `[address, typedData]`
- * where `typedData` is a JSON string or object `{ domain, types, primaryType, message }`.
- */
-function parseWalletConnectTypedData(raw: unknown): WalletConnectEip712Params | undefined {
-  let value: unknown = raw;
-  if (typeof raw === 'string') {
-    try {
-      value = JSON.parse(raw) as unknown;
-    } catch {
-      return undefined;
-    }
-  }
-
-  const parsed = value as Record<string, unknown>;
-  const { domain, types, message, primaryType } = parsed;
-
-  if (!domain || typeof domain !== 'object') {
-    return undefined;
-  }
-
-  if (!types || typeof types !== 'object' || Array.isArray(types)) {
-    return undefined;
-  }
-
-  if (!message || typeof message !== 'object' || Array.isArray(message)) {
-    return undefined;
-  }
-
-  if (typeof primaryType !== 'string') {
-    return undefined;
-  }
-
-  return {
-    domain,
-    types,
-    primaryType,
-    message,
-  } as WalletConnectEip712Params;
-}
-
-async function getCurrentAccountOrFail() {
-  const accountId = await getCurrentAccountId();
-  if (!accountId) {
-    throw new Error('No currentAccountFound');
-  }
-  return accountId;
-}
-
-async function getAccountChains(
-  message: DappConnectionRequest<DappProtocolType.WalletConnect>,
-  network: ApiNetwork,
-  accountId: string,
-  chains: ChainId[],
-) {
-  return await Promise.all(chains.map(async (e) => ({
-    ...e,
-    network: message.transport === 'extension' ? network : e.network,
-    address: (await fetchStoredChainAccount(accountId, e.chain)).byChain[e.chain].address,
-  })));
-}
-
-function parseOptionalHexBigInt(value: string | undefined): bigint | undefined {
-  if (value === undefined || value === '') {
-    return undefined;
-  }
-
-  return BigInt(value);
-}
-
-function bumpWalletConnectEvmFeePerGas(value: bigint): bigint {
-  return (value * (100n + WALLET_CONNECT_EVM_FEE_BUMP_PERCENT) + 99n) / 100n;
-}
-
-function bumpOptionalHexFeePerGas(value: string | undefined): string | undefined {
-  const parsed = parseOptionalHexBigInt(value);
-  if (parsed === undefined) {
-    return value;
-  }
-
-  return `0x${bumpWalletConnectEvmFeePerGas(parsed).toString(16)}`;
-}
-
-function bigintToHex(value: bigint): string {
-  return `0x${value.toString(16)}`;
-}
-
-function hasHexValue(value: string | undefined): boolean {
-  return value !== undefined && value !== '';
-}
-
-function fillWalletConnectEvmTransactionParamsFees(
-  txParams: EvmTransactionParams,
-  feeData: Awaited<ReturnType<ReturnType<typeof getEvmProvider>['getFeeData']>>,
-): EvmTransactionParams {
-  if (hasHexValue(txParams.gasPrice)) {
-    return txParams;
-  }
-
-  const maxFeePerGas = feeData.maxFeePerGas ?? undefined;
-  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? undefined;
-  const gasPrice = feeData.gasPrice ?? undefined;
-
-  if (
-    hasHexValue(txParams.maxFeePerGas)
-    || hasHexValue(txParams.maxPriorityFeePerGas)
-    || (maxFeePerGas !== undefined && maxPriorityFeePerGas !== undefined)
-  ) {
-    return {
-      ...txParams,
-      maxFeePerGas: hasHexValue(txParams.maxFeePerGas)
-        ? txParams.maxFeePerGas
-        : (maxFeePerGas !== undefined ? bigintToHex(maxFeePerGas) : undefined),
-      maxPriorityFeePerGas: hasHexValue(txParams.maxPriorityFeePerGas)
-        ? txParams.maxPriorityFeePerGas
-        : (maxPriorityFeePerGas !== undefined ? bigintToHex(maxPriorityFeePerGas) : undefined),
-    };
-  }
-
-  if (gasPrice !== undefined) {
-    return {
-      ...txParams,
-      gasPrice: bigintToHex(gasPrice),
-    };
-  }
-
-  return txParams;
-}
-
-function bumpWalletConnectEvmTransactionParamsFees(txParams: EvmTransactionParams): EvmTransactionParams {
-  return {
-    ...txParams,
-    gasPrice: bumpOptionalHexFeePerGas(txParams.gasPrice),
-    maxFeePerGas: bumpOptionalHexFeePerGas(txParams.maxFeePerGas),
-    maxPriorityFeePerGas: bumpOptionalHexFeePerGas(txParams.maxPriorityFeePerGas),
-  };
-}
-
-function fillWalletConnectEvmTransactionFees(
-  tx: Transaction,
-  feeData: Awaited<ReturnType<ReturnType<typeof getEvmProvider>['getFeeData']>>,
-) {
-  const currentGasPrice = tx.gasPrice ?? undefined;
-  const currentMaxFeePerGas = tx.maxFeePerGas ?? undefined;
-  const currentMaxPriorityFeePerGas = tx.maxPriorityFeePerGas ?? undefined;
-
-  if (currentGasPrice !== undefined) {
-    return;
-  }
-
-  const maxFeePerGas = feeData.maxFeePerGas ?? undefined;
-  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? undefined;
-
-  if (currentMaxFeePerGas !== undefined || currentMaxPriorityFeePerGas !== undefined) {
-    if (currentMaxFeePerGas === undefined && maxFeePerGas !== undefined) {
-      tx.maxFeePerGas = maxFeePerGas;
-    }
-
-    if (currentMaxPriorityFeePerGas === undefined && maxPriorityFeePerGas !== undefined) {
-      tx.maxPriorityFeePerGas = maxPriorityFeePerGas;
-    }
-
-    return;
-  }
-
-  if (maxFeePerGas !== undefined && maxPriorityFeePerGas !== undefined) {
-    tx.maxFeePerGas = maxFeePerGas;
-    tx.maxPriorityFeePerGas = maxPriorityFeePerGas;
-    return;
-  }
-
-  const gasPrice = feeData.gasPrice ?? undefined;
-  if (gasPrice !== undefined) {
-    tx.gasPrice = gasPrice;
-  }
-}
-
-function bumpWalletConnectEvmTransactionFees(tx: Transaction) {
-  const gasPrice = tx.gasPrice ?? undefined;
-  if (gasPrice !== undefined) {
-    tx.gasPrice = bumpWalletConnectEvmFeePerGas(gasPrice);
-  }
-
-  const maxFeePerGas = tx.maxFeePerGas ?? undefined;
-  if (maxFeePerGas !== undefined) {
-    tx.maxFeePerGas = bumpWalletConnectEvmFeePerGas(maxFeePerGas);
-  }
-
-  const maxPriorityFeePerGas = tx.maxPriorityFeePerGas ?? undefined;
-  if (maxPriorityFeePerGas !== undefined) {
-    tx.maxPriorityFeePerGas = bumpWalletConnectEvmFeePerGas(maxPriorityFeePerGas);
-  }
-}
-
-/** `TransactionLike.nonce` is `number` in ethers; JSON-RPC sends hex quantity strings. */
-function parseOptionalNonce(value: string | undefined): number | undefined {
-  const n = parseOptionalHexBigInt(value);
-
-  if (n === undefined) {
-    return undefined;
-  }
-  return Number(n);
-}
-
-/** EIP-5792 `wallet_getCapabilities`: normalize hex chain id (no leading zero digits after `0x`). */
-function normalizeEip155HexChainId(hex: string): string {
-  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
-  return `0x${BigInt(withPrefix).toString(16)}`;
-}
-
-function caip2ToHexChainId(caip2: string): string {
-  const match = /^eip155:(\d+)$/.exec(caip2);
-  if (!match) {
-    throw new Error('Invalid CAIP-2 chain id');
-  }
-  return `0x${BigInt(match[1]).toString(16)}`;
-}
-
-function hexToEip155Caip2(hex: string): string {
-  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
-  return `eip155:${BigInt(withPrefix)}`;
-}
-
-/**
- * Builds an unsigned serialized hex transaction (EIP-2718 / legacy) for preview/signing,
- * matching `eth_sendTransaction` JSON-RPC field shapes.
- */
-function evmTransactionParamsToUnsignedSerializedHex(
-  txParams: EvmTransactionParams,
-  caip2ChainId: string,
-): string {
-  const chainId = BigInt(caip2ChainId.replace(/^eip155:/, ''));
-
-  return Transaction.from({
-    chainId,
-    from: undefined, // tx is abstract and unsigned on serialization step
-    to: txParams.to && txParams.to.length > 0 ? txParams.to : undefined,
-    nonce: parseOptionalNonce(txParams.nonce),
-    gasLimit: parseOptionalHexBigInt(txParams.gasLimit ?? txParams.gas),
-    gasPrice: parseOptionalHexBigInt(txParams.gasPrice),
-    maxFeePerGas: parseOptionalHexBigInt(txParams.maxFeePerGas),
-    maxPriorityFeePerGas: parseOptionalHexBigInt(txParams.maxPriorityFeePerGas),
-    value: parseOptionalHexBigInt(txParams.value) ?? 0n,
-    data: txParams.data ?? '0x',
-  }).unsignedSerialized;
-}
-
-function normalizeHexTxForEvm(raw: string): string {
-  const trimmed = raw.trim();
-  return trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`;
-}
-
-async function resolveWalletConnectEvmSerializedTx(options: {
-  raw: string | EvmTransactionParams;
-  chain: EVMChain;
-  network: ApiNetwork;
-  caip2: string;
-  signerAddress: string;
-}): Promise<string> {
-  const { raw, chain, network, caip2, signerAddress } = options;
-
-  if (typeof raw === 'string') {
-    let tx: Transaction;
-    try {
-      tx = Transaction.from(normalizeHexTxForEvm(raw));
-    } catch (err) {
-      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:parse', err);
-
-      throw new Error('Invalid transaction fields');
-    }
-
-    if (tx.isSigned()) {
-      return raw;
-    }
-
-    const fromAddr = chains['ethereum'].normalizeAddress(signerAddress);
-    const updated = tx.clone();
-    let provider: ReturnType<typeof getEvmProvider> | undefined;
-
-    try {
-      provider = getEvmProvider(network, chain);
-
-      const fallbackFee = await provider.getFeeData();
-
-      fillWalletConnectEvmTransactionFees(updated, fallbackFee);
-    } catch (err) {
-      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:fee', err);
-    }
-
-    bumpWalletConnectEvmTransactionFees(updated);
-
-    try {
-      provider ??= getEvmProvider(network, chain);
-
-      const pendingNonce = await provider.getTransactionCount(fromAddr, 'pending');
-
-      if (updated.nonce === 0 && pendingNonce > 0) {
-        updated.nonce = pendingNonce;
-      }
-    } catch (err) {
-      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:nonce', err);
-    }
-
-    if (updated.gasLimit === 0n) {
-      try {
-        provider ??= getEvmProvider(network, chain);
-
-        const estimated = await provider.estimateGas({
-          from: fromAddr,
-          to: updated.to ?? undefined,
-          value: updated.value,
-          data: updated.data,
-        });
-
-        updated.gasLimit = (estimated * (100n + WALLET_CONNECT_EVM_GAS_LIMIT_BUMP_PERCENT)) / 100n;
-      } catch (err) {
-        logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:gas', err);
-      }
-    }
-
-    return updated.unsignedSerialized;
-  }
-
-  let txParamsForHex = raw;
-  let provider: ReturnType<typeof getEvmProvider> | undefined;
-
-  try {
-    provider = getEvmProvider(network, chain);
-
-    const fallbackFee = await provider.getFeeData();
-
-    txParamsForHex = fillWalletConnectEvmTransactionParamsFees(txParamsForHex, fallbackFee);
-  } catch (err) {
-    logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:fee', err);
-  }
-
-  txParamsForHex = bumpWalletConnectEvmTransactionParamsFees(txParamsForHex);
-
-  if (txParamsForHex.nonce === undefined || txParamsForHex.nonce === '') {
-    try {
-      provider ??= getEvmProvider(network, chain);
-      const pendingNonce = await provider.getTransactionCount(txParamsForHex.from, 'pending');
-
-      txParamsForHex = {
-        ...txParamsForHex,
-        nonce: `0x${pendingNonce.toString(16)}`,
-      };
-    } catch (err) {
-      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:nonce', err);
-    }
-  }
-
-  if (!hasHexValue(txParamsForHex.gas) && !hasHexValue(txParamsForHex.gasLimit)) {
-    try {
-      provider ??= getEvmProvider(network, chain);
-
-      const estimated = await provider.estimateGas({
-        from: txParamsForHex.from,
-        to: txParamsForHex.to && txParamsForHex.to.length > 0 ? txParamsForHex.to : undefined,
-        value: parseOptionalHexBigInt(txParamsForHex.value) ?? 0n,
-        data: txParamsForHex.data && txParamsForHex.data.length > 0 ? txParamsForHex.data : '0x',
-      });
-
-      txParamsForHex = {
-        ...txParamsForHex,
-        gas: bigintToHex((estimated * (100n + WALLET_CONNECT_EVM_GAS_LIMIT_BUMP_PERCENT)) / 100n),
-      };
-    } catch (err) {
-      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:gas', err);
-    }
-  }
-
-  try {
-    return evmTransactionParamsToUnsignedSerializedHex(txParamsForHex, caip2);
-  } catch (err) {
-    logDebugError('walletConnect:evmTransactionParamsToUnsignedSerializedHex', err);
-    throw new Error('Invalid transaction fields');
-  }
-}
-
-async function getDappByTopic(topic: string, mode: 'default' | 'pairing') {
-  const dapps = await getDappsState();
-
-  if (!dapps) {
-    return;
-  }
-
-  for (const byAccId of Object.entries(dapps)) {
-    for (const byUrl of Object.values(byAccId[1])) {
-      for (const byDappId of Object.values(byUrl)) {
-        if (mode === 'pairing'
-          ? byDappId.wcPairingTopic === topic
-          : byDappId.wcTopic === topic
-        ) {
-          return { dapp: byDappId, accountId: byAccId[0] };
-        }
-      }
-    }
-  }
-}
-
-async function ensureRequestParams(
-  request: ApiDappRequest,
-): Promise<ApiDappRequest & { url: string; accountId: string }> {
-  if (!request.url) {
-    throw new Error('Missing `url` in request');
-  }
-
-  if (request.accountId) {
-    return request as ApiDappRequest & { url: string; accountId: string };
-  }
-
-  const { network } = parseAccountId(await getCurrentAccountIdOrFail());
-  const lastAccountId = await findLastConnectedAccount(network, request.url);
-
-  if (!lastAccountId) {
-    throw new Error('The connection is outdated, try relogin');
-  }
-
-  return {
-    ...request,
-    accountId: lastAccountId,
-  } as ApiDappRequest & { url: string; accountId: string };
-}
-
-function formatConnectError(id: number, error: unknown): {
-  success: false;
-  error: DappProtocolError;
-} {
-  let code = 0;
-  let message = 'Unhandled error';
-
-  if (error instanceof ApiUserRejectsError) {
-    code = 300;
-    message = error.message;
-  }
-
-  return {
-    success: false,
-    error: {
-      code,
-      message,
-    },
-  };
-}
-
-function urlTrustStatusStatusFromWalletConnectVerify(verifyContext?: Verify.Context): ApiDappurlTrustStatusStatus {
-  if (!verifyContext?.verified) {
-    return 'unknown';
-  }
-  const { isScam, validation } = verifyContext.verified;
-  if (isScam) {
-    return 'dangerous';
-  }
-  if (validation === 'VALID') {
-    // We cannot proof that the dApp is REALLY safe - os ignore WalletConnect VALID label for now
-    return 'unknown';
-  }
-  if (validation === 'INVALID') {
-    return 'invalid';
-  }
-  return 'unknown';
 }

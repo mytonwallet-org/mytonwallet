@@ -162,7 +162,7 @@ final class QRScanView: UIView {
             return
         }
 
-        let side = max(rect.width, rect.height) * 0.6
+        let side = max(rect.width, rect.height) * 0.8
         let focusedRect = CGRect(
             x: rect.midX - side / 2.0,
             y: rect.midY - side / 2.0,

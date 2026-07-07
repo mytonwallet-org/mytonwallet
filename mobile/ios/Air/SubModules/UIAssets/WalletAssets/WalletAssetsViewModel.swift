@@ -7,7 +7,7 @@ import GRDB
 private let log = Log("WalletAssetsViewModel")
 
 @MainActor public protocol WalletAssetsViewModelDelegate: AnyObject {
-    func walletAssetModelDidChangeDisplayTabs()
+    func walletAssetModelDidChangeDisplayTabs(dueToAccountSwitch: Bool)
 }
 
 @MainActor
@@ -19,6 +19,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     
     private let accountIdProvider: AccountIdProvider
     private var accountId: String { accountIdProvider.accountId }
+    private var lastEvaluatedAccountId: String?
     
     private var _tabs: [WalletAssetsTab]?
     private var isAutoTelegramGiftsHidden: Bool = false
@@ -132,6 +133,10 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     }
     
     private func updateDisplayTabs() {
+        let currentAccountId = accountId
+        let isAccountSwitch = lastEvaluatedAccountId != nil && lastEvaluatedAccountId != currentAccountId
+        lastEvaluatedAccountId = currentAccountId
+
         let displayTabs: [DisplayAssetTab]
         if let _tabs {
             displayTabs = _tabs.compactMap(storedTabToDisplay)
@@ -142,7 +147,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         }
         if self.displayTabs != displayTabs {
             self.displayTabs = displayTabs
-            delegate?.walletAssetModelDidChangeDisplayTabs()
+            delegate?.walletAssetModelDidChangeDisplayTabs(dueToAccountSwitch: isAccountSwitch)
         }
     }
     
@@ -198,7 +203,22 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         }
         try await self.saveTabsToDB(displayTabs: displayTabs)
     }
-    
+
+    public var isCollectiblesHidden: Bool {
+        !displayTabs.contains(.nfts)
+    }
+
+    public func setCollectiblesHidden(_ isHidden: Bool) async throws {
+        var displayTabs = self.displayTabs
+        let show = !isHidden
+        if !displayTabs.contains(.nfts) && show {
+            displayTabs.append(.nfts)
+        } else if !show {
+            displayTabs = displayTabs.filter { $0 != .nfts }
+        }
+        try await self.saveTabsToDB(displayTabs: displayTabs)
+    }
+
     public func setOrder(displayTabs: [DisplayAssetTab]) async throws {
         try await self.saveTabsToDB(displayTabs: displayTabs)
     }

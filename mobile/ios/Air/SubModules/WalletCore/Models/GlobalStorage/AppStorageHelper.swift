@@ -200,6 +200,15 @@ public enum AppStorageHelper {
         }
     }
 
+    public static var appTabOrder: [String] {
+        get {
+            settingsStore.appTabOrder
+        }
+        set {
+            settingsStore.setAppTabOrder(newValue)
+        }
+    }
+
     // MARK: - Orientation
 
     public static var isLandscapeModeEnabled: Bool {

@@ -1,6 +1,7 @@
 import type { ApiChain, ApiSwapAsset, ApiTokenWithPrice } from '../../api/types';
 import { type Account, SwapType, type UserSwapToken } from '../../global/types';
 
+import { getChainConfig } from '../chain';
 import { getChainBySlug } from '../tokens';
 
 export function getSwapType(
@@ -50,6 +51,7 @@ export function getIsInternalSwap({
   return isOnchainSwap || isInternalCrosschainSwap;
 }
 
+// TODO: abstract cex/dex swap on client side to make same-chain cex swaps possible
 function isOnChainSwap(tokenInChain: ApiChain, tokenOutChain: ApiChain) {
-  return tokenInChain === tokenOutChain && tokenInChain === 'ton';
+  return tokenInChain === tokenOutChain && getChainConfig(tokenInChain).isOnchainSwapSupported;
 }

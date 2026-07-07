@@ -57,7 +57,7 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
 
     private val title: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(14f, WFont.DemiBold)
+            setStyle(14f, WFont.Medium)
             setTextColor(WColor.Tint)
             lineHeight = 24.dp
             setLineSpacing(0f, 0.85f)
@@ -89,7 +89,7 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         }.apply {
             lineHeight = 24.dp
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            setStyle(16f, WFont.DemiBold)
+            setStyle(16f, WFont.Medium)
             setTextColor(WColor.Tint)
             text = zoomOutText
             setCompoundDrawablesWithIntrinsicBounds(zoomIcon, null, null, null)

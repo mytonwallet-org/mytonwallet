@@ -1,8 +1,10 @@
+import { Address, Dictionary } from '@ton/core';
 import { beginCell, Cell, storeStateInit } from '@ton/core';
 import type { WalletContractV5R1 } from '@ton/ton';
 
 import type {
   ApiBalanceBySlug } from '../../types';
+import type { ApiTonPlugin } from '../../types/misc';
 import type { ApiTonWalletVersion, ContractInfo } from './types';
 import type { TonWallet } from './util/tonCore';
 import {
@@ -363,7 +365,84 @@ export function getTonWallet(tonWallet: ApiTonWallet) {
   return buildWallet(publicKey, version);
 }
 
+export async function getW5WalletExtensionAddresses(network: ApiNetwork, walletAddress: string): Promise<string[]> {
+  const client = getTonClient(network);
+
+  const { stack, exit_code } = await client.runMethodWithError(Address.parse(walletAddress), 'get_extensions');
+
+  if (exit_code !== 0) return [];
+
+  const cell = stack.readCellOpt();
+  if (!cell) return [];
+
+  const dict = Dictionary.loadDirect(
+    Dictionary.Keys.BigUint(256),
+    Dictionary.Values.BigInt(1),
+    cell,
+  );
+
+  const extensions = dict.keys().map((key) =>
+    `0:${key.toString(16).padStart(64, '0')}`,
+  );
+
+  return extensions;
+}
+
+export async function getV4WalletPluginAddresses(network: ApiNetwork, walletAddress: string): Promise<string[]> {
+  const client = getTonClient(network);
+  const { stack, exit_code } = await client.runMethodWithError(Address.parse(walletAddress), 'get_plugin_list');
+
+  if (exit_code !== 0) return [];
+
+  const tuple = stack.readTuple();
+  const pluginAddresses: string[] = [];
+
+  while (tuple.remaining >= 2) {
+    const workchain = Number(tuple.readBigNumber());
+    const hash = tuple.readBigNumber();
+    const hashHex = hash.toString(16).padStart(64, '0');
+
+    pluginAddresses.push(
+      toBase64Address(Address.parse(`${workchain}:${hashHex}`), true, network),
+    );
+  }
+
+  return pluginAddresses;
+}
+
+const PLUGIN_SUPPORTED_VERSIONS = new Set<ApiTonWalletVersion>(['v4R2', 'W5']);
+
+export async function fetchWalletPlugins(
+  network: ApiNetwork,
+  address: string,
+): Promise<ApiTonPlugin[]> {
+  const { version } = await getWalletInfo(network, address);
+
+  if (!version || !PLUGIN_SUPPORTED_VERSIONS.has(version)) return [];
+
+  const pluginAddresses = version === 'W5'
+    ? await getW5WalletExtensionAddresses(network, address)
+    : await getV4WalletPluginAddresses(network, address);
+
+  if (!pluginAddresses.length) return [];
+
+  const infos = await getWalletInfos(network, pluginAddresses);
+
+  return pluginAddresses.map((addr) => {
+    const info = infos[addr];
+
+    return {
+      address: info?.address ?? addr,
+      name: info?.interface || 'Unknown Plugin',
+      balance: info?.balance ?? 0n,
+      isInitialized: info?.isInitialized ?? false,
+    };
+  });
+}
+
 export async function verifyLedgerWalletAddress(accountId: string): Promise<string | { error: ApiAnyDisplayError }> {
+  if (process.env.NO_LEDGER === '1') throw new Error('Ledger is disabled');
+
   const { network } = parseAccountId(accountId);
   const [wallet, { verifyLedgerTonAddress }] = await Promise.all([
     fetchStoredWallet(accountId, 'ton'),

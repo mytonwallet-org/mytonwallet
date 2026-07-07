@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import androidx.core.view.marginBottom
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.TokenNameHelper
 import org.mytonwallet.app_air.uicomponents.helpers.TokenTagHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -23,6 +24,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import kotlin.math.abs
@@ -30,6 +32,11 @@ import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
+
+    enum class SecondaryAmountMode {
+        BALANCE_VALUE,
+        TOKEN_PRICE,
+    }
 
     private val tagHelper = TokenTagHelper(context)
 
@@ -148,6 +155,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         isLast: Boolean,
         accountId: String? = null,
         showBalance: Boolean = true,
+        secondaryAmountMode: SecondaryAmountMode = SecondaryAmountMode.BALANCE_VALUE,
     ) {
         this.tokenBalance = tokenBalance
         this.isLast = isLast
@@ -157,7 +165,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
 
         iconView.config(token, showChain = showChain)
 
-        topLeftLabel.text = token?.name ?: ""
+        topLeftLabel.text = token?.let { TokenNameHelper.getTokenName(it, tokenBalance) } ?: ""
 
         if (showBalance) {
             topRightLabel.visibility = VISIBLE
@@ -175,26 +183,19 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
                 forceCurrencyToRight = true
             )
 
-            bottomRightLabel.text = tokenBalance.toBaseCurrency?.toString(
-                token?.decimals ?: 9,
-                WalletCore.baseCurrency.sign,
-                WalletCore.baseCurrency.decimalsCount,
-                smartDecimals = true
-            ) ?: ""
-        } else {
-            topRightLabel.visibility = GONE
-
-            val priceText = when (val tokenPrice = token?.price) {
-                null -> ""
-                0.0 -> LocaleController.getString("No Price")
-                else -> tokenPrice.toString(
-                    token.decimals,
+            bottomRightLabel.text = when (secondaryAmountMode) {
+                SecondaryAmountMode.TOKEN_PRICE -> tokenPriceText(token)
+                SecondaryAmountMode.BALANCE_VALUE -> tokenBalance.toBaseCurrency?.toString(
+                    token?.decimals ?: 9,
                     WalletCore.baseCurrency.sign,
                     WalletCore.baseCurrency.decimalsCount,
                     smartDecimals = true
-                )
+                ) ?: ""
             }
-            bottomRightLabel.text = priceText
+        } else {
+            topRightLabel.visibility = GONE
+
+            bottomRightLabel.text = tokenPriceText(token)
             if (bottomRightLabel.textSize != topRightLabel.contentView.textSize)
                 bottomRightLabel.textSize = adaptiveFontSize()
         }
@@ -205,5 +206,18 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
             } ?: ""
 
         tagHelper.configure(this, topLeftLabel, topRightLabel, accountId, token, tokenBalance)
+    }
+
+    private fun tokenPriceText(token: MToken?): String {
+        return when (val tokenPrice = token?.price) {
+            null -> ""
+            0.0 -> LocaleController.getString("No Price")
+            else -> tokenPrice.toString(
+                token.decimals,
+                WalletCore.baseCurrency.sign,
+                WalletCore.baseCurrency.decimalsCount,
+                smartDecimals = true
+            ) ?: ""
+        }
     }
 }

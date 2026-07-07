@@ -111,9 +111,11 @@ export async function parseTokenOperation(
 
   const userIndex = staticAccountKeys.findIndex((k) => k.toString() === userAddress);
 
+  let solSwapDirection: 'in' | 'out' | undefined = undefined;
+
   let solDiff = 0n;
   if (userIndex !== -1) {
-    solDiff = BigInt(tx.postBalances[userIndex] - tx.preBalances[userIndex]);
+    solDiff = BigInt(tx.postBalances[userIndex] - tx.preBalances[userIndex]) + BigInt(tx.fee);
   }
 
   if (!tx.postTokenBalances?.length || !tx.preTokenBalances?.length) {
@@ -146,7 +148,11 @@ export async function parseTokenOperation(
       }
     });
 
-  // 0 if plain transfer & not 0 if swap sol/token
+  const totalRentPaid = newATACount * ATA_RENT_LAMPORTS;
+
+  // 0 if plain transfer
+  // Negative if swap sol/token
+  // Positive if swap token/sol
   changes.set(SOLANA.slug, solDiff);
 
   const sent = new Map<string, bigint>();
@@ -166,12 +172,42 @@ export async function parseTokenOperation(
 
   const isReceivedOnly = !sent.size && received.size;
 
-  const totalRentPaid = newATACount * ATA_RENT_LAMPORTS;
+  const isSwap = !isSentOnly && !isReceivedOnly;
 
-  if (!isReceivedOnly) {
-    const solExpenses = received.get(SOLANA.slug) || 0n;
+  // Set out if swap sol for token
+  // Set in if swap token for sol
+  // Set undefined if swap between tokens
+  if (isSwap) {
+    if (solDiff + totalRentPaid < 0n) {
+      solSwapDirection = 'out';
+    } else if (solDiff + totalRentPaid > 0n) {
+      solSwapDirection = 'in';
+    }
+  }
 
-    received.set(SOLANA.slug, solExpenses + BigInt(tx.fee) + totalRentPaid);
+  if (isReceivedOnly) {
+    const solReceived = received.get(SOLANA.slug) || 0n;
+
+    // Fee paid by sender - should be subtracted from received sol
+    // `totalRentPaid` is not counting here because it affects sender's balance, not receiver's
+    received.set(SOLANA.slug, solReceived - BigInt(tx.fee));
+  }
+
+  if (isSwap) {
+    if (!solSwapDirection) {
+      // Ignore sol balance diff, because it is always fee and not a part of swap
+      sent.delete(SOLANA.slug);
+      received.delete(SOLANA.slug);
+    }
+
+    if (solSwapDirection === 'out') {
+      const sentSol = sent.get(SOLANA.slug) || 0n;
+      // Fee paid by sender - should be subtracted from sent sol
+      // Swap 1000 lamports to token -> -(1000 + 1 ATA rent + 5000 fee) = -2045280 lamports
+      // Fee is added on solDiff, so -2045280 + 5000 fee = -2040280 lamports
+      // Need to add `totalRentPaid` because it is treated as fee and not as transfer part -2040280 + 1 ATA = -1000 lamports
+      sent.set(SOLANA.slug, sentSol - totalRentPaid);
+    }
   }
 
   if (isSentOnly || isReceivedOnly) {

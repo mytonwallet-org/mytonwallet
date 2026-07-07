@@ -71,13 +71,12 @@ final class SubwalletsVC: SettingsBaseVC {
         addCloseNavigationItemIfNeeded()
 
         setupViews()
-        configureNavigationItemWithTransparentBackground()
-        addCustomNavigationBarBackground()
+        
+        view.backgroundColor = .air.groupedBackground
+        addCustomNavigationBarBackground(color: .air.groupedBackground)
     }
 
     private func setupViews() {
-        view.backgroundColor = .air.groupedBackground
-
         addChild(listViewController)
         listViewController.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(listViewController.view)
@@ -915,15 +914,15 @@ private struct SubwalletsBottomActions: View {
             .padding(.top, -16)
             .ignoresSafeArea()
 
-            VStack(spacing: 10) {
+            VStack(spacing: 16) {
                 Button(action: onAddAll) {
                     Label {
                         Text(lang("Add All Found"))
                     } icon: {
-                        Image(systemName: "plus.square.on.square")
+                        Image(systemName: "plus.rectangle.on.rectangle")
                     }
                 }
-                .buttonStyle(.airSecondary)
+                .buttonStyle(.airCompactCapsule)
                 .environment(\.isLoading, isAddingAll)
                 .disabled(!actionsState.canAddAllFoundSubwallets || isBusy)
 

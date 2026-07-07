@@ -1,32 +1,25 @@
-import { Cell } from '@ton/core';
-
-import type { TonTransferParams } from '../chains/ton/types';
 import type {
   ApiChain,
   ApiSubmitGasfullTransferOptions,
   ApiSwapActivity,
   ApiSwapAsset,
-  ApiSwapBuildRequest,
-  ApiSwapBuildResponse,
-  ApiSwapCexCreateTransactionRequest,
-  ApiSwapCexCreateTransactionResponse,
-  ApiSwapCexEstimateRequest,
-  ApiSwapCexEstimateResponse,
+  ApiSwapBuildTransactionRequest,
+  ApiSwapBuildTransactionResponse,
+  ApiSwapCexLabel,
   ApiSwapEstimateRequest,
   ApiSwapEstimateResponse,
+  ApiSwapExecuteTransactionResult,
   ApiSwapHistoryItem,
   ApiSwapPairAsset,
   ApiSwapTransfer,
+  ApiWalletByChain,
   OnApiUpdate,
 } from '../types';
 
 import { SWAP_API_VERSION } from '../../config';
-import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
-import { omitUndefined } from '../../util/iteratees';
 import chains from '../chains';
-import * as ton from '../chains/ton';
-import { fetchStoredChainAccount, fetchStoredWallet } from '../common/accounts';
+import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { getBackendConfigCache } from '../common/cache';
 import {
@@ -50,57 +43,51 @@ export function initSwap(_onUpdate: OnApiUpdate) {
 export async function swapBuildTransfer(
   accountId: string,
   password: string,
-  request: ApiSwapBuildRequest,
+  request: ApiSwapBuildTransactionRequest,
 ) {
-  const { network } = parseAccountId(accountId);
   const authToken = await getBackendAuthToken(accountId, password);
 
-  const { address, version } = await fetchStoredWallet(accountId, 'ton');
+  // Provide version anyway to avoid unnecessary complexity of multichain method
+  // it will be used for TON only.
+  const { version } = await fetchStoredWallet(accountId, 'ton');
   request.walletVersion = version;
 
-  const { id, transfers } = await swapBuild(authToken, request);
+  const buildResponse = await swapBuild(authToken, request);
 
-  const transferList = parseSwapTransfers(transfers);
-
-  try {
-    const account = await fetchStoredChainAccount(accountId, 'ton');
-    await ton.validateDexSwapTransfers(network, address, request, transferList, account);
-
-    const result = await ton.checkMultiTransactionDraft(accountId, transferList, request.shouldTryDiesel);
-
-    if ('error' in result) {
-      await patchSwapItem({
-        address, swapId: id, authToken, error: result.error,
-      });
-      return result;
-    }
-
-    return { ...result, id, transfers };
-  } catch (err: any) {
-    await patchSwapItem({
-      address, swapId: id, authToken, error: errorToString(err),
-    });
-    throw err;
+  if (buildResponse.route !== 'dex' || !buildResponse.chain) {
+    throw new Error('Unexpected non-DEX response for swapBuildTransfer');
   }
+
+  const { id, transfers, chain, transaction } = buildResponse;
+
+  const result = await chains[chain].buildOnchainSwapTransfer({
+    accountId,
+    request,
+    transfers,
+    transaction,
+    swapId: id,
+    authToken,
+  });
+
+  return result;
 }
 
 export async function swapSubmit(
+  chain: ApiChain,
   accountId: string,
   password: string,
-  transfers: ApiSwapTransfer[],
+  transfers: ApiSwapTransfer[] | undefined,
   historyItem: ApiSwapHistoryItem,
   isGasless?: boolean,
+  transaction?: string,
 ): Promise<{ activityId?: string; mfaRequestHash?: string; swapId: string } | { error: string }> {
   const swapId = historyItem.id;
-  const tonWallet = await fetchStoredWallet(accountId, 'ton');
-  const tonAccount = await fetchStoredChainAccount(accountId, 'ton');
 
-  const { address } = tonWallet;
   const authToken = await getBackendAuthToken(accountId, password);
-  const hasMfa = Boolean(tonAccount.byChain.ton.mfa);
 
-  const from = getSwapItemSlug(historyItem, historyItem.from);
-  const to = getSwapItemSlug(historyItem, historyItem.to);
+  const from = getSwapItemSlug(historyItem.from, chain);
+  const to = getSwapItemSlug(historyItem.to, chain);
+
   const localActivityId = buildLocalTxId(swapId);
   const localSwap: ApiSwapActivity = {
     ...historyItem,
@@ -110,90 +97,30 @@ export async function swapSubmit(
     kind: 'swap',
   };
 
-  if (!hasMfa) {
-    onUpdate({
-      type: 'newLocalActivities',
-      accountId,
-      activities: [localSwap],
-    });
+  const result = await chains[chain].submitOnchainSwapTransfer({
+    accountId,
+    password,
+    transfers,
+    transaction,
+    historyItem,
+    isGasless,
+    authToken,
+    localSwap,
+    swapId,
+    executeSwap: (signedTransaction) => swapExecute(authToken, swapId, signedTransaction),
+  }, onUpdate);
+
+  if ('error' in result) {
+    return result;
   }
 
-  try {
-    const transferList = parseSwapTransfers(transfers);
+  if ('mfaRequest' in result) {
+    const { mfaRequestHash } = await publishSignedMfaRequest(accountId, chain, result.mfaRequest);
 
-    // FIXME: TON renaming
-    if (historyItem.from !== 'TON') {
-      transferList[0] = await ton.insertMintlessPayload('mainnet', address, historyItem.from, transferList[0]);
-    }
-
-    const result = await ton.submitMultiTransferWithMfa({
-      accountId,
-      password,
-      messages: transferList,
-      isGasless,
-    });
-
-    if ('error' in result) {
-      if (!hasMfa) {
-        onUpdate({
-          type: 'newLocalActivities',
-          accountId,
-          activities: [{ ...localSwap, status: 'failed' }],
-        });
-      }
-
-      await patchSwapItem({
-        address, swapId, authToken, error: result.error,
-      });
-      return result;
-    }
-
-    if ('mfaRequest' in result) {
-      const { mfaRequestHash } = await publishSignedMfaRequest(accountId, 'ton', result.mfaRequest);
-
-      return {
-        swapId,
-        mfaRequestHash,
-      };
-    }
-
-    delete result.messages[0].stateInit;
-
-    const updatedSwap: ApiSwapActivity = {
-      ...localSwap,
-      externalMsgHashNorm: result.msgHashNormalized,
-      extra: omitUndefined({
-        withW5Gasless: result.withW5Gasless,
-      }),
-    };
-
-    onUpdate({
-      type: 'newLocalActivities',
-      accountId,
-      activities: [updatedSwap],
-    });
-
-    await patchSwapItem({
-      address, swapId, authToken, msgHash: result.msgHash,
-    });
-
-    void callHook('onSwapCreated', accountId, updatedSwap.timestamp - 1);
-
-    return { activityId: updatedSwap.id, swapId };
-  } catch (err: any) {
-    if (!hasMfa) {
-      onUpdate({
-        type: 'newLocalActivities',
-        accountId,
-        activities: [{ ...localSwap, status: 'failed' }],
-      });
-    }
-
-    await patchSwapItem({
-      address, swapId, authToken, error: errorToString(err),
-    });
-    throw err;
+    return { swapId, mfaRequestHash };
   }
+
+  return { activityId: result.activityId, swapId };
 }
 
 export async function confirmSwapMfaRequest(accountId: string, swapId: string, txHash: string) {
@@ -212,32 +139,79 @@ export async function confirmSwapMfaRequest(accountId: string, swapId: string, t
   });
 }
 
-function errorToString(err: Error | string) {
-  return typeof err === 'string' ? err : err.stack;
-}
+export async function fetchSwaps(
+  accountId: string,
+  items: Array<{ id: string; chain?: ApiChain }>,
+) {
+  const account = await fetchStoredAccount(accountId);
+  const walletByChain = account.byChain as Partial<Record<ApiChain, ApiWalletByChain[ApiChain]>>;
 
-export async function fetchSwaps(accountId: string, ids: string[]) {
-  const { address } = await fetchStoredWallet(accountId, 'ton');
-  const results = await Promise.allSettled(
-    ids.map((id) => swapGetHistoryItem(address, id.replace('swap:', ''))),
-  );
+  const perIdResults = await Promise.all(items.map(async ({ id, chain: chainHint }) => {
+    const backendId = id.replace('swap:', '');
+    const lookupEntries = getSwapHistoryLookupEntries(walletByChain, chainHint);
+
+    if (!lookupEntries.length) {
+      return { id };
+    }
+
+    const attempts = await Promise.allSettled(
+      lookupEntries.map(async ({ address }) => swapGetHistoryItem(address, backendId)),
+    );
+
+    const fulfilled = attempts.find((r) => r.status === 'fulfilled');
+    if (fulfilled) {
+      return { id, found: fulfilled.value };
+    }
+
+    const isAllNotFound = attempts.every((r) => (
+      r.status === 'rejected'
+      && r.reason instanceof ApiServerError
+      && r.reason.statusCode === 404
+    ));
+
+    return { id, isNonExistent: isAllNotFound };
+  }));
 
   const nonExistentIds: string[] = [];
+  const swaps: ApiSwapActivity[] = [];
 
-  const swaps = results
-    .map((result, i) => {
-      if (result.status === 'rejected') {
-        if (result.reason instanceof ApiServerError && result.reason.statusCode === 404) {
-          nonExistentIds.push(ids[i]);
-        }
-        return undefined;
-      }
-
-      return swapItemToActivity(result.value);
-    })
-    .filter(Boolean);
+  for (const result of perIdResults) {
+    if (result.found) {
+      swaps.push(swapItemToActivity(result.found));
+    } else if (result.isNonExistent) {
+      nonExistentIds.push(result.id);
+    }
+  }
 
   return { nonExistentIds, swaps };
+}
+
+type SwapHistoryLookupEntry = {
+  address: string;
+};
+
+function getSwapHistoryLookupEntries(
+  walletByChain: Partial<Record<ApiChain, ApiWalletByChain[ApiChain]>>,
+  chainHint?: ApiChain,
+): SwapHistoryLookupEntry[] {
+  const historyAddress = walletByChain.ton?.address;
+  const result: SwapHistoryLookupEntry[] = [];
+
+  if (historyAddress) {
+    result.push({ address: historyAddress });
+  }
+
+  const fallbackEntries = chainHint
+    ? [[chainHint, walletByChain[chainHint]] as [ApiChain, ApiWalletByChain[ApiChain] | undefined]]
+    : (Object.entries(walletByChain) as [ApiChain, ApiWalletByChain[ApiChain]][]);
+
+  for (const [, wallet] of fallbackEntries) {
+    if (wallet?.address && wallet.address !== historyAddress) {
+      result.push({ address: wallet.address });
+    }
+  }
+
+  return result;
 }
 
 export async function swapEstimate(
@@ -247,7 +221,7 @@ export async function swapEstimate(
   const walletVersion = (await fetchStoredWallet(accountId, 'ton')).version;
   const { swapVersion } = await getBackendConfigCache();
 
-  return callBackendPost('/swap/ton/estimate', {
+  return callBackendPost('/swap/estimate', {
     ...request,
     swapVersion: swapVersion ?? SWAP_API_VERSION,
     walletVersion,
@@ -256,13 +230,29 @@ export async function swapEstimate(
   });
 }
 
-export async function swapBuild(authToken: string, request: ApiSwapBuildRequest): Promise<ApiSwapBuildResponse> {
+export async function swapBuild(
+  authToken: string,
+  request: ApiSwapBuildTransactionRequest,
+): Promise<ApiSwapBuildTransactionResponse> {
   const { swapVersion } = await getBackendConfigCache();
 
-  return callBackendPost('/swap/ton/build', {
+  return callBackendPost('/swap/buildTransaction', {
     ...request,
     swapVersion: swapVersion ?? SWAP_API_VERSION,
     isMsgHashMode: true,
+  }, {
+    authToken,
+  });
+}
+
+export function swapExecute(
+  authToken: string,
+  swapId: string,
+  signedTransaction: string,
+): Promise<ApiSwapExecuteTransactionResult> {
+  return callBackendPost('/swap/execute', {
+    swapId,
+    signedTransaction,
   }, {
     authToken,
   });
@@ -276,17 +266,7 @@ export function swapGetPairs(symbolOrTokenAddress: string): Promise<ApiSwapPairA
   return callBackendGet('/swap/pairs', { asset: symbolOrTokenAddress });
 }
 
-export function swapCexEstimate(
-  request: ApiSwapCexEstimateRequest,
-): Promise<ApiSwapCexEstimateResponse | { error: string }> {
-  return callBackendPost<ApiSwapCexEstimateResponse | { error: string }>(
-    '/swap/cex/estimate',
-    request,
-    { isAllowBadRequest: true },
-  );
-}
-
-export function swapCexValidateAddress(params: { slug: string; address: string }): Promise<{
+export function swapCexValidateAddress(params: { slug: string; address: string; cexLabel?: ApiSwapCexLabel }): Promise<{
   result: boolean;
   message?: string;
 }> {
@@ -296,22 +276,21 @@ export function swapCexValidateAddress(params: { slug: string; address: string }
 export async function swapCexCreateTransaction(
   accountId: string,
   password: string,
-  request: ApiSwapCexCreateTransactionRequest,
+  request: ApiSwapBuildTransactionRequest,
 ): Promise<{
     swap: ApiSwapHistoryItem;
     activity: ApiSwapActivity;
   }> {
   const authToken = await getBackendAuthToken(accountId, password);
-  const { swapVersion } = await getBackendConfigCache();
 
-  const { swap: rawSwap } = await callBackendPost<ApiSwapCexCreateTransactionResponse>('/swap/cex/createTransaction', {
-    ...request,
-    swapVersion: swapVersion ?? SWAP_API_VERSION,
-  }, {
-    authToken,
-  });
+  const buildResponse = await swapBuild(authToken, request);
 
-  const swap = convertSwapItemToTrusted(rawSwap);
+  if (buildResponse.route !== 'cex') {
+    throw new Error('Unexpected non-CEX response for swapCexCreateTransaction');
+  }
+
+  const swap = convertSwapItemToTrusted(buildResponse.swap);
+
   const activity = swapItemToActivity(swap);
 
   onUpdate({
@@ -328,20 +307,26 @@ export async function swapCexCreateTransaction(
 export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitGasfullTransferOptions, swapId: string) {
   const result = await chains[chain].submitGasfullTransfer(transferOptions);
 
-  if (!('error' in result) && result.msgHashForCexSwap) {
+  if ('error' in result) {
+    return result;
+  }
+
+  if (result.mfaRequest) {
+    const { accountId } = transferOptions;
+    const { mfaRequestHash } = await publishSignedMfaRequest(accountId, chain, result.mfaRequest);
+
+    return { swapId, mfaRequestHash };
+  }
+
+  const txHash = result.msgHashForCexSwap ?? result.txId;
+  if (txHash) {
     const { accountId, password } = transferOptions;
-    const { address } = await fetchStoredWallet(accountId, chain);
+    // CEX swap history rows are owned by the TON history address even when the
+    // actual deposit transfer is submitted from another source chain.
+    const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
     const authToken = await getBackendAuthToken(accountId, password ?? '');
-    await patchSwapItem({ address, authToken, msgHash: result.msgHashForCexSwap, swapId });
+    await patchSwapItem({ address: historyAddress, authToken, msgHash: txHash, swapId });
   }
 
   return result;
-}
-
-function parseSwapTransfers(transfers: ApiSwapTransfer[]): TonTransferParams[] {
-  return transfers.map((transfer) => ({
-    ...transfer,
-    amount: BigInt(transfer.amount),
-    payload: Cell.fromBase64(transfer.payload),
-  }));
 }

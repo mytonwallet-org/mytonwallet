@@ -212,6 +212,12 @@ enum class MApiAnyDisplayError {
     @Json(name = "InvalidMnemonic")
     INVALID_MNEMONIC,
 
+    @Json(name = "InvalidPassword")
+    INVALID_PASSWORD,
+
+    @Json(name = "InvalidAddress")
+    INVALID_ADDRESS,
+
     @Json(name = "InvalidAmount")
     INVALID_AMOUNT,
 
@@ -239,6 +245,9 @@ enum class MApiAnyDisplayError {
     @Json(name = "InactiveContract")
     INACTIVE_CONTRACT,
 
+    @Json(name = "MfaNftBatchLimit")
+    MFA_NFT_BATCH_LIMIT,
+
     @Json(name = "PartialTransactionFailure")
     PARTIAL_TRANSACTION_FAILURE,
 
@@ -248,11 +257,35 @@ enum class MApiAnyDisplayError {
     @Json(name = "UnsuccesfulTransfer")
     UNSUCCESSFUL_TRANSFER,
 
+    @Json(name = "ConcurrentTransaction")
+    CONCURRENT_TRANSACTION,
+
     @Json(name = "NotSupportedHardwareOperation")
     NOT_SUPPORTED_HARDWARE_OPERATION,
 
-    @Json(name = "HardwareBlindSigningNotEnabled")
+    @Json(name = "BlindSigningNotEnabled")
     HARDWARE_BLIND_SIGNING_NOT_ENABLED,
+
+    @Json(name = "RejectedByUser")
+    REJECTED_BY_USER,
+
+    @Json(name = "ProofTooLarge")
+    PROOF_TOO_LARGE,
+
+    @Json(name = "ConnectionBroken")
+    CONNECTION_BROKEN,
+
+    @Json(name = "WrongDevice")
+    WRONG_DEVICE,
+
+    @Json(name = "AddressDoesNotExist")
+    ADDRESS_DOES_NOT_EXIST,
+
+    @Json(name = "NotATokenAddress")
+    NOT_A_TOKEN_ADDRESS,
+
+    @Json(name = "SlippageError")
+    SLIPPAGE_ERROR,
 
     @Json(name = "WrongAddress")
     WRONG_ADDRESS,
@@ -272,6 +305,8 @@ enum class MApiAnyDisplayError {
                     DEBUG_ERROR -> "Unexpected error. Please let the support know."
                     // UNSUPPORTED_VERSION -> null
                     INVALID_MNEMONIC -> "InvalidMnemonic"
+                    INVALID_PASSWORD -> "Wrong password, please try again."
+                    // INVALID_ADDRESS -> "Invalid address"
                     INVALID_AMOUNT -> "Invalid amount"
                     // INVALID_TO_ADDRESS -> "Invalid address"
                     // INSUFFICIENT_BALANCE -> "Insufficient balance"
@@ -284,8 +319,17 @@ enum class MApiAnyDisplayError {
                     PARTIAL_TRANSACTION_FAILURE -> "Not all transactions were sent successfully"
                     INCORRECT_DEVICE_TIME -> "The time on your device is incorrect, sync it and try again."
                     UNSUCCESSFUL_TRANSFER -> "Transfer was unsuccessful. Try again later."
+                    MFA_NFT_BATCH_LIMIT -> "MFA NFT transfers support up to 4 NFTs at a time."
+                    CONCURRENT_TRANSACTION -> "Another transaction was sent from this wallet simultaneously. Please try again."
                     NOT_SUPPORTED_HARDWARE_OPERATION -> "\$ledger_outdated" // most likely
                     HARDWARE_BLIND_SIGNING_NOT_ENABLED -> "\$hardware_blind_sign_not_enabled"
+                    REJECTED_BY_USER -> "Canceled by the user"
+                    PROOF_TOO_LARGE -> "The proof for signing provided by the Dapp is too large"
+                    CONNECTION_BROKEN -> "\$ledger_connection_broken"
+                    WRONG_DEVICE -> "\$ledger_wrong_device"
+                    // ADDRESS_DOES_NOT_EXIST -> "Address doesn't exist"
+                    NOT_A_TOKEN_ADDRESS -> "The address is not a token minter address"
+                    SLIPPAGE_ERROR -> "\$swap_slippage_violation"
                     WRONG_ADDRESS -> "WrongAddress"
                     WRONG_NETWORK -> "WrongNetwork"
                     else -> null

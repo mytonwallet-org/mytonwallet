@@ -5,8 +5,8 @@ import type { ApiChain, ApiSwapActivity, ApiSwapAsset } from '../../api/types';
 import { TONCOIN } from '../../config';
 import { Big } from '../../lib/big.js';
 import { resolveSwapAsset } from '../../global/helpers';
-import { getIsActivityPendingForUser, parseTxId } from '../../util/activities';
-import { getIsSupportedChain } from '../../util/chain';
+import { getIsActivityPendingForUser } from '../../util/activities';
+import { getSwapTransactionIdRows } from '../../util/swap/transactionIds';
 import { getExplorerTransactionUrl } from '../../util/url';
 
 import useLang from '../../hooks/useLang';
@@ -35,8 +35,6 @@ function SwapActivityInfo({
   const lang = useLang();
 
   const {
-    id,
-    hashes,
     from,
     fromAmount,
     to,
@@ -44,6 +42,7 @@ function SwapActivityInfo({
     status,
     networkFee = '0',
     ourFee = '0',
+    ourFeeMode,
     shouldLoadDetails,
     cex,
   } = activity;
@@ -58,27 +57,23 @@ function SwapActivityInfo({
     return resolveSwapAsset(tokensBySlug, to);
   }, [to, tokensBySlug]);
 
-  const isCex = Boolean(cex);
   const isFromToncoin = from === TONCOIN.slug;
   const isPending = getIsActivityPendingForUser(activity);
   const isError = ONCHAIN_ERROR_STATUSES.has(status) || (cex && status === 'failed');
 
-  const fromChain = fromToken?.chain && getIsSupportedChain(fromToken.chain) ? fromToken.chain : undefined;
-  const transactionHash = id ? (isCex ? hashes?.[0] : parseTxId(id).hash) : undefined;
-  const transactionUrl = transactionHash && fromChain
-    ? getExplorerTransactionUrl(fromChain, transactionHash, undefined, selectedExplorerIds?.[fromChain])
-    : undefined;
+  const transactionIdRows = getSwapTransactionIdRows(activity);
 
   function renderFee() {
     if (!(Number(networkFee) || shouldLoadDetails) || !fromToken) {
       return undefined;
     }
 
+    const isOurFeeIncluded = ourFeeMode === 'included';
     const terms = isFromToncoin ? {
-      native: Big(networkFee).add(ourFee).toString(),
+      native: isOurFeeIncluded ? networkFee : Big(networkFee).add(ourFee).toString(),
     } : {
       native: networkFee,
-      token: ourFee,
+      token: isOurFeeIncluded ? undefined : ourFee,
     };
 
     return (
@@ -91,24 +86,24 @@ function SwapActivityInfo({
     );
   }
 
-  function renderTransactionId() {
-    if (!transactionHash) return undefined;
+  function renderTransactionIds() {
+    if (!transactionIdRows.length) return undefined;
 
-    return (
-      <div className={styles.textFieldWrapper}>
+    return transactionIdRows.map(({ label, hash, chain }) => (
+      <div key={`${label}-${hash}`} className={styles.textFieldWrapper}>
         <span className={styles.textFieldLabel}>
-          {lang('Transaction ID')}
+          {lang(label)}
         </span>
         <InteractiveTextField
           noSavedAddress
-          chain={fromChain}
-          address={transactionHash}
-          addressUrl={transactionUrl}
+          chain={chain}
+          address={hash}
+          addressUrl={getExplorerTransactionUrl(chain, hash, undefined, selectedExplorerIds?.[chain])}
           isTransaction
           copyNotification={lang('Transaction ID Copied')}
         />
       </div>
-    );
+    ));
   }
 
   return (
@@ -124,7 +119,7 @@ function SwapActivityInfo({
 
       <div className={styles.infoBlock}>
         {renderFee()}
-        {renderTransactionId()}
+        {renderTransactionIds()}
       </div>
     </div>
   );

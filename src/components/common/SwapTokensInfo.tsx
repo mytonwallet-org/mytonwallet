@@ -7,9 +7,13 @@ import buildClassName from '../../util/buildClassName';
 import { formatCurrencyExtended } from '../../util/formatNumber';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import getSwapRate from '../../util/swap/getSwapRate';
+import { getIsRwaStockToken, getTokenName } from '../../util/tokens';
+
+import useLang from '../../hooks/useLang';
 
 import SensitiveData from '../ui/SensitiveData';
 import TokenIcon from './TokenIcon';
+import TokenLabel from './TokenLabel';
 
 import styles from './SwapTokensInfo.module.scss';
 
@@ -26,6 +30,8 @@ interface OwnProps {
 function SwapTokensInfo({
   isSensitiveDataHidden, tokenIn, amountIn, tokenOut, amountOut, isError = false, onTokenClick,
 }: OwnProps) {
+  const lang = useLang();
+
   function handleTokenClick(token?: UserSwapToken | ApiSwapAsset | ApiToken) {
     if (onTokenClick && token?.slug) {
       onTokenClick(token.slug);
@@ -39,7 +45,6 @@ function SwapTokensInfo({
     isReceived = false,
   ) {
     const amountWithSign = isReceived ? amount : `-${Math.abs(Number(amount)).toString()}`;
-    const withLabel = Boolean(token && token.label);
     const isClickable = Boolean(onTokenClick && token?.slug);
 
     return (
@@ -61,10 +66,8 @@ function SwapTokensInfo({
         )}
 
         <span className={styles.infoRowToken}>
-          {token?.name}
-          {withLabel && (
-            <span className={buildClassName(styles.label, styles.chainLabel)}>{token!.label}</span>
-          )}
+          {getTokenName(lang, token)}
+          {token?.label && <TokenLabel label={token.label} isRwaStock={getIsRwaStockToken(token)} />}
         </span>
         <SensitiveData
           isActive={isSensitiveDataHidden}

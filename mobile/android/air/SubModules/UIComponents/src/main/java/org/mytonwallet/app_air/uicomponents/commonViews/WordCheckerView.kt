@@ -168,7 +168,7 @@ class WordCheckerView(
     }
 
     private fun animateToColor(index: Int, color: Int) {
-        indexLabel.setStyle(17f, WFont.SemiBold)
+        indexLabel.setStyle(17f, WFont.Medium)
         indexLabel.animateTextColor(
             color,
             AnimationConstants.VERY_QUICK_ANIMATION

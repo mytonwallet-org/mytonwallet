@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import ContextMenuKit
 import UIComponents
 import WalletCore
 import WalletContext
@@ -48,6 +49,7 @@ private struct _CollapsedBalanceView: View {
     var body: some View {
         WithPerceptionTracking {
             MtwCardBalanceView(balance: accountContext.balance, style: .homeCollaped)
+                .contextMenuSource(configuration: makeBaseCurrencyMenuConfig(accountId: accountContext.accountId))
         }
     }
 }
@@ -72,4 +74,3 @@ private struct _CollapsedDisplayName: View {
         }
     }
 }
-

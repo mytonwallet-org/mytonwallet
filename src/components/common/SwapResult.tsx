@@ -1,11 +1,13 @@
 import React, { memo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
+import type { ApiSwapCexLabel } from '../../api/types';
 import type { Account, UserSwapToken } from '../../global/types';
 import { SwapType } from '../../global/types';
 
 import { selectCurrentAccount } from '../../global/selectors';
 import { getChainTitle, getIsSupportedChain } from '../../util/chain';
+import { isChangellyCexLabel } from '../../util/swap/cex';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -27,6 +29,7 @@ interface OwnProps {
   firstButtonText?: string;
   secondButtonText?: string;
   swapType?: SwapType;
+  cexLabel?: ApiSwapCexLabel;
   toAddress?: string;
   onFirstButtonClick?: NoneToVoidFunction;
   onSecondButtonClick?: NoneToVoidFunction;
@@ -47,6 +50,7 @@ function SwapResult({
   firstButtonText,
   secondButtonText,
   swapType,
+  cexLabel,
   toAddress = '',
   isSensitiveDataHidden,
   onFirstButtonClick,
@@ -95,27 +99,27 @@ function SwapResult({
 
   function renderTimeWarning() {
     return (
-      <div className={styles.changellyInfoBlock}>
-        <span className={styles.changellyDescription}>
+      <div className={styles.cexInfoBlock}>
+        <span className={styles.cexDescription}>
           {lang('Please note that it may take up to a few hours for tokens to appear in your wallet.')}
         </span>
       </div>
     );
   }
 
-  function renderChangellyInfo() {
-    if (swapType !== SwapType.CrosschainFromWallet) {
+  function renderCexFromWalletInfo() {
+    if (swapType !== SwapType.CrosschainFromWallet || !isChangellyCexLabel(cexLabel)) {
       return undefined;
     }
     const chain = getIsSupportedChain(tokenOut?.chain) ? tokenOut.chain : undefined;
 
     return (
-      <div className={styles.changellyInfoBlock}>
-        <span className={styles.changellyDescription}>
+      <div className={styles.cexInfoBlock}>
+        <span className={styles.cexDescription}>
           {
-            lang('$swap_changelly_from_wallet_description', {
+            lang('$swap_cex_from_wallet_description', {
               blockchain: (
-                <span className={styles.changellyDescriptionBold}>
+                <span className={styles.cexDescriptionBold}>
                   {getChainNetworkName(tokenOut?.chain)}
                 </span>
               ),
@@ -128,7 +132,7 @@ function SwapResult({
           copyNotification={lang('%chain% Address Copied', { chain: chain ? getChainTitle(chain) : '' }) as string}
           noSavedAddress
           noExplorer
-          className={styles.changellyTextField}
+          className={styles.cexTextField}
         />
       </div>
     );
@@ -147,7 +151,7 @@ function SwapResult({
       />
 
       {swapType !== SwapType.OnChain && renderTimeWarning()}
-      {renderChangellyInfo()}
+      {renderCexFromWalletInfo()}
 
       {renderButtons()}
     </>

@@ -93,7 +93,7 @@ class InAppBrowserTopBarView(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(22F, WFont.SemiBold)
+            setStyle(22F, WFont.Medium)
             gravity = Gravity.CENTER_VERTICAL or
                 if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
             setSingleLine()

@@ -17,10 +17,12 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
 
     private let configuration: ContextMenuConfiguration
     private let sourceRectInWindow: CGRect
+    private weak var appearanceSourceView: UIView?
     private weak var portalSourceView: UIView?
     private let portalMaskRectInWindow: CGRect?
     private let portalMask: ContextMenuSourcePortalMask?
     private let portalShowsBackdropCutout: Bool
+    private var sourceUserInterfaceStyle: UIUserInterfaceStyle
 
     private let dimmingView = UIView()
     private var blurView: UIVisualEffectView?
@@ -38,6 +40,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
     private lazy var navigationView = ContextMenuNavigationView(
         rootPage: self.configuration.rootPage,
         style: self.configuration.style,
+        sourceUserInterfaceStyle: self.sourceUserInterfaceStyle,
         customRowContext: self.customRowContext
     )
 
@@ -46,19 +49,25 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
     init(
         configuration: ContextMenuConfiguration,
         sourceRectInWindow: CGRect,
+        appearanceSourceView: UIView?,
         portalSourceView: UIView?,
         portalMaskRectInWindow: CGRect?,
         portalMask: ContextMenuSourcePortalMask?,
-        portalShowsBackdropCutout: Bool
+        portalShowsBackdropCutout: Bool,
+        sourceUserInterfaceStyle: UIUserInterfaceStyle
     ) {
         self.configuration = configuration
         self.sourceRectInWindow = sourceRectInWindow
+        self.appearanceSourceView = appearanceSourceView
         self.portalSourceView = portalSourceView
         self.portalMaskRectInWindow = portalMaskRectInWindow
         self.portalMask = portalMask
         self.portalShowsBackdropCutout = portalShowsBackdropCutout
+        self.sourceUserInterfaceStyle = sourceUserInterfaceStyle
 
         super.init(frame: .zero)
+
+        self.overrideUserInterfaceStyle = sourceUserInterfaceStyle
 
         self.navigationView.delegate = self
         self.navigationView.requestLayout = { [weak self] in
@@ -66,6 +75,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         }
 
         self.setup()
+        self.registerForSourceTraitChanges()
     }
 
     required init?(coder: NSCoder) {
@@ -89,14 +99,14 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
             break
         }
 
-        self.dimmingView.backgroundColor = ContextMenuVisuals.backdropTintColor(for: self.traitCollection)
+        self.dimmingView.backgroundColor = ContextMenuVisuals.backdropTintColor()
         self.dimmingView.alpha = 0.0
         self.dimmingView.frame = self.bounds
         self.dimmingView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         self.addSubview(self.dimmingView)
 
         if let portalSourceView, let portalView = ContextMenuPortalView(sourceView: portalSourceView) {
-            portalView.alpha = 1.0
+            portalView.alpha = 0.0
             self.portalView = portalView
             self.addSubview(portalView)
         }
@@ -178,6 +188,35 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         } else {
             handler?()
         }
+    }
+
+    private func registerForSourceTraitChanges() {
+        guard #available(iOS 17.0, *), let appearanceSourceView else {
+            return
+        }
+
+        appearanceSourceView.registerForTraitChanges(
+            [UITraitUserInterfaceStyle.self],
+            target: self,
+            action: #selector(self.handleSourceTraitChange(_:previousTraitCollection:))
+        )
+    }
+
+    @objc private func handleSourceTraitChange(_ sourceView: UIView, previousTraitCollection: UITraitCollection) {
+        guard previousTraitCollection.userInterfaceStyle != sourceView.traitCollection.userInterfaceStyle else {
+            return
+        }
+        self.updateUserInterfaceStyle(ContextMenuVisuals.resolvedUserInterfaceStyle(for: sourceView.traitCollection))
+    }
+
+    private func updateUserInterfaceStyle(_ userInterfaceStyle: UIUserInterfaceStyle) {
+        guard userInterfaceStyle != self.sourceUserInterfaceStyle else {
+            return
+        }
+        self.sourceUserInterfaceStyle = userInterfaceStyle
+        self.overrideUserInterfaceStyle = userInterfaceStyle
+        self.navigationView.updateUserInterfaceStyle(userInterfaceStyle)
+        self.layoutMenu()
     }
 
     @objc private func handleOutsideTap(_ recognizer: UITapGestureRecognizer) {
@@ -395,11 +434,16 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         self.navigationView.alpha = 1.0
         self.dimmingView.alpha = targetBackdropAlpha
         self.blurView?.alpha = 1.0
+        self.portalView?.alpha = 1.0
 
-        self.navigationView.layer.addContextMenuAlphaAnimation(from: 0.0, to: 1.0, duration: 0.05)
+        self.navigationView.layer.addContextMenuAlphaAnimation(
+            from: 0.0,
+            to: 1.0,
+            duration: ContextMenuAnimationSupport.appearAlphaDuration
+        )
         self.navigationView.layer.addContextMenuSpringAnimation(
             keyPath: "transform.scale",
-            from: 0.01 as NSNumber,
+            from: ContextMenuAnimationSupport.collapsedScale as NSNumber,
             to: 1.0 as NSNumber,
             duration: ContextMenuAnimationSupport.appearDuration,
             damping: ContextMenuAnimationSupport.appearDamping,
@@ -416,6 +460,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
 
         self.blurView?.layer.addContextMenuAlphaAnimation(from: 0.0, to: 1.0, duration: 0.2)
         self.dimmingView.layer.addContextMenuAlphaAnimation(from: 0.0, to: targetBackdropAlpha, duration: 0.2)
+        self.portalView?.layer.addContextMenuAlphaAnimation(from: 0.0, to: 1.0, duration: 0.2)
     }
 
     private func dismissMenu(completion: (() -> Void)? = nil) {
@@ -450,7 +495,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         self.navigationView.layer.addContextMenuBasicAnimation(
             keyPath: "transform.scale",
             from: 1.0 as NSNumber,
-            to: 0.01 as NSNumber,
+            to: ContextMenuAnimationSupport.collapsedScale as NSNumber,
             duration: ContextMenuAnimationSupport.disappearDuration,
             timingFunction: .easeInEaseOut,
             removeOnCompletion: false
@@ -466,6 +511,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         )
 
         self.blurView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
+        self.portalView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
         self.dimmingView.layer.addContextMenuAlphaAnimation(
             from: self.targetBackdropAlpha(),
             to: 0.0,

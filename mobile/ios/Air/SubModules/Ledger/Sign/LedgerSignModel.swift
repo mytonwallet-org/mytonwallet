@@ -66,12 +66,17 @@ public final class LedgerSignModel: LedgerBaseModel, Sendable {
             do {
                 let account = AccountStore.get(accountId: update.accountId)
                 let chain = update.operationChain
-                let address = account.getAddress(chain: chain) ?? ""
+                guard let address = account.getAddress(chain: chain) else {
+                    throw DisplayError(text: lang("No matching chains"))
+                }
+                guard update.transactions.allSatisfy({ $0.chain == nil || $0.chain == chain }) else {
+                    throw DisplayError(text: lang("Unexpected error"))
+                }
                 let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
                 let signedMessages = try await Api.signDappTransfers(
                     dappChain: dappChain,
                     accountId: update.accountId,
-                    messages: update.transactions.map(ApiTransferToSign.init),
+                    messages: update.transactions.map { ApiTransferToSign($0, chain: chain) },
                     options: .init(
                         password: nil,
                         vestingAddress: update.vestingAddress,
@@ -90,7 +95,7 @@ public final class LedgerSignModel: LedgerBaseModel, Sendable {
             
         case .signLedgerProof(let promiseId, let proof):
             do {
-                let accountId = try AccountStore.accountId.orThrow()
+                let accountId = self.accountId
                 var signatures: [String]? = nil
                 if let proof {
                     let account = AccountStore.get(accountId: accountId)
@@ -115,19 +120,39 @@ public final class LedgerSignModel: LedgerBaseModel, Sendable {
 
         case .signNftTransfer(chain: let chain, accountId: let accountId, nft: let nft, toAddress: let toAddress, comment: let comment, realFee: let realFee, let isNftBurn):
             do {
-                let result = try await Api.submitNftTransfers(
+                try await submitNftTransfer(
                     chain: chain,
                     accountId: accountId,
-                    password: nil,
-                    nfts: [nft],
+                    nft: nft,
                     toAddress: toAddress,
                     comment: comment,
-                    totalRealFee: realFee,
-                    isNftBurn: isNftBurn,
+                    realFee: realFee,
+                    isNftBurn: isNftBurn
                 )
-                if let error = result.error {
-                    throw BridgeCallError(message: error, payload: nil)
+            } catch {
+                throw error
+            }
+
+        case .signNftTransfers(chain: let chain, accountId: let accountId, nfts: let nfts, toAddress: let toAddress, comment: let comment, realFee: let realFee, let isNftBurn):
+            do {
+                guard !nfts.isEmpty else {
+                    throw DisplayError(text: lang("No NFT selected"))
                 }
+                let realFeePerNft = realFee.map { $0 / BigInt(nfts.count) }
+                for (index, nft) in nfts.enumerated() {
+                    try Task.checkCancellation()
+                    await updateStepSubtitle(.sign, subtitle: lang("$ledger_confirm_progress", arg1: index + 1, arg2: nfts.count))
+                    try await submitNftTransfer(
+                        chain: chain,
+                        accountId: accountId,
+                        nft: nft,
+                        toAddress: toAddress,
+                        comment: comment,
+                        realFee: realFeePerNft,
+                        isNftBurn: isNftBurn
+                    )
+                }
+                await updateStepSubtitle(.sign, subtitle: nil)
             } catch {
                 throw error
             }
@@ -142,7 +167,7 @@ public final class LedgerSignModel: LedgerBaseModel, Sendable {
                     realFee: realFee
                 )
                 if let error = result.error {
-                    throw BridgeCallError(message: error, payload: result)
+                    throw SdkError.apiReturnedError(error: error, context: result)
                 }
             } catch {
                 throw error
@@ -158,7 +183,7 @@ public final class LedgerSignModel: LedgerBaseModel, Sendable {
                 )
                 for entry in result {
                     if let error = entry.error {
-                        throw BridgeCallError(message: error, payload: result)
+                        throw SdkError.apiReturnedError(error: error, context: result)
                     }
                 }
             } catch {
@@ -184,6 +209,30 @@ public final class LedgerSignModel: LedgerBaseModel, Sendable {
                 log.error("\(error, .public)")
                 throw error
             }
+        }
+    }
+
+    private func submitNftTransfer(
+        chain: ApiChain,
+        accountId: String,
+        nft: ApiNft,
+        toAddress: String,
+        comment: String?,
+        realFee: BigInt?,
+        isNftBurn: Bool?
+    ) async throws {
+        let result = try await Api.submitNftTransfers(
+            chain: chain,
+            accountId: accountId,
+            password: nil,
+            nfts: [nft],
+            toAddress: toAddress,
+            comment: comment,
+            totalRealFee: realFee,
+            isNftBurn: isNftBurn,
+        )
+        if let error = result.error {
+            throw SdkError.apiReturnedError(error: error, context: nil)
         }
     }
 }

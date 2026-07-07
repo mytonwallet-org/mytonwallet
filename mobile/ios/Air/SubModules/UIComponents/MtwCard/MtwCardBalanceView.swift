@@ -36,12 +36,14 @@ public struct MtwCardBalanceView: View, Equatable {
         balance: BaseCurrencyAmount?,
         isNumericTranstionEnabled: Bool = true,
         style: Style,
-        secondaryOpacity: CGFloat = 1
+        secondaryOpacity: CGFloat = 1,
+        onSensitiveDataReveal: (() -> Void)? = nil
     ) {
         self.balance = balance
         self.isNumericTranstionEnabled = isNumericTranstionEnabled
         self.style = style
         self.secondaryOpacity = secondaryOpacity
+        self.onSensitiveDataReveal = onSensitiveDataReveal
     }
 
     // MARK: Public
@@ -163,6 +165,7 @@ public struct MtwCardBalanceView: View, Equatable {
     var isNumericTranstionEnabled: Bool
     var style: Style
     var secondaryOpacity: CGFloat
+    var onSensitiveDataReveal: (() -> Void)? = nil
 
     // MARK: Private
 
@@ -202,7 +205,8 @@ public struct MtwCardBalanceView: View, Equatable {
             rows: 3,
             cellSize: style.sensitiveDataCellSize,
             theme: style.sensitiveDataTheme,
-            cornerRadius: 12
+            cornerRadius: 12,
+            onReveal: onSensitiveDataReveal
         )
     }
 

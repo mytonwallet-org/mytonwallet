@@ -29,6 +29,7 @@ data class SwapUiInputState(
     val selectedDex = input.selectedDex
 
     val isCex = input.isCex
+    val canSwapByBuyAmount = input.canSwapByBuyAmount
     val reverse = input.reverse && !isCex
     val swapDetailsVisibility = if (wallet.isSupportedChain(tokenToSend?.mBlockchain)) {
         if (isCex) SwapDetailsVisibility.CEX else SwapDetailsVisibility.VISIBLE

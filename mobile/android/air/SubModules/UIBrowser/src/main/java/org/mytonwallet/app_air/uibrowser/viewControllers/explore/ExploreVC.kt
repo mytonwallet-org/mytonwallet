@@ -492,7 +492,8 @@ class ExploreVC(context: Context) : WViewController(context),
     var searchVC: SearchVC? = null
     var isShowingSearch = false
     fun search(query: String?, isFocused: Boolean) {
-        val searchResult = exploreVM.search(query ?: "")
+        val keyword = query ?: ""
+        val searchResult = exploreVM.search(keyword)
         val shouldShowSearchScreen =
             !query.isNullOrEmpty() ||
                 (isFocused &&
@@ -510,6 +511,10 @@ class ExploreVC(context: Context) : WViewController(context),
             navigationController?.push(searchVC!!, false)
         }
         searchVC?.updateSearchResult(searchResult)
+        exploreVM.searchWalletInfo(searchResult) { updated ->
+            if (exploreVM.currentSearchKeyword == keyword)
+                searchVC?.updateSearchResult(updated)
+        }
     }
 
     private fun onDAppTap(it: ApiDapp?) {

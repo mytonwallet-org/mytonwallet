@@ -273,7 +273,7 @@ function TransactionInfo({
           addressUrl={transactionUrl}
           isTransaction
           copyNotification={lang('Transaction ID Copied')}
-          className={styles.changellyTextField}
+          className={styles.cexTextField}
         />
       </div>
     );

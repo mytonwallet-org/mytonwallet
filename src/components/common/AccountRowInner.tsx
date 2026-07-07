@@ -6,6 +6,7 @@ import type { Account, AccountType } from '../../global/types';
 import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import buildClassName from '../../util/buildClassName';
+import { getOrderedAccountChains } from '../../util/chain';
 import { getTelegramAvatarUrlFromDomain } from '../../util/dns';
 import { formatAccountAddresses } from '../../util/formatAccountAddress';
 import { formatCurrency } from '../../util/formatNumber';
@@ -50,7 +51,8 @@ function AccountRowInner({
 }: AccountRowInnerProps) {
   const isHardware = accountType === 'hardware';
   const isView = isViewAccount(accountType);
-  const formattedAddress = formatAccountAddresses(byChain, 'small');
+  const isSingleChain = getOrderedAccountChains(byChain).length === 1;
+  const formattedAddress = formatAccountAddresses(byChain, isSingleChain ? 'medium' : 'small');
   const resolvedAvatarUrl = avatarUrl ?? getTelegramAvatarUrlFromDomain(byChain.ton?.domain);
 
   return (

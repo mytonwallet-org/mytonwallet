@@ -13,13 +13,15 @@ const testnetQueryString = SOLANA_TESTNET_RPC_URL ? `?api-key=${SOLANA_TESTNET_A
 export const NETWORK_CONFIG = {
   mainnet: {
     rpcUrl: `${SOLANA_MAINNET_RPC_URL}/${mainnetQueryString}`,
-    getApiUrl: (path: string) => `${SOLANA_MAINNET_API_URL}${path}/${mainnetQueryString}`,
+    getApiUrl: (path: string) => `${SOLANA_MAINNET_API_URL}${path}${mainnetQueryString}`,
   },
   testnet: {
     rpcUrl: `${SOLANA_TESTNET_RPC_URL}/${testnetQueryString}`,
-    getApiUrl: (path: string) => `${SOLANA_TESTNET_API_URL}${path}/${testnetQueryString}`,
+    getApiUrl: (path: string) => `${SOLANA_TESTNET_API_URL}${path}${testnetQueryString}`,
   },
 };
+
+export const DEFAULT_FEE = 5000n;
 
 export const SOLANA_PROGRAM_IDS = {
   system: [
@@ -44,6 +46,11 @@ export const SOLANA_PROGRAM_IDS = {
     'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d', // Metaplex Core
     'BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY', // Metaplex Bubblegum
     'wns1gDLt8fgLcGhWi5MqAqgXpwEP1JftKE9eZnXS1HM', // Wen new standard
+  ],
+  swap: [
+    'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter Aggregator v6
+    'DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH', // Dflow Aggregator v4
+    'proVF4pMXVaYqmy4NjniPh4pqKNfMmsihgd4wdkCX3u', // OKX Router
   ],
 };
 

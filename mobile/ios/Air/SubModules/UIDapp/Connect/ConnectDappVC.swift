@@ -44,7 +44,8 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         request: ApiUpdate.DappConnect,
         onCancel: @escaping () -> ()
     ) {
-        withAnimation(.smooth(duration: 0.2)) {
+        viewModel.accountContext.accountId = request.accountId
+        withAnimation(.smooth(duration: 0.3)) {
             self.viewModel.update = request
         }
         self.viewModel.onCancel = onCancel

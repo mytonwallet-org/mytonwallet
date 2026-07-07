@@ -52,6 +52,37 @@ public final class LottieAnimationView: UIImageView {
         }
     }
 
+    public var reducesRenderingScaleInLowPowerMode = true {
+        didSet {
+            guard self.reducesRenderingScaleInLowPowerMode != oldValue else {
+                return
+            }
+            self.handleRenderTargetChange()
+        }
+    }
+
+    public var lowPowerModeMaximumRenderingScale: CGFloat = 1.5 {
+        didSet {
+            guard self.lowPowerModeMaximumRenderingScale != oldValue else {
+                return
+            }
+            self.handleRenderTargetChange()
+        }
+    }
+
+    public var disablesPlaybackInLowPowerMode = false {
+        didSet {
+            guard self.disablesPlaybackInLowPowerMode != oldValue else {
+                return
+            }
+            self.handleLowPowerModePlaybackPolicyChange()
+        }
+    }
+
+    public var isPlaybackDisabledInLowPowerMode: Bool {
+        self.disablesPlaybackInLowPowerMode && ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
     public var playbackSpeed: Double = 1.0
 
     public var externalShouldPlay: Bool? {
@@ -113,10 +144,20 @@ public final class LottieAnimationView: UIImageView {
         self.backgroundColor = .clear
         self.isOpaque = false
         self.contentMode = .scaleAspectFit
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(processInfoPowerStateDidChange),
+            name: .NSProcessInfoPowerStateDidChange,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     public override var isHidden: Bool {
@@ -205,13 +246,15 @@ public final class LottieAnimationView: UIImageView {
         self.onAnimationLoaded?(loadedSource.info)
     }
 
-    public func play() {
-        guard self.loadedSource != nil else {
-            return
+    @discardableResult
+    public func play() -> Bool {
+        guard self.loadedSource != nil, !self.isPlaybackDisabledInLowPowerMode else {
+            return false
         }
         self.playbackStartPending = true
         self.renderCurrentFrame(force: false)
         self.updatePlaybackActivity(resetTiming: true)
+        return true
     }
 
     public func pause() {
@@ -228,9 +271,10 @@ public final class LottieAnimationView: UIImageView {
         self.beginAnimationLoad()
     }
 
-    public func playOnce(completion: (() -> Void)? = nil) {
-        guard let animationFrameRange = self.animationFrameRange else {
-            return
+    @discardableResult
+    public func playOnce(completion: (() -> Void)? = nil) -> Bool {
+        guard let animationFrameRange = self.animationFrameRange, !self.isPlaybackDisabledInLowPowerMode else {
+            return false
         }
         self.playbackMode = .once
         self.pendingCompletion = completion
@@ -239,7 +283,7 @@ public final class LottieAnimationView: UIImageView {
         self.currentFrame = animationFrameRange.lowerBound
         self.currentFrameIndex = self.currentFrame
         self.renderCurrentFrame(force: true)
-        self.play()
+        return self.play()
     }
 
     public func setPlaybackMode(_ playbackMode: LottieAnimationPlaybackMode) {
@@ -426,7 +470,7 @@ public final class LottieAnimationView: UIImageView {
             frameIndex: effectiveFrame,
             width: renderSize.width,
             height: renderSize.height,
-            scale: max(self.renderingScale, 1.0)
+            scale: self.effectiveRenderingScale
         )
 
         if !force, descriptor == self.currentRenderDescriptor || descriptor == self.pendingRenderDescriptor {
@@ -457,7 +501,7 @@ public final class LottieAnimationView: UIImageView {
             frameIndex: effectiveFrame,
             width: renderSize.width,
             height: renderSize.height,
-            scale: max(self.renderingScale, 1.0)
+            scale: self.effectiveRenderingScale
         )
 
         guard let animationInstance = LottieInstance(
@@ -661,6 +705,27 @@ public final class LottieAnimationView: UIImageView {
         self.updatePlaybackActivity(resetTiming: false)
     }
 
+    @objc private func processInfoPowerStateDidChange() {
+        self.handleLowPowerModePlaybackPolicyChange()
+        self.handleRenderTargetChange()
+    }
+
+    private func handleLowPowerModePlaybackPolicyChange() {
+        guard self.disablesPlaybackInLowPowerMode else {
+            return
+        }
+
+        guard self.isPlaybackDisabledInLowPowerMode else {
+            self.updatePlaybackActivity(resetTiming: true)
+            return
+        }
+
+        let completion = self.pendingCompletion
+        self.pendingCompletion = nil
+        self.pause()
+        completion?()
+    }
+
     private func handleCachePolicyChange() {
         self.cancelPreparationTask()
         self.setPlaybackBackend(.direct)
@@ -743,7 +808,9 @@ public final class LottieAnimationView: UIImageView {
     }
 
     private func updatePlaybackActivity(resetTiming: Bool) {
-        let shouldAnimate = self.playbackStartPending && self.isEffectivelyVisible
+        let shouldAnimate = self.playbackStartPending
+            && self.isEffectivelyVisible
+            && !self.isPlaybackDisabledInLowPowerMode
 
         if shouldAnimate {
             if resetTiming {
@@ -761,10 +828,19 @@ public final class LottieAnimationView: UIImageView {
     }
 
     private func renderPixelSize() -> (width: Int, height: Int) {
-        let scale = max(self.renderingScale, 1.0)
+        let scale = self.effectiveRenderingScale
         let width = max(1, Int(round(self.bounds.width * scale)))
         let height = max(1, Int(round(self.bounds.height * scale)))
         return (width, height)
+    }
+
+    private var effectiveRenderingScale: CGFloat {
+        let scale = max(self.renderingScale, 1.0)
+        guard self.reducesRenderingScaleInLowPowerMode,
+              ProcessInfo.processInfo.isLowPowerModeEnabled else {
+            return scale
+        }
+        return max(1.0, min(scale, self.lowPowerModeMaximumRenderingScale))
     }
 
     private static func frameIndex(

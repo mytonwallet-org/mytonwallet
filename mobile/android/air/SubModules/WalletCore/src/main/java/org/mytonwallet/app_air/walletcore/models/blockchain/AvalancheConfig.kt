@@ -17,6 +17,7 @@ object AvalancheConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_avalanche_light
 
     override val qrIcon = null
+    override val displayColor = "#A32F22".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#A32F22".toColorInt(),
         "#9A184A".toColorInt(),

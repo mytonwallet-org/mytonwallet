@@ -33,6 +33,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConnectItem
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
@@ -142,7 +143,8 @@ class TonConnectRequestSendViewModel private constructor(
                     )
                 )
                 FakeLoading.start(500, t)
-            } catch (_: JSWebViewBridge.ApiError) {
+            } catch (err: JSWebViewBridge.ApiError) {
+                Logger.e(Logger.LogTag.TON_CONNECT, "cancelSendTransactions: $err")
                 // todo: show error
             }
             _eventsFlow.tryEmit(Event.Close)
@@ -198,6 +200,7 @@ class TonConnectRequestSendViewModel private constructor(
                         )
                         notifyDone(true, null)
                     } catch (err: JSWebViewBridge.ApiError) {
+                        Logger.e(Logger.LogTag.TON_CONNECT, "submitSendTransactions: $err")
                         notifyDone(false, err.parsed)
                     }
                 }
@@ -223,6 +226,7 @@ class TonConnectRequestSendViewModel private constructor(
                         )
                         notifyDone(true, null)
                     } catch (err: JSWebViewBridge.ApiError) {
+                        Logger.e(Logger.LogTag.TON_CONNECT, "submitSignData: $err")
                         notifyDone(false, err.parsed)
                     }
                 }

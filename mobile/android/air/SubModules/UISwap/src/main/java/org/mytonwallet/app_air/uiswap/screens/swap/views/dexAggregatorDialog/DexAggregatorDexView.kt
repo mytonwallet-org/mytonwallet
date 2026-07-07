@@ -33,17 +33,17 @@ class DexAggregatorDexView(
     }
 
     private val nameLabel = WLabel(context).apply {
-        setStyle(17f, WFont.SemiBold)
+        setStyle(17f, WFont.Medium)
         text = dex.displayName
     }
 
     private val amountLabel = WLabel(context).apply {
-        setStyle(17f, WFont.SemiBold)
+        setStyle(17f, WFont.Medium)
         textAlignment = TEXT_ALIGNMENT_TEXT_START
     }
 
     private val rateLabel = WLabel(context).apply {
-        setStyle(12f, WFont.SemiBold)
+        setStyle(12f, WFont.Medium)
         textAlignment = TEXT_ALIGNMENT_TEXT_START
     }
 

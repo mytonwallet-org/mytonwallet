@@ -13,8 +13,8 @@ import { DAY, formatFullDay } from '../../../../util/dateFormat';
 import { toDecimal } from '../../../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { round } from '../../../../util/round';
+import { getIsRwaStockToken, getTokenName } from '../../../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
-import getTokenName from '../../helpers/getTokenName';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
@@ -23,6 +23,7 @@ import useShowTransition from '../../../../hooks/useShowTransition';
 import useTokenContextMenu from './hooks/useTokenContextMenu';
 
 import TokenIcon from '../../../common/TokenIcon';
+import TokenLabel from '../../../common/TokenLabel';
 import AnimatedCounter from '../../../ui/AnimatedCounter';
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
 import Button from '../../../ui/Button';
@@ -113,9 +114,10 @@ function Token({
   const changeClassName = change > 0 ? styles.change_up : change < 0 ? styles.change_down : undefined;
   const changeValue = Math.abs(round(calcChangeValue(Number(value), change), 4));
   const changePercent = Math.abs(round(change * 100, 2));
-  const withYield = !IS_CORE_WALLET && annualYield !== undefined;
+  const withYield = !IS_CORE_WALLET && annualYield !== undefined && annualYield > 0;
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const withLabel = Boolean(!isVesting && label);
+  const isRwaStock = getIsRwaStockToken(token);
   const stakingId = stakingState?.id;
   const name = getTokenName(lang, token);
   const withChainIconRendered = withChainIcon && !stakingId;
@@ -272,9 +274,7 @@ function Token({
           <div className={styles.name}>
             <span className={styles.nameText}>{name}</span>
             {shouldRenderYield && renderYield()}
-            {withLabel && (
-              <span className={buildClassName(styles.label, styles.chainLabel)}>{label}</span>
-            )}
+            {withLabel && <TokenLabel label={label!} isRwaStock={isRwaStock} />}
           </div>
           <div className={styles.subtitle}>
             <SensitiveData
@@ -385,9 +385,7 @@ function Token({
             )}
             <span className={styles.nameText}>{name}</span>
             {canRenderYield && renderYield()}
-            {withLabel && (
-              <span className={buildClassName(styles.label, styles.chainLabel)}>{label}</span>
-            )}
+            {withLabel && <TokenLabel label={label!} isRwaStock={isRwaStock} />}
           </div>
           <div className={styles.subtitle}>
             <AnimatedCounter text={formatCurrency(price, shortBaseSymbol, undefined, true)} />

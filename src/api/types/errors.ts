@@ -48,10 +48,15 @@ export enum ApiTokenImportError {
   NotATokenAddress = 'NotATokenAddress',
 }
 
+export enum ApiSwapError {
+  SlippageError = 'SlippageError',
+}
+
 export type ApiAnyDisplayError =
   | ApiCommonError
   | ApiAuthError
   | ApiTransactionDraftError
   | ApiTransactionError
   | ApiHardwareError
-  | ApiTokenImportError;
+  | ApiTokenImportError
+  | ApiSwapError;

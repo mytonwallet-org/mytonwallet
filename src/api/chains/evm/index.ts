@@ -4,6 +4,7 @@ import { DappProtocolType } from '../../dappProtocols/types';
 
 import { fetchActivityDetails, fetchActivitySlice, fetchCrossChainActivitySlice } from './activities';
 import { normalizeAddress } from './address';
+import { fetchEvmWalletPermissions, revokeEvmWalletPermission } from './approvals';
 import {
   createSubWalletFromDerivation,
   fetchPrivateKeyString,
@@ -80,6 +81,9 @@ class EVMChainSdk<T extends EVMChain> implements ChainSdk<T> {
   submitGaslessTransfer = notSupported;
   verifyLedgerWalletAddress = notSupported;
 
+  buildOnchainSwapTransfer = notSupported;
+  submitOnchainSwapTransfer = notSupported;
+
   fetchPrivateKeyString = this.#bindChain(fetchPrivateKeyString);
 
   getIsLedgerAppOpen = notSupported;
@@ -99,6 +103,12 @@ class EVMChainSdk<T extends EVMChain> implements ChainSdk<T> {
   checkNftTransferDraft = this.#bindChain(checkNftTransferDraft);
   submitNftTransfers = this.#bindChain(submitNftTransfers);
   checkNftOwnership = this.#bindChain(checkNftOwnership);
+
+  fetchWalletPermissions = this.#bindChain(fetchEvmWalletPermissions);
+
+  revokeWalletPermission = this.#bindChain(revokeEvmWalletPermission);
+
+  fetchWalletPlugins = notSupported;
 }
 
 export default EVMChainSdk;

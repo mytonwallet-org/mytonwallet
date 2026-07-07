@@ -11,18 +11,16 @@ import { SwapInputSource, SwapState, SwapType } from '../../global/types';
 import {
   ANIMATED_STICKER_TINY_SIZE_PX,
   ANIMATION_LEVEL_MAX,
-  CHANGELLY_AML_KYC,
-  CHANGELLY_PRIVACY_POLICY,
-  CHANGELLY_TERMS_OF_USE,
   INIT_SWAP_ASSETS,
 } from '../../config';
 import { selectCurrentAccountId, selectSwapTokens, selectSwapType } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainConfig } from '../../util/chain';
 import { fromDecimal, toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { explainSwapFee, getMaxSwapAmount, isBalanceSufficientForSwap } from '../../util/fee/swapFee';
 import { vibrate } from '../../util/haptics';
-import { findNativeToken } from '../../util/tokens';
+import { findNativeToken, getChainBySlug } from '../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
@@ -78,6 +76,12 @@ function SwapInitial({
     dieselStatus,
     ourFee,
     ourFeePercent,
+    ourFeeMode,
+    currentCexLabel,
+    currentCexProviderName,
+    currentCexTermsOfUseUrl,
+    currentCexPrivacyPolicyUrl,
+    currentCexAmlKycPolicyUrl,
     dieselFee,
     maxAmountFromBackend,
   },
@@ -138,11 +142,13 @@ function SwapInitial({
       networkFee,
       realNetworkFee,
       ourFee,
+      ourFeeMode,
       dieselStatus,
       dieselFee,
       nativeTokenInBalance,
     }),
-    [swapType, tokenInSlug, networkFee, realNetworkFee, ourFee, dieselStatus, dieselFee, nativeTokenInBalance],
+    [swapType, tokenInSlug, networkFee, realNetworkFee, ourFee, ourFeeMode, dieselStatus, dieselFee,
+      nativeTokenInBalance],
   );
 
   const maxAmountFromBackendBigint = maxAmountFromBackend && tokenIn
@@ -155,6 +161,7 @@ function SwapInitial({
     tokenIn,
     fullNetworkFee: explainedFee.fullFee?.networkTerms,
     ourFeePercent,
+    ourFeeMode,
     maxAmountFromBackend: maxAmountFromBackendBigint,
   });
 
@@ -316,7 +323,7 @@ function SwapInitial({
 
   function renderFee() {
     const shouldShow = (amountIn && amountOut) // We aim to synchronize the disappearing of the fee with the DEX chooser disappearing
-      || ((amountIn || amountOut) && errorType); // Without this sub-condition the fee wouldn't be shown when the amount is outside the Changelly limits
+      || ((amountIn || amountOut) && errorType); // Without this sub-condition the fee wouldn't be shown when the amount is outside the CEX limits
 
     let terms: FeeTerms | undefined;
     let precision: FeePrecision = 'exact';
@@ -373,35 +380,55 @@ function SwapInitial({
     );
   }
 
-  function renderChangellyInfo() {
-    if (!isCrosschain) {
+  function renderCexProviderInfo() {
+    if (!isCrosschain || !currentCexLabel) {
       return undefined;
     }
 
+    const providerName = currentCexProviderName;
+    if (!providerName) {
+      return undefined;
+    }
+
+    const legalDescription = renderCexProviderLegalDescription();
+
     return (
-      <div className={buildClassName(styles.changellyInfo, isStatic && styles.changellyInfoStatic)}>
-        <span className={styles.changellyInfoTitle}>
-          <i className={buildClassName('icon-changelly', styles.changellyIcon)} aria-hidden />
-          {lang('Cross-chain exchange provided by Changelly')}
+      <div className={buildClassName(styles.providerInfo, isStatic && styles.providerInfoStatic)}>
+        <span className={styles.providerInfoTitle}>
+          {lang('Cross-chain exchange provided by %provider%', { provider: providerName })}
         </span>
-        <span className={styles.changellyInfoDescription}>
-          {
-            lang('$swap_changelly_agreement_message', {
-              terms: (
-                <a href={CHANGELLY_TERMS_OF_USE} target="_blank" rel="noreferrer">
-                  {lang('$swap_changelly_terms_of_use')}
-                </a>
-              ),
-              policy: (
-                <a href={CHANGELLY_PRIVACY_POLICY} target="_blank" rel="noreferrer">
-                  {lang('$swap_changelly_privacy_policy')}
-                </a>
-              ),
-              kyc: <a href={CHANGELLY_AML_KYC} target="_blank" rel="noreferrer">Changelly AML/KYC</a>,
-            })
-          }
-        </span>
+        {legalDescription}
       </div>
+    );
+  }
+
+  function renderCexProviderLegalDescription() {
+    if (!currentCexTermsOfUseUrl || !currentCexPrivacyPolicyUrl) {
+      return undefined;
+    }
+
+    const terms = (
+      <a href={currentCexTermsOfUseUrl} target="_blank" rel="noreferrer">
+        {lang('$swap_cex_terms_of_use')}
+      </a>
+    );
+    const policy = (
+      <a href={currentCexPrivacyPolicyUrl} target="_blank" rel="noreferrer">
+        {lang('$swap_cex_privacy_policy')}
+      </a>
+    );
+    const aml = currentCexAmlKycPolicyUrl ? (
+      <a href={currentCexAmlKycPolicyUrl} target="_blank" rel="noreferrer">
+        {lang('$swap_cex_aml_kyc_policy')}
+      </a>
+    ) : undefined;
+
+    return (
+      <span className={styles.providerInfoDescription}>
+        {aml
+          ? lang('$swap_cex_legal_message_with_aml', { terms, policy, aml })
+          : lang('$swap_cex_legal_message', { terms, policy })}
+      </span>
     );
   }
 
@@ -460,7 +487,7 @@ function SwapInitial({
         <div className={buildClassName(styles.footerBlock, isStatic && styles.footerBlockStatic)}>
           {renderFee()}
           {renderPriceImpactWarning()}
-          {renderChangellyInfo()}
+          {renderCexProviderInfo()}
 
           <SwapSubmitButton
             tokenIn={tokenIn}
@@ -524,7 +551,13 @@ function useReverseProhibited(
   showToast: (arg: ActionPayloads['showToast']) => void,
   lang: LangFn,
 ) {
+  const tokenInChain = getChainBySlug(currentTokenInSlug);
+  const tokenOutChain = getChainBySlug(currentTokenOutSlug);
+  const isOnchainBuyAmountUnsupported = Boolean(tokenInChain
+    && tokenInChain === tokenOutChain
+    && !getChainConfig(tokenInChain).canSwapByBuyAmount);
   const isReverseProhibited = isCrosschain
+    || isOnchainBuyAmountUnsupported
     || pairsBySlug?.[currentTokenInSlug]?.[currentTokenOutSlug]?.isReverseProhibited;
   const isBuyAmountInputDisabled = isReverseProhibited;
 

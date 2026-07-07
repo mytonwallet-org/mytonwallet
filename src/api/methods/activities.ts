@@ -29,13 +29,16 @@ export async function fetchPastActivities(
   toTimestamp?: number,
 ): Promise<ActivitySliceResult | undefined> {
   try {
-    const { activities: rawActivities, hasMore } = tokenSlug
-      ? await fetchTokenActivitySlice(accountId, limit, tokenSlug, toTimestamp)
-      : await fetchAllActivitySlice(accountId, limit, toTimestamp);
+    if (tokenSlug) {
+      const { activities: rawActivities, hasMore } = await fetchTokenActivitySlice(
+        accountId, limit, tokenSlug, toTimestamp,
+      );
+      const activities = await swapReplaceActivities(accountId, rawActivities, tokenSlug);
 
-    const activities = await swapReplaceActivities(accountId, rawActivities, tokenSlug);
+      return { activities, hasMore };
+    }
 
-    return { activities, hasMore };
+    return fetchAllActivitySlice(accountId, limit, toTimestamp);
   } catch (err) {
     logDebugError('fetchPastActivities', tokenSlug, err);
     return undefined;
@@ -90,7 +93,8 @@ async function fetchAllActivitySlice(
     throw firstRejection;
   }
 
-  const activities = mergeSortedActivitiesToMaxTime(...results.map((r) => r.activities));
+  const rawActivities = mergeSortedActivitiesToMaxTime(...results.map((r) => r.activities));
+  const activities = await swapReplaceActivities(accountId, rawActivities);
   const hasMore = results.some((r) => r.hasMore);
 
   return { activities, hasMore };

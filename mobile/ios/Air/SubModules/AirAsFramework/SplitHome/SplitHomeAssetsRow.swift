@@ -113,6 +113,10 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, UICollecti
                 onReorder: { [weak nftsVCManager] in
                     nftsVCManager?.startReordering()
                 },
+                onSelectTab: { [weak self] tab in
+                    guard let self, let index = displayTabs.firstIndex(of: tab) else { return }
+                    collectionView.scrollToItem(at: IndexPath(item: index, section: 0), at: .centeredHorizontally, animated: true)
+                },
                 includesTokenLimitActions: false
             )
             delegate?.editingNavigator = nftsVCManager.editingNavigator
@@ -233,7 +237,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, UICollecti
         displayTabs = []
     }
 
-    func walletAssetModelDidChangeDisplayTabs() {
+    func walletAssetModelDidChangeDisplayTabs(dueToAccountSwitch: Bool) {
         displayTabsChanged()
     }
 

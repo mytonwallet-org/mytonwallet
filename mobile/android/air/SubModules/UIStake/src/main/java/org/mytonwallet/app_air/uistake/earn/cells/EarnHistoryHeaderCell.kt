@@ -20,7 +20,7 @@ class EarnHistoryHeaderCell(context: Context) : WCell(context), WThemedView {
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(14f, WFont.DemiBold)
+            setStyle(14f, WFont.Medium)
             text = LocaleController.getString("History")
         }
     }

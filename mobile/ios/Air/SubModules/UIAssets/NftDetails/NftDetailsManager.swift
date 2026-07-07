@@ -20,7 +20,7 @@ final class NftDetailsManager {
         }
     }
     
-    let models: [ItemModel]
+    private(set) var models: [ItemModel]
     
     private(set) var activeModelIndex: Int = 0
     
@@ -31,14 +31,93 @@ final class NftDetailsManager {
         evictDistantModels(aroundIndex: idx)
     }
 
+    @discardableResult
+    func removeModel(id: String) -> [ItemModel] {
+        guard let removeIdx = models.firstIndex(where: { $0.id == id }) else {
+            return models
+        }
+        let model = models[removeIdx]
+
+        // Cancel/clean all in-flight state for the removed model.
+        // Any background processing operation still in flight will no-op: its completion guards on
+        // `case .loading`, and `cleanupModel` resets the removed model to `.idle`.
+        cleanupModel(model)
+
+        // Remove and reindex the survivors so positional math (offsets, prefetch, eviction) stays valid.
+        // The pending queue holds model references, so it needs no remapping here.
+        models.remove(at: removeIdx)
+        for (i, m) in models.enumerated() { m.index = i }
+
+        // Keep the active index pointing at the same active model: shift it down if an earlier item
+        // was removed, then clamp to the new bounds.
+        if removeIdx < activeModelIndex { activeModelIndex -= 1 }
+        activeModelIndex = models.isEmpty ? 0 : min(max(0, activeModelIndex), models.count - 1)
+
+        return models
+    }
+
+    /// Rebuilds the model list to match `newItems`, preserving existing model instances (and their
+    /// image-pipeline state) by id while creating fresh models for newly inserted ids. Models that
+    /// are no longer present have their in-flight work cancelled. Order follows `newItems`.
+    @discardableResult
+    func reconcile(toItems newItems: [NftDetailsItem]) -> [ItemModel] {
+        let existingById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let newIds = Set(newItems.map(\.id))
+
+        // Cancel/clean in-flight work for models that are leaving.
+        for model in models where !newIds.contains(model.id) {
+            cleanupModel(model)
+        }
+
+        // Remember the currently active model so we can keep it focused after reindexing.
+        let activeId = models.indices.contains(activeModelIndex) ? models[activeModelIndex].id : nil
+
+        var newModels: [ItemModel] = []
+        newModels.reserveCapacity(newItems.count)
+        for (i, item) in newItems.enumerated() {
+            if let existing = existingById[item.id] {
+                existing.index = i
+                newModels.append(existing)
+            } else {
+                let model = ItemModel(item: item, index: i)
+                model.delegate = self
+                model.displayStateProvider = displayStateProvider
+                newModels.append(model)
+            }
+        }
+        models = newModels
+
+        if let activeId, let idx = models.firstIndex(where: { $0.id == activeId }) {
+            activeModelIndex = idx
+        } else {
+            activeModelIndex = models.isEmpty ? 0 : min(max(0, activeModelIndex), models.count - 1)
+        }
+
+        return models
+    }
+
+    /// Cancels downloads / pending processing for a model and resets it to `.idle` so any in-flight
+    /// background operation no-ops on completion.
+    private func cleanupModel(_ model: ItemModel) {
+        let taskId = getDownloadTaskId(model)
+        downloadTasks[taskId]?.cancel()
+        downloadTasks.removeValue(forKey: taskId)
+        pendingRawImages.removeValue(forKey: model.id)
+        pendingModels.removeAll { $0 === model }
+        model.processedImageState = .idle
+    }
+
     private var generation = 0
     private var downloadTasks: [ObjectIdentifier: DownloadTask] = [:]
-    private var pendingModelIndices: [Int] = []
+    private var pendingModels: [ItemModel] = []
     private var pendingRawImages: [String: UIImage] = [:]
 
     let coverFlowThumbnailDownloader: ImageDownloader
     let processedImageCache: ImageCache
     let colorCache = NftDetailsColorCache()
+    let colorResolver: NftDetailsColorResolver
+
+    @MainActor private weak var displayStateProvider: NftDetailsDisplayStateProviding?
 
     private let imageProcessor: NftDetailsImageProcessor
     private var isImageQueueProcessing = false
@@ -55,6 +134,8 @@ final class NftDetailsManager {
 
         coverFlowThumbnailDownloader = ImageDownloader(name: "NftDetails.coverFlow")
         coverFlowThumbnailDownloader.downloadTimeout = 60
+
+        colorResolver = NftDetailsColorResolver(colorCache: colorCache)
         
         imageProcessor = NftDetailsImageProcessor()
         
@@ -91,12 +172,21 @@ final class NftDetailsManager {
     deinit {
         coverFlowThumbnailDownloader.cancelAll()
     }
+
+    func setDisplayStateProvider(_ provider: NftDetailsDisplayStateProviding) {
+        displayStateProvider = provider
+        models.forEach { $0.displayStateProvider = provider }
+    }
+
+    func notifyDisplayStateChanged() {
+        models.forEach { $0.notify(.displayStateChanged) }
+    }
     
     private func invalidateAll() {
         generation += 1
         imageProcessingQueue.cancelAllOperations()
         isImageQueueProcessing = false
-        pendingModelIndices.removeAll()
+        pendingModels.removeAll()
         pendingRawImages.removeAll()
 
         for (_, task) in downloadTasks { task.cancel() }
@@ -241,7 +331,8 @@ final class NftDetailsManager {
                 case .success(let value):
                     self.enqueueForProcessing(model: model, rawImage: value.image)
                 case .failure:
-                    self.applyPlaceholder(model: model, image: NftDetailsImage.errorPlaceholderImage())
+                    let image = NftDetailsImage.noImagePlaceholderImage()
+                    self.applyPlaceholder(model: model, image: image)
                 }
             }
         }
@@ -251,9 +342,6 @@ final class NftDetailsManager {
     }
 
     private func applyPlaceholder(model: ItemModel, image: UIImage) {
-        let perf = NftDetailsPerformance.beginMeasure("applyPlaceholder", threshold: 0)
-        defer { NftDetailsPerformance.endMeasure(perf) }
-        
         guard case .loading = model.processedImageState else { return }
         var processed = NftDetailsImage.Processed()
         processed.originalImage = image
@@ -265,31 +353,29 @@ final class NftDetailsManager {
 
     private func enqueueForProcessing(model: ItemModel, rawImage: UIImage) {
         let modelId = model.id
-        let modelIndex = model.index
-        
-        guard !pendingModelIndices.contains(modelIndex), pendingRawImages[modelId] == nil else { return }
+
+        guard !pendingModels.contains(where: { $0 === model }), pendingRawImages[modelId] == nil else { return }
 
         pendingRawImages[modelId] = rawImage
-        pendingModelIndices.append(modelIndex)
+        pendingModels.append(model)
         reprioritizePendingQueue()
         drainQueue()
     }
 
     private func reprioritizePendingQueue() {
-        guard pendingModelIndices.count > 1 else { return }
+        guard pendingModels.count > 1 else { return }
 
         let active = activeModelIndex
-        pendingModelIndices.sort { a, b in
-            return abs(a - active) < abs(b - active)
+        pendingModels.sort { a, b in
+            return abs(a.index - active) < abs(b.index - active)
         }
     }
 
     private func drainQueue() {
         guard !isImageQueueProcessing, targetWidth > 0 else { return }
 
-        while !pendingModelIndices.isEmpty {
-            let idx = pendingModelIndices.removeFirst()
-            let model = models[idx]
+        while !pendingModels.isEmpty {
+            let model = pendingModels.removeFirst()
             let id = model.id
             guard case .loading = model.processedImageState else {
                 pendingRawImages.removeValue(forKey: id)
@@ -382,7 +468,7 @@ extension NftDetailsManager {
         downloadTasks[taskId]?.cancel()
         downloadTasks.removeValue(forKey: taskId)
 
-        pendingModelIndices.removeAll { $0 == model.index }
+        pendingModels.removeAll { $0 === model }
         pendingRawImages.removeValue(forKey: model.id)
 
         traceModelActivity(model, "Evicted 🧹")

@@ -255,6 +255,7 @@ class WMenuPopup {
             windowBackgroundStyle: BackgroundStyle =
                 BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp),
             backdropStyle: BackdropStyle = BackdropStyle.BlurDimmed,
+            usePillShadow: Boolean = false,
             onWillDismiss: (() -> Unit)? = null,
             displayProgressListener: ((progress: Float) -> Unit)? = null,
         ): INavigationPopup {
@@ -276,6 +277,7 @@ class WMenuPopup {
                     popupWidth,
                     windowBackgroundStyle,
                     backdropStyle,
+                    usePillShadow,
                 ).apply {
                     setOnDismissListener {
                         view.post {

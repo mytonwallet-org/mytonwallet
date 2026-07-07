@@ -10,10 +10,12 @@ public final class LedgerViewModel {
     public struct Step: Equatable, Identifiable {
         public var id: StepId
         public var status: StepStatus
+        public var subtitle: String?
         
-        init(id: StepId, status: StepStatus) {
+        init(id: StepId, status: StepStatus, subtitle: String? = nil) {
             self.id = id
             self.status = status
+            self.subtitle = subtitle
         }
     }
     

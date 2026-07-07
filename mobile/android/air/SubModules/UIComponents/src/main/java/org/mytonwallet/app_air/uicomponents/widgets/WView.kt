@@ -373,7 +373,7 @@ fun Iterable<View>.fadeOut(
         interpolator(interpolator)
         together {
             forEach {
-                viewProperty(it) { alpha(1f) }
+                viewProperty(it) { alpha(0f) }
             }
         }
         onEnd { onEnd() }

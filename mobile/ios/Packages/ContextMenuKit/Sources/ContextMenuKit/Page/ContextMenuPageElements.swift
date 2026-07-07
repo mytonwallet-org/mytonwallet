@@ -168,6 +168,14 @@ final class ContextMenuSeparatorView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        if previousTraitCollection?.userInterfaceStyle != self.traitCollection.userInterfaceStyle {
+            self.updateColors()
+        }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
 
@@ -240,6 +248,15 @@ final class ContextMenuRowView: UIControl {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        if previousTraitCollection?.userInterfaceStyle != self.traitCollection.userInterfaceStyle {
+            self.updateColors()
+            self.updateBadge()
+        }
     }
 
     override var isHighlighted: Bool {
@@ -406,6 +423,7 @@ final class ContextMenuCustomRowView: UIControl {
         ])
 
         if item.interaction.isSelectable {
+            self.containerView.isUserInteractionEnabled = false
             self.hostedContentView.isUserInteractionEnabled = false
             self.accessibilityTraits = .button
         }

@@ -12,6 +12,9 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvide
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AudioHelpers
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
+import org.mytonwallet.app_air.walletcore.MINT_CARD_ADDRESS
+import org.mytonwallet.app_air.walletcore.MINT_CARD_REFUND_COMMENT
+import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
@@ -21,6 +24,7 @@ import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
+import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapItem
 import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.util.Collections
@@ -705,6 +709,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             // Auto-install MTW card from incoming activity that carries an NFT.
             if (eventType == WalletEvent.ReceivedNewActivities.EventType.UPDATE) {
                 applyMtwCardsFromActivities(accountId, newActivities)
+                clearCardMintingIfResolved(accountId, newActivities)
             }
 
             // Play notification sound for incoming transactions
@@ -815,6 +820,23 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                 NftStore.applyIncomingMtwCard(accountId, nft)
             }
         }
+    }
+
+    private fun clearCardMintingIfResolved(
+        accountId: String,
+        activities: List<MApiTransaction>
+    ) {
+        if (!NftStore.isCardMinting(accountId)) return
+        val resolved = activities.any { activity ->
+            if (activity !is MApiTransaction.Transaction) return@any false
+            if (activity.isPending() || activity.isLocal() || !activity.isIncoming) return@any false
+            val isCardArrival = activity.nft?.collectionAddress == MTW_CARDS_COLLECTION
+            val isRefund = activity.fromAddress == MINT_CARD_ADDRESS &&
+                activity.comment == MINT_CARD_REFUND_COMMENT
+            isCardArrival || isRefund
+        }
+        if (!resolved) return
+        NftStore.setCardMinting(accountId, false)
     }
 
     private fun playIncomingTransactionSound(
@@ -1083,8 +1105,10 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         val ids = pendingCexSwapIds(accountId)
         if (ids.isEmpty()) return
 
+        val items = ids.map { MApiFetchSwapItem(id = it, chain = MBlockchain.ton) }
+
         mainHandler.post {
-            WalletCore.call(ApiMethod.Swap.FetchSwaps(accountId, ids)) { result, err ->
+            WalletCore.call(ApiMethod.Swap.FetchSwaps(accountId, items)) { result, err ->
                 if (err != null || result == null) {
                     Logger.e(Logger.LogTag.ACTIVITY_STORE, "refreshPendingCexSwaps: $err")
                     // Retry at the next regular interval.

@@ -1,13 +1,13 @@
 import UIKit
 import UIComponents
 
-public class NftDetailsBaseVC: UIViewController {
+public class NftDetailsBaseVC: WViewController {
     let manager: NftDetailsManager
     
     private var selectedModel: ItemModel
     private var selectedModelSubscription: ItemModel.Subscription?
 
-    private let backgroundView = Background.View()
+    private let backgroundView: Background.View
     private let contentContainer = UIView()
     private let mainScrollView = NftDetailMainScrollView()
     private let mainScrollContentView = UIView()
@@ -44,6 +44,7 @@ public class NftDetailsBaseVC: UIViewController {
             pageTransition: .staticPage(selectedModel),
             isPreviewHidden: true
         )
+        self.backgroundView = Background.View(colorResolver: manager.colorResolver)
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -64,6 +65,15 @@ public class NftDetailsBaseVC: UIViewController {
                 && navigationController.presentingViewController?.presentedViewController === navigationController
         }
         return presentingViewController != nil
+    }
+
+    /// Dismisses the screen using the same modal-vs-navigation logic as the close/back buttons.
+    func dismissSelf() {
+        if isModalRoot {
+            dismiss(animated: true)
+        } else {
+            navigationController?.popViewController(animated: true)
+        }
     }
 
     private func configureNavigationItems() {
@@ -93,7 +103,7 @@ public class NftDetailsBaseVC: UIViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = .air.sheetBackground
+        manager.colorResolver.update(traitCollection: traitCollection)
 
         navigationItem.backButtonDisplayMode = .minimal
 
@@ -104,7 +114,8 @@ public class NftDetailsBaseVC: UIViewController {
         contentContainer.addSubview(backgroundView)
 
         mainScrollView.contentViewToRedirect = mainScrollContentView
-        mainScrollView.showsVerticalScrollIndicator = true
+        mainScrollView.showsVerticalScrollIndicator = false
+        mainScrollView.showsHorizontalScrollIndicator = false
         mainScrollView.alwaysBounceVertical = true
         mainScrollView.contentInsetAdjustmentBehavior = .never
         mainScrollView.contentInset = .zero
@@ -175,7 +186,15 @@ public class NftDetailsBaseVC: UIViewController {
             view.layoutIfNeeded()
         }
     }
-    
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            manager.colorResolver.update(traitCollection: traitCollection)
+            updateBackground()
+        }
+    }
+
     public override func viewWillAppear(_ animated: Bool) {
        super.viewWillAppear(animated)
        if let sheet = self.sheetPresentationController {
@@ -251,6 +270,8 @@ public class NftDetailsBaseVC: UIViewController {
 
         let layoutGeometry = NftDetailsMainHeaderView.LayoutGeometry(
             topSafeAreaInset: view.safeAreaInsets.top,
+            leadingSafeAreaInset: view.safeAreaInsets.left,
+            trailingSafeAreaInset: view.safeAreaInsets.right,
             collapsedAreaHeight: collapsedHeight,
             pageWidth: pageWidth
         )
@@ -259,6 +280,7 @@ public class NftDetailsBaseVC: UIViewController {
 
         if let headerView {
             headerView.layoutGeometry = layoutGeometry
+            headerView.overlayParentView = view
         } else {
             let newHeader = NftDetailsMainHeaderView(
                 frame: contentContainer.bounds,
@@ -267,8 +289,9 @@ public class NftDetailsBaseVC: UIViewController {
                 delegate: self,
                 layoutGeometry: layoutGeometry,
                 coverFlowThumbnailDownloader: manager.coverFlowThumbnailDownloader,
-                colorCache: manager.colorCache
+                colorResolver: manager.colorResolver
             )
+            newHeader.overlayParentView = view
             newHeader.translatesAutoresizingMaskIntoConstraints = false
             contentContainer.insertSubview(newHeader, belowSubview: mainScrollView)
             NSLayoutConstraint.activate([
@@ -305,6 +328,7 @@ public class NftDetailsBaseVC: UIViewController {
         } else {
             let newPager = NftDetailsPagerView(
                 models: manager.models,
+                colorResolver: manager.colorResolver,
                 currentIndex: selectedModel.index,
                 layoutGeometry: layoutGeometry,
                 delegate: self,
@@ -325,18 +349,15 @@ public class NftDetailsBaseVC: UIViewController {
     private func updateBackground() {
         
         func getPageModel(forModel model: ItemModel) -> Background.PageModel {
-            var backgroundColor: UIColor?
-            var image: CIImage?
-            
-            // We get loaded (real) value but also look for cache - just to avoid background blink at the very beginning
-            if case .loaded(let processed) = model.processedImageState {
-                backgroundColor = processed.baseColor
-                image = processed.previewCIImage
-            } else {
-                let (_, color) = manager.colorCache.color(forKey: model.id)
-                backgroundColor = color
-            }
-            return .init(backgroundColor: backgroundColor, image: image, tag: model.shortDescription)
+            let image: CIImage? = {
+                guard case .loaded(let processed) = model.processedImageState else { return nil }
+                return processed.previewCIImage
+            }()
+            return .init(
+                backgroundColor: manager.colorResolver.effectiveBaseColor(for: model),
+                image: image,
+                tag: model.shortDescription
+            )
         }
         
         let pageState: Background.PageState
@@ -358,6 +379,7 @@ public class NftDetailsBaseVC: UIViewController {
         )
                 
         backgroundView.setModel(model)
+        view.backgroundColor = pageState.edgeColor(fallback: manager.colorResolver.fallbackColor)
     }
         
     private enum SelectModelInitiator {
@@ -370,7 +392,7 @@ public class NftDetailsBaseVC: UIViewController {
         selectedModel.isSelected = false
         selectedModel = model
         selectedModel.isSelected = true
-        manager.setActiveModel(model)
+        setActiveModel(model)
 
         var notifyCoverFlow = false
         var notifyPager = false
@@ -413,7 +435,197 @@ public class NftDetailsBaseVC: UIViewController {
         headerView?.openFullScreenPreview()
     }
 
+    // MARK: - Item reconcile / removal
+
+    /// Delay before self-dismissing once the list becomes empty, so the user perceives the final
+    /// removal / the screen state before it goes away.
+    private static let emptyDismissDelay: TimeInterval = 0.4
+    private var isAwaitingEmptyDismiss = false
+
+    /// Schedules a one-shot self-dismiss after `emptyDismissDelay`. Safe to call repeatedly.
+    private func scheduleEmptyDismiss() {
+        guard !isAwaitingEmptyDismiss else { return }
+        isAwaitingEmptyDismiss = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.emptyDismissDelay) { [weak self] in
+            self?.dismissSelf()
+        }
+    }
+
+    /// Reconciles the displayed list to `newItems` (insertions, removals and reorders), keyed by NFT
+    /// id, preserving image-pipeline state for surviving items. Selection is kept on the current item
+    /// when it survives, otherwise it falls back to `preferredSelectedId` and then the first item.
+    ///
+    /// When the reconciled list is empty the screen schedules a delayed self-dismiss. A no-op reconcile
+    /// (same ids in the same order) only refreshes display state (hidden / on-sale badges).
+    func reconcileItems(_ newItems: [NftDetailsItem], preferredSelectedId: String? = nil, animated: Bool = true) {
+        guard isViewLoaded else { return }
+
+        if newItems.isEmpty {
+            _ = headerView?.dismissFullScreen()
+            scheduleEmptyDismiss()
+            return
+        }
+
+        // Fast path: nothing structural changed and no explicit re-selection requested — just refresh badges.
+        if preferredSelectedId == nil, manager.models.map(\.id) == newItems.map(\.id) {
+            manager.notifyDisplayStateChanged()
+            return
+        }
+
+        // Leave full-screen preview before mutating the list to avoid an overlay referencing a stale model.
+        _ = headerView?.dismissFullScreen()
+
+        let newModels = manager.reconcile(toItems: newItems)
+        guard !newModels.isEmpty else {
+            scheduleEmptyDismiss()
+            return
+        }
+
+        // An explicitly requested selection wins (e.g. the last NFT unhidden in a pushed child screen),
+        // otherwise keep the current selection if it survived, otherwise fall back to the first item.
+        let newSelected: ItemModel = preferredSelectedId.flatMap { id in newModels.first(where: { $0.id == id }) }
+            ?? newModels.first(where: { $0.id == selectedModel.id })
+            ?? newModels[0]
+
+        if newSelected !== selectedModel {
+            selectedModel.isSelected = false
+            selectedModel = newSelected
+            selectedModel.isSelected = true
+        }
+        setActiveModel(newSelected)
+
+        if selectedModelSubscription?.model !== newSelected {
+            selectedModelSubscription = .init(model: newSelected, event: .processedImageUpdated, tag: "BG") { [weak self] in
+                self?.updateBackground()
+            }
+        }
+
+        // Reset the transition state so it no longer references a removed model.
+        state.pageTransition = .staticPage(newSelected)
+
+        pager?.setModels(newModels, newCurrentIndex: newSelected.index, animated: animated)
+        headerView?.setModels(newModels, newSelectedModel: newSelected, animated: animated)
+
+        manager.notifyDisplayStateChanged()
+        updateBackground()
+    }
+
+    /// Duration of the cross-fade that masks the structural removal of the displayed NFT.
+    private static let removalCrossfadeDuration: TimeInterval = 0.3
+
+    /// Removes the item with the given id from the shared model list with an animated UI update.
+    ///
+    /// If the removed item is the currently selected one, selection moves to the next item (or the
+    /// previous one if it was last). When the list becomes empty, the screen is dismissed.
+    ///
+    /// Removing the displayed NFT changes several layers at once — the pager re-centers on the new
+    /// page, the cover flow drops its tile, the preview swaps its image and the background recolors.
+    /// Doing these directly produces a burst of instant flashes, so we snapshot the current frame,
+    /// apply every change underneath it without per-layer animation, and cross-fade the snapshot out
+    /// to merge them into one smooth transition.
+    func removeItem(id: String, animated: Bool = true) {
+        guard let removedModel = manager.models.first(where: { $0.id == id }) else { return }
+
+        // Leave full-screen preview before mutating the list to avoid an overlay referencing a stale model.
+        _ = headerView?.dismissFullScreen()
+
+        let wasSelected = (selectedModel.id == id)
+
+        // Pick the replacement selection (next, else previous) using the pre-removal ordering.
+        var newSelected: ItemModel? = wasSelected ? nil : selectedModel
+        if wasSelected, let idx = manager.models.firstIndex(where: { $0.id == id }) {
+            let models = manager.models
+            if idx + 1 < models.count {
+                newSelected = models[idx + 1]
+            } else if idx > 0 {
+                newSelected = models[idx - 1]
+            }
+        }
+
+        // Capture the current frame before mutating, so the abrupt structural updates below happen
+        // hidden behind it. Only worthwhile when the list survives (an empty list dismisses instead)
+        // and the screen is actually on-screen.
+        let shouldCrossfade = animated && view.window != nil && manager.models.count > 1
+
+        // Foreground (cover flow, pager page, preview) cross-fade. `snapshotView` does not capture the
+        // Metal-backed background, so its region stays transparent — that part is handled by `bgFade`.
+        let crossfadeSnapshot: UIView? = shouldCrossfade ? view.snapshotView(afterScreenUpdates: false) : nil
+        // Solid overlay holding the pre-removal background color while the live (Metal) background
+        // recolors underneath, so the backdrop dissolves instead of snapping. The background is a flat
+        // base color in the expanded/collapsed states from which hiding is triggered.
+        let bgFade: UIView? = shouldCrossfade ? UIView() : nil
+
+        if let bgFade {
+            bgFade.isUserInteractionEnabled = false
+            bgFade.backgroundColor = view.backgroundColor
+            bgFade.frame = contentContainer.bounds
+            bgFade.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            contentContainer.insertSubview(bgFade, aboveSubview: backgroundView)
+        }
+        if let crossfadeSnapshot {
+            crossfadeSnapshot.isUserInteractionEnabled = false
+            crossfadeSnapshot.frame = view.bounds
+            view.addSubview(crossfadeSnapshot)
+        }
+
+        let newModels = manager.removeModel(id: id)
+        guard !newModels.isEmpty, let newSelected else {
+            crossfadeSnapshot?.removeFromSuperview()
+            bgFade?.removeFromSuperview()
+            scheduleEmptyDismiss()
+            return
+        }
+
+        removedModel.isSelected = false
+
+        if wasSelected {
+            selectedModel = newSelected
+            selectedModel.isSelected = true
+            setActiveModel(newSelected)
+            if selectedModelSubscription?.model !== newSelected {
+                selectedModelSubscription = .init(model: newSelected, event: .processedImageUpdated, tag: "BG") { [weak self] in
+                    self?.updateBackground()
+                }
+            }
+        }
+
+        // Reset the transition state so it no longer references the removed model.
+        state.pageTransition = .staticPage(newSelected)
+
+        // When cross-fading, apply the structural updates instantly underneath the overlays; the
+        // overlays' fade-out is the only visible animation.
+        let childAnimated = !shouldCrossfade && animated
+        pager?.removeModel(id: id, newModels: newModels, newCurrentIndex: newSelected.index, animated: childAnimated)
+        headerView?.removeModel(id: id, newModels: newModels, newSelectedModel: newSelected, animated: childAnimated)
+
+        updateBackground()
+
+        if shouldCrossfade {
+            UIView.animate(
+                withDuration: Self.removalCrossfadeDuration,
+                delay: 0,
+                options: [.curveEaseInOut],
+                animations: {
+                    crossfadeSnapshot?.alpha = 0
+                    bgFade?.alpha = 0
+                },
+                completion: { _ in
+                    crossfadeSnapshot?.removeFromSuperview()
+                    bgFade?.removeFromSuperview()
+                }
+            )
+        }
+    }
+
     // MARK: - Actions. Must be overridden in descendants
+
+    private func setActiveModel(_ model: ItemModel) {
+        manager.setActiveModel(model)
+        nftDetailsDidSetActiveModel(model)
+    }
+
+    func nftDetailsDidSetActiveModel(_ model: NftDetailsItemModel) {
+    }
     
     func ntfDetailsOnConfigureAction(forModel model: NftDetailsItemModel, action: NftDetailsItemModel.Action) -> NftDetailsActionConfig? {
         fatalError("Override this")

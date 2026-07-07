@@ -18,6 +18,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     public var chain: ApiChain = .ton
     public var type: ApiTokenType?
     public var tokenAddress: String?
+    public var tokenWalletAddress: String?
     public var image: String?
     public var isPopular: Bool?
     public var keywords: [String]?
@@ -37,13 +38,15 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     public var priceUsd: Double?
     public var percentChange24h: Double?
 
-    public init(slug: String, name: String, symbol: String, decimals: Int, chain: ApiChain, tokenAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, label: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
+    public init(slug: String, name: String, symbol: String, decimals: Int, chain: ApiChain, type: ApiTokenType? = nil, tokenAddress: String? = nil, tokenWalletAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, label: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
         self.slug = slug
         self.name = name
         self.symbol = symbol
         self.decimals = decimals
         self.chain = chain
+        self.type = type
         self.tokenAddress = tokenAddress
+        self.tokenWalletAddress = tokenWalletAddress
         self.image = image
         self.isPopular = isPopular
         self.keywords = keywords
@@ -66,7 +69,9 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         case symbol
         case decimals
         case chain
+        case type
         case tokenAddress
+        case tokenWalletAddress
         case image
         case isPopular
         case keywords
@@ -78,6 +83,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         case customPayloadApiUrl
         case codeHash
         case label
+        case isFromBackend
         case priceUsd
         case percentChange24h
         
@@ -96,7 +102,9 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         try container.encode(self.symbol, forKey: .symbol)
         try container.encode(self.decimals, forKey: .decimals)
         try container.encode(self.chain, forKey: .chain)
+        try container.encodeIfPresent(self.type, forKey: .type)
         try container.encodeIfPresent(self.tokenAddress, forKey: .tokenAddress)
+        try container.encodeIfPresent(self.tokenWalletAddress, forKey: .tokenWalletAddress)
         try container.encodeIfPresent(self.image, forKey: .image)
         try container.encodeIfPresent(self.isPopular, forKey: .isPopular)
         try container.encodeIfPresent(self.keywords, forKey: .keywords)
@@ -108,6 +116,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         try container.encodeIfPresent(self.customPayloadApiUrl, forKey: .customPayloadApiUrl)
         try container.encodeIfPresent(self.codeHash, forKey: .codeHash)
         try container.encodeIfPresent(self.label, forKey: .label)
+        try container.encodeIfPresent(self.isFromBackend, forKey: .isFromBackend)
         try container.encodeIfPresent(self.priceUsd, forKey: .priceUsd)
         try container.encodeIfPresent(self.percentChange24h, forKey: .percentChange24h)
     }
@@ -126,12 +135,14 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         } else {
             self.chain = FALLBACK_CHAIN
         }
+        self.type = try container.decodeIfPresent(ApiTokenType.self, forKey: .type)
         
         var tokenAddress = try container.decodeIfPresent(String.self, forKey: .tokenAddress)
         if tokenAddress == nil {
             tokenAddress = try? container.decodeIfPresent(String.self, forKey: .minterAddress)
         }
         self.tokenAddress = tokenAddress
+        self.tokenWalletAddress = try container.decodeIfPresent(String.self, forKey: .tokenWalletAddress)
         
         self.image = try container.decodeIfPresent(String.self, forKey: .image)
         self.isPopular = try container.decodeIfPresent(Bool.self, forKey: .isPopular)
@@ -144,6 +155,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.customPayloadApiUrl = try container.decodeIfPresent(String.self, forKey: .customPayloadApiUrl)
         self.codeHash = try container.decodeIfPresent(String.self, forKey: .codeHash)
         self.label = try container.decodeIfPresent(String.self, forKey: .label)
+        self.isFromBackend = try container.decodeIfPresent(Bool.self, forKey: .isFromBackend)
         
         var quote = try? container.decodeIfPresent(ApiTokenPrice.self, forKey: .quote)
         if quote == nil {
@@ -173,6 +185,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         }
         self.type = (dict["type"] as? String).flatMap(ApiTokenType.init)
         self.tokenAddress = dict["tokenAddress"] as? String
+        self.tokenWalletAddress = dict["tokenWalletAddress"] as? String
         self.image = dict["image"] as? String
         self.isPopular = dict["isPopular"] as? Bool
         self.keywords = dict["keywords"] as? [String]
@@ -210,6 +223,8 @@ public extension ApiToken {
 
 public enum ApiTokenType: String, Equatable, Hashable, Codable, Sendable {
     case lp_token = "lp_token"
+    case legacy_token = "legacy_token"
+    case token_2022 = "token_2022"
 }
 
 extension ApiToken {
@@ -233,12 +248,19 @@ extension ApiToken {
     public var isStakedToken: Bool {
         return STAKED_TOKEN_SLUGS.contains(slug)
     }
+
+    public var isRwaStock: Bool {
+        keywords?.contains("rwa") == true
+    }
     
     /// assumes keyword is lowercased and trimmed
     public func matchesSearch(_ keyword: String) -> Bool {
         if keyword.isEmpty { return true }
         if name.lowercased().contains(keyword) { return true }
         if symbol.lowercased().contains(keyword) { return true }
+        if label?.lowercased().contains(keyword) == true { return true }
+        if chain.title.lowercased().contains(keyword) { return true }
+        if chain.rawValue.lowercased().contains(keyword) { return true }
         if tokenAddress?.lowercased().contains(keyword) == true { return true }
         if let keywords, keywords.any({ $0.contains(keyword) }) {
             return true
@@ -360,7 +382,7 @@ extension ApiToken {
 
     public static let MYCOIN = ApiToken(
         slug: MYCOIN_SLUG,
-        name: "MyTonWallet Coin",
+        name: "My Wallet Coin",
         symbol: "MY",
         decimals: 9,
         chain: .ton
@@ -527,7 +549,7 @@ extension ApiToken {
 
     public static let STAKED_MYCOIN = ApiToken(
         slug: STAKED_MYCOIN_SLUG,
-        name: "Staked MyTonWallet Coin",
+        name: "Staked $MY",
         symbol: "stMY",
         decimals: 9,
         chain: .ton

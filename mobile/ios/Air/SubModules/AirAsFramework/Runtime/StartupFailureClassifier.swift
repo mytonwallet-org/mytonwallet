@@ -17,7 +17,7 @@ enum StartupFailureClassifier {
             kind = .databaseFailure
         } else if isStorageWriteFailure(rootError) {
             kind = .storageWriteFailed
-        } else if rootError is BridgeCallError {
+        } else if rootError is SdkError {
             kind = .bridgeFailure
         } else {
             kind = .unknown

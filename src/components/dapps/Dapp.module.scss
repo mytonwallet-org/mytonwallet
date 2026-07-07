@@ -1,3 +1,5 @@
+@use '../../styles/mixins';
+
 $fieldGap: 1.25rem;
 $labelGap: 0.375rem;
 $labelLineHeight: 1.125rem;
@@ -340,8 +342,7 @@ $labelSidePadding: 0.5rem;
 }
 
 .rowContainerSkeleton,
-.dataField,
-.eip712TypedBlock {
+.dataField {
   margin-bottom: $fieldGap;
 }
 
@@ -350,36 +351,7 @@ $labelSidePadding: 0.5rem;
 }
 
 .payloadField {
-  position: relative;
-
-  overflow: hidden;
-
-  box-sizing: border-box;
-  margin-bottom: $fieldGap;
-  padding: 0.875rem 0.75rem;
-  border: none;
-  border-radius: var(--border-radius-default);
-
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-  color: var(--color-black);
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  background: var(--color-background-first);
-  outline: none;
-
-  &_expanded {
-    word-break: break-all !important;
-    white-space: normal;
-  }
-
-  &_text {
-    overflow-wrap: break-word;
-    white-space: normal;
-  }
+  @include mixins.payloadField();
 }
 
 .payloadFieldExpand {
@@ -415,56 +387,6 @@ $labelSidePadding: 0.5rem;
 
 .payloadFieldTerm {
   white-space: nowrap;
-}
-
-.eip712Struct {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.eip712FieldRow {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: start;
-}
-
-.eip712FieldName {
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-  color: var(--color-gray-2);
-  overflow-wrap: anywhere;
-}
-
-.eip712FieldValue {
-  min-width: 0;
-
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-  color: var(--color-black);
-  overflow-wrap: anywhere;
-}
-
-.eip712Array {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.eip712ArrayItem {
-  display: flex;
-  gap: 0.375rem;
-  align-items: baseline;
-}
-
-.eip712ArrayIndex {
-  flex-shrink: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-gray-2);
 }
 
 .transactionList {
@@ -734,7 +656,11 @@ $labelSidePadding: 0.5rem;
   margin: -0.5rem 0 $fieldGap
 }
 
-.warningForPayload {
+.multichainWarning {
+  margin-top: 0.75rem;
+}
+
+.warning {
   position: relative;
 
   overflow: hidden;
@@ -763,6 +689,10 @@ $labelSidePadding: 0.5rem;
 
     background: currentColor;
   }
+}
+
+.warningTitle {
+  font-weight: 700;
 }
 
 .emulation {

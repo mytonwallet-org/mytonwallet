@@ -178,9 +178,9 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'processDeeplink': {
-      const { url } = update;
+      const { url, isFromInAppBrowser } = update;
 
-      void processDeeplink(url);
+      void processDeeplink(url, isFromInAppBrowser);
       break;
     }
 

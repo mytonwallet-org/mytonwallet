@@ -1,7 +1,7 @@
 import UIKit
 import WalletContext
 
-public class SimpleGroupCell: UICollectionViewListCell {
+open class SimpleGroupCell: UICollectionViewListCell {
     private static let accessoryToTextSpacing: CGFloat = 8
 
     private let titleLabel: UILabel = {
@@ -101,7 +101,7 @@ public class SimpleGroupCell: UICollectionViewListCell {
         super.touchesCancelled(touches, with: event)
     }
 
-    public override func prepareForReuse() {
+    open override func prepareForReuse() {
         super.prepareForReuse()
         oldBackground = nil
         isHighlighted = false
@@ -124,7 +124,7 @@ public class SimpleGroupCell: UICollectionViewListCell {
         backgroundConfiguration = background
     }
 
-    required init?(coder: NSCoder) {
+    required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 }

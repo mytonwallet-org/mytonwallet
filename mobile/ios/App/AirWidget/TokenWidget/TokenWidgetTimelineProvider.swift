@@ -24,8 +24,8 @@ struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
         let tokens = await store.tokensDictionary(tryRemote: true)
         let rates = await store.ratesDictionary()
         
-        let selectedSlug = configuration.token.slug
-        let token = tokens[selectedSlug] ?? configuration.token
+        let selectedSlug = configuration.token.tokenSlug
+        let token = tokens[selectedSlug] ?? configuration.token.apiTokenFallback
         
         let currencyRate = BaseCurrencyAmount.fromDouble(
             (token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? displayCurrency.fallbackExchangeRate),

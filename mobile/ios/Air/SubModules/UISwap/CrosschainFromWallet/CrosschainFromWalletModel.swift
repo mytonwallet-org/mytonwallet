@@ -14,6 +14,7 @@ final class CrosschainFromWalletModel {
     
     let sellingToken: TokenAmount
     let buyingToken: TokenAmount
+    let cexLabel: ApiSwapCexLabel?
     
     var addressInputString: String = ""
     var addressWithTrimming: String {
@@ -35,11 +36,13 @@ final class CrosschainFromWalletModel {
     init(
         sellingToken: TokenAmount,
         buyingToken: TokenAmount,
+        cexLabel: ApiSwapCexLabel?,
         accountContext: AccountContext
     ) {
         self._account = accountContext
         self.sellingToken = sellingToken
         self.buyingToken = buyingToken
+        self.cexLabel = cexLabel
         validateObserver = observe { [weak self] in
             guard let self else { return }
             let address = self.toAddress
@@ -104,11 +107,12 @@ final class CrosschainFromWalletModel {
         canContinue = false
 
         let tokenSlug = buyingToken.type.slug
+        let cexLabel = self.cexLabel
         validateAddressTask = Task { [weak self] in
             do {
                 try await Task.sleep(for: debounceAddressValidation)
                 let result = try await Api.swapCexValidateAddress(
-                    params: ApiSwapCexValidateAddressParams(slug: tokenSlug, address: address)
+                    params: ApiSwapCexValidateAddressParams(slug: tokenSlug, address: address, cexLabel: cexLabel)
                 )
                 guard !Task.isCancelled, let self else { return }
                 self.hasAddressError = !result.result

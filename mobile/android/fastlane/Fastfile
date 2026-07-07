@@ -5,6 +5,27 @@ def env_value(name, fallback = nil)
   value.nil? || value.empty? ? fallback : value
 end
 
+# RC_NUMBER must be a bare integer; anything else (empty, or an API error body that slipped
+# through the workflow) is treated as absent so it can never reach the version name or notes.
+def rc_ordinal
+  n = env_value('RC_NUMBER')
+  n.to_s.match?(/\A\d+\z/) ? n : nil
+end
+
+# Compact provenance line for the top of the build notes: RC label + version, build time,
+# and short commit. On release/* the workflow supplies RC_NUMBER (the Nth store build off the
+# branch), so RC builds read "RC 26.7.0-rc.2 ..."; ordinary builds just lead with the version.
+def build_meta_line(version)
+  rc_number = rc_ordinal
+  is_rc = !env_value('IS_RELEASE_CANDIDATE').nil? && !rc_number.nil?
+  sha = (env_value('GITHUB_SHA') || '')[0, 7]
+  stamp = Time.now.utc.strftime('%Y-%m-%d %H:%M')
+  head = is_rc ? "RC #{version}-rc.#{rc_number}" : version
+  parts = [head, "#{stamp} UTC"]
+  parts << sha unless sha.nil? || sha.empty?
+  parts.join(' · ')
+end
+
 $variant = env_value('APP_VARIANT', 'mytonwallet').downcase
 $variant_config = {
   'mytonwallet' => {
@@ -115,7 +136,11 @@ def update_version_and_build_number
   build_number = [play_beta_build_number, play_production_build_number, firebase_build_number].max + 1
   version = JSON.parse(File.read("../../../package.json"))["version"]
 
-  android_set_version_name(version_name: version)
+  # RC builds carry the -rc.N ordinal in the version name so they stand out in the Firebase
+  # list among the daily *.beta builds (the beta flavor still appends its own .beta suffix).
+  rc_number = rc_ordinal
+  version_name = (env_value('IS_RELEASE_CANDIDATE').nil? || rc_number.nil?) ? version : "#{version}-rc.#{rc_number}"
+  android_set_version_name(version_name: version_name)
   android_set_version_code(version_code: build_number)
 end
 
@@ -138,12 +163,20 @@ platform :android do
       properties: signing_properties
     )
 
+    release_notes = build_release_notes
+
+    # Prepend the compact provenance line to the Firebase notes so a tester can pin down the
+    # exact build (RC ordinal, build time, commit). Applies to every build; RC builds lead
+    # with the RC label. The group stays developers,qa (no separate RC group).
+    version = JSON.parse(File.read("../../../package.json"))["version"]
+    release_notes = "#{build_meta_line(version)}\n\n#{release_notes}"
+
     firebase_app_distribution(
       app: $firebase_app_id,
       android_artifact_type: "APK",
       android_artifact_path: lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH],
       service_credentials_file: $firebase_service_credentials_file,
-      release_notes: build_release_notes,
+      release_notes: release_notes,
       groups: $firebase_groups
     )
   end

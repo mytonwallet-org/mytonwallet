@@ -52,7 +52,7 @@ class SwapRateRowView(
     }
 
     private val bestRateLabel = WLinearGradientLabel(context).apply {
-        setStyle(12f, WFont.SemiBold)
+        setStyle(12f, WFont.Medium)
         setGradientColor(
             intArrayOf(
                 WColor.EarnGradientLeft.color,
@@ -143,33 +143,9 @@ class SwapRateRowView(
     fun setTitleAndValue(
         title: String,
         value: String,
-        dex: String?,
-        isBest: Boolean = false,
-        modalAvailable: Boolean
     ) {
         titleLabel.text = title
         valueLabel.text = value
-        if (dex != null)
-            dexLabel.text =
-                LocaleController.getSpannableStringWithKeyValues(
-                    "via %agg%",
-                    listOf(Pair("%agg%", dex))
-                )
-        dexVisibility = if (dex == null) GONE else VISIBLE
-        bestRateLabel.visibility = if (modalAvailable && isBest) VISIBLE else GONE
-        arrowImage.visibility = if (modalAvailable) VISIBLE else GONE
-        if (dexView.visibility != dexVisibility) {
-            if (dexVisibility == VISIBLE) {
-                dexView.visibility = VISIBLE
-                dexView.fadeIn()
-            } else {
-                dexView.fadeOut {
-                    if (dexVisibility == GONE)
-                        dexView.visibility = GONE
-                }
-            }
-            animateHeight(if (dex == null) 50.dp else 80.dp)
-        }
     }
 
     @SuppressLint("SetTextI18n")

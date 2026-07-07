@@ -40,26 +40,11 @@ enum SplitHomeActionItem: CaseIterable, Hashable, Sendable {
         case .buy: AppActions.showBuyWithCard(accountContext: accountContext, chain: nil, push: nil)
         case .deposit: AppActions.showReceive(accountContext: accountContext, chain: nil)
         case .earn: AppActions.showEarn(accountContext: accountContext, tokenSlug: nil)
-        case .scan: onScan(accountContext: accountContext)
+        case .scan: AppActions.scanAndHandleQR(accountContext: accountContext)
         case .sell: AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
         case .send: AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
         case .swap: AppActions.showSwap(accountContext: accountContext, defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
         }
     }
     
-    @MainActor private func onScan(accountContext: AccountContext) {
-        Task {
-            if let result = await AppActions.scanQR() {
-                switch result {
-                case .url(let url):
-                    let deeplinkHandled = WalletContextManager.delegate?.handleDeeplink(url: url) ?? false
-                    if !deeplinkHandled {
-                        AppActions.showError(error: BridgeCallError.customMessage(lang("This QR Code is not supported"), nil))
-                    }
-                case .address(address: let address, possibleChains: let chains):
-                    AppActions.showSend(accountContext: accountContext, prefilledValues: .init(address: address, token: chains.first?.nativeToken.slug))
-                }
-            }
-        }
-    }
 }

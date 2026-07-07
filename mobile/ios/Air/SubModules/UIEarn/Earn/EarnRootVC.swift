@@ -79,8 +79,6 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     }
     
     private func setupViews() {
-        view.backgroundColor = .air.sheetBackground
-      
         tonVC = EarnVC(earnVM: EarnVM(config: .ton, accountContext: _account))
         mycoinVC = EarnVC(earnVM: EarnVM(config: .mycoin, accountContext: _account))
         ethenaVC = EarnVC(earnVM: EarnVM(config: .ethena, accountContext: _account))
@@ -122,10 +120,9 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
 
         segmentedController.segmentedControl?.embed(in: navigationItem)
         addCloseNavigationItemIfNeeded()
-        addCustomNavigationBarBackground()
-        configureNavigationItemWithTransparentBackground()
+        addCustomNavigationBarBackground(color: .air.sheetBackground)
 
-        updateTheme()
+        view.backgroundColor = .air.sheetBackground
 
         WalletCoreData.add(eventObserver: self)
     }
@@ -164,11 +161,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
             }
         }
     }
-    
-    private func updateTheme() {
-        view.backgroundColor = .air.sheetBackground
-    }
-    
+        
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
     }

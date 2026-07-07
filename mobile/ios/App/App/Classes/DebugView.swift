@@ -55,7 +55,7 @@ struct DebugView: View {
                 } header: {
                     Text("Testnet")
                 }
-                
+
                 Section {
                     Button("Switch to Air") {
                         log.info("Switch to Air")
@@ -83,6 +83,16 @@ struct DebugView: View {
                             dismiss()
                         }
                     }
+                }
+
+                Section {
+                    NavigationLink {
+                        AirDebugPermissionsView()
+                    } label: {
+                        Text(lang("Permissions"))
+                    }
+                } footer: {
+                    Text(lang("Token approvals and wallet permissions"))
                 }
                 
                 // MARK: - TestFlight or debug
@@ -226,6 +236,10 @@ struct DebugView: View {
                     }
                 }
 
+                #if targetEnvironment(simulator)
+                WalletsExportSection()
+                #endif
+
                 Section {
                     NavigationLink("Accounts in DB & Keychain") {
                         DebugAccountsView()
@@ -258,7 +272,7 @@ struct DebugView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle(Text("Debug menu"))
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(trailing: Button("", systemImage: "xmark", action: { dismiss() }))
         }
     }
@@ -285,6 +299,72 @@ private extension View {
             .offset(y: 8)
     }
 }
+
+#if DEBUG && targetEnvironment(simulator)
+private struct WalletsExportSection: View {
+    @State private var isExporting = false
+    @State private var successPath: String?
+    @State private var errorMessage: String?
+
+    var body: some View {
+        Section {
+            Button {
+                Task { await startExport() }
+            } label: {
+                if isExporting {
+                    HStack {
+                        Text("Export wallets")
+                        Spacer()
+                        ProgressView()
+                    }
+                } else {
+                    Text("Export wallets")
+                }
+            }
+            .disabled(isExporting)
+        } footer: {
+            Text("The dump can be imported at app launch via `\(AppWalletsExport.environmentVariable)`.")
+        }
+        .alert("Export complete", isPresented: Binding(
+            get: { successPath != nil },
+            set: { if !$0 { successPath = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let successPath {
+                Text("The dump has been saved to \(successPath).")
+            }
+        }
+        .alert("Export failed", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let errorMessage {
+                Text(errorMessage)
+            }
+        }
+    }
+
+    @MainActor
+    private func startExport() async {
+        isExporting = true
+        errorMessage = nil
+        successPath = nil
+        defer { isExporting = false }
+
+        switch await AirDebugActions.exportWallets() {
+        case .cancelled:
+            return
+        case .success(let result):
+            successPath = result.fileURL.path
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+#endif
 
 #if DEBUG
 private struct DebugAccountsView: View {

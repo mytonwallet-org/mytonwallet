@@ -9,10 +9,14 @@ import getDeterministicRandom from '../../util/getDeterministicRandom';
 import { vibrate } from '../../util/haptics';
 
 import useShowTransition from '../../hooks/useShowTransition';
+import useTimeout from '../../hooks/useTimeout';
 
 import SensitiveDataMask from '../common/SensitiveDataMask';
 
 import styles from './SensitiveData.module.scss';
+
+// Matches iOS native app
+const REVEAL_AUTO_HIDE_DELAY = 5000;
 
 type ColsProps =
   | { cols: number; min?: never; max?: never; seed?: never }
@@ -57,6 +61,11 @@ function SensitiveData({
       setIsShown(false);
     }
   }, [isActive, isShown]);
+
+  useTimeout(
+    () => setIsShown(false),
+    isActive && isShown ? REVEAL_AUTO_HIDE_DELAY : undefined,
+  );
 
   const {
     ref: contentRef,

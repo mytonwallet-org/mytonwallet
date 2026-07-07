@@ -20,8 +20,8 @@ extension Api {
     }
     
     /// - Important: Do not call this method directly, use **DappsStore** instead
-    internal static func deleteDapp(accountId: String, url: String, uniqueId: String, dontNotifyDapp: Bool?) async throws {
-        _ = try await bridge.callApiRaw("deleteDapp", accountId, url, uniqueId, dontNotifyDapp)
+    internal static func deleteDapp(accountId: String, url: String, uniqueId: String, dontNotifyDapp: Bool?) async throws -> Bool {
+        try await bridge.callApi("deleteDapp", accountId, url, uniqueId, dontNotifyDapp, decoding: Bool.self)
     }
     
     internal static func deleteAllDapps(accountId: String) async throws {

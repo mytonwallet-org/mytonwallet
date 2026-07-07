@@ -1,6 +1,5 @@
 //
-//  Section.swift
-//  MyTonWalletAir
+//  HomeAccountSelector.swift
 //
 //  Created by nikstar on 19.11.2025.
 //

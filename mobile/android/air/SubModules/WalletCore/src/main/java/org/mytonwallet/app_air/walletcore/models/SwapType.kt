@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.walletcore.models
 
-import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 enum class SwapType {
@@ -14,7 +13,11 @@ enum class SwapType {
             tokenToReceive: IApiToken,
             walletAddressByChain: Map<String, String>
         ): SwapType {
-            if (tokenToSend.chain == TON_CHAIN && tokenToReceive.chain == TON_CHAIN) {
+            val sendChain = tokenToSend.mBlockchain
+            if (sendChain != null &&
+                sendChain == tokenToReceive.mBlockchain &&
+                sendChain.isOnchainSwapSupported
+            ) {
                 return ON_CHAIN
             }
 

@@ -24,11 +24,11 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
         async let tokens = store.tokensDictionary(tryRemote: true)
         async let rates = store.ratesDictionary()
 
-        let selectedSlug = configuration.token.slug
+        let selectedSlug = configuration.token.tokenSlug
         let loadedDisplayCurrency = await displayCurrency
         let loadedTokens = await tokens
         let loadedRates = await rates
-        let token = loadedTokens[selectedSlug] ?? configuration.token
+        let token = loadedTokens[selectedSlug] ?? configuration.token.apiTokenFallback
 
         var image: UIImage?
         do {

@@ -100,13 +100,15 @@ public struct MoonpayOnrampResult: Decodable, Sendable {
 
 public struct MoonpayOnrampParams: Encodable, Sendable {
     public let chain: ApiChain
-    public let address: String
+    /// Address of every wallet chain, so MoonPay delivers each selected currency to the matching
+    /// network's address (preventing a cross-network mismatch, e.g. USDT-Ethereum to a TON address)
+    public let addressByChain: [String: String]
     public let theme: ResolvedTheme
     public let currency: MBaseCurrency
-    
-    public init(chain: ApiChain, address: String, theme: ResolvedTheme, currency: MBaseCurrency) {
+
+    public init(chain: ApiChain, addressByChain: [String: String], theme: ResolvedTheme, currency: MBaseCurrency) {
         self.chain = chain
-        self.address = address
+        self.addressByChain = addressByChain
         self.theme = theme
         self.currency = currency
     }

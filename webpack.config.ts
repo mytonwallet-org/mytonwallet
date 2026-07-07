@@ -56,6 +56,8 @@ import {
   TRON_MAINNET_API_URL,
   TRON_TESTNET_API_URL,
   WALLET_CONNECT_BRIDGE_PATTERNS,
+  WALLET_CONNECT_PAY_CONNECT_ORIGINS,
+  WALLET_CONNECT_PAY_FRAME_ORIGINS,
 } from './src/config';
 
 const destinationDir = path.resolve(__dirname, 'dist');
@@ -75,6 +77,7 @@ const cspFrameSrcExtra = IS_CORE_WALLET ? '' : [
   'https://*.onetrust.com/', // This is a GDPR cookie consent widget from Moonpay
   'https://dreamwalkers.io/',
   'https://avanchange.com/',
+  ...WALLET_CONNECT_PAY_FRAME_ORIGINS,
   ...IFRAME_WHITELIST,
   SUBPROJECT_URL_MASK,
 ].join(' ');
@@ -99,6 +102,7 @@ const cspConnectSrcHosts = Array.from(new Set([
   SOLANA_MAINNET_API_URL,
   SOLANA_TESTNET_API_URL,
   WALLET_CONNECT_BRIDGE_PATTERNS,
+  ...WALLET_CONNECT_PAY_CONNECT_ORIGINS,
   AGENT_API_URL ? new URL(AGENT_API_URL).origin : undefined,
   EVM_MAINNET_RPC_URL,
   EVM_TESTNET_RPC_URL,
@@ -434,6 +438,7 @@ export default function createConfig(
         GIVEAWAY_CHECKIN_URL: '',
         PROXY_API_BASE_URL: '',
         WALLET_CONNECT_PROJECT_ID: '',
+        WALLET_CONNECT_PAY_APP_ID: '',
         MULTISEND_DAPP_URL: '',
         PORTFOLIO_DAPP_URL: '',
         AGENT_API_URL: '',

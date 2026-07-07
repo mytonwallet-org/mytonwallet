@@ -296,6 +296,8 @@ public final class ReorderableCollectionViewController: NSObject {
                 copyView = ms
             }
         }
+        // Custom drag and system drag must reparent the preview above the collection view, so they always
+        // need a detached copy even when the delegate returns a live view with `copyView: false`.
         if mode == .requiredFastSnapshot || mode == .renderToImage {
             copyView = true
         }
@@ -314,7 +316,7 @@ public final class ReorderableCollectionViewController: NSObject {
         let snapshot: UIView
         switch mode {
         case .requiredFastSnapshot, .fastSnapshot:
-            if let snap = view.snapshotView(afterScreenUpdates: false) {
+            if let snap = view.snapshotView(afterScreenUpdates: false) ?? view.snapshotView(afterScreenUpdates: true) {
                 snapshot = snap
                 snapshot.frame = vFrame
                 break
@@ -324,7 +326,7 @@ public final class ReorderableCollectionViewController: NSObject {
             let format = UIGraphicsImageRendererFormat()
             format.scale = view.window?.screen.scale ?? 1.0
             let image = UIGraphicsImageRenderer(bounds: vBounds, format: format).image { _ in
-                view.drawHierarchy(in: vBounds, afterScreenUpdates: false)
+                view.drawHierarchy(in: vBounds, afterScreenUpdates: true)
             }
             let iv = UIImageView(frame: vFrame)
             iv.image = image
@@ -376,7 +378,12 @@ public final class ReorderableCollectionViewController: NSObject {
         guard let cell = collectionView.cellForItem(at: indexPath) else { return }
         guard let cvSuperview = collectionView.superview else { return }
         guard delegate?.reorderController(self, canMoveItemAt: indexPath) == true else { return }
-        
+
+        currentDraggedIndexPath = indexPath
+        updateCell(cell, indexPath: indexPath)
+        cell.layoutIfNeeded()
+        cell.contentView.layoutIfNeeded()
+
         let preview = preview(ofCell: cell, mode: .requiredFastSnapshot)
         do {
             let v = preview.view
@@ -386,14 +393,13 @@ public final class ReorderableCollectionViewController: NSObject {
             v.layer.masksToBounds = true
             customDragPreview = preview
         }
-        
+
         centerOffset = location - cell.frame.center
         reorderThrottle.start(location - centerOffset)
 
         dropTargetCell = cell
         dropTargetCell?.isHidden = true
-        currentDraggedIndexPath = indexPath
-        updateCell(cell, indexPath: indexPath) // cell is hidden but update anyway so it has the correct appearance when dragging ends
+        updateCell(cell, indexPath: indexPath)
         
         currentSourceIndexPath = indexPath
         lastDragLocationInCollection = location

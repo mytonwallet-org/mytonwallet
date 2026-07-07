@@ -30,7 +30,7 @@ struct TransactionFeeRow: View {
         let amount = TokenAmount(transfer.networkFee, token)
         AmountText(
             amount: amount,
-            format: .init(maxDecimals: 4),
+            format: .init(preset: .fee),
             integerFont: .systemFont(ofSize: 16, weight: .medium),
             fractionFont: .systemFont(ofSize: 16, weight: .medium),
             symbolFont: .systemFont(ofSize: 16, weight: .medium),
@@ -48,7 +48,7 @@ struct TransactionFeeRow: View {
         let amount = TokenAmount(transfer.networkFee, token).convertTo(baseCurrency, exchangeRate: token.price ?? 0)
         AmountText(
             amount: amount,
-            format: .init(maxDecimals: 4),
+            format: .init(preset: .fee),
             integerFont: .systemFont(ofSize: 14, weight: .regular),
             fractionFont: .systemFont(ofSize: 14, weight: .regular),
             symbolFont: .systemFont(ofSize: 14, weight: .regular),

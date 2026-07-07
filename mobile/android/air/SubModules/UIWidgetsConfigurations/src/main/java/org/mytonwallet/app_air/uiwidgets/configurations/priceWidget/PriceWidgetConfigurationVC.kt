@@ -213,7 +213,7 @@ class PriceWidgetConfigurationVC(
 
         title = LocaleController.getString("Customize Widget")
         setupNavBar(true)
-        navigationBar?.titleLabel?.setStyle(20f, WFont.SemiBold)
+        navigationBar?.titleLabel?.setStyle(20f, WFont.Medium)
         navigationBar?.setTitleGravity(Gravity.CENTER)
 
         view.apply {

@@ -1,18 +1,37 @@
+import { Cell } from '@ton/core';
+
 import type {
   ApiAccountWithChain,
+  ApiAnyDisplayError,
   ApiNetwork,
-  ApiSwapBuildRequest,
+  ApiSwapActivity,
+  ApiSwapBuildTransactionRequest,
+  ApiSwapTransfer,
   ApiTokensTransferPayload,
+  OnApiUpdate,
 } from '../../types';
+import type {
+  ApiBuildOnchainSwapTransferOptions,
+  ApiBuildOnchainSwapTransferResult,
+  ApiSubmitOnchainSwapTransferOptions,
+  ApiSubmitOnchainSwapTransferResult,
+} from '../../types/swap';
 import type { TonTransferParams } from './types';
 
 import { DIESEL_ADDRESS, SWAP_FEE_ADDRESS } from '../../../config';
+import { parseAccountId } from '../../../util/account';
 import { assert as originalAssert } from '../../../util/assert';
 import { fromDecimal } from '../../../util/decimals';
+import { omitUndefined } from '../../../util/iteratees';
 import { getMaxMessagesInTransaction, isTokenTransferPayload } from '../../../util/ton/transfer';
 import { parsePayloadSlice } from './util/metadata';
 import { resolveTokenWalletAddress, toBase64Address } from './util/tonCore';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
+import { patchSwapItem } from '../../common/swap';
 import { getTokenByAddress } from '../../common/tokens';
+import { callHook } from '../../hooks';
+import { insertMintlessPayload } from './tokens';
+import { checkMultiTransactionDraft, submitMultiTransferWithMfa } from './transfer';
 import { getContractInfo } from './wallet';
 
 async function getContractInfos(network: ApiNetwork, addresses: string[]) {
@@ -33,7 +52,7 @@ const MAX_SPLITS = 4; // Backend configuration
 export async function validateDexSwapTransfers(
   network: ApiNetwork,
   address: string,
-  request: ApiSwapBuildRequest,
+  request: ApiSwapBuildTransactionRequest,
   transfers: TonTransferParams[],
   account: ApiAccountWithChain<'ton'>,
 ) {
@@ -54,7 +73,7 @@ export async function validateDexSwapTransfers(
 
   // FIXME: TON renaming
   if (request.from === 'TON') {
-    const maxAmount = fromDecimal(request.fromAmount) + fromDecimal(request.ourFee) + MAX_NETWORK_FEE;
+    const maxAmount = fromDecimal(request.fromAmount) + fromDecimal(request.ourFee ?? 0) + MAX_NETWORK_FEE;
     let sumAmount = 0n;
 
     const contractInfos = await getContractInfos(network, mainTransfers.map((transfer) => transfer.toAddress));
@@ -101,6 +120,7 @@ export async function validateDexSwapTransfers(
     for (let i = 0; i < mainTransfers.length; i++) {
       const mainTransfer = mainTransfers[i];
       const parsedPayload = parsedPayloads[i];
+
       assert(
         mainTransfer.toAddress === walletAddress,
         `Main transfer ${i + 1}/${mainTransfers.length} address is not the token wallet address`,
@@ -139,4 +159,160 @@ export async function validateDexSwapTransfers(
       assert(FEE_ADDRESSES.includes(toBase64Address(feeDestination, false)), 'Unexpected fee transfer destination');
     }
   }
+}
+
+export async function buildOnchainSwapTransfer(
+  options: ApiBuildOnchainSwapTransferOptions,
+): Promise<ApiBuildOnchainSwapTransferResult | { error: ApiAnyDisplayError }> {
+  const { accountId, request, transfers, swapId, authToken } = options;
+
+  if (!transfers) {
+    throw new Error('Transfers are required');
+  }
+
+  const transferList = parseSwapTransfers(transfers);
+  const { network } = parseAccountId(accountId);
+
+  const { address } = await fetchStoredWallet(accountId, 'ton');
+
+  try {
+    const account = await fetchStoredChainAccount(accountId, 'ton');
+    await validateDexSwapTransfers(network, address, request, transferList, account);
+
+    const result = await checkMultiTransactionDraft(accountId, transferList, request.shouldTryDiesel);
+
+    if ('error' in result) {
+      await patchSwapItem({
+        address, swapId, authToken, error: result.error,
+      });
+      return result;
+    }
+
+    return { ...result, id: swapId, transfers, chain: 'ton' };
+  } catch (err: any) {
+    await patchSwapItem({
+      address, swapId, authToken, error: errorToString(err),
+    });
+    throw err;
+  }
+}
+
+export async function submitOnchainSwapTransfer(
+  options: ApiSubmitOnchainSwapTransferOptions,
+  onUpdate: OnApiUpdate,
+): Promise<ApiSubmitOnchainSwapTransferResult> {
+  const {
+    accountId,
+    password,
+    transfers,
+    historyItem,
+    isGasless,
+    authToken,
+    localSwap,
+    swapId,
+  } = options;
+
+  if (!transfers) {
+    throw new Error('Transfers are required');
+  }
+
+  const wallet = await fetchStoredWallet(accountId, 'ton');
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+  const hasMfa = Boolean(account.byChain.ton.mfa);
+
+  const { address } = wallet;
+
+  // For MFA wallets, the local activity is created only after the request is confirmed
+  if (!hasMfa) {
+    onUpdate({
+      type: 'newLocalActivities',
+      accountId,
+      activities: [localSwap],
+    });
+  }
+
+  try {
+    const transferList = parseSwapTransfers(transfers);
+
+    if (historyItem.from !== 'TON') {
+      transferList[0] = await insertMintlessPayload('mainnet', address, historyItem.from, transferList[0]);
+    }
+
+    const result = await submitMultiTransferWithMfa({
+      accountId,
+      password,
+      messages: transferList,
+      isGasless,
+    });
+
+    if ('error' in result) {
+      if (!hasMfa) {
+        // Update local activity to show error state
+        onUpdate({
+          type: 'newLocalActivities',
+          accountId,
+          activities: [{ ...localSwap, status: 'failed' }],
+        });
+      }
+
+      await patchSwapItem({
+        address, swapId, authToken, error: result.error,
+      });
+
+      return result;
+    }
+
+    if ('mfaRequest' in result) {
+      return { mfaRequest: result.mfaRequest };
+    }
+
+    delete result.messages[0].stateInit;
+
+    const updatedSwap: ApiSwapActivity = {
+      ...localSwap,
+      externalMsgHashNorm: result.msgHashNormalized,
+      extra: omitUndefined({
+        withW5Gasless: result.withW5Gasless,
+      }),
+    };
+
+    onUpdate({
+      type: 'newLocalActivities',
+      accountId,
+      activities: [updatedSwap],
+    });
+
+    await patchSwapItem({
+      address, swapId, authToken, msgHash: result.msgHash,
+    });
+
+    void callHook('onSwapCreated', accountId, updatedSwap.timestamp - 1);
+
+    return { activityId: updatedSwap.id };
+  } catch (err: any) {
+    if (!hasMfa) {
+      onUpdate({
+        type: 'newLocalActivities',
+        accountId,
+        activities: [{ ...localSwap, status: 'failed' }],
+      });
+    }
+
+    await patchSwapItem({
+      address, swapId, authToken, error: errorToString(err),
+    });
+    throw err;
+  }
+}
+
+function parseSwapTransfers(transfers: ApiSwapTransfer[]): TonTransferParams[] {
+  return transfers.map((transfer) => ({
+    ...transfer,
+    amount: BigInt(transfer.amount),
+    payload: Cell.fromBase64(transfer.payload),
+  }));
+}
+
+function errorToString(err: Error | string) {
+  return typeof err === 'string' ? err : err.stack;
 }

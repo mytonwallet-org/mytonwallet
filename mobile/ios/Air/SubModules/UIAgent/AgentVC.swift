@@ -7,7 +7,7 @@ private let log = Log("AgentVC")
 
 private enum AgentVCLayout {
     static let screenBackgroundColor = UIColor.air.background
-    static let maxContentWidth: CGFloat = 580
+    static let maxContentWidth = AgentContentLayout.maxContentWidth
     static let sectionInsets = NSDirectionalEdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0)
     static let bottomMessageSpacing: CGFloat = 16
     static let interGroupSpacing: CGFloat = 6
@@ -18,6 +18,7 @@ private enum AgentVCLayout {
     static let nearBottomThreshold: CGFloat = 60
     static let composerResizeAnimationDuration: TimeInterval = 0.2
     static let bottomAlignmentAnimationDuration: TimeInterval = 0.25
+
 }
 
 private struct AgentBottomAlignmentAnimation {
@@ -106,8 +107,6 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        navigationItem.largeTitleDisplayMode = .never
-        setupNavigationItem()
         model.delegate = self
         setupViews()
         setupObservers()
@@ -175,7 +174,6 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private func setupViews() {
-        view.backgroundColor = AgentVCLayout.screenBackgroundColor
         view.addLayoutGuide(contentLayoutGuide)
 
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -186,6 +184,9 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         collectionView.showsVerticalScrollIndicator = false
         collectionView.contentInsetAdjustmentBehavior = .automatic
         collectionView.delegate = self
+        if #available(iOS 26.0, *) {
+            collectionView.topEdgeEffect.isHidden = true
+        }
 
         let dismissKeyboardTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCollectionViewTap))
         dismissKeyboardTapGesture.cancelsTouchesInView = false
@@ -259,8 +260,8 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             contentLayoutGuideMaxWidthConstraint,
 
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
-            collectionView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor),
-            collectionView.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             scrollToBottomButton.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor, constant: -16),
@@ -283,6 +284,9 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             keyboardConstraint,
             fallbackConstraint
         ])
+
+        addCustomNavigationBarBackground(color: AgentVCLayout.screenBackgroundColor)
+        setupNavigationItem()
 
         updateTheme()
     }
@@ -399,10 +403,18 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         }
     }
 
-    private func applySnapshot(animated: Bool) {
+    private func applySnapshot(animated: Bool, reconfigureItemIDs: [AgentItemID] = []) {
+        let currentItemIDs = Set(dataSource.snapshot().itemIdentifiers)
+        let nextItemIDs = Set(model.itemIDs)
         var snapshot = NSDiffableDataSourceSnapshot<Section, AgentItemID>()
         snapshot.appendSections([.main])
         snapshot.appendItems(model.itemIDs, toSection: .main)
+        let changedExistingItemIDs = reconfigureItemIDs.filter {
+            currentItemIDs.contains($0) && nextItemIDs.contains($0)
+        }
+        if !changedExistingItemIDs.isEmpty {
+            snapshot.reconfigureItems(changedExistingItemIDs)
+        }
         dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
             guard let self else { return }
             self.collectionView.collectionViewLayout.invalidateLayout()
@@ -479,7 +491,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
         } else {
             log.error("unsupported agent url=\(url.absoluteString, .public)")
-            AppActions.showError(error: BridgeCallError.customMessage(lang("Unsupported link"), nil))
+            AppActions.showError(error: DisplayError(text: lang("Unsupported link")))
         }
     }
 
@@ -824,10 +836,10 @@ extension AgentVC: WalletCoreData.EventsObserver {
 }
 
 extension AgentVC: AgentModelDelegate {
-    func agentModelDidReloadTimeline(animated: Bool) {
+    func agentModelDidReloadTimeline(animated: Bool, reconfigureItemIDs: [AgentItemID]) {
         updateHintsView(animated: false)
         updateHintsToggleState()
-        applySnapshot(animated: animated)
+        applySnapshot(animated: animated, reconfigureItemIDs: reconfigureItemIDs)
     }
 
     func agentModelDidUpdateItems(_ ids: [AgentItemID], animated: Bool, scrollToBottom: Bool) {

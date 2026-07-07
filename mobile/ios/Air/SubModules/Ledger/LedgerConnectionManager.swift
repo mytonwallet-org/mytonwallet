@@ -98,15 +98,17 @@ public final class LedgerConnectionManager: WalletCoreData.EventsObserver, Swift
     private func handleGetLedgerDeviceModel(callback: @Sendable (ApiLedgerDeviceModel?) async -> ()) async {
         do {
             let transport = try (self.bleTransport as? BleTransport).orThrow()
-            let uuid = try transport.currentConnectedService()
+            let uuid = try transport.currentConnectedService().lowercased()
             let name = connectedIdentifier?.name.nilIfEmpty
             let model = switch uuid {
-            case "13D63400-2C97-0004-0000-4C6564676572":
+            case "13d63400-2c97-0004-0000-4c6564676572":
                 ApiLedgerDeviceModel(id: "nanoX", productName: name ?? "Ledger Nano X")
             case "13d63400-2c97-6004-0000-4c6564676572":
                 ApiLedgerDeviceModel(id: "stax", productName: name ?? "Ledger Stax")
             case "13d63400-2c97-3004-0000-4c6564676572":
                 ApiLedgerDeviceModel(id: "europa", productName: name ?? "Ledger Flex")
+            case "13d63400-2c97-8004-0000-4c6564676572":
+                ApiLedgerDeviceModel(id: "apex", productName: name ?? "Ledger Nano Gen5")
             default:
                 ApiLedgerDeviceModel(id: "nanoX", productName: name ?? "Unknown model")
             }
@@ -116,8 +118,10 @@ public final class LedgerConnectionManager: WalletCoreData.EventsObserver, Swift
         }
     }
     
-    func disconnect() async throws {
+    public func disconnect() async throws {
+        guard bleTransport.isConnected else { return }
         try await bleTransport.disconnect()
+        connectedIdentifier = nil
+        ledgerInfo = nil
     }
 }
-

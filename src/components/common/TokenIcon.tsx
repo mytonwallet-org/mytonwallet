@@ -5,7 +5,7 @@ import type { UserSwapToken, UserToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
 import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
-import { getIsNativeStakedToken, getIsNativeToken } from '../../util/tokens';
+import { getIsNativeStakedToken, getIsNativeToken, getIsRwaStockToken } from '../../util/tokens';
 
 import useFlag from '../../hooks/useFlag';
 
@@ -28,10 +28,12 @@ function TokenIcon({
   const isNativeToken = getIsNativeToken(slug);
   const isNativeTokenStaking = getIsNativeStakedToken(slug);
   const shouldRenderImage = Boolean(image) && !isLoadingError;
+  const shapeClassName = getIsRwaStockToken(token) ? styles.square : styles.circle;
+  const iconFullClassName = buildClassName(styles.icon, size && styles[size], shapeClassName, iconClassName);
 
   function renderDefaultIcon() {
     return (
-      <div className={buildClassName(styles.icon, size && styles[size], iconClassName, styles.fallbackIcon)}>
+      <div className={buildClassName(iconFullClassName, styles.fallbackIcon)}>
         {symbol.slice(0, 1)}
       </div>
     );
@@ -45,7 +47,7 @@ function TokenIcon({
             key={image}
             src={image}
             alt={symbol}
-            className={buildClassName(styles.icon, size && styles[size], iconClassName)}
+            className={iconFullClassName}
             draggable={false}
             onError={markLoadingError}
           />

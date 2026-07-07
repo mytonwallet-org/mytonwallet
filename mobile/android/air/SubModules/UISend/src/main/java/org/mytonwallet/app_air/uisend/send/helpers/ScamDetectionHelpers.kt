@@ -24,6 +24,12 @@ class ScamDetectionHelpers {
     companion object {
         const val HOUR = 60 * 60 * 1000
 
+        private val SCAM_DOMAIN_ADDRESS_REGEX = Regex("""^[-\w]{26,}\.""")
+
+        fun shouldShowDomainScamWarning(address: String): Boolean {
+            return SCAM_DOMAIN_ADDRESS_REGEX.containsMatchIn(address)
+        }
+
         fun shouldShowSeedPhraseScamWarning(
             transferTokenChain: MBlockchain
         ): Boolean {
@@ -60,10 +66,30 @@ class ScamDetectionHelpers {
                 .ifEmpty { ctx.getString(BaseR.string.app_help_scam_url_en) }
         }
 
+        private fun domainScamHelpUrl(): String {
+            val ctx = ApplicationContextHolder.applicationContext
+            val lang = WGlobalStorage.getLangCode()
+            val resId = if (lang == "ru") BaseR.string.app_help_domain_scam_url_ru
+            else BaseR.string.app_help_domain_scam_url_en
+            return ctx.getString(resId)
+                .ifEmpty { ctx.getString(BaseR.string.app_help_domain_scam_url_en) }
+        }
+
         fun scamWarningMessage(): CharSequence {
+            return buildScamWarningMessage("\$seed_phrase_scam_warning", seedScamHelpUrl())
+        }
+
+        fun domainScamWarningMessage(): CharSequence {
+            return buildScamWarningMessage("\$domain_like_scam_warning", domainScamHelpUrl())
+        }
+
+        private fun buildScamWarningMessage(
+            messageKey: String,
+            helpCenterUrl: String
+        ): CharSequence {
             val helpCenterString = LocaleController.getString("Help Center")
             val spannable =
-                LocaleController.getString("\$seed_phrase_scam_warning")
+                LocaleController.getString(messageKey)
                     .replace("%help_center_link%", helpCenterString)
                     .toProcessedSpannableStringBuilder()
 
@@ -79,7 +105,6 @@ class ScamDetectionHelpers {
                     end,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
-                val helpCenterUrl = seedScamHelpUrl()
                 spannable.setSpan(
                     WClickableSpan(helpCenterUrl) {
                         if (helpCenterUrl.isNotEmpty())

@@ -1,6 +1,10 @@
 import UIKit
 
 enum ContextMenuVisuals {
+    static func resolvedUserInterfaceStyle(for traits: UITraitCollection) -> UIUserInterfaceStyle {
+        traits.userInterfaceStyle == .dark ? .dark : .light
+    }
+
     static func titleFont() -> UIFont {
         UIFont.systemFont(ofSize: 17.0, weight: .regular)
     }
@@ -42,7 +46,7 @@ enum ContextMenuVisuals {
         traits.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.9) : UIColor.black.withAlphaComponent(0.88)
     }
 
-    static func backdropTintColor(for traits: UITraitCollection) -> UIColor {
+    static func backdropTintColor() -> UIColor {
         .black
     }
 
@@ -74,8 +78,8 @@ enum ContextMenuVisuals {
     }
 
     @MainActor
-    static func legacyPanelEffect() -> UIBlurEffect {
-        UIBlurEffect(style: .systemChromeMaterial)
+    static func legacyPanelEffect(for traits: UITraitCollection) -> UIBlurEffect {
+        UIBlurEffect(style: traits.userInterfaceStyle == .dark ? .systemChromeMaterialDark : .systemChromeMaterialLight)
     }
 
     static func legacyPanelTintColor(for traits: UITraitCollection) -> UIColor {

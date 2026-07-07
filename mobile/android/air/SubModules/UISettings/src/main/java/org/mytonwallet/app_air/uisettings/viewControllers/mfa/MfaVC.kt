@@ -43,6 +43,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
 import kotlin.math.max
@@ -71,7 +72,7 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
     // Title: "Confirm with [TG icon] Telegram"
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(28f, WFont.SemiBold)
+            setStyle(28f, WFont.Medium)
             gravity = Gravity.CENTER
             text = buildConfirmWithTelegramTitle(context)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 32f)
@@ -136,7 +137,9 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
         WLabel(context).apply {
             setStyle(13f)
             gravity = Gravity.CENTER
-            text = LocaleController.getString("Connection Fee: 0.15 TON")
+            text = "${LocaleController.getString("Connection Fee:")} 0.15 ${
+                TokenStore.getToken(TONCOIN_SLUG)?.symbol ?: "GRAM"
+            }"
         }
     }
 

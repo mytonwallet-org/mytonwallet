@@ -40,6 +40,7 @@ class PasscodeConfirmVC(
     private val task: (passcode: String) -> Unit,
     private val allowedToCancel: Boolean = true,
     private val ignoreBiometry: Boolean = false,
+    private val onCancel: (() -> Unit)? = null,
 ) : WViewController(context), PasscodeScreenView.Delegate, WalletCore.EventObserver {
     override val TAG = "PasscodeConfirm"
 
@@ -83,26 +84,35 @@ class PasscodeConfirmVC(
     private val shouldShowNav = passcodeViewState is PasscodeViewState.CustomHeader ||
         (passcodeViewState is PasscodeViewState.Default && passcodeViewState.showNavBar)
 
+    private val showsNavbarTitle =
+        (passcodeViewState is PasscodeViewState.CustomHeader && passcodeViewState.showNavbarTitle) ||
+            passcodeViewState is PasscodeViewState.Default
+
+    private val isNavbarTitleEmpty = !showsNavbarTitle || passcodeViewState.navbarTitle.isNullOrEmpty()
+
+    private val reservesNavbarHeight = shouldShowNav && !isNavbarTitleEmpty
+
+    private val passcodeScreenViewTopInset: Int
+        get() = (navigationController?.getSystemBars()?.top ?: 0) +
+            (if (reservesNavbarHeight) WNavigationBar.DEFAULT_HEIGHT.dp else 32.dp)
+
     override fun setupViews() {
         super.setupViews()
 
-        if ((passcodeViewState is PasscodeViewState.CustomHeader && passcodeViewState.showNavbarTitle)
-            || passcodeViewState is PasscodeViewState.Default
-        ) {
+        if (showsNavbarTitle) {
             setNavTitle(passcodeViewState.navbarTitle ?: "")
         }
         if (shouldShowNav)
             setupNavBar(true)
+        if (isNavbarTitleEmpty)
+            setTopBlur(visible = false, animated = false)
 
         if ((navigationController?.viewControllers?.size ?: 0) < 2)
             navigationBar?.addCloseButton()
 
         view.addView(passcodeScreenView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
         view.setConstraints {
-            toTopPx(
-                passcodeScreenView, (navigationController?.getSystemBars()?.top ?: 0) +
-                    (if (shouldShowNav) WNavigationBar.DEFAULT_HEIGHT.dp else 0)
-            )
+            toTopPx(passcodeScreenView, passcodeScreenViewTopInset)
             toBottom(passcodeScreenView)
         }
         updateTheme()
@@ -142,10 +152,7 @@ class PasscodeConfirmVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         view.setConstraints {
-            toTopPx(
-                passcodeScreenView, (navigationController?.getSystemBars()?.top ?: 0) +
-                    (if (shouldShowNav) WNavigationBar.DEFAULT_HEIGHT.dp else 0)
-            )
+            toTopPx(passcodeScreenView, passcodeScreenViewTopInset)
         }
         if (passcodeViewState !is PasscodeViewState.Default || !passcodeViewState.showMotionBackgroundDrawable) {
             passcodeScreenView.setPaddingLocalized(
@@ -184,6 +191,8 @@ class PasscodeConfirmVC(
         super.onDestroy()
         WalletCore.unregisterObserver(this)
         passcodeScreenView.clearCooldown()
+        if (!isDoingTask)
+            onCancel?.invoke()
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

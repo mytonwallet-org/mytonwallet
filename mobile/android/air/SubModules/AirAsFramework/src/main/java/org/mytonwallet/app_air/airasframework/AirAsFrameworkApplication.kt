@@ -6,7 +6,11 @@ import android.content.res.Configuration
 import android.os.Build
 import android.view.ViewGroup
 import com.facebook.drawee.backends.pipeline.Fresco
+import com.facebook.imagepipeline.core.ImagePipelineConfig
+import com.facebook.imagepipeline.decoder.ImageDecoderConfig
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
+import org.mytonwallet.app_air.uicomponents.image.svg.SvgDecoder
+import org.mytonwallet.app_air.uicomponents.image.svg.SvgImageFormat
 import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -112,7 +116,19 @@ class AirAsFrameworkApplication {
             LocaleController.init(applicationContext, langCode)
 
             t = System.currentTimeMillis()
-            Fresco.initialize(applicationContext)
+            val imageDecoderConfig = ImageDecoderConfig.newBuilder()
+                .addDecodingCapability(
+                    SvgImageFormat.SVG,
+                    SvgImageFormat.formatChecker,
+                    SvgDecoder()
+                )
+                .build()
+            Fresco.initialize(
+                applicationContext,
+                ImagePipelineConfig.newBuilder(applicationContext)
+                    .setImageDecoderConfig(imageDecoderConfig)
+                    .build()
+            )
             Logger.i(
                 Logger.LogTag.AIR_APPLICATION,
                 "Fresco.initialize: ${System.currentTimeMillis() - t}ms"

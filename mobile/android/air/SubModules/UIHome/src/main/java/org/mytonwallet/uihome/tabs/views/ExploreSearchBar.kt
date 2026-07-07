@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
@@ -125,6 +126,12 @@ class ExploreSearchBar(
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
                     event?.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_ENTER
                 ) {
+                    if (WalletContextManager.delegate?.get()?.handleDeeplink(text.toString()) == true) {
+                        setText("")
+                        clearFocus()
+                        hideKeyboard()
+                        return@setOnEditorActionListener true
+                    }
                     val browserConfig = searchMatchedSite?.let { matched ->
                         InAppBrowserConfig(
                             url = matched.url,

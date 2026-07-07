@@ -624,7 +624,7 @@ class HomeTabletAssetsCell(
     @SuppressLint("ViewConstructor")
     private inner class ColumnCell(context: Context) : WCell(context), WThemedView {
         private val titleLabel = WLabel(context).apply {
-            setStyle(16f, WFont.DemiBold)
+            setStyle(16f, WFont.Medium)
             setSingleLine()
             gravity = android.view.Gravity.CENTER_VERTICAL
             setPaddingDp(TITLE_PADDING_DP, 0f, TITLE_PADDING_DP, 0f)

@@ -1,18 +1,20 @@
-import type { ApiActivity, ApiSwapActivity, ApiSwapHistoryItem } from '../types';
+import type { ApiActivity, ApiChain, ApiSwapActivity, ApiSwapHistoryItem } from '../types';
 
 import { MW_AGGREGATOR_QUERY_ID, SWAP_API_VERSION, TONCOIN } from '../../config';
 import { Big } from '../../lib/big.js';
 import { parseAccountId } from '../../util/account';
 import { buildBackendSwapId, getActivityTokenSlugs, getIsBackendSwapId, parseTxId } from '../../util/activities';
 import { mergeSortedActivities, sortActivities } from '../../util/activities/order';
-import { getSlugsSupportingCexSwap } from '../../util/chain';
+import { getIsSupportedChain, getOrderedAccountChains, getSlugsSupportingCexSwap } from '../../util/chain';
 import { unique } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
-import { getChainBySlug } from '../../util/tokens';
+import { findNativeToken, getChainBySlug } from '../../util/tokens';
 import { fetchStoredAccount } from './accounts';
 import { callBackendGet, callBackendPost } from './backend';
 import { getBackendConfigCache } from './cache';
 import { buildTokenSlug, getTokenByAddress, getTokenBySlug } from './tokens';
+
+type SwapHistoryAddressByChain = Partial<Record<ApiChain, string>>;
 
 export async function swapGetHistory(address: string, params: {
   fromTimestamp?: number;
@@ -26,6 +28,24 @@ export async function swapGetHistory(address: string, params: {
 
   const items = await callBackendPost<ApiSwapHistoryItem[]>(`/swap/history/${address}`, {
     ...params,
+    swapVersion: swapVersion ?? SWAP_API_VERSION,
+  });
+
+  return items.map(convertSwapItemToTrusted);
+}
+
+export async function swapGetHistoryByAddresses(addressByChain: SwapHistoryAddressByChain, params: {
+  fromTimestamp?: number;
+  toTimestamp?: number;
+  isCex?: boolean;
+  token?: string;
+  hashes?: string[];
+}): Promise<ApiSwapHistoryItem[]> {
+  const { swapVersion } = await getBackendConfigCache();
+
+  const items = await callBackendPost<ApiSwapHistoryItem[]>('/swap/history/by-addresses', {
+    ...params,
+    addressByChain,
     swapVersion: swapVersion ?? SWAP_API_VERSION,
   });
 
@@ -47,21 +67,49 @@ export function swapItemToActivity(swap: ApiSwapHistoryItem): ApiSwapActivity {
     ...swap,
     id: buildBackendSwapId(swap.id),
     kind: 'swap',
-    from: getSwapItemSlug(swap, swap.from),
-    to: getSwapItemSlug(swap, swap.to),
+    from: getSwapItemSlug(swap.from),
+    to: getSwapItemSlug(swap.to),
     shouldLoadDetails: !swap.cex,
   };
 }
 
 // FIXME: TON renaming
-export function getSwapItemSlug(item: ApiSwapHistoryItem, asset: string) {
+export function getSwapItemSlug(asset: string, legacyChain?: ApiChain) {
   if (asset === 'TON') {
     return TONCOIN.slug;
   }
-  if (item.cex) {
-    return getTokenByAddress(asset)?.slug ?? asset;
+
+  const newBackendIdSlug = getNewBackendIdSlug(asset);
+  if (newBackendIdSlug) {
+    return newBackendIdSlug;
   }
-  return buildTokenSlug('ton', asset);
+
+  return getTokenBySlug(asset)?.slug
+    ?? (legacyChain ? getTokenByAddress(asset, legacyChain)?.slug : undefined)
+    ?? getTokenByAddress(asset)?.slug
+    ?? asset;
+}
+
+function getNewBackendIdSlug(asset: string) {
+  const [chain, tokenAddressOrNative, extra] = asset.split(':');
+  if (extra !== undefined || !tokenAddressOrNative || !getIsSupportedChain(chain)) {
+    return undefined;
+  }
+
+  if (tokenAddressOrNative === 'native') {
+    return findNativeToken(chain)?.slug;
+  }
+
+  return getTokenByAddress(tokenAddressOrNative, chain)?.slug ?? buildTokenSlug(chain, tokenAddressOrNative);
+}
+
+export function getSwapHistoryTokenFilter(slug: string) {
+  const token = getTokenBySlug(slug);
+  if (token?.tokenAddress) {
+    return token.tokenAddress;
+  }
+
+  return slug === TONCOIN.slug ? 'TON' : slug;
 }
 
 export async function patchSwapItem(options: {
@@ -109,8 +157,16 @@ async function swapReplaceCexActivities(
   }
 
   try {
-    const { byChain: { ton: { address } = {} } } = await fetchStoredAccount(accountId);
-    if (!address) {
+    const account = await fetchStoredAccount(accountId);
+    const addressByChain = getOrderedAccountChains(account.byChain).reduce((result, chain) => {
+      const address = account.byChain[chain]?.address;
+      if (address) {
+        result[chain] = address;
+      }
+
+      return result;
+    }, {} as SwapHistoryAddressByChain);
+    if (!Object.keys(addressByChain).length) {
       return activities;
     }
 
@@ -124,10 +180,10 @@ async function swapReplaceCexActivities(
     const hashes = activities.map(({ id }) => parseTxId(id).hash);
 
     // FIXME: TON renaming
-    const swaps = await swapGetHistory(address, {
+    const swaps = await swapGetHistoryByAddresses(addressByChain, {
       fromTimestamp: fromTime,
       toTimestamp: toTime,
-      asset: slug ? getTokenBySlug(slug)?.tokenAddress ?? 'TON' : undefined,
+      token: slug ? getSwapHistoryTokenFilter(slug) : undefined,
       hashes,
       isCex: true,
     });

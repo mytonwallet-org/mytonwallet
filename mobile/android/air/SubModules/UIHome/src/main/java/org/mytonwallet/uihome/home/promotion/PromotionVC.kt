@@ -148,7 +148,7 @@ class PromotionVC(
         if (m.title.isBlank()) return
 
         val titleLabel = WLabel(context).apply {
-            setStyle(20f, WFont.SemiBold)
+            setStyle(20f, WFont.Medium)
             text = m.title
             gravity = Gravity.CENTER
             setTextColor(parseCssColorInt(m.titleColor) ?: Color.WHITE)
@@ -177,7 +177,7 @@ class PromotionVC(
         if (indicator.isBlank()) return
 
         val pill = WLabel(context).apply {
-            setStyle(13f, WFont.DemiBold)
+            setStyle(13f, WFont.Medium)
             text = indicator
             setTextColor(Color.WHITE)
             setPadding(14.dp, 8.dp, 14.dp, 8.dp)

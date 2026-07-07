@@ -189,7 +189,7 @@ open class HomeHeaderView(
     }
     private val cardViews = setOf(prevCardView, cardView, nextCardView)
     private val balanceView = WBalanceView(context).apply {
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         clipChildren = false
         clipToPadding = false
         smartDecimalsColor = true
@@ -216,7 +216,7 @@ open class HomeHeaderView(
     }
 
     private val walletNameLabel = WLabel(context).apply {
-        setStyle(adaptiveFontSize(), WFont.DemiBold)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setSingleLine()
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE

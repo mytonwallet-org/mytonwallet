@@ -421,7 +421,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
                     if ok {
                         wordsToImport = words
                     } else {
-                        throw BridgeCallError.message(.invalidMnemonic, nil)
+                        throw SdkError.message(.invalidMnemonic)
                     }
                 }
                 try await goNext(wordsToImport: wordsToImport)
@@ -443,10 +443,10 @@ public class ImportWalletVC: CreateWalletBaseVC {
     }
 
     public func errorOccured(failure: any Error) {
-        if let error = failure as? BridgeCallError {
+        if let error = failure as? SdkError {
             switch error {
-            case .message(let bridgeCallErrorMessages, _):
-                switch bridgeCallErrorMessages {
+            case .message(let message):
+                switch message {
                 case .serverError:
                     showNetworkAlert()
                 case .invalidMnemonic:
@@ -454,9 +454,13 @@ public class ImportWalletVC: CreateWalletBaseVC {
                 default:
                     showAlert(error: failure)
                 }
-            case .customMessage(let string, _):
-                showUnknownErrorAlert(customText: string)
-            case .unknown, .apiReturnedError:
+            case .apiReturnedError(_, let displayError, _):
+                if displayError == .invalidMnemonic {
+                    showMnemonicAlert()
+                } else {
+                    showAlert(error: failure)
+                }
+            case .sdkNotReady, .javaScriptException, .decoding, .invalidResponse, .unexpected:
                 showAlert(error: failure)
             }
         } else {

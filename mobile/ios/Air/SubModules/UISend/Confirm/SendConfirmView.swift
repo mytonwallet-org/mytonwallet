@@ -65,7 +65,14 @@ fileprivate struct ToSection: View {
         WithPerceptionTracking {
             InsetSection {
                 InsetCell {
-                    TappableAddressFull(accountContext: model.$account, model: model.addressViewModel, compactAddressWithName: false)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        if model.isScamRecipient {
+                            Image.airBundle("ScamBadge")
+                                .offset(y: 1)
+                        }
+                        TappableAddressFull(accountContext: model.$account, model: model.addressViewModel, compactAddressWithName: false)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             } header: {
                 Text(lang("Recipient Address"))

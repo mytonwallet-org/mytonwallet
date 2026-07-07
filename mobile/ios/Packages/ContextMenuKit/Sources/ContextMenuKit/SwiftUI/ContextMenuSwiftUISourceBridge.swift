@@ -12,14 +12,14 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
 
     private var isEnabled = true
     private var sourcePortal: ContextMenuSourcePortal?
-    private var configuration: (() -> ContextMenuConfiguration)?
+    private var configuration: (() -> ContextMenuConfiguration?)?
     private var isExternalSelectionActive = false
 
     func update(
         anchorView: ContextMenuSourceAnchorView,
         isEnabled: Bool,
         sourcePortal: ContextMenuSourcePortal?,
-        configuration: @escaping () -> ContextMenuConfiguration
+        configuration: @escaping () -> ContextMenuConfiguration?
     ) {
         self.anchorView = anchorView
         self.isEnabled = isEnabled
@@ -123,13 +123,16 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
         guard self.presentedOverlayView == nil, let anchorView, let configuration else {
             return
         }
+        guard let configuration = configuration() else {
+            return
+        }
         if triggeredByLongPress {
             ContextMenuHaptics.playLongPressActivation()
         }
 
         let presentationReference = self.makePresentationReference(for: anchorView)
         guard let overlayView = ContextMenuPresenter.present(
-            configuration: configuration(),
+            configuration: configuration,
             from: anchorView,
             presentationReference: presentationReference
         ) else {

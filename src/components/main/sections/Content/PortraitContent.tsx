@@ -184,10 +184,12 @@ function PortraitContent({
   const activeTabId = tabs[activeTabIndex]?.id;
 
   function renderHeader() {
-    const headerTransitionKey = hasNftSelection ? 2 : (currentCollection ? 1 : 0);
+    const isNftSelectionVisible = hasNftSelection
+      && (activeContentTab === ContentTab.Nft || Boolean(currentCollection));
+    const headerTransitionKey = isNftSelectionVisible ? 2 : (currentCollection ? 1 : 0);
 
     let header;
-    if (hasNftSelection) {
+    if (isNftSelectionVisible) {
       header = <NftSelectionHeader />;
     } else if (currentCollection) {
       header = <NftCollectionHeader collection={currentCollection} key={currentCollection.address} />;

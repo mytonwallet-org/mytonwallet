@@ -1,4 +1,5 @@
 import { APP_ENV, APP_NAME, APP_VERSION, BRILLIANT_API_BASE_URL } from '../../config';
+import { bucketKey } from '../../util/circuit-breaker';
 import { fetchJson, fetchWithRetry, fetchWithTimeout, handleFetchErrors } from '../../util/fetch';
 import { getEnvironment } from '../environment';
 import { getClientId } from './other';
@@ -32,6 +33,8 @@ export async function callBackendPost<T>(path: string, data: AnyLiteral, options
     ? await fetchWithRetry(url, init, {
       timeouts: timeout,
       shouldSkipRetryFn: (message) => !message?.includes('signal is aborted'),
+      // Per-endpoint bucket: a slow /assets must not gate /swap or /currency-rates.
+      bucketKey: bucketKey(url, { includePathPrefix: true }),
     })
     : await fetchWithTimeout(url.toString(), init, timeout);
 
@@ -48,6 +51,8 @@ export function callBackendGet<T extends AnyLiteral>(path: string, data?: AnyLit
       ...headers,
       ...getBackendHeaders(),
     },
+  }, {
+    bucketKey: bucketKey(url, { includePathPrefix: true }),
   });
 }
 

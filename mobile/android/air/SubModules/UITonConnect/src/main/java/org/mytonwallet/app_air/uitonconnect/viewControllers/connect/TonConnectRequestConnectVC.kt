@@ -2,13 +2,14 @@ package org.mytonwallet.app_air.uitonconnect.viewControllers.connect
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import androidx.core.view.isVisible
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -18,7 +19,9 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -29,6 +32,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.Settin
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews.ConnectRequestConfirmView
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews.ConnectRequestView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -41,9 +45,11 @@ import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TonConnectRequestConnectVC(
@@ -53,7 +59,7 @@ class TonConnectRequestConnectVC(
     override val TAG = "TonConnectRequestConnect"
 
     override val shouldDisplayTopBar = false
-
+    override val shouldDisplayBottomBar = false
 
     private val requestView = ConnectRequestView(context).apply {
         configure(update?.dapp)
@@ -65,6 +71,14 @@ class TonConnectRequestConnectVC(
 
     private val accountView = SettingsAccountCell(context).apply {
         alpha = 0f
+    }
+
+    private val warningView = WLabel(context).apply {
+        setStyle(14f, WFont.Regular)
+        setTextColor(WColor.Red.color)
+        visibility = View.GONE
+        text = LocaleController.getString("No matching chains")
+        gravity = Gravity.CENTER
     }
 
     private val buttonView: WButton = WButton(context, WButton.Type.PRIMARY).apply {
@@ -99,8 +113,23 @@ class TonConnectRequestConnectVC(
                 rightMargin = 10.dp
             }
         )
+    }
+
+    private val bottomContainer = LinearLayout(context).apply {
+        id = View.generateViewId()
+        orientation = LinearLayout.VERTICAL
         addView(
-            buttonView, ConstraintLayout.LayoutParams(
+            warningView, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                leftMargin = 20.dp
+                topMargin = 5.5f.dp.roundToInt()
+                rightMargin = 20.dp
+                bottomMargin = 6.dp
+            })
+        addView(
+            buttonView, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
@@ -114,10 +143,11 @@ class TonConnectRequestConnectVC(
     private val scrollView = ScrollView(context).apply {
         id = View.generateViewId()
         isVerticalScrollBarEnabled = false
+        clipToPadding = false
         addView(
             scrollingContentView, ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
     }
@@ -136,8 +166,16 @@ class TonConnectRequestConnectVC(
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
+        view.addView(
+            bottomContainer, ConstraintLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
         view.setConstraints {
             allEdges(scrollView)
+            toCenterX(bottomContainer)
+            toBottom(bottomContainer)
         }
 
         updateButtonState()
@@ -151,9 +189,17 @@ class TonConnectRequestConnectVC(
 
             val account = AccountStore.accountById(update.accountId)
 
+            if (account?.supports(requiredChains()) != true) {
+                showAlert(
+                    LocaleController.getString("Error"),
+                    LocaleController.getString("No matching chains")
+                )
+                return@setOnClickListener
+            }
+
             val requiresSigning = update.proof != null ||
-                account?.byChain?.get(TON_CHAIN)?.mfa != null
-            if (account?.accountType == MAccount.AccountType.VIEW && requiresSigning) {
+                account.byChain[TON_CHAIN]?.mfa != null
+            if (account.accountType == MAccount.AccountType.VIEW && requiresSigning) {
                 showAlert(
                     LocaleController.getString("Error"),
                     LocaleController.getString("Action is not possible on a view-only wallet.")
@@ -192,16 +238,53 @@ class TonConnectRequestConnectVC(
             0f,
             true
         )
+        warningView.setTextColor(WColor.Red.color)
     }
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        scrollView.setPaddingRelative(
-            systemBarStartInset, (WNavigationBar.DEFAULT_HEIGHT - 28).dp, systemBarEndInset, max(
-                (navigationController?.getSystemBars()?.bottom ?: 0),
-                (navigationController?.imeInsetBottom ?: 0)
-            )
+        val bottomInset = max(
+            (navigationController?.getSystemBars()?.bottom ?: 0),
+            (navigationController?.imeInsetBottom ?: 0)
         )
+        bottomContainer.setPaddingRelative(
+            systemBarStartInset, 0, systemBarEndInset, bottomInset
+        )
+        scrollView.setPaddingRelative(
+            systemBarStartInset,
+            (WNavigationBar.DEFAULT_HEIGHT - 28).dp,
+            systemBarEndInset,
+            measuredBottomContainerHeight()
+        )
+    }
+
+    private fun measuredBottomContainerHeight(): Int {
+        val width = maxOf(view.width, navigationController?.width ?: 0)
+            .takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+        bottomContainer.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        return bottomContainer.measuredHeight
+    }
+
+    override val isExpandable = false
+
+    override fun getModalHalfExpandedHeight(): Int? {
+        val width = maxOf(
+            view.width,
+            navigationController?.width ?: 0,
+            context.resources.displayMetrics.widthPixels
+        )
+        scrollingContentView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val contentHeight = scrollingContentView.measuredHeight.takeIf { it > 0 } ?: return null
+        val measured = contentHeight + measuredBottomContainerHeight() +
+            (WNavigationBar.DEFAULT_HEIGHT - 28).dp
+        val windowHeight = window?.windowView?.height?.takeIf { it > 0 } ?: return measured
+        return minOf(measured, windowHeight)
     }
 
     private fun confirmHardware() {
@@ -341,6 +424,7 @@ class TonConnectRequestConnectVC(
                     )
                     onCompletion(true, null)
                 } catch (err: JSWebViewBridge.ApiError) {
+                    Logger.e(Logger.LogTag.TON_CONNECT, "submitConnect: $err")
                     isConfirmed = false
                     onCompletion(false, null)
                 }
@@ -384,7 +468,8 @@ class TonConnectRequestConnectVC(
                         ),
                     )
                 )
-            } catch (_: Throwable) {
+            } catch (err: JSWebViewBridge.ApiError) {
+                Logger.e(Logger.LogTag.TON_CONNECT, "finishConnect: $err")
             }
             navigationController?.let { window.dismissNav(it) }
         }
@@ -394,12 +479,16 @@ class TonConnectRequestConnectVC(
         val update = update ?: return
         WalletCore.recordTonConnectEvent("wallet-connect-rejected", update.promiseId)
         window!!.lifecycleScope.launch {
-            WalletCore.call(
-                ApiMethod.DApp.CancelDappRequest(
-                    promiseId = update.promiseId,
-                    reason = "user reject"
+            try {
+                WalletCore.call(
+                    ApiMethod.DApp.CancelDappRequest(
+                        promiseId = update.promiseId,
+                        reason = "user reject"
+                    )
                 )
-            )
+            } catch (err: JSWebViewBridge.ApiError) {
+                Logger.e(Logger.LogTag.TON_CONNECT, "cancelConnect: $err")
+            }
         }
     }
 
@@ -420,10 +509,27 @@ class TonConnectRequestConnectVC(
         accountView.fadeIn()
     }
 
+    private fun requiredChains(): List<ApiDappSessionChain> {
+        return update?.dapp?.chains ?: emptyList()
+    }
+
+    private fun isSelectedAccountCompatible(): Boolean {
+        val account = AccountStore.accountById(update?.accountId) ?: return false
+        return account.supports(requiredChains())
+    }
+
     private fun updateButtonState() {
         val isEnabled = isSelectedWalletConnectable()
         buttonView.isEnabled = isEnabled
         buttonView.alpha = if (isEnabled) 1.0f else 0.5f
+
+        val shouldShowWarning = update != null && !isSelectedAccountCompatible()
+        if (warningView.isVisible != shouldShowWarning) {
+            warningView.isVisible = shouldShowWarning
+            bottomContainer.post {
+                navigationController?.onBottomSheetHeightChanged()
+            }
+        }
 
         val isDangerous =
             update?.dapp?.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS
@@ -489,7 +595,8 @@ class TonConnectRequestConnectVC(
         val walletSelectionVC = WalletSelectionVC(
             context = context,
             dappHost = dappHost,
-            requiresProof = update?.proof != null
+            requiresProof = update?.proof != null,
+            requiredChains = requiredChains()
         )
 
         walletSelectionVC.setOnWalletSelectListener { selectedAccount ->
@@ -512,6 +619,7 @@ class TonConnectRequestConnectVC(
     private fun isSelectedWalletConnectable(): Boolean {
         val update = update ?: return false
         val account = AccountStore.accountById(update.accountId) ?: return false
+        if (!account.supports(requiredChains())) return false
         val hasTonWallet = account.tonAddress != null
         if (!hasTonWallet) return false
         val requiresProof = update.proof != null

@@ -86,7 +86,44 @@ export async function fetchCrosschainAccountAssets(
   return assets;
 }
 
-export async function fetchAccountAssets(
+// When several accounts share the same EVM address, their independent poll timers can fire
+// identical positions requests at once. This map coalesces concurrent identical fetches into a
+// single in-flight request; entries are deleted as soon as the request settles, so positions stay
+// uncached across poll cycles.
+//
+// The resolved `ApiBalanceBySlug` is the SAME object instance returned to every coalesced caller,
+// so it MUST be treated as read-only. A caller that needs to mutate the result must copy it first,
+// otherwise it would corrupt a sibling account that coalesced onto the same fetch.
+const inFlightPositions = new Map<string, Promise<ApiBalanceBySlug>>();
+
+export function fetchAccountAssets(
+  chain: EVMChain,
+  network: ApiNetwork,
+  address: string,
+  sendUpdateTokens: NoneToVoidFunction,
+  isCrossChain?: boolean,
+): Promise<ApiBalanceBySlug> {
+  // The address is lowercased so the same wallet passed in different casing (EIP-55 checksummed vs
+  // lowercase) still coalesces onto one request. The `isCrossChain` component is required so a
+  // cross-chain ethereum fetch does not collide with a single-chain ethereum fetch for the same address.
+  const key = `${network}:${chain}:${address.toLowerCase()}:${isCrossChain ? 1 : 0}`;
+
+  const existing = inFlightPositions.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const promise = fetchAccountAssetsUncoalesced(chain, network, address, sendUpdateTokens, isCrossChain)
+    .finally(() => {
+      inFlightPositions.delete(key);
+    });
+
+  inFlightPositions.set(key, promise);
+
+  return promise;
+}
+
+async function fetchAccountAssetsUncoalesced(
   chain: EVMChain,
   network: ApiNetwork,
   address: string,
@@ -97,6 +134,7 @@ export async function fetchAccountAssets(
 
   const params = {
     'filter[positions]': 'only_simple',
+    'filter[trash]': 'no_filter',
     currency: 'usd',
     'filter[chain_ids]': isCrossChain
       ? getChainsByStandard(chain).map((c) => getZerionChainByApiChain(c as EVMChain)).join(',')

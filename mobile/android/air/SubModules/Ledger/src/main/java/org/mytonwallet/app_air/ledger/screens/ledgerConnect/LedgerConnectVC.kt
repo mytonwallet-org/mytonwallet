@@ -83,6 +83,8 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestConnect
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestConnect.Request
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestSendTransaction
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmWalletConnectPaySignData
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmWalletConnectPaySignTransaction
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.SignDappProof
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Domains.SubmitDnsChangeWallet
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Domains.SubmitDnsRenewal
@@ -100,6 +102,7 @@ class LedgerConnectVC(
     context: Context,
     private val mode: Mode,
     private val headerView: View? = null,
+    private val onCancel: (() -> Unit)? = null,
 ) : WViewController(context), WThemedView, WalletCore.EventObserver {
     override val TAG = "LedgerConnect"
 
@@ -146,6 +149,16 @@ class LedgerConnectVC(
         data class SignDappData(
             override val accountId: String,
             val update: ApiUpdate.ApiUpdateDappSignData
+        ) : SignData()
+
+        data class SignWalletConnectPayTransfers(
+            override val accountId: String,
+            val update: ApiUpdate.ApiUpdateWalletConnectPaySignTransaction
+        ) : SignData()
+
+        data class SignWalletConnectPaySignData(
+            override val accountId: String,
+            val update: ApiUpdate.ApiUpdateWalletConnectPaySignData
         ) : SignData()
 
         data class SignLedgerProof(
@@ -262,11 +275,11 @@ class LedgerConnectVC(
 
     val connectionTypeLabel = WLabel(context).apply {
         text = LocaleController.getString("Connection Type")
-        setStyle(adaptiveFontSize(), WFont.SemiBold)
+        setStyle(adaptiveFontSize(), WFont.Medium)
     }
 
     val connectionTypeValue = WLabel(context).apply {
-        setStyle(adaptiveFontSize(), WFont.SemiBold)
+        setStyle(adaptiveFontSize(), WFont.Medium)
     }
 
     val connectionTypeView: WView by lazy {
@@ -694,6 +707,78 @@ class LedgerConnectVC(
                     }
                 }
 
+                is SignData.SignWalletConnectPayTransfers -> {
+                    try {
+                        val account =
+                            AccountStore.accountById(signData.update.accountId) ?: return@launch
+                        val dappChain =
+                            account.dappChain(signData.update.operationChain) ?: return@launch
+                        val signResult = WalletCore.call(
+                            SignDappTransfers(
+                                dappChain = dappChain,
+                                accountId = signData.update.accountId,
+                                transactions = signData.update.transactions,
+                                options = Options(
+                                    password = null,
+                                    validUntil = signData.update.validUntil,
+                                    vestingAddress = null,
+                                    isLegacyOutput = signData.update.isLegacyOutput
+                                        ?: signData.update.isSignOnly
+                                )
+                            )
+                        )
+                        val signedTransactions = when (signResult) {
+                            is org.json.JSONArray -> signResult
+                            is List<*> -> org.json.JSONArray(signResult)
+                            else -> org.json.JSONArray(signResult?.toString().orEmpty())
+                        }
+                        WalletCore.call(
+                            ConfirmWalletConnectPaySignTransaction(
+                                signData.update.promiseId,
+                                signedTransactions
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.SignWalletConnectPaySignData -> {
+                    try {
+                        val account =
+                            AccountStore.accountById(signData.update.accountId) ?: return@launch
+                        val dappChain =
+                            account.dappChain(signData.update.operationChain) ?: return@launch
+                        val signedData = WalletCore.call(
+                            ApiMethod.Transfer.SignDappData(
+                                dappChain = dappChain,
+                                accountId = signData.update.accountId,
+                                dappUrl = signData.update.merchant.name,
+                                payloadToSign = signData.update.payloadToSign,
+                                password = ""
+                            )
+                        )
+                        WalletCore.call(
+                            ConfirmWalletConnectPaySignData(
+                                signData.update.promiseId,
+                                signedData
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
                 is SignData.SignLedgerProof -> {
                     try {
                         Handler(Looper.getMainLooper()).post {
@@ -731,21 +816,41 @@ class LedgerConnectVC(
 
                 is SignData.SignNftTransfer -> {
                     try {
-                        val result = WalletCore.call(
-                            SubmitNftTransfer(
-                                chain = signData.nfts.first().chain ?: MBlockchain.ton,
-                                accountId = signData.accountId,
-                                passcode = "",
-                                nfts = signData.nfts,
-                                address = signData.toAddress,
-                                comment = signData.comment,
-                                fee = signData.realFee ?: BigInteger.ZERO,
-                                isNftBurn = signData.isNftBurn
+                        val nfts = signData.nfts
+                        if (nfts.isEmpty())
+                            throw IllegalStateException("No NFT selected")
+                        val realFeePerNft = signData.realFee?.let { it / nfts.size.toBigInteger() }
+                        var lastActivityId: String? = null
+                        nfts.forEachIndexed { index, nft ->
+                            if (sentNftAddresses.contains(nft.address))
+                                return@forEachIndexed
+                            Handler(Looper.getMainLooper()).post {
+                                signOnDeviceStep.setSubtitle(
+                                    LocaleController.getFormattedString(
+                                        $$"$ledger_confirm_progress",
+                                        listOf((index + 1).toString(), nfts.size.toString())
+                                    )
+                                )
+                            }
+                            val result = WalletCore.call(
+                                SubmitNftTransfer(
+                                    chain = nft.chain ?: MBlockchain.ton,
+                                    accountId = signData.accountId,
+                                    passcode = "",
+                                    nfts = listOf(nft),
+                                    address = signData.toAddress,
+                                    comment = signData.comment,
+                                    fee = realFeePerNft ?: BigInteger.ZERO,
+                                    isNftBurn = signData.isNftBurn
+                                )
                             )
-                        )
-                        signedActivityId =
-                            MBlockchain.ton.idToTxHash(result.activityIds?.lastOrNull())
+                            sentNftAddresses.add(nft.address)
+                            lastActivityId =
+                                MBlockchain.ton.idToTxHash(result.activityIds?.lastOrNull())
+                        }
+                        signedActivityId = lastActivityId
                         Handler(Looper.getMainLooper()).post {
+                            signOnDeviceStep.setSubtitle(null)
                             mode.onDone()
                             receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
                                 ?.let {
@@ -754,6 +859,7 @@ class LedgerConnectVC(
                         }
                     } catch (e: Throwable) {
                         Handler(Looper.getMainLooper()).post {
+                            signOnDeviceStep.setSubtitle(null)
                             signFailed(e as? JSWebViewBridge.ApiError)
                         }
                     }
@@ -1033,6 +1139,7 @@ class LedgerConnectVC(
         if (shouldDestroyLedgerManager)
             LedgerManager.stopConnection()
         WalletCore.unregisterObserver(this)
+        onCancel?.invoke()
     }
 
     override fun viewWillAppear() {
@@ -1052,6 +1159,7 @@ class LedgerConnectVC(
     }
 
     private var signedActivityId: String? = null
+    private val sentNftAddresses = HashSet<String>()
     private var receivedLocalActivities: ArrayList<MApiTransaction>? = null
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
         if (signedActivityId == null) {

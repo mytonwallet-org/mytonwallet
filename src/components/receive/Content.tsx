@@ -5,7 +5,7 @@ import type { ApiChain } from '../../api/types';
 import type { Account } from '../../global/types';
 import type { TabWithProperties } from '../ui/TabList';
 
-import { DEFAULT_CHAIN, PRIORITY_TOKENS } from '../../config';
+import { DEFAULT_CHAIN } from '../../config';
 import {
   selectCurrentAccount,
   selectCurrentAccountId,
@@ -13,7 +13,7 @@ import {
   selectIsCurrentAccountViewMode,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainTitle, getSupportedChains } from '../../util/chain';
+import { getChainTitle, getDisplayOrderedChains } from '../../util/chain';
 import { swapKeysAndValues } from '../../util/iteratees';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -26,22 +26,7 @@ import Address from './content/Address';
 
 import styles from './ReceiveModal.module.scss';
 
-const CHAIN_ORDER = PRIORITY_TOKENS.reduce((acc, token) => {
-  if (!acc.has(token.chain)) {
-    acc.set(token.chain, acc.size);
-  }
-
-  return acc;
-}, new Map<ApiChain, number>());
-
-const ORDERED_SUPPORTED_CHAINS = getSupportedChains()
-  .map((chain, index) => ({ chain, index }))
-  .sort((a, b) => {
-    const orderDiff = (CHAIN_ORDER.get(a.chain) ?? Infinity) - (CHAIN_ORDER.get(b.chain) ?? Infinity);
-
-    return orderDiff || a.index - b.index;
-  })
-  .map(({ chain }) => chain);
+const ORDERED_SUPPORTED_CHAINS = getDisplayOrderedChains();
 
 interface StateProps {
   accountChains?: Account['byChain'];
@@ -57,7 +42,7 @@ type OwnProps = {
 
 const tabIdByChain = Object.fromEntries(
   ORDERED_SUPPORTED_CHAINS.map((chain, index) => [chain, index]),
-) as Record<ReturnType<typeof getSupportedChains>[number], number>;
+) as Record<ApiChain, number>;
 
 const chainByTabId = swapKeysAndValues(tabIdByChain);
 

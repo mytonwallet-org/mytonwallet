@@ -16,29 +16,36 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
     private let triggers: ContextMenuInteractionTriggers
     private let longPressDuration: TimeInterval
     private let sourcePortal: ContextMenuSourcePortal?
+    private let pressAnimation: ContextMenuPressAnimation?
+    private let activationViewProvider: ((UIView) -> UIView?)?
     private let activationHitTestProvider: ((UIView, CGPoint) -> Bool)?
     private let onWillPresent: (() -> Void)?
     private let onDidDismiss: (() -> Void)?
     private let presentationReferenceProvider: ((UIView) -> ContextMenuPresentationReference)?
-    private let configurationProvider: (UIView) -> ContextMenuConfiguration
+    private let configurationProvider: (UIView) -> ContextMenuConfiguration?
 
     private weak var sourceView: UIView?
     private var tapGestureRecognizer: UITapGestureRecognizer?
     private var longPressGestureRecognizer: UILongPressGestureRecognizer?
+    private var pressAnimationGestureRecognizer: ContextMenuPressAnimationGestureRecognizer?
     private weak var presentedOverlayView: ContextMenuOverlayView?
 
     public init(
         triggers: ContextMenuInteractionTriggers = [.tap, .longPress],
         longPressDuration: TimeInterval = 0.32,
         sourcePortal: ContextMenuSourcePortal? = nil,
+        pressAnimation: ContextMenuPressAnimation? = nil,
+        activationViewProvider: ((UIView) -> UIView?)? = nil,
         activationHitTestProvider: ((UIView, CGPoint) -> Bool)? = nil,
         onWillPresent: (() -> Void)? = nil,
         onDidDismiss: (() -> Void)? = nil,
-        configurationProvider: @escaping (UIView) -> ContextMenuConfiguration
+        configurationProvider: @escaping (UIView) -> ContextMenuConfiguration?
     ) {
         self.triggers = triggers
         self.longPressDuration = longPressDuration
         self.sourcePortal = sourcePortal
+        self.pressAnimation = pressAnimation
+        self.activationViewProvider = activationViewProvider
         self.activationHitTestProvider = activationHitTestProvider
         self.onWillPresent = onWillPresent
         self.onDidDismiss = onDidDismiss
@@ -51,15 +58,19 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         triggers: ContextMenuInteractionTriggers = [.tap, .longPress],
         longPressDuration: TimeInterval = 0.32,
         sourcePortal: ContextMenuSourcePortal? = nil,
+        pressAnimation: ContextMenuPressAnimation? = nil,
+        activationViewProvider: ((UIView) -> UIView?)? = nil,
         activationHitTestProvider: ((UIView, CGPoint) -> Bool)? = nil,
         onWillPresent: (() -> Void)? = nil,
         onDidDismiss: (() -> Void)? = nil,
         presentationReferenceProvider: ((UIView) -> ContextMenuPresentationReference)? = nil,
-        configurationProvider: @escaping (UIView) -> ContextMenuConfiguration
+        configurationProvider: @escaping (UIView) -> ContextMenuConfiguration?
     ) {
         self.triggers = triggers
         self.longPressDuration = longPressDuration
         self.sourcePortal = sourcePortal
+        self.pressAnimation = pressAnimation
+        self.activationViewProvider = activationViewProvider
         self.activationHitTestProvider = activationHitTestProvider
         self.onWillPresent = onWillPresent
         self.onDidDismiss = onDidDismiss
@@ -80,11 +91,34 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         }
 
         if self.triggers.contains(.longPress) {
-            let longPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.handleLongPress(_:)))
-            longPressGestureRecognizer.minimumPressDuration = self.longPressDuration
-            longPressGestureRecognizer.delegate = self
-            view.addGestureRecognizer(longPressGestureRecognizer)
-            self.longPressGestureRecognizer = longPressGestureRecognizer
+            if let pressAnimation {
+                let pressAnimationGestureRecognizer = ContextMenuPressAnimationGestureRecognizer(target: self, action: #selector(self.handlePressAnimationLongPress(_:)))
+                pressAnimationGestureRecognizer.activationDuration = self.longPressDuration
+                pressAnimationGestureRecognizer.beginDelay = pressAnimation.beginDelay
+                pressAnimationGestureRecognizer.pressInDuration = pressAnimation.pressInDuration
+                pressAnimationGestureRecognizer.allowableMovement = pressAnimation.allowableMovement
+                pressAnimationGestureRecognizer.delegate = self
+                pressAnimationGestureRecognizer.activationProgress = { [weak self] progress, update in
+                    guard let self, let sourceView = self.sourceView, let pressAnimation = self.pressAnimation else {
+                        return
+                    }
+                    let targetView = self.resolveActivationView(for: sourceView)
+                    ContextMenuPressAnimationApplier.apply(
+                        pressAnimation,
+                        to: targetView,
+                        progress: progress,
+                        update: update
+                    )
+                }
+                view.addGestureRecognizer(pressAnimationGestureRecognizer)
+                self.pressAnimationGestureRecognizer = pressAnimationGestureRecognizer
+            } else {
+                let longPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.handleLongPress(_:)))
+                longPressGestureRecognizer.minimumPressDuration = self.longPressDuration
+                longPressGestureRecognizer.delegate = self
+                view.addGestureRecognizer(longPressGestureRecognizer)
+                self.longPressGestureRecognizer = longPressGestureRecognizer
+            }
         }
     }
 
@@ -95,8 +129,13 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         if let longPressGestureRecognizer {
             longPressGestureRecognizer.view?.removeGestureRecognizer(longPressGestureRecognizer)
         }
+        if let pressAnimationGestureRecognizer {
+            pressAnimationGestureRecognizer.cancelPressAnimation()
+            pressAnimationGestureRecognizer.view?.removeGestureRecognizer(pressAnimationGestureRecognizer)
+        }
         self.tapGestureRecognizer = nil
         self.longPressGestureRecognizer = nil
+        self.pressAnimationGestureRecognizer = nil
         self.sourceView = nil
     }
 
@@ -108,6 +147,14 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
     }
 
     @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
+        self.handleLongPressState(recognizer)
+    }
+
+    @objc private func handlePressAnimationLongPress(_ recognizer: UIGestureRecognizer) {
+        self.handleLongPressState(recognizer)
+    }
+
+    private func handleLongPressState(_ recognizer: UIGestureRecognizer) {
         guard let sourceView = recognizer.view else {
             return
         }
@@ -116,6 +163,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         switch recognizer.state {
         case .began:
             if self.presentedOverlayView == nil {
+                self.cancelCompetingGestureRecognizers(on: sourceView, excluding: recognizer)
                 self.presentMenu(triggeredByLongPress: true)
             }
         case .changed:
@@ -134,10 +182,12 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         guard let sourceView else {
             return
         }
+        guard let configuration = self.configurationProvider(sourceView) else {
+            return
+        }
         if triggeredByLongPress {
             ContextMenuHaptics.playLongPressActivation()
         }
-        let configuration = self.configurationProvider(sourceView)
         let presentationReference = self.resolvePresentationReference(for: sourceView)
         self.onWillPresent?()
         guard let overlayView = ContextMenuPresenter.present(
@@ -180,7 +230,24 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         if let presentationReferenceProvider {
             return presentationReferenceProvider(sourceView)
         } else {
-            return ContextMenuPresentationReference.from(view: sourceView, sourcePortal: self.sourcePortal)
+            return ContextMenuPresentationReference.from(view: self.resolveActivationView(for: sourceView), sourcePortal: self.sourcePortal)
+        }
+    }
+
+    private func resolveActivationView(for sourceView: UIView) -> UIView {
+        self.activationViewProvider?(sourceView) ?? sourceView
+    }
+
+    private func cancelCompetingGestureRecognizers(on sourceView: UIView, excluding activeRecognizer: UIGestureRecognizer) {
+        for recognizer in sourceView.gestureRecognizers ?? [] {
+            guard recognizer !== activeRecognizer,
+                  recognizer !== self.tapGestureRecognizer,
+                  recognizer !== self.longPressGestureRecognizer,
+                  recognizer !== self.pressAnimationGestureRecognizer else {
+                continue
+            }
+            recognizer.isEnabled = false
+            recognizer.isEnabled = true
         }
     }
 }

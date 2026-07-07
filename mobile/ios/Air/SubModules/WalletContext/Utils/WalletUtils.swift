@@ -63,6 +63,7 @@ public let DIESEL_TOKENS = [
 fileprivate let decimalSeparator = "."
 public let signSpace = "\u{2009}"
 fileprivate let thousandSpace: Character = " "
+private let subscriptDigits = ["₀", "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈", "₉"]
 
 public let walletAddressLength: Int = 48
 public let walletTextLimit: Int = 120
@@ -200,7 +201,8 @@ public func formatBigIntText(_ value: BigInt,
                             decimalsCount: Int? = nil,
                             forceCurrencyToRight: Bool = false,
                             roundHalfUp: Bool = true,
-                            isShortened: Bool = false) -> String {
+                            isShortened: Bool = false,
+                            zeroCountSubscriptMinCount: Int? = nil) -> String {
     
     // Try shorten first. Note that rounding must not be applied here, this is a truncation process.
     var shortenedResult: String?
@@ -218,7 +220,15 @@ public func formatBigIntText(_ value: BigInt,
     }
     
     var result = shortenedResult ?? insertGroupingSeparator(
-        in: formatClassicBigIntText(value, tokenDecimals: tokenDecimals, decimalsCount: decimalsCount, roundHalfUp: roundHalfUp)
+        in: applyZeroCountSubscript(
+            to: formatClassicBigIntText(
+                value,
+                tokenDecimals: tokenDecimals,
+                decimalsCount: decimalsCount,
+                roundHalfUp: roundHalfUp
+            ),
+            minZeroCount: zeroCountSubscriptMinCount
+        )
     )
 
     if let currency, currency.count > 0 {
@@ -235,6 +245,31 @@ public func formatBigIntText(_ value: BigInt,
         result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
     }
     return result
+}
+
+private func applyZeroCountSubscript(to value: String, minZeroCount: Int?) -> String {
+    guard let minZeroCount, minZeroCount > 0, value.hasPrefix("0.") else {
+        return value
+    }
+
+    var zeroCount = 0
+    var index = value.index(value.startIndex, offsetBy: 2)
+    while index < value.endIndex, value[index] == "0" {
+        zeroCount += 1
+        index = value.index(after: index)
+    }
+
+    guard zeroCount >= minZeroCount, index < value.endIndex else {
+        return value
+    }
+
+    return "0.0\(subscriptString(zeroCount))\(value[index...])"
+}
+
+private func subscriptString(_ value: Int) -> String {
+    String(value).compactMap { digit -> String? in
+        digit.wholeNumberValue.map { subscriptDigits[$0] }
+    }.joined()
 }
 
 private func formatClassicBigIntText(_ value: BigInt, tokenDecimals: Int, decimalsCount: Int?, roundHalfUp: Bool) -> String {

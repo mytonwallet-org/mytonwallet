@@ -44,13 +44,12 @@ class FloatingBottomNavigationView(
 ) : IBottomNavigationView(context) {
 
     companion object {
-        private const val PILL_WIDTH = 328
         private const val PILL_HEIGHT = 56
-        private const val PILL_HORIZONTAL_MARGIN = 4
+        private const val PILL_HORIZONTAL_MARGIN = 6
         private const val ITEM_WIDTH = 80
-        private const val ICON_SIZE = 24
-        private const val LABEL_SIZE = 11f
-        private const val INDICATOR_WIDTH = 80
+        private const val ICON_SIZE = 26
+        private const val LABEL_SIZE = 12f
+        private const val INDICATOR_WIDTH = 84
         private const val INDICATOR_HEIGHT = 48
     }
 
@@ -97,7 +96,7 @@ class FloatingBottomNavigationView(
     private val indicatorPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val outerPath = Path()
 
-    private val pillW = PILL_WIDTH.dp
+    private val pillW = PILL_HORIZONTAL_MARGIN.dp * 2 + ITEM_WIDTH.dp * tabDefs.size
     private val pillH = PILL_HEIGHT.dp
 
     @SuppressLint("ViewConstructor")
@@ -115,13 +114,13 @@ class FloatingBottomNavigationView(
     private inner class HighlightContentView(context: Context) : FrameLayout(context) {
         private val iconView = ImageView(context).apply {
             id = generateViewId()
-            scaleType = ImageView.ScaleType.CENTER
+            scaleType = ImageView.ScaleType.FIT_CENTER
         }
         private val labelView = WLabel(context).apply {
             id = generateViewId()
             textSize = LABEL_SIZE
             letterSpacing = 0f
-            typeface = WFont.SemiBold.typeface
+            typeface = WFont.Bold.typeface
             gravity = Gravity.CENTER
             setSingleLine(true)
             maxLines = 1
@@ -273,14 +272,14 @@ class FloatingBottomNavigationView(
             val outlineIcon = ImageView(context).apply {
                 this.id = generateViewId()
                 setImageDrawable(AppCompatResources.getDrawable(context, def.iconRes))
-                scaleType = ImageView.ScaleType.CENTER
+                scaleType = ImageView.ScaleType.FIT_CENTER
             }
             val label = WLabel(context).apply {
                 this.id = generateViewId()
                 text = LocaleController.getString(def.labelKey)
                 textSize = LABEL_SIZE
                 letterSpacing = 0f
-                typeface = WFont.SemiBold.typeface
+                typeface = WFont.Medium.typeface
                 gravity = Gravity.CENTER
                 setSingleLine(true)
                 maxLines = 1
@@ -333,7 +332,7 @@ class FloatingBottomNavigationView(
         ICON_SIZE.dp,
         Gravity.CENTER_HORIZONTAL or Gravity.TOP
     ).apply {
-        topMargin = 9.dp
+        topMargin = 7.dp
     }
 
     private fun createLabelLayoutParams() = FrameLayout.LayoutParams(
@@ -377,18 +376,23 @@ class FloatingBottomNavigationView(
         highlightedTab = id
         setSingleHighlight(activeHighlight, id, 1f)
         hideHighlight(incomingHighlight)
-        resetThinIconAlphas(id)
+        resetBaseContentAlphas(id)
         pillContainer.invalidate()
     }
 
-    private fun resetThinIconAlphas(selectedId: Int) {
+    private fun resetBaseContentAlphas(selectedId: Int) {
         tabs.forEach { (id, tab) ->
-            tab.container.outlineIcon?.alpha = if (id == selectedId) 0f else 1f
+            val alpha = if (id == selectedId) 0f else 1f
+            tab.container.outlineIcon?.alpha = alpha
+            tab.container.label?.alpha = alpha
         }
     }
 
-    private fun setThinIconAlpha(id: Int, alpha: Float) {
-        tabs[id]?.container?.outlineIcon?.alpha = alpha
+    private fun setBaseContentAlpha(id: Int, alpha: Float) {
+        tabs[id]?.container?.let {
+            it.outlineIcon?.alpha = alpha
+            it.label?.alpha = alpha
+        }
     }
 
     private fun animateIndicatorTo(id: Int) {
@@ -416,8 +420,8 @@ class FloatingBottomNavigationView(
                 incomingHighlight.scaleX = 0.7f + 0.3f * progress
                 incomingHighlight.scaleY = incomingHighlight.scaleX
                 incomingHighlight.alpha = progress
-                setThinIconAlpha(previousTab, progress)
-                setThinIconAlpha(id, 1f - progress)
+                setBaseContentAlpha(previousTab, progress)
+                setBaseContentAlpha(id, 1f - progress)
                 pillContainer.invalidate()
             }
             addListener(object : AnimatorListenerAdapter() {
@@ -432,7 +436,7 @@ class FloatingBottomNavigationView(
                     highlightedTab = id
                     setSingleHighlight(activeHighlight, id, 1f)
                     hideHighlight(incomingHighlight)
-                    resetThinIconAlphas(id)
+                    resetBaseContentAlphas(id)
                     indicatorAnimator = null
                     pillContainer.invalidate()
                 }
@@ -492,7 +496,7 @@ class FloatingBottomNavigationView(
         highlightedTab = settledId
         setSingleHighlight(activeHighlight, settledId, 1f)
         hideHighlight(incomingHighlight)
-        resetThinIconAlphas(settledId)
+        resetBaseContentAlphas(settledId)
     }
 
     override val isTinted = true
@@ -570,7 +574,7 @@ class FloatingBottomNavigationView(
         isEnabled = enabled
     }
 
-    override fun getMinimizedWidth(): Int = PILL_WIDTH.dp
+    override fun getMinimizedWidth(): Int = pillW
 
     override fun getSettingsItemView(): View? = tabs[ID_SETTINGS]?.container
 }

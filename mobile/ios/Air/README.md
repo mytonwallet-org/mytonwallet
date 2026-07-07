@@ -1,73 +1,42 @@
-# :gem: MyTonWallet Air :gem:
+# MyTonWallet Air iOS
 
-**The most feature-rich web wallet and browser extension for the [TON Network](https://ton.org)** – with support of jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic. **Now on the Air!**
+Air is the native iOS UI for MyTonWallet. It lives in the monorepo and uses the shared TypeScript SDK through a hidden WebView bridge.
 
-<img src="docs/screenshot.png" alt="Application Screenshot" width="320" style="border-radius: 16px;"/>
+## Build
 
-## :beers: How to Build
+Use the workspace in `mobile/ios/App`, not the Air project directly.
 
-First, Make sure you've installed these on your system:
+From the repository root, refresh SDK and iOS app artifacts when needed:
 
-- Xcode (recommended version: latest release version)
-- NodeJS (recommended version: 24)
-
-This directory is part of the MyTonWallet monorepo. [MyTonWallet](https://github.com/mytonwalletorg/mytonwallet).
-
-After cloning the `air` branch, follow the build instructions and run:
-
+```bash
+CAP_PLATFORM=ios npm run mobile:build:dev
 ```
-npm run build
+
+For a full app build:
+
+```bash
+xcodebuild -workspace mobile/ios/App/App.xcworkspace -scheme MyTonWallet_AirOnly -configuration Debug -destination 'generic/platform=iOS Simulator' build | xcbeautify
+```
+
+For local run through Capacitor tooling:
+
+```bash
 npm run mobile:run:ios
 ```
 
-If you've modified SDK files (src/api/\*), please run the SDK file generator command:
+Do not pass `-sdk iphonesimulator` to this workspace.
 
-```
-npm run mobile:build:sdk
-```
+## Structure
 
-This command will generate the js file required in the Air applications and place it in the project directory automatically.
+- `SubModules/` contains Air native modules. Feature UI code lives mostly in `UI*` modules, shared infrastructure in `WalletCore`, `WalletContext`, and `UIComponents`.
+- `WalletCore/JSWebViewBridge` hosts the TypeScript SDK and routes Swift API calls and SDK updates.
+- `notes/` contains working notes, old plans, audit outputs, diagrams, and scratchpad material. Treat it as non-canonical unless a note is explicitly promoted.
+- Durable platform documentation lives in `docs/technical/platforms/ios.md`.
 
-## SubModules
+## References
 
-The Air application is splitted into many ui and logic submodules.
+- [iOS platform overview](../../../docs/technical/platforms/ios.md)
+- [Submodule notes](notes/submodules.md)
+- [Bridge notes](notes/js-bridge.md)
 
-You can get a summary for submodules [here](docs/submodules.md).
-
-If you want the dependency graph, visit [here](scripts/README.md).
-
-<img src="docs/dependency_graph.svg" alt="Dependency Graph" style="border-radius: 16px;" />
-
-## Blockchain Communications
-
-All the api calls and blockchain logic is shared with our long-lived stable production webapp, through a js bridge. The native app is developed around that SDK.
-
-To learn more about this bridge, read [this doc](docs/js-bridge.md).
-
-## Storage
-
-### Shared Storages:
-
-- GlobalStorage
-
-  Global storage stores all the non-critical data, including cached activities, settings and so on.
-
-  It stores data in the web-view local-storage on both Legacy(Capacitor) app and the new Air(Native) app.
-
-- SecureStorage
-
-  Sensitive encrypted data are stored using this storage, into Keychain.
-
-### Air Exclusive Storages:
-
-- GRDB Sqlite DB
-
-  Stores non-sensitive account data like account type, wallet name and so on. Used to handle unexpected localstorage removal.
-
-- Logs
-
-  Logs are stored in a .tsv file
-
-- Nfts and Staking data
-
-  Nfts and Staking data are stored in .json files
+<img src="notes/screenshot.png" alt="Application Screenshot" width="320" style="border-radius: 16px;"/>

@@ -18,8 +18,14 @@ struct AddStakeView: View {
 
                 StakeInfoSection(model: model)
                         .padding(.top, -8)
+                        .onTapGesture { model.onBackgroundTapped() }
             }
             .padding(.top, -8)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: 90)
+                    .accessibilityHidden(true)
+            }
             .contentShape(.rect)
             .onTapGesture {
                 model.onBackgroundTapped()

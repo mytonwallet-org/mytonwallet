@@ -1,4 +1,5 @@
 
+import ContextMenuKit
 import Dependencies
 import UIActivityList
 import UIComponents
@@ -7,8 +8,8 @@ import WalletContext
 import WalletCore
 
 private let log = Log("WalletTokens")
-private let contextMenuPreviewCornerRadius: CGFloat = 26
-private let contextMenuPreviewShadowInset = CGSize(width: 12, height: 10)
+private let contextMenuSourceCornerRadius: CGFloat = 26
+private let walletTokenMenuStyle = ContextMenuStyle(minWidth: 180.0, maxWidth: 280.0)
 
 public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, Sendable, WSegmentedControllerContent {
     @AccountContext private var account: MAccount
@@ -22,7 +23,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     private var isWalletAssetsEmptyStateAnimationActive = false
     private var walletAssetsEmptyStateAnimationSessionID = 0
     private var pendingInteractiveSwitchAccountId: String?
-    private var contextMenuExtraBlurView: UIView?
 
     public var onHeightChanged: ((_ animated: Bool) -> Void)?
 
@@ -210,17 +210,24 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         let account = self.account
         let token = item.tokenBalance
         let badgeContent = getBadgeContent(accountContext: _account, slug: token.tokenSlug, isStaking: token.isStaking)
-
-        let highlightBackgroundWhenPinned = !layoutMode.isCompact
-        let showUnderNavbarPinningColor = indexPath.item == 0 && item.isPinned && highlightBackgroundWhenPinned
-        cell.underNavigationBarColorView.isVisible = showUnderNavbarPinningColor
+        cell.baseBackgroundColor = layoutMode.containerBackgroundColor
 
         cell.configure(with: item.tokenBalance,
                        animated: item.animatedAmounts,
                        badgeContent: badgeContent,
                        isMultichain: account.isMultichain,
-                       isPinned: item.isPinned,
-                       highlightBackgroundWhenPinned: highlightBackgroundWhenPinned)
+                       isPinned: item.isPinned)
+
+        let interaction = ContextMenuInteraction(
+            triggers: [.longPress],
+            sourcePortal: ContextMenuSourcePortal(
+                mask: .roundedAttachmentRect(cornerRadius: contextMenuSourceCornerRadius)
+            ),
+            pressAnimation: .default(transformMode: .sublayerTransform)
+        ) { [weak self, walletToken = item.tokenBalance] _ in
+            self?.makeTokenMenuConfiguration(walletToken: walletToken)
+        }
+        cell.setContextMenuInteraction(interaction)
     }
 
     private func applySnapshot(animatedAmounts: Bool, walletTokensViewState: WalletTokensViewState) {
@@ -424,18 +431,18 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         )
     }
 
-    private func makeTokenMenu(walletToken: MTokenBalance) -> UIMenu {
+    private func makeTokenMenuConfiguration(walletToken: MTokenBalance) -> ContextMenuConfiguration? {
         let tokenSlug = walletToken.tokenSlug
         let baseSlug = walletToken.isStaking ? (stakingBaseSlug(for: tokenSlug) ?? tokenSlug) : tokenSlug
         guard let token = TokenStore.getToken(slug: tokenSlug) ?? TokenStore.getToken(slug: baseSlug) else {
-            return UIMenu(title: "", children: [])
+            return nil
         }
         let account = self.account
         let accountID = account.id
         let isViewMode = account.isView
         let isServiceToken = token.type == .lp_token || token.isStakedToken || token.isPricelessToken
         let isSwapAvailable = account.supportsSwap && (TokenStore.swapAssets?.contains(where: { $0.slug == token.slug }) ?? false)
-        
+
         let stakingState: ApiStakingState? = if walletToken.isStaking {
             if let state = $account.stakingData?.byStakedSlug(walletToken.tokenSlug) {
                 state
@@ -447,7 +454,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         } else {
             nil
         }
-        
+
         let canBeClaimed = stakingState.map { getStakingStateStatus(state: $0) == .readyToClaim } ?? false
         let hasUnclaimedRewards = stakingState?.type == .jetton ? (stakingState?.unclaimedRewards ?? 0) > 0 : false
         let isStakingAvailable = !walletToken.isStaking
@@ -456,49 +463,94 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             && $account.stakingData?.bySlug(token.slug) != nil
         let isStakingToken = walletToken.isStaking
 
-        var primaryActions: [UIAction] = []
-        var secondaryActions: [UIAction] = []
+        var primaryItems: [ContextMenuItem] = []
+        var secondaryItems: [ContextMenuItem] = []
 
         if !isViewMode {
             if let stakingState {
-                primaryActions.append(UIAction(title: lang("Stake More"), image: UIImage(systemName: "arrow.up")) { [weak self] _ in
-                    self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
-                })
+                primaryItems.append(.action(
+                    ContextMenuAction(
+                        title: lang("Stake More"),
+                        icon: .system("arrow.up"),
+                        handler: { [weak self] in
+                            self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
+                        }
+                    )
+                ))
                 if stakingState.type != .ethena || !canBeClaimed {
                     let title = stakingState.type == .ethena ? lang("Request Unstaking") : lang("Unstake")
-                    primaryActions.append(UIAction(title: title, image: UIImage(systemName: "arrow.down")) { [weak self] _ in
-                        self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
-                    })
+                    primaryItems.append(.action(
+                        ContextMenuAction(
+                            title: title,
+                            icon: .system("arrow.down"),
+                            handler: { [weak self] in
+                                self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
+                            }
+                        )
+                    ))
                 }
                 if canBeClaimed || hasUnclaimedRewards {
-                    let image = UIImage(systemName: "bubbles.and.sparkles")
-                    primaryActions.append(UIAction(title: lang("Claim Rewards"), image: image) { [weak self] _ in
-                        self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
-                    })
+                    primaryItems.append(.action(
+                        ContextMenuAction(
+                            title: lang("Claim Rewards"),
+                            icon: .system("bubbles.and.sparkles"),
+                            handler: { [weak self] in
+                                self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
+                            }
+                        )
+                    ))
                 }
             } else {
                 if !isServiceToken {
-                    primaryActions.append(UIAction(title: lang("Fund"), image: UIImage(systemName: "plus")) { _ in
-                        AppActions.showReceive(accountContext: self.$account, chain: token.chain)
-                    })
+                    primaryItems.append(.action(
+                        ContextMenuAction(
+                            title: lang("Fund"),
+                            icon: .system("plus"),
+                            handler: { [weak self] in
+                                guard let self else { return }
+                                AppActions.showReceive(accountContext: self.$account, chain: token.chain)
+                            }
+                        )
+                    ))
                 }
-                primaryActions.append(UIAction(title: lang("Send"), image: UIImage(systemName: "arrow.up")) { _ in
-                    AppActions.showSend(accountContext: self.$account, prefilledValues: .init(token: token.slug))
-                })
+                primaryItems.append(.action(
+                    ContextMenuAction(
+                        title: lang("Send"),
+                        icon: .system("arrow.up"),
+                        handler: { [weak self] in
+                            guard let self else { return }
+                            AppActions.showSend(accountContext: self.$account, prefilledValues: .init(token: token.slug))
+                        }
+                    )
+                ))
                 if isSwapAvailable {
-                    primaryActions.append(UIAction(title: lang("Swap"), image: UIImage(systemName: "arrow.left.arrow.right")) { _ in
-                        let defaultBuying = token.slug == TONCOIN_SLUG ? nil : TONCOIN_SLUG
-                        AppActions.showSwap(accountContext: self.$account,
-                                            defaultSellingToken: token.slug,
-                                            defaultBuyingToken: defaultBuying,
-                                            defaultSellingAmount: nil,
-                                            push: nil)
-                    })
+                    primaryItems.append(.action(
+                        ContextMenuAction(
+                            title: lang("Swap"),
+                            icon: .system("arrow.left.arrow.right"),
+                            handler: { [weak self] in
+                                guard let self else { return }
+                                let defaultBuying = token.slug == TONCOIN_SLUG ? nil : TONCOIN_SLUG
+                                AppActions.showSwap(accountContext: self.$account,
+                                                    defaultSellingToken: token.slug,
+                                                    defaultBuyingToken: defaultBuying,
+                                                    defaultSellingAmount: nil,
+                                                    push: nil)
+                            }
+                        )
+                    ))
                 }
                 if isStakingAvailable {
-                    primaryActions.append(UIAction(title: lang("Stake"), image: UIImage(systemName: "cylinder.split.1x2")) { _ in
-                        AppActions.showEarn(accountContext: self.$account, tokenSlug: token.slug)
-                    })
+                    primaryItems.append(.action(
+                        ContextMenuAction(
+                            title: lang("Stake"),
+                            icon: .system("cylinder.split.1x2"),
+                            handler: { [weak self] in
+                                guard let self else { return }
+                                AppActions.showEarn(accountContext: self.$account, tokenSlug: token.slug)
+                            }
+                        )
+                    ))
                 }
             }
         }
@@ -507,31 +559,52 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         let isStaking = walletToken.isStaking
         switch assetsAndActivityData.isTokenPinned(slug: walletToken.tokenSlug, isStaked: walletToken.isStaking) {
         case .pinned:
-            secondaryActions.append(UIAction(title: lang("Unpin"), image: UIImage(systemName: "pin.slash")) { _ in
-                AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
-                    settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: false)
-                })
-            })
+            secondaryItems.append(.action(
+                ContextMenuAction(
+                    title: lang("Unpin"),
+                    icon: .system("pin.slash"),
+                    handler: {
+                        AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
+                            settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: false)
+                        })
+                    }
+                )
+            ))
         case .notPinned:
-            secondaryActions.append(UIAction(title: lang("Pin"), image: UIImage(systemName: "pin")) { _ in
-                AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
-                    settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: true)
-                })
-            })
+            secondaryItems.append(.action(
+                ContextMenuAction(
+                    title: lang("Pin"),
+                    icon: .system("pin"),
+                    handler: {
+                        AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
+                            settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: true)
+                        })
+                    }
+                )
+            ))
         }
-        
-        secondaryActions.append(UIAction(title: lang("Manage Assets"), image: .airBundle("MenuManageAssets26")) { _ in
-            AppActions.showAssetsAndActivity()
-        })
 
-        var menus: [UIMenuElement] = []
-        if !primaryActions.isEmpty {
-            menus.append(UIMenu(title: "", options: .displayInline, children: primaryActions))
+        secondaryItems.append(.action(
+            ContextMenuAction(
+                title: lang("Manage Assets"),
+                icon: .airBundle("MenuManageAssets26"),
+                handler: {
+                    AppActions.showAssetsAndActivity()
+                }
+            )
+        ))
+
+        var items = primaryItems
+        if !items.isEmpty, !secondaryItems.isEmpty {
+            items.append(.separator)
         }
-        if !secondaryActions.isEmpty {
-            menus.append(UIMenu(title: "", options: .displayInline, children: secondaryActions))
-        }
-        return UIMenu(title: "", children: menus)
+        items.append(contentsOf: secondaryItems)
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            backdrop: .defaultBlurred(),
+            style: walletTokenMenuStyle
+        )
     }
 
     // MARK: - UICollectionViewDelegate
@@ -569,68 +642,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         }
     }
 
-    public func collectionView(_: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point _: CGPoint) -> UIContextMenuConfiguration? {
-        guard let item = dataSource.itemIdentifier(for: indexPath) else {
-            Log.shared.error("Not found item for indexPath: \(indexPath)")
-            return nil
-        }
-
-        return switch item {
-        case .placeholder: nil
-        case .empty: nil
-        case .seeAll: nil
-        case .token(let item):
-            UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
-                self.makeTokenMenu(walletToken: item.tokenBalance)
-            }
-        }
-    }
-
-    public func collectionView(
-        _ collectionView: UICollectionView,
-        previewForHighlightingContextMenuWithConfiguration configuration: UIContextMenuConfiguration
-    ) -> UITargetedPreview? {
-        guard collectionView === self.collectionView else {
-            return nil
-        }
-        return contextMenuPreview(for: configuration)
-    }
-
-    public func collectionView(
-        _ collectionView: UICollectionView,
-        previewForDismissingContextMenuWithConfiguration configuration: UIContextMenuConfiguration
-    ) -> UITargetedPreview? {
-        guard collectionView === self.collectionView else {
-            return nil
-        }
-        return contextMenuPreview(for: configuration)
-    }
-
-    public func collectionView(
-        _ collectionView: UICollectionView,
-        willDisplayContextMenu configuration: UIContextMenuConfiguration,
-        animator: (any UIContextMenuInteractionAnimating)?
-    ) {
-        guard collectionView === self.collectionView else {
-            return
-        }
-        contextMenuExtraBlurView?.removeFromSuperview()
-        contextMenuExtraBlurView = ContextMenuBackdropBlur.show(in: view.window, animator: animator)
-    }
-
-    public func collectionView(
-        _ collectionView: UICollectionView,
-        willEndContextMenuInteraction configuration: UIContextMenuConfiguration,
-        animator: (any UIContextMenuInteractionAnimating)?
-    ) {
-        guard collectionView === self.collectionView else {
-            return
-        }
-        let blurView = contextMenuExtraBlurView
-        contextMenuExtraBlurView = nil
-        ContextMenuBackdropBlur.hide(blurView, animator: animator)
-    }
-
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         onScroll?(scrollView.contentOffset.y + scrollView.contentInset.top)
     }
@@ -640,40 +651,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     public var onScroll: ((CGFloat) -> Void)?
     public var scrollingView: UIScrollView? { collectionView }
 
-    private func contextMenuPreview(for configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
-        guard let indexPath = configuration.identifier as? NSIndexPath,
-              let cell = collectionView.cellForItem(at: indexPath as IndexPath) else {
-            return nil
-        }
-
-        let previewView = cell.snapshotView(afterScreenUpdates: false) ?? UIView(frame: cell.bounds)
-        previewView.frame = cell.bounds
-
-        let parameters = UIPreviewParameters()
-        parameters.backgroundColor = .clear
-        parameters.visiblePath = UIBezierPath(
-            roundedRect: cell.bounds,
-            cornerRadius: contextMenuPreviewCornerRadius
-        )
-        let shadowRect = cell.bounds.insetBy(
-            dx: contextMenuPreviewShadowInset.width,
-            dy: contextMenuPreviewShadowInset.height
-        )
-        parameters.shadowPath = UIBezierPath(
-            roundedRect: shadowRect,
-            cornerRadius: max(0, contextMenuPreviewCornerRadius - contextMenuPreviewShadowInset.height)
-        )
-
-        let targetContainer: UIView
-        if let window = view.window {
-            targetContainer = window
-        } else {
-            targetContainer = collectionView
-        }
-        let targetCenter = targetContainer.convert(cell.bounds.center, from: cell)
-        let target = UIPreviewTarget(container: targetContainer, center: targetCenter)
-        return UITargetedPreview(view: previewView, parameters: parameters, target: target)
-    }
 }
 
 // MARK: - Actions
@@ -796,6 +773,10 @@ extension WalletTokensVC {
 
         fileprivate var isCompact: Bool {
             self != .expanded
+        }
+
+        fileprivate var containerBackgroundColor: UIColor {
+            isCompact ? .air.groupedItem : .air.pickerBackground
         }
 
         fileprivate var visibleRowsLimit: Int {

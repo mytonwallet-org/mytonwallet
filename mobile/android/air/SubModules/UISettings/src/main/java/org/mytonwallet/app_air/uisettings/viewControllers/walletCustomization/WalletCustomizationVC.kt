@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteItemView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteView
+import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVC
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.availableCards.WalletCustomizationAvailableCardsView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards.WalletCustomizationCardsView
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
@@ -48,6 +49,8 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -235,6 +238,18 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             setPadding(20.dp, 0, 20.dp, 0)
             setOnClickListener {
+                val account = AccountStore.activeAccount
+                val accountId = account?.accountId
+                val eligible = account?.isMainnet == true &&
+                    !account.isViewOnly &&
+                    ConfigStore.isLimited != true
+                val canMint = eligible && accountId != null &&
+                    (WGlobalStorage.getCardsInfo(accountId) != null ||
+                        NftStore.isCardMinting(accountId))
+                if (canMint) {
+                    navigationController?.let { MintCardVC.present(it) }
+                    return@setOnClickListener
+                }
                 val url = context.getString(BaseR.string.app_cards_url)
                 if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
             }

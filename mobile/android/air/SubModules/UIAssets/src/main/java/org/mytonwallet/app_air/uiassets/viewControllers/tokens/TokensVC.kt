@@ -309,7 +309,7 @@ class TokensVC(
                 (navigationController?.getSystemBars()?.top ?: 0) +
                     WNavigationBar.DEFAULT_HEIGHT.dp,
                 if (hostHandlesSideInsets) 0 else systemBarEndInset,
-                recyclerView.paddingBottom
+                navigationController?.bottomInset ?: 0
             )
         }
     }
@@ -489,12 +489,14 @@ class TokensVC(
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             WalletEvent.BalanceChanged,
-            WalletEvent.TokensChanged,
             WalletEvent.AssetsAndActivityDataUpdated,
             is WalletEvent.AccountChanged,
-            WalletEvent.StakingDataUpdated,
-            WalletEvent.BaseCurrencyChanged -> {
+            WalletEvent.StakingDataUpdated -> {
                 dataUpdated(forceUpdate = false)
+            }
+
+            WalletEvent.TokensChanged, WalletEvent.BaseCurrencyChanged -> {
+                dataUpdated(forceUpdate = true)
             }
 
             else -> {}
@@ -647,7 +649,8 @@ class TokensVC(
                 anchorView,
                 roundRadius = 16f.dp
             ),
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            usePillShadow = true
         )
     }
 

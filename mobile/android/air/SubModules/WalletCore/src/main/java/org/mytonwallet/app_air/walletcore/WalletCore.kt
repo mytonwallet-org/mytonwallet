@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setDefaultAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -93,6 +94,10 @@ const val VIRTUAL_STAKING_SLUG_PREFIX = "staking-"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
 const val TELEGRAM_USERNAMES_COLLECTION = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
 const val MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
+const val MTW_CARDS_MINT_BASE_URL = "https://static.mytonwallet.org/mint-cards/"
+const val MINT_CARD_ADDRESS = "EQBpst3ZWJ9Dqq5gE2YH-yPsFK_BqMOmgi7Z_qK6v7WbrPWv"
+const val MINT_CARD_COMMENT = "Mint card"
+const val MINT_CARD_REFUND_COMMENT = "Refund"
 
 val STAKING_SLUGS = setOf(
     STAKE_SLUG, STAKED_MYCOIN_SLUG, STAKED_USDE_SLUG
@@ -394,7 +399,10 @@ object WalletCore {
     }
 
     fun destroyBridge() {
-        bridge?.destroy()
+        bridge?.let { dead ->
+            (dead.parent as? ViewGroup)?.removeView(dead)
+            dead.destroy()
+        }
         bridge = null
         observers.clear()
         eventObservers.clear()
@@ -402,8 +410,25 @@ object WalletCore {
 
     val isBridgeReady: Boolean
         get() {
-            return bridge?.injected == true
+            return bridge?.injected == true && bridge?.isRenderProcessGone != true
         }
+
+    fun onBridgeRenderProcessGone(goneBridge: JSWebViewBridge) {
+        ensureMainThread {
+            if (bridge !== goneBridge)
+                return@ensureMainThread
+            destroyBridge()
+            val delegate = WalletContextManager.delegate?.get()
+            if (delegate == null) {
+                Logger.e(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "onBridgeRenderProcessGone: no delegate, bridge not recreated"
+                )
+                return@ensureMainThread
+            }
+            delegate.recreateBridge()
+        }
+    }
 
     var pendingBridgeReady: MutableList<() -> Unit>? = null
 
@@ -559,8 +584,12 @@ object WalletCore {
     fun <T : ApiUpdate> notifyApiUpdate(update: T) {
         when (update) {
             is ApiUpdate.ApiUpdateDappConnectComplete,
-            is ApiUpdate.ApiUpdateDappDisconnect,
             is ApiUpdate.ApiUpdateDapps -> WalletCore.requestDAppList()
+
+            is ApiUpdate.ApiUpdateDappDisconnect -> {
+                WalletCore.requestDAppList()
+                notifyEvent(WalletEvent.DappDisconnect(update.accountId, update.url))
+            }
 
             is ApiUpdate.ApiUpdateTokens -> {
                 TokenStore.setFlowValue(

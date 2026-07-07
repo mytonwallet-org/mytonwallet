@@ -11,7 +11,7 @@ import WalletCore
         passcode: String
     ) async throws -> SwapExecutionResult {
         guard let swapEstimate else {
-            throw BridgeCallError.customMessage("Missing swap estimate", nil)
+            throw SdkError.unexpected(message: "Missing swap estimate")
         }
         switch swapType {
         case .crosschainFromWallet:
@@ -32,7 +32,7 @@ import WalletCore
                 passcode: passcode
             )
         case .onChain:
-            throw BridgeCallError.customMessage("Invalid cross-chain swap type", nil)
+            throw SdkError.unexpected(message: "Invalid cross-chain swap type")
         }
     }
 
@@ -44,7 +44,7 @@ import WalletCore
         passcode: String
     ) async throws -> SwapExecutionResult {
         guard let toAddress = account.getAddress(chain: buyingToken.chain) else {
-            throw BridgeCallError.customMessage("Missing payout address", nil)
+            throw SdkError.unexpected(message: "Missing payout address")
         }
         return try await performCexSwap(
             swapEstimate: swapEstimate,
@@ -66,7 +66,7 @@ import WalletCore
         passcode: String
     ) async throws -> SwapExecutionResult {
         guard let payoutAddress, !payoutAddress.isEmpty else {
-            throw BridgeCallError.customMessage("Missing payout address", nil)
+            throw SdkError.unexpected(message: "Missing payout address")
         }
         return try await performCexSwap(
             swapEstimate: swapEstimate,
@@ -88,25 +88,45 @@ import WalletCore
         shouldTransfer: Bool,
         passcode: String
     ) async throws -> SwapExecutionResult {
-        guard let fromAddress = account.crosschainIdentifyingFromAddress else {
-            throw BridgeCallError.customMessage("Missing account address", nil)
+        guard let historyAddress = account.crosschainIdentifyingFromAddress else {
+            throw SdkError.unexpected(message: "Missing account address")
+        }
+        let isNearIntents = swapEstimate.cexLabel == .nearIntents
+        let fromAddress: String
+        if isNearIntents {
+            guard let sourceAddress = account.getAddress(chain: sellingToken.chain) else {
+                throw SdkError.unexpected(message: "Missing source address")
+            }
+            fromAddress = sourceAddress
+        } else {
+            fromAddress = historyAddress
         }
         let networkFee = swapEstimate.realNetworkFee ?? swapEstimate.networkFee
         let params = ApiSwapCexCreateTransactionParams(
             from: sellingToken.swapIdentifier,
             fromAmount: swapEstimate.fromAmount,
             fromAddress: fromAddress,
+            historyAddress: historyAddress,
+            cexLabel: swapEstimate.cexLabel,
             to: buyingToken.swapIdentifier,
+            toAmount: swapEstimate.toAmount,
             toAddress: toAddress,
             swapFee: swapEstimate.swapFee,
             networkFee: networkFee
         )
-        return try await SwapCexSupport.swapCexCreateTransaction(
+        let result = try await SwapCexSupport.swapCexCreateTransaction(
             accountId: account.id,
             sellingToken: sellingToken,
             params: params,
             shouldTransfer: shouldTransfer,
             passcode: passcode
         )
+        if shouldTransfer,
+           sellingToken.chain == .ton,
+           account.account.getChainInfo(chain: .ton)?.mfa != nil,
+           result.mfaRequestHash == nil {
+            throw SdkError.unexpected(message: "Missing MFA request hash", context: result)
+        }
+        return result
     }
 }

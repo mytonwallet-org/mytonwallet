@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -61,7 +62,7 @@ class WNavigationBar(
 
     val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(22F, WFont.SemiBold)
+            setStyle(22f, WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -182,7 +183,13 @@ class WNavigationBar(
             } else if (trailingView == null) {
                 toEndPx(titleLinearLayout, endInset + 20.dp)
             }
-            trailingView?.let { toEndPx(it, endInset + 8.dp) }
+            trailingView?.let {
+                if (closeButton.parent != null) {
+                    endToStart(it, closeButton, 8f)
+                } else {
+                    toEndPx(it, endInset + 8.dp)
+                }
+            }
         }
     }
 
@@ -259,19 +266,32 @@ class WNavigationBar(
     fun setSubtitle(subtitle: String?, animated: Boolean) {
         if (oldSubtitle == subtitle)
             return
-        subtitleLabel.visibility = if (subtitle.isNullOrEmpty()) GONE else VISIBLE
         if (animated) {
-            if (oldSubtitle.isNullOrEmpty()) {
-                subtitleLabel.alpha = 0f
-                subtitleLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
-                subtitleLabel.text = subtitle
-            } else {
-                subtitleLabel.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+            when {
+                subtitle.isNullOrEmpty() -> {
+                    subtitleLabel.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+                        subtitleLabel.visibility = GONE
+                        subtitleLabel.text = null
+                        subtitleLabel.alpha = 1f
+                    }
+                }
+
+                oldSubtitle.isNullOrEmpty() -> {
+                    subtitleLabel.visibility = VISIBLE
+                    subtitleLabel.alpha = 0f
                     subtitleLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
                     subtitleLabel.text = subtitle
                 }
+
+                else -> {
+                    subtitleLabel.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+                        subtitleLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+                        subtitleLabel.text = subtitle
+                    }
+                }
             }
         } else {
+            subtitleLabel.visibility = if (subtitle.isNullOrEmpty()) GONE else VISIBLE
             subtitleLabel.text = subtitle
         }
         oldSubtitle = subtitle
@@ -303,12 +323,13 @@ class WNavigationBar(
     private var closeButtonTrailingMarginDp: Float? = null
     private val closeButtonEndMarginPx: Int
         get() = viewController.systemBarEndInset +
-            (closeButtonTrailingMarginDp ?: if (height < DEFAULT_HEIGHT.dp) 11f else 8f).dp.roundToInt()
+            (closeButtonTrailingMarginDp ?: 8f).dp.roundToInt()
 
     fun removeCloseButton() {
         if (closeButton.parent == null)
             return
         contentView.removeView(closeButton)
+        insetsUpdated()
     }
 
     private var leadingView: View? = null
@@ -341,7 +362,11 @@ class WNavigationBar(
         contentView.setConstraints {
             toTopPx(trailingView, topOffset + contentMarginTop)
             toBottom(trailingView)
-            toEndPx(trailingView, viewController.systemBarEndInset + 8.dp)
+            if (closeButton.parent != null) {
+                endToStart(trailingView, closeButton, 8f)
+            } else {
+                toEndPx(trailingView, viewController.systemBarEndInset + 8.dp)
+            }
             endToStart(titleLinearLayout, trailingView, 4f)
         }
     }
@@ -381,17 +406,21 @@ class WNavigationBar(
     }
 
     fun fadeOutActions() {
-        backButton.isEnabled = false
-        backButton.fadeOut {
-            backButton.visibility = INVISIBLE
+        if (!backButton.isGone) {
+            backButton.isEnabled = false
+            backButton.fadeOut {
+                backButton.visibility = INVISIBLE
+            }
         }
         trailingView?.fadeOut()
     }
 
     fun fadeInActions() {
-        backButton.isEnabled = true
-        backButton.visibility = VISIBLE
-        backButton.fadeIn()
+        if (!backButton.isGone) {
+            backButton.isEnabled = true
+            backButton.visibility = VISIBLE
+            backButton.fadeIn()
+        }
         trailingView?.fadeIn()
     }
 

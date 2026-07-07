@@ -19,6 +19,7 @@ import { fetchStoredWallet } from '../../common/accounts';
 import { updateActivityMetadata } from '../../common/helpers';
 import { buildTokenSlug, getTokenBySlug } from '../../common/tokens';
 import { SEC } from '../../constants';
+import { getEnvironment } from '../../environment';
 import { NETWORK_CONFIG, SOLANA_PROGRAM_IDS, WSOL_MINT } from './constants';
 import { fetchNftsByAddresses } from './nfts';
 
@@ -160,6 +161,11 @@ async function fetchSolTxs(
   const response = await fetchJson<SolanaParsedTransaction[]>(
     NETWORK_CONFIG[network].getApiUrl(`/v0/addresses/${address}/transactions`),
     params,
+    {
+      headers: {
+        ...getEnvironment().apiHeaders,
+      },
+    },
   );
 
   return response;
@@ -258,12 +264,17 @@ function transformParsedSwap(
 ) {
   const { tokenInputs, nativeInput, tokenOutputs, nativeOutput } = tx.events.swap!;
 
+  const canonicalTokenInput = tokenInputs[0];
+  const canonicalTokenOutput = tokenOutputs[0];
+
   const fromAsset = tokenInputs.length
     ? {
-      asset: buildTokenSlug('solana', tokenInputs[0].mint),
+      asset: buildTokenSlug('solana', canonicalTokenInput.mint),
       amount: toDecimal(
-        BigInt(tokenInputs[0].rawTokenAmount.tokenAmount),
-        tokenInputs[0].rawTokenAmount.decimals,
+        tokenInputs
+          .filter((e) => e.mint === canonicalTokenInput.mint)
+          .reduce((acc, e) => acc + BigInt(e.rawTokenAmount.tokenAmount), 0n),
+        canonicalTokenInput.rawTokenAmount.decimals,
       ),
     }
     : {
@@ -273,10 +284,12 @@ function transformParsedSwap(
 
   const toAsset = tokenOutputs.length
     ? {
-      asset: buildTokenSlug('solana', tokenOutputs[0].mint),
+      asset: buildTokenSlug('solana', canonicalTokenOutput.mint),
       amount: toDecimal(
-        BigInt(tokenOutputs[0].rawTokenAmount.tokenAmount),
-        tokenOutputs[0].rawTokenAmount.decimals,
+        tokenOutputs
+          .filter((e) => e.mint === canonicalTokenOutput.mint)
+          .reduce((acc, e) => acc + BigInt(e.rawTokenAmount.tokenAmount), 0n),
+        canonicalTokenOutput.rawTokenAmount.decimals,
       ),
     }
     : {
@@ -298,6 +311,7 @@ function transformParsedSwap(
     swapFee: '0',
     status: 'completed',
     hashes: [],
+    transactionIds: {},
     externalMsgHashNorm: tx.signature,
   });
 }
@@ -372,13 +386,14 @@ function transformUnparsedSwap(
     fromAddress: address,
     timestamp: Number(tx.timestamp ?? 0) * 1000,
     from: sent[0],
-    fromAmount: String(sent[1]),
+    fromAmount: String(-sent[1]),
     to: received[0],
     toAmount: String(received[1]),
     networkFee: toDecimal(BigInt(tx.fee), SOLANA.decimals),
     swapFee: '0',
     status: 'completed',
     hashes: [],
+    transactionIds: {},
     externalMsgHashNorm: tx.signature,
   });
 }

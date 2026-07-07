@@ -18,6 +18,7 @@ object EthereumConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_eth_light
 
     override val qrIcon = org.mytonwallet.app_air.icons.R.drawable.ic_blockchain_ethereum_128_qr
+    override val displayColor = "#627EEA".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#535B77".toColorInt(),
         "#534865".toColorInt(),

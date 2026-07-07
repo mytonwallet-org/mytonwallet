@@ -14,6 +14,8 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
     case baseCurrencyPrice
     /// Used on chart hover.
     case baseCurrencyHighPrecision
+    /// Used for fee values.
+    case fee
     
     func resolve(_ decimalAmount: DecimalAmount<Backing>) -> Int? {
         let v = abs(decimalAmount.doubleValue)
@@ -48,6 +50,18 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
 
         case .baseCurrencyHighPrecision:
             return tokenDecimals(for: abs(decimalAmount.amount), tokenDecimals: decimals, minimumSignificantDigits: 4)
+
+        case .fee:
+            return tokenDecimals(for: abs(decimalAmount.amount), tokenDecimals: decimals)
+        }
+    }
+
+    var zeroCountSubscriptMinCount: Int? {
+        switch self {
+        case .fee:
+            return 5
+        default:
+            return nil
         }
     }
 }

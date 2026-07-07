@@ -10,6 +10,10 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
+import org.mytonwallet.app_air.walletcore.moshi.WcPayAmount
+import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
+import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentInfo
+import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
@@ -175,6 +179,111 @@ sealed class ApiUpdate {
         val derivation: ApiDerivation?,
         /** `false` means the MFA was removed; absent means it has not changed */
         val mfa: MfaUpdate?
+    ) : ApiUpdate()
+
+    /* WalletConnect Pay */
+
+    @JsonSealedSubtype("walletConnectPayLoading")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayLoading(
+        val accountId: String
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPayCloseLoading")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayCloseLoading(
+        val type: String? = null
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPaySignTransaction")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPaySignTransaction(
+        val promiseId: String,
+        val accountId: String,
+        val merchant: WcPayMerchant,
+        val operationChain: String,
+        val transactions: List<ApiDappTransfer>,
+        val emulation: ApiUpdateDappSendTransactions.Emulation? = null,
+        val paymentInfo: WcPayPaymentInfo? = null,
+        val paymentOption: WcPayPaymentOption? = null,
+        val isSignOnly: Boolean,
+        val isLegacyOutput: Boolean? = null,
+        val shouldHideTransfers: Boolean? = null,
+        val validUntil: Long? = null
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPaySignTransactionComplete")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPaySignTransactionComplete(
+        val accountId: String
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPaySignData")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPaySignData(
+        val promiseId: String,
+        val accountId: String,
+        val merchant: WcPayMerchant,
+        val operationChain: String,
+        val payloadToSign: MSignDataPayload,
+        val paymentInfo: WcPayPaymentInfo? = null,
+        val paymentOption: WcPayPaymentOption? = null
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPaySignDataComplete")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPaySignDataComplete(
+        val accountId: String
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPayDataCollection")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayDataCollection(
+        val promiseId: String,
+        val url: String
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPayDataCollectionComplete")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayDataCollectionComplete(
+        val type: String? = null
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPayOptionSelection")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayOptionSelection(
+        val promiseId: String,
+        val paymentLink: String,
+        val accountId: String,
+        val merchant: WcPayMerchant,
+        val paymentInfo: WcPayPaymentInfo? = null,
+        val options: List<WcPayPaymentOption>,
+        val isLoading: Boolean? = null,
+        val shouldSwitchWallet: Boolean? = null
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPayOptionSelectionComplete")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayOptionSelectionComplete(
+        val type: String? = null
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPayProcessing")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayProcessing(
+        val accountId: String,
+        val merchant: WcPayMerchant,
+        val operationChain: String
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("walletConnectPayPaymentComplete")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateWalletConnectPayPaymentComplete(
+        val accountId: String,
+        val merchant: WcPayMerchant,
+        val operationChain: String,
+        val txId: String? = null,
+        val paymentAmount: WcPayAmount? = null
     ) : ApiUpdate()
 
     // NOTICE: Do NOT forget to add new sub-types to MoshiBuilder file to prevent minification issues.

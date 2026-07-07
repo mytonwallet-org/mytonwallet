@@ -21,8 +21,6 @@ public final class TokenCell: UICollectionViewCell {
     private static let titleFont = UIFont.systemFont(ofSize: 16, weight: .medium)
     private static let amountFont = UIFont.systemFont(ofSize: 16, weight: .regular)
     private static let secondaryFont = UIFont.systemFont(ofSize: 14, weight: .regular)
-    private static let badgeForegroundColor = UIColor.air.secondaryLabel
-    private static let badgeBackgroundColor = UIColor.air.secondaryLabel.withAlphaComponent(0.15)
 
     private let selectionIndicatorView = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
 
@@ -210,16 +208,20 @@ public final class TokenCell: UICollectionViewCell {
                            onSelect: @escaping () -> Void) {
         self.onSelect = onSelect
         iconView.config(with: token, isStaking: isStaking, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != .ton)
+        let badgeText = token?.label?.nilIfEmpty
         titleLabel.text = if let token {
-            MTokenBalance.displayName(apiToken: token, isStaking: isStaking)
+            MTokenBalance.displayName(
+                apiToken: token,
+                isStaking: isStaking,
+                strippingLabelWhenShown: badgeText != nil
+            )
         } else {
             fallbackName
         }
-        if let badgeText = token?.label?.nilIfEmpty {
-            badgeView.configure(
+        if let badgeText {
+            badgeView.configureTokenLabel(
                 text: badgeText,
-                foregroundColor: Self.badgeForegroundColor,
-                backgroundColor: Self.badgeBackgroundColor
+                style: token?.isRwaStock == true ? .stock : .regular
             )
         } else {
             badgeView.configureHidden()

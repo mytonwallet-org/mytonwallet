@@ -100,5 +100,7 @@
 }
 
 .address {
+  overflow: hidden;
   margin-inline-start: 0.25rem;
+  text-overflow: ellipsis;
 }

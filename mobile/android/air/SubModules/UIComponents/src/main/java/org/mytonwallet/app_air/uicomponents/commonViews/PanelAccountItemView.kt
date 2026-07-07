@@ -45,7 +45,7 @@ class PanelAccountItemView(context: Context) :
     private val iconView = AccountIconView(context, AccountIconView.Usage.SelectableItem(16f.dp))
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(16f, WFont.DemiBold)
+        setStyle(16f, WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         useCustomEmoji = true

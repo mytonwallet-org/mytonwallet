@@ -21,8 +21,8 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     var stakingState: ApiStakingState { model.stakingState }
 
     var fakeTextField = UITextField(frame: .zero)
-    private var continueButton: WButton { bottomButton! }
-    private var taskError: BridgeCallError?
+    private var continueButton: WButton?
+    private var taskError: SdkError?
     private var awaitingActivity = false
     private var pendingActivityId: String?
 
@@ -77,9 +77,6 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
             _ = model.draftAmount
             amountChanged(amount: model.amount)
         }
-
-        // observe keyboard events
-//        WKeyboardObserver.observeKeyboard(delegate: self)
     }
 
     private func setupViews() {
@@ -92,7 +89,8 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         )
         hostingController.view.backgroundColor = .air.sheetBackground
 
-        _ = addBottomButton()
+        let continueButton = addBottomButton()
+        self.continueButton = continueButton
         let title: String = lang("$stake_asset", arg1: model.baseToken.symbol)
         continueButton.setTitle(title, for: .normal)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
@@ -111,6 +109,7 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     func amountChanged(amount: BigInt?) {
+        guard let continueButton else { return }
 
         guard let amount else {
             continueButton.isEnabled = false

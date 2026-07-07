@@ -22,12 +22,12 @@ extension NftDetailsFullScreenOverlayContent {
         self.centerYConstraint = nil
     }
     
-    func addToParent(_ parent: UIView, bindToTop: Bool, yConstant: CGFloat) {
+    func addToParent(_ parent: UIView, bindToTop: Bool, yConstant: CGFloat, xConstant: CGFloat = 0) {
         removeCenterConstraints()
         
         parent.addSubview(self)
         
-        centerXConstraint = centerXAnchor.constraint(equalTo: parent.centerXAnchor, constant: 0)
+        centerXConstraint = centerXAnchor.constraint(equalTo: parent.centerXAnchor, constant: xConstant)
         if bindToTop {
             centerYConstraint = centerYAnchor.constraint(equalTo: parent.topAnchor, constant: yConstant )
         } else {
@@ -52,6 +52,10 @@ class NftDetailsFullScreenOverlay: UIView {
         sv.bounces = true
         sv.alwaysBounceVertical = true
         sv.contentInsetAdjustmentBehavior = .never
+        sv.clipsToBounds = false
+        if #available(iOS 26.0, *) {
+            sv.topEdgeEffect.isHidden = true
+        }
         return sv
     }()
     
@@ -86,10 +90,10 @@ class NftDetailsFullScreenOverlay: UIView {
     }
 
     private func updateContainerSize() {
-        guard bounds.width > 0, bounds.height > 0 else { return }
+        guard scrollView.bounds.width > 0, scrollView.bounds.height > 0 else { return }
                                                 
         // Content is always square (matches NFT image aspect ratio expectations)
-        let fittedSize = bounds.width
+        let fittedSize = scrollView.bounds.width
         contentContainerWidthConstraint.constant = fittedSize
         contentContainerHeightConstraint.constant = fittedSize
         scrollView.contentSize = CGSize(width: fittedSize, height: fittedSize)
@@ -116,6 +120,10 @@ class NftDetailsFullScreenOverlay: UIView {
     }
 
     private func setup() {
+        semanticContentAttribute = .forceLeftToRight
+        scrollView.semanticContentAttribute = .forceLeftToRight
+        contentContainerView.semanticContentAttribute = .forceLeftToRight
+
         scrollView.delegate = self
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrollView)
@@ -127,10 +135,9 @@ class NftDetailsFullScreenOverlay: UIView {
         contentContainerHeightConstraint = contentContainerView.heightAnchor.constraint(equalToConstant: bounds.width)
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
             contentContainerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentContainerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentContainerWidthConstraint,
@@ -172,15 +179,20 @@ class NftDetailsFullScreenOverlay: UIView {
         parentView.addSubview(self)
         NSLayoutConstraint.activate([
             topAnchor.constraint(equalTo: parentView.topAnchor),
-            leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
-            trailingAnchor.constraint(equalTo: parentView.trailingAnchor),
+            leftAnchor.constraint(equalTo: parentView.leftAnchor),
+            rightAnchor.constraint(equalTo: parentView.rightAnchor),
             bottomAnchor.constraint(equalTo: parentView.bottomAnchor),
         ])
         parentView.layoutIfNeeded()
                         
         let startFrame = content.convert(content.bounds, to: contentContainerView).applying(content.transform.inverted())
         let endFrame = contentContainerView.bounds
-        content.addToParent(contentContainerView, bindToTop: false, yConstant: startFrame.midY - endFrame.midY)
+        content.addToParent(
+            contentContainerView,
+            bindToTop: false,
+            yConstant: startFrame.midY - endFrame.midY,
+            xConstant: startFrame.midX - endFrame.midX
+        )
         layoutIfNeeded()
         
         Haptics.play(.transition)
@@ -192,6 +204,7 @@ class NftDetailsFullScreenOverlay: UIView {
 
         onPrepare()
         content.centerYConstraint?.constant = 0
+        content.centerXConstraint?.constant = 0
         UIView.animate(
             withDuration: 0.48,
             delay: 0,
@@ -260,8 +273,16 @@ class NftDetailsFullScreenOverlay: UIView {
         
         Haptics.play(.transition)
         
-        let currentCenter = contentContainerView.convert(contentContainerView.bounds.center, to: self)
-        content.addToParent(self, bindToTop: true, yConstant: currentCenter.y)
+        let currentCenter = content.convert(
+            CGPoint(x: content.bounds.midX, y: content.bounds.midY),
+            to: self
+        )
+        content.addToParent(
+            self,
+            bindToTop: true,
+            yConstant: currentCenter.y,
+            xConstant: currentCenter.x - bounds.midX
+        )
         
         layoutIfNeeded()
         

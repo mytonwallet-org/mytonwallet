@@ -102,6 +102,7 @@ private class AppActionsImpl: AppActionsProtocol {
         presentationStyle: ProtectedActionPresentationStyle,
         useBioOnPresent: Bool,
         completionBehavior: ProtectedActionCompletionBehavior,
+        prefersNavigationTitleWithCustomHeader: Bool,
         mfaTitle: String?
     ) async throws -> Result? {
         try await ProtectedActionPresenter.authorizeProtectedAction(
@@ -115,6 +116,7 @@ private class AppActionsImpl: AppActionsProtocol {
             presentationStyle: presentationStyle,
             useBioOnPresent: useBioOnPresent,
             completionBehavior: completionBehavior,
+            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             mfaTitle: mfaTitle
         )
     }
@@ -124,12 +126,12 @@ private class AppActionsImpl: AppActionsProtocol {
             switch activity {
             case .transaction(let transaction):
                 guard accountContext.account.supportsSend else {
-                    AppActions.showError(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
+                    AppActions.showError(error: DisplayError(text: lang("Read-only account")))
                     return
                 }
                 if transaction.isStaking {
                     guard accountContext.account.supportsEarn else {
-                        AppActions.showError(error: BridgeCallError.customMessage(lang("Earn is not supported on this account."), nil))
+                        AppActions.showError(error: DisplayError(text: lang("Earn is not supported on this account.")))
                         return
                     }
                     let tokenSlug = stakingTokenSlug(for: transaction, accountContext: accountContext)
@@ -149,7 +151,7 @@ private class AppActionsImpl: AppActionsProtocol {
                 }
             case .swap(let swap):
                 guard accountContext.account.supportsSwap else {
-                    AppActions.showError(error: BridgeCallError.customMessage(lang("Swap is not supported on this account."), nil))
+                    AppActions.showError(error: DisplayError(text: lang("Swap is not supported on this account.")))
                     return
                 }
                 AppActions.showSwap(
@@ -216,12 +218,40 @@ private class AppActionsImpl: AppActionsProtocol {
         address.map { addresses.contains($0) } ?? false
     }
     
+    static func scanAndHandleQR(accountContext: AccountContext) {
+        Task {
+            if let result = await scanQR() {
+                handleScanResult(result, accountContext: accountContext)
+            }
+        }
+    }
+    
     static func scanQR() async -> ScanResult? {
         return await withCheckedContinuation { continuation in
+            guard let topVC = topViewController() else {
+                continuation.resume(returning: nil)
+                return
+            }
             let qrScanVC = QRScanVC(callback: { result in
                 continuation.resume(returning: result)
             })
-            topViewController()?.present(WNavigationController(rootViewController: qrScanVC), animated: true)
+            topVC.present(WNavigationController(rootViewController: qrScanVC), animated: true)
+        }
+    }
+    
+    private static func handleScanResult(_ result: ScanResult, accountContext: AccountContext) {
+        switch result {
+        case .url(let url):
+            let deeplinkHandled = WalletContextManager.delegate?.handleDeeplink(url: url, source: .qrScan) ?? false
+            if !deeplinkHandled {
+                AppActions.showError(error: DisplayError(text: lang("This QR Code is not supported")))
+            }
+
+        case .address(address: let address, possibleChains: let chains):
+            AppActions.showSend(accountContext: accountContext, prefilledValues: .init(
+                address: address,
+                token: chains.first?.nativeToken.slug
+            ))
         }
     }
     
@@ -244,9 +274,9 @@ private class AppActionsImpl: AppActionsProtocol {
             
             if context.isTransactionConfirmation {
                 guard let navigationController = topViewController() as? UINavigationController else { return }
-                let coordinator = ContentReplaceAnimationCoordinator(navigationController: navigationController)
+                let coordinator = ContentReplaceAnimationCoordinator()
                 vc.navigationItem.hidesBackButton = true
-                coordinator.replaceTop(with: vc) {
+                coordinator.replaceNavigationTop(with: vc, in: navigationController) {
                     vc.animateToCollapsed()
                 }
             } else if let listVC = topWViewController() as? ActivityDetailsListVC {
@@ -375,14 +405,20 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
+    static func showCustomizeAppTabs() {
+        let vc = CustomizeAppTabsVC()
+        if let settingsVC = topWViewController() as? AppearanceSettingsVC, let nc = settingsVC.navigationController {
+            nc.pushViewController(vc, animated: true)
+        } else {
+            let nc = WNavigationController(rootViewController: vc)
+            topViewController()?.present(nc, animated: true)
+        }
+    }
+
     static func showDeleteAccount(accountId: String) {
         if let account = AccountStore.accountsById[accountId] {
             showDeleteAccountAlert(accountToDelete: account, isCurrentAccount: AccountStore.accountId == account.id)
         }
-    }
-
-    static func showDeleteSelectedAccounts(accountIds: [String]) {
-        showDeleteSelectedAccountsAlert(accountsIdsToDelete: accountIds)
     }
 
     static func showAgent() {
@@ -465,7 +501,7 @@ private class AppActionsImpl: AppActionsProtocol {
 
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) {
         let accountId = accountContext.account.id
-        let nftVC = NftDetailsVC(accountId: accountId, nft: nft, isExpanded: isExpanded, showOnlySelectedIfMissingFromAccount: true)
+        let nftVC = NftDetailsVC(accountId: accountId, source: .singleNft(nft), isExpanded: isExpanded)
         let nav = WNavigationController(rootViewController: nftVC)
         nav.modalPresentationStyle = .overFullScreen
         topViewController()?.present(nav, animated: true)
@@ -482,12 +518,7 @@ private class AppActionsImpl: AppActionsProtocol {
                     AppActions.showError(error: DisplayError(text: lang("$nft_not_found")))
                     return
                 }
-                let nftVC = NftDetailsVC(
-                    accountId: accountId,
-                    nft: nft,
-                    isExpanded: true,
-                    showOnlySelectedIfMissingFromAccount: true
-                )
+                let nftVC = NftDetailsVC(accountId: accountId, source: .singleNft(nft), isExpanded: true)
                 pushIfNeeded(nftVC, push: true)
             } catch {
                 AppActions.showError(error: error)
@@ -542,14 +573,23 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
         if accountContext.account.supportsSend != true {
-            AppActions.showError(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
+            AppActions.showError(error: DisplayError(text: lang("Read-only account")))
             return
         }
         if prefilledValues.nfts?.contains(where: \.isOnSale) == true {
             AppActions.showToast(message: lang("For sale. Cannot be sent and burned"))
             return
         }
-        topViewController()?.present(SendVC(accountContext: accountContext, prefilledValues: prefilledValues), animated: true)
+        let isAccountSwitchingAllowed = accountContext.source == .current
+        let sendAccountContext = AccountContext(accountId: accountContext.account.id)
+        topViewController()?.present(
+            SendVC(
+                accountContext: sendAccountContext,
+                prefilledValues: prefilledValues,
+                isAccountSwitchingAllowed: isAccountSwitchingAllowed
+            ),
+            animated: true
+        )
     }
     
     static func showSell(accountContext: AccountContext, tokenSlug: String?) {
@@ -564,14 +604,17 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) {
         if accountContext.account.supportsSwap != true {
-            AppActions.showError(error: BridgeCallError.customMessage(lang("Swap is not supported on this account."), nil))
+            AppActions.showError(error: DisplayError(text: lang("Swap is not supported on this account.")))
             return
         }
+        let isAccountSwitchingAllowed = accountContext.source == .current
+        let swapAccountContext = AccountContext(accountId: accountContext.account.id)
         let swapVC = SwapVC(
-            accountContext: accountContext,
+            accountContext: swapAccountContext,
             defaultSellingToken: defaultSellingToken,
             defaultBuyingToken: defaultBuyingToken,
-            defaultSellingAmount: defaultSellingAmount
+            defaultSellingAmount: defaultSellingAmount,
+            isAccountSwitchingAllowed: isAccountSwitchingAllowed
         )
         pushIfNeeded(swapVC, push: push)
     }
@@ -594,8 +637,8 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
-    static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?) {
-        topWViewController()?.showToast(style: style, icon: icon, message: message, duration: duration, actionTitle: actionTitle, action: action)
+    static func showToast(_ config: ToastConfig) {
+        topWViewController()?.showToast(config)
     }
     
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) {
@@ -614,7 +657,7 @@ private class AppActionsImpl: AppActionsProtocol {
                 let slug = try await Api.buildTokenSlug(chain: chain, tokenAddress: tokenAddress)
                 guard let token = TokenStore.getToken(slug: slug) else {
                     await MainActor.run {
-                        AppActions.showError(error: BridgeCallError.customMessage(lang("$unknown_token_address"), nil))
+                        AppActions.showError(error: DisplayError(text: lang("$unknown_token_address")))
                     }
                     return
                 }
@@ -623,7 +666,7 @@ private class AppActionsImpl: AppActionsProtocol {
                 }
             } catch {
                 await MainActor.run {
-                    AppActions.showError(error: BridgeCallError.customMessage(lang("$unknown_token_address"), nil))
+                    AppActions.showError(error: DisplayError(text: lang("$unknown_token_address")))
                 }
             }
         }
@@ -631,7 +674,7 @@ private class AppActionsImpl: AppActionsProtocol {
 
     static func showTokenBySlug(_ slug: String) {
         guard let token = TokenStore.getToken(slug: slug) else {
-            AppActions.showError(error: BridgeCallError.customMessage(lang("$unknown_token_address"), nil))
+            AppActions.showError(error: DisplayError(text: lang("$unknown_token_address")))
             return
         }
         presentOrPushToken(accountSource: .current, token: token)

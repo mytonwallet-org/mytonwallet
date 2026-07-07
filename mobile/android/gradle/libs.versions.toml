@@ -15,6 +15,7 @@ constraintlayout = "2.2.1"
 biometric = "1.1.0"
 lottie = "6.7.1"
 fresco = "3.6.0"
+androidsvg = "1.4"
 zxing = "3.5.3"
 moshi = "1.15.2"
 cameraCore = "1.5.2"
@@ -55,6 +56,7 @@ lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie"
 fresco = { group = "com.facebook.fresco", name = "fresco", version.ref = "fresco" }
 fresco-middleware = { group = "com.facebook.fresco", name = "middleware", version.ref = "fresco" }
 fresco-ui-common = { group = "com.facebook.fresco", name = "ui-common", version.ref = "fresco" }
+androidsvg = { group = "com.caverock", name = "androidsvg-aar", version.ref = "androidsvg" }
 zxing = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
 camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }

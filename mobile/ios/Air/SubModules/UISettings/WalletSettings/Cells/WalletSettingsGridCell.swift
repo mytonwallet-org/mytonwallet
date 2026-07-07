@@ -1,6 +1,5 @@
 //
 //  WalletSettingsGridCell.swift
-//  MyTonWalletAir
 //
 //  Created by nikstar on 04.11.2025.
 //
@@ -15,14 +14,40 @@ import Perception
 final class WalletSettingsGridCell: UICollectionViewCell, ReorderableCell {
     private var hostingController: UIHostingController<_Content>?
     private lazy var wiggle = WiggleBehavior(view: contentView)
+    private let cellModel = _CellModel()
 
-    func configure(with accountContext: AccountContext) {
+    override var isHighlighted: Bool {
+        didSet {
+            if isHighlighted != oldValue {
+                cellModel.isHighlighted = isHighlighted
+            }
+        }
+    }
+
+    func setSelection(_ isSelected: Bool?) {
+        cellModel.isSelected = isSelected
+    }
+
+    private func clearHighlight() {
+        if isHighlighted {
+            isHighlighted = false
+        } else {
+            cellModel.isHighlighted = false
+        }
+    }
+
+    func configure(with accountContext: AccountContext, isSelected: Bool?) {
         contentView.backgroundColor = .clear
+        cellModel.isSelected = isSelected
+        let onClearHighlight: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.clearHighlight()
+        }
 
         if let hc = hostingController {
-            hc.rootView = _Content(accountContext: accountContext)
+            hc.rootView = _Content(accountContext: accountContext, model: cellModel, onClearHighlight: onClearHighlight)
         } else {
-            let hc = UIHostingController(rootView: _Content(accountContext: accountContext))
+            let hc = UIHostingController(rootView: _Content(accountContext: accountContext, model: cellModel, onClearHighlight: onClearHighlight))
             hc.view.backgroundColor = .clear
             hc.view.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(hc.view)
@@ -40,6 +65,8 @@ final class WalletSettingsGridCell: UICollectionViewCell, ReorderableCell {
     
     override func prepareForReuse() {
         super.prepareForReuse()
+        cellModel.isHighlighted = false
+        cellModel.isSelected = nil
         wiggle.prepareForReuse()
     }
     
@@ -73,6 +100,8 @@ private struct _Content: View {
         let borderWidth = 1.5
         let vStackSpacing = 7.0
         let titleBottomPadding = 7.0
+        let selectionBulletSize = 28.0
+        let selectionBulletInset = 2.0
 
         func preferredHeight(forCellWidth width: CGFloat) -> CGFloat {
             let selectionOutset = 4 * borderWidth
@@ -87,6 +116,8 @@ private struct _Content: View {
     private let layoutGeometry = LayoutGeometry()
 
     let accountContext: AccountContext
+    let model: _CellModel
+    let onClearHighlight: () -> Void
     
     var body: some View {
         WithPerceptionTracking {
@@ -96,7 +127,7 @@ private struct _Content: View {
                         MtwCardBackground(nft: accountContext.nft, hideBorder: true)
                     }
                     .overlay {
-                        _BalanceView(accountContext: accountContext)
+                        _BalanceView(accountContext: accountContext, onClearHighlight: onClearHighlight)
                     }
                     .overlay(alignment: .bottom) {
                         GridAddressLine(addressLine: accountContext.addressLine, nft: accountContext.nft)
@@ -104,10 +135,19 @@ private struct _Content: View {
                             .padding(8)
                         
                     }
+                    .overlay(alignment: .topTrailing) {
+                        if let isSelected = model.isSelected {
+                            selectionBullet(isSelected: isSelected)
+                                .padding(layoutGeometry.selectionBulletInset)
+                                .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                        }
+                    }
                     .clipShape(.containerRelative)
                     .mtwCardSelection(isSelected: accountContext.isCurrent, cornerRadius: 12, lineWidth: layoutGeometry.borderWidth)
                     .containerShape(.rect(cornerRadius: 12))
-                    
+                    .scaleEffect(model.isHighlighted && model.isSelected != nil ? 0.95 : 1)
+                    .animation(.smooth(duration: 0.25), value: model.isHighlighted)
+
                 Text(accountContext.account.displayName)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
@@ -116,17 +156,47 @@ private struct _Content: View {
                     .padding(.bottom, layoutGeometry.titleBottomPadding)
                 
             }
+            .animation(.smooth(duration: 0.3), value: model.animationKey)
         }
+    }
+
+    private func selectionBullet(isSelected: Bool) -> some View {
+        Image.airBundle(isSelected ? "SelectedItem" : "UnselectedItem")
+            .resizable()
+            .frame(
+                width: layoutGeometry.selectionBulletSize,
+                height: layoutGeometry.selectionBulletSize
+            )
+            .contentTransition(.opacity)
+    }
+}
+
+@Perceptible
+private final class _CellModel {
+    var isHighlighted = false
+    var isSelected: Bool?
+
+    var animationKey: AnimationKey {
+        AnimationKey(isSelected: isSelected)
+    }
+
+    struct AnimationKey: Equatable {
+        var isSelected: Bool?
     }
 }
 
 private struct _BalanceView: View {
     
     var accountContext: AccountContext
+    var onClearHighlight: () -> Void
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBalanceView(balance: accountContext.balance, style: .grid)
+            MtwCardBalanceView(
+                balance: accountContext.balance,
+                style: .grid,
+                onSensitiveDataReveal: onClearHighlight
+            )
                 .frame(height: 24, alignment: .center)
                 .padding(.leading, 6)
                 .padding(.trailing, 5)

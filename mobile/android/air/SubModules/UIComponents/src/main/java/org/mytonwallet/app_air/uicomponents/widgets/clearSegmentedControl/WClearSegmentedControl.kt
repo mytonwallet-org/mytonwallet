@@ -323,6 +323,12 @@ class WClearSegmentedControl(
         })
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w != oldw && oldw > 0)
+            updateItemsTrailingViews()
+    }
+
     private fun createRecyclerView() = object : WRecyclerView(context) {
         private var isDrawThumb: Boolean = false
 
@@ -382,8 +388,7 @@ class WClearSegmentedControl(
             textView.setTextColor(
                 if (isDrawThumb) (itemColor ?: primaryTextColor) else secondaryTextColor
             )
-            textView.paint.typeface =
-                if (isDrawThumb) WFont.DemiBold.typeface else WFont.Medium.typeface
+            textView.paint.typeface = WFont.Medium.typeface
             val frameResult = super.drawChild(canvas, itemView, drawingTime)
 
             drawChildText(canvas, itemView, textView)

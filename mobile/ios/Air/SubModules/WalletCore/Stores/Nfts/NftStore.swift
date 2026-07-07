@@ -57,6 +57,17 @@ public final class _NftStore: Sendable {
     public func getNft(accountId: String, nftId: String) -> DisplayNft? {
         _nfts.withLock { $0[accountId]?[nftId] }
     }
+    public func shouldHideTransaction(accountId: String, nft: ApiNft) -> Bool {
+        if nft.isHidden == true {
+            return true
+        }
+        let displayNft = _nfts.withLock { nfts in
+            nfts[accountId]?[nft.id] ?? nfts[accountId]?.first {
+                $0.value.nft.chain == nft.chain && $0.value.nft.address == nft.address
+            }?.value
+        }
+        return displayNft?.isHiddenByUser == true || displayNft?.nft.isHidden == true
+    }
     public func nftWithStoredTelegramGiftLottie(accountId: String, nft: ApiNft) -> ApiNft {
         guard nft.metadata?.lottie?.nilIfEmpty == nil else {
             return nft

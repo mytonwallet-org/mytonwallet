@@ -69,7 +69,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
     .map(([slug, balance]): UserToken => {
       const {
         symbol, name, image, decimals, cmcSlug, color, chain, tokenAddress, codeHash,
-        type, label, percentChange24h = 0, priceUsd,
+        type, label, keywords, percentChange24h = 0, priceUsd,
       } = tokenInfo.bySlug[slug];
 
       const price = calculateTokenPrice(priceUsd ?? 0, baseCurrency, currencyRates);
@@ -104,6 +104,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
         codeHash,
         type,
         label,
+        keywords,
       };
     });
 

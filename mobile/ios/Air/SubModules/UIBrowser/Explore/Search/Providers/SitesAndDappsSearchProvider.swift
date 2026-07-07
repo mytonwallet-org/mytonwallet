@@ -47,13 +47,15 @@ final class SitesAndDappsSearchProvider: SingleShotSearchProvider {
 private extension ApiSite {
     func matches(_ searchString: String) -> Bool {
         let s = searchString.lowercased()
-        return name.lowercased().contains(s) || description.lowercased().contains(s) || url.lowercased().contains(s)
+        return name.lowercased().contains(s)
+            || description.lowercased().contains(s)
+            || SearchURLMatching.urlContains(url, searchText: s)
     }
 }
 
 private extension ApiDapp {
     func matches(_ searchString: String) -> Bool {
         let searchString = searchString.lowercased()
-        return name.lowercased().contains(searchString) || url.lowercased().contains(searchString)
+        return name.lowercased().contains(searchString) || SearchURLMatching.urlContains(url, searchText: searchString)
     }
 }

@@ -99,6 +99,7 @@ class SendVC(
     private val initialTokenSlug: String? = null,
     private val initialValues: InitialValues? = null,
     private val isSell: Boolean = false,
+    private val shouldRequireFreshAuth: Boolean = false,
 ) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
     override val TAG = "Send"
 
@@ -512,6 +513,7 @@ class SendVC(
             val destination = viewModel.inputStateFlow.value.destination.trim()
             val address = s?.toString() ?: ""
             if (destination == address) return
+            didConfirmDomainScamWarning = false
             viewModel.onInputDestination(address)
             if (address.isBlank()) {
                 viewModel.onDestinationEntered("")
@@ -941,7 +943,12 @@ class SendVC(
         title2.setOnClickListener(null)
     }
 
+    private var didConfirmDomainScamWarning = false
+
     private fun openConfirmIfPossible() {
+        if (showDomainScamWarningIfRequired()) {
+            return
+        }
         viewModel.getConfirmationPageConfig()?.let { config ->
             val vc = SendConfirmVC(
                 context,
@@ -950,7 +957,8 @@ class SendVC(
                 viewModel.getTokenSlug(),
                 name = addressInputView.autocompleteResult?.name,
                 isScam = viewModel.addressInfoFlow.value?.isScam ?: false,
-                isSell = isSell
+                isSell = isSell,
+                shouldRequireFreshAuth = shouldRequireFreshAuth
             )
             val isHardware = AccountStore.activeAccount?.isHardware == true
             vc.setNextTask { passcode ->
@@ -1251,6 +1259,12 @@ class SendVC(
         updateCommentTitleLabel()
     }
 
+    private fun isAllowSuspiciousActions(): Boolean {
+        return displayedAccount.accountId?.let {
+            WGlobalStorage.getIsAllowSuspiciousActions(it)
+        } ?: false
+    }
+
     private fun showScamWarningIfRequired() {
         TokenStore.getToken(viewModel.getTokenSlug())?.mBlockchain?.let { blockchain ->
             if (ScamDetectionHelpers.shouldShowSeedPhraseScamWarning(blockchain)) {
@@ -1265,6 +1279,39 @@ class SendVC(
                 )
             }
         }
+    }
+
+    private fun showDomainScamWarningIfRequired(): Boolean {
+        if (didConfirmDomainScamWarning) {
+            return false
+        }
+        val destination = viewModel.inputStateFlow.value.destination.trim()
+        if (!ScamDetectionHelpers.shouldShowDomainScamWarning(destination)) {
+            return false
+        }
+        if (isAllowSuspiciousActions()) {
+            showAlert(
+                LocaleController.getString("Warning!"),
+                ScamDetectionHelpers.domainScamWarningMessage(),
+                button = LocaleController.getString("Continue"),
+                buttonPressed = {
+                    didConfirmDomainScamWarning = true
+                    openConfirmIfPossible()
+                },
+                secondaryButton = LocaleController.getString("Close"),
+                preferPrimary = false,
+                primaryIsDanger = true,
+                allowLinkInText = true
+            )
+        } else {
+            showAlert(
+                LocaleController.getString("Warning!"),
+                ScamDetectionHelpers.domainScamWarningMessage(),
+                button = LocaleController.getString("Close"),
+                allowLinkInText = true
+            )
+        }
+        return true
     }
 
     private fun showServiceTokenWarningIfRequired() {

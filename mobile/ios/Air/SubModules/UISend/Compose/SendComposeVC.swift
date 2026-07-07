@@ -19,7 +19,10 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     var continueButtonConstraint: NSLayoutConstraint?
     var continueButtonFallbackConstraint: NSLayoutConstraint?
     
-    private var continueButton: WButton { self.bottomButton! }
+    private var continueButton: WButton?
+    private lazy var accountSwitcher = AccountSwitcher(configuration: .init(accountSupport: .send)) { [weak self] accountId in
+        self?.selectAccount(accountId: accountId)
+    }
     
     public init(model: SendModel) {
         self.model = model
@@ -35,6 +38,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         setupViews()
         observe { [weak self] in
             guard let self else { return }
+            guard let continueButton else { return }
             let (canContinue, hasInsufficientBalanceError, draftStatus, isAddressLoading) = model.continueState
             if draftStatus.status == .loading || isAddressLoading {
                 continueButton.showLoading = true
@@ -61,9 +65,9 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         }
         observe { [weak self] in
             guard let self else { return }
-            navigationItem.setLeftBarButtonItems(model.addressInput.isFocused ? [
-                UIBarButtonItem(title: "", image: UIImage(systemName: "chevron.backward"), primaryAction: UIAction { _ in endEditing() })
-            ] : nil, animated: true)
+            _ = model.addressInput.isFocused
+            _ = model.account.id
+            updateLeftNavigationItem()
         }
         observe { [weak self] in
             guard let self else { return }
@@ -95,8 +99,6 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     }
     
     private func setupViews() {
-        buildNavigationItem()
-        
         let hostingController = UIHostingController(rootView: makeView())
         self.hostingController = hostingController
 
@@ -111,8 +113,12 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         ])
         hostingController.didMove(toParent: self)
         hostingController.view.backgroundColor = .clear
+        
+        buildNavigationItem()
+        addCustomNavigationBarBackground(color: .air.sheetBackground)
 
-        _ = addBottomButton(bottomConstraint: false)
+        let continueButton = addBottomButton(bottomConstraint: false)
+        self.continueButton = continueButton
         continueButton.setTitle(lang("Continue"), for: .normal)
         continueButton.isEnabled = model.canContinue
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
@@ -154,6 +160,10 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
             authorizeDiesel()
             return
         }
+        if model.shouldConfirmDomainScamWarning {
+            showDomainScamWarning()
+            return
+        }
         if model.token.isPricelessToken || model.token.isStakedToken {
             let alert = UIAlertController(title: lang("Warning"), message: lang("$service_token_transfer_warning"), preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: lang("Cancel"), style: .cancel) { _ in
@@ -179,6 +189,30 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         UIApplication.shared.open(telegramURL, options: [:], completionHandler: nil)
     }
 
+    private func showDomainScamWarning() {
+        guard model.isAllowSuspiciousActions else {
+            showAlert(
+                title: lang("Warning!"),
+                text: model.domainScamWarningPlainText,
+                button: lang("Close")
+            )
+            return
+        }
+
+        showAlert(
+            title: lang("Warning!"),
+            text: model.domainScamWarningPlainText,
+            button: lang("Continue"),
+            buttonStyle: .destructive,
+            buttonPressed: { [weak self] in
+                self?.model.confirmDomainScamWarning()
+                self?.continuePressed()
+            },
+            secondaryButton: lang("Close"),
+            preferPrimary: false
+        )
+    }
+
     private func showSell() {
         dismiss(animated: true)
         AppActions.showSell(accountContext: model.$account, tokenSlug: model.token.slug)
@@ -187,6 +221,36 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     private func showMultisend() {
         dismiss(animated: true)
         AppActions.showMultisend()
+    }
+
+    private func updateLeftNavigationItem() {
+        if model.addressInput.isFocused {
+            navigationItem.setLeftBarButtonItems([
+                UIBarButtonItem(title: "", image: UIImage(systemName: "chevron.backward"), primaryAction: UIAction { _ in endEditing() })
+            ], animated: true)
+            return
+        }
+
+        guard IS_DEBUG_OR_TESTFLIGHT, model.isAccountSwitchingAllowed else {
+            navigationItem.setLeftBarButtonItems(nil, animated: true)
+            return
+        }
+
+        accountSwitcher.update(selectedAccountId: model.account.id)
+        let items = accountSwitcher.hasAlternativeAccounts(selectedAccountId: model.account.id)
+            ? [accountSwitcher.barButtonItem]
+            : nil
+        navigationItem.setLeftBarButtonItems(items, animated: true)
+    }
+
+    private func selectAccount(accountId: String) {
+        Task {
+            do {
+                try await model.onAccountSelected(accountId: accountId)
+            } catch {
+                AppActions.showError(error: error)
+            }
+        }
     }
 }
 

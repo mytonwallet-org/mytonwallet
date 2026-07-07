@@ -404,6 +404,7 @@ private struct SearchResultItemIcon: View {
 struct RecentSearchItemRow: View {
     let text: String
     let isCompact: Bool
+    var iconName: String = "magnifyingglass"
     let tapAction: () -> ()
     
     var body: some View {
@@ -412,7 +413,7 @@ struct RecentSearchItemRow: View {
         let iconSize: CGFloat = 24
 
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: iconName)
                 .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(Color.air.primaryLabel)
                 .frame(width: iconSize, height: iconSize)
@@ -432,6 +433,7 @@ struct RecentSearchItemRow: View {
         .background(alignment: .bottom) {
             SearchRowSeparator(leadingPadding: 44)
         }
+   
     }
 }
 

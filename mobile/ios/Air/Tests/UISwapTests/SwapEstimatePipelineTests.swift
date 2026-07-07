@@ -111,6 +111,30 @@ struct SwapEstimatePipelineTests {
     }
 
     @Test
+    @MainActor
+    func `TON on chain swaps allow buy amount input when pair allows reverse`() {
+        let mode = resolveBuyAmountInputMode(
+            swapType: .onChain,
+            sellingChain: .ton,
+            isReverseProhibited: false
+        )
+
+        #expect(mode == .enabled)
+    }
+
+    @Test
+    @MainActor
+    func `Solana on chain swaps disable buy amount input even when pair allows reverse`() {
+        let mode = resolveBuyAmountInputMode(
+            swapType: .onChain,
+            sellingChain: .solana,
+            isReverseProhibited: false
+        )
+
+        #expect(mode == .disabled)
+    }
+
+    @Test
     func `external to external pairs are outside account scope`() {
         let isScoped = isSwapPairInAccountScope(
             selling: token(slug: "ethereum-eth", symbol: "ETH", chain: .ethereum),
@@ -171,10 +195,10 @@ struct SwapEstimatePipelineTests {
                 passcode: "0000"
             )
             #expect(Bool(false), "Expected missing estimate to throw")
-        } catch is BridgeCallError {
+        } catch is SdkError {
             #expect(Bool(true))
         } catch {
-            #expect(Bool(false), "Expected BridgeCallError")
+            #expect(Bool(false), "Expected SdkError")
         }
     }
 
@@ -207,10 +231,10 @@ struct SwapEstimatePipelineTests {
                 account: account
             )
             #expect(Bool(false), "Expected buy-side CEX estimate to throw")
-        } catch is BridgeCallError {
+        } catch is SdkError {
             #expect(Bool(true))
         } catch {
-            #expect(Bool(false), "Expected BridgeCallError")
+            #expect(Bool(false), "Expected SdkError")
         }
     }
 
@@ -269,7 +293,7 @@ struct SwapEstimatePipelineTests {
 
     @Test
     func `rate limit backend message is detected`() {
-        let error = BridgeCallError.apiReturnedError(error: "Requests limit exceeded", data: "")
+        let error = SdkError.apiReturnedError(error: "Requests limit exceeded", data: "")
 
         #expect(isSwapEstimateRateLimited(error))
     }
@@ -370,6 +394,79 @@ struct SwapEstimatePipelineTests {
         )
 
         #expect(issue == nil)
+    }
+
+    @Test
+    func `cross chain native max subtracts source transfer fee before cex estimate`() {
+        let trx = token(slug: TRX_SLUG, symbol: "TRX", chain: .tron, decimals: 6)
+        let account = SwapAccountSnapshot(
+            account: MAccount(
+                id: "test-mainnet",
+                title: nil,
+                type: .mnemonic,
+                byChain: [.tron: AccountChain(address: "tron-address")]
+            ),
+            balances: [TRX_SLUG: 105_240_099]
+        )
+
+        let maxAmount = crosschainAdjustedNativeMaxAmount(
+            sellingToken: trx,
+            swapType: .crosschainInsideWallet,
+            isMaxAmount: true,
+            account: account,
+            networkFee: MDouble("1.1")
+        )
+
+        #expect(maxAmount == 104_140_099)
+    }
+
+    @Test
+    func `cross chain evm native max drafts transfer fee with full balance`() {
+        let eth = token(slug: ETH_SLUG, symbol: "ETH", chain: .ethereum, decimals: 18)
+        let balance: BigInt = 123_000_000_000_000_000
+        let account = SwapAccountSnapshot(
+            account: MAccount(
+                id: "test-mainnet",
+                title: nil,
+                type: .mnemonic,
+                byChain: [.ethereum: AccountChain(address: "ethereum-address")]
+            ),
+            balances: [ETH_SLUG: balance]
+        )
+
+        let draftAmount = crosschainNetworkFeeDraftAmount(
+            sellingToken: eth,
+            isMaxAmount: true,
+            account: account
+        )
+
+        #expect(draftAmount == balance)
+    }
+
+    @Test
+    func `on chain swap local history starts pending trusted`() {
+        let request = ApiSwapBuildRequest(
+            from: "TON",
+            to: "GRAM",
+            fromAddress: "sender-address",
+            dexLabel: .dedust,
+            fromAmount: 1,
+            toAmount: 2,
+            toMinAmount: 2,
+            slippage: 0.5,
+            shouldTryDiesel: false,
+            swapVersion: nil,
+            walletVersion: nil,
+            routes: nil,
+            networkFee: 0.1,
+            swapFee: 0,
+            ourFee: 0,
+            dieselFee: nil
+        )
+
+        let item = ApiSwapHistoryItem.makeFrom(swapBuildRequest: request, swapId: "swap-id")
+
+        #expect(item.status == .pendingTrusted)
     }
 
     @Test
@@ -543,6 +640,10 @@ private func makeCrosschainPayment(
         payoutAddress: "payout-address",
         payinExtraId: payinExtraId,
         exchangerTxId: "cex-id",
+        cexLabel: nil,
+        providerName: nil,
+        supportUrl: nil,
+        supportEmail: nil,
         createdAt: createdAt,
         cexStatus: cexStatus,
         isInternalSwap: isInternalSwap

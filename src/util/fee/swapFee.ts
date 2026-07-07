@@ -11,7 +11,7 @@ import { fromDecimal, toBig } from '../decimals';
 import { findNativeToken, getChainBySlug, getIsNativeToken } from '../tokens';
 
 type ExplainSwapFeeInput = Pick<GlobalState['currentSwap'],
-'tokenInSlug' | 'networkFee' | 'realNetworkFee' | 'ourFee' | 'dieselStatus' | 'dieselFee'
+'tokenInSlug' | 'networkFee' | 'realNetworkFee' | 'ourFee' | 'ourFeeMode' | 'dieselStatus' | 'dieselFee'
 > & {
   swapType: SwapType;
   /** The balance of the "in" token blockchain's native token. Undefined means that it's unknown. */
@@ -47,7 +47,7 @@ export type ExplainedSwapFee = {
   shouldShowOurFee: boolean;
 };
 
-type MaxSwapAmountInput = Pick<GlobalState['currentSwap'], 'ourFeePercent'> & {
+type MaxSwapAmountInput = Pick<GlobalState['currentSwap'], 'ourFeePercent' | 'ourFeeMode'> & {
   swapType: SwapType;
   /** The balance of the "in" token. Undefined means that it's unknown. */
   tokenInBalance: bigint | undefined;
@@ -95,6 +95,7 @@ export function getMaxSwapAmount({
   tokenIn,
   fullNetworkFee,
   ourFeePercent,
+  ourFeeMode,
   maxAmountFromBackend,
 }: MaxSwapAmountInput): bigint | undefined {
   if (maxAmountFromBackend) {
@@ -122,7 +123,9 @@ export function getMaxSwapAmount({
   }
 
   ourFeePercent ??= swapType === SwapType.OnChain ? DEFAULT_OUR_SWAP_FEE : 0;
-  maxAmount = bigintDivideToNumber(maxAmount, 1 + (ourFeePercent / 100));
+  if (ourFeeMode !== 'included') {
+    maxAmount = bigintDivideToNumber(maxAmount, 1 + (ourFeePercent / 100));
+  }
 
   return bigintMax(maxAmount, 0n);
 }
@@ -238,7 +241,7 @@ function explainGasfullSwapFee(input: ExplainSwapFeeInput) {
     const networkTerms = { native: input.networkFee };
     result.fullFee = {
       precision: isExact ? 'exact' : 'lessThan',
-      terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', isNativeIn),
+      terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', isNativeIn, input.ourFeeMode),
       networkTerms,
     };
     result.realFee = result.fullFee;
@@ -248,7 +251,7 @@ function explainGasfullSwapFee(input: ExplainSwapFeeInput) {
     const networkTerms = { native: input.realNetworkFee };
     result.realFee = {
       precision: isExact ? 'exact' : 'approximate',
-      terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', isNativeIn),
+      terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', isNativeIn, input.ourFeeMode),
       networkTerms,
     };
   }
@@ -281,7 +284,7 @@ function explainGaslessSwapFee(input: ExplainSwapFeeInput): ExplainedSwapFee {
   };
   result.fullFee = {
     precision: isExact ? 'exact' : 'lessThan',
-    terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', false),
+    terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', false, input.ourFeeMode),
     networkTerms,
   };
   result.realFee = result.fullFee;
@@ -302,7 +305,7 @@ function explainGaslessSwapFee(input: ExplainSwapFeeInput): ExplainedSwapFee {
     };
     result.realFee = {
       precision: isExact ? 'exact' : 'approximate',
-      terms: addOurFeeToTerms(realNetworkTerms, input.ourFee ?? '0', false),
+      terms: addOurFeeToTerms(realNetworkTerms, input.ourFee ?? '0', false, input.ourFeeMode),
       networkTerms: realNetworkTerms,
     };
   }
@@ -325,7 +328,16 @@ function getExcessFee({ networkFee, realNetworkFee }: Pick<ExplainSwapFeeInput, 
     : undefined;
 }
 
-function addOurFeeToTerms(terms: FeeTerms<string>, ourFee: string, isOurFeeNative: boolean) {
+function addOurFeeToTerms(
+  terms: FeeTerms<string>,
+  ourFee: string,
+  isOurFeeNative: boolean,
+  ourFeeMode?: GlobalState['currentSwap']['ourFeeMode'],
+) {
+  if (ourFeeMode === 'included') {
+    return terms;
+  }
+
   return {
     ...terms,
     native: isOurFeeNative ? Big(terms.native ?? '0').add(ourFee).toString() : terms.native,
@@ -333,6 +345,6 @@ function addOurFeeToTerms(terms: FeeTerms<string>, ourFee: string, isOurFeeNativ
   };
 }
 
-function shouldShowOurFee(input: Pick<ExplainSwapFeeInput, 'swapType'>) {
-  return input.swapType === SwapType.OnChain;
+function shouldShowOurFee(input: Pick<ExplainSwapFeeInput, 'swapType' | 'ourFee'>) {
+  return input.swapType === SwapType.OnChain || Boolean(input.ourFee && input.ourFee !== '0');
 }

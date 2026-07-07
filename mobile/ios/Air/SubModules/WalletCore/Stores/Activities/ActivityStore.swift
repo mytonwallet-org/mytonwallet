@@ -168,7 +168,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: accountId)
         let hiddenCexTransactionIdSet = Set(hiddenCexTransactionIds)
         let notificationActivities = allNewActivities.filter {
-            $0.shouldHide != true && !hiddenCexTransactionIdSet.contains($0.id)
+            $0.shouldHide != true
+                && !hiddenCexTransactionIdSet.contains($0.id)
+                && !shouldHideBecauseOfNft(accountId: accountId, activity: $0)
         }
         notifyAboutNewActivities(accountId: accountId, newActivities: notificationActivities)
         WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: unique((adjustedPendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id) + hiddenCexTransactionIds), replacedIds: replacedIds))
@@ -209,6 +211,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
             let filteredResult = activities.filter {
                 guard case .transaction(let transaction) = $0 else { return true }
+                if shouldHideBecauseOfNft(accountId: accountId, transaction: transaction) {
+                    return false
+                }
                 if hideTinyTransfers && $0.isTinyOrScamTransaction {
                     return false
                 }
@@ -229,12 +234,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         var byId = accountState.byId ?? [:]
         var newIds: [String] = []
         for activity in fetchedActivities {
-            // TODO: remove temporary workaround
-            if activity.type == .callContract && byId[activity.id] != nil {
-                continue
+            if upsertActivity(activity, in: &byId) {
+                newIds.append(activity.id)
             }
-            byId[activity.id] = activity
-            newIds.append(activity.id)
         }
         
         var idsMain = Array(OrderedSet(
@@ -284,6 +286,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
             let filteredResult = activities.filter {
                 guard case .transaction(let transaction) = $0 else { return true }
+                if shouldHideBecauseOfNft(accountId: accountId, transaction: transaction) {
+                    return false
+                }
                 if hideTinyTransfers && $0.isTinyOrScamTransaction {
                     return false
                 }
@@ -304,12 +309,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         byId = accountState.byId ?? [:]
         var newIds: [String] = []
         for activity in fetchedActivities {
-            // TODO: remove temporary workaround
-            if activity.type == .callContract && byId[activity.id] != nil {
-                continue
+            if upsertActivity(activity, in: &byId) {
+                newIds.append(activity.id)
             }
-            byId[activity.id] = activity
-            newIds.append(activity.id)
         }
         
         tokenIds = mergeSortedActivityIds(newIds, accountState.idsBySlug?[token.slug] ?? [], byId: byId)
@@ -350,20 +352,44 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     public func getActivity(accountId: String, activityId: String) -> ApiActivity? {
         getAccountState(accountId).byId?[activityId]
     }
+
+    private func shouldSkipCallContractReplacement(existingActivity: ApiActivity?, newActivity: ApiActivity) -> Bool {
+        guard newActivity.type == .callContract else {
+            return false
+        }
+        guard let existingActivity else {
+            return true
+        }
+        return existingActivity.type != .callContract
+    }
+
+    private func upsertActivity(_ activity: ApiActivity, in byId: inout [String: ApiActivity]) -> Bool {
+        if shouldSkipCallContractReplacement(existingActivity: byId[activity.id], newActivity: activity) {
+            return false
+        }
+        byId[activity.id] = activity
+        return true
+    }
     
     public func fetchActivityDetails(accountId: String, activity: ApiActivity) async throws -> ApiActivity {
-        let activity = try await Api.fetchActivityDetails(accountId: accountId, activity: activity)
+        let fetchedActivity = try await Api.fetchActivityDetails(accountId: accountId, activity: activity)
+        var didUpdate = false
+        var resultActivity = fetchedActivity
         withAccountState(accountId) {
             var byId = $0.byId ?? [:]
-            // TODO: remove temporary workaround
-            if activity.type == .callContract && byId[activity.id] != nil {
+            let existingActivity = byId[fetchedActivity.id]
+            if shouldSkipCallContractReplacement(existingActivity: existingActivity, newActivity: fetchedActivity) {
+                resultActivity = existingActivity ?? activity
                 return
             }
-            byId[activity.id] = activity
+            _ = upsertActivity(fetchedActivity, in: &byId)
             $0.byId = byId
+            didUpdate = true
         }
-        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: [activity.id], replacedIds: [:]))
-        return activity
+        if didUpdate {
+            WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: [fetchedActivity.id], replacedIds: [:]))
+        }
+        return resultActivity
     }
     
     // MARK: - Persistence
@@ -464,18 +490,20 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         var byId = currentState.byId ?? [:]
         let allActivities = mainActivities + bySlug.values.flatMap { $0 }
         for activity in allActivities {
-            // TODO: remove temporary workaround
-            if activity.type == .callContract && byId[activity.id] != nil {
-                continue
-            }
-            byId[activity.id] = activity
+            _ = upsertActivity(activity, in: &byId)
         }
         
         // Activities from different blockchains arrive separately, which causes the order to be disrupted
-        let idsMain = mergeActivityIdsToMaxTime(mainActivities.map(\.id), currentState.idsMain ?? [], byId: byId)
+        let idsMain = mergeActivityIdsToMaxTime(
+            mainActivities.compactMap { byId[$0.id] == nil ? nil : $0.id },
+            currentState.idsMain ?? [],
+            byId: byId
+        )
         
         var idsBySlug = currentState.idsBySlug ?? [:]
-        let newIdsBySlug = bySlug.mapValues { $0.map(\.id) }
+        let newIdsBySlug = bySlug.mapValues { activities in
+            activities.compactMap { byId[$0.id] == nil ? nil : $0.id }
+        }
         for (slug, ids) in newIdsBySlug {
             idsBySlug[slug] = ids
         }
@@ -503,24 +531,25 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let currentState = getAccountState(accountId)
         
         var byId = currentState.byId ?? [:]
+        var newIds: [String] = []
+        var storedNewActivities: [ApiActivity] = []
         for activity in newActivities {
             if let existingActivity = byId[activity.id],
                isNonPendingActivity(existingActivity),
                getIsActivityPending(activity) {
                 log.error("activity status regression id=\(activity.id, .public) oldStatus=\(activityStatusString(existingActivity), .public) newStatus=\(activityStatusString(activity), .public) oldHash=\(activityHash(existingActivity), .public) newHash=\(activityHash(activity), .public)")
             }
-            // TODO: remove temporary workaround
-            if activity.type == .callContract && byId[activity.id] != nil {
-                continue
+            if upsertActivity(activity, in: &byId) {
+                newIds.append(activity.id)
+                storedNewActivities.append(activity)
             }
-            byId[activity.id] = activity
         }
         
         // Activities from different blockchains arrive separately, which causes the order to be disrupted
-        let idsMain = mergeSortedActivityIds(newActivities.map(\.id), currentState.idsMain ?? [], byId: byId)
+        let idsMain = mergeSortedActivityIds(newIds, currentState.idsMain ?? [], byId: byId)
         
         var idsBySlug = currentState.idsBySlug ?? [:]
-        let newIdsBySlug = buildActivityIdsBySlug(newActivities)
+        let newIdsBySlug = buildActivityIdsBySlug(storedNewActivities)
         for (slug, newIds) in newIdsBySlug {
             let mergedIds = mergeSortedActivityIds(newIds, currentState.idsBySlug?[slug] ?? [], byId: byId)
             idsBySlug[slug] = mergedIds
@@ -529,13 +558,13 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let newestActivitiesBySlug = _getNewestActivitiesBySlug(byId: byId, idsBySlug: idsBySlug, newestActivitiesBySlug: currentState.newestActivitiesBySlug, tokenSlugs: newIdsBySlug.keys)
         
         let oldLocalIds = currentState.localActivityIds ?? []
-        let newLocalIds = newActivities.filter { getIsIdLocal($0.id) }.map(\.id)
+        let newLocalIds = storedNewActivities.filter { getIsIdLocal($0.id) }.map(\.id)
         let localActivityIds = Array(Set(oldLocalIds + newLocalIds))
         
         var pendingIds: [String: [String]] = currentState.pendingActivityIds ?? [:]
         if let chain {
             let oldPendingIds = currentState.pendingActivityIds?[chain.rawValue] ?? []
-            let newPendingIds = newActivities.filter { getIsActivityPending($0) && !getIsIdLocal($0.id) }.map(\.id)
+            let newPendingIds = storedNewActivities.filter { getIsActivityPending($0) && !getIsIdLocal($0.id) }.map(\.id)
             let pendingIdsForChain = Array(Set(oldPendingIds + newPendingIds))
             pendingIds[chain.rawValue] = pendingIdsForChain
         }
@@ -639,13 +668,13 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
 
     private func refreshPendingCexSwaps(accountId: String) async {
-        let ids = pendingCexSwapIds(accountId: accountId)
-        guard !ids.isEmpty else {
+        let items = pendingCexSwapItems(accountId: accountId)
+        guard !items.isEmpty else {
             return
         }
 
         do {
-            let result = try await Api.fetchSwaps(accountId: accountId, ids: ids)
+            let result = try await Api.fetchSwaps(accountId: accountId, items: items)
             let updatedIds = unique(
                 applyFetchedCexSwaps(accountId: accountId, result: result)
                 + hideTransactionsIncludedInCexSwaps(accountId: accountId)
@@ -666,6 +695,10 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
 
     private func pendingCexSwapIds(accountId: String) -> [String] {
+        pendingCexSwapItems(accountId: accountId).map(\.id)
+    }
+
+    private func pendingCexSwapItems(accountId: String) -> [ApiFetchSwapItem] {
         let byId = getAccountState(accountId).byId ?? [:]
         return unique(byId.values.compactMap { activity in
             guard case .swap(let swap) = activity,
@@ -674,7 +707,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             else {
                 return nil
             }
-            return activity.parsedTxId.hash
+            return ApiFetchSwapItem(id: activity.parsedTxId.hash, chain: .ton)
         })
     }
 
@@ -985,6 +1018,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
                 if tx.isIncoming,
                    Date.now.timeIntervalSince(activity.timestampDate) < TX_AGE_TO_PLAY_SOUND,
                    !(AppStorageHelper.hideTinyTransfers && activity.isTinyOrScamTransaction),
+                   !shouldHideBecauseOfNft(accountId: accountId, transaction: tx),
                    !getPoisoningCache(accountId).isTransactionWithPoisoning(transaction: tx),
                    AppStorageHelper.sounds,
                    !notifiedIds.contains(activity.id)
@@ -1006,6 +1040,20 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
                 }
             }
         }
+    }
+
+    private func shouldHideBecauseOfNft(accountId: String, activity: ApiActivity) -> Bool {
+        guard case .transaction(let transaction) = activity else {
+            return false
+        }
+        return shouldHideBecauseOfNft(accountId: accountId, transaction: transaction)
+    }
+
+    private func shouldHideBecauseOfNft(accountId: String, transaction: ApiTransactionActivity) -> Bool {
+        guard let nft = transaction.nft else {
+            return false
+        }
+        return NftStore.shouldHideTransaction(accountId: accountId, nft: nft)
     }
 
     private func applyMtwCardsFromActivities(accountId: String, activities: some Collection<ApiActivity>) {

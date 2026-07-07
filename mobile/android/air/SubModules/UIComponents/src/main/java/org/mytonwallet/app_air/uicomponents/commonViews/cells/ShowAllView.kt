@@ -57,7 +57,7 @@ class ShowAllView(
         id = generateViewId()
         textAlignment = TEXT_ALIGNMENT_CENTER
         setPadding(4.5f.dp.roundToInt(), 4.dp, 4.5f.dp.roundToInt(), 0)
-        setStyle(11f, WFont.SemiBold)
+        setStyle(11f, WFont.Medium)
         setGradientColor(arrayOf(WColor.SecondaryText, WColor.SecondaryText))
         setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         isVisible = false

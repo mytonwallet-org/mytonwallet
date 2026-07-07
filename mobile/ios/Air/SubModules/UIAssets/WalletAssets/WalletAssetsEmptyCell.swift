@@ -7,7 +7,7 @@ final class WalletAssetsEmptyCell: UICollectionViewCell {
     nonisolated static let collectiblesHeight = CGFloat(152)
 
     private static let stickerSize = CGFloat(100)
-    private static let horizontalInset = CGFloat(24)
+    private static let horizontalInset = CGFloat(20)
     private static let contentSpacing = CGFloat(24)
 
     private var onAction: (() -> Void)?

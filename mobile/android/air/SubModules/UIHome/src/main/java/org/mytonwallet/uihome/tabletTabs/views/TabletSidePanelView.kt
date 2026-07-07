@@ -52,6 +52,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.uihome.home.WalletNameMenuHelper
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import java.lang.ref.WeakReference
@@ -103,7 +104,12 @@ class TabletSidePanelView(
         onTap = { onWalletSettings() }
         onLongTap = {
             headerView.centerAccount?.let { account ->
-                AccountDialogHelpers.presentRename(viewController, account)
+                WalletNameMenuHelper.present(
+                    viewController = viewController,
+                    anchor = this,
+                    account = account,
+                    onManageWallets = onWalletSettings,
+                )
             }
         }
     }
@@ -903,6 +909,7 @@ class TabletSidePanelView(
                 addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
             }),
             backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            usePillShadow = true,
             onWillDismiss = {
                 highlightOverlayView?.let { overlayView ->
                     overlayView.fadeOut {

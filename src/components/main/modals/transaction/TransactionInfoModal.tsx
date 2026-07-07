@@ -31,6 +31,7 @@ import buildClassName from '../../../../util/buildClassName';
 import { getIsSupportedChain } from '../../../../util/chain';
 import resolveSlideTransitionName from '../../../../util/resolveSlideTransitionName';
 import { shareUrl } from '../../../../util/share';
+import { getSwapTransactionIdRows } from '../../../../util/swap/transactionIds';
 import { getChainBySlug } from '../../../../util/tokens';
 import { getViewTransactionUrl } from '../../../../util/url';
 
@@ -441,9 +442,13 @@ function getActivityShareInfo(
     return chain && hash ? { chain, hash } : undefined;
   }
 
+  const firstTransactionId = getSwapTransactionIdRows(activity)[0];
+  if (firstTransactionId) {
+    return { chain: firstTransactionId.chain, hash: firstTransactionId.hash };
+  }
+
   const fromToken = swapTokensBySlug ? resolveSwapAsset(swapTokensBySlug, activity.from) : undefined;
   const chain = fromToken?.chain && getIsSupportedChain(fromToken.chain) ? fromToken.chain : undefined;
-  const isCex = Boolean(activity.cex);
-  const hash = isCex ? activity.hashes?.[0] : parseTxId(activity.id).hash;
+  const hash = parseTxId(activity.id).hash;
   return chain && hash ? { chain, hash } : undefined;
 }

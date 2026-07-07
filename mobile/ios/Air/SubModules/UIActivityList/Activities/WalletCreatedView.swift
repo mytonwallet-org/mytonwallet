@@ -1,6 +1,5 @@
 //
 //  WalletCreatedView.swift
-//  UIWalletHome
 //
 //  Created by Sina on 4/21/23.
 //

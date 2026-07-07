@@ -54,7 +54,7 @@ public final class AccountContext: Sendable {
     
     private func updateAccount() {
         if case .constant(let account) = source {
-                self.account = account
+            self.account = account
         } else if let account = accountStore.accountsById[self.accountId] {
             self.account = account
         } else {
@@ -119,7 +119,8 @@ public final class AccountContext: Sendable {
         stakingStore.stakingData(accountId: accountId)
     }
     public func getStakingBadgeContent(tokenSlug: String, isStaking: Bool) -> StakingBadgeContent? {
-        guard let stakingState = stakingData?.bySlug(tokenSlug) else { return nil }
+        guard let stakingState = stakingData?.bySlug(tokenSlug),
+              getHasPositiveStakingYield(state: stakingState) else { return nil }
         if isStaking, stakingState.balance > 0 {
             return StakingBadgeContent(isActive: true, yieldType: stakingState.yieldType, yieldValue: stakingState.apy)
         } else if !isStaking, stakingState.balance == 0 {

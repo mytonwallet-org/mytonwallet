@@ -621,6 +621,7 @@ describe('parseTrace + calculateActivityDetails', () => {
           ourFee: '1.72202985',
           status: 'completed',
           hashes: [],
+          transactionIds: {},
           externalMsgHashNorm: '5IvAF0fn34L7MDxzu67m4MzeNp6Mpg2poC9dXE1DdFw=',
         },
         // eslint-disable-next-line @typescript-eslint/no-require-imports

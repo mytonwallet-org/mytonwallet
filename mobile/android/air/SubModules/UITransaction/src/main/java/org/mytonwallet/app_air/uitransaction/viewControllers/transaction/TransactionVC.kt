@@ -96,6 +96,7 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapTransactionRef
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction.Swap
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -170,7 +171,7 @@ class TransactionVC(
     val tagLabel: WLabel by lazy {
         WLabel(context).apply {
             setPaddingDp(4, 0, 4, 0)
-            setStyle(14f, WFont.SemiBold)
+            setStyle(14f, WFont.Medium)
         }
     }
 
@@ -529,7 +530,7 @@ class TransactionVC(
 
     private val transactionDetailsLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(14f, WFont.DemiBold)
+            setStyle(14f, WFont.Medium)
             text = LocaleController.getString("Details")
             setPadding(0, 0, 0, 10.dp)
         }
@@ -554,7 +555,8 @@ class TransactionVC(
         }
     }
     private var transactionIdRow: KeyValueRowView? = null
-    private var changellyIdRow: KeyValueRowView? = null
+    private var swapProviderIdRow: KeyValueRowView? = null
+    private var swapTransactionIdRows = ArrayList<SwapTransactionIdRow>()
     private val transactionDetails: WView by lazy {
         val v = WView(context)
         v.addView(transactionDetailsLabel)
@@ -674,7 +676,8 @@ class TransactionVC(
                 )
                 val shouldShowFeeRow =
                     (transaction.networkFee ?: 0.0) > 0 ||
-                        ((transaction.ourFee ?: 0.0) > 0 && transaction.ourFee!!.isFinite()) ||
+                        (transaction.ourFeeMode != "included" && (transaction.ourFee
+                            ?: 0.0) > 0 && transaction.ourFee!!.isFinite()) ||
                         transaction.shouldLoadDetails == true
                 detailsRowViews.add(
                     KeyValueRowView(
@@ -697,16 +700,33 @@ class TransactionVC(
             }
         }
 
-        if ((transaction is MApiTransaction.Swap) && !transaction.cex?.transactionId.isNullOrEmpty()) {
-            changellyIdRow = KeyValueRowView(
+        val swapTransaction = transaction as? MApiTransaction.Swap
+        val swapTransactionIds = getSwapTransactionIdItems(swapTransaction)
+        val swapProviderName = swapTransaction?.cex?.providerName
+        if (!swapTransaction?.cex?.transactionId.isNullOrEmpty() && swapProviderName != null) {
+            swapProviderIdRow = KeyValueRowView(
                 context,
-                LocaleController.getString("Changelly ID"),
+                LocaleController.getString("Swap ID for %provider%")
+                    .replace("%provider%", swapProviderName),
                 "",
                 mode = KeyValueRowView.Mode.SECONDARY,
                 isLast = false
             )
-            detailsRowViews.add(changellyIdRow!!)
-        } else if (shouldShowViewInExplorer) {
+            detailsRowViews.add(swapProviderIdRow!!)
+        }
+        if (swapTransactionIds.isNotEmpty()) {
+            swapTransactionIds.forEach { item ->
+                val row = KeyValueRowView(
+                    context,
+                    LocaleController.getString(item.label),
+                    "",
+                    mode = KeyValueRowView.Mode.SECONDARY,
+                    isLast = false
+                )
+                detailsRowViews.add(row)
+                swapTransactionIdRows.add(SwapTransactionIdRow(row, item))
+            }
+        } else if (shouldShowViewInExplorer && swapProviderIdRow == null) {
             transactionIdRow = KeyValueRowView(
                 context,
                 LocaleController.getString("Transaction ID"),
@@ -1001,7 +1021,10 @@ class TransactionVC(
         transactionAddressView?.updateTheme()
         transactionDetailsLabel.setTextColor(WColor.Tint.color)
         transactionIdRow?.setValue(transactionIdValue)
-        changellyIdRow?.setValue(changellyIdValue)
+        swapProviderIdRow?.setValue(swapProviderIdValue)
+        swapTransactionIdRows.forEach {
+            it.row.setValue(swapTransactionIdValue(it))
+        }
 
         separatorDrawable.invalidateSelf()
     }
@@ -1077,7 +1100,7 @@ class TransactionVC(
                 isExpandable = false,
                 textColor = WColor.PrimaryText,
                 textSize = TITLE_TEXT_SIZE,
-                font = WFont.SemiBold
+                font = WFont.Medium
             ),
             animated = animated
         )
@@ -1085,7 +1108,7 @@ class TransactionVC(
 
     private val titleTextPaint by lazy {
         TextPaint().apply {
-            typeface = WFont.SemiBold.typeface
+            typeface = WFont.Medium.typeface
             textSize = TITLE_TEXT_SIZE.dp
         }
     }
@@ -1212,15 +1235,17 @@ class TransactionVC(
 
             is MApiTransaction.Swap -> {
                 val fromToken = transaction.fromToken ?: return null
-                val isNative = fromToken.isBlockchainNative == true
+                val isNative = fromToken.isBlockchainNative
+                val nativeDecimals = fromToken.nativeToken?.decimals ?: fromToken.decimals
+                val isOurFeeIncluded = transaction.ourFeeMode == "included"
                 val feeTerms = MFeeTerms(
-                    token = if (!isNative && transaction.ourFee != null && transaction.ourFee!!.isFinite()) transaction.ourFee!!.toBigInteger(
+                    token = if (!isOurFeeIncluded && !isNative && transaction.ourFee != null && transaction.ourFee!!.isFinite()) transaction.ourFee!!.toBigInteger(
                         fromToken.decimals
                     ) else BigInteger.ZERO,
                     native = (
                         (transaction.networkFee?.absoluteValue ?: 0.0) +
-                            (if (isNative && transaction.ourFee?.isFinite() == true) transaction.ourFee!! else 0.0)
-                        ).toBigInteger(9),
+                            (if (!isOurFeeIncluded && isNative && transaction.ourFee?.isFinite() == true) transaction.ourFee!! else 0.0)
+                        ).toBigInteger(nativeDecimals),
                     stars = null
                 )
                 return MFee(
@@ -1232,6 +1257,33 @@ class TransactionVC(
                     appendNonNative = true
                 )
             }
+        }
+    }
+
+
+    private data class SwapTransactionIdItem(
+        val label: String,
+        val transactionId: MApiSwapTransactionRef
+    )
+
+    private data class SwapTransactionIdRow(
+        val row: KeyValueRowView,
+        val item: SwapTransactionIdItem
+    )
+
+    private fun getSwapTransactionIdItems(swapTransaction: Swap?): List<SwapTransactionIdItem> {
+        val swap = swapTransaction ?: return emptyList()
+        val outgoing = swap.transactionIds.outgoing
+        val incoming = swap.transactionIds.incoming
+        return when {
+            outgoing != null && incoming != null && outgoing.hash != incoming.hash -> listOf(
+                SwapTransactionIdItem("Outgoing Transaction ID", outgoing),
+                SwapTransactionIdItem("Incoming Transaction ID", incoming)
+            )
+
+            outgoing != null -> listOf(SwapTransactionIdItem("Transaction ID", outgoing))
+            incoming != null -> listOf(SwapTransactionIdItem("Transaction ID", incoming))
+            else -> emptyList()
         }
     }
 
@@ -1322,10 +1374,92 @@ class TransactionVC(
             return spannedString
         }
 
-    private val changellyIdValue: CharSequence
+    private fun swapTransactionIdValue(row: SwapTransactionIdRow): CharSequence {
+        val transactionId = row.item.transactionId
+        val spannedString = SpannableStringBuilder(
+            transactionId.hash.formatStartEndAddress(6, 6)
+        )
+        spannedString.styleDots()
+        context.getDrawableCompat(
+            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
+        )?.let { drawable ->
+            drawable.mutate()
+            drawable.setTint(WColor.SecondaryText.color)
+            drawable.alpha = 204
+            val width = 7.dp
+            val height = 14.dp
+            val leftPadding = 3.5f.dp.roundToInt()
+            drawable.setBounds(leftPadding, 0, leftPadding + width, height)
+            val imageSpan = VerticalImageSpan(drawable)
+            spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        spannedString.setSpan(
+            object : ClickableSpan() {
+                override fun onClick(widget: View) {
+                    val contentView = row.row.valueLabel.contentView
+                    WMenuPopup.present(
+                        contentView,
+                        listOf(
+                            WMenuPopup.Item(
+                                org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
+                                LocaleController.getString("Copy Transaction ID"),
+                            ) {
+                                if (ClipboardHelpers.copyToClipboard(
+                                        context,
+                                        "",
+                                        transactionId.hash
+                                    )
+                                ) {
+                                    Haptics.play(context, HapticType.LIGHT_TAP)
+                                    Toast.makeText(
+                                        context,
+                                        LocaleController.getString("Transaction ID Copied"),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            WMenuPopup.Item(
+                                org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
+                                LocaleController.getString("View on Explorer"),
+                            ) {
+                                val network = MBlockchainNetwork.ofAccountId(showingAccountId)
+                                val chain = MBlockchain.valueOfOrNull(transactionId.chain) ?: return@Item
+                                val config = ExplorerHelpers.createTransactionExplorerConfig(
+                                    chain, network, transactionId.hash
+                                ) ?: return@Item
+                                val browserVC = InAppBrowserVC(context, null, config)
+                                val nav = WNavigationController(window!!)
+                                nav.setRoot(browserVC)
+                                window?.present(nav)
+                            }),
+                        yOffset = 0,
+                        popupWidth = WRAP_CONTENT,
+                        positioning = WMenuPopup.Positioning.BELOW,
+                        windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                            contentView,
+                            roundRadius = 16f.dp
+                        )
+                    )
+                }
+
+                override fun updateDrawState(ds: TextPaint) {
+                    super.updateDrawState(ds)
+                    ds.setColor(WColor.PrimaryText.color)
+                    ds.isUnderlineText = false
+                }
+            },
+            0,
+            spannedString.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        return spannedString
+    }
+
+    private val swapProviderIdValue: CharSequence
         get() {
-            val changellyId = (transaction as? Swap)?.cex?.transactionId
-            val spannedString = SpannableStringBuilder(changellyId ?: "")
+            val cexSwap = transaction as? Swap
+            val swapProviderId = cexSwap?.cex?.transactionId
+            val spannedString = SpannableStringBuilder(swapProviderId ?: "")
             spannedString.styleDots()
             context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
@@ -1343,45 +1477,30 @@ class TransactionVC(
             spannedString.setSpan(
                 object : ClickableSpan() {
                     override fun onClick(widget: View) {
-                        val contentView = changellyIdRow?.valueLabel?.contentView ?: return
+                        val contentView = swapProviderIdRow?.valueLabel?.contentView ?: return
+                        val items = mutableListOf(
+                            WMenuPopup.Item(
+                                org.mytonwallet.app_air.icons.R.drawable.ic_copy,
+                                LocaleController.getString("Copy Swap ID"),
+                            ) {
+                                if (ClipboardHelpers.copyToClipboard(
+                                        context,
+                                        "",
+                                        swapProviderId
+                                    )
+                                ) {
+                                    Haptics.play(context, HapticType.LIGHT_TAP)
+                                    Toast.makeText(
+                                        context,
+                                        LocaleController.getString("Swap ID Copied"),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
                         WMenuPopup.present(
                             contentView,
-                            listOf(
-                                WMenuPopup.Item(
-                                    org.mytonwallet.app_air.icons.R.drawable.ic_copy,
-                                    LocaleController.getString("Copy Changelly ID"),
-                                ) {
-                                    if (ClipboardHelpers.copyToClipboard(
-                                            context,
-                                            "",
-                                            changellyId
-                                        )
-                                    ) {
-                                        Haptics.play(context, HapticType.LIGHT_TAP)
-                                        Toast.makeText(
-                                            context,
-                                            LocaleController.getString("Changelly ID Copied!"),
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                },
-                                WMenuPopup.Item(
-                                    org.mytonwallet.app_air.icons.R.drawable.ic_world,
-                                    LocaleController.getString("View on Explorer"),
-                                ) {
-                                    val browserVC =
-                                        InAppBrowserVC(
-                                            context,
-                                            null,
-                                            InAppBrowserConfig(
-                                                "https://changelly.com/track/${changellyId}",
-                                                injectDappConnect = false
-                                            )
-                                        )
-                                    val nav = WNavigationController(window!!)
-                                    nav.setRoot(browserVC)
-                                    window?.present(nav)
-                                }),
+                            items,
                             popupWidth = WRAP_CONTENT,
                             positioning = WMenuPopup.Positioning.BELOW,
                             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(

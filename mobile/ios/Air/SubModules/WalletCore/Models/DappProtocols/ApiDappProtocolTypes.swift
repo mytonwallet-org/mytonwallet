@@ -68,7 +68,7 @@ public struct ApiDappProtocolError: Codable, Sendable {
     }
 }
 
-public struct ApiDappSessionChain: Codable, Sendable {
+public struct ApiDappSessionChain: Equatable, Hashable, Codable, Sendable {
     public var chain: ApiChain
     public var address: String
     public var network: ApiNetwork

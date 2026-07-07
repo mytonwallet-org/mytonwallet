@@ -57,6 +57,12 @@ final class NftDetailsItem: Sendable {
     }
 }
 
+@MainActor
+protocol NftDetailsDisplayStateProviding: AnyObject {
+    func isOnSale(for model: NftDetailsItemModel) -> Bool
+    func isHiddenByUser(for model: NftDetailsItemModel) -> Bool
+}
+
 extension NftDetailsItem.TonDomain {
     var expirationText: String {
         if expirationDays < 0 {
@@ -82,7 +88,11 @@ final class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, C
     }
 
     let item: NftDetailsItem
-    let index: Int // the list is static so it does make sense to keep it
+    
+    /// Current position of the model in the (mutable) list. Maintained by `NftDetailsManager`
+    /// and reassigned after a removal so positional math (scroll offsets, prefetch, eviction) stays valid.
+    /// Identity is `id` (stable NFT id), not this position.
+    var index: Int
     var id: String { item.id }
     var name: String { item.name }
     
@@ -100,6 +110,17 @@ final class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, C
     }
 
     weak var delegate: NftDetailsItemModelDelegate?
+    @MainActor weak var displayStateProvider: NftDetailsDisplayStateProviding?
+
+    @MainActor
+    var isOnSale: Bool {
+        displayStateProvider?.isOnSale(for: self) ?? false
+    }
+
+    @MainActor
+    var isHiddenByUser: Bool {
+        displayStateProvider?.isHiddenByUser(for: self) ?? false
+    }
 
     func requestImage() {
         delegate?.modelDidRequestImage(self)
@@ -116,6 +137,7 @@ final class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, C
     enum Event: Hashable {
         case processedImageUpdated
         case selectionStatusChanged
+        case displayStateChanged
     }
     
     @MainActor

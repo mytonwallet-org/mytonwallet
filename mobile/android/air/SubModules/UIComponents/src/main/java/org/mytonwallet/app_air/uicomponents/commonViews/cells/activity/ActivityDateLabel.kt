@@ -16,7 +16,7 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
 
     init {
         id = generateViewId()
-        setStyle(14f, WFont.DemiBold)
+        setStyle(14f, WFont.Medium)
         setOnClickListener { }
         setPadding(20.dp, 16.dp, 20.dp, 0)
     }

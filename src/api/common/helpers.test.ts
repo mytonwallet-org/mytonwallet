@@ -163,6 +163,7 @@ describe('updateActivityMetadata - scam comment detection', () => {
         swapFee: '0.001',
         status: 'completed' as const,
         hashes: [],
+        transactionIds: {},
       };
 
       const result = updateActivityMetadata(swapActivity);

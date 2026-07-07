@@ -7,79 +7,23 @@ import WalletCore
 import WalletContext
 
 private enum HomeCardPromotionLayout {
-    static let cardWidth: CGFloat = 345
-    static let cardHeight: CGFloat = 200
+    private static let maskotWidthRatio: CGFloat = 1.072
+    private static let maskotHeightRatio: CGFloat = 1.075
     static let defaultHitAreaSize: CGFloat = 64
-}
 
-struct HomeCardPromotionVisual: View {
-    let accountContext: AccountContext
-
-    var body: some View {
-        if !IS_GRAM_WALLET {
-            WithPerceptionTracking {
-                if let promotion = accountContext.activePromotion, promotion.kind == .cardOverlay {
-                    _HomeCardPromotionVisual(promotion: promotion)
-                } else {
-                    EmptyView()
-                }
-            }
-        } else {
-            EmptyView()
-        }
-    }
-}
-
-private struct _HomeCardPromotionVisual: View {
-    let promotion: ApiPromotion
-
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .topTrailing) {
-                Image.airBundle("PromoCardBg")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .accessibilityHidden(true)
-
-                mascotView(for: geometry.size)
-
-                Image.airBundle("PromoCardOverlay")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .accessibilityHidden(true)
-            }
-            .allowsHitTesting(false)
-        }
+    static func physicalTopTrailingAlignment(for layoutDirection: LayoutDirection) -> Alignment {
+        layoutDirection == .rightToLeft ? .topLeading : .topTrailing
     }
 
-    @ViewBuilder
-    private func mascotView(for cardSize: CGSize) -> some View {
-        if let mascotIcon = promotion.cardOverlay.mascotIcon,
-           let mascotURLString = mascotIcon.url.nilIfEmpty,
-           let mascotURL = URL(string: mascotURLString)
-        {
-            let frame = makeFrame(for: mascotIcon, cardSize: cardSize)
-            KFImage(mascotURL)
-                .placeholder {
-                    Color.clear
-                }
-                .fade(duration: 0.15)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: frame.size.width, height: frame.size.height)
-                .rotationEffect(.degrees(mascotIcon.rotation))
-                .offset(x: frame.offset.x, y: frame.offset.y)
-                .accessibilityHidden(true)
-        }
+    static func physicalTrailingOffset(_ offset: CGFloat, layoutDirection: LayoutDirection) -> CGFloat {
+        layoutDirection == .rightToLeft ? -offset : offset
     }
-
-    private func makeFrame(for mascotIcon: ApiPromotion.CardOverlay.MascotIcon, cardSize: CGSize) -> (size: CGSize, offset: CGPoint) {
+    
+    static func mascotFrame(for mascotIcon: ApiPromotion.CardOverlay.MascotIcon) -> (size: CGSize, offset: CGPoint) {
         (
             size: CGSize(
-                width: cardSize.width * mascotIcon.width / HomeCardPromotionLayout.cardWidth,
-                height: cardSize.height * mascotIcon.height / HomeCardPromotionLayout.cardHeight
+                width: mascotIcon.width * maskotWidthRatio,
+                height: mascotIcon.height * maskotHeightRatio
             ),
             offset: CGPoint(
                 x: mascotIcon.right,
@@ -89,13 +33,86 @@ private struct _HomeCardPromotionVisual: View {
     }
 }
 
+struct HomeCardPromotionVisual: View {
+    let accountContext: AccountContext
+
+    var body: some View {
+        if !IS_GRAM_WALLET {
+            WithPerceptionTracking {
+                let promotion = cardOverlayPromotion
+                ZStack {
+                    if let promotion {
+                        _HomeCardPromotionVisual(promotion: promotion)
+                            .transition(.opacity)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .animation(.smooth(duration: 0.3), value: promotion?.id)
+            }
+        } else {
+            EmptyView()
+        }
+    }
+
+    private var cardOverlayPromotion: ApiPromotion? {
+        guard let promotion = accountContext.activePromotion, promotion.kind == .cardOverlay else {
+            return nil
+        }
+        return promotion
+    }
+}
+
+private struct _HomeCardPromotionVisual: View {
+    let promotion: ApiPromotion
+
+    @Environment(\.layoutDirection) private var layoutDirection
+
+    var body: some View {
+        let alignment = HomeCardPromotionLayout.physicalTopTrailingAlignment(for: layoutDirection)
+        ZStack(alignment: alignment) {
+            Image.airBundle("PromoCardBg")
+            mascotView()
+            Image.airBundle("PromoCardOverlay")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func mascotView() -> some View {
+        if let mascotIcon = promotion.cardOverlay.mascotIcon,
+           let mascotURLString = mascotIcon.url.nilIfEmpty,
+           let mascotURL = URL(string: mascotURLString)
+        {
+            let frame = HomeCardPromotionLayout.mascotFrame(for: mascotIcon)
+            KFImage(mascotURL)
+                .placeholder {
+                    Color.clear
+                }
+                .fade(duration: 0.15)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: frame.size.width, height: frame.size.height)
+                .rotationEffect(.degrees(mascotIcon.rotation))
+                .offset(
+                    x: HomeCardPromotionLayout.physicalTrailingOffset(frame.offset.x, layoutDirection: layoutDirection),
+                    y: frame.offset.y
+                )
+        }
+    }
+}
+
 struct HomeCardPromotionHitArea: View {
     let promotion: ApiPromotion?
     let cardSize: CGSize
 
+    @Environment(\.layoutDirection) private var layoutDirection
+
     var body: some View {
         if !IS_GRAM_WALLET, let promotion, promotion.kind == .cardOverlay {
             let frame = hitAreaFrame(for: promotion)
+            let alignment = HomeCardPromotionLayout.physicalTopTrailingAlignment(for: layoutDirection)
             Button {
                 handlePromotionTap(promotion)
             } label: {
@@ -105,8 +122,11 @@ struct HomeCardPromotionHitArea: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(promotionAccessibilityLabel(promotion))
-            .offset(x: frame.offset.x, y: frame.offset.y)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .offset(
+                x: HomeCardPromotionLayout.physicalTrailingOffset(frame.offset.x, layoutDirection: layoutDirection),
+                y: frame.offset.y
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
         } else {
             EmptyView()
         }
@@ -119,17 +139,8 @@ struct HomeCardPromotionHitArea: View {
                 offset: .zero
             )
         }
-
-        return (
-            size: CGSize(
-                width: cardSize.width * mascotIcon.width / HomeCardPromotionLayout.cardWidth,
-                height: cardSize.height * mascotIcon.height / HomeCardPromotionLayout.cardHeight
-            ),
-            offset: CGPoint(
-                x: mascotIcon.right,
-                y: -mascotIcon.top
-            )
-        )
+        
+        return HomeCardPromotionLayout.mascotFrame(for: mascotIcon)
     }
 }
 

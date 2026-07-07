@@ -28,6 +28,10 @@ protocols:
     schemes: ["mytonwallet-tc"]
   - name: "My Wallet"
     schemes: ["mtw"]
+  - name: "WalletConnect"
+    schemes: ["wc"]
+  - name: "WalletConnect My Wallet"
+    schemes: ["mywallet-wc"]
 publish:
   provider: "github"
   owner: "mytonwallet-org"

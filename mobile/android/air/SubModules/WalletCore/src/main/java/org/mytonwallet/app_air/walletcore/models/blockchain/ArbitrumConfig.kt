@@ -17,6 +17,7 @@ object ArbitrumConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_arbitrum_light
 
     override val qrIcon = null
+    override val displayColor = "#28A0F0".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#436378".toColorInt(),
         "#0F567D".toColorInt(),

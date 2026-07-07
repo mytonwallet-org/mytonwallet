@@ -30,6 +30,13 @@ const electronApi: ElectronApi = {
 
   restoreStorage: () => ipcRenderer.invoke(ElectronAction.RESTORE_STORAGE),
 
+  openWalletConnectPayCollect: (url, confirmStrings) => ipcRenderer.invoke(
+    ElectronAction.OPEN_WALLET_CONNECT_PAY_COLLECT,
+    url,
+    confirmStrings,
+  ),
+  closeWalletConnectPayCollect: () => ipcRenderer.invoke(ElectronAction.CLOSE_WALLET_CONNECT_PAY_COLLECT),
+
   on: (eventName: ElectronEvent, callback) => {
     const subscription = (event: IpcRendererEvent, ...args: any) => callback(...args);
 

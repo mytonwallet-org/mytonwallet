@@ -137,6 +137,11 @@ public class StackedBarsChartController: BaseChartController {
         return [barsController.previewBarsChartRenderer,
                 zoomedBarsController.previewBarsChartRenderer]
     }
+
+    override func applyHidesVerticalAxisLabels() {
+        barsController.setHidesVerticalAxisLabels(hidesVerticalAxisLabels)
+        zoomedBarsController.setHidesVerticalAxisLabels(hidesVerticalAxisLabels)
+    }
     
     public override func initializeChart() {
         barsController.initialize(chartsCollection: initialChartsCollection,

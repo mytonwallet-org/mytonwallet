@@ -19,7 +19,7 @@ class ExploreCategoryTitleCell(context: Context) :
     WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(17f, WFont.SemiBold)
+        lbl.setStyle(17f, WFont.Medium)
         lbl.maxLines = 1
         lbl
     }

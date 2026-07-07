@@ -51,6 +51,8 @@ class TokenSelectorVC(
     private val showMyAssets: Boolean,
     private val showChain: Boolean,
     private val showBalance: Boolean = true,
+    private val secondaryAmountMode: TokenSelectorCell.SecondaryAmountMode =
+        TokenSelectorCell.SecondaryAmountMode.BALANCE_VALUE,
 ) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource,
     WalletCore.EventObserver {
     override val TAG = "TokenSelector"
@@ -263,6 +265,7 @@ class TokenSelectorVC(
                         showChain = showChain,
                         isLast = isLastOverall,
                         showBalance = showBalance,
+                        secondaryAmountMode = secondaryAmountMode,
                     )
                 }
             }
@@ -287,17 +290,7 @@ class TokenSelectorVC(
         val activeAccount = AccountStore.activeAccount
         val balances = AccountStore.assetsAndActivityData.getAllTokens()
         val rawSearch = query.orEmpty()
-        val search = rawSearch.trim().lowercase().takeIf { it.isNotEmpty() }
-        val assets = this.assets.filter { token ->
-            search?.let {
-                val isName = token.name?.lowercase()?.contains(it) == true
-                val isSymbol = token.symbol?.lowercase()?.contains(it) == true
-                val isKeyword = token.keywords?.any { keyword ->
-                    keyword.lowercase().contains(it)
-                } == true
-                isName || isSymbol || isKeyword
-            } != false
-        }
+        val assets = this.assets.filter { token -> token.matchesSearch(rawSearch) }
         val assetsMap = assets.associateBy { it.slug }
 
         val used = mutableSetOf<String>()
@@ -349,7 +342,7 @@ class TokenSelectorVC(
         val trustedUsdtTokens = getTrustedUsdtTokens(activeAccount?.network)
         // Sort tokens: web-like search ranking, fallback to predefined popular order
         val sortedPopularTokens = sortPopularTokens(
-            search = search,
+            search = rawSearch.trim().lowercase().takeIf { it.isNotEmpty() },
             tokenBalances = popularTokens,
             assetsMap = assetsMap,
             trustedUsdtTokens = trustedUsdtTokens

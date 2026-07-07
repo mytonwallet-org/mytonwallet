@@ -5,6 +5,7 @@ import androidx.core.net.toUri
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
 
@@ -54,7 +55,9 @@ data class ApiDapp(
     val urlTrustStatus: String? = null,
     @Json(name = "isUrlEnsured")
     val legacyUrlEnsured: Boolean? = null,
-    val sse: ApiSseOptions? = null
+    val sse: ApiSseOptions? = null,
+    val protocolType: String? = null,
+    val chains: List<ApiDappSessionChain>? = null
 ) : IDapp {
     val host: String? = try {
         url?.toUri()?.host

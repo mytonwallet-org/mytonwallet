@@ -67,7 +67,7 @@ struct SwapCexDetailsView: View {
                             .foregroundStyle(Color.air.secondaryLabel)
                         Spacer(minLength: 4)
                         let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
-                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.none, maxDecimals: min(6, sellingToken.decimals)))")
+                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.compact))")
                     }
                 }
             }

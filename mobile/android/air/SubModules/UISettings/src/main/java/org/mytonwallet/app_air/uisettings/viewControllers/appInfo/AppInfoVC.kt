@@ -128,7 +128,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
     }
 
     private val resourcesLabel = WLabel(context).apply {
-        setStyle(14f, WFont.DemiBold)
+        setStyle(14f, WFont.Medium)
         text = LocaleController.getStringWithKeyValues(
             "%app_name% Resources",
             listOf(

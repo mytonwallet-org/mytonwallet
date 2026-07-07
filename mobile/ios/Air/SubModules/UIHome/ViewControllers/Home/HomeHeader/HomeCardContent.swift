@@ -208,9 +208,10 @@ private struct _BalanceChangeContent: View, Equatable {
     }
     
     private func mainView(_ text: String) -> some View {
-        let baseColor = isPositive ? .air.positiveBalance : getSecondaryForegroundColor(nft: nft)
-        let textColor = isPositive ? baseColor : baseColor.opacity(0.8)
-        let bgColor = baseColor.opacity(isPositive ? 0.16 : 0.10)
+        let usesPositiveColor = isPositive && nft == nil
+        let baseColor = usesPositiveColor ? .air.positiveBalance : getSecondaryForegroundColor(nft: nft)
+        let textColor = usesPositiveColor ? baseColor : baseColor.opacity(0.8)
+        let bgColor = baseColor.opacity(usesPositiveColor ? 0.16 : 0.10)
         return Button(action: onTap) {
             HStack(spacing: 4) {
                 Text(text)

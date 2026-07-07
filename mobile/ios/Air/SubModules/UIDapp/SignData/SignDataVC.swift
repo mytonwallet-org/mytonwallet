@@ -71,19 +71,12 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     }
     
     private func makeView() -> SignDataViewOrPlaceholder {
-        if let update {
-            return SignDataViewOrPlaceholder(content: .signData(SignDataView(
-                update: update,
-                accountContext: _account,
-                onConfirm: { [weak self] in self?._onConfirm() },
-                onCancel: { [weak self] in self?._onCancel() },
-            )))
-        } else {
-            return SignDataViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
-                account: account,
-                connectionType: .signData,
-            )))
-        }
+        SignDataViewOrPlaceholder(
+            update: update,
+            accountContext: _account,
+            onConfirm: { [weak self] in self?._onConfirm() },
+            onCancel: { [weak self] in self?._onCancel() },
+        )
     }
     
     private func updateTheme() {

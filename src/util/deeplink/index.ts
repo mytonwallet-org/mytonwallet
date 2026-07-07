@@ -51,7 +51,9 @@ import {
   TONCONNECT_PROTOCOL,
   TONCONNECT_PROTOCOL_SELF,
   TONCONNECT_UNIVERSAL_URL,
+  WALLETCONNECT_DEEPLINK,
   WALLETCONNECT_PROTOCOL,
+  WALLETCONNECT_UNIVERSAL_URLS,
 } from './constants';
 
 export const enum DeeplinkCommand {
@@ -128,6 +130,20 @@ export function processDeeplinkAfterInit() {
   void processDeeplink(url);
 }
 
+// Local function from walletKit
+// https://github.com/reown-com/reown-walletkit-js/blob/main/packages/walletkit/src/utils/pay.ts
+function isPaymentLink(uri: string): boolean {
+  const lower = uri.toLowerCase();
+  return (
+    lower.includes('pay.')
+    || lower.includes('pay=')
+    || lower.includes('pay_')
+    || lower.includes('pay%2e') // encoded "pay."
+    || lower.includes('pay%3d') // encoded "pay="
+    || lower.includes('pay%5f') // encoded "pay_"
+  );
+}
+
 export async function openDeeplinkOrUrl(
   url: string,
   { isFromInAppBrowser, ...urlOptions }: OpenUrlOptions & { isFromInAppBrowser?: boolean } = {},
@@ -137,6 +153,7 @@ export async function openDeeplinkOrUrl(
     || isTronDeeplink(url)
     || isTonConnectDeeplink(url)
     || isWalletConnectDeeplink(url)
+    || isPaymentLink(url)
     || isSelfDeeplink(url)
   ) {
     await processDeeplink(url, isFromInAppBrowser);
@@ -147,6 +164,8 @@ export async function openDeeplinkOrUrl(
 
 // Returns `true` if the link has been processed, ideally resulting to a UI action
 export function processDeeplink(url: string, isFromInAppBrowser = false): Promise<boolean> {
+  url = normalizeWalletConnectDeeplink(url);
+
   const global = getGlobal();
 
   if ((global as AnyLiteral).isInited === false) {
@@ -165,7 +184,7 @@ export function processDeeplink(url: string, isFromInAppBrowser = false): Promis
   }
 
   if (isSelfDeeplink(url)) {
-    return processSelfDeeplink(url);
+    return processSelfDeeplink(url, isFromInAppBrowser);
   }
 
   if (url.startsWith('tether:')) {
@@ -557,7 +576,58 @@ function isTonConnectDeeplink(url: string) {
 }
 
 function isWalletConnectDeeplink(url: string) {
-  return url.startsWith(WALLETCONNECT_PROTOCOL);
+  return url.startsWith(WALLETCONNECT_PROTOCOL)
+    || url.startsWith(WALLETCONNECT_DEEPLINK)
+    || url.startsWith('https://walletconnect.com/wc')
+    || WALLETCONNECT_UNIVERSAL_URLS.some((prefix) => url.startsWith(prefix));
+}
+
+function normalizeWalletConnectDeeplink(url: string): string {
+  if (url.startsWith(WALLETCONNECT_PROTOCOL)) {
+    return url;
+  }
+
+  if (!isWalletConnectDeeplink(url)) {
+    return url;
+  }
+
+  return extractWalletConnectPairingUri(url) ?? url;
+}
+
+function extractWalletConnectPairingUri(url: string): string | undefined {
+  try {
+    const { search } = new URL(url);
+    const encodedQuery = search.startsWith('?') ? search.slice(1) : search;
+    const encodedUri = extractWalletConnectUriQueryValue(encodedQuery);
+    if (encodedUri) {
+      const requestLink = decodeURIComponent(encodedUri);
+      if (requestLink.toLowerCase().startsWith(WALLETCONNECT_PROTOCOL)) {
+        return requestLink;
+      }
+    }
+
+    const requestLink = new URL(url).searchParams.get('uri');
+    if (requestLink?.toLowerCase().startsWith(WALLETCONNECT_PROTOCOL)) {
+      return requestLink;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function extractWalletConnectUriQueryValue(encodedQuery: string): string | undefined {
+  if (encodedQuery.startsWith('uri=')) {
+    return encodedQuery.slice('uri='.length);
+  }
+
+  const uriParamIndex = encodedQuery.indexOf('&uri=');
+  if (uriParamIndex >= 0) {
+    return encodedQuery.slice(uriParamIndex + '&uri='.length);
+  }
+
+  return undefined;
 }
 
 function getDappProtocolForDeeplink(url: string) {
@@ -565,7 +635,8 @@ function getDappProtocolForDeeplink(url: string) {
     case isTonConnectDeeplink(url): {
       return DappProtocolType.TonConnect;
     }
-    case isWalletConnectDeeplink(url): {
+    case isWalletConnectDeeplink(url):
+    case isPaymentLink(url): {
       return DappProtocolType.WalletConnect;
     }
     default:
@@ -610,7 +681,7 @@ export function isSelfDeeplink(url: string) {
 }
 
 // Returns `true` if the link has been processed, ideally resulting to a UI action
-export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
+export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser = false): Promise<boolean> {
   try {
     deeplink = convertSelfDeeplinkToSelfUrl(deeplink);
 
@@ -705,6 +776,11 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
       }
 
       case DeeplinkCommand.Offramp: {
+        if (isFromInAppBrowser) {
+          actions.showError({ error: '$unsupported_deeplink_parameter' });
+          return true;
+        }
+
         const transactionId = searchParams.get('transactionId') ?? undefined;
         const baseCurrencyCode = searchParams.get('baseCurrencyCode') ?? undefined;
         const baseCurrencyAmount = searchParams.get('baseCurrencyAmount') ?? undefined;

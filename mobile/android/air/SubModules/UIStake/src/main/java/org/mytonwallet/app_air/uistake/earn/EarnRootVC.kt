@@ -117,7 +117,7 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
 
     val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(22F, WFont.SemiBold)
+        lbl.setStyle(22F, WFont.Medium)
         lbl.gravity = Gravity.START
         lbl.text =
             LocaleController.getString("Earn")

@@ -55,7 +55,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
     }
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(28f, WFont.SemiBold)
+        setStyle(28f, WFont.Medium)
         text = LocaleController.getString("Use Responsibly")
         gravity = Gravity.CENTER
     }

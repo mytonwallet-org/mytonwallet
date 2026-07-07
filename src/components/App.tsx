@@ -71,6 +71,9 @@ import ConfettiContainer from './ui/ConfettiContainer';
 import InAppBrowser from './ui/InAppBrowser';
 import LoadingOverlay from './ui/LoadingOverlay';
 import Transition from './ui/Transition';
+import WalletConnectPayDataCollectionModal from './walletConnectPay/WalletConnectPayDataCollectionModal';
+import WalletConnectPayModal from './walletConnectPay/WalletConnectPayModal';
+import WalletConnectPayOptionSelectionModal from './walletConnectPay/WalletConnectPayOptionSelectionModal';
 
 // import Test from './components/test/TestNoRedundancy';
 import styles from './App.module.scss';
@@ -276,6 +279,9 @@ function App({
           <DappTransferModal />
           <OnRampWidgetModal />
           <OffRampWidgetModal />
+          <WalletConnectPayModal />
+          <WalletConnectPayOptionSelectionModal />
+          <WalletConnectPayDataCollectionModal />
           <UnhideNftModal />
           <NftAttributesModal />
           {IS_CAPACITOR && (

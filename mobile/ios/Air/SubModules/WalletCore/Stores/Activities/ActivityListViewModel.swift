@@ -85,6 +85,10 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
                     if activity.shouldHide == true {
                         return false
                     }
+                    if let nft = transaction.nft,
+                       NftStore.shouldHideTransaction(accountId: accountId, nft: nft) {
+                        return false
+                    }
                     if transaction.isIncoming && poisoningCache.isTransactionWithPoisoning(transaction: transaction) {
                         return false
                     }
@@ -186,6 +190,10 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
             }
         case .hideTinyTransfersChanged:
             await getState(updatedIds: [], replacedIds: [:])
+        case .nftsChanged(let accountId):
+            if accountId == self.accountId {
+                await getState(updatedIds: [], replacedIds: [:])
+            }
         default:
             break
         }

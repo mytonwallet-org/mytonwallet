@@ -86,7 +86,7 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
         currencySize = 38f
         primarySize = 42f
         decimalsSize = 32f
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         containerWidth = cellWidth
     }
 

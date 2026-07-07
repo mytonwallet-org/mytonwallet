@@ -82,14 +82,11 @@ public final class ContentReplaceAnimationCoordinator {
     private weak var navigationController: UINavigationController?
     private let navigationDelegate = NavigationTransitionDelegate()
 
-    public init(navigationController: UINavigationController) {
+    public init() { }
+    
+    public func replaceNavigationTop(with vc: UIViewController, in navigationController: UINavigationController, animateAlongside: @escaping () -> ()) {
         self.navigationController = navigationController
         navigationController.delegate = navigationDelegate
-    }
-    
-    public func replaceTop(with vc: UIViewController, animateAlongside: @escaping () -> ()) {
-        guard let navigationController else { return }
-        
         navigationController.pushViewController(vc, animated: true)
         
         guard let transitionCoordinator = navigationController.transitionCoordinator else { return }
@@ -101,5 +98,43 @@ public final class ContentReplaceAnimationCoordinator {
             // do not deallocate self until transition completes
             _ = self
         }
+    }
+    
+    @discardableResult
+    public func replaceContentInPresentedSheet(_ sheetVC: UIViewController, with vc: UIViewController,
+                                               animateAlongside: (() -> Void)? = nil, completion: (() -> Void)? = nil) -> Bool {
+        guard let presentationController = sheetVC.sheetPresentationController else {
+            return false
+        }
+        guard let view = sheetVC.view else {
+            assertionFailure()
+            return false
+        }
+        
+        vc.view.frame = view.bounds
+        vc.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        sheetVC.addChild(vc)
+        view.addSubview(vc.view)
+        vc.didMove(toParent: sheetVC)
+        
+        UIView.performWithoutAnimation {
+            vc.view.alpha = 0
+            vc.view.layoutIfNeeded()
+        }
+        
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            completion?()
+            // do not deallocate self until transition completes
+            _ = self
+        }
+        presentationController.animateChanges {
+            presentationController.detents = [.large()]
+            presentationController.selectedDetentIdentifier = .large
+            vc.view.alpha = 1.0
+            animateAlongside?()
+        }
+        CATransaction.commit()
+        return true
     }
 }

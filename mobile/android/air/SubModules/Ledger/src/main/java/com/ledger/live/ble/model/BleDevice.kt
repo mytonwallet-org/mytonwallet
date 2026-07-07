@@ -7,5 +7,5 @@ package com.ledger.live.ble.model
 
 //Could be deleted once the ble transport will be refactored
 enum class BleDevice {
-    NANOX, STAX, FLEX
+    NANOX, STAX, FLEX, APEX
 }

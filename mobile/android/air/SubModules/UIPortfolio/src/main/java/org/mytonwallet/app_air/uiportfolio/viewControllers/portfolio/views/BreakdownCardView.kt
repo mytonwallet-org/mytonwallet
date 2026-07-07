@@ -35,7 +35,7 @@ class BreakdownCardView(
     private val titleLabel = WLabel(context).apply {
         id = generateViewId()
         text = titleText
-        setStyle(14f, WFont.DemiBold)
+        setStyle(14f, WFont.Medium)
         setTextColor(WColor.Tint)
     }
     private val cylinder = CylinderStackView(context).apply {
@@ -159,7 +159,7 @@ class BreakdownCardView(
             }
             val label = WLabel(context).apply {
                 text = slice.label
-                setStyle(14f, WFont.DemiBold)
+                setStyle(14f, WFont.Medium)
                 setTextColor(slice.color)
             }
             val pct = WLabel(context).apply {

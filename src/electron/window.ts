@@ -8,6 +8,7 @@ import { ElectronAction } from './types';
 import { BASE_URL, DEFAULT_LANDSCAPE_WINDOW_SIZE, DEFAULT_PORTRAIT_WINDOW_SIZE, IS_PRODUCTION } from '../config';
 import { AUTO_UPDATE_SETTING_KEY, getIsAutoUpdateEnabled, setupAutoUpdates } from './autoUpdates';
 import { processDeeplink } from './deeplink';
+import { validateIpcSender } from './ipcSecurity';
 import { captureStorage, restoreStorage } from './storageUtils';
 import tray from './tray';
 import {
@@ -127,7 +128,9 @@ function loadWindowUrl(): void {
 }
 
 export function setupElectronActionHandlers() {
-  ipcMain.handle(ElectronAction.HANDLE_DOUBLE_CLICK, () => {
+  ipcMain.handle(ElectronAction.HANDLE_DOUBLE_CLICK, (event) => {
+    validateIpcSender(event);
+
     const doubleClickAction = systemPreferences.getUserDefault('AppleActionOnDoubleClick', 'string');
 
     if (doubleClickAction === 'Minimize') {
@@ -141,7 +144,9 @@ export function setupElectronActionHandlers() {
     }
   });
 
-  ipcMain.handle(ElectronAction.SET_IS_TRAY_ICON_ENABLED, (_, isTrayIconEnabled: boolean) => {
+  ipcMain.handle(ElectronAction.SET_IS_TRAY_ICON_ENABLED, (event, isTrayIconEnabled: boolean) => {
+    validateIpcSender(event);
+
     if (isTrayIconEnabled) {
       tray.enable();
     } else {
@@ -149,9 +154,15 @@ export function setupElectronActionHandlers() {
     }
   });
 
-  ipcMain.handle(ElectronAction.GET_IS_TRAY_ICON_ENABLED, () => tray.isEnabled);
+  ipcMain.handle(ElectronAction.GET_IS_TRAY_ICON_ENABLED, (event) => {
+    validateIpcSender(event);
 
-  ipcMain.handle(ElectronAction.SET_IS_AUTO_UPDATE_ENABLED, async (_, isAutoUpdateEnabled: boolean) => {
+    return tray.isEnabled;
+  });
+
+  ipcMain.handle(ElectronAction.SET_IS_AUTO_UPDATE_ENABLED, async (event, isAutoUpdateEnabled: boolean) => {
+    validateIpcSender(event);
+
     if (IS_PREVIEW) {
       return;
     }
@@ -161,15 +172,23 @@ export function setupElectronActionHandlers() {
     loadWindowUrl();
   });
 
-  ipcMain.handle(ElectronAction.GET_IS_AUTO_UPDATE_ENABLED, () => {
+  ipcMain.handle(ElectronAction.GET_IS_AUTO_UPDATE_ENABLED, (event) => {
+    validateIpcSender(event);
+
     return store.get(AUTO_UPDATE_SETTING_KEY, true);
   });
 
-  ipcMain.handle(ElectronAction.CHANGE_APP_LAYOUT, (_, layout: AppLayout) => {
+  ipcMain.handle(ElectronAction.CHANGE_APP_LAYOUT, (event, layout: AppLayout) => {
+    validateIpcSender(event);
+
     mainWindow.setBounds(layout === 'portrait' ? DEFAULT_PORTRAIT_WINDOW_SIZE : DEFAULT_LANDSCAPE_WINDOW_SIZE);
   });
 
-  ipcMain.handle(ElectronAction.RESTORE_STORAGE, () => restoreStorage());
+  ipcMain.handle(ElectronAction.RESTORE_STORAGE, (event) => {
+    validateIpcSender(event);
+
+    return restoreStorage();
+  });
 }
 
 export function setupCloseHandlers() {
@@ -222,9 +241,29 @@ export function setupCloseHandlers() {
 function setupWindowsTitleBar() {
   mainWindow.removeMenu();
 
-  ipcMain.handle(ElectronAction.CLOSE, () => mainWindow.close());
-  ipcMain.handle(ElectronAction.MINIMIZE, () => mainWindow.minimize());
-  ipcMain.handle(ElectronAction.MAXIMIZE, () => mainWindow.maximize());
-  ipcMain.handle(ElectronAction.UNMAXIMIZE, () => mainWindow.unmaximize());
-  ipcMain.handle(ElectronAction.GET_IS_MAXIMIZED, () => mainWindow.isMaximized());
+  ipcMain.handle(ElectronAction.CLOSE, (event) => {
+    validateIpcSender(event);
+
+    return mainWindow.close();
+  });
+  ipcMain.handle(ElectronAction.MINIMIZE, (event) => {
+    validateIpcSender(event);
+
+    return mainWindow.minimize();
+  });
+  ipcMain.handle(ElectronAction.MAXIMIZE, (event) => {
+    validateIpcSender(event);
+
+    return mainWindow.maximize();
+  });
+  ipcMain.handle(ElectronAction.UNMAXIMIZE, (event) => {
+    validateIpcSender(event);
+
+    return mainWindow.unmaximize();
+  });
+  ipcMain.handle(ElectronAction.GET_IS_MAXIMIZED, (event) => {
+    validateIpcSender(event);
+
+    return mainWindow.isMaximized();
+  });
 }

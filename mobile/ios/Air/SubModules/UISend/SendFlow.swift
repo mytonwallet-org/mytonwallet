@@ -69,7 +69,7 @@ struct TokenSendFlow: SendFlow {
     
     private func makeTransferOptions(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) throws -> ApiSubmitTransferOptions {
         guard let resolved = context.transactionDraft?.resolvedAddress else {
-            throw BridgeCallError.customMessage(lang("Address not resolved"), nil)
+            throw DisplayError(text: lang("Address not resolved"))
         }
         let diesel = context.transactionDraft?.diesel
         return ApiSubmitTransferOptions(
@@ -107,7 +107,7 @@ struct TokenSendFlow: SendFlow {
         try handleDraftError(draft)
         
         if draft.error == .walletNotInitialized {
-            throw BridgeCallError.message(.walletNotInitialized, nil)
+            throw SdkError.message(.walletNotInitialized)
         }
 
         if isAddressDraftError(draft.error) {
@@ -137,7 +137,7 @@ struct TokenSendFlow: SendFlow {
         let transferOptions = try makeTransferOptions(context: context, password: password, explainedFee: explainedFee)
         let result = try await Api.submitTransfer(chain: context.token.chain, options: transferOptions)
         if let error = result.error {
-            throw BridgeCallError.customMessage(error, nil)
+            throw SdkError.apiReturnedError(error: error, context: result)
         }
         return SendFlowSubmitResult(mfaRequestHash: result.mfaRequestHash)
     }
@@ -193,7 +193,7 @@ struct NftSendFlow: SendFlow {
     
     func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws -> SendFlowSubmitResult {
         guard let resolved = context.transactionDraft?.resolvedAddress else {
-            throw BridgeCallError.customMessage(lang("Address not resolved"), nil)
+            throw DisplayError(text: lang("Address not resolved"))
         }
         let chain = context.nfts?.first?.chain ?? context.token.chain
         let result = try await Api.submitNftTransfers(
@@ -207,23 +207,34 @@ struct NftSendFlow: SendFlow {
             isNftBurn: context.nftSendMode == .burn
         )
         if let error = result.error {
-            throw BridgeCallError(message: error, payload: nil)
+            throw SdkError.apiReturnedError(error: error, context: nil)
         }
         return SendFlowSubmitResult(mfaRequestHash: result.mfaRequestHash)
     }
     
     func ledgerPayload(context: SendSubmitContext, explainedFee: ExplainedTransferFee?) async throws -> SignData {
-        guard let nft = context.nfts?.first, context.nfts?.count == 1 else {
-            throw DisplayError(text: lang("Sending more than one NFT isn't supported by Ledger"))
+        guard let nfts = context.nfts, !nfts.isEmpty else {
+            throw DisplayError(text: lang("No NFT selected"))
         }
         guard let resolved = context.transactionDraft?.resolvedAddress else {
-            throw BridgeCallError.customMessage(lang("Address not resolved"), nil)
+            throw DisplayError(text: lang("Address not resolved"))
         }
-        let chain = context.nfts?.first?.chain ?? context.token.chain
-        return .signNftTransfer(
+        let chain = nfts.first?.chain ?? context.token.chain
+        if nfts.count == 1, let nft = nfts.first {
+            return .signNftTransfer(
+                chain: chain,
+                accountId: context.accountId,
+                nft: nft,
+                toAddress: resolved,
+                comment: context.payload?.comment,
+                realFee: context.transactionDraft?.realNativeFee,
+                isNftBurn: context.nftSendMode == .burn
+            )
+        }
+        return .signNftTransfers(
             chain: chain,
             accountId: context.accountId,
-            nft: nft,
+            nfts: nfts,
             toAddress: resolved,
             comment: context.payload?.comment,
             realFee: context.transactionDraft?.realNativeFee,

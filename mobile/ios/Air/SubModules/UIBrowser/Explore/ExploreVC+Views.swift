@@ -17,7 +17,6 @@ extension ExploreVC {
 
         let dappCategoryDidTap = PassthroughSubject<Int, Never>()
 
-        @available(iOS, deprecated: 26.0, message: "SwiftUI scroll is observed correctly in iOS 26")
         let scrollOffsetDidChange = PassthroughSubject<CGFloat, Never>()
     }
 
@@ -58,31 +57,37 @@ extension ExploreVC {
         enum Content {
             case browsing([SectionItem])
             case search(ComposedSearchResult)
+
+            var isBrowsing: Bool {
+                if case .browsing = self { return true }
+                return false
+            }
         }
 
         fileprivate private(set) var content: Content = .browsing([])
         fileprivate private(set) var shouldShowWhiteBackground: Bool = false
         fileprivate private(set) var scrollToTopTrigger: UInt64 = 0
+        fileprivate private(set) var scrollToTopAnimated: Bool = true
 
         init() {}
 
         func updateBrowsing(sections: [SectionItem], animated: Bool = true) {
-            func setChanges() {
+            if animated {
+                withAnimation {
+                    self.shouldShowWhiteBackground = false
+                    self.content = .browsing(sections)
+                }
+            } else {
                 self.shouldShowWhiteBackground = false
                 self.content = .browsing(sections)
             }
-            animated ? withAnimation { setChanges() } : setChanges()
         }
 
-        func updateSearch(_ result: ComposedSearchResult, animated: Bool = true) {
-            func setChanges() {
-                self.shouldShowWhiteBackground = true
-                self.content = .search(result)
-            }
-            animated ? withAnimation { setChanges() } : setChanges()
+        func updateSearch(_ result: ComposedSearchResult) {
+            self.shouldShowWhiteBackground = true
+            self.content = .search(result)
         }
 
-        /// Identity of the first rendered section, used for scroll-to-top anchoring.
         fileprivate var firstAnchorID: AnyHashable? {
             switch content {
             case .browsing(let sections): return sections.first.map { AnyHashable($0.id) }
@@ -90,20 +95,10 @@ extension ExploreVC {
             }
         }
 
-        func scrollToTop() { scrollToTopTrigger += 1 }
-    }
-
-    /// Builds the browsing-mode (search field inactive) sections. Search mode is handled by the
-    /// search providers / coordinator, not here.
-    static func makeBrowsingSections(exploreVM: ExploreVM,
-                                     shouldRestrictSites: Bool,
-                                     isLockdownModeEnabled: Bool) -> [SectionItem] {
-        makeBrowsingSections(connectedDapps: Array(exploreVM.connectedDapps.values.apply(Array.init)),
-                             featuredTitle: exploreVM.featuredTitle,
-                             exploreSites: exploreVM.exploreSites.values.apply(Array.init),
-                             siteCategories: exploreVM.exploreCategories.values.apply(Array.init),
-                             shouldRestrictSites: shouldRestrictSites,
-                             isLockdownModeEnabled: isLockdownModeEnabled)
+        func scrollToTop(animated: Bool = true) {
+            scrollToTopAnimated = animated
+            scrollToTopTrigger += 1
+        }
     }
 
     static func makeBrowsingSections(connectedDapps: [ApiDapp],
@@ -334,6 +329,7 @@ extension ExploreVC {
                             ScrollView(showsIndicators: false) {
                                 vScrollContent(viewState: viewState, screenGeometry: screenGeometry)
                             }
+                            .backportScrollEdgeEffectHidden(viewState.content.isBrowsing, for: .top)
                             .backportScrollClipDisabled()
                             .scrollDismissesKeyboard(.immediately)
                             .safeAreaInset(edge: .leading, spacing: screenEdgesHSpacing) {
@@ -344,14 +340,23 @@ extension ExploreVC {
                             }
                             .background(viewState.shouldShowWhiteBackground ? Color.air.background : Color.air.groupedBackground)
                             .onChange(of: viewState.scrollToTopTrigger) { _ in
-                                withAnimation { scrollReader.scrollTo(viewState.firstAnchorID, anchor: .top) }
-                            } // end scrollView setup
+                                let scroll = {
+                                    scrollReader.scrollTo(viewState.firstAnchorID, anchor: .top)
+                                }
+                                if viewState.scrollToTopAnimated {
+                                    withAnimation { scroll() }
+                                } else {
+                                    var transaction = Transaction()
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction, scroll)
+                                }
+                            }
                         }
-                    } // end ScrollViewReader
-                } // end GeometryReader
+                    }
+                }
                 .coordinateSpace(name: Self.screenSafeAreaCoordinateSpaceName)
             }
-        } // end body
+        } 
 
         private func vScrollContent(viewState: ObservedViewState, screenGeometry: GeometryProxy) -> some View {
             @ViewBuilder var content: some View {
@@ -365,14 +370,8 @@ extension ExploreVC {
                         searchContent(result)
                     }
                 }
-                .applyModifierConditionally {
-                    if #available(iOS 26.0, *) {
-                        $0 // no need in scrollOffsetDidChange
-                    } else {
-                        $0.onFrameChange(inCoordinateSpace: Self.screenSafeAreaCoordinateSpaceName) { frame in
-                            viewOutput.scrollOffsetDidChange.send(-frame.origin.y)
-                        }
-                    }
+                .onFrameChange(inCoordinateSpace: Self.screenSafeAreaCoordinateSpaceName) { frame in
+                    viewOutput.scrollOffsetDidChange.send(-frame.origin.y)
                 }
 
                 Color.clear.frame(height: 70 + 16) // content inset imitation / overScroll

@@ -1,6 +1,5 @@
 //
 //  TokenVC.swift
-//  MyTonWalletAir
 //
 //  Created by Sina on 11/1/24.
 //
@@ -24,8 +23,10 @@ public class TokenVC: ActivityListViewController {
     private let token: ApiToken
     private let isInModal: Bool
     private var accountContext: AccountContext { $account }
-
-    private var legacyNavBackground: LegacyNavBackground?
+    private var isLpToken: Bool { token.type == .lp_token }
+    private var currentToken: ApiToken {
+        TokenStore.getToken(slug: token.slug) ?? token
+    }
 
     public init(accountSource: AccountSource, token: ApiToken, isInModal: Bool) async {
         self._account = AccountContext(source: accountSource)
@@ -62,26 +63,45 @@ public class TokenVC: ActivityListViewController {
     private var chartCustomSectionCellRegistration: UICollectionView.CellRegistration<TokenChartCell, Row>!
     private var chartCustomSectionDescriptor: CustomSectionDescriptor!
 
+    private var suppressScrollUpdates = false
+
     private func updateHeaderHeight() {
-        reconfigureHeaderPlaceholder(animated: false)
+        suppressScrollUpdates = true
+        defer { suppressScrollUpdates = false }
+
+        let savedOffset = collectionView.contentOffset
+        UIView.performWithoutAnimation {
+            invalidateCustomSectionLayout(id: chartCustomSectionID)
+            collectionView.layoutIfNeeded()
+            if collectionView.contentOffset.y != savedOffset.y {
+                collectionView.contentOffset = savedOffset
+            }
+        }
     }
 
     public override var headerPlaceholderHeight: CGFloat {
         expandableContentView.metrics.headerPlaceholderHeight
     }
 
-    public override var customSections: [CustomSectionDescriptor] { [actionsCustomSectionDescriptor, chartCustomSectionDescriptor] }
+    public override var customSections: [CustomSectionDescriptor] {
+        if isLpToken {
+            return [actionsCustomSectionDescriptor]
+        }
+        return [actionsCustomSectionDescriptor, chartCustomSectionDescriptor]
+    }
     
     private func configureActionsCustomSection(cell: TokenActionsCell) {
+        let token = currentToken
         cell.setup(accountContext: accountContext, token: token)
         cell.configure(
             token: token,
             sendAvailable: account.supportsSend,
-            swapAvailable: account.supportsSwap,
+            swapAvailable: account.supportsSwap && !isLpToken,
             earnAvailable: account.supportsEarn && token.earnAvailable
         )
     }
     private func configureChartCustomSection(cell: TokenChartCell) {
+        let token = currentToken
         cell.setup(onHeightChange: { [weak self] in
             self?.updateHeaderHeight()
         })
@@ -131,16 +151,18 @@ public class TokenVC: ActivityListViewController {
         navigationController?.setNavigationBarHidden(false, animated: false)
 
         super.setupCollectionView(collectionViewBottomConstraint: 0)
+        
+        if #available(iOS 26, iOSApplicationExtension 26, *) {
+            collectionView.topEdgeEffect.isHidden = true
+        }
+        
         UIView.performWithoutAnimation {
             applySnapshot(makeSnapshot(), animatingDifferences: false)
             updateSkeletonState()
         }
 
-        if !IOS_26_MODE_ENABLED {
-            configureNavigationItemWithTransparentBackground()
-            legacyNavBackground = LegacyNavBackground()
-            legacyNavBackground?.addTo(view)
-        }
+        view.backgroundColor = isInModal ? .air.sheetBackground : .air.groupedBackground
+        addCustomNavigationBarBackground(color: view.backgroundColor)
 
         view.addSubview(expandableContentView)
         NSLayoutConstraint.activate([
@@ -148,8 +170,7 @@ public class TokenVC: ActivityListViewController {
             expandableContentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             expandableContentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
-
-        view.backgroundColor = isInModal ? .air.sheetBackground : .air.groupedBackground
+        expandableContentView.configure(token: currentToken)
     }
 
     public override func viewIsAppearing(_ animated: Bool) {
@@ -199,6 +220,7 @@ public class TokenVC: ActivityListViewController {
     }
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard !suppressScrollUpdates else { return }
         updateScroll()
     }
     
@@ -240,18 +262,10 @@ public class TokenVC: ActivityListViewController {
     }
 
     private func updateNavigationBarChrome(scrollOffset: CGFloat) {
-        let expansionProgress = expandableContentView.metrics.getExpansionProgress(from: scrollOffset, clamped: false)
-        
         if let cell = visibleCustomSectionCell(id: actionsCustomSectionID) as? TokenActionsCell {
             cell.reduceButtonHeightFor(expandableContentView.metrics.adjustedFullScrollRange - scrollOffset)
         }
 
-        if let lnb = legacyNavBackground {
-            let progress = expansionProgress < 0 ? 1.0 : 0
-            lnb.headerBlurView.alpha = progress
-            lnb.bottomSeparatorView.alpha = progress
-        }
-        
         navigationHeader.visibilityAlpha = min(1, max(0, (30 - scrollOffset) / 14 + 1))
     }
 
@@ -297,14 +311,17 @@ extension TokenVC: WalletCoreData.EventsObserver {
 
 extension TokenVC: TokenVMDelegate {
     func dataUpdated(isUpdateEvent: Bool) {
+        expandableContentView.configure(token: currentToken)
+        reconfigureCustomSection(id: actionsCustomSectionID)
+        reconfigureCustomSection(id: chartCustomSectionID)
         super.transactionsUpdated(accountChanged: false, isUpdateEvent: isUpdateEvent)
     }
     func priceDataUpdated() {
-        expandableContentView.configure(token: token)
+        expandableContentView.configure(token: currentToken)
         reconfigureCustomSection(id: chartCustomSectionID)
     }
     func stateChanged() {
-        expandableContentView.configure(token: token)
+        expandableContentView.configure(token: currentToken)
         reconfigureCustomSection(id: actionsCustomSectionID)
         reconfigureCustomSection(id: chartCustomSectionID)
     }
@@ -331,35 +348,3 @@ extension TokenVC: ActivityListViewModelDelegate {
         super.transactionsUpdated(accountChanged: false, isUpdateEvent: false)
     }
 }
-
-@MainActor
-private struct LegacyNavBackground {
-    let headerBlurView = WBlurView()
-    let bottomSeparatorView = UIView()
-    
-    func addTo(_ view: UIView) {
-        headerBlurView.alpha = 0
-        headerBlurView.isUserInteractionEnabled = false
-        headerBlurView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(headerBlurView)
-        NSLayoutConstraint.activate([
-            headerBlurView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerBlurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerBlurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerBlurView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-        ])
-
-        bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
-        bottomSeparatorView.isUserInteractionEnabled = false
-        bottomSeparatorView.backgroundColor = UIColor { .air.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
-        bottomSeparatorView.alpha = 0
-        view.addSubview(bottomSeparatorView)
-        NSLayoutConstraint.activate([
-            bottomSeparatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomSeparatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomSeparatorView.bottomAnchor.constraint(equalTo: headerBlurView.bottomAnchor),
-            bottomSeparatorView.heightAnchor.constraint(equalToConstant: 0.333),
-        ])
-    }
-}
-

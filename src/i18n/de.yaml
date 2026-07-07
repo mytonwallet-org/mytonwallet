@@ -208,7 +208,6 @@ Receiving Address: Empfangs adresse
 Fee: Gebühr
 Edit: Bearbeiten
 Confirm: Bestätigen
-Coins have been sent!: Die Coins wurden gesendet!
 Data Signed!: Daten signiert!
 Details: Details
 View details: Details anzeigen
@@ -370,6 +369,7 @@ Driver: Treiber
 Unlock it and open the %chain% App: Entsperren Sie es und öffnen Sie die %chain%-App
 Maybe you need to check the password or change the driver.: Vielleicht müssen Sie das Passwort überprüfen oder den Treiber ändern
 Confirm via Ledger: Über Ledger bestätigen
+$ledger_confirm_progress: "%1$d von %2$d bestätigen"
 Declined: Abgelehnt
 Switch to the newly opened tab to connect Ledger.: Wechseln Sie zur neu geöffneten Registerkarte, um den Ledger zu verbinden.
 Once connected, switch back to this window to proceed.: Nachdem Sie verbunden sind, wechseln Sie zurück zu diesem Fenster, um fortzufahren.
@@ -388,6 +388,7 @@ Encrypted Message: Verschlüsselte Nachricht
 Message is encrypted: Die Nachricht ist verschlüsselt
 Agree: Zustimmen
 $swap_action: Tausch
+$swap_activity_title: Tausch
 Swap: Tausch
 You sell: Sie verkaufen
 You buy: Sie kaufen
@@ -445,22 +446,26 @@ On Hold: In Wartestellung
 Expired: Abgelaufen
 In Progress: In Bearbeitung
 Waiting for Payment: Auf Zahlung warten
+Processing Payment: Zahlung wird verarbeitet
+It may take a few seconds: Es kann einige Sekunden dauern
 Blockchain: Blockchain
 Your address on another blockchain: Ihre Adresse auf einer anderen Blockchain
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Bitte geben Sie eine Adresse Ihres Wallets in der %blockchain%-Blockchain an, um gekaufte Token zu erhalten.
 The time for sending coins is over.: Die Zeit zum Senden von Coins ist abgelaufen.
 You have not sent the coins to the specified address.: Sie haben die Coins nicht an die angegebene Adresse gesendet.
-$swap_changelly_to_wallet_description1: Sie müssen %value% an diese Adresse in der %Blockchain%-Blockchain innerhalb von %time% senden.
+$swap_cex_to_wallet_description: Sie müssen %value% an diese Adresse in der %blockchain%-Blockchain innerhalb von %time% senden.
 Exchange failed and coins were refunded to your wallet.: Der Austausch ist fehlgeschlagen, und die Coins wurden an Ihre Wallet zurückerstattet.
-$swap_changelly_kyc_security: "Bitte kontaktieren Sie **%email%** und geben Sie die **Transaktions-ID** an, um das KYC-Verfahren zu bestehen:"
 Swap Expired: Tausch abgelaufen
 Address for %blockchain% transfer: Adresse für %blockchain%-Übertragung
-Cross-chain exchange provided by Changelly: Cross-Chain-Austausch bereitgestellt von Changelly
-$swap_changelly_terms_of_use: Nutzungsbedingungen
-$swap_changelly_privacy_policy: Datenschutzrichtlinie
+Cross-chain exchange provided by %provider%: Cross-Chain-Austausch bereitgestellt von %provider%
+$swap_cex_terms_of_use: Nutzungsbedingungen
+$swap_cex_privacy_policy: Datenschutzrichtlinie
+$swap_cex_aml_kyc_policy: AML/KYC
+$swap_cex_legal_message: "Durch Fortfahren stimmen Sie den %terms% und der %policy% zu."
+$swap_cex_legal_message_with_aml: Durch Fortfahren stimmen Sie den %terms% und %policy% zu und verstehen, dass die Überweisung gemäß %aml% eine Überprüfung auslösen kann.
 Password must contain %length% digits.: Das Passwort muss %length% Ziffern enthalten.
 Deposit Link: Einzahlungslink
-$swap_changelly_from_wallet_description: "Token werden in Kürze an Ihre Adresse in der %blockchain%-Blockchain gesendet:"
+$swap_cex_from_wallet_description: "Token werden in Kürze an Ihre Adresse in der %blockchain%-Blockchain gesendet:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Bitte beachten Sie, dass es bis zu einigen Stunden dauern kann, bis Tokens in Ihrer Wallet angezeigt werden.
 Minimum amount: Mindestens %value%
 Maximum amount: Höchstens %value%
@@ -491,6 +496,28 @@ Biometrics Enabled: Biometrie aktiviert
 A request is already pending: Es liegt bereits eine ausstehende Anfrage vor
 Please confirm action using biometrics: Bitte bestätigen Sie die Aktion mit Biometrie
 Scan QR Code: QR-Code scannen
+Open the QR scanner.: QR-Scanner öffnen.
+"Open scanner in ${applicationName}": Scanner in ${applicationName} öffnen
+"Scan a code with ${applicationName}": Code mit ${applicationName} scannen
+Scan QR: QR scannen
+"Scan QR with ${applicationName}": QR-Code mit ${applicationName} scannen
+Account: Konto
+Accounts: Konten
+Networks: Netzwerke
+Receive Funds: Geld empfangen
+Open the receive screen.: Empfangsbildschirm öffnen.
+"Receive with ${applicationName}": Mit ${applicationName} empfangen
+"Add crypto with ${applicationName}": Krypto mit ${applicationName} hinzufügen
+"Open receive in ${applicationName}": Empfangen in ${applicationName} öffnen
+Send Token: Token senden
+Open Token: Token öffnen
+"Open ${target} in ${applicationName}": ${target} in ${applicationName} öffnen
+"Show ${target} in ${applicationName}": ${target} in ${applicationName} anzeigen
+Open the token screen.: Token-Bildschirm öffnen.
+Open the send screen.: Sendebildschirm öffnen.
+"Send token with ${applicationName}": Token mit ${applicationName} senden
+"Send crypto with ${applicationName}": Krypto mit ${applicationName} senden
+"Open send in ${applicationName}": Senden in ${applicationName} öffnen
 Permission denied. Please grant camera permission to use the QR code scanner.: Berechtigung verweigert. Bitte erteilen Sie die Kamera-Berechtigung, um den QR-Code-Scanner zu verwenden.
 This QR Code is not supported: Dieser QR-Code wird nicht unterstützt
 An error on the server side. Please try again.: Ein Fehler auf der Serverseite. Bitte versuchen Sie es erneut.
@@ -501,6 +528,7 @@ Russian Ruble: Russischer Rubel
 Chinese Yuan: Chinesischer Yuan
 Bitcoin: Bitcoin
 $max_balance: "Maximal: %balance%"
+$available_balance: "Verfügbar: %balance%"
 $unstake_information_instantly: Sie erhalten Ihre Einzahlung sofort
 Select Token: Token auswählen
 MY: Meine
@@ -567,6 +595,7 @@ $wallet_switch_version_2: zu einer anderen Wallet-Version wechseln
 or import from: oder importieren von
 Insufficient fee: Unzureichende Gebühren
 $insufficient_fee: "Unzureichende Gebühren: %fee%"
+$dapp_insufficient_network_fee_warning: Nicht genug %token%, um die Netzwerkgebühr zu decken
 Required: Erforderlich
 Comment is too long.: Der Kommentar ist zu lang.
 Memo: Memo
@@ -603,7 +632,11 @@ Insufficient %token% for fee.%fee%: Unzureichende %token% für Gebühr.%fee%
 Send NFT: Senden von NFT
 Send Collectible: Sammlerstück senden
 Send Collectibles: Sammlerstücke senden
-NFT has been sent!: NFT wurde gesendet!
+$nfts_burned:
+  zeroValue: "%1$d NFTs wurden verbrannt!"
+  oneValue: "%1$d NFT wurde verbrannt!"
+  otherValue: "%1$d NFTs wurden verbrannt!"
+No NFT selected: Kein NFT ausgewählt
 Cannot be sent: Kann nicht gesendet werden
 NFT is for sale: NFT steht zum Verkauf
 More actions: Mehr Aktionen
@@ -645,8 +678,6 @@ Select All: Wählen Sie Alle
 Collection: Sammlung
 Unnamed Collection: Unbenannte Sammlung
 Transaction ID Copied: Transaktions-ID wurde kopiert
-$swap_changelly_support: "Bei Problemen wenden Sie sich bitte an %livechat% oder %email% und geben Sie die **Transaktions-ID** an:"
-Changelly Live Chat: Changelly Live-Chat
 Your %blockchain% Address: Ihre %blockchain%-Adresse
 My %blockchain% Address: Meine %blockchain%-Adresse
 "%blockchain% Address": "%blockchain%-Adresse"
@@ -702,6 +733,8 @@ Open in Browser: Im Browser öffnen
 CopyURL: URL kopieren
 Share: Teilen
 Unhide NFT: NFT anzeigen
+The NFT has been hidden: Das NFT wurde ausgeblendet
+The NFT is no longer hidden: Das NFT ist nicht mehr ausgeblendet
 $unhide_nft_warning: Sind Sie sicher, dass Sie %name% anzeigen möchten? Dieses NFT sieht verdächtig aus und könnte nicht zu seinem Namen und seiner Beschreibung passen.
 Hide NFTs: NFTs ausblenden
 Are you sure you want to hide this NFT collection containing %number% NFTs?: Sind Sie sicher, dass Sie diese NFT-Sammlung mit %number% NFTs ausblenden möchten?
@@ -717,6 +750,7 @@ Not Scam: Kein Betrug
 Untitled: Unbenannt
 Multichain: Multichain
 $swap_too_small_amount: Zu kleiner Betrag
+$swap_slippage_violation: Die Swap-Emulation ist aufgrund einer Slippage-Überschreitung fehlgeschlagen. Bitte versuchen Sie es erneut.
 Not enough %symbol%: Nicht genug %symbol%
 Enter Secret Words: Geheimwörter eingeben
 Turn this off so you can manually download updates and verify signatures.: Schalten Sie dies aus, damit Sie Updates manuell herunterladen und Signaturen überprüfen können.
@@ -777,6 +811,8 @@ No Data: Keine Daten
 Toggle fullscreen: Vollbildmodus umschalten
 Request is sent!: Anfrage gesendet!
 Transaction ID: Transaktions-ID
+Outgoing Transaction ID: Ausgehende Transaktions-ID
+Incoming Transaction ID: Eingehende Transaktions-ID
 Help Center: Hilfezentrum
 "%app_name% Tips": "%app_name%-Tipps"
 Open %nft_marketplace%: "%nft_marketplace% öffnen"
@@ -906,7 +942,11 @@ Some domains are about to expire: Einige Domains laufen bald ab
 $domain_expire: "**%domain%** läuft %days% ab"
 "%token% Staking": "%token% Staking"
 Add Tab: Tab hinzufügen
+Customize Tabs: Tabs anpassen
 Remove Tab: Tab entfernen
+Reset: Zurücksetzen
+Tabs: Tabs
+Tap or drag to add tabs.: Tippen oder ziehen, um Tabs hinzuzufügen.
 $iab_tabs_count:
   zeroValue: "%1$d Tabs"
   oneValue: "%1$d Tab"
@@ -998,6 +1038,7 @@ $try_new_air_version: Probieren Sie die native App-Erfahrung — leichter, schne
 $accept_terms_with_link: Ich stimme zu, %link%
 use the wallet responsibly: die Brieftasche verantwortungsvoll zu benutzen
 "%app_name% Resources": "%app_name% Ressourcen"
+"Resources": Ressourcen
 Watch Video about Features: Video über Funktionen ansehen
 Enjoy Monthly Updates in Blog: Monatliche Updates im Blog genießen
 Learn New Things in Help Center: Neues im Hilfezentrum lernen
@@ -1047,6 +1088,7 @@ Reorder: Neu anordnen
 Reorder Tabs: Tabs neu anordnen
 Rename: Umbenennen
 Customize: Anpassen
+Manage Wallets: Wallets verwalten
 i18n_dragToSort: Zum Sortieren ziehen
 My: Mein
 All: Alle
@@ -1091,6 +1133,9 @@ $connect_dapp_title: Mit %name% verbinden?
 Choose Wallet: Wallet auswählen
 Wallet to use on %host%: Wallet für %host%
 Selected Wallet: Ausgewählte Wallet
+Wallet to use for payment: Wallet für die Zahlung
+$wallet_connect_pay_no_options: Für diese Wallet sind keine Zahlungsoptionen verfügbar.
+$wallet_connect_pay_try_another_wallet: Versuchen Sie, eine andere Wallet auszuwählen.
 Connect Wallet: Wallet verbinden
 Connect Anyway: Trotzdem verbinden
 Insufficient Fee: Unzureichende Gebühr
@@ -1116,6 +1161,22 @@ Open: Öffnen
 Open in %app_name%: In %app_name% öffnen
 Blog: Blog
 Apps: Apps
+Permissions: Berechtigungen
+Token approvals and wallet permissions: Token-Genehmigungen und Wallet-Berechtigungen
+Approvals & Delegations: Genehmigungen & Delegierungen
+Plugins: Plugins
+No Permissions: Keine Berechtigungen
+Unlimited: Unbegrenzt
+Approved to %name%: Genehmigt für %name%
+Wallet Delegation: Wallet-Delegierung
+Wallet Delegation to %name%: Wallet-Delegierung an %name%
+Revoke Delegation: Delegierung widerrufen
+Are you sure you want to revoke delegation for %name%?: Möchten Sie die Delegierung für %name% wirklich widerrufen?
+Revoke: Widerrufen
+Revoke Approval: Genehmigung widerrufen
+Are you sure you want to revoke approval for %token%?: Möchten Sie die Genehmigung für %token% wirklich widerrufen?
+Confirm Revoking: Widerruf bestätigen
+Unknown Plugin: Unbekanntes Plugin
 $nft_not_found: NFT nicht gefunden
 You will be able to save it again via Transfer Info with this address.: Sie können es erneut über die Transfer-Info mit dieser Adresse speichern.
 Transfer Info: Transfer-Info
@@ -1126,7 +1187,6 @@ Transfer Sent!: Transfer gesendet!
 Please confirm transfer on your Ledger: Bitte bestätigen Sie die Überweisung auf Ihrem Ledger
 Please confirm action on your Ledger: Bitte bestätigen Sie die Aktion auf Ihrem Ledger
 Not all transfers were sent successfully: Nicht alle Überweisungen wurden erfolgreich gesendet
-$swap_changelly_agreement_message: Durch Fortfahren stimmen Sie den %terms% und %policy% zu und verstehen, dass die Überweisung gemäß %kyc% eine Überprüfung auslösen kann.
 Please confirm transfer using biometrics: Bitte bestätigen Sie die Überweisung mit Biometrie
 $transfer_inactive_contract_error: |
   Sie haben eine Adresse im Format "EQ..." eingegeben, aber die Adresse ist nicht aktiv, daher wird die Überweisung nicht abgeschlossen.
@@ -1175,6 +1235,7 @@ Enabling biometric confirmation will reset the passcode.: Die Aktivierung der bi
 Confirm action with your passcode: Bestätigen Sie die Aktion mit Ihrem Passcode
 No Image: Kein Bild
 Different blockchain. Cannot be selected: Andere Blockchain. Kann nicht ausgewählt werden
+$address_suggestion_no_chain: Kein %chain%
 Subwallets: Unterwallets
 Other addresses for this wallet: Andere Adressen für dieses Wallet
 Current Wallet: Aktuelles Wallet
@@ -1291,9 +1352,10 @@ $send_only_chain: Sende an diese Adresse nur %chain% (%symbol%) oder %chain%-bas
 Buying with card is not supported for this account.: Für dieses Konto wird Kartenzahlung nicht unterstützt.
 Swapped at: Getauscht am
 Price per: Preis pro
-Changelly ID: Changelly-ID
-Copy Changelly ID: Changelly-ID kopieren
-Changelly ID Copied!: Changelly-ID kopiert!
+Swap ID: Swap-ID
+Swap ID for %provider%: Swap-ID von %provider%
+Copy Swap ID: Swap-ID kopieren
+Swap ID Copied: Swap-ID kopiert
 from: von
 to: an
 Currency: Währung
@@ -1358,6 +1420,8 @@ Swap is not supported on this account.: Tausch wird für dieses Konto nicht unte
 "%1$@ will be returned": "%1$@ wird zurückerstattet"
 Connecting your wallet: Wallet wird verbunden
 Action is not possible on a view-only wallet.: Diese Aktion ist in einer Nur-Lesen-Wallet nicht möglich.
+No matching chains: Keine kompatiblen Netzwerke
+Select multichain wallet: Multichain-Wallet auswählen
 Logged in with My Wallet: Mit My Wallet angemeldet
 You have no apps connected to this wallet.: Es sind keine Apps mit dieser Wallet verbunden.
 Asset: Vermögenswert
@@ -1392,7 +1456,7 @@ Confirm Actions:
   otherValue: Aktionen bestätigen
 "A ~ Z": A ~ Z
 "Biometric authentication not available.": Biometrische Authentifizierung nicht verfügbar.
-"Changelly Payment Address": Changelly-Zahlungsadresse
+Payment Address: Zahlungsadresse
 "Wallet to use on": Zu verwendende Wallet
 "Clipboard empty": Zwischenablage leer
 "Confirm Connect": Verbindung bestätigen
@@ -1485,6 +1549,8 @@ $ago: "vor %1$d"
 $visited_ago: "vor %1$d besucht"
 Notifications are disabled: Benachrichtigungen sind deaktiviert
 Enable in Settings: In den Einstellungen aktivieren
+Open Link: Link öffnen
+Open in App: In der App öffnen
 Search in Google: In Google suchen
 $remove_wallets:
   zeroValue: Wallet entfernen
@@ -1573,3 +1639,20 @@ Current allocation across tracked assets: Aktuelle Verteilung der verfolgten Ver
 This action is not supported in explorer mode.: Diese Aktion wird im Explorer-Modus nicht unterstützt.
 $relative_today: heute
 $relative_tomorrow: morgen
+P&L Change: GuV-Änderung
+$swap_cex_support: "Wenn etwas schiefgelaufen ist, kontaktieren Sie %support% und geben Sie diese **externe Exchange-ID** an:"
+$swap_cex_hold_support: "Bitte kontaktieren Sie %support% und geben Sie diese **externe Exchange-ID** an, um die Anbieterprüfung zu bestehen:"
+$swap_cex_provider_support: "%provider%-Support"
+External Exchange ID Copied: Externe Exchange-ID kopiert
+Email: E-Mail
+Choose Token: Token auswählen
+You don't have any eligible tokens for this payment: Sie haben keine geeigneten Token für diese Zahlung
+Buy, swap, or receive a supported token to continue.: Kaufen, tauschen oder empfangen Sie einen unterstützten Token, um fortzufahren.
+Are you sure you want to cancel the payment?: Sind Sie sicher, dass Sie die Zahlung abbrechen möchten?
+Cancel Payment: Zahlung abbrechen
+Paid!: Bezahlt!
+Payment: Zahlung
+Sent!: Gesendet!
+$chart_months_short: Jan.,Feb.,März,Apr.,Mai,Juni,Juli,Aug.,Sept.,Okt.,Nov.,Dez.
+$chart_week_days: Sonntag,Montag,Dienstag,Mittwoch,Donnerstag,Freitag,Samstag
+$chart_week_days_short: So,Mo,Di,Mi,Do,Fr,Sa

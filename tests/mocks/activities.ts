@@ -50,6 +50,7 @@ export function makeMockSwapActivity(partial: Partial<ApiSwapActivity> = {}): Ap
     swapFee: String(random(1e2, 1e4)),
     status: 'completed',
     hashes: [],
+    transactionIds: {},
     ...partial,
   };
 }

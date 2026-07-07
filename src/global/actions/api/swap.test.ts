@@ -5,7 +5,7 @@ import { SwapInputSource, SwapState } from '../../types';
 import { TONCOIN, TRX } from '../../../config';
 import { getGlobal, setGlobal } from '../../index';
 import { clearCurrentSwap, updateCurrentSwap } from '../../reducers';
-import { estimateSwapConcurrently } from './swap';
+import { estimateSwapConcurrently, shouldBlockUnsupportedNearIntentsMemo } from './swap';
 
 describe('estimateSwapConcurrently', () => {
   beforeEach(() => {
@@ -146,5 +146,22 @@ describe('estimateSwapConcurrently', () => {
 
       expect(getGlobal()).toEqual(updateCurrentSwap(initialGlobal, { state }));
     });
+  });
+});
+
+describe('shouldBlockUnsupportedNearIntentsMemo', () => {
+  it('blocks Near Intents memo deposits for EVM-like source chains', () => {
+    expect(shouldBlockUnsupportedNearIntentsMemo('near-intents', 'base', 'memo')).toBe(true);
+    expect(shouldBlockUnsupportedNearIntentsMemo('near-intents', 'ethereum', 'memo')).toBe(true);
+  });
+
+  it('allows Near Intents memo deposits only for memo-capable wallet transfer chains', () => {
+    expect(shouldBlockUnsupportedNearIntentsMemo('near-intents', 'ton', 'memo')).toBe(false);
+    expect(shouldBlockUnsupportedNearIntentsMemo('near-intents', 'solana', 'memo')).toBe(false);
+  });
+
+  it('does not block memo-less Near Intents or non-Near CEX results', () => {
+    expect(shouldBlockUnsupportedNearIntentsMemo('near-intents', 'base')).toBe(false);
+    expect(shouldBlockUnsupportedNearIntentsMemo('changelly', 'base', 'memo')).toBe(false);
   });
 });

@@ -288,11 +288,12 @@ extension MTokenBalance {
         return Self.displayName(apiToken: apiToken, isStaking: isStaking)
     }
     
-    public static func displayName(apiToken: ApiToken, isStaking: Bool) -> String {
+    public static func displayName(apiToken: ApiToken, isStaking: Bool, strippingLabelWhenShown: Bool = false) -> String {
+        let name = apiToken.displayName(strippingLabelWhenShown: strippingLabelWhenShown)
         if isStaking {
-            apiToken.name + (isStaking ? " Staking" : "")
+            return name + " Staking"
         } else {
-            apiToken.name
+            return name
         }
     }
 }

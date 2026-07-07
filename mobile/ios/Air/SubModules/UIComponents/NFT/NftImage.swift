@@ -65,7 +65,7 @@ public struct NftImage: View {
                                 .aspectRatio(contentMode: .fit)
                         }
                     })
-                    .onFailureImage(UIImage.airBundle("NftError"))
+                    .onFailureImage(UIImage.airBundle("NoNftImage2"))
                     .resizable()
                     .scaledToFit()
             } else {

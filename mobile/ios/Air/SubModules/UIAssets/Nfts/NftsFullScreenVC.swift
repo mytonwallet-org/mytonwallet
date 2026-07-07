@@ -112,7 +112,7 @@ public class NftsFullScreenVC: WViewController {
             trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
         case .selection:
             leadingItemGroups += navigator.selectAllBarButtonItem.asSingleItemGroup()
-            trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
+            trailingItemGroups += navigator.cancelXEditingBarButtonItem.asSingleItemGroup()
         case let .normal(isFavorited, isTonNetwork, collectionItemCount):
             var items: [UIBarButtonItem] = []
             items += UIBarButtonItem(image: UIImage(systemName: isFavorited ? "pin.slash" : "pin"),

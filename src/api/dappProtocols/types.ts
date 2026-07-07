@@ -12,6 +12,7 @@ import type {
   SignDataPayload,
   SignDataRpcResponseSuccess,
 } from '@tonconnect/protocol';
+import type { ConfirmPaymentResponse, PaymentOptionsResponse } from '@walletconnect/pay';
 import type { SessionTypes } from '@walletconnect/types';
 
 import type { AppEnvironment } from '../environment';
@@ -289,6 +290,11 @@ export interface DappProtocolConfig {
   >;
 }
 
+export type DappProtocolAdapterProcessPayment<T extends `${DappProtocolType}`> = T extends 'walletConnect'
+  ? (paymentLink: string, accountId?: string) =>
+  Promise<PaymentOptionsResponse & Record<'resultInfo', unknown> | ConfirmPaymentResponse>
+  : undefined;
+
 /**
  * Interface that all protocol adapters must implement.
  * This provides a unified API for different dApp connection protocols.
@@ -427,6 +433,21 @@ export interface DappProtocolAdapter<T extends `${DappProtocolType}` = any> {
    * Check if a deep link URL belongs to this protocol.
    */
   canHandleDeepLink(url: string): boolean;
+
+  /**
+   * Process a payment.
+   *
+   * @param paymentLink - The payment link
+   * @param accountId - The account ID
+   * @returns Promise that resolves when the payment is processed
+   */
+  processPayment?(paymentLink: string, accountId?: string):
+    Promise<PaymentOptionsResponse & Record<'resultInfo', unknown> | ConfirmPaymentResponse> | undefined;
+
+  /**
+   * Refresh payment options in the open option-selection modal after account switch.
+   */
+  refreshPayOptionSelection?(paymentLink: string, accountId: string, promiseId: string): Promise<void>;
 }
 
 // =============================================================================

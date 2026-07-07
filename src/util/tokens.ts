@@ -1,5 +1,7 @@
-import type { ApiChain, ApiToken, ApiTokenWithPrice } from '../api/types';
-import type { UserToken } from '../global/types';
+import type { ApiChain, ApiSwapAsset, ApiToken, ApiTokenWithPrice } from '../api/types';
+import type { TokenWithId } from '../components/ui/TokenDropdown';
+import type { UserSwapToken, UserToken } from '../global/types';
+import type { LangFn } from './langProvider';
 
 import {
   PRICELESS_TOKEN_HASHES,
@@ -7,9 +9,15 @@ import {
   STAKED_TOKEN_SLUGS,
   STAKED_TON_SLUG,
   STAKING_SLUG_PREFIX,
+  TON_USDE,
 } from '../config';
 import { findChainConfig, getChainConfig, getSupportedChains } from './chain';
 import { pick } from './iteratees';
+
+const ETHENA_STAKING_SLUG = `${STAKING_SLUG_PREFIX}${TON_USDE.slug}`;
+const RWA_STOCK_KEYWORD = 'rwa';
+const XSTOCKS_NAME_REGEX = /\s+xStock$/;
+const SHIFT_NAME_REGEX = /^Shift\s+/;
 
 const chainByNativeSlug = Object.fromEntries(
   getSupportedChains().map((chain) => [getNativeToken(chain).slug, chain]),
@@ -34,6 +42,31 @@ export function getNativeToken(chain: ApiChain): ApiToken {
 
 export function findNativeToken(chain: string | undefined): ApiToken | undefined {
   return findChainConfig(chain)?.nativeToken;
+}
+
+export function getIsRwaStockToken(token?: ApiToken | UserToken | UserSwapToken | ApiSwapAsset | TokenWithId) {
+  return token?.keywords?.includes(RWA_STOCK_KEYWORD) ?? false;
+}
+
+export function getTokenName(lang: LangFn, token: UserSwapToken | ApiSwapAsset | ApiToken): string;
+export function getTokenName(lang: LangFn, token?: UserSwapToken | ApiSwapAsset | ApiToken): string | undefined;
+export function getTokenName(lang: LangFn, token?: UserSwapToken | ApiSwapAsset | ApiToken) {
+  if (!token) return undefined;
+
+  if (!('isStaking' in token) || !token.isStaking) {
+    if (getIsRwaStockToken(token)) {
+      return token.name.replace(XSTOCKS_NAME_REGEX, '').replace(SHIFT_NAME_REGEX, '');
+    }
+
+    return token.name;
+  }
+
+  switch (token.slug) {
+    case ETHENA_STAKING_SLUG:
+      return lang('%token% Staking', { token: 'Ethena' })[0] as string;
+    default:
+      return lang('%token% Staking', { token: token.name })[0] as string;
+  }
 }
 
 export function getChainBySlug(slug: string) {

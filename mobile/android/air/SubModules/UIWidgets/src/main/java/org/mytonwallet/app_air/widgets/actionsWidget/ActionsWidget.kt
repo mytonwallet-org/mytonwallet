@@ -252,7 +252,7 @@ class ActionsWidget : AppWidgetProvider() {
         remoteViews.setContentDescription(R.id.action_swap, swapString)
         remoteViews.setContentDescription(R.id.action_earn, earnString)
         if (renderTexts) {
-            val typeface = FontUtils.semiBold(context)
+            val typeface = FontUtils.medium(context)
             val textSize =
                 if (WBaseStorage.getActiveLanguage() == WLanguage.RUSSIAN.langCode) 12 else 15
             remoteViews.setImageViewBitmap(

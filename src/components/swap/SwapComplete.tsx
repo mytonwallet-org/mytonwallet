@@ -1,5 +1,6 @@
 import React, { memo } from '../../lib/teact/teact';
 
+import type { ApiSwapCexLabel } from '../../api/types';
 import type { SwapType, UserSwapToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
@@ -21,6 +22,7 @@ interface OwnProps {
   amountIn?: string;
   amountOut?: string;
   swapType?: SwapType;
+  cexLabel?: ApiSwapCexLabel;
   toAddress?: string;
   onInfoClick: NoneToVoidFunction;
   onStartSwap: NoneToVoidFunction;
@@ -35,6 +37,7 @@ function SwapComplete({
   amountIn,
   amountOut,
   swapType,
+  cexLabel,
   toAddress,
   onInfoClick,
   onStartSwap,
@@ -59,6 +62,7 @@ function SwapComplete({
           tokenOut={tokenOut}
           amountOut={amountOut}
           swapType={swapType}
+          cexLabel={cexLabel}
           toAddress={toAddress}
           playAnimation={isActive}
           firstButtonText={lang('Details')}

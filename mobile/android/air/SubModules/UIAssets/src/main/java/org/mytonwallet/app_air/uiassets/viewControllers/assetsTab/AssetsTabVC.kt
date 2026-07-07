@@ -107,6 +107,7 @@ class AssetsTabVC(
             )
         }
     }
+
     private val expiringDomainsBannerExpandedHeight: Int by lazy {
         (WDomainExpirationBannerView.HEIGHT_DP +
             EXPANDED_BANNER_TOP_MARGIN_DP +
@@ -482,6 +483,7 @@ class AssetsTabVC(
             onSelectedIndexChanged = {
                 applyCollectiblesExpiringDomainsBanner()
             },
+            pilledTabs = true,
         )
         sc
     }

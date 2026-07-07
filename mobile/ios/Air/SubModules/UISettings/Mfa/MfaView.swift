@@ -193,7 +193,11 @@ private struct MfaScreen: View {
         if state.shouldShowFooter {
             VStack(spacing: 12) {
                 if state.shouldShowConnectionFee {
-                    Text("Connection Fee: 0.15 TON")
+                    (
+                        Text(lang("Connection Fee:")) +
+                        Text(" ") +
+                        Text(amount: TokenAmount(MfaFlowModel.installFee, .TONCOIN), format: .init())
+                    )
                         .font(.system(size: 14))
                         .foregroundStyle(state.feeTextColor)
                 }

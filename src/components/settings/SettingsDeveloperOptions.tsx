@@ -33,7 +33,9 @@ interface OwnProps {
   isOpen: boolean;
   isTestnet?: boolean;
   isCopyStorageEnabled?: boolean;
+  isViewMode?: boolean;
   onShowAllWalletVersions: NoneToVoidFunction;
+  onOpenPermissions: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 }
 
@@ -77,7 +79,9 @@ function SettingsDeveloperOptions({
   isOpen,
   isTestnet,
   isCopyStorageEnabled,
+  isViewMode,
   onShowAllWalletVersions,
+  onOpenPermissions,
   onClose,
   currentAccountId,
   accountsById,
@@ -151,6 +155,14 @@ function SettingsDeveloperOptions({
 
           <i className={buildClassName(styles.iconChevronRight, 'icon-plus')} aria-hidden />
         </div>
+
+        {!isViewMode && (
+          <div className={buildClassName(styles.item, styles.item_small)} onClick={onOpenPermissions}>
+            <span className={styles.itemTitle}>{lang('Permissions')}</span>
+
+            <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+          </div>
+        )}
 
         <div
           className={buildClassName(styles.item, styles.item_small, !canViewAllWalletVersions && styles.item_disabled)}

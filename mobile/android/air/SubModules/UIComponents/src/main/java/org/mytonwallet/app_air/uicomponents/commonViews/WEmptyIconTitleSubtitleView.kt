@@ -29,7 +29,7 @@ class WEmptyIconTitleSubtitleView(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(17f, WFont.SemiBold)
+            setStyle(17f, WFont.Medium)
         }
     }
 
@@ -76,6 +76,10 @@ class WEmptyIconTitleSubtitleView(
 
     fun setTitle(text: String) {
         titleLabel.text = text
+    }
+
+    fun setSubtitle(text: String) {
+        subtitleLabel.text = text
     }
 
     var startedAnimation = false

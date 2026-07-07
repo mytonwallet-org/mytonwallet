@@ -104,6 +104,10 @@ public class GeneralLinesChartController: BaseLinesChartController {
     public override var navigationRenderers: [ChartViewRenderer] {
         return [previewLinesRenderer]
     }
+
+    override func applyHidesVerticalAxisLabels() {
+        verticalScalesRenderer.drawLabels = !hidesVerticalAxisLabels
+    }
     
     public override func updateChartsVisibility(visibility: [Bool], animated: Bool) {
         chartVisibility = visibility

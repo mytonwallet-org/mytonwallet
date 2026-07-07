@@ -38,8 +38,8 @@ type OwnProps = {
 };
 
 const SWAP_HEIGHT = 4; // rem
-const CHANGELLY_PENDING_STATUSES = new Set(['new', 'waiting', 'confirming', 'exchanging', 'sending', 'hold']);
-const CHANGELLY_EXPIRED_STATUSES = new Set(['failed', 'expired', 'refunded', 'overdue']);
+const CEX_PENDING_STATUSES = new Set(['new', 'waiting', 'confirming', 'exchanging', 'sending', 'hold']);
+const CEX_EXPIRED_STATUSES = new Set(['failed', 'expired', 'refunded', 'overdue']);
 const ONCHAIN_ERROR_STATUSES = new Set(['expired', 'failed']);
 
 function Swap({
@@ -93,9 +93,9 @@ function Swap({
   const fromAmount = Number(activity.fromAmount);
   const toAmount = Number(activity.toAmount);
   const isPending = getIsActivityPendingForUser(activity)
-    || CHANGELLY_PENDING_STATUSES.has(cex?.status ?? '');
+    || CEX_PENDING_STATUSES.has(cex?.status ?? '');
   const isError = ONCHAIN_ERROR_STATUSES.has(status)
-    || CHANGELLY_EXPIRED_STATUSES.has(cex?.status ?? '');
+    || CEX_EXPIRED_STATUSES.has(cex?.status ?? '');
   const isHold = cex?.status === 'hold';
   function renderIcon() {
     let statusClass: string | undefined = styles.colorSwap;

@@ -298,7 +298,7 @@
   }
 }
 
-.changellyInfo,
+.providerInfo,
 .priceImpact {
   padding: 1rem;
   border-radius: var(--border-radius-medium);
@@ -437,7 +437,7 @@
   padding: 0 2rem;
 }
 
-.changellyDescription,
+.cexDescription,
 .blockchainHintText {
   font-size: 0.8125rem;
   font-weight: 500;
@@ -490,13 +490,13 @@
   right: 2.5rem;
 }
 
-.changellyInfo {
+.providerInfo {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
 }
 
-.changellyInfoStatic,
+.providerInfoStatic,
 .priceImpactStatic {
   padding: 0;
 
@@ -505,7 +505,7 @@
   }
 }
 
-.changellyInfoTitle {
+.providerInfoTitle {
   display: flex;
   gap: 0.25rem;
   align-items: center;
@@ -517,19 +517,14 @@
   text-align: center;
 }
 
-.changellyInfoDescription {
+.providerInfoDescription {
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 0.9375rem;
   text-align: center;
 }
 
-.changellyIcon {
-  font-size: 1rem;
-  color: var(--color-green);
-}
-
-.changellyInfoBlock {
+.cexInfoBlock {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -539,12 +534,12 @@
 }
 
 .blockchainButtons,
-.changellyTextField,
+.cexTextField,
 .textFieldWrapperFullWidth {
   width: 100%;
 }
 
-.changellyImportantRed {
+.cexImportantRed {
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-red);
@@ -611,8 +606,15 @@ $animation-time: 350ms;
   margin-bottom: 2rem;
 }
 
-.changellyDescriptionBold {
+.cexDescriptionBold {
   font-weight: 700;
+}
+
+.cexSupportContact {
+  align-self: center;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .qrCode {

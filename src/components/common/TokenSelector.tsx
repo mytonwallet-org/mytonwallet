@@ -22,16 +22,17 @@ import {
   selectSwapTokens,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig, getSupportedChains, getTrustedUsdtSlugs } from '../../util/chain';
+import { getChainConfig, getDisplayOrderedChains, getTrustedUsdtSlugs } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import { getChainFromAddress } from '../../util/isValidAddress';
 import { disableSwipeToClose, enableSwipeToClose } from '../../util/modalSwipeManager';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import { isSwapPairValid } from '../../util/swap/isSwapPairValid';
-import { getChainBySlug } from '../../util/tokens';
+import { getChainBySlug, getIsRwaStockToken, getTokenName } from '../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -98,6 +99,7 @@ enum SearchState {
 
 const EMPTY_ARRAY: never[] = [];
 const EMPTY_OBJECT = {};
+const SEARCH_DEBOUNCE_MS = 200;
 
 function TokenSelector({
   token: tokenProp,
@@ -152,6 +154,7 @@ function TokenSelector({
   } = useScrolledState();
 
   const [searchValue, setSearchValue] = useState('');
+  const debouncedSearchValue = useDebouncedValue(searchValue, SEARCH_DEBOUNCE_MS);
   const [isResetButtonVisible, setIsResetButtonVisible] = useState(false);
   const [renderingKey, setRenderingKey] = useState(SearchState.Initial);
   const [searchTokenList, setSearchTokenList] = useState<TokenType[]>([]);
@@ -199,7 +202,7 @@ function TokenSelector({
 
   const filteredTokenList = useMemo(() => {
     const tokensToFilter = shouldUseSwapTokens ? swapTokensWithFilter : allTokens;
-    const untrimmedSearchValue = searchValue.toLowerCase();
+    const untrimmedSearchValue = debouncedSearchValue.toLowerCase();
     const lowerCaseSearchValue = untrimmedSearchValue.trim();
 
     if (untrimmedSearchValue.length && !lowerCaseSearchValue.length) {
@@ -247,7 +250,7 @@ function TokenSelector({
 
       if (getTrustedUsdtSlugs().has(searchResultToken.slug)) {
         const chain = getChainBySlug(searchResultToken.slug);
-        const supportedChains = getSupportedChains();
+        const supportedChains = getDisplayOrderedChains();
         const chainPriority = supportedChains.indexOf(chain);
         if (chainPriority !== -1) {
           // Subtracting, because the lower chain index should have higher priority, and `specialOrder` expects higher
@@ -269,7 +272,7 @@ function TokenSelector({
 
       return Number(b.amount - a.amount);
     });
-  }, [allTokens, shouldUseSwapTokens, searchValue, swapTokensWithFilter]);
+  }, [allTokens, shouldUseSwapTokens, debouncedSearchValue, swapTokensWithFilter]);
 
   const resetSearch = () => {
     setSearchValue('');
@@ -285,7 +288,7 @@ function TokenSelector({
       newRenderingKey = SearchState.Loading;
     } else if (token && isValidAddress) {
       newRenderingKey = SearchState.TokenByAddress;
-    } else if (searchValue.length && filteredTokenList.length !== 0) {
+    } else if (debouncedSearchValue.length && filteredTokenList.length !== 0) {
       newRenderingKey = SearchState.Search;
     } else if (filteredTokenList.length === 0) {
       newRenderingKey = SearchState.Empty;
@@ -296,7 +299,7 @@ function TokenSelector({
     if (newRenderingKey !== SearchState.Initial) {
       setSearchTokenList(filteredTokenList);
     }
-  }, [searchTokenList.length, isLoading, searchValue, token, filteredTokenList, availableChains]);
+  }, [searchTokenList.length, isLoading, searchValue, debouncedSearchValue, token, filteredTokenList, availableChains]);
 
   useEffect(() => {
     const chain = getImportChainByAddress(searchValue, availableChains);
@@ -564,7 +567,10 @@ function Token({
   tokenPrice: string;
   onSelect: (token: TokenType) => void;
 }) {
+  const lang = useLang();
+
   const handleClick = isAvailable ? () => onSelect(token) : undefined;
+  const tokenName = getTokenName(lang, token);
 
   return (
     <div
@@ -583,8 +589,9 @@ function Token({
 
         <div className={styles.nameContainer}>
           <TokenTitle
-            tokenName={token.name}
+            tokenName={tokenName}
             tokenLabel={token.label}
+            isRwaStock={getIsRwaStockToken(token)}
             isDisabled={!isAvailable}
           />
           <span

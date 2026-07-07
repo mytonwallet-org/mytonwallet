@@ -6,9 +6,6 @@
 //
 
 import UIKit
-import UIBrowser
-import UIAgent
-import UISettings
 import UIComponents
 import ContextMenuKit
 import WalletCore
@@ -16,67 +13,29 @@ import WalletContext
 import UIKit.UIGestureRecognizerSubclass
 
 private let scaleFactor: CGFloat = 0.85
-private final class LazyRootNavigationController: WNavigationController {
-    private let rootViewControllerType: UIViewController.Type
-    private let makeRootViewController: () -> UIViewController
-    private var didInstallRootViewController = false
-
-    init(rootViewControllerType: UIViewController.Type, makeRootViewController: @escaping () -> UIViewController) {
-        self.rootViewControllerType = rootViewControllerType
-        self.makeRootViewController = makeRootViewController
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        ensureRootViewControllerInstalled()
-    }
-
-    func ensureRootViewControllerInstalled() {
-        guard !didInstallRootViewController else { return }
-        didInstallRootViewController = true
-        viewControllers = [makeRootViewController()]
-    }
-
-    func resetRootViewController() {
-        didInstallRootViewController = true
-        viewControllers = [makeRootViewController()]
-    }
-
-    func setPreservedViewControllers(_ viewControllers: [UIViewController]) {
-        didInstallRootViewController = true
-        self.viewControllers = viewControllers
-    }
-
-    func containsRootViewController<T: UIViewController>(of type: T.Type) -> Bool {
-        if let rootViewController = viewControllers.first {
-            return rootViewController is T
-        }
-        return rootViewControllerType == type
-    }
-}
 
 public class HomeTabBarController: UITabBarController {
 
-    public enum Tab: Int {
-        case home
-        case agent
-        case explore
-        case settings
-    }
-
     private(set) public var homeVC: HomeVC!
+
+    private var navControllersByTabId: [AppTabId: WNavigationController] = [:]
+    private let makeNavController: @MainActor (AppTabId) -> WNavigationController?
+    private let tabLabelProvider: @MainActor (AppTabId) -> String?
 
     private var highlightView: UIImageView? { view.subviews.first(where: { $0 is UIImageView }) as? UIImageView }
     private var settingsTabContextMenuInteraction: ContextMenuInteraction?
     private var isSwitchAccountMenuPresented = false
+    private var gestureRecognizersInstalledForTabIds: Set<AppTabId> = []
 
-    public init() {
-        self.homeVC = HomeVC()
+    public init(
+        navControllerFactory: @escaping @MainActor (AppTabId) -> WNavigationController?,
+        tabLabelProvider: @escaping @MainActor (AppTabId) -> String?
+    ) {
+        self.makeNavController = navControllerFactory
+        self.tabLabelProvider = tabLabelProvider
+        let walletNC = navControllerFactory(.wallet) ?? WNavigationController(rootViewController: HomeVC())
+        self.homeVC = walletNC.viewControllers.first as? HomeVC ?? HomeVC()
+        self.navControllersByTabId = [.wallet: walletNC]
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -89,6 +48,7 @@ public class HomeTabBarController: UITabBarController {
 
         delegate = self
         NotificationCenter.default.addObserver(self, selector: #selector(handleThemeUpdated(_:)), name: .updateTheme, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleLanguageDidChange(_:)), name: .languageDidChange, object: nil)
 
         if !IOS_26_MODE_ENABLED {
             applyTabBarAppearance()
@@ -96,35 +56,7 @@ public class HomeTabBarController: UITabBarController {
 
         WalletCoreData.add(eventObserver: self)
 
-        let homeNav = WNavigationController(rootViewController: homeVC)
-        let settingsViewController = LazyRootNavigationController(rootViewControllerType: SettingsVC.self) {
-            SettingsVC()
-        }
-        let browserViewController = LazyRootNavigationController(rootViewControllerType: ExploreTabVC.self) {
-            ExploreTabVC()
-        }
-        let agentViewController = LazyRootNavigationController(rootViewControllerType: AgentVC.self) {
-            AgentEntryPoint.makeRootViewController()
-        }
-
-        homeNav.tabBarItem.image = UIImage(named: "tab_home", in: AirBundle, compatibleWith: nil)
-        homeNav.title = lang("Wallet")
-
-        agentViewController.tabBarItem.image = UIImage(named: "tab_agent", in: AirBundle, compatibleWith: nil)
-        agentViewController.title = lang("Agent")
-
-        browserViewController.tabBarItem.image = UIImage(named: "tab_explore", in: AirBundle, compatibleWith: nil)
-        browserViewController.title = lang("Explore")
-
-        settingsViewController.tabBarItem.image = UIImage(named: "tab_settings", in: AirBundle, compatibleWith: nil)
-        settingsViewController.title = lang("Settings")
-
-        let tabViewControllers: [UIViewController] = [homeNav, agentViewController, browserViewController, settingsViewController]
-        self.viewControllers = tabViewControllers
-
-        StartupTrace.markOnce("homeTabBar.viewDidLoad", details: "tabs=\(tabViewControllers.count)")
-
-        addGestureRecognizer()
+        StartupTrace.markOnce("homeTabBar.viewDidLoad", details: "pending applyTabConfiguration")
 
         updateTheme()
     }
@@ -145,27 +77,52 @@ public class HomeTabBarController: UITabBarController {
         updateTheme()
     }
 
-    @objc private func handleThemeUpdated(_ notification: Notification) {
-        updateTheme()
+    public func applyTabConfiguration(_ orderedIds: [AppTabId]) {
+        let currentId = currentTabId
+
+        buildNavControllers(for: orderedIds)
+
+        let removedIds = Set(navControllersByTabId.keys).subtracting(orderedIds)
+        for id in removedIds {
+            navControllersByTabId.removeValue(forKey: id)
+            gestureRecognizersInstalledForTabIds.remove(id)
+        }
+
+        rebuildViewControllers(orderedIds: orderedIds)
+
+        if orderedIds.contains(currentId), let idx = navControllerIndex(of: currentId) {
+            selectedIndex = idx
+        } else {
+            selectedIndex = navControllerIndex(of: .wallet) ?? 0
+        }
     }
 
-    private func updateTheme() {
-        tabBar.tintColor = UIColor.tintColor
-        tabBar.unselectedItemTintColor = .air.secondaryLabel
-        applyTabBarAppearance()
-        tabBar.setNeedsLayout()
+    private func buildNavControllers(for ids: [AppTabId]) {
+        for id in ids where navControllersByTabId[id] == nil {
+            guard let nc = makeNavController(id) else { continue }
+            if id == .wallet, let newHomeVC = nc.viewControllers.first as? HomeVC {
+                self.homeVC = newHomeVC
+            }
+            navControllersByTabId[id] = nc
+        }
     }
 
-    public var currentTab: Tab {
-        tab(at: selectedIndex)
+    private func rebuildViewControllers(orderedIds: [AppTabId]) {
+        let vcs: [UIViewController] = orderedIds.compactMap { navControllersByTabId[$0] }
+        self.viewControllers = vcs
+        addGestureRecognizers(orderedIds: orderedIds)
     }
 
-    public func takeNavigationStack(for tab: Tab, keepingRoot: Bool) -> [UIViewController]? {
-        guard let navigationController = navigationController(for: tab) else { return nil }
+    public var currentTabId: AppTabId {
+        tabId(at: selectedIndex)
+    }
+
+    public func takeNavigationStack(for id: AppTabId, keepingRoot: Bool) -> [UIViewController]? {
+        guard let navigationController = navControllersByTabId[id] else { return nil }
         if navigationController.viewControllers.isEmpty,
-           currentTab == tab,
-           let lazyNavigationController = navigationController as? LazyRootNavigationController {
-            lazyNavigationController.ensureRootViewControllerInstalled()
+           currentTabId == id,
+           let lazyNC = navigationController as? AppTabLazyNavigationController {
+            lazyNC.ensureRootViewControllerInstalled()
         }
         let stack = navigationController.viewControllers
         guard !stack.isEmpty else { return nil }
@@ -177,15 +134,23 @@ public class HomeTabBarController: UITabBarController {
         return stack
     }
 
-    public func setNavigationStack(_ stack: [UIViewController], for tab: Tab) {
-        guard !stack.isEmpty, let navigationController = navigationController(for: tab) else { return }
-        if tab == .home, let homeVC = stack.first as? HomeVC {
-            self.homeVC = homeVC
+    public func setNavigationStack(_ stack: [UIViewController], for id: AppTabId) {
+        guard !stack.isEmpty, let navigationController = navControllersByTabId[id] else { return }
+        if id == .wallet, let newHomeVC = stack.first as? HomeVC {
+            self.homeVC = newHomeVC
         }
-        if let lazyNavigationController = navigationController as? LazyRootNavigationController {
-            lazyNavigationController.setPreservedViewControllers(stack)
+        if let lazyNC = navigationController as? AppTabLazyNavigationController {
+            lazyNC.setPreservedViewControllers(stack)
         } else {
             navigationController.setViewControllers(stack, animated: false)
+        }
+    }
+
+    public func selectTab(_ id: AppTabId, popToRoot: Bool = false) {
+        guard let index = navControllerIndex(of: id) else { return }
+        selectedIndex = index
+        if popToRoot {
+            navControllersByTabId[id]?.popToRootViewController(animated: true)
         }
     }
 
@@ -200,7 +165,7 @@ public class HomeTabBarController: UITabBarController {
     }
 
     public func switchToHome(popToRoot: Bool) {
-        selectedIndex = tabIndex(for: .home)
+        selectTab(.wallet)
         if popToRoot {
             homeVC?.navigationController?.popToRootViewController(animated: true)
         }
@@ -210,57 +175,78 @@ public class HomeTabBarController: UITabBarController {
     }
 
     public func switchToAgent() {
-        selectedIndex = tabIndex(for: .agent)
-    }
-
-    public func debugOnly_resetAgentRoot() {
-        let agentIndex = tabIndex(for: .agent)
-        guard let viewControllers,
-              viewControllers.indices.contains(agentIndex),
-              let agentNavigationController = viewControllers[agentIndex] as? LazyRootNavigationController else {
-            return
-        }
-        agentNavigationController.resetRootViewController()
+        selectTab(.agent)
     }
 
     public func switchToExplore() {
-        selectedIndex = tabIndex(for: .explore)
+        selectTab(.explore)
     }
 
     public func switchToSettings(path: [UIViewController]) {
-        selectedIndex = tabIndex(for: .settings)
-        guard let settingsNavigationController else { return }
-        guard let rootViewController = settingsNavigationController.viewControllers.first else { return }
-        settingsNavigationController.setViewControllers([rootViewController] + path, animated: false)
+        selectTab(.settings)
+        guard let settingsNC = settingsNavigationController else { return }
+        guard let rootViewController = settingsNC.viewControllers.first else { return }
+        settingsNC.setViewControllers([rootViewController] + path, animated: false)
     }
 
     @discardableResult
     public func pushOnSettingsRoot(_ viewController: UIViewController, animated: Bool = true) -> Bool {
-        guard let settingsNavigationController else { return false }
-        settingsNavigationController.pushViewController(viewController, animated: animated)
+        guard let settingsNC = settingsNavigationController else { return false }
+        settingsNC.pushViewController(viewController, animated: animated)
         return true
     }
 
-    private func tabIndex(for tab: Tab) -> Int {
-        tab.rawValue
+    public func debugOnly_resetAgentRoot() {
+        guard let agentNC = navControllersByTabId[.agent] as? AppTabLazyNavigationController else { return }
+        agentNC.resetRootViewController()
     }
 
-    private func tab(at index: Int) -> Tab {
-        Tab(rawValue: index) ?? .home
+    private func tabId(at index: Int) -> AppTabId {
+        guard let vcs = viewControllers, vcs.indices.contains(index) else { return .wallet }
+        let vc = vcs[index]
+        return navControllersByTabId.first(where: { $0.value === vc })?.key ?? .wallet
     }
 
-    private func navigationController(for tab: Tab) -> UINavigationController? {
-        loadViewIfNeeded()
-        guard let viewControllers else { return nil }
-        let index = tabIndex(for: tab)
-        guard viewControllers.indices.contains(index) else { return nil }
-        return viewControllers[index] as? UINavigationController
+    private func navControllerIndex(of id: AppTabId) -> Int? {
+        guard let nc = navControllersByTabId[id], let vcs = viewControllers else { return nil }
+        return vcs.firstIndex(where: { $0 === nc })
     }
 
     private static func makeNavigationStackPlaceholder() -> UIViewController {
         let viewController = UIViewController()
         viewController.view.backgroundColor = .black
         return viewController
+    }
+
+    private var settingsNavigationController: WNavigationController? {
+        guard let nc = navControllersByTabId[.settings] else { return nil }
+        if let lazyNC = nc as? AppTabLazyNavigationController {
+            lazyNC.ensureRootViewControllerInstalled()
+        }
+        return nc
+    }
+
+    @objc private func handleThemeUpdated(_ notification: Notification) {
+        updateTheme()
+    }
+
+    @objc private func handleLanguageDidChange(_ notification: Notification) {
+        refreshTabBarItemTitles()
+    }
+
+    private func refreshTabBarItemTitles() {
+        for (id, nc) in navControllersByTabId {
+            if let title = tabLabelProvider(id) {
+                nc.tabBarItem.title = title
+            }
+        }
+    }
+
+    private func updateTheme() {
+        tabBar.tintColor = UIColor.tintColor
+        tabBar.unselectedItemTintColor = .air.secondaryLabel
+        applyTabBarAppearance()
+        tabBar.setNeedsLayout()
     }
 
     private func applyTabBarAppearance() {
@@ -283,13 +269,13 @@ public class HomeTabBarController: UITabBarController {
         itemAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.tintColor]
     }
 
-    func addGestureRecognizer() {
+    private func addGestureRecognizers(orderedIds: [AppTabId]) {
         for (index, view) in tabViews().enumerated() {
-            let isSettingsTab = if let viewControllers, index < viewControllers.count {
-                isSettingsNavigationController(viewControllers[index])
-            } else {
-                false
-            }
+            guard orderedIds.indices.contains(index) else { continue }
+            let tabId = orderedIds[index]
+            guard !gestureRecognizersInstalledForTabIds.contains(tabId) else { continue }
+            gestureRecognizersInstalledForTabIds.insert(tabId)
+            let isSettingsTab = tabId == .settings
 
             if !IOS_26_MODE_ENABLED {
                 if !isSettingsTab {
@@ -330,7 +316,7 @@ public class HomeTabBarController: UITabBarController {
             }
 
 #if DEBUG
-            if tab(at: index) == .explore {
+            if tabId == .explore {
                 let gesture = UILongPressGestureRecognizer()
                 gesture.minimumPressDuration = 0.4
                 gesture.addTarget(self, action: #selector(onExploreLongTap))
@@ -446,28 +432,6 @@ public class HomeTabBarController: UITabBarController {
             subview.alpha = 1
         }
     }
-
-    private var settingsNavigationController: UINavigationController? {
-        guard let viewControllers else { return nil }
-        for viewController in viewControllers {
-            guard isSettingsNavigationController(viewController) else { continue }
-            if let lazyNavigationController = viewController as? LazyRootNavigationController {
-                lazyNavigationController.ensureRootViewControllerInstalled()
-            }
-            return viewController as? UINavigationController
-        }
-        return nil
-    }
-
-    private func isSettingsNavigationController(_ viewController: UIViewController) -> Bool {
-        if let lazyNavigationController = viewController as? LazyRootNavigationController {
-            return lazyNavigationController.containsRootViewController(of: SettingsVC.self)
-        }
-        guard let navigationController = viewController as? UINavigationController else {
-            return false
-        }
-        return navigationController.viewControllers.first is SettingsVC
-    }
 }
 
 extension HomeTabBarController: UIGestureRecognizerDelegate {
@@ -480,14 +444,13 @@ extension HomeTabBarController: UIGestureRecognizerDelegate {
     }
 }
 
-
 extension HomeTabBarController: UITabBarControllerDelegate {
 
     public func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         if self.isSwitchAccountMenuPresented {
             return false
         }
-        if viewController === selectedViewController  {
+        if viewController === selectedViewController {
             scrollToTop(tabVC: viewController)
         }
         return true
@@ -514,7 +477,6 @@ extension HomeTabBarController: WalletCoreData.EventsObserver {
         }
     }
 }
-
 
 fileprivate extension UIView {
     func asImage() -> UIImage {

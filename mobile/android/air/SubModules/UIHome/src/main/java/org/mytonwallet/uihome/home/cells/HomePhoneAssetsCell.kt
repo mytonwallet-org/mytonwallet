@@ -164,6 +164,7 @@ class HomePhoneAssetsCell(
                 true
             )
         segmentedController.items.forEach {
+            it.viewController.updateTheme()
             updateThemeForChildren(it.viewController.view, onlyTintedViews = !darkModeChanged)
         }
     }

@@ -97,42 +97,16 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         let headerCellRegistration = UICollectionView.CellRegistration<EarnHeaderCell, Row> { [unowned self] cell, _, _ in
             cell.configure(config: config, stakingData: stakingData, supportsEarn: accountContext.account.supportsEarn, delegate: self)
         }
-        let historyHeaderCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Row> { [unowned self] cell, _, _ in
-            let earnedAmount: BigInt?
-            let earnedDecimals: Int
-            let earnedSymbol: String
-            if tokenSlug == TONCOIN_SLUG {
-                earnedAmount = stakingData?.totalProfit
-                earnedDecimals = 9
-                earnedSymbol = ApiToken.TONCOIN.symbol
+        let historyHeaderCellRegistration = UICollectionView.CellRegistration<EarnHistoryHeaderCell, Row> { [unowned self] cell, _, _ in
+            let earnedAmount: TokenAmount?
+            if tokenSlug == TONCOIN_SLUG, let totalProfit = stakingData?.totalProfit {
+                earnedAmount = TokenAmount(totalProfit, ApiToken.TONCOIN)
             } else if case .jetton(let jetton) = self.stakingState {
-                earnedAmount = jetton.unclaimedRewards
-                earnedDecimals = self.token.decimals
-                earnedSymbol = self.token.symbol
+                earnedAmount = TokenAmount(jetton.unclaimedRewards, self.token)
             } else {
                 earnedAmount = nil
-                earnedDecimals = 9
-                earnedSymbol = ""
             }
-            cell.backgroundColor = .clear
-            cell.contentConfiguration = UIHostingConfiguration {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(lang("History"))
-                        .font(.system(size: 20, weight: .bold))
-                    Spacer()
-                    if let earnedAmount, earnedAmount > 0 {
-                        let amount = AnyDecimalAmount(earnedAmount, decimals: earnedDecimals, symbol: earnedSymbol, forceCurrencyToRight: true)
-                        Text("\(lang("Earned")): \(amount.formatted(.defaultAdaptive))")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color.air.secondaryLabel)
-                            .sensitiveData(alignment: .trailing, cols: 14, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
-                    }
-                }
-                .padding(.bottom, 2)
-            }
-            .background(Color.clear)
-            .margins(.horizontal, 16)
-            .margins(.vertical, 0)
+            cell.configure(earnedAmount: earnedAmount)
         }
         let historyCellRegistration = UICollectionView.CellRegistration<EarnHistoryCell, Row> { [unowned self] cell, indexPath, itemIdentifier in
             switch itemIdentifier {

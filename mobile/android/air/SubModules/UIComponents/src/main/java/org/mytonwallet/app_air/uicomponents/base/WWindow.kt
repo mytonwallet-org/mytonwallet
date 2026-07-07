@@ -155,13 +155,14 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     // centered within the safe area so it stays below the status bar and above the bottom system bar.
     data class WindowFrame(val x: Int, val y: Int, val width: Int, val height: Int)
 
-    private fun centeredWindowFrame(): WindowFrame {
+    private fun centeredWindowFrame(overrideWidth: Int? = null): WindowFrame {
         val w = windowView.width
         val h = windowView.height
         val topInset = systemBars?.top ?: 0
         val bottomInset = systemBars?.bottom ?: 0
         val safeHeight = (h - topInset - bottomInset).coerceAtLeast(0)
-        val width = min((w * 0.85f).roundToInt(), WIDE_LAYOUT_MIN_WIDTH_DP.dp)
+        val defaultWidth = min((w * 0.85f).roundToInt(), WIDE_LAYOUT_MIN_WIDTH_DP.dp)
+        val width = (overrideWidth ?: defaultWidth).coerceAtMost(w)
         val height = min((h * 0.8f).roundToInt(), safeHeight)
         return WindowFrame(
             x = ((w - width) / 2).coerceAtLeast(0),
@@ -174,7 +175,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     // Apply the resting (non-animated) layout for a centered window: size, x, rounded corners.
     // Y is driven by the present/dismiss animators (so it can slide), so it's set by the caller.
     private fun applyCenteredWindowLayout(navigationController: WNavigationController) {
-        val frame = centeredWindowFrame()
+        val frame = centeredWindowFrame(navigationController.centeredWindowWidth)
         navigationController.updateLayoutParams {
             width = frame.width
             height = frame.height
@@ -227,7 +228,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             if (nav.isCenteredWindow) {
                 nav.clearBottomSheetBehaviour()
                 applyCenteredWindowLayout(nav)
-                nav.y = centeredWindowFrame().y.toFloat()
+                nav.y = centeredWindowFrame(nav.centeredWindowWidth).y.toFloat()
                 nav.insetsUpdated()
             } else if (nav.isBottomSheet) {
                 nav.clipToOutline = false
@@ -300,11 +301,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                 override fun handleOnBackPressed() {
                     if (PopupHelpers.onBackPressed())
                         return
-                    topViewController?.let { topVC ->
-                        if (topVC.activeDialog != null) {
-                            topVC.activeDialog?.dismiss()
-                            return
-                        }
+                    topViewController?.topActiveDialog?.let { dialog ->
+                        dialog.dismiss()
+                        return
                     }
                     navigationControllers.lastOrNull()?.onBackPressed()
                 }
@@ -632,7 +631,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             val shouldPresentFullScreen = !navigationController.isBottomSheet ||
                 navigationController.viewControllers.firstOrNull()?.isExpandable == true
             val finalY =
-                if (navigationController.isCenteredWindow) centeredWindowFrame().y
+                if (navigationController.isCenteredWindow) centeredWindowFrame(navigationController.centeredWindowWidth).y
                 else if (shouldPresentFullScreen) 0 else windowView.bottom - min(
                     navigationController.height,
                     windowView.height - (systemBars?.top ?: 0) - 20.dp
@@ -892,7 +891,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                     })
 
                     WGlobalStorage.incDoNotSynchronize()
-                    prevNavigationController.viewControllers.lastOrNull()?.view?.post {
+                    windowView.post {
                         start()
                     }
                 }

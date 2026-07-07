@@ -21,8 +21,7 @@ public enum ActivityDetailsContext {
     public var displayTitle: String? {
         switch self {
         case .normal, .external: nil
-        case .sendConfirmation: lang("Coins have been sent!")
-        case .sendNftConfirmation: lang("NFT has been sent!")
+        case .sendConfirmation, .sendNftConfirmation: lang("Sent!")
         case .burnNftConfirmation: lang("Burned")
         case .swapConfirmation: lang("Swap Placed")
         case .stakeConfirmation: lang("Coins have been staked!")

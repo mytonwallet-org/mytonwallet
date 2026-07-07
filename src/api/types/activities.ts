@@ -13,6 +13,7 @@ type BaseActivity = {
    * open. Undefined means "no".
    */
   shouldLoadDetails?: boolean;
+  isScam?: boolean;
   extra?: {
     withW5Gasless?: boolean; // Only for TON
     dex?: ApiSwapDexLabel; // Only for TON liquidity deposit and withdrawal

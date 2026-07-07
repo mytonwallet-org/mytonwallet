@@ -1,6 +1,5 @@
 //
 //  BalanceHeaderView.swift
-//  UIWalletHome
 //
 //  Created by Sina on 4/20/23.
 //

@@ -14,7 +14,7 @@ import type { CapacitorPlatform } from './platform';
 import { GLOBAL_STATE_CACHE_KEY } from '../../config';
 import { callApi } from '../../api';
 import { processDeeplink } from '../deeplink';
-import { logDebug } from '../logs';
+import { logDebug, logDebugError } from '../logs';
 import { IS_IOS } from '../windowEnvironment';
 import * as storageMethods from '../windowProvider/methods';
 import { initNotificationsWithGlobal } from './notifications';
@@ -36,6 +36,7 @@ export const INAPP_BROWSER_OPTIONS = [
 ].join(',');
 const IOS_SPLASH_SCREEN_HIDE_DELAY = 500;
 const IOS_SPLASH_SCREEN_HIDE_DURATION = 600;
+const LEDGER_SWITCH_DISCONNECT_TIMEOUT_MS = 3000;
 export const VIBRATE_SUCCESS_END_PAUSE_MS = 1300;
 
 let isNativeBiometricAuthSupported = false;
@@ -161,6 +162,22 @@ export async function fixIosAppStorage() {
 }
 
 export function switchToAir() {
-  void callApi('destroy');
-  void AirAppLauncher.switchToAir();
+  void disconnectLedgerBeforeSwitchToAir().finally(() => {
+    void callApi('destroy');
+    void AirAppLauncher.switchToAir();
+  });
+}
+
+async function disconnectLedgerBeforeSwitchToAir() {
+  try {
+    const { disconnectLedger } = await import('../ledger');
+    await Promise.race([
+      disconnectLedger({ force: true }),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, LEDGER_SWITCH_DISCONNECT_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (err) {
+    logDebugError('disconnectLedgerBeforeSwitchToAir', err);
+  }
 }

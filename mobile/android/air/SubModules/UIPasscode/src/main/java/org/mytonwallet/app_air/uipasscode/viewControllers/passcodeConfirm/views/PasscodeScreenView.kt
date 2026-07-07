@@ -96,7 +96,7 @@ class PasscodeScreenView(
     private val titleTextView = AppCompatTextView(context).apply {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 32f)
-        typeface = WFont.SemiBold.typeface
+        typeface = WFont.Medium.typeface
         gravity = Gravity.CENTER
     }
 

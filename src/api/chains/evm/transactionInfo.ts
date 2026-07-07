@@ -1,7 +1,7 @@
 import type { ApiActivity, ApiFetchTransactionByIdOptions, EVMChain } from '../../types';
 
 import { logDebugError } from '../../../util/logs';
-import { collectTokensFromTransactions, parseEvmTx, transformEvmTxToUnified } from './activities';
+import { collectTokensFromTransactions, fetchEvmTx, transformEvmTxToUnified } from './activities';
 
 export async function fetchTransactionById(
   chain: EVMChain,
@@ -13,17 +13,17 @@ export async function fetchTransactionById(
     if (!isTxId) {
       return [];
     }
-    const parsed = await parseEvmTx(chain, network, options.txId);
+    const tx = await fetchEvmTx(chain, network, options.txId);
 
-    if (!parsed) {
+    if (!tx) {
       return [];
     }
 
-    const address = walletAddress || parsed.attributes.sent_from;
+    const address = walletAddress || tx.attributes.sent_from;
 
-    await collectTokensFromTransactions(network, chain, address, [parsed]);
+    await collectTokensFromTransactions(network, chain, address, [tx]);
 
-    return [transformEvmTxToUnified(chain, parsed, address)];
+    return [transformEvmTxToUnified(chain, tx, address)];
   } catch (err) {
     logDebugError('fetchTransactionById', 'solana', err);
     return [];

@@ -26,7 +26,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import kotlin.math.roundToInt
@@ -93,7 +92,7 @@ class AccountItemView(
                 gravity = Gravity.BOTTOM
             })
         val byChain = accountData.byChain
-        val address = byChain[TONCOIN_SLUG]?.address ?: byChain.values.firstOrNull()?.address ?: ""
+        val address = byChain["ton"]?.address ?: byChain.values.firstOrNull()?.address ?: ""
         val startMargin = 58.dp
         val endMargin = (if (showArrow) 42 else 8).dp
         accountData.title?.let {

@@ -1,6 +1,5 @@
 //
 //  WalletSettingsVC.swift
-//  UISettings
 //
 //  Created by nikstar on 02.11.2025.
 //
@@ -82,20 +81,33 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     private let segmentedControlWidth: CGFloat = 320
     private var segmentedControlContainerWidthConstraint: NSLayoutConstraint?
     private var isConfiguredForBottomAttachedSheet: Bool?
+    private var lastAppliedNavigationKey: NavigationKey?
+
+    private struct NavigationKey: Equatable {
+        var mode: WalletSettingsViewModel.Mode
+        var preferredLayout: WalletListLayout
+        var accountCount: Int
+    }
     
     @Dependency(\.accountStore) private var accountStore
     private var orderedAccountIdsRestoreSnapshot: OrderedSet<String>?
-    
+        
     public override func viewDidLoad() {
-        
         super.viewDidLoad()
-        
-        view.backgroundColor = .air.sheetBackground
         
         tabs.addToParentVC(self)
         
         observe { [weak self] in
-            self?.updateEditingState()
+            guard let self else { return }
+            
+            switch viewModel.mode {
+            case .reordering, .select:
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    self.updateNavigation()
+                }
+            case .normal:
+                updateNavigation()
+            }
         }
         observe { [weak self] in
             guard let self else { return }
@@ -103,15 +115,27 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
                 dismiss(animated: true)
             }
         }
-        navigationItem.titleView = HostingView {
-            WalletSettingsNavigationHeader(viewModel: viewModel)
+        observe { [weak self] in
+            guard let self else { return }
+            _ = viewModel.isDeletingAccounts
+            updateNavigation()
         }
+        observe { [weak self] in
+            guard let self else { return }
+            _ = viewModel.preferredLayout
+            _ = accountStore.accountsById.count
+            updateNavigation()
+        }
+        
+        let titleView = NavigationHeader2()
+        titleView.setContentView(WalletSettingsNavigationHeader(viewModel: viewModel))
+        navigationItem.titleView = titleView
+        
         updateSheetPresentation()
         
         let segmentedController = WSegmentedController(
             items: tabs.segmentedControlItems,
             defaultItemId: viewModel.currentFilter.rawValue,
-            barHeight: 44,
             animationSpeed: .slow,
             capsuleFillColor: .air.darkCapsule,
             delegate: self
@@ -153,7 +177,8 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         segmentedController.blurView.isHidden = true
         segmentedController.separator.isHidden = true
         
-        addCustomNavigationBarBackground()
+        view.backgroundColor = .air.sheetBackground
+        addCustomNavigationBarBackground(color: .air.sheetBackground, navItemTransparent: false)
         
         let bottomButton = HostingView {
             WalletSettingsAddButton(viewModel: viewModel)
@@ -169,12 +194,10 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
             self?.tabs.editItems(with: items)
         }
         
-        viewModel.onStartEditing = { [weak self] in
+        viewModel.onStartReordering = { [weak self] in
             guard let self else { return }
             
-            let idx = tabs.itemIndexForFilter(.all) ?? 0
-            segmentedController.switchTo(tabIndex: idx)
-            segmentedController.handleSegmentChange(to: idx, animated: true)
+            switchToAllTabOnEditing()
             segmentedController.scrollView.isScrollEnabled = false
             segmentedController.model.startReordering()
             
@@ -182,7 +205,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
             orderedAccountIdsRestoreSnapshot = accountStore.orderedAccountIds
         }
         
-        viewModel.onStopEditing = { [weak self] isCanceled in
+        viewModel.onStopReordering = { [weak self] isCanceled in
             guard let self else { return }
             
             segmentedController.scrollView.isScrollEnabled = true
@@ -195,6 +218,28 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
             }
             orderedAccountIdsRestoreSnapshot = nil
         }
+        
+        viewModel.onStartSelecting = { [weak self] in
+            guard let self else { return }
+            
+            switchToAllTabOnEditing()
+            segmentedController.scrollView.isScrollEnabled = false
+            segmentedController.segmentedControl.isUserInteractionEnabled = false
+        }
+        
+        viewModel.onStopSelecting = { [weak self] in
+            guard self != nil else { return }
+            
+            segmentedController.scrollView.isScrollEnabled = true
+            segmentedController.segmentedControl.isUserInteractionEnabled = true
+        }
+    }
+    
+    private func switchToAllTabOnEditing() {
+        guard let segmentedController else { return }
+        let idx = tabs.itemIndexForFilter(.all) ?? 0
+        segmentedController.switchTo(tabIndex: idx)
+        segmentedController.handleSegmentChange(to: idx, animated: true)
     }
 
     public override func viewDidLayoutSubviews() {
@@ -250,56 +295,94 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     }
     
     private func updateNavigation() {
-        let isEditing = viewModel.isReordering
+        let isDeleting = viewModel.isDeletingAccounts
+        var isEditing = false
+        let leftBarButtonItem: UIBarButtonItem
+        let rightBarButtonItem: UIBarButtonItem
         
-        if isEditing {
-            navigationItem.leftBarButtonItem = UIBarButtonItem.cancelTextButtonItem { [weak self] in
-                self?.viewModel.stopEditing(isCanceled: true)
+        switch viewModel.mode {
+        case .reordering:
+            leftBarButtonItem = UIBarButtonItem.cancelTextButtonItem { [weak self] in
+                self?.viewModel.stopReordering(isCanceled: true)
             }
-            navigationItem.rightBarButtonItem = UIBarButtonItem.doneButtonItem { [weak self] in
-                self?.viewModel.stopEditing(isCanceled: false)
+            rightBarButtonItem = UIBarButtonItem.doneButtonItem { [weak self] in
+                self?.viewModel.stopReordering(isCanceled: false)
+            }
+            isEditing = true
+        case .select:
+            leftBarButtonItem = UIBarButtonItem.textButtonItem(text: lang("Select All")) { [weak self] in
+                guard let self else { return }
+                viewModel.toggleSelectAll(accountIds: accountStore.orderedAccountIds.elements)
+            }
+            rightBarButtonItem = UIBarButtonItem.cancelXButtonItem { [weak self] in
+                self?.viewModel.stopSelecting()
+            }
+            isEditing = true
+        case .normal:
+            var menuItems: [UIMenuElement] = []
+
+            do {
+                let other = viewModel.preferredLayout.other
+                let viewAs = UIAction(
+                    title: other.title,
+                    image: UIImage(systemName: other.imageName),
+                    handler: { [weak self] _ in self?.viewModel.preferredLayout = other }
+                )
+                menuItems += UIMenu(options: .displayInline, children: [viewAs])
             }
             
-        } else {
-            let other = viewModel.preferredLayout.other
-            let viewAs = UIAction(
-                title: other.title,
-                image: UIImage(systemName: other.imageName),
-                handler: { [weak self] _ in self?.viewModel.preferredLayout = other }
-            )
-            let viewAsMenu = UIMenu(options: .displayInline, children: [viewAs])
-            let reorder = UIAction(
+            menuItems += UIAction(
                 title: lang("Reorder"),
                 image: .airBundle("MenuReorder26"),
                 handler: { [weak self] _ in
-                    self?.viewModel.startEditing()
+                    self?.viewModel.startReordering()
                 }
             )
-            let menu = UIMenu(children: [viewAsMenu, reorder])
-            navigationItem.leftBarButtonItem = UIBarButtonItem(
+            
+            if accountStore.accountsById.count > 1 {
+                menuItems += UIAction(
+                    title: lang("Select"),
+                    image: .airBundle("MenuSelect26"),
+                    handler: { [weak self] _ in
+                        self?.viewModel.startSelecting(preselected: [])
+                    }
+                )
+            }
+            
+            leftBarButtonItem = UIBarButtonItem(
                 image: UIImage(systemName: "line.3.horizontal.decrease"),
-                menu: menu,
+                menu: UIMenu(children: menuItems),
             )
             
-            navigationItem.rightBarButtonItem = UIBarButtonItem(
+            rightBarButtonItem = UIBarButtonItem(
                 systemItem: .close,
                 primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
             )
         }
         
-        navigationController?.isModalInPresentation = isEditing
+        leftBarButtonItem.isEnabled = !isDeleting
+        rightBarButtonItem.isEnabled = !isDeleting
+        
+        let newKey = NavigationKey(
+            mode: viewModel.mode,
+            preferredLayout: viewModel.preferredLayout,
+            accountCount: accountStore.accountsById.count
+        )
+        let wasEverApplied = lastAppliedNavigationKey != nil
+        let keyChanged = newKey != lastAppliedNavigationKey
+        lastAppliedNavigationKey = newKey
+
+        if keyChanged {
+            navigationItem.setLeftBarButtonItems([leftBarButtonItem], animated: wasEverApplied)
+            navigationItem.setRightBarButtonItems([rightBarButtonItem], animated: wasEverApplied)
+        } else {
+            navigationItem.leftBarButtonItem?.isEnabled = leftBarButtonItem.isEnabled
+            navigationItem.rightBarButtonItem?.isEnabled = rightBarButtonItem.isEnabled
+        }
+        
+        navigationController?.isModalInPresentation = isEditing || isDeleting
     }
     
-    private func updateEditingState() {
-        if viewModel.isReordering {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                self.updateNavigation()
-            }
-        } else {
-            updateNavigation()
-        }
-    }
-
     public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
         if let id = self.segmentedControl?.model.selectedItem?.id, let filter = WalletFilter(rawValue: id) {
             if filter != self.viewModel.currentFilter {
@@ -313,7 +396,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     }
 }
 
-@available(iOS 26, *)
+@available(iOS 18, *)
 #Preview {
     previewSheet(WalletSettingsVC())
 }

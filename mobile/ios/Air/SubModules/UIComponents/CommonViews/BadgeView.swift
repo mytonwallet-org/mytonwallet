@@ -6,6 +6,12 @@ import WalletContext
 
 @MainActor
 public final class BadgeView: UIView {
+    public enum TokenLabelStyle {
+        case regular
+        case stock
+    }
+
+    private static let stockLabelColor = UIColor(hex: "#DE8C00")
     
     private var label = UILabel()
     private var backgroundGradient = CAGradientLayer()
@@ -99,16 +105,24 @@ public final class BadgeView: UIView {
     }
 
     public func configureChain(chain: ApiChain) {
-        
-        backgroundColor = .air.secondaryLabel.withAlphaComponent(0.15)
-        label.textColor = .air.secondaryLabel
-        
-        label.text = chain.usdtBadgeText
-        
-        backgroundGradient.isHidden = true
-        labelGradient.isHidden = true
-        
-        self.isHidden = false
+        configureTokenLabel(text: chain.usdtBadgeText, style: .regular)
+    }
+
+    public func configureTokenLabel(text: String, style: TokenLabelStyle) {
+        switch style {
+        case .regular:
+            configure(
+                text: text,
+                foregroundColor: .air.secondaryLabel,
+                backgroundColor: .air.secondaryLabel.withAlphaComponent(0.15)
+            )
+        case .stock:
+            configure(
+                text: text,
+                foregroundColor: Self.stockLabelColor,
+                backgroundColor: Self.stockLabelColor.withAlphaComponent(0.15)
+            )
+        }
     }
 
     public func configure(text: String, foregroundColor: UIColor, backgroundColor: UIColor) {

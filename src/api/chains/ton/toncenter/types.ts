@@ -1,6 +1,7 @@
 export type AddressBook = Record<string, {
   user_friendly: string;
   domain: string | null;
+  interfaces?: string[];
 }>;
 
 export type AccountState = {

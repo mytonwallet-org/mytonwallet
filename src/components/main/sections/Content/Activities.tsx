@@ -34,7 +34,7 @@ import {
   selectCurrentAccountState,
   selectIsHistoryEndReached,
 } from '../../../../global/selectors';
-import { getActivityIdReplacements } from '../../../../util/activities';
+import { getActivityIdReplacements, getIsHiddenNftActivity } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
 import { formatHumanDay, getDayStartAt } from '../../../../util/dateFormat';
 import generateUniqueId from '../../../../util/generateUniqueId';
@@ -96,6 +96,8 @@ type StateProps = {
   isSensitiveDataHidden?: true;
   stakingStateBySlug: Record<string, ApiStakingState>;
   nftsByAddress?: Record<string, ApiNft>;
+  blacklistedNftAddresses?: string[];
+  whitelistedNftAddresses?: string[];
   accounts?: Record<string, Account>;
 };
 
@@ -143,6 +145,8 @@ function Activities({
   isSensitiveDataHidden,
   stakingStateBySlug,
   nftsByAddress,
+  blacklistedNftAddresses,
+  whitelistedNftAddresses,
   accounts,
   onScroll,
 }: Omit<OwnProps, 'totalTokensAmount'> & StateProps) {
@@ -169,6 +173,8 @@ function Activities({
       tokensBySlug,
       areTinyTransfersHidden,
       alwaysShownSlugs,
+      blacklistedNftAddresses,
+      whitelistedNftAddresses,
     );
 
     if (!activityIds.length && !isHistoryEndReached) {
@@ -177,7 +183,10 @@ function Activities({
     }
 
     return addDatesToActivityIds(activityIds, byId);
-  }, [areTinyTransfersHidden, byId, alwaysShownSlugs, allActivityIds, slug, tokensBySlug, isHistoryEndReached]);
+  }, [
+    areTinyTransfersHidden, byId, alwaysShownSlugs, allActivityIds, slug, tokensBySlug, isHistoryEndReached,
+    blacklistedNftAddresses, whitelistedNftAddresses,
+  ]);
 
   const firstListItemId = listItemIds?.[0];
 
@@ -448,6 +457,8 @@ export default memo(
         stakingStateBySlug,
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         nftsByAddress: byAddress,
+        blacklistedNftAddresses: accountState?.blacklistedNftAddresses,
+        whitelistedNftAddresses: accountState?.whitelistedNftAddresses,
         accounts,
       };
     },
@@ -472,6 +483,8 @@ function filterActivityIds(
   tokensBySlug: Record<string, ApiTokenWithPrice>,
   areTinyTransfersHidden?: boolean,
   alwaysShownSlugs?: string[],
+  blacklistedNftAddresses?: string[],
+  whitelistedNftAddresses?: string[],
 ) {
   return allActivityIds.filter((id) => {
     const activity = byId?.[id];
@@ -490,6 +503,7 @@ function filterActivityIds(
           || !getIsTinyOrScamTransaction(activity, tokensBySlug[activity.slug])
           || alwaysShownSlugs?.includes(activity.slug)
         )
+        && !getIsHiddenNftActivity(activity, blacklistedNftAddresses, whitelistedNftAddresses)
         && !getIsTransactionWithPoisoning(activity);
     }
   });

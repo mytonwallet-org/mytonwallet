@@ -44,14 +44,15 @@ struct TransactionActivityHeader: View {
         Button {
             onTokenTapped?(token)
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            AmountIconRow {
                 let amount = self.amount
                 AmountText(
                     amount: amount,
                     format: .init(
                         preset: .defaultAdaptive,
                         showPlus: shouldShowSign ? transaction.isIncoming : false,
-                        showMinus: shouldShowSign ? !transaction.isIncoming : false
+                        showMinus: shouldShowSign ? !transaction.isIncoming : false,
+                        roundHalfUp: false
                     ),
                     integerFont: .compactRounded(ofSize: 34, weight: .bold),
                     fractionFont: .compactRounded(ofSize: 28, weight: .bold),
@@ -61,12 +62,8 @@ struct TransactionActivityHeader: View {
                     symbolColor: symbolColor
                 )
                 .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
-                
+            } icon: {
                 TokenIconView(token: token, accessorySize: 12)
-                    .frame(width: 28, height: 28)
-                    .alignmentGuide(.firstTextBaseline) { dimensions in
-                        dimensions.height - 5
-                    }
             }
         }
         .buttonStyle(.plain)

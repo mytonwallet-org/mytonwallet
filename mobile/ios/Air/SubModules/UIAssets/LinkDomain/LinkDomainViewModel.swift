@@ -167,7 +167,7 @@ import SwiftNavigation
             realFee: realFee
         )
         if let error = result.error {
-            throw BridgeCallError(message: error, payload: result)
+            throw SdkError.apiReturnedError(error: error, context: result)
         }
         return ApiMfaProtectedResult(
             activityId: result.activityId,
@@ -227,7 +227,7 @@ import SwiftNavigation
                 try await Task.sleep(for: .milliseconds(250))
                 let info = try await Api.getAddressInfo(chain: chain, network: account.network, address: address)
                 if let error = info.error?.nilIfEmpty {
-                    throw BridgeCallError(message: error, payload: nil)
+                    throw SdkError.apiReturnedError(error: error, context: nil)
                 }
                 walletAddressName = info.addressName
                 resolvedWalletAddress = info.resolvedAddress
@@ -269,10 +269,10 @@ import SwiftNavigation
 
     private func resolvedSubmissionAddress(for nft: ApiNft) async throws -> String {
         let address = normalizedWalletAddress
-        guard !address.isEmpty else { throw BridgeCallError.message(.invalidAddress, nil) }
+        guard !address.isEmpty else { throw SdkError.message(.invalidAddress) }
         let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
         if let error = info.error?.nilIfEmpty {
-            throw BridgeCallError(message: error, payload: nil)
+            throw SdkError.apiReturnedError(error: error, context: nil)
         }
         return info.resolvedAddress?.nilIfEmpty ?? address
     }

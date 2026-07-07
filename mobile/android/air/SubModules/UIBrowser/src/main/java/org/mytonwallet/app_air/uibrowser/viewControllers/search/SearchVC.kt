@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchDapp
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchHistoryCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchItemCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchMatchedCell
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchWalletCell
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -31,7 +32,12 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
+import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
@@ -51,12 +57,15 @@ class SearchVC(context: Context) : WViewController(context),
         val SEARCH_DAPP_CELL = WCell.Type(5)
         val SEARCH_MATCH_CELL = WCell.Type(6)
         val GAP_CELL = WCell.Type(7)
+        val SEARCH_WALLET_CELL = WCell.Type(8)
 
-        const val SECTION_MATCH = 0
-        const val SECTION_RECENT_QUERIES = 1
-        const val SECTION_SUGGESTIONS = 2
-        const val SECTION_DAPPS = 3
-        const val SECTION_HISTORY = 4
+        const val SECTION_MY_WALLETS = 0
+        const val SECTION_WALLET = 1
+        const val SECTION_MATCH = 2
+        const val SECTION_RECENT_QUERIES = 3
+        const val SECTION_SUGGESTIONS = 4
+        const val SECTION_DAPPS = 5
+        const val SECTION_HISTORY = 6
 
         const val CLEAR_ALL_BUTTON_TAG = "clearAll"
     }
@@ -84,6 +93,7 @@ class SearchVC(context: Context) : WViewController(context),
                 SEARCH_HISTORY_CELL,
                 SEARCH_DAPP_CELL,
                 SEARCH_MATCH_CELL,
+                SEARCH_WALLET_CELL,
                 GAP_CELL
             )
         )
@@ -154,6 +164,37 @@ class SearchVC(context: Context) : WViewController(context),
         rvAdapter.reloadData()
     }
 
+    private fun openOwnWallet(match: ExploreVM.MyWalletMatch) {
+        val accountId = match.account.accountId
+        if (accountId == org.mytonwallet.app_air.walletcore.stores.AccountStore.activeAccountId) {
+            navigationController?.tabBarController?.switchToFirstTab()
+            navigationController?.popToRoot(false)
+            return
+        }
+        WalletCore.activateAccount(
+            accountId,
+            notifySDK = true,
+            willPopTemporaryPushedWallets = true
+        ) { res, err ->
+            if (res == null || err != null)
+                return@activateAccount
+            WalletCore.notifyEvent(
+                WalletEvent.AccountChangedInApp(persistedAccountsModified = false)
+            )
+            navigationController?.tabBarController?.switchToFirstTab()
+            navigationController?.popToRoot(false)
+        }
+    }
+
+    private fun openWalletInfo(match: ExploreVM.WalletInfoMatch) {
+        navigationController?.popToRoot(false)
+        WalletContextManager.delegate?.get()?.openASingleWallet(
+            match.network,
+            mapOf(match.chain.name to match.inputAddressOrDomain),
+            null
+        )
+    }
+
     private fun openInAppBrowser(config: InAppBrowserConfig) {
         val inAppBrowserVC = InAppBrowserVC(
             context,
@@ -166,7 +207,7 @@ class SearchVC(context: Context) : WViewController(context),
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 5
+        return 7
     }
 
     override fun recyclerViewNumberOfItems(
@@ -174,6 +215,14 @@ class SearchVC(context: Context) : WViewController(context),
         section: Int
     ): Int {
         return when (section) {
+            SECTION_MY_WALLETS -> {
+                if (searchResult?.myWallets.isNullOrEmpty()) 0 else 2 + searchResult!!.myWallets!!.size
+            }
+
+            SECTION_WALLET -> {
+                if (searchResult?.walletInfo == null) 0 else 2
+            }
+
             SECTION_MATCH -> {
                 if (searchResult?.matchedVisitedSite == null) 0 else 2
             }
@@ -212,6 +261,10 @@ class SearchVC(context: Context) : WViewController(context),
     ): WCell.Type {
         if (indexPath.row == 0)
             return when (indexPath.section) {
+                SECTION_WALLET -> {
+                    SEARCH_WALLET_CELL
+                }
+
                 SECTION_MATCH -> {
                     SEARCH_MATCH_CELL
                 }
@@ -229,6 +282,10 @@ class SearchVC(context: Context) : WViewController(context),
         }
 
         return when (indexPath.section) {
+            SECTION_MY_WALLETS -> {
+                SEARCH_WALLET_CELL
+            }
+
             SECTION_RECENT_QUERIES -> {
                 SEARCH_SEARCHED_CELL
             }
@@ -272,9 +329,17 @@ class SearchVC(context: Context) : WViewController(context),
                 })
             }
 
+            SEARCH_WALLET_CELL -> {
+                SearchWalletCell(
+                    context,
+                    onTapOwnWallet = { match -> openOwnWallet(match) },
+                    onTapWalletInfo = { match -> openWalletInfo(match) }
+                )
+            }
+
             RECENT_SEARCH_TITLE_CELL -> {
                 HeaderCell(context).apply {
-                    titleLabel.setStyle(14f, WFont.DemiBold)
+                    titleLabel.setStyle(14f, WFont.Medium)
                     val clearAllButton = object : WLabel(context) {
                         private val ripple = WRippleDrawable.create(20f.dp)
 
@@ -371,17 +436,46 @@ class SearchVC(context: Context) : WViewController(context),
             return
 
         when (indexPath.section) {
+            SECTION_MY_WALLETS -> {
+                if (indexPath.row == 0) {
+                    (cellHolder.cell as HeaderCell).configure(
+                        LocaleController.getString("My"),
+                        titleColor = WColor.Tint,
+                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
+                    )
+                } else {
+                    (cellHolder.cell as SearchWalletCell).configure(
+                        searchResult?.myWallets!![indexPath.row - 1],
+                        indexPath.row == searchResult?.myWallets!!.size
+                    )
+                }
+            }
+
+            SECTION_WALLET -> {
+                (cellHolder.cell as SearchWalletCell).configure(
+                    searchResult?.walletInfo!!,
+                    isLastItem = true
+                )
+            }
+
             SECTION_MATCH -> {
                 (cellHolder.cell as SearchMatchedCell).configure(searchResult?.matchedVisitedSite!!)
             }
 
             SECTION_RECENT_QUERIES -> {
                 if (indexPath.row == 0) {
+                    val isValidDeeplink = searchResult?.keyword?.takeIf { it.isNotBlank() }
+                        ?.let { DeeplinkParser.parse(it.toUri()) } != null
                     (cellHolder.cell as HeaderCell).apply {
                         findViewWithTag<WButton>(CLEAR_ALL_BUTTON_TAG).isGone =
                             searchResult?.noResultsFound == true
                     }.configure(
-                        LocaleController.getString(if (searchResult?.noResultsFound == true) "Search in Google" else "Recent Searches"),
+                        LocaleController.getString(
+                            if (searchResult?.noResultsFound == true)
+                                (if (isValidDeeplink) "Open in App" else "Search in Google")
+                            else
+                                "Recent Searches"
+                        ),
                         titleColor = WColor.Tint,
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
                     )

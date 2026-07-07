@@ -9,7 +9,7 @@ Custom paths:
     python3 mobile/ios/Air/scripts/find_unused_assets.py \
         --assets mobile/ios/Air/SubModules/WalletResources/Resources/Assets.xcassets \
         --scan-root mobile/ios/Air/SubModules \
-        --scan-root mobile/ios/Air/App
+        --scan-root mobile/ios/App
 """
 
 import argparse
@@ -34,7 +34,6 @@ DEFAULT_FILE_EXTENSIONS = (
     "yml",
     "strings",
     "stringsdict",
-    "md",
 )
 DEFAULT_EXCLUDED_DIRS = {
     ".git",
@@ -45,6 +44,11 @@ DEFAULT_EXCLUDED_DIRS = {
     "Carthage",
     "node_modules",
     ".swiftpm",
+    "docs",
+    "Examples",
+    "JS",
+    "public",
+    "Tests",
 }
 
 
@@ -93,7 +97,7 @@ def iter_scan_files(
 
 
 STRING_LITERAL_RE = re.compile(
-    r'"([^"\\]*(?:\\.[^"\\]*)*)"|\'([^\'\\]*(?:\\.[^\'\\]*)*)\''
+    r'"([^"\\\r\n]*(?:\\.[^"\\\r\n]*)*)"|\'([^\'\\\r\n]*(?:\\.[^\'\\\r\n]*)*)\''
 )
 FORMAT_SPECIFIER_RE = re.compile(
     r"%(?:\d+\$)?[-+ #0]*(?:\d+|\*)?(?:\.(?:\d+|\*))?"
@@ -237,7 +241,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Directory to scan for references. Repeat to scan multiple roots. "
-             "Default: mobile/ios/Air.",
+             "Default: mobile/ios/Air, mobile/ios/App, and mobile/ios/Packages.",
     )
     parser.add_argument(
         "--asset-type",
@@ -290,8 +294,15 @@ def main() -> int:
         print(f"Error: assets catalog not found: {assets_path}", file=sys.stderr)
         return 2
 
-    default_scan_root = Path(__file__).resolve().parent.parent
-    scan_roots = args.scan_root or [default_scan_root]
+    script_dir = Path(__file__).resolve().parent
+    air_root = script_dir.parent
+    ios_root = air_root.parent
+    default_scan_roots = [
+        air_root,
+        ios_root / "App",
+        ios_root / "Packages",
+    ]
+    scan_roots = args.scan_root or default_scan_roots
     scan_roots = [path.resolve() for path in scan_roots]
     missing_roots = [path for path in scan_roots if not path.exists() or not path.is_dir()]
     if missing_roots:

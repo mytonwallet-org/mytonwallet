@@ -62,14 +62,15 @@ public class BuyWithCardVC: WViewController {
         if currency == .RUB {
             open(url: model.account.dreamwalkersLink)
         } else {
-            guard let address = model.account.getAddress(chain: model.chain) else { return }
+            guard model.account.getAddress(chain: model.chain) != nil else { return }
+            let addressByChain = model.account.byChain.mapValues { $0.address }
             Task {
                 let activeTheme = ResolvedTheme(traitCollection: traitCollection)
                 do {
                     let url = try await Api.getMoonpayOnrampUrl(
                         params: MoonpayOnrampParams(
                             chain: model.chain,
-                            address: address,
+                            addressByChain: addressByChain,
                             theme: activeTheme,
                             currency: currency
                         )

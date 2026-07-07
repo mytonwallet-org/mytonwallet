@@ -36,7 +36,10 @@ class SwapHelpers {
             val token1 = tokenToSend ?: return false
             val token2 = tokenToReceive ?: return false
 
-            return !token1.isTonOrJetton || !token2.isTonOrJetton
+            val isOnchainSwap = token1.mBlockchain != null &&
+                token1.mBlockchain == token2.mBlockchain &&
+                token1.mBlockchain?.isOnchainSwapSupported == true
+            return !isOnchainSwap
         }
 
         fun calcSwapMaxBalance(

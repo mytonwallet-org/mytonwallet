@@ -77,11 +77,11 @@ final class TokenExpandableContentView: WTouchPassView {
     func configure(token: ApiToken) {
         self.token = token
         iconView.config(with: token, isStaking: false, shouldShowChain: true)
-        let walletTokens = $account.walletTokens
-        let walletToken = walletTokens?.first { $0.tokenSlug == token.slug }
+        let balance = $account.balances[token.slug] ?? 0
+        let balanceAsDouble = balance.doubleAbsRepresentation(decimals: token.decimals)
+        let baseCurrencyValue = balanceAsDouble * (token.price ?? 0)
         balanceModel.token = token
-        balanceModel.balance = walletToken?.balance ?? 0
-        let baseCurrencyValue = walletToken?.toBaseCurrency ?? 0
+        balanceModel.balance = balance
         balanceModel.baseCurrencyAmount = BaseCurrencyAmount.fromDouble(baseCurrencyValue, TokenStore.baseCurrency)
     }
 
@@ -145,6 +145,8 @@ private final class TokenHeaderBalanceModel {
 private struct TokenHeaderBalanceView: View {
     let model: TokenHeaderBalanceModel
 
+    @State private var showsFullBalance = false
+
     private let primaryFontSize: CGFloat = 40
     private var collapseProgress: CGFloat { 1 - model.expansionProgress }
     private var balanceScale: CGFloat { interpolate(from: 1, to: 17.0 / primaryFontSize, progress: collapseProgress) }
@@ -174,7 +176,9 @@ private struct TokenHeaderBalanceView: View {
     private var balanceView: some View {
         if let token = model.token, let balance = model.balance {
             let amount = TokenAmount(balance, token)
-            let decimalsCount = tokenDecimals(for: balance, tokenDecimals: token.decimals)
+            let decimalsCount = showsFullBalance
+                ? token.decimals
+                : tokenDecimals(for: balance, tokenDecimals: token.decimals)
             let fadeDecimals = integerPart(balance, tokenDecimals: token.decimals) >= 10
             AmountText(
                 amount: amount,
@@ -189,6 +193,17 @@ private struct TokenHeaderBalanceView: View {
             .contentTransition(.numericText())
             .lineLimit(1)
             .animation(.default, value: amount.amount)
+            .animation(.default, value: showsFullBalance)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                showsFullBalance.toggle()
+            }
+            .onChange(of: token.slug) { _ in
+                showsFullBalance = false
+            }
+            .onChange(of: balance) { _ in
+                showsFullBalance = false
+            }
             .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 12, theme: .adaptive, cornerRadius: 10)
         } else {
             Color.clear

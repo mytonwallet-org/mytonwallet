@@ -24,7 +24,7 @@ extension ApiUpdate {
             self.promiseId = try container.decode(String.self, forKey: .promiseId)
             self.accountId = try container.decode(String.self, forKey: .accountId)
             self.dapp = try container.decode(ApiDapp.self, forKey: .dapp)
-            self.operationChain = (try? container.decodeIfPresent(ApiChain.self, forKey: .operationChain)) ?? FALLBACK_CHAIN
+            self.operationChain = try container.decode(ApiChain.self, forKey: .operationChain)
             self.payloadToSign = try container.decode(SignDataPayload.self, forKey: .payloadToSign)
         }
     }

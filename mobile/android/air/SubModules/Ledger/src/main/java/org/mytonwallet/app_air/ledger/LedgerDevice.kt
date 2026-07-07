@@ -14,7 +14,8 @@ sealed class LedgerDevice {
         NANO_S_PLUS("nanoSP"),
         NANO_X("nanoX", "nano x"),
         STAX("stax"),
-        EUROPA("europa", "flex");
+        EUROPA("europa", "flex"),
+        APEX("apex");
 
         override fun toString(): String = value
 
@@ -55,6 +56,7 @@ sealed class LedgerDevice {
                         BleDevice.NANOX -> Model.NANO_X
                         BleDevice.STAX -> Model.STAX
                         BleDevice.FLEX -> Model.EUROPA
+                        BleDevice.APEX -> Model.APEX
                         else -> null
                     }
                 }
@@ -73,6 +75,7 @@ sealed class LedgerDevice {
                         BleDevice.NANOX -> "Ledger Nano X"
                         BleDevice.STAX -> "Ledger Stax"
                         BleDevice.FLEX -> "Ledger Flex"
+                        BleDevice.APEX -> "Ledger Nano Gen5"
                         else -> null
                     }
                 }

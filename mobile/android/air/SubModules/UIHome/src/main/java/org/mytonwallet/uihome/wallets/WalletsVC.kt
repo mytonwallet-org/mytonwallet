@@ -699,6 +699,7 @@ class WalletsVC(
                 addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
             }),
             backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            usePillShadow = true,
             onWillDismiss = {
                 cell.isShowingPopup = false
                 highlightOverlayView?.let { highlightOverlayView ->

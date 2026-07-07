@@ -32,6 +32,11 @@ struct DraftData {
     var transactionDraft: ApiCheckTransactionDraftResult?
 }
 
+enum TokenSelectionSource {
+    case automatic
+    case user
+}
+
 @Perceptible @MainActor
 public final class SendModel: Sendable {
     
@@ -59,6 +64,7 @@ public final class SendModel: Sendable {
     var nfts: [ApiNft] = []
 
     let mode: SendMode
+    let isAccountSwitchingAllowed: Bool
 
     let stateInit: String?
     
@@ -70,7 +76,7 @@ public final class SendModel: Sendable {
         // A temporary solution to detect how would (if any) the address be saved
         var saveKey: String?
         switch addressInput.source {
-        case .savedAccount(_, let saveKey1):
+        case .savedAccount(_, let saveKey1, _):
             saveKey = saveKey1
         case .myAccount:
             break
@@ -97,6 +103,7 @@ public final class SendModel: Sendable {
     var maxToSend: TokenAmount? = nil
     
     var draftData: DraftData = .init(status: .none, transactionDraft: nil)
+    var didConfirmDomainScamWarning = false
     
     var explainedFee: ExplainedTransferFee?
     
@@ -130,11 +137,12 @@ public final class SendModel: Sendable {
         return preferredTokenSlug
     }
 
-    init(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
+    init(accountContext: AccountContext, prefilledValues: SendPrefilledValues, isAccountSwitchingAllowed: Bool = false) {
         @Dependency(\.tokenStore) var tokenStore
         
         self._account = accountContext
         self.mode = prefilledValues.mode
+        self.isAccountSwitchingAllowed = isAccountSwitchingAllowed && prefilledValues.mode == .regular
         
         let tokenSlug: String = if let jetton = prefilledValues.jetton?.nilIfEmpty, let tokenSlug = tokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
             tokenSlug
@@ -147,8 +155,15 @@ public final class SendModel: Sendable {
         }
         self._token = TokenProvider(tokenSlug: tokenSlug)
 
-        let suggestionFilterChain = prefilledValues.mode == .burnNft ? nil : prefilledValues.nfts?.first?.chain
-        addressInput = AddressInputModel(account: _account, token: _token, suggestionFilterChain: suggestionFilterChain)
+        let hasExplicitToken = prefilledValues.token?.nilIfEmpty != nil || prefilledValues.jetton?.nilIfEmpty != nil
+        let suggestionChainMode: AddressSuggestionChainMode = if prefilledValues.mode.isNftRelated {
+            .requireCurrentTokenChain
+        } else if hasExplicitToken {
+            .preferCurrentTokenChain
+        } else {
+            .all
+        }
+        addressInput = AddressInputModel(account: _account, token: _token, suggestionChainMode: suggestionChainMode)
 
         do {
             if let address = prefilledValues.address {
@@ -179,6 +194,9 @@ public final class SendModel: Sendable {
         
         addressInput.onScanResult = { [weak self] in
             self?.onScanResult($0)
+        }
+        addressInput.onSuggestionChainSelected = { [weak self] chain in
+            self?.switchToPreferredToken(chain: chain)
         }
         
         setupObservers()
@@ -215,6 +233,7 @@ public final class SendModel: Sendable {
     // MARK: - Check transaction draft
     
     func checkTransactionDraft() {
+        didConfirmDomainScamWarning = false
         checkTransactionDraftTask?.cancel()
         checkTransactionDraftTask = Task {
             let context = makeDraftContext()
@@ -366,8 +385,23 @@ public final class SendModel: Sendable {
         !(isCommentRequired && comment.isEmpty) &&
         (amount ?? 0 > 0 || nfts.count > 0) &&
         !shouldShowMultisigWarning &&
-        !shouldShowGasWarning &&
-        !shouldShowDomainScamWarning
+        !shouldShowGasWarning
+    }
+
+    var isAllowSuspiciousActions: Bool {
+        $account.settings.isAllowSuspiciousActions
+    }
+
+    var shouldConfirmDomainScamWarning: Bool {
+        shouldShowDomainScamWarning && !didConfirmDomainScamWarning
+    }
+
+    func confirmDomainScamWarning() {
+        didConfirmDomainScamWarning = true
+    }
+
+    var isScamRecipient: Bool {
+        draftData.transactionDraft?.isScam == true
     }
     
     var shouldShowMultisigWarning: Bool {
@@ -379,6 +413,9 @@ public final class SendModel: Sendable {
 
     var shouldShowGasWarning: Bool {
         let chain = token.chain
+        if token.isNative && !mode.isNftRelated {
+            return false
+        }
         if !chain.shouldShowScamWarningIfNotEnoughGas {
             return false
         }
@@ -404,6 +441,18 @@ public final class SendModel: Sendable {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         return trimmed.firstMatch(of: DOMAIN_SCAM_REGEX) != nil
+    }
+
+    var domainScamWarningMarkdown: String {
+        lang(
+            "$domain_like_scam_warning",
+            arg1: "[\(lang("$help_center_prepositional"))](\(domainScamHelpUrl.absoluteString))"
+        )
+    }
+
+    var domainScamWarningPlainText: String {
+        lang("$domain_like_scam_warning", arg1: lang("$help_center_prepositional"))
+            .replacingOccurrences(of: "**", with: "")
     }
     
     var seedPhraseScamHelpUrl: URL {
@@ -465,6 +514,34 @@ public final class SendModel: Sendable {
     }
 
     // MARK: - View callbacks
+
+    func onAccountSelected(accountId: String) async throws {
+        guard accountId != account.id else { return }
+
+        try await AccountStore.activateAccount(accountId: accountId)
+
+        resetDraftForAccountChange()
+        $account.accountId = accountId
+        switchToSupportedTokenAfterAccountChangeIfNeeded()
+        updateAccountBalance()
+    }
+
+    private func resetDraftForAccountChange() {
+        checkTransactionDraftTask?.cancel()
+        checkTransactionDraftTask = nil
+        explainedFee = nil
+        draftData = .init(status: .none, transactionDraft: nil)
+        maxToSend = nil
+    }
+
+    private func switchToSupportedTokenAfterAccountChangeIfNeeded() {
+        guard !mode.isNftRelated else { return }
+        guard !account.supports(chain: token.chain) else { return }
+
+        let tokenSlug = Self.getBestToken(accountContext: $account)
+        let newToken = TokenStore.getToken(slug: tokenSlug) ?? account.firstChain.nativeToken
+        onTokenSelected(newToken: account.supports(chain: newToken.chain) ? newToken : account.firstChain.nativeToken)
+    }
     
     func onScanResult(_ result: ScanResult) {
         switch result {
@@ -505,8 +582,28 @@ public final class SendModel: Sendable {
         let nativeToken = TokenStore.tokens[targetChain.nativeToken.slug] ?? targetChain.nativeToken
         onTokenSelected(newToken: nativeToken)
     }
-    
-    func onTokenSelected(newToken: ApiToken) {
+
+    private func switchToPreferredToken(chain: ApiChain) {
+        guard !mode.isNftRelated, account.supports(chain: chain) else {
+            return
+        }
+        onTokenSelected(newToken: preferredToken(chain: chain))
+    }
+
+    private func preferredToken(chain: ApiChain) -> ApiToken {
+        let defaultSlug = ApiToken.defaultSlugs(forNetwork: account.network, account: account)
+            .first { TokenStore.tokens[$0]?.chain == chain }
+        if let defaultSlug, let token = TokenStore.tokens[defaultSlug] {
+            return token
+        }
+        return TokenStore.tokens[chain.nativeToken.slug] ?? chain.nativeToken
+    }
+
+    func onTokenSelected(newToken: ApiToken, source: TokenSelectionSource = .automatic) {
+        if source == .user, !mode.isNftRelated {
+            addressInput.suggestionChainMode = .preferCurrentTokenChain
+        }
+
         let oldDecimals = self.token.decimals
         self.$token.slug = newToken.slug
         

@@ -248,10 +248,10 @@ describe('formatAccountAddresses', () => {
 
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(3);
-        expect(icons[0].props.className).toBe('icon-chain-ton');
-        expect(icons[1].props.className).toBe('icon-chain-tron');
-        expect(icons[2].props.className).toBe('icon-chain-solana');
-        expect(icons.some((icon) => icon.props.className === 'icon-chain-ethereum')).toBe(false);
+        expect(icons[0].props.className).toBe('icon-chain-ethereum');
+        expect(icons[1].props.className).toBe('icon-chain-solana');
+        expect(icons[2].props.className).toBe('icon-chain-ton');
+        expect(icons.some((icon) => icon.props.className === 'icon-chain-tron')).toBe(false);
       });
     });
 
@@ -320,14 +320,14 @@ describe('formatAccountAddresses', () => {
 
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(3);
-        expect(icons[0].props.className).toBe('icon-chain-ton');
-        expect(icons[1].props.className).toBe('icon-chain-tron');
-        expect(icons[2].props.className).toBe('icon-chain-solana');
+        expect(icons[0].props.className).toBe('icon-chain-ethereum');
+        expect(icons[1].props.className).toBe('icon-chain-solana');
+        expect(icons[2].props.className).toBe('icon-chain-ton');
 
         // Only the first two chains render an address; the third is icon-only
         const text = getTextContent(result);
-        expect(text).toContain('···U1V2');
-        expect(text).toContain('···Lj6t');
+        expect(text).toContain('···XXXX');
+        expect(text).toContain('···aaaa');
         expect(text.match(/···/g)).toHaveLength(2);
       });
     });

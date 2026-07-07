@@ -1,5 +1,106 @@
+import Kingfisher
 import UIKit
 import WalletCore
+
+@MainActor
+public final class ToastController {
+
+    private weak var containerView: UIView?
+
+    private var toastView: ToastView?
+    private var toastHider: DispatchWorkItem?
+    private var currentToastIdentity: ToastIdentity?
+
+    /// Note this does not include action handler, because it is not equatable.
+    /// In practice this should be fine - things like this are not going to be updated.
+    private struct ToastIdentity: Equatable {
+        let style: ToastStyle
+        let icon: ToastIcon?
+        let message: String
+        let actionTitle: String?
+    }
+
+    public init(containerView: UIView) {
+        self.containerView = containerView
+    }
+
+    public func showToast(_ config: ToastConfig) {
+        guard let containerView else { return }
+
+        let identity = ToastIdentity(style: config.style, icon: config.icon, message: config.message, actionTitle: config.actionTitle)
+
+        if let toastView {
+            if currentToastIdentity != identity {
+                currentToastIdentity = identity
+                toastView.update(config: config)
+            } else {
+                toastView.replayIcon()
+            }
+            rescheduleToastHider(duration: config.duration)
+            return
+        }
+
+        currentToastIdentity = identity
+
+        let toastView = ToastView(config: config) { [weak self] in
+            self?.toastHider?.perform()
+        }
+        self.toastView = toastView
+
+        toastView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(toastView)
+        NSLayoutConstraint.activate([
+            toastView.bottomAnchor.constraint(equalTo: containerView.keyboardLayoutGuide.topAnchor, constant: -12),
+            toastView.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor, constant: -12).withPriority(.defaultHigh),
+            toastView.leftAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.leftAnchor, constant: 24),
+            toastView.rightAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.rightAnchor, constant: -24),
+        ])
+
+        containerView.layoutIfNeeded()
+
+        switch config.transition {
+        case .fadeIn:
+            UIView.animate(withDuration: 0.3) {
+                self.toastView?.alpha = 1
+                containerView.layoutIfNeeded()
+            }
+        case .floatUp:
+            let hiddenOffset = max(70, toastView.bounds.height + 12 + containerView.safeAreaInsets.bottom)
+            let duration = min(0.8, 0.5 * hiddenOffset / 70)
+            toastView.transform = CGAffineTransform(translationX: 0, y: hiddenOffset).scaledBy(x: 0.9, y: 0.9)
+            UIView.animate(withDuration: duration, delay: 0, usingSpringWithDamping: 0.72, initialSpringVelocity: 0.5,
+                           options: [.allowUserInteraction, .beginFromCurrentState]) {
+                toastView.alpha = 1
+                toastView.transform = .identity
+            }
+        }
+
+        rescheduleToastHider(duration: config.duration)
+    }
+
+    private func rescheduleToastHider(duration: Double) {
+        toastHider?.cancel()
+        let toastHider = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            hideToastView()
+        }
+        self.toastHider = toastHider
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: toastHider)
+    }
+
+    private func hideToastView() {
+        currentToastIdentity = nil
+        guard let toastView else {
+            return
+        }
+        UIView.animate(withDuration: 0.3) {
+            toastView.alpha = 0
+        } completion: { _ in
+            toastView.removeFromSuperview()
+        }
+        self.toastView = nil
+    }
+}
 
 public class ToastView: UIView {
     private var blurView: WBlurView!
@@ -7,7 +108,7 @@ public class ToastView: UIView {
     private var contentView: ToastContentView?
     private var heightConstraint: NSLayoutConstraint!
 
-    init(style: ToastStyle, icon: ToastIcon? = nil, message: String, actionTitle: String?, action: (() -> ())? = nil, dismiss: (() -> ())? = nil) {
+    init(config: ToastConfig, dismiss: (() -> ())? = nil) {
         self.dismiss = dismiss
         super.init(frame: .zero)
         alpha = 0
@@ -23,7 +124,7 @@ public class ToastView: UIView {
         heightAnchor.constraint(greaterThanOrEqualToConstant: 50).isActive = true
         heightConstraint = heightAnchor.constraint(equalToConstant: 50)
 
-        setContent(style: style, icon: icon, message: message, actionTitle: actionTitle, action: action, animated: false)
+        setContent(config: config, animated: false)
     }
     
     required init?(coder: NSCoder) {
@@ -35,21 +136,19 @@ public class ToastView: UIView {
         layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
     }
 
-    func update(style: ToastStyle, icon: ToastIcon?, message: String, actionTitle: String?, action: (() -> ())?) {
-        setContent(style: style, icon: icon, message: message, actionTitle: actionTitle, action: action, animated: true)
+    func update(config: ToastConfig) {
+        setContent(config: config, animated: true)
     }
 
     func replayIcon() {
         contentView?.replayIcon()
     }
 
-    private func setContent(style: ToastStyle, icon: ToastIcon?, message: String, actionTitle: String?,
-                            action: (() -> ())?, animated: Bool) {
-        let cornerRadius: CGFloat = style == .large ? 25 : 16
+    private func setContent(config: ToastConfig, animated: Bool) {
+        let cornerRadius: CGFloat = config.style == .large ? 25 : 16
 
         let oldContent = contentView
-        let newContent = ToastContentView(style: style, icon: icon, message: message, actionTitle: actionTitle,
-                                          action: action, dismiss: dismiss)
+        let newContent = ToastContentView(config: config, dismiss: dismiss)
         newContent.translatesAutoresizingMaskIntoConstraints = false
         if let oldContent {
             insertSubview(newContent, belowSubview: oldContent)
@@ -107,13 +206,12 @@ private final class ToastContentView: UIView {
     private let dismiss: (() -> ())?
     private weak var iconSticker: WAnimatedSticker?
 
-    init(style: ToastStyle, icon: ToastIcon?, message: String, actionTitle: String?,
-         action: (() -> ())?, dismiss: (() -> ())?) {
-        self.action = action
+    init(config: ToastConfig, dismiss: (() -> ())?) {
+        self.action = config.action
         self.dismiss = dismiss
         super.init(frame: .zero)
         backgroundColor = .clear
-        build(style: style, icon: icon, message: message, actionTitle: actionTitle)
+        build(style: config.style, icon: config.icon, message: config.message, actionTitle: config.actionTitle)
     }
 
     required init?(coder: NSCoder) {
@@ -193,6 +291,28 @@ private final class ToastContentView: UIView {
                     imageView.widthAnchor.constraint(equalToConstant: iconSize),
                     imageView.heightAnchor.constraint(equalToConstant: iconSize),
                 ]
+
+            case .networkImage(let url):
+                let imageImageSize = iconSize - 8
+                let imageView = UIImageView()
+                imageView.contentMode = .scaleAspectFill
+                imageView.clipsToBounds = true
+                imageView.layer.cornerRadius = 8
+                imageView.layer.cornerCurve = .continuous
+                imageView.translatesAutoresizingMaskIntoConstraints = false
+                iconView.addSubview(imageView)
+                constraints += [
+                    imageView.centerXAnchor.constraint(equalTo: iconView.centerXAnchor, constant: 4),
+                    imageView.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
+                    imageView.widthAnchor.constraint(equalToConstant: imageImageSize),
+                    imageView.heightAnchor.constraint(equalToConstant: imageImageSize),
+                ]
+                imageView.kf.setImage(with: url, options: [
+                    .transition(.fade(0.15)),
+                    .alsoPrefetchToMemory,
+                    .cacheOriginalImage,
+                ])
+                leftContentInsets += 8
             }
         } else {
             leftContentInsets += standAloneLabelInsets

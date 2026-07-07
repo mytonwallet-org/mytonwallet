@@ -39,7 +39,7 @@ class PasscodeHeaderSendView(
 
     private val tokenToSendTextView = WLabel(context).apply {
         textAlignment = TEXT_ALIGNMENT_CENTER
-        typeface = WFont.NunitoExtraBold.typeface
+        typeface = WFont.Balance.typeface
         setTextColor(WColor.PrimaryText)
         includeFontPadding = false
     }
@@ -51,6 +51,9 @@ class PasscodeHeaderSendView(
         setPaddingDp(8, 2, 8, 2)
         includeFontPadding = false
     }
+
+    private var titleTopMarginWithIcon = 0
+    private var baseVerticalPadding = 0
 
     init {
         orientation = VERTICAL
@@ -107,6 +110,7 @@ class PasscodeHeaderSendView(
         val scaledSubtitleTopMargin = (subtitleTopMargin * scale).toInt()
 
         val scaledPaddingVertical = (paddingVertical * scale).toInt()
+        baseVerticalPadding = scaledPaddingVertical
 
         setPadding(
             paddingHorizontal,
@@ -128,9 +132,10 @@ class PasscodeHeaderSendView(
             TypedValue.COMPLEX_UNIT_PX,
             scaledTitleLineHeight.toFloat()
         )
+        titleTopMarginWithIcon = scaledTitleTopMargin
         tokenToSendTextView.layoutParams = LayoutParams(
             LayoutParams.MATCH_PARENT,
-            scaledTitleLineHeight
+            LayoutParams.WRAP_CONTENT
         ).apply {
             topMargin = scaledTitleTopMargin
         }
@@ -197,7 +202,15 @@ class PasscodeHeaderSendView(
         rounding.let {
             tokenToSendIconView.defaultRounding = Content.Rounding.Radius(12f.dp)
         }
-        tokenToSendIconView.set(content)
+        val hasIcon = content.image !is Content.Image.Empty
+        tokenToSendIconView.visibility = if (hasIcon) VISIBLE else GONE
+        if (hasIcon) tokenToSendIconView.set(content)
+        val verticalPadding = if (hasIcon) baseVerticalPadding else baseVerticalPadding + 20.dp
+        setPadding(paddingLeft, verticalPadding, paddingRight, verticalPadding)
+        (tokenToSendTextView.layoutParams as? LayoutParams)?.let {
+            it.topMargin = if (hasIcon) titleTopMarginWithIcon else 0
+            tokenToSendTextView.layoutParams = it
+        }
         tokenToSendTextView.text = title
         sendingTextView.text = subtitle
         sendingTextView.movementMethod =

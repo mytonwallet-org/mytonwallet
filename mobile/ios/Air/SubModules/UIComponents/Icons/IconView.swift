@@ -11,11 +11,44 @@ import WalletCore
 import WalletContext
 import Kingfisher
 
+private let log = Log("IconView")
+private let stockTokenCornerRadiusRatio: CGFloat = 0.3
+
 public class IconView: UIView {
     private static let labelFont = UIFont.systemFont(ofSize: 20, weight: .semibold)
     private static let tokenPlaceholderTextColor = UIColor.air.secondaryLabel
     private static let tokenPlaceholderBorderColor = UIColor.air.secondaryLabel.withAlphaComponent(0.5)
     private static let tokenLoadingPlaceholderColor = UIColor.air.secondaryLabel.withAlphaComponent(0.08)
+
+    private enum IconShape {
+        case circle
+        case roundedSquare
+        case rectangle
+
+        func cornerRadius(for size: CGFloat) -> CGFloat {
+            switch self {
+            case .circle:
+                size / 2
+            case .roundedSquare:
+                size * stockTokenCornerRadiusRatio
+            case .rectangle:
+                0
+            }
+        }
+
+        func maskPath(in rect: CGRect, cornerRadius: CGFloat) -> CGPath {
+            switch self {
+            case .circle:
+                return UIBezierPath(ovalIn: rect).cgPath
+            case .roundedSquare:
+                return RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .path(in: rect)
+                    .cgPath
+            case .rectangle:
+                return CGPath(rect: rect, transform: nil)
+            }
+        }
+    }
     
     private(set) public var imageView: UIImageView!
         
@@ -37,9 +70,11 @@ public class IconView: UIView {
     private var gradientChainCutoutMask: CAShapeLayer?
     private var chainAccessoryMaskContextIconGeometry: IconAccessoryView.LayoutGeometry? = nil
     private var chainAccessoryMaskContextSize: CGFloat? = nil
+    private var chainAccessoryMaskContextCornerRadius: CGFloat? = nil
     private let chainAccessoryView: IconAccessoryView
     
     private var resolveGradientColors: (() -> [CGColor]?)?
+    private var iconShape: IconShape = .circle
     
     private var cachedActivityId: String?
     private var cachedAccountAvatarURL: URL?
@@ -86,6 +121,7 @@ public class IconView: UIView {
         imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.layer.cornerRadius = 20
+        imageView.layer.cornerCurve = .continuous
         imageView.layer.masksToBounds = true
         imageView.tintAdjustmentMode = .normal
         addSubview(imageView)
@@ -100,6 +136,7 @@ public class IconView: UIView {
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
         gradientLayer.cornerRadius = 20
+        gradientLayer.cornerCurve = .continuous
         gradientLayer.masksToBounds = true
         layer.insertSublayer(gradientLayer, at: 0)
 
@@ -198,6 +235,7 @@ public class IconView: UIView {
         gradientChainCutoutMask = nil
         chainAccessoryMaskContextIconGeometry = nil
         chainAccessoryMaskContextSize = nil
+        chainAccessoryMaskContextCornerRadius = nil
     }
         
     private func updateChainAccessoryMask(geometry: IconAccessoryView.LayoutGeometry? = nil,
@@ -209,15 +247,19 @@ public class IconView: UIView {
         }
         
         let lg = geometry ?? chainAccessoryView.layoutGeometry
-        let shouldUpdateMask = chainAccessoryMaskContextSize != size || chainAccessoryMaskContextIconGeometry != lg
+        let iconCornerRadius = self.iconCornerRadius
+        let shouldUpdateMask = chainAccessoryMaskContextSize != size ||
+            chainAccessoryMaskContextIconGeometry != lg ||
+            chainAccessoryMaskContextCornerRadius != iconCornerRadius
         chainAccessoryMaskContextIconGeometry = lg
         chainAccessoryMaskContextSize = size
+        chainAccessoryMaskContextCornerRadius = iconCornerRadius
         let area = CGRect.square(size)
         let radius = lg.fullSize / 2
         let centerIn = CGPoint(x: area.width + lg.horizontalOffset - radius, y: area.height + lg.verticalOffset - radius)
 
         func buildPath() -> CGPath {
-            let p = UIBezierPath(ovalIn: area)
+            let p = UIBezierPath(cgPath: iconShape.maskPath(in: area, cornerRadius: iconCornerRadius))
             p.append(UIBezierPath(ovalIn: CGRect(
                 x: centerIn.x - radius,
                 y: centerIn.y - radius,
@@ -274,6 +316,7 @@ public class IconView: UIView {
     }
 
     public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false) {
+        applyIconShape(.circle)
         resetAccountAvatarState()
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
@@ -346,11 +389,12 @@ public class IconView: UIView {
             updateChainAccessoryMask()
         }
         
-        resetAccountAvatarState()
         let tokenSlug = token?.slug
         let tokenImageURL = token?.image?.nilIfEmpty
         let tokenChanged = cachedTokenSlug != tokenSlug
         let imageChanged = cachedTokenImageURL != tokenImageURL
+        let shouldCancelAccountImageLoad = cachedAccountAvatarURL != nil || accountAvatarState == .loading
+        resetAccountAvatarState(cancelDownload: shouldCancelAccountImageLoad)
         cachedTokenSlug = tokenSlug
         cachedTokenImageURL = tokenImageURL
         if tokenChanged || imageChanged {
@@ -364,7 +408,7 @@ public class IconView: UIView {
         smallLabelTop.text = nil
         smallLabelBottom.text = nil
         imageView.tintColor = nil
-        imageView.layer.cornerRadius = size / 2
+        applyIconShape(token?.isRwaStock == true ? .roundedSquare : .circle)
         resolveGradientColors = nil
         gradientLayer.colors = nil
         gradientLayer.isHidden = true
@@ -398,6 +442,7 @@ public class IconView: UIView {
             updateChainAccessoryMask()
         }
 
+        applyIconShape(.circle)
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
         currentAccountPlaceholder = account
@@ -442,6 +487,7 @@ public class IconView: UIView {
     }
     
     public func config(with earnHistoryItem: MStakingHistoryItem) {
+        applyIconShape(.circle)
         resetAccountAvatarState()
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
@@ -458,6 +504,7 @@ public class IconView: UIView {
     }
     
     public func config(with image: UIImage?, tintColor: UIColor? = nil) {
+        applyIconShape(.rectangle)
         resetAccountAvatarState()
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
@@ -466,7 +513,6 @@ public class IconView: UIView {
         hideTokenPlaceholder()
         imageView.image = image
         imageView.contentMode = .center
-        imageView.layer.cornerRadius = 0
         imageView.tintColor = tintColor
         resolveGradientColors = nil
         gradientLayer.colors = nil
@@ -514,8 +560,7 @@ public class IconView: UIView {
         self.gradientLayer.frame = self.bounds
         self.imageView.frame = self.bounds
         
-        self.imageView.layer.cornerRadius = size / 2
-        self.gradientLayer.cornerRadius = size / 2
+        applyIconShape(iconShape)
 
         if size >= 80 {
             largeLabel.font = UIFont.roundedNative(ofSize: 32, weight: .bold)
@@ -536,6 +581,18 @@ public class IconView: UIView {
         
         updateTokenPlaceholderAppearance()
         updateChainAccessoryMask()
+    }
+
+    private var iconCornerRadius: CGFloat {
+        iconShape.cornerRadius(for: size)
+    }
+
+    private func applyIconShape(_ shape: IconShape) {
+        iconShape = shape
+        let cornerRadius = iconCornerRadius
+        imageView.layer.cornerRadius = cornerRadius
+        gradientLayer.cornerRadius = cornerRadius
+        updateTokenPlaceholderAppearance()
     }
         
     public func setChainSize(_ size: CGFloat, borderWidth: CGFloat, horizontalOffset: CGFloat, verticalOffset: CGFloat) {
@@ -654,8 +711,10 @@ public class IconView: UIView {
         DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: workItem)
     }
 
-    private func resetAccountAvatarState() {
-        imageView.kf.cancelDownloadTask()
+    private func resetAccountAvatarState(cancelDownload: Bool = true) {
+        if cancelDownload {
+            imageView.kf.cancelDownloadTask()
+        }
         currentAccountPlaceholder = nil
         cachedAccountAvatarURL = nil
         accountAvatarState = .none
@@ -676,6 +735,12 @@ public class IconView: UIView {
 
         switch tokenImageState {
         case .loaded:
+            guard imageView.image != nil else {
+                log.error("token icon loaded state missing image slug=\(token.slug, .public) symbol=\(token.symbol, .public) url=\(url.absoluteString, .public)")
+                tokenImageState = .none
+                configureTokenImage(token: token, tokenChanged: tokenChanged, imageChanged: imageChanged)
+                return
+            }
             hideTokenLoadingPlaceholder()
             hideTokenPlaceholder()
         case .failed:
@@ -688,9 +753,12 @@ public class IconView: UIView {
             hideTokenPlaceholder()
             tokenImageState = .loading
             showTokenLoadingPlaceholder()
-            let options: KingfisherOptionsInfo = (tokenChanged || imageChanged)
-                ? [.transition(.fade(0.2)), .alsoPrefetchToMemory, .cacheOriginalImage]
-                : [.transition(.fade(0.2)), .keepCurrentImageWhileLoading, .alsoPrefetchToMemory, .cacheOriginalImage]
+            let options = Self.tokenImageOptions(
+                url: url,
+                tokenImageURL: token.image?.nilIfEmpty,
+                tokenChanged: tokenChanged,
+                imageChanged: imageChanged
+            )
             let tokenSlug = token.slug
             let tokenImageURL = token.image?.nilIfEmpty
             imageView.kf.setImage(with: url, placeholder: nil, options: options) { [weak self] result in
@@ -702,6 +770,7 @@ public class IconView: UIView {
                     self.hideTokenPlaceholder()
                 case .failure(let error):
                     guard !error.isTaskCancelled else { return }
+                    log.error("token icon image load failed slug=\(token.slug, .public) symbol=\(token.symbol, .public) url=\(url.absoluteString, .public) error=\(error, .public)")
                     self.tokenImageState = .failed
                     self.hideTokenLoadingPlaceholder()
                     self.showTokenPlaceholder(for: token)
@@ -738,14 +807,49 @@ public class IconView: UIView {
         tokenPlaceholderLabel.font = UIFont.roundedNative(ofSize: max(10, size * 0.45), weight: .bold)
         tokenPlaceholderBorderLayer.lineWidth = max(1, size * 0.025)
         tokenPlaceholderBorderLayer.strokeColor = Self.tokenPlaceholderBorderColor.cgColor
-        tokenPlaceholderBorderLayer.path = UIBezierPath(
-            ovalIn: bounds.insetBy(dx: tokenPlaceholderBorderLayer.lineWidth / 2, dy: tokenPlaceholderBorderLayer.lineWidth / 2)
-        ).cgPath
+        let lineInset = tokenPlaceholderBorderLayer.lineWidth / 2
+        tokenPlaceholderBorderLayer.path = iconShape.maskPath(
+            in: bounds.insetBy(dx: lineInset, dy: lineInset),
+            cornerRadius: max(0, iconCornerRadius - lineInset)
+        )
     }
 
     private static func validTokenImageURL(from string: String?) -> URL? {
         guard let string, let url = URL(string: string), url.scheme?.nilIfEmpty != nil else { return nil }
         return url
+    }
+
+    private static func tokenImageOptions(
+        url: URL,
+        tokenImageURL: String?,
+        tokenChanged: Bool,
+        imageChanged: Bool
+    ) -> KingfisherOptionsInfo {
+        var options: KingfisherOptionsInfo = [
+            .transition(.fade(0.2)),
+            .alsoPrefetchToMemory,
+            .cacheOriginalImage,
+        ]
+        if !(tokenChanged || imageChanged) {
+            options.append(.keepCurrentImageWhileLoading)
+        }
+        if isSVGImageURL(url, originalString: tokenImageURL) {
+            options.append(.processor(SVGImageProcessor.default))
+        }
+        return options
+    }
+
+    private static func isSVGImageURL(_ url: URL, originalString: String?) -> Bool {
+        if url.pathExtension.lowercased() == "svg" {
+            return true
+        }
+
+        guard url.scheme?.lowercased() == "data",
+              let originalString,
+              originalString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("data:image/svg+xml") else {
+            return false
+        }
+        return true
     }
 
     private static func tokenInitials(from name: String) -> String {

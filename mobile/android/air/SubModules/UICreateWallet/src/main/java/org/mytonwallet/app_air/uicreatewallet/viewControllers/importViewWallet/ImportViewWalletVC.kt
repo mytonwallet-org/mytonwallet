@@ -76,7 +76,7 @@ class ImportViewWalletVC(
     }
 
     val titleLabel = WLabel(context).apply {
-        setStyle(28f, WFont.SemiBold)
+        setStyle(28f, WFont.Medium)
         text = LocaleController.getString("View Mode") + network.localizedIdentifier
         gravity = Gravity.CENTER
         setTextColor(WColor.PrimaryText)

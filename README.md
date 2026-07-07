@@ -1,6 +1,6 @@
 # **My Wallet** · [mywallet.io](https://mywallet.io)
 
-**All you need to enjoy crypto.** A safe, self-custodial **multichain wallet** for [**TON**](https://ton.org), [**TRON**](https://trondao.org/), and [**Solana**](https://solana.com/) — native mobile (iOS & Android), desktop, web, and **Telegram Mini App**. One account, any device.
+**All you need to enjoy crypto.** A safe, self-custodial **multichain wallet** for 11 blockchains, including [**Ethereum**](https://ethereum.org/), [**Solana**](https://solana.com/), [**Hyperliquid**](https://hyperliquid.xyz/), [**TON**](https://ton.org), [**TRON**](https://trondao.org/), [**Base**](https://base.org/), and more — native mobile (iOS & Android), desktop, web, and **Telegram Mini App**. One account, any device.
 
 <img src="https://mywallet.io/img/og-image.png" width="600" alt="My Wallet — All You Need to Enjoy Crypto" />
 
@@ -11,7 +11,7 @@ You keep full control: we **do not** have access to your funds, keys, or data. *
 ## Why **My Wallet**?
 
 **🌐 One wallet for everything**  
-Keep TON, TRON, and Solana in one place. You can send, receive, and swap across chains without jumping between different apps.
+Keep Ethereum, Solana, Hyperliquid, TON, TRON, Base, BNB Chain, Polygon, Avalanche, Arbitrum, and Monad in one place. You can send, receive, and swap across chains without jumping between different apps.
 
 **📱 Use it wherever you are**  
 **My Wallet** works as a native mobile app, desktop app, web app, Telegram Mini App, and browser extension for all major browsers, so your wallet is always within reach.
@@ -29,7 +29,7 @@ Send supported tokens on TON and Solana without holding native gas tokens, with 
 Buy crypto with a bank card and withdraw back to card where supported, via providers like MoonPay.
 
 **🔄 Smart swaps**  
-Swap inside the app with an aggregator that finds efficient routes across TON, TRON, and Solana.
+Swap inside the app with an aggregator that finds efficient routes across supported chains.
 
 **📊 Portfolio tracking**  
 Follow your portfolio and net worth over time in the base fiat currency you choose.

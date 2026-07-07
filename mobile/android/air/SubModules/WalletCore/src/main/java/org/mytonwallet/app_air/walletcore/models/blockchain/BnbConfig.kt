@@ -17,6 +17,7 @@ object BnbConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_bnb_light
 
     override val qrIcon = null
+    override val displayColor = "#F39D08".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#6A6218".toColorInt(),
         "#644C1A".toColorInt(),

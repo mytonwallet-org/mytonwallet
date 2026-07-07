@@ -86,6 +86,15 @@ enum PortfolioGraphKind: String {
             return true
         }
     }
+
+    var yAxisRepresentsBaseCurrency: Bool {
+        switch self {
+        case .totalValue, .totalPnl, .dailyPnl:
+            return true
+        case .portfolioShare:
+            return false
+        }
+    }
 }
 
 struct PortfolioChartTileCellConfiguration {
@@ -108,6 +117,7 @@ struct PortfolioChartTileCellConfiguration {
     let state: State
     let isRefreshing: Bool
     let fadesCurrentData: Bool
+    let hidesVerticalAxisLabels: Bool
     let onLimitedHistoryTap: (() -> Void)?
 }
 
@@ -219,7 +229,10 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         let wasShowingChart = isShowingChart
         isShowingChart = configuration.state.isChart
 
-        apply(state: configuration.state)
+        apply(
+            state: configuration.state,
+            hidesVerticalAxisLabels: configuration.hidesVerticalAxisLabels
+        )
 
         if isShowingChart && (!wasShowingChart || pendingChartFadeIn) {
             pendingChartFadeIn = false
@@ -419,7 +432,10 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         retryButton.configuration = retryConfiguration
     }
 
-    private func apply(state: PortfolioChartTileCellConfiguration.State) {
+    private func apply(
+        state: PortfolioChartTileCellConfiguration.State,
+        hidesVerticalAxisLabels: Bool
+    ) {
         chartView.isHidden = true
         loadingStack.isHidden = true
         errorStack.isHidden = true
@@ -441,7 +457,12 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             noDataLabel.isHidden = false
         case .chart(let presentation, let kind, let pieVisible):
             chartView.isHidden = false
-            configureChart(presentation: presentation, kind: kind, pieVisible: pieVisible)
+            configureChart(
+                presentation: presentation,
+                kind: kind,
+                pieVisible: pieVisible,
+                hidesVerticalAxisLabels: hidesVerticalAxisLabels
+            )
         }
     }
 
@@ -460,7 +481,12 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         }
     }
 
-    private func configureChart(presentation: PortfolioGraphKitAdapter.ChartPresentation, kind: PortfolioGraphKind, pieVisible: Bool?) {
+    private func configureChart(
+        presentation: PortfolioGraphKitAdapter.ChartPresentation,
+        kind: PortfolioGraphKind,
+        pieVisible: Bool?,
+        hidesVerticalAxisLabels: Bool
+    ) {
         let signature = "\(kind.rawValue):\(presentation.json)"
         
         let isNewSignature = chartSignature != signature
@@ -475,6 +501,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             if let pieController = controller as? PercentPieChartController {
                 pieController.keepsFullRangePreviewWhenZoomed = kind.keepsFullRangePreviewWhenZoomed
             }
+            controller.hidesVerticalAxisLabels = hidesVerticalAxisLabels
             applyDetailsPresentation(presentation, to: controller)
 
             UIView.performWithoutAnimation {
@@ -492,6 +519,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
 
         if let chartController {
             let chartStrings = makePortfolioChartStrings()
+            chartController.hidesVerticalAxisLabels = hidesVerticalAxisLabels
             applyDetailsPresentation(presentation, to: chartController)
             chartView.apply(
                 themeProvider: makePortfolioChartTheme(for:),

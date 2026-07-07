@@ -4,9 +4,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let changellyWaitingDeadline: TimeInterval = 3 * 60 * 60
-private let changellySupportEmail = "support@changelly.com"
-private let changellyLiveChatURL = "https://changelly.com/"
+private let cexWaitingDeadline: TimeInterval = 3 * 60 * 60
 
 struct CrosschainToWalletPayment: Equatable {
     let sellingAmount: TokenAmount
@@ -15,6 +13,10 @@ struct CrosschainToWalletPayment: Equatable {
     let payoutAddress: String
     let payinExtraId: String?
     let exchangerTxId: String
+    let cexLabel: ApiSwapCexLabel?
+    let providerName: String?
+    let supportUrl: String?
+    let supportEmail: String?
     let createdAt: Date
     let cexStatus: ApiSwapCexTransactionStatus?
     let isInternalSwap: Bool
@@ -28,12 +30,13 @@ struct CrosschainToWalletPayment: Equatable {
     }
 
     var expireDate: Date {
-        createdAt.addingTimeInterval(changellyWaitingDeadline)
+        createdAt.addingTimeInterval(cexWaitingDeadline)
     }
 
     var hasMemo: Bool {
         payinExtraId?.nilIfEmpty != nil
     }
+
 
     var transferUrl: String {
         sellingToken.chain.config.formatTransferUrl?(payinAddress, nil, nil, nil) ?? payinAddress
@@ -111,7 +114,7 @@ struct CrosschainToWalletView: View {
     private var paymentHeader: some View {
         Text(
             lang(
-                "$swap_changelly_to_wallet_description1",
+                "$swap_cex_to_wallet_description",
                 arg1: DecimalAmount.fromDouble(payment.amount, payment.sellingToken).formatted(.none),
                 arg2: payment.sellingToken.chain.config.title,
                 arg3: remainingText
@@ -169,7 +172,9 @@ struct CrosschainToWalletView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(Color.air.error)
             }
-            supportText
+            if hasSupport {
+                supportText
+            }
             transactionID
         }
         .padding(16)
@@ -236,45 +241,44 @@ struct CrosschainToWalletView: View {
     private var transactionID: some View {
         if !payment.exchangerTxId.isEmpty {
             copyableField(
-                label: lang("Transaction ID"),
+                label: payment.providerName?.nilIfEmpty.map { lang("Swap ID for %provider%", arg1: $0) } ?? lang("Swap ID"),
                 value: payment.exchangerTxId,
-                copyMessage: lang("Transaction ID Copied"),
+                copyMessage: lang("Swap ID Copied"),
                 isCentered: false
             )
         }
     }
 
+    private var hasSupport: Bool {
+        payment.providerName?.nilIfEmpty != nil
+            && (
+                URL.sanitizedHttpUrl(from: payment.supportUrl) != nil
+                    || URL.sanitizedMailtoUrl(email: payment.supportEmail) != nil
+            )
+    }
+
     private var supportText: some View {
-        let supportRaw = lang(
-            "$swap_changelly_support",
-            arg1: lang("Changelly Live Chat"),
-            arg2: changellySupportEmail
-        )
-        let parsed = (try? NSAttributedString(markdown: supportRaw)) ?? NSAttributedString(string: supportRaw)
-        let attr = NSMutableAttributedString(attributedString: parsed)
-        let fullRange = NSRange(location: 0, length: attr.length)
-        attr.addAttributes([
-            .font: UIFont.systemFont(ofSize: 13),
-            .foregroundColor: UIColor.air.secondaryLabel
-        ], range: fullRange)
-
-        addLink(
-            to: attr,
-            text: lang("Changelly Live Chat"),
-            url: changellyLiveChatURL
-        )
-        addLink(
-            to: attr,
-            text: changellySupportEmail,
-            url: "mailto:\(changellySupportEmail)"
-        )
-        let transactionIdRange = (attr.string as NSString).range(of: lang("Transaction ID"))
-        if transactionIdRange.location != NSNotFound {
-            attr.addAttribute(.font, value: UIFont.systemFont(ofSize: 13, weight: .semibold), range: transactionIdRange)
+        let supportLabel = lang("$swap_cex_provider_support", arg1: payment.providerName?.nilIfEmpty ?? "")
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(LocalizedStringKey(lang(
+                "$swap_cex_support",
+                arg1: markdownLink(text: supportLabel, url: URL.sanitizedHttpUrl(from: payment.supportUrl))
+            )))
+                .lineSpacing(3)
+            if let emailLink = URL.sanitizedMailtoLink(email: payment.supportEmail) {
+                Text(lang("Email"))
+                Text(LocalizedStringKey(markdownLink(text: emailLink.email, url: emailLink.url)))
+            }
         }
+        .font(.system(size: 13))
+        .foregroundStyle(Color.air.secondaryLabel)
+    }
 
-        return Text(attr)
-            .lineSpacing(3)
+    private func markdownLink(text: String, url: URL?) -> String {
+        guard let url else {
+            return text
+        }
+        return "[\(text)](\(url.absoluteString))"
     }
 
     private var remainingText: String {
@@ -332,14 +336,6 @@ struct CrosschainToWalletView: View {
         Haptics.play(.lightTap)
     }
 
-    private func addLink(to attr: NSMutableAttributedString, text: String, url: String) {
-        let range = (attr.string as NSString).range(of: text)
-        guard range.location != NSNotFound else { return }
-        attr.addAttribute(.foregroundColor, value: UIColor.tintColor, range: range)
-        attr.addAttribute(.font, value: UIFont.systemFont(ofSize: 13, weight: .semibold), range: range)
-        attr.addAttribute(.link, value: url, range: range)
-    }
-
     private func shareQRCode() {
         guard let (_, generator) = generateQrCode(
             string: payment.transferUrl,
@@ -347,11 +343,11 @@ struct CrosschainToWalletView: View {
             backgroundColor: .white,
             icon: .custom(.airBundleOptional("chain_\(payment.sellingToken.chain.rawValue)"))
         ) else { return }
-        
+
         let imageSize = CGSize(width: 768.0, height: 768.0)
         let context = generator(TransformImageArguments(corners: ImageCorners(), imageSize: imageSize, boundingSize: imageSize, intrinsicInsets: UIEdgeInsets(), scale: 1.0))
         guard let qrImage = context?.generateImage() else { return }
-        
+
         guard let topVC = topViewController() else { return }
         let activityController = UIActivityViewController(activityItems: [qrImage], applicationActivities: nil)
         topVC.presentActivityViewController(activityController)

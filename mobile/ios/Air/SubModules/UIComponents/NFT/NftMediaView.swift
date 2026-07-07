@@ -58,6 +58,15 @@ public final class NftMediaView: UIView {
         }
     }
 
+    public var disablesAnimationPlaybackInLowPowerMode: Bool {
+        get {
+            self.animationView.disablesPlaybackInLowPowerMode
+        }
+        set {
+            self.animationView.disablesPlaybackInLowPowerMode = newValue
+        }
+    }
+
     public var hasPlayableAnimation: Bool {
         self.animationURL != nil
     }
@@ -150,22 +159,25 @@ public final class NftMediaView: UIView {
             || self.nft?.metadata?.lottie != nft?.metadata?.lottie
     }
 
-    public func playAnimationOnce() {
-        guard self.hasPlayableAnimation else {
-            return
+    @discardableResult
+    public func playAnimationOnce() -> Bool {
+        guard self.hasPlayableAnimation,
+              !self.animationView.isPlaybackDisabledInLowPowerMode else {
+            self.shouldPlayAnimationWhenReady = false
+            return false
         }
 
         self.shouldPlayAnimationWhenReady = true
         self.updateAnimationRenderingScale()
 
         guard self.isAnimationAvailable else {
-            return
+            return true
         }
 
         self.isAnimationPlaybackInFlight = true
         self.shouldPlayAnimationWhenReady = false
         self.updateAnimationVisibility()
-        self.animationView.playOnce { [weak self] in
+        let didStartPlayback = self.animationView.playOnce { [weak self] in
             guard let self else {
                 return
             }
@@ -174,6 +186,11 @@ public final class NftMediaView: UIView {
             self.isAnimationPlaybackInFlight = false
             self.updateAnimationVisibility()
         }
+        if !didStartPlayback {
+            self.isAnimationPlaybackInFlight = false
+            self.updateAnimationVisibility()
+        }
+        return didStartPlayback
     }
 
     public func stopAnimationPlayback() {

@@ -26,7 +26,7 @@ final class ClaimRewardsModel {
     @PerceptionIgnored
     weak var viewController: UIViewController?
     @PerceptionIgnored
-    private var claimRewardsError: BridgeCallError?
+    private var claimRewardsError: (any Error)?
     @PerceptionIgnored
     private var observeToken: ObserveToken?
     @PerceptionIgnored
@@ -82,7 +82,7 @@ final class ClaimRewardsModel {
                             realFee: getFee(.claimJettons).real
                         )
                     } catch {
-                        self?.claimRewardsError = .customMessage("\(error)", nil)
+                        self?.claimRewardsError = error
                         throw error
                     }
                 },
@@ -98,7 +98,7 @@ final class ClaimRewardsModel {
             onDone()
         } catch is CancellationError {
         } catch {
-            self.claimRewardsError = .customMessage("\(error)", nil)
+            self.claimRewardsError = error
             onDone()
         }
     }

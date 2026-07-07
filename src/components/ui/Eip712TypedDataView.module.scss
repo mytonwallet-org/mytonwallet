@@ -1,0 +1,79 @@
+@use '../../styles/mixins';
+
+$fieldGap: 1.25rem;
+$labelGap: 0.375rem;
+$labelLineHeight: 1.125rem;
+$labelSidePadding: 0.5rem;
+
+.label {
+  cursor: text;
+
+  display: block;
+
+  margin: 0 $labelSidePadding $labelGap;
+
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: $labelLineHeight;
+  color: var(--color-gray-2);
+}
+
+.payloadField {
+  flex-shrink: 0;
+
+  @include mixins.payloadField();
+}
+
+.typedBlock {
+  margin-bottom: $fieldGap;
+}
+
+.struct {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.fieldName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+  overflow-wrap: anywhere;
+}
+
+.fieldValue {
+  min-width: 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+  overflow-wrap: anywhere;
+}
+
+.array {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.arrayItem {
+  display: flex;
+  gap: 0.375rem;
+  align-items: baseline;
+}
+
+.arrayIndex {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-gray-2);
+}

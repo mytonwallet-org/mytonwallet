@@ -18,6 +18,7 @@ import com.facebook.drawee.interfaces.DraweeController
 import com.facebook.imagepipeline.request.ImageRequest
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.ContentGradientDrawable
+import org.mytonwallet.app_air.uicomponents.drawable.InitialsDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setRounding
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -29,6 +30,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MToken
+import androidx.core.graphics.drawable.toDrawable
 
 // TODO:: Merge with WCustomImageView
 open class WZoomableImageView @JvmOverloads constructor(
@@ -161,7 +163,10 @@ open class WZoomableImageView @JvmOverloads constructor(
     override fun updateTheme() {
         val content = this.content ?: return
         val placeholder = getPlaceholderMode(content)
-        if (placeholder is Content.Placeholder.Color || content.image is Content.Image.Gradient) {
+        if (placeholder is Content.Placeholder.Color ||
+            placeholder is Content.Placeholder.Initials ||
+            content.image is Content.Image.Gradient
+        ) {
             hierarchy = buildHierarchy(content)
         }
         invalidate()
@@ -207,6 +212,10 @@ open class WZoomableImageView @JvmOverloads constructor(
             is Content.Rounding.Default -> throw IllegalArgumentException()
             is Content.Rounding.Round -> RoundingParams.asCircle()
             is Content.Rounding.Radius -> RoundingParams.fromCornersRadius(rounding.radius)
+            is Content.Rounding.RadiusRatio -> {
+                val size = minOf(measuredWidth, measuredHeight).toFloat()
+                RoundingParams.fromCornersRadius(size * rounding.ratio)
+            }
         }
     }
 
@@ -225,13 +234,14 @@ open class WZoomableImageView @JvmOverloads constructor(
                     content.image.key.gradientColors,
                     drawable
                 ).apply {
-                    setRounding(getRoundingMode(content))
+                    setContentRounding(getRoundingMode(content))
                 }
             }
 
             else -> when (val placeholder = getPlaceholderMode(content)) {
                 is Content.Placeholder.Default -> throw IllegalArgumentException()
-                is Content.Placeholder.Color -> ColorDrawable(placeholder.color.color)
+                is Content.Placeholder.Color -> placeholder.color.color.toDrawable()
+                is Content.Placeholder.Initials -> InitialsDrawable(placeholder.text)
             }
         }
     }

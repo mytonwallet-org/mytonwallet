@@ -1,10 +1,7 @@
+import Kingfisher
 import UIKit
 
 struct NftDetailsImage {
-
-    static func errorPlaceholderImage() -> UIImage {
-        UIImage.airBundle("NftError2")
-    }
 
     static func noImagePlaceholderImage() -> UIImage {
         UIImage.airBundle("NoNftImage2")
@@ -46,5 +43,15 @@ struct NftDetailsImage {
             if case .loaded = self { return true }
             return false
         }
+    }
+}
+
+extension KingfisherError {
+    var isNotFound: Bool {
+        if case .responseError(let reason) = self,
+           case .invalidHTTPStatusCode(let response) = reason {
+            return response.statusCode == 404
+        }
+        return false
     }
 }

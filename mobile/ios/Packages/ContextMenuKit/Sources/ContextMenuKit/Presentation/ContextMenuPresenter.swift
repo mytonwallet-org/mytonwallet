@@ -11,14 +11,18 @@ enum ContextMenuPresenter {
         guard let window = sourceView.window else {
             return nil
         }
+        let configuration = configuration.resolved(for: sourceView)
         let resolvedPresentationReference = presentationReference ?? ContextMenuPresentationReference.from(view: sourceView)
+        let sourceUserInterfaceStyle = ContextMenuVisuals.resolvedUserInterfaceStyle(for: sourceView.traitCollection)
         let overlayView = ContextMenuOverlayView(
             configuration: configuration,
             sourceRectInWindow: resolvedPresentationReference.anchorRectInWindow,
+            appearanceSourceView: sourceView,
             portalSourceView: resolvedPresentationReference.portalSourceView,
             portalMaskRectInWindow: resolvedPresentationReference.portalMaskRectInWindow,
             portalMask: resolvedPresentationReference.portalMask,
-            portalShowsBackdropCutout: resolvedPresentationReference.portalShowsBackdropCutout
+            portalShowsBackdropCutout: resolvedPresentationReference.portalShowsBackdropCutout,
+            sourceUserInterfaceStyle: sourceUserInterfaceStyle
         )
         overlayView.frame = window.bounds
         overlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]

@@ -679,6 +679,17 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 57;
   }
+  if (cached.stateVersion === 57) {
+    // Net Change was replaced by PnL Change
+    if (cached.portfolio) {
+      delete (cached.portfolio as any).netChangeByAccountId;
+    }
+    cached.stateVersion = 58;
+  }
+  if (cached.stateVersion === 58) {
+    clearActivities();
+    cached.stateVersion = 59;
+  }
   // When adding migration here, increase `STATE_VERSION`
 }
 
@@ -846,14 +857,14 @@ function reduceByAccountId(global: GlobalState) {
 }
 
 function reducePortfolio(portfolio: PortfolioState, accountIds: string[]): PortfolioState {
-  const netChangeByAccountId = portfolio.netChangeByAccountId
-    ? pick(portfolio.netChangeByAccountId, accountIds)
+  const pnlChangeByAccountId = portfolio.pnlChangeByAccountId
+    ? pick(portfolio.pnlChangeByAccountId, accountIds)
     : undefined;
 
   return {
     activeRange: portfolio.activeRange,
-    netChangeByAccountId: netChangeByAccountId && !isEmptyObject(netChangeByAccountId)
-      ? netChangeByAccountId
+    pnlChangeByAccountId: pnlChangeByAccountId && !isEmptyObject(pnlChangeByAccountId)
+      ? pnlChangeByAccountId
       : undefined,
   };
 }

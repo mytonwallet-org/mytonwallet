@@ -1,14 +1,13 @@
 import React, { memo, useMemo, useState } from '../../lib/teact/teact';
 
-import type { ApiActivity } from '../../api/types';
+import type { ApiActivity, ApiSwapCexLabel } from '../../api/types';
 import type { Account, UserSwapToken } from '../../global/types';
 
-import {
-  CHANGELLY_LIVE_CHAT_URL, CHANGELLY_SUPPORT_EMAIL, CHANGELLY_WAITING_DEADLINE,
-} from '../../config';
+import { CEX_WAITING_DEADLINE } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle, getIsSupportedChain } from '../../util/chain';
 import { formatCurrencyExtended } from '../../util/formatNumber';
+import { getCexExternalExchangeId } from '../../util/swap/cex';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import { getIsInternalSwap } from '../../util/swap/getSwapType';
 
@@ -17,6 +16,7 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useQrCode from '../../hooks/useQrCode';
 
+import CexSupportText from '../common/CexSupportText';
 import Countdown from '../common/Countdown';
 import SwapTokensInfo from '../common/SwapTokensInfo';
 import Button from '../ui/Button';
@@ -27,6 +27,12 @@ import Transition from '../ui/Transition';
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Swap.module.scss';
 
+const cexSupportClassNames = {
+  description: styles.cexDescription,
+  descriptionBold: styles.cexDescriptionBold,
+  supportContact: styles.cexSupportContact,
+};
+
 interface OwnProps {
   isActive: boolean;
   tokenIn?: UserSwapToken;
@@ -36,6 +42,8 @@ interface OwnProps {
   payinAddress?: string;
   payoutAddress?: string;
   payinExtraId?: string;
+  isManualDepositRequired?: boolean;
+  cexLabel?: ApiSwapCexLabel;
   activity?: ApiActivity;
   accountChains?: Account['byChain'];
   onClose: NoneToVoidFunction;
@@ -50,6 +58,7 @@ function SwapWaitTokens({
   payinAddress,
   payoutAddress,
   payinExtraId,
+  isManualDepositRequired,
   activity,
   accountChains,
   onClose,
@@ -71,7 +80,7 @@ function SwapWaitTokens({
   const isInternalSwap = getIsInternalSwap({
     from: tokenIn, to: tokenOut, toAddress: payoutAddress, accountChains,
   });
-
+  const shouldShowDepositInstructions = !isInternalSwap || isManualDepositRequired;
   useHistoryBack({
     isActive,
     onBack: onClose,
@@ -94,7 +103,7 @@ function SwapWaitTokens({
           copyNotification={lang('Memo Copied')}
           noSavedAddress
           noExplorer
-          className={styles.changellyTextField}
+          className={styles.cexTextField}
         />
       </div>
     );
@@ -102,49 +111,32 @@ function SwapWaitTokens({
 
   function renderInfo() {
     if (isExpired) {
-      const cexTransactionId = activity && 'cex' in activity ? activity.cex?.transactionId : undefined;
+      const cex = activity && 'cex' in activity ? activity.cex : undefined;
+      const externalExchangeId = getCexExternalExchangeId(cex);
 
       return (
-        <div className={styles.changellyInfoBlock}>
-          <span className={styles.changellyImportantRed}>
+        <div className={styles.cexInfoBlock}>
+          <span className={styles.cexImportantRed}>
             {lang('The time for sending coins is over.')}
           </span>
-          <span className={styles.changellyDescription}>
-            {lang('$swap_changelly_support', {
-              livechat: (
-                <a
-                  href={CHANGELLY_LIVE_CHAT_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.changellyDescriptionBold}
-                >
-                  {lang('Changelly Live Chat')}
-                </a>
-              ),
-              email: (
-                <span className={styles.changellyDescriptionBold}>
-                  {CHANGELLY_SUPPORT_EMAIL}
-                </span>
-              ),
-            })}
-          </span>
-          {cexTransactionId && (
+          <CexSupportText cex={cex} classNames={cexSupportClassNames} />
+          {externalExchangeId && (
             <InteractiveTextField
-              text={cexTransactionId}
-              copyNotification={lang('Transaction ID Copied')}
+              text={externalExchangeId}
+              copyNotification={lang('External Exchange ID Copied')}
               noSavedAddress
               noExplorer
-              className={styles.changellyTextField}
+              className={styles.cexTextField}
             />
           )}
         </div>
       );
     }
 
-    if (isInternalSwap) {
+    if (!shouldShowDepositInstructions) {
       return (
-        <div className={styles.changellyInfoBlock}>
-          <span className={styles.changellyDescription}>
+        <div className={styles.cexInfoBlock}>
+          <span className={styles.cexDescription}>
             {lang('Please note that it may take up to a few hours for tokens to appear in your wallet.')}
           </span>
         </div>
@@ -154,22 +146,22 @@ function SwapWaitTokens({
     const chain = getIsSupportedChain(tokenIn?.chain) ? tokenIn.chain : undefined;
 
     return (
-      <div className={styles.changellyInfoBlock}>
-        <span className={styles.changellyDescription}>{lang('$swap_changelly_to_wallet_description1', {
+      <div className={styles.cexInfoBlock}>
+        <span className={styles.cexDescription}>{lang('$swap_cex_to_wallet_description', {
           value: (
-            <span className={styles.changellyDescriptionBold}>
+            <span className={styles.cexDescriptionBold}>
               {formatCurrencyExtended(Number(amountIn), tokenIn?.symbol ?? '', true)}
             </span>
           ),
           blockchain: (
-            <span className={styles.changellyDescriptionBold}>
+            <span className={styles.cexDescriptionBold}>
               {getChainNetworkName(tokenIn?.chain)}
             </span>
           ),
           time: (
             <Countdown
               timestamp={timestamp}
-              deadline={CHANGELLY_WAITING_DEADLINE}
+              deadline={CEX_WAITING_DEADLINE}
               onCompleted={handleTimeout}
             />
           ),
@@ -182,13 +174,13 @@ function SwapWaitTokens({
           noSavedAddress
           noExplorer
           noDimming
-          className={styles.changellyTextField}
+          className={styles.cexTextField}
         />
         {renderMemo()}
         {shouldShowQrCode && (
           <div className={buildClassName(styles.qrCode, !isInitialized && styles.qrCodeHidden)} ref={qrCodeRef} />
         )}
-        <span className={styles.changellyDescription}>
+        <span className={styles.cexDescription}>
           {lang('Please note that it may take up to a few hours for tokens to appear in your wallet.')}
         </span>
       </div>
@@ -198,7 +190,7 @@ function SwapWaitTokens({
   return (
     <>
       <ModalHeader
-        title={lang(isExpired ? 'Swap Expired' : (isInternalSwap ? 'Swapping' : 'Waiting for Payment'))}
+        title={lang(isExpired ? 'Swap Expired' : (shouldShowDepositInstructions ? 'Waiting for Payment' : 'Swapping'))}
         onClose={onClose}
       />
 

@@ -21,6 +21,48 @@ struct CrosschainSwapEstimateResult {
     }
 }
 
+func crosschainNetworkFeeDraftAmount(
+    sellingToken: ApiToken,
+    isMaxAmount: Bool,
+    account: SwapAccountSnapshot
+) -> BigInt? {
+    guard isMaxAmount, sellingToken.isNative, sellingToken.chain.isEvm else {
+        return nil
+    }
+    return account.balances[sellingToken.slug]
+}
+
+func crosschainAdjustedNativeMaxAmount(
+    sellingToken: ApiToken,
+    swapType: SwapType,
+    isMaxAmount: Bool,
+    account: SwapAccountSnapshot,
+    networkFee: MDouble?
+) -> BigInt? {
+    guard
+        swapType != .crosschainToWallet,
+        isMaxAmount,
+        sellingToken.isNative,
+        let tokenBalance = account.balances[sellingToken.slug],
+        let networkFee
+    else {
+        return nil
+    }
+
+    return getMaxSwapAmount(.init(
+        swapType: swapType,
+        tokenBalance: tokenBalance,
+        tokenIn: sellingToken,
+        fullNetworkFee: .init(
+            token: nil,
+            native: networkFee.bigintAmount(decimals: sellingToken.decimals),
+            stars: nil
+        ),
+        ourFeePercent: 0,
+        maxAmountFromBackend: nil
+    ))
+}
+
 @MainActor struct CrosschainSwapEstimateEngine {
     func estimate(
         _ input: SwapEstimateInput,
@@ -29,33 +71,71 @@ struct CrosschainSwapEstimateResult {
         account: SwapAccountSnapshot
     ) async throws -> CrosschainSwapEstimateResult {
         try await loadEstimate(
+            input,
             changedFrom: changedFrom,
-            selling: input.selling,
-            buying: input.buying,
             swapType: swapType,
-            isMaxAmount: input.isMaxAmount,
             account: account
         )
     }
 
     private func loadEstimate(
+        _ input: SwapEstimateInput,
         changedFrom: SwapSide,
-        selling: TokenAmount,
-        buying: TokenAmount,
         swapType: SwapType,
-        isMaxAmount: Bool,
         account: SwapAccountSnapshot
     ) async throws -> CrosschainSwapEstimateResult {
         guard changedFrom == .selling else {
-            throw BridgeCallError.customMessage("Cross-chain reverse estimation is not supported", nil)
+            throw SdkError.unexpected(message: "Cross-chain reverse estimation is not supported")
         }
         do {
+            let selling = input.selling
+            let buying = input.buying
+            var requestAmount = selling.amount
+            var networkFee: MDouble?
+            var realNetworkFee: MDouble?
+
+            if swapType != .crosschainToWallet, input.isMaxAmount, selling.token.isNative {
+                let feeDraftAmount = crosschainNetworkFeeDraftAmount(
+                    sellingToken: selling.token,
+                    isMaxAmount: input.isMaxAmount,
+                    account: account
+                )
+                if let feeData = try? await fetchNetworkFee(
+                    sellingToken: selling.token,
+                    account: account,
+                    amount: feeDraftAmount
+                ) {
+                    networkFee = feeData.networkFee
+                    realNetworkFee = feeData.realNetworkFee
+                    if let adjustedMaxAmount = crosschainAdjustedNativeMaxAmount(
+                        sellingToken: selling.token,
+                        swapType: swapType,
+                        isMaxAmount: input.isMaxAmount,
+                        account: account,
+                        networkFee: feeData.networkFee
+                    ) {
+                        requestAmount = adjustedMaxAmount
+                    }
+                }
+                try Task.checkCancellation()
+            }
+
+            guard let fromAmount = MDouble.forBigInt(abs(requestAmount), decimals: selling.token.decimals) else {
+                throw SdkError.unexpected(message: "Invalid swap amount")
+            }
+            let fromAddress = account.getAddress(chain: selling.token.chain)
+            let toAddress = account.getAddress(chain: buying.token.chain)
+            let shouldForceChangelly = swapType == .crosschainToWallet && fromAddress == nil
             let options = ApiSwapCexEstimateOptions(
                 from: selling.token.swapIdentifier,
                 to: buying.token.swapIdentifier,
-                fromAmount: String(selling.amount.doubleAbsRepresentation(decimals: selling.token.decimals))
+                fromAmount: fromAmount,
+                fromAddress: fromAddress,
+                toAddress: toAddress,
+                cexLabel: shouldForceChangelly ? .changelly : input.cexLabel,
+                isFromAmountMax: input.isMaxAmount ? true : nil
             )
-            let estimate = try await Api.swapCexEstimate(swapEstimateOptions: options)
+            let estimate = try await Api.swapCexEstimate(accountId: account.id, swapEstimateOptions: options)
             try Task.checkCancellation()
 
             guard var swapEstimate = estimate else {
@@ -67,18 +147,19 @@ struct CrosschainSwapEstimateResult {
             }
 
             if swapType != .crosschainToWallet {
-                if let feeData = try? await fetchNetworkFee(sellingToken: selling.token, account: account) {
-                    swapEstimate.networkFee = feeData.networkFee
-                    swapEstimate.realNetworkFee = feeData.realNetworkFee
+                if networkFee == nil, realNetworkFee == nil {
+                    if let feeData = try? await fetchNetworkFee(
+                        sellingToken: selling.token,
+                        account: account,
+                        amount: nil
+                    ) {
+                        networkFee = feeData.networkFee
+                        realNetworkFee = feeData.realNetworkFee
+                    }
+                    try Task.checkCancellation()
                 }
-                try Task.checkCancellation()
-                adjustNativeMaxAmountIfNeeded(
-                    &swapEstimate,
-                    selling: selling,
-                    swapType: swapType,
-                    isMaxAmount: isMaxAmount,
-                    account: account
-                )
+                swapEstimate.networkFee = networkFee
+                swapEstimate.realNetworkFee = realNetworkFee
             }
 
             let resolvedSelling = TokenAmount(
@@ -148,13 +229,14 @@ struct CrosschainSwapEstimateResult {
 
     private func fetchNetworkFee(
         sellingToken: ApiToken,
-        account: SwapAccountSnapshot
+        account: SwapAccountSnapshot,
+        amount: BigInt?
     ) async throws -> (networkFee: MDouble?, realNetworkFee: MDouble?) {
         let chain = sellingToken.chain
         let options = ApiCheckTransactionDraftOptions(
             accountId: account.id,
             toAddress: getChainConfig(chain: chain).feeCheckAddress,
-            amount: nil,
+            amount: amount,
             payload: nil,
             stateInit: nil,
             tokenAddress: sellingToken.tokenAddress,
@@ -165,37 +247,6 @@ struct CrosschainSwapEstimateResult {
         let networkFee = draft.fullNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
         let realNetworkFee = draft.realNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
         return (networkFee, realNetworkFee)
-    }
-
-    private func adjustNativeMaxAmountIfNeeded(
-        _ swapEstimate: inout ApiSwapCexEstimateResponse,
-        selling: TokenAmount,
-        swapType: SwapType,
-        isMaxAmount: Bool,
-        account: SwapAccountSnapshot
-    ) {
-        guard
-            isMaxAmount,
-            selling.token.isNative,
-            let networkFee = swapEstimate.networkFee,
-            let tokenBalance = account.balances[selling.token.slug],
-            let maxAmount = getMaxSwapAmount(.init(
-                swapType: swapType,
-                tokenBalance: tokenBalance,
-                tokenIn: selling.token,
-                fullNetworkFee: .init(
-                    token: nil,
-                    native: doubleToBigInt(networkFee.value, decimals: selling.token.decimals),
-                    stars: nil
-                ),
-                ourFeePercent: 0,
-                maxAmountFromBackend: nil
-            ))
-        else {
-            return
-        }
-
-        swapEstimate.fromAmount = MDouble.forBigInt(maxAmount, decimals: selling.token.decimals) ?? swapEstimate.fromAmount
     }
 
     private func mapEstimateError(_ error: Error) -> SwapIssue {

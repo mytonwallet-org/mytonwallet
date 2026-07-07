@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import ContextMenuKit
 import WalletCore
 import WalletContext
 import SwiftUI
@@ -23,14 +24,18 @@ public struct AccountListCell: View {
     var isReordering: Bool
     var showCurrentAccountHighlight: Bool
     var showBalance: Bool
+    var addressLineSuffix: String?
+    var isDimmed: Bool
     
     @State private var _isReordering = false
     
-    public init(accountContext: AccountContext, isReordering: Bool, showCurrentAccountHighlight: Bool, showBalance: Bool = true) {
+    public init(accountContext: AccountContext, isReordering: Bool, showCurrentAccountHighlight: Bool, showBalance: Bool = true, addressLineSuffix: String? = nil, isDimmed: Bool = false) {
         self.accountContext = accountContext
         self.isReordering = isReordering
         self.showCurrentAccountHighlight = showCurrentAccountHighlight
         self.showBalance = showBalance
+        self.addressLineSuffix = addressLineSuffix
+        self.isDimmed = isDimmed
     }
     
     static let topRowHeight: CGFloat = 22
@@ -54,7 +59,7 @@ public struct AccountListCell: View {
                             CardMiniature(accountContext: accountContext)
                         }
                         .frame(height: Self.topRowHeight)
-                        ListAddressLine(addressLine: accountContext.addressLine)
+                        ListAddressLine(addressLine: accountContext.addressLine, suffix: addressLineSuffix)
                             .lineLimit(1)
                             .foregroundStyle(Color.air.secondaryLabel)
                             .frame(height: Self.bottomRowHeight)
@@ -85,6 +90,7 @@ public struct AccountListCell: View {
                     _isReordering = isReordering
                 }
             }
+            .opacity(isDimmed ? 0.5 : 1)
         }
     }
     
@@ -132,14 +138,29 @@ private struct ListBalanceView: View {
 private struct ListAddressLine: View {
     
     var addressLine: MAccount.AddressLine
+    var suffix: String?
     
     var body: some View {
-        MtwCardAddressLine(addressLine: addressLine, style: .list, gradient: nil)
+        let style = MtwCardAddressLine.Style.list
+        HStack(spacing: 4) {
+            MtwCardAddressLine(addressLine: addressLine, style: style, gradient: nil)
+            if let suffix {
+                Text("·")
+                Text(suffix)
+            }
+        }
+        .font(style.font)
     }
 }
 
 public extension AccountListCell {
-    static func makeRegistration(showBalance: Bool = true, normalBackground: Color = .air.groupedItem, showCurrentAccountHighlight: Bool = true) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
+    @MainActor
+    static func makeRegistration(
+        showBalance: Bool = true,
+        normalBackground: Color = .air.groupedItem,
+        showCurrentAccountHighlight: Bool = true,
+        contextMenuConfigurationProvider: (@MainActor (String) -> ContextMenuConfiguration)? = nil
+    ) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
         UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
             let accountContext = AccountContext(accountId: accountId)
             cell.configurationUpdateHandler = { cell, state in
@@ -157,6 +178,21 @@ public extension AccountListCell {
                 }
                 .margins(.horizontal, 12)
                 .margins(.vertical, 10)
+            }
+
+            if let contextMenuConfigurationProvider {
+                let interaction = ContextMenuInteraction(
+                    triggers: [.longPress],
+                    sourcePortal: ContextMenuSourcePortal(
+                        mask: .roundedAttachmentRect(cornerRadius: 26)
+                    ),
+                    pressAnimation: .default(transformMode: .sublayerTransform)
+                ) { _ in
+                    contextMenuConfigurationProvider(accountId)
+                }
+                cell.setAccountContextMenuInteraction(interaction)
+            } else {
+                cell.setAccountContextMenuInteraction(nil)
             }
         }
     }

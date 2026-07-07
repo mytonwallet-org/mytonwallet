@@ -74,7 +74,7 @@ enum WalletSetupResult {
         topWViewController()?.dismiss(animated: true, completion: {
             Task { @MainActor in
                 let model = await LedgerAddAccountModel()
-                let vc = LedgerAddAccountVC(model: model, showBackButton: true)
+                let vc = LedgerAddAccountVC(model: model)
                 let hadExistingAccounts = !AccountStore.accountsById.isEmpty
                 vc.onDone = { vc in
                     self.onDone(
@@ -173,7 +173,9 @@ enum WalletSetupResult {
     func onOpenWallet() {
         Task { @MainActor in
             if WalletContextManager.delegate?.isWalletReady == true {
-                topWViewController()?.dismiss(animated: true)
+                // Allow the underlying UI to switch to the wallet screen silently
+                try? await Task.sleep(for: .seconds(0.35))
+                
                 AppActions.showHome(popToRoot: true)
             } else {
                 AppActions.transitionToRootState(.active, animationDuration: 0.35)
@@ -190,7 +192,7 @@ enum WalletSetupResult {
         if let biometricsEnabled { // nil if not first wallet
             AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
         }
-        self.onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, accountIds: accounts.map { $0.id })
+        onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, accountIds: accounts.map { $0.id })
     }
     
     private func _importWallet(words: [String], passcode: String, biometricsEnabled: Bool?) async throws {

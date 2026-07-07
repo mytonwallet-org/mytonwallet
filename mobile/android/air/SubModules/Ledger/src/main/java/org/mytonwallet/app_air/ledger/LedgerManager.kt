@@ -50,6 +50,7 @@ object LedgerManager : WalletCore.EventObserver {
     fun init(applicationContext: Context) {
         LedgerBleManager.init(applicationContext)
         LedgerUsbManager.init(applicationContext)
+        WalletCore.unregisterObserver(this)
         WalletCore.registerObserver(this)
     }
 

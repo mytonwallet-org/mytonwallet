@@ -379,6 +379,7 @@ export type ApiWalletInfo = {
   seqno: number;
   lastTxId?: string;
   domain?: string;
+  interface?: string;
 };
 
 export type ApiWalletWithVersionInfo = ApiWalletInfo & Required<Pick<ApiWalletInfo, 'version'>> & {
@@ -427,6 +428,54 @@ export type ApiWalletVariant<T extends ApiChain> = {
   balance: bigint;
   metadata: ApiWalletVariantMetadata;
 };
+
+export type ApiTonPlugin = {
+  address: string;
+  name?: string;
+  balance: bigint;
+  isInitialized: boolean;
+};
+
+export type ApiTokenApproval = {
+  kind: 'approval';
+  chain: ApiChain;
+  tokenAddress: string;
+  tokenSlug: string;
+  tokenName: string;
+  tokenSymbol: string;
+  tokenDecimals: number;
+  tokenImage?: string;
+  spenderAddress: string;
+  spenderName?: string;
+  spenderIcon?: string;
+  allowance: string; // bigint serialized as decimal string
+  isUnlimited: boolean;
+};
+
+export type ApiEvmDelegation = {
+  kind: 'delegation';
+  chain: ApiChain;
+  delegateAddress: string;
+  delegateName?: string;
+  delegateIcon?: string;
+};
+
+export type ApiWalletPermission = ApiTokenApproval | ApiEvmDelegation;
+
+export type ApiRevokeWalletPermissionOptions = {
+  accountId: string;
+  password?: string;
+} & (
+  | {
+    kind: 'approval';
+    tokenAddress: string;
+    spenderAddress: string;
+  }
+  | {
+    kind: 'delegation';
+    delegateAddress: string;
+  }
+);
 
 export type ApiGroupedWalletVariant = {
   index: number;

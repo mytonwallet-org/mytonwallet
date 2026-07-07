@@ -17,6 +17,10 @@ class MFee(
     val networkTerms: MFeeTerms? = null
 ) {
 
+    companion object {
+        private const val ZERO_COUNT_SUBSCRIPT_MIN_COUNT = 5
+    }
+
     val isNativeOnly: Boolean
         get() = (terms.token ?: BigInteger.ZERO) == BigInteger.ZERO
             && (terms.stars ?: BigInteger.ZERO) == BigInteger.ZERO
@@ -29,14 +33,16 @@ class MFee(
                 token.nativeToken!!.decimals,
                 token.nativeToken!!.symbol,
                 native.smartDecimalsCount(token.nativeToken!!.decimals),
-                false
+                false,
+                zeroCountSubscriptMinCount = ZERO_COUNT_SUBSCRIPT_MIN_COUNT
             )
         } ?: terms.native?.takeIf { it > BigInteger.ZERO }?.let { native ->
             result += native.toString(
                 token.nativeToken!!.decimals,
                 token.nativeToken!!.symbol,
                 native.smartDecimalsCount(token.nativeToken!!.decimals),
-                false
+                false,
+                zeroCountSubscriptMinCount = ZERO_COUNT_SUBSCRIPT_MIN_COUNT
             )
         }
 
@@ -49,7 +55,8 @@ class MFee(
                     token.decimals,
                     token.symbol ?: "",
                     tokenAmount.smartDecimalsCount(token.decimals),
-                    false
+                    false,
+                    zeroCountSubscriptMinCount = ZERO_COUNT_SUBSCRIPT_MIN_COUNT
                 ) + result
             }
 

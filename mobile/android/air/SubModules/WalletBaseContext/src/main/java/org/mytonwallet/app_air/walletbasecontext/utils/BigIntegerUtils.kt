@@ -4,7 +4,10 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import java.math.BigInteger
 
 const val decimalSeparator = '.'
-const val thinSpace = '\u2009'
+
+// Six-per-em space; the rounded balance font (Google Sans Flex) draws the thin space
+// (U+2009) at just 0.06em, while U+2006 renders ~0.167em consistently in all fonts.
+const val thinSpace = '\u2006'
 const val signSpace = '\u200A'
 
 fun max(a: BigInteger, b: BigInteger): BigInteger {
@@ -34,7 +37,8 @@ fun BigInteger.toString(
     currencyDecimals: Int,
     showPositiveSign: Boolean,
     forceCurrencyToRight: Boolean = false,
-    roundUp: Boolean = true
+    roundUp: Boolean = true,
+    zeroCountSubscriptMinCount: Int? = 5
 ): String {
     val scale = BigInteger.TEN.pow(decimals)
     val absValue = abs()
@@ -71,7 +75,9 @@ fun BigInteger.toString(
         sb.setLength(i + 1)
     }
 
-    var result = sb.toString().insertGroupingSeparator()
+    var result = sb.toString()
+        .applyZeroCountSubscript(zeroCountSubscriptMinCount)
+        .insertGroupingSeparator()
 
     // Add sign
     val isNegative = this < BigInteger.ZERO
@@ -94,6 +100,34 @@ fun BigInteger.toString(
     }
 
     return result
+}
+
+private val subscriptDigits =
+    arrayOf('₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉')
+
+private fun Int.toSubscriptString(): String {
+    return toString().map { subscriptDigits[it.digitToInt()] }.joinToString("")
+}
+
+// Collapse leading fractional zeros into a subscript count, e.g. "0.0000056" -> "0.0₅56".
+// Only applies when the value starts with "0." and has at least [minZeroCount] leading zeros.
+private fun String.applyZeroCountSubscript(minZeroCount: Int?): String {
+    if (minZeroCount == null || minZeroCount <= 0 || !startsWith("0$decimalSeparator")) {
+        return this
+    }
+
+    var zeroCount = 0
+    var index = 2
+    while (index < length && this[index] == '0') {
+        zeroCount++
+        index++
+    }
+
+    if (zeroCount < minZeroCount || index >= length) {
+        return this
+    }
+
+    return "0${decimalSeparator}0${zeroCount.toSubscriptString()}${substring(index)}"
 }
 
 fun BigInteger.smartDecimalsCount(tokenDecimals: Int): Int {

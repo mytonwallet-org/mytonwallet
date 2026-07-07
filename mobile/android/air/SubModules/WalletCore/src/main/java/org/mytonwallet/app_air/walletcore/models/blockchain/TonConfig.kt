@@ -11,6 +11,9 @@ object TonConfig : MBlockchainConfig {
         maxTransferToken = BigDecimal("0.06")
     )
 
+    override val nativeIcon: Int
+        get() = org.mytonwallet.app_air.icons.R.drawable.ic_token_gram
+
     override val symbolIcon = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_ton
 
     override val symbolIconPadded = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_ton_15
@@ -19,6 +22,7 @@ object TonConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_ton_light
 
     override val qrIcon = null
+    override val displayColor = "#2C92F0".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#158AA0".toColorInt(),
         "#13499C".toColorInt(),
@@ -28,6 +32,8 @@ object TonConfig : MBlockchainConfig {
 
     override val isCommentSupported = true
     override val isEncryptedCommentSupported = true
+    override val isOnchainSwapSupported = true
+    override val canSwapByBuyAmount = true
 
     override val burnAddress = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"
     override val multiWalletSupport = MultiWalletSupport.VERSION

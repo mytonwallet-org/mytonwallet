@@ -6,7 +6,6 @@ import WalletContext
 
 private let log = Log("DappMessageHandler")
 private let badRequestMessage = "Bad request"
-private let externalUrlSchemes = Set(["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", SELF_PROTOCOL_SCHEME])
 
 private enum InAppBrowserFunctionResponseStatus: String, Encodable {
     case fulfilled
@@ -113,24 +112,25 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
     }
 
     private func makeDappRequest(accountId: String?) -> ApiDappRequest? {
-        guard let accountId, let origin = config.url.origin else { return nil }
+        guard let accountId,
+              let origin = resolveDappRequestOrigin(configURL: config.url, webViewURL: webView?.url) else { return nil }
         let urlTrustStatus: ApiDappUrlTrustStatus? = (webView?.hasOnlySecureContent).map { $0 ? .verified : .unknown }
         return ApiDappRequest(url: origin, urlTrustStatus: urlTrustStatus, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
     }
 
     private func handleWindowOpen(_ url: URL) {
-        if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
+        switch resolveInAppBrowserWindowOpenUrlRouting(url) {
+        case .consume, .allow, .ignore:
             return
-        }
-        if let scheme = url.scheme?.lowercased(), externalUrlSchemes.contains(scheme) {
+        case .handleDeeplink(let source):
+            _ = WalletContextManager.delegate?.handleDeeplink(url: url, source: source)
+        case .openSystemUrl:
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url, options: [:])
             }
-            return
+        case .openNewPage:
+            onOpenWindow?(url)
         }
-        let scheme = url.scheme?.lowercased()
-        guard scheme == "http" || scheme == "https" else { return }
-        onOpenWindow?(url)
     }
     
     // MARK: - TonConnect
@@ -248,14 +248,14 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
     // MARK: - WalletConnect
     
     private func handleWalletConnectConnect(dict: [String: Any]) async throws {
-        guard let invocationId = dict["invocationId"] as? String,
-              let args = dict["args"] as? [Any],
-              let payload = args.first,
-              let message = try? JSONSerialization.decode(ApiDappConnectionRequest<AnyCodable>.self, from: payload)
-        else { return }
-        guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
-        let requestId = Api.walletConnectRequestId
+        guard let invocationId = dict["invocationId"] as? String else { return }
         do {
+            guard let args = dict["args"] as? [Any],
+                  let payload = args.first
+            else { throw TonConnectError(code: .badRequestError) }
+            let message = try JSONSerialization.decode(ApiDappConnectionRequest<AnyCodable>.self, from: payload)
+            guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { throw TonConnectError(code: .badRequestError) }
+            let requestId = Api.walletConnectRequestId
             let response = try await Api.walletConnect_connect(request: dappArg, message: message, requestId: requestId)
             try await injectDappConnectResult(invocationId: invocationId, result: response)
         } catch {
@@ -267,9 +267,9 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
         guard let invocationId = dict["invocationId"] as? String else {
             return
         }
-        guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
-        let requestId = Api.walletConnectRequestId
         do {
+            guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { throw TonConnectError(code: .badRequestError) }
+            let requestId = Api.walletConnectRequestId
             let response = try await Api.walletConnect_reconnect(request: dappArg, requestId: requestId)
             try await injectDappConnectResult(invocationId: invocationId, result: response)
         } catch {
@@ -278,13 +278,13 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
     }
     
     private func handleWalletConnectDisconnect(dict: [String: Any]) async throws {
-        guard let invocationId = dict["invocationId"] as? String,
-              let args = dict["args"] as? [Any],
-              let payload = args.first,
-              let message = try? JSONSerialization.decode(ApiDappDisconnectRequest.self, from: payload)
-        else { return }
-        guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
+        guard let invocationId = dict["invocationId"] as? String else { return }
         do {
+            guard let args = dict["args"] as? [Any],
+                  let payload = args.first
+            else { throw TonConnectError(code: .badRequestError) }
+            let message = try JSONSerialization.decode(ApiDappDisconnectRequest.self, from: payload)
+            guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { throw TonConnectError(code: .badRequestError) }
             let response = try await Api.walletConnect_disconnect(request: dappArg, message: message)
             try await handleDappMethodResult(response, invocationId: invocationId)
         } catch {
@@ -293,13 +293,13 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
     }
     
     private func handleWalletConnectSendTransaction(dict: [String: Any]) async throws {
-        guard let invocationId = dict["invocationId"] as? String,
-              let args = dict["args"] as? [Any],
-              let payload = args.first,
-              let message = try? JSONSerialization.decode(ApiDappTransactionRequest<AnyCodable>.self, from: payload)
-        else { return }
-        guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
+        guard let invocationId = dict["invocationId"] as? String else { return }
         do {
+            guard let args = dict["args"] as? [Any],
+                  let payload = args.first
+            else { throw TonConnectError(code: .badRequestError) }
+            let message = try JSONSerialization.decode(ApiDappTransactionRequest<AnyCodable>.self, from: payload)
+            guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { throw TonConnectError(code: .badRequestError) }
             let response = try await Api.walletConnect_sendTransaction(request: dappArg, message: message)
             try await injectDappConnectResult(invocationId: invocationId, result: response)
         } catch {
@@ -308,13 +308,13 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
     }
 
     private func handleWalletConnectSignData(dict: [String: Any]) async throws {
-        guard let invocationId = dict["invocationId"] as? String,
-              let args = dict["args"] as? [Any],
-              let payload = args.first,
-              let message = try? JSONSerialization.decode(ApiDappSignDataRequest<AnyCodable>.self, from: payload)
-        else { return }
-        guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
+        guard let invocationId = dict["invocationId"] as? String else { return }
         do {
+            guard let args = dict["args"] as? [Any],
+                  let payload = args.first
+            else { throw TonConnectError(code: .badRequestError) }
+            let message = try JSONSerialization.decode(ApiDappSignDataRequest<AnyCodable>.self, from: payload)
+            guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { throw TonConnectError(code: .badRequestError) }
             let response = try await Api.walletConnect_signData(request: dappArg, message: message)
             try await injectDappConnectResult(invocationId: invocationId, result: response)
         } catch {
@@ -323,13 +323,13 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
     }
 
     private func handleWalletConnectProxyEvmRpc(dict: [String: Any]) async throws {
-        guard let invocationId = dict["invocationId"] as? String,
-              let args = dict["args"] as? [Any],
-              let payload = args.first,
-              let message = try? JSONSerialization.decode(ApiDappEvmRpcProxyRequest.self, from: payload)
-        else { return }
-        guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
+        guard let invocationId = dict["invocationId"] as? String else { return }
         do {
+            guard let args = dict["args"] as? [Any],
+                  let payload = args.first
+            else { throw TonConnectError(code: .badRequestError) }
+            let message = try JSONSerialization.decode(ApiDappEvmRpcProxyRequest.self, from: payload)
+            guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { throw TonConnectError(code: .badRequestError) }
             let response = try await Api.walletConnect_proxyEvmRpc(request: dappArg, message: message)
             try await injectDappConnectResult(invocationId: invocationId, result: response)
         } catch {

@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.fresco)
     implementation(libs.fresco.middleware)
     implementation(libs.fresco.ui.common)
+    implementation(libs.androidsvg)
     implementation(libs.zxing)
     implementation(libs.charts)
     implementation(libs.blurview)

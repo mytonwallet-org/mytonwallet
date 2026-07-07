@@ -273,13 +273,24 @@ class HomeVM(
                 delegate.get()?.reloadCard()
             }
 
-            WalletEvent.NftsUpdated, WalletEvent.HomeNftCollectionsUpdated -> {
+            WalletEvent.NftsUpdated -> {
+                if (!mode.isScreenActive)
+                    return
+                delegate.get()?.reloadTabs()
+                dataUpdated()
+            }
+
+            WalletEvent.HomeNftCollectionsUpdated -> {
                 if (!mode.isScreenActive)
                     return
                 delegate.get()?.reloadTabs()
             }
 
             WalletEvent.AccountConfigReceived -> {
+                delegate.get()?.accountConfigChanged()
+            }
+
+            is WalletEvent.CardMintingStateChanged -> {
                 delegate.get()?.accountConfigChanged()
             }
 

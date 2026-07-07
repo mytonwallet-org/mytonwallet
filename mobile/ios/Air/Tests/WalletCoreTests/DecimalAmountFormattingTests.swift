@@ -85,6 +85,32 @@ struct DecimalAmountFormattingTests {
         #expect(truncated.format(amount) == "$12.34")
     }
 
+    struct WebActivityAmountCase: Sendable {
+        let amount: BigInt
+        let decimals: Int
+        let expected: String
+    }
+
+    static let webActivityAmountCases: [WebActivityAmountCase] = [
+        .init(amount: BigInt(440_074), decimals: 4, expected: "44 TEST"),
+        .init(amount: BigInt(440_740), decimals: 4, expected: "44.07 TEST"),
+        .init(amount: BigInt(2_857), decimals: 4, expected: "0.28 TEST"),
+        .init(amount: BigInt(2_857), decimals: 5, expected: "0.028 TEST"),
+        .init(amount: BigInt(-1_234_560), decimals: 4, expected: "-\(signSpace)123.45 TEST"),
+    ]
+
+    @Test(arguments: Self.webActivityAmountCases)
+    func `defaultAdaptive can truncate like web activity amounts`(testCase: WebActivityAmountCase) {
+        let amount = AnyDecimalAmount(
+            testCase.amount,
+            decimals: testCase.decimals,
+            symbol: "TEST",
+            forceCurrencyToRight: true
+        )
+
+        #expect(amount.formatted(.defaultAdaptive, roundHalfUp: false) == testCase.expected)
+    }
+
     @Test
     func `format renders precision prefix and right side symbol`() {
         let amount = AnyDecimalAmount(
@@ -143,6 +169,30 @@ struct DecimalAmountFormattingTests {
 
         #expect(belowThreshold.formatted(.compact) == "49.12 TON")
         #expect(aboveThreshold.formatted(.compact) == "50 TON")
+    }
+
+    @Test
+    func `fee preset uses zero count subscript for tiny values`() {
+        let amount = AnyDecimalAmount(
+            BigInt(5_600),
+            decimals: 9,
+            symbol: "TON",
+            forceCurrencyToRight: true
+        )
+
+        #expect(amount.formatted(.fee) == "0.0₅56 TON")
+        #expect(amount.formatted(.defaultAdaptive) == "0.0000056 TON")
+    }
+
+    @Test
+    func `fee string uses fee formatting preset`() {
+        let fee = MFee(
+            precision: .approximate,
+            terms: .init(token: nil, native: BigInt(5_600), stars: nil),
+            nativeSum: nil
+        )
+
+        #expect(fee.toString(token: .TONCOIN, nativeToken: .TONCOIN) == "~0.0₅56 GRAM")
     }
 
     @Test

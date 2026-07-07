@@ -85,6 +85,18 @@ class WButton(context: Context) : View(context), WThemedView {
             updateColors()
         }
 
+    var customTint: Int? = null
+        set(value) {
+            field = value
+            updateColors()
+        }
+
+    var customTextColor: Int? = null
+        set(value) {
+            field = value
+            updateColors()
+        }
+
     private val animator = ReplaceAnimator<Item>(
         { invalidate() },
         AnimatorUtils.DECELERATE_INTERPOLATOR,
@@ -287,7 +299,8 @@ class WButton(context: Context) : View(context), WThemedView {
 
     override val isTinted = true
     private fun updateColors() {
-        val tint = if (type == Type.DESTRUCTIVE) WColor.Error.color else WColor.Tint.color
+        val tint = if (type == Type.DESTRUCTIVE) WColor.Error.color
+        else customTint ?: WColor.Tint.color
         val tintColor = fromToArgb(
             alphaColor(
                 0.5f,
@@ -327,11 +340,14 @@ class WButton(context: Context) : View(context), WThemedView {
 
         val textColor = fromToArgb(
             when (type) {
-                is Type.Primary, Type.Destructive -> fromToArgb(
-                    alphaColor(0.65f, WColor.TextOnTint.color),
-                    WColor.TextOnTint.color,
-                    isEnabledAnimator.floatValue
-                )
+                is Type.Primary, Type.Destructive -> {
+                    val onTint = customTextColor ?: WColor.TextOnTint.color
+                    fromToArgb(
+                        alphaColor(0.65f, onTint),
+                        onTint,
+                        isEnabledAnimator.floatValue
+                    )
+                }
 
                 is Type.Secondary -> tintColor
             }, errorTextColor, isErrorAnimator.floatValue

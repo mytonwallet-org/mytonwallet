@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiCreateSubWalletResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiGroupedWalletVariant
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubWallet
 import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
+import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapItem
 import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckStakeDraftResult
@@ -39,7 +40,11 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MEnvironmentVariables
 import org.mytonwallet.app_air.walletcore.moshi.MImportedViewWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MImportedWalletResponse
+import org.mytonwallet.app_air.walletcore.moshi.MRevokeWalletPermissionOptions
+import org.mytonwallet.app_air.walletcore.moshi.MRevokeWalletPermissionResult
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
+import org.mytonwallet.app_air.walletcore.moshi.MTonPlugin
+import org.mytonwallet.app_air.walletcore.moshi.MWalletPermission
 import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
@@ -107,7 +112,9 @@ sealed class ApiMethod<T> {
             @JsonClass(generateAdapter = true)
             data class Params(
                 val chain: String,
-                val address: String,
+                // Address of every wallet chain, so MoonPay delivers each selected currency to the
+                // matching network's address (preventing a cross-network mismatch)
+                val addressByChain: Map<String, String>,
                 val theme: String,
                 val currency: String
             )
@@ -496,13 +503,13 @@ sealed class ApiMethod<T> {
 
         class FetchSwaps(
             accountId: String,
-            ids: List<String>
+            items: List<MApiFetchSwapItem>
         ) : ApiMethod<MApiFetchSwapsResult>() {
             override val name: String = "fetchSwaps"
             override val type: Type = MApiFetchSwapsResult::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
-                .jsArray(ids, String::class.java)
+                .jsArray(items, MApiFetchSwapItem::class.java)
                 .build()
         }
 
@@ -851,6 +858,78 @@ sealed class ApiMethod<T> {
                 .string(url)
                 .build()
         }
+
+        class ConfirmWalletConnectPaySignTransaction(
+            promiseId: String,
+            signedTransactions: JSONArray
+        ) : ApiMethod<Unit>() {
+            override val name: String = "confirmWalletConnectPaySignTransaction"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(promiseId)
+                .jsObject(signedTransactions, JSONArray::class.java)
+                .build()
+        }
+
+        class ConfirmWalletConnectPaySignData(
+            promiseId: String,
+            signedData: JSONObject
+        ) : ApiMethod<Unit>() {
+            override val name: String = "confirmWalletConnectPaySignData"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(promiseId)
+                .jsObject(signedData, JSONObject::class.java)
+                .build()
+        }
+
+        class CompleteWalletConnectPayDataCollection(
+            promiseId: String
+        ) : ApiMethod<Unit>() {
+            override val name: String = "completeWalletConnectPayDataCollection"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(promiseId)
+                .build()
+        }
+
+        class ConfirmWalletConnectPayOptionSelection(
+            promiseId: String,
+            optionId: String
+        ) : ApiMethod<Unit>() {
+            override val name: String = "confirmWalletConnectPayOptionSelection"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(promiseId)
+                .string(optionId)
+                .build()
+        }
+
+        class CancelWalletConnectPay(
+            promiseId: String,
+            reason: String?
+        ) : ApiMethod<Unit>() {
+            override val name: String = "cancelWalletConnectPay"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(promiseId)
+                .apply { reason?.let { string(it) } }
+                .build()
+        }
+
+        class RefreshWalletConnectPayOptionSelection(
+            paymentLink: String,
+            accountId: String,
+            promiseId: String
+        ) : ApiMethod<Unit>() {
+            override val name: String = "refreshWalletConnectPayOptionSelection"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(paymentLink)
+                .string(accountId)
+                .string(promiseId)
+                .build()
+        }
     }
 
     /* Domains */
@@ -1190,6 +1269,54 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .string(password)
+                .build()
+        }
+    }
+
+    /* Permissions */
+
+    object Permissions {
+        class FetchWalletPermissions(
+            accountId: String,
+            chain: MBlockchain,
+        ) : ApiMethod<List<MWalletPermission>>() {
+            override val name: String = "fetchWalletPermissions"
+            override val type: Type =
+                Types.newParameterizedType(List::class.java, MWalletPermission::class.java)
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(chain.name)
+                .build()
+        }
+
+        class FetchWalletPlugins(
+            accountId: String,
+        ) : ApiMethod<List<MTonPlugin>>() {
+            override val name: String = "fetchWalletPlugins"
+            override val type: Type =
+                Types.newParameterizedType(List::class.java, MTonPlugin::class.java)
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .build()
+        }
+
+        class RevokeWalletPermission(
+            chain: MBlockchain,
+            options: MRevokeWalletPermissionOptions,
+        ) : ApiMethod<MRevokeWalletPermissionResult>() {
+            override val name: String = "revokeWalletPermission"
+            override val type: Type = MRevokeWalletPermissionResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(chain.name)
+                .apply {
+                    when (options) {
+                        is MRevokeWalletPermissionOptions.Approval ->
+                            jsObject(options, MRevokeWalletPermissionOptions.Approval::class.java)
+
+                        is MRevokeWalletPermissionOptions.Delegation ->
+                            jsObject(options, MRevokeWalletPermissionOptions.Delegation::class.java)
+                    }
+                }
                 .build()
         }
     }

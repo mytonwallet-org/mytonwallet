@@ -86,6 +86,7 @@ export async function processDeeplink({ url }: {
   onPopupUpdate({
     type: 'processDeeplink',
     url,
+    isFromInAppBrowser: true,
   });
 }
 

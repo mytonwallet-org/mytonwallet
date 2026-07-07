@@ -1,6 +1,5 @@
-import type { Ref, RefObject } from 'react';
 import type { TeactNode } from '../../../../lib/teact/teact';
-import React, { memo, useMemo } from '../../../../lib/teact/teact';
+import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions } from '../../../../global';
 
 import type {
@@ -13,6 +12,8 @@ import type {
   ApiYieldType,
 } from '../../../../api/types';
 import type { Account, AppTheme, SavedAddress } from '../../../../global/types';
+import type { Layout } from '../../../../hooks/useMenuPosition';
+import type { DropdownItem } from '../../../ui/Dropdown';
 import type { Color as PendingIndicatorColor } from './ActivityStatusIcon';
 
 import {
@@ -45,11 +46,16 @@ import { getLocalAddressName } from '../../../../util/getLocalAddressName';
 import { vibrate } from '../../../../util/haptics';
 import { shortenAddress } from '../../../../util/shortenAddress';
 
+import useContextMenuHandlers from '../../../../hooks/useContextMenuHandlers';
+import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
+import useFlag from '../../../../hooks/useFlag';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 
 import TokenIcon from '../../../common/TokenIcon';
 import Button from '../../../ui/Button';
+import DropdownMenu from '../../../ui/DropdownMenu';
+import MenuBackdrop from '../../../ui/MenuBackdrop';
 import SensitiveData from '../../../ui/SensitiveData';
 import ActivityStatusIcon from './ActivityStatusIcon';
 
@@ -58,7 +64,6 @@ import styles from './Activity.module.scss';
 import scamImg from '../../../../assets/scam.svg';
 
 type OwnProps = {
-  ref?: Ref<HTMLElement>;
   tokensBySlug: Record<string, ApiTokenWithPrice>;
   transaction: ApiTransactionActivity;
   isLast?: boolean;
@@ -89,8 +94,14 @@ const OUT_TRANSACTION_TYPES = new Set<ApiTransactionType>([
   undefined, 'unstakeRequest', 'nftTrade', 'auctionBid', 'liquidityDeposit',
 ]);
 
+const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
+const HIDE_ANIMATION_DURATION_MS = 200;
+
+const NFT_MENU_ITEMS: DropdownItem<'hide'>[] = [
+  { name: 'Hide NFT', value: 'hide', fontIcon: 'eye-closed', isDangerous: true },
+];
+
 function Transaction({
-  ref,
   tokensBySlug,
   transaction,
   isActive,
@@ -111,8 +122,13 @@ function Transaction({
   shouldHideStakingAnnualYield,
   onClick,
 }: OwnProps) {
-  const { openNftAttributesModal } = getActions();
+  const { openNftAttributesModal, addNftsToBlacklist } = getActions();
   const lang = useLang();
+  const { isPortrait } = useDeviceScreen();
+
+  const buttonRef = useRef<HTMLButtonElement>();
+  const menuRef = useRef<HTMLDivElement>();
+  const [isHiding, markHiding] = useFlag();
 
   const {
     id,
@@ -186,6 +202,42 @@ function Transaction({
     void vibrate();
     openNftAttributesModal({ nft: nft! });
   });
+
+  const handleNftMenuItemClick = useLastCallback(() => {
+    void vibrate();
+    // Let the row fade out before the global update removes it from the list
+    markHiding();
+    setTimeout(() => {
+      addNftsToBlacklist({ addresses: [nft!.address] });
+    }, HIDE_ANIMATION_DURATION_MS);
+  });
+
+  const canHideNft = Boolean(nft) && isIncoming && status !== 'failed';
+
+  const getTriggerElement = useLastCallback(() => buttonRef.current);
+  const getRootElement = useLastCallback(() => document.body);
+  const getMenuElement = useLastCallback(() => menuRef.current);
+  const getLayout = useLastCallback((): Layout => ({
+    withPortal: true,
+    doNotCoverTrigger: isPortrait,
+    // The shift prevents the mouse cursor from highlighting the first menu item
+    topShiftY: !isPortrait ? CONTEXT_MENU_VERTICAL_SHIFT_PX : undefined,
+    preferredPositionX: 'left',
+  }));
+
+  const {
+    isContextMenuOpen,
+    contextMenuAnchor,
+    handleBeforeContextMenu,
+    handleContextMenu,
+    handleContextMenuClose,
+    handleContextMenuHide,
+  } = useContextMenuHandlers({
+    elementRef: buttonRef,
+    isMenuDisabled: !canHideNft,
+  });
+  const isContextMenuShown = contextMenuAnchor !== undefined;
+  const isBackdropRendered = isPortrait && isContextMenuOpen;
 
   function renderNft() {
     return (
@@ -371,40 +423,69 @@ function Transaction({
   }
 
   return (
-    <Button
-      ref={ref as RefObject<HTMLButtonElement>}
-      className={buildClassName(
-        styles.item,
-        isLast && styles.itemLast,
-        isActive && styles.active,
-        onClick && styles.interactive,
-        attachmentsTakeSubheader === 'full' ? styles.attachmentsInFullSubheader
-          : attachmentsTakeSubheader === 'left' ? styles.attachmentsInLeftSubheader : undefined,
-        className,
+    <>
+      {canHideNft && (
+        <MenuBackdrop
+          isMenuOpen={isBackdropRendered}
+          contentRef={buttonRef}
+          contentClassName={styles.itemWithMenu}
+        />
       )}
-      onClick={onClick && (() => onClick(id))}
-      isSimple
-    >
-      {renderIcon()}
-      <div className={styles.header}>
-        <div
-          className={buildClassName(
-            styles.operationName,
-            isNoSubheaderLeft && attachmentsTakeSubheader === 'none' && styles.atMiddle,
-          )}
-        >
-          {getTransactionTitle(transaction, titleTense, lang)}
-          {isScamTransaction(transaction) && <img src={scamImg} alt={lang('Scam')} className={styles.scamImage} />}
+      <Button
+        ref={buttonRef}
+        className={buildClassName(
+          styles.item,
+          isLast && styles.itemLast,
+          isActive && styles.active,
+          onClick && styles.interactive,
+          isHiding && styles.itemHiding,
+          attachmentsTakeSubheader === 'full' ? styles.attachmentsInFullSubheader
+            : attachmentsTakeSubheader === 'left' ? styles.attachmentsInLeftSubheader : undefined,
+          className,
+        )}
+        isSimple
+        onMouseDown={handleBeforeContextMenu}
+        onContextMenu={handleContextMenu}
+        onClick={onClick && (() => onClick(id))}
+      >
+        {renderIcon()}
+        <div className={styles.header}>
+          <div
+            className={buildClassName(
+              styles.operationName,
+              isNoSubheaderLeft && attachmentsTakeSubheader === 'none' && styles.atMiddle,
+            )}
+          >
+            {getTransactionTitle(transaction, titleTense, lang)}
+            {isScamTransaction(transaction) && <img src={scamImg} alt={lang('Scam')} className={styles.scamImage} />}
+          </div>
+          {renderAmount()}
         </div>
-        {renderAmount()}
-      </div>
-      <div className={styles.subheader}>
-        {renderAddressAndDate()}
-        {renderBaseCurrencyAmount()}
-      </div>
-      {nft && renderNft()}
-      {shouldShowTransactionComment(transaction) && renderComment()}
-    </Button>
+        <div className={styles.subheader}>
+          {renderAddressAndDate()}
+          {renderBaseCurrencyAmount()}
+        </div>
+        {nft && renderNft()}
+        {shouldShowTransactionComment(transaction) && renderComment()}
+      </Button>
+      {canHideNft && isContextMenuShown && (
+        <DropdownMenu
+          ref={menuRef}
+          withPortal
+          shouldTranslateOptions
+          isOpen={isContextMenuOpen}
+          items={NFT_MENU_ITEMS}
+          menuAnchor={contextMenuAnchor}
+          getTriggerElement={getTriggerElement}
+          getRootElement={getRootElement}
+          getMenuElement={getMenuElement}
+          getLayout={getLayout}
+          onSelect={handleNftMenuItemClick}
+          onClose={handleContextMenuClose}
+          onCloseAnimationEnd={handleContextMenuHide}
+        />
+      )}
+    </>
   );
 }
 

@@ -17,19 +17,30 @@ public struct FeeView: View {
     private let fee: MFee?
     private let explainedTransferFee: ExplainedTransferFee?
     private let includeLabel: Bool
+    private let isLoading: Bool
     
     private var shouldShowDetails: Bool { explainedTransferFee?.supportsLegacyDetailsView == true }
     
-    public init(token: ApiToken, nativeToken: ApiToken, fee: MFee?, explainedTransferFee: ExplainedTransferFee?, includeLabel: Bool) {
+    public init(
+        token: ApiToken,
+        nativeToken: ApiToken,
+        fee: MFee?,
+        explainedTransferFee: ExplainedTransferFee?,
+        includeLabel: Bool,
+        isLoading: Bool = false
+    ) {
         self.token = token
         self.nativeToken = nativeToken
         self.fee = fee
         self.explainedTransferFee = explainedTransferFee
         self.includeLabel = includeLabel
+        self.isLoading = isLoading
     }
     
     public var body: some View {
-        if let fee = fee ?? explainedTransferFee?.realFee {
+        if isLoading {
+            loadingContent
+        } else if let fee = fee ?? explainedTransferFee?.realFee {
             if shouldShowDetails {
                 Button(action: showFeeDetails) {
                     feeContent(fee, showsDetailsIcon: true)
@@ -41,6 +52,18 @@ public struct FeeView: View {
                 feeContent(fee, showsDetailsIcon: false)
             }
         }
+    }
+
+    private var loadingContent: some View {
+        HStack(alignment: .center, spacing: 4) {
+            if includeLabel {
+                Text(lang("$fee_value_with_colon", arg1: ""))
+            }
+            WUIActivityIndicator(size: 14)
+                .foregroundStyle(Color.air.secondaryLabel)
+                .frame(width: 14, height: 14)
+        }
+        .padding(2)
     }
     
     @ViewBuilder

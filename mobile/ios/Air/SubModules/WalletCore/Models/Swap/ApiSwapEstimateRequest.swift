@@ -8,23 +8,27 @@
 public struct ApiSwapEstimateRequest: Codable, Sendable {
     public let from: String
     public let to: String
-    public let slippage: Double
+    public let slippage: Double?
     public let fromAmount: MDouble?
     public let toAmount: MDouble?
-    public let fromAddress: String
+    public let fromAddress: String?
+    public let toAddress: String?
+    public let cexLabel: ApiSwapCexLabel?
     public let shouldTryDiesel: Bool?
     public let swapVersion: Int?
     public let toncoinBalance: MDouble?
     public let walletVersion: String?
     public let isFromAmountMax: Bool?
     
-    public init(from: String, to: String, slippage: Double, fromAmount: MDouble?, toAmount: MDouble?, fromAddress: String, shouldTryDiesel: Bool?, swapVersion: Int?, toncoinBalance: MDouble?, walletVersion: String?, isFromAmountMax: Bool?) {
+    public init(from: String, to: String, slippage: Double?, fromAmount: MDouble?, toAmount: MDouble?, fromAddress: String?, toAddress: String? = nil, cexLabel: ApiSwapCexLabel? = nil, shouldTryDiesel: Bool?, swapVersion: Int?, toncoinBalance: MDouble?, walletVersion: String?, isFromAmountMax: Bool?) {
         self.from = from
         self.to = to
         self.slippage = slippage
         self.fromAmount = fromAmount
         self.toAmount = toAmount
         self.fromAddress = fromAddress
+        self.toAddress = toAddress
+        self.cexLabel = cexLabel
         self.shouldTryDiesel = shouldTryDiesel
         self.swapVersion = swapVersion
         self.toncoinBalance = toncoinBalance
@@ -32,4 +36,3 @@ public struct ApiSwapEstimateRequest: Codable, Sendable {
         self.isFromAmountMax = isFromAmountMax
     }
 }
-

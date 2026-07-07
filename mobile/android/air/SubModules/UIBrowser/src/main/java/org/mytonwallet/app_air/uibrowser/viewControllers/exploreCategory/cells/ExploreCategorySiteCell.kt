@@ -41,7 +41,7 @@ class ExploreCategorySiteCell(
     }
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(15f, WFont.SemiBold)
+        setStyle(15f, WFont.Medium)
         compoundDrawablePadding = 4.dp
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -77,7 +77,7 @@ class ExploreCategorySiteCell(
     }
 
     private val openButton = WLabel(context).apply {
-        setStyle(adaptiveFontSize(), WFont.SemiBold)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         text = LocaleController.getString("Open")
         gravity = Gravity.CENTER
         setTextColor(WColor.Tint)

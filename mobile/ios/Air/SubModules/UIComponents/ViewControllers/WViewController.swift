@@ -42,7 +42,7 @@ open class WViewController: UIViewController {
     open func scrollToTop(animated: Bool) {
     }
     
-    /*isolated - doesn't work*/ deinit {
+    deinit {
         if let observer {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -107,6 +107,8 @@ open class WViewController: UIViewController {
         appearance.backgroundEffect = nil
         navigationItem.standardAppearance = appearance
         navigationItem.scrollEdgeAppearance = appearance
+        navigationItem.compactAppearance = appearance
+        navigationItem.compactScrollEdgeAppearance = appearance
     }
     
     public func calculateNavigationBarProgressiveBlurProgress(_ y: CGFloat) -> CGFloat {
@@ -131,18 +133,41 @@ open class WViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
     
-    public func addCustomNavigationBarBackground(constant: CGFloat = 6) {
-        let customBackground = HostingView {
-            NavigationBarBackground()
+    @discardableResult
+    public func addCustomNavigationBarBackground(color: UIColor?, navItemTransparent: Bool = true) -> UIView {
+        
+        if navItemTransparent {
+            configureNavigationItemWithTransparentBackground()
         }
+        
+        let bottomExtension: CGFloat = 18
+        let topOverscan: CGFloat = 20
+        let alpha: CGFloat
+        let maxEdgeSize: CGFloat
+        
+        if #available(iOS 26.0, *) {
+            maxEdgeSize = 64
+            alpha = 0.85
+        } else {
+            maxEdgeSize = 28
+            alpha = 0.95
+        }
+        
+        let customBackground = NavigationBarEdgeEffectBackgroundView(
+            content: color ?? .air.sheetBackground,
+            alpha: alpha,
+            topOverscan: topOverscan,
+            maxEdgeSize: maxEdgeSize
+        )
         customBackground.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(customBackground)
         NSLayoutConstraint.activate([
             customBackground.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             customBackground.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            customBackground.topAnchor.constraint(equalTo: view.topAnchor),
-            customBackground.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: constant),
+            customBackground.topAnchor.constraint(equalTo: view.topAnchor, constant: -topOverscan),
+            customBackground.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: bottomExtension),
         ])
+        return customBackground
     }
     
     // MARK: - Hosting controller
@@ -248,80 +273,10 @@ open class WViewController: UIViewController {
 
     // MARK: - Toast
     
-    private var toastView: ToastView? = nil
-    private var toastHider: DispatchWorkItem?
-    private var currentToastIdentity: ToastIdentity?
+    public lazy var toastController = ToastController(containerView: view)
 
-    /// Note this does not include action handler, because it is not equatable.
-    /// In practice this should be fine - things like this are not going to be updated.
-    private struct ToastIdentity: Equatable {
-        let style: ToastStyle
-        let icon: ToastIcon?
-        let message: String
-        let actionTitle: String?
-    }
-
-    public func showToast(style: ToastStyle = .standard, icon: ToastIcon? = nil, message: String, duration: Double,
-                          actionTitle: String? = nil, action: (() -> ())? = nil) {
-        let identity = ToastIdentity(style: style, icon: icon, message: message, actionTitle: actionTitle)
-
-        if let toastView {
-            if currentToastIdentity != identity {
-                currentToastIdentity = identity
-                toastView.update(style: style, icon: icon, message: message, actionTitle: actionTitle, action: action)
-            } else {
-                toastView.replayIcon()
-            }
-            rescheduleToastHider(duration: duration)
-            return
-        }
-
-        currentToastIdentity = identity
-        
-        let toastView = ToastView(style: style, icon: icon, message: message, actionTitle: actionTitle, action: action) { [weak self] in
-            self?.toastHider?.perform()
-        }
-        self.toastView = toastView
-
-        toastView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(toastView)
-        NSLayoutConstraint.activate([
-            toastView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -12),
-            toastView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12).withPriority(.defaultHigh),
-            toastView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 24),
-            toastView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: -24),
-        ])
-        
-        view.layoutIfNeeded()
-        UIView.animate(withDuration: 0.3) {
-            self.toastView?.alpha = 1
-            self.view.layoutIfNeeded()
-        }
-        
-        rescheduleToastHider(duration: duration)
-    }
-
-    private func rescheduleToastHider(duration: Double) {
-        toastHider?.cancel()
-        let toastHider = DispatchWorkItem { [weak self] in
-            guard let self else {return}
-            hideToastView()
-        }
-        self.toastHider = toastHider
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: toastHider)
-    }
-
-    private func hideToastView() {
-        currentToastIdentity = nil
-        guard let toastView else {
-            return
-        }
-        UIView.animate(withDuration: 0.3) {
-            toastView.alpha = 0
-        } completion: { _ in
-            toastView.removeFromSuperview()
-        }
-        self.toastView = nil
+    public func showToast(_ config: ToastConfig) {
+        toastController.showToast(config)
     }
     
     // MARK: - Tip
@@ -331,5 +286,42 @@ open class WViewController: UIViewController {
         vc.modalPresentationStyle = .overFullScreen
         vc.view.backgroundColor = .clear
         present(vc, animated: false)
+    }
+}
+
+private final class NavigationBarEdgeEffectBackgroundView: UIView {
+    private let edgeEffectView = EdgeEffectView()
+    private var content: UIColor
+    private let contentAlpha: CGFloat
+    private let topOverscan: CGFloat
+    private let maxEdgeSize: CGFloat
+
+    init(content: UIColor, alpha: CGFloat, topOverscan: CGFloat, maxEdgeSize: CGFloat) {
+        self.content = content
+        self.contentAlpha = alpha
+        self.topOverscan = topOverscan
+        self.maxEdgeSize = maxEdgeSize
+        super.init(frame: .zero)
+
+        isUserInteractionEnabled = false
+        addSubview(edgeEffectView)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        edgeEffectView.frame = bounds
+        let effectiveHeight = max(1, bounds.height - topOverscan)
+        edgeEffectView.update(
+            content: content,
+            blur: true,
+            alpha: contentAlpha,
+            edge: .top,
+            edgeSize: min(maxEdgeSize, effectiveHeight)
+        )
     }
 }

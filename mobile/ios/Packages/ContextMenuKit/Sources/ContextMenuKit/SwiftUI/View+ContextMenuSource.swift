@@ -7,7 +7,7 @@ public extension View {
         isEnabled: Bool = true,
         triggers: ContextMenuInteractionTriggers = [.tap, .longPress],
         sourcePortal: ContextMenuSourcePortal? = nil,
-        configuration: @escaping () -> ContextMenuConfiguration
+        configuration: @escaping () -> ContextMenuConfiguration?
     ) -> some View {
         self.modifier(
             ContextMenuSourceModifier(
@@ -25,7 +25,7 @@ private struct ContextMenuSourceModifier: ViewModifier {
     let isEnabled: Bool
     let triggers: ContextMenuInteractionTriggers
     let sourcePortal: ContextMenuSourcePortal?
-    let configuration: () -> ContextMenuConfiguration
+    let configuration: () -> ContextMenuConfiguration?
 
     @StateObject private var bridge = ContextMenuSwiftUISourceBridge()
 
@@ -127,7 +127,7 @@ private struct ContextMenuSourceAttachmentView: UIViewRepresentable {
     @ObservedObject var bridge: ContextMenuSwiftUISourceBridge
     let isEnabled: Bool
     let sourcePortal: ContextMenuSourcePortal?
-    let configuration: () -> ContextMenuConfiguration
+    let configuration: () -> ContextMenuConfiguration?
 
     func makeUIView(context: Context) -> ContextMenuSourceAnchorView {
         let view = ContextMenuSourceAnchorView()

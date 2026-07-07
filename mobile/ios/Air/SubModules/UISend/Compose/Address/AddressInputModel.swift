@@ -9,12 +9,18 @@ private let debounceAddressResolution: Duration = .seconds(0.250)
 
 enum AddressSource: Equatable {
     case constant(String)
-    case myAccount(MAccount)
-    case savedAccount(MAccount, saveKey: String)
+    case myAccount(MAccount, fallbackChain: ApiChain)
+    case savedAccount(MAccount, saveKey: String, fallbackChain: ApiChain)
 
     var isEmpty: Bool {
         .constant("") == self
     }
+}
+
+enum AddressSuggestionChainMode: Equatable {
+    case all
+    case preferCurrentTokenChain
+    case requireCurrentTokenChain
 }
 
 struct ResolvedAddress {
@@ -37,11 +43,12 @@ final class AddressInputModel {
     
     var chain: ApiChain { token.chain }
     
-    let suggestionFilterChain: ApiChain?
+    var suggestionChainMode: AddressSuggestionChainMode
 
     var source: AddressSource = .constant("")
     
     var onScanResult: (ScanResult) -> () = { _ in }
+    var onSuggestionChainSelected: (ApiChain) -> () = { _ in }
     
     @PerceptionIgnored
     @AccountContext var account: MAccount
@@ -61,10 +68,10 @@ final class AddressInputModel {
         textFieldInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    init(account: AccountContext, token: TokenProvider, suggestionFilterChain: ApiChain? = nil) {
+    init(account: AccountContext, token: TokenProvider, suggestionChainMode: AddressSuggestionChainMode = .all) {
         self._account = account
         self._token = token
-        self.suggestionFilterChain = suggestionFilterChain
+        self.suggestionChainMode = suggestionChainMode
         inputObserver = observe { [weak self] in
             guard let self else { return }
             let input = textFieldInput
@@ -83,8 +90,8 @@ final class AddressInputModel {
     
     var resolvedAddress: ResolvedAddress? {
         switch source {
-        case .myAccount(let account), .savedAccount(let account, _):
-            if let accountChain = account.getChainInfo(chain: chain) {
+        case .myAccount(let account, let fallbackChain), .savedAccount(let account, _, let fallbackChain):
+            if let accountChain = account.getChainInfo(chain: chain) ?? account.getChainInfo(chain: fallbackChain) {
                 return ResolvedAddress(title: account.displayName, address: accountChain.address, domain: accountChain.domain)
             }
         case .constant:
@@ -138,21 +145,28 @@ final class AddressInputModel {
     /// Value to use for backend validation/draft: user-entered address/domain, or account address for selected account.
     var draftAddressOrDomain: String {
         switch source {
-        case .myAccount(let account), .savedAccount(let account, _):
-            return account.getAddress(chain: chain) ?? textFieldInput
+        case .myAccount(let account, let fallbackChain), .savedAccount(let account, _, let fallbackChain):
+            return account.getAddress(chain: chain) ?? account.getAddress(chain: fallbackChain) ?? textFieldInput
         case .constant(let raw):
             return raw.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
-    
+
+    func didSelectSuggestion(chain selectedChain: ApiChain) {
+        guard suggestionChainMode == .all, selectedChain != chain else {
+            return
+        }
+        onSuggestionChainSelected(selectedChain)
+    }
+
     // MARK: - Display helpers
     
     func displayComponents() -> (primary: String?, secondary: String?) {
         let chain = self.chain
         switch source {
-        case .myAccount(let account), .savedAccount(let account, _):
+        case .myAccount(let account, let fallbackChain), .savedAccount(let account, _, let fallbackChain):
             let title = account.displayName
-            let address = account.getAddress(chain: chain)
+            let address = account.getAddress(chain: chain) ?? account.getAddress(chain: fallbackChain)
             let formattedAddress = address.map { formatStartEndAddress($0) }
             return (title, formattedAddress)
             

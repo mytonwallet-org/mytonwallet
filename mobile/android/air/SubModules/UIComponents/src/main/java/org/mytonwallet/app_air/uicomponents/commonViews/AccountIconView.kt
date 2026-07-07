@@ -51,6 +51,13 @@ class AccountIconView(context: Context, val usage: Usage) : FrameLayout(context)
     private var currentPadding: Float = 1.5f.dp
     private val ovalRect = RectF()
 
+    var showText: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     init {
         id = generateViewId()
         isFocusable = false
@@ -75,7 +82,8 @@ class AccountIconView(context: Context, val usage: Usage) : FrameLayout(context)
         account: MAccount,
         useTelegramAvatar: Boolean = ApplicationContextHolder.isGramApp,
     ) {
-        val avatarUrl = if (useTelegramAvatar) account.telegramAvatarUrl else null
+        val avatarUrl = account.telegramAvatarUrl
+            ?.takeIf { useTelegramAvatar && !it.substringBefore('?').endsWith(".svg", ignoreCase = true) }
         config(account.accountId, account.name, account.firstAddress ?: "", avatarUrl)
     }
 
@@ -127,7 +135,7 @@ class AccountIconView(context: Context, val usage: Usage) : FrameLayout(context)
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         drawGradientBackground(canvas)
-        drawText(canvas)
+        if (showText) drawText(canvas)
         drawBorderIfNeeded(canvas)
     }
 

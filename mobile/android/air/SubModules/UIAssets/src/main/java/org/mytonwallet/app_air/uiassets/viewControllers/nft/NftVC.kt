@@ -8,6 +8,7 @@ import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
 import android.text.Layout
+import android.widget.Toast
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.util.TypedValue.COMPLEX_UNIT_SP
@@ -59,6 +60,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.scaleIn
@@ -181,7 +185,40 @@ class NftVC(
                 toCenterX(descriptionLabel, 20f)
                 toBottom(descriptionLabel, 16f)
             }
+            setOnLongClickListener {
+                presentDescriptionMenu(it)
+                true
+            }
         }
+    }
+
+    private fun presentDescriptionMenu(anchor: View) {
+        val description = nft.description?.takeIf { it.isNotEmpty() } ?: return
+        WMenuPopup.present(
+            anchor,
+            listOf(
+                WMenuPopup.Item(
+                    org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
+                    LocaleController.getString("Copy Description"),
+                ) {
+                    if (ClipboardHelpers.copyToClipboard(context, "NFT Description", description)) {
+                        Haptics.play(context, HapticType.LIGHT_TAP)
+                        Toast.makeText(
+                            context,
+                            LocaleController.getString("Description Copied"),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            ),
+            popupWidth = WRAP_CONTENT,
+            positioning = WMenuPopup.Positioning.BELOW,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                anchor,
+                roundRadius = ViewConstants.BLOCK_RADIUS.dp
+            ),
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed
+        )
     }
 
     private val isOwnNft: Boolean
@@ -1248,7 +1285,8 @@ class NftVC(
             },
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.ALIGNED,
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            usePillShadow = true
         )
     }
 

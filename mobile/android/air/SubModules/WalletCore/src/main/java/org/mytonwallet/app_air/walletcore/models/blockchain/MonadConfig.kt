@@ -17,6 +17,7 @@ object MonadConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_monad_light
 
     override val qrIcon = null
+    override val displayColor = "#5F51AA".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#5F51AA".toColorInt(),
         "#40409E".toColorInt(),

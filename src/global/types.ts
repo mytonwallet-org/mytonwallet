@@ -2,6 +2,12 @@ import type { TeactNode } from '../lib/teact/teact';
 
 import type { ApiTonWalletVersion } from '../api/chains/ton/types';
 import type { TonConnectProof } from '../api/dappProtocols/adapters';
+import type {
+  WcPayMerchant,
+  WcPayPaymentAmount,
+  WcPayPaymentInfo,
+  WcPayPaymentOption,
+} from '../api/dappProtocols/adapters/walletConnect/types';
 import type { StoredDappConnection } from '../api/dappProtocols/storage';
 import type { UnifiedSignDataPayload } from '../api/dappProtocols/types';
 import type {
@@ -35,8 +41,10 @@ import type {
   ApiStakingHistory,
   ApiStakingState,
   ApiSwapAsset,
+  ApiSwapCexLabel,
   ApiSwapDexLabel,
   ApiSwapEstimateVariant,
+  ApiSwapFeeMode,
   ApiSwapVersion,
   ApiTokenType,
   ApiTokenWithPrice,
@@ -46,6 +54,10 @@ import type {
   ApiUpdateDappLoading,
   ApiUpdateDappSendTransactions,
   ApiUpdateDappSignData,
+  ApiUpdateWalletConnectPayPaymentComplete,
+  ApiUpdateWalletConnectPayProcessing,
+  ApiUpdateWalletConnectPaySignData,
+  ApiUpdateWalletConnectPaySignTransaction,
   ApiUpdateWalletVersions,
   ApiVestingInfo,
   ApiWalletWithVersionInfo,
@@ -65,21 +77,29 @@ export type PortfolioHistoryBundle = {
   netWorth?: ApiPortfolioHistoryResponse;
   pnlCumulative?: ApiPortfolioHistoryResponse;
   pnl?: ApiPortfolioHistoryResponse;
+  // Precomputed P&L change for this range+currency, kept here (not just in the single-slot
+  // `pnlChangeByAccountId`) so switching back to a cached range shows the right value instantly
+  pnlChange?: PortfolioPnlChange;
+  // Quantized timestamp of the fetch (see `getPortfolioHistorySlot`); when the current slot
+  // still matches this value, the bundle is considered fresh and no network call is issued
+  fetchedAtSlot?: number;
 };
 
 type PortfolioHistoryByRange = Record<ApiPriceHistoryPeriod, PortfolioHistoryBundle>;
 type PortfolioHistoryByBaseCurrency = Record<ApiBaseCurrency, PortfolioHistoryByRange>;
 export type PortfolioHistoryByAccountId = Record<string, PortfolioHistoryByBaseCurrency>;
-export type PortfolioNetChange = {
+export type PortfolioPnlChange = {
   range: ApiPriceHistoryPeriod;
   baseCurrency: ApiBaseCurrency;
   amount: number;
   percent?: number;
+  startTs?: number;
+  endTs?: number;
 };
 
 export type PortfolioState = {
   historyByAccountId?: PortfolioHistoryByAccountId;
-  netChangeByAccountId?: Record<string, PortfolioNetChange>;
+  pnlChangeByAccountId?: Record<string, PortfolioPnlChange>;
   activeRange?: ApiPriceHistoryPeriod;
   isLoading?: boolean;
   isRefreshing?: boolean;
@@ -264,6 +284,14 @@ export enum SignDataState {
   Complete,
 }
 
+export enum WalletConnectPayState {
+  None,
+  Initial,
+  Password,
+  Processing,
+  Complete,
+}
+
 export enum DomainRenewalState {
   None,
   Initial,
@@ -315,12 +343,12 @@ export enum SwapErrorType {
 export enum SwapType {
   /** The swap is on-chain, i.e. performed via a DEX */
   OnChain,
-  /** The swap is crosschain (Changelly CEX) and happens within a single account */
+  /** The swap is crosschain (CEX) and happens within a single account */
   CrosschainInsideWallet,
-  /** The swap is crosschain (Changelly CEX), the "in" token is sent from the app, and the "out" token is sent outside */
+  /** The swap is crosschain (CEX), the "in" token is sent from the app, and the "out" token is sent outside */
   CrosschainFromWallet,
   /**
-   * The swap is crosschain (Changelly CEX), the "in" token is sent manually by the user from another source, and the
+   * The swap is crosschain (CEX), the "in" token is sent manually by the user from another source, and the
    * "out" token is sent to the user account.
    */
   CrosschainToWallet,
@@ -391,6 +419,7 @@ export enum SettingsState {
   LedgerSelectWallets,
   HiddenNfts,
   BackupWallet,
+  Permissions,
 }
 
 export enum MintCardState {
@@ -763,6 +792,7 @@ export type GlobalState = {
     payinAddress?: string;
     payoutAddress?: string;
     payinExtraId?: string;
+    isManualDepositRequired?: boolean;
     limits?: {
       fromMin?: string;
       fromMax?: string;
@@ -773,6 +803,11 @@ export type GlobalState = {
     // the user's selection remains unchanged
     isDexLabelChanged?: true;
     currentDexLabel?: ApiSwapDexLabel;
+    currentCexLabel?: ApiSwapCexLabel;
+    currentCexProviderName?: string;
+    currentCexTermsOfUseUrl?: string;
+    currentCexPrivacyPolicyUrl?: string;
+    currentCexAmlKycPolicyUrl?: string;
     bestRateDexLabel?: ApiSwapDexLabel;
     maxAmountFromBackend?: string;
     // Fees. Undefined values mean that these fields are unknown.
@@ -782,6 +817,7 @@ export type GlobalState = {
     swapFeePercent?: number;
     ourFee?: string;
     ourFeePercent?: number;
+    ourFeeMode?: ApiSwapFeeMode;
     dieselFee?: string;
   };
 
@@ -831,6 +867,49 @@ export type GlobalState = {
     operationChain?: ApiChain;
     payloadToSign?: UnifiedSignDataPayload;
     error?: string;
+  };
+
+  currentWalletConnectPay: {
+    state: WalletConnectPayState;
+    operation?: 'transaction' | 'signData' | 'payment';
+    promiseId?: string;
+    accountId?: string;
+    merchant?: WcPayMerchant;
+    operationChain?: ApiChain;
+    transactions?: ApiDappTransfer[];
+    emulation?: Pick<ApiEmulationResult, 'activities' | 'realFee'>;
+    paymentInfo?: WcPayPaymentInfo;
+    paymentOption?: WcPayPaymentOption;
+    isSignOnly?: boolean;
+    isLegacyOutput?: boolean;
+    shouldHideTransfers?: boolean;
+    validUntil?: number;
+    payloadToSign?: UnifiedSignDataPayload;
+    containsApprove?: boolean;
+    approveOperationChain?: ApiChain;
+    approveTransactions?: ApiDappTransfer[];
+    approveValidUntil?: number;
+    txId?: string;
+    paymentAmount?: WcPayPaymentAmount;
+    isLoading?: boolean;
+    error?: string;
+  };
+
+  walletConnectPayDataCollection?: {
+    promiseId: string;
+    url: string;
+    isCompleting?: boolean;
+  };
+
+  walletConnectPayOptionSelection?: {
+    promiseId: string;
+    paymentLink: string;
+    accountId: string;
+    merchant: WcPayMerchant;
+    paymentInfo?: WcPayPaymentInfo;
+    options: WcPayPaymentOption[];
+    isLoading?: boolean;
+    shouldSwitchWallet?: boolean;
   };
 
   currentDomainRenewal: {
@@ -1263,7 +1342,7 @@ export interface ActionPayloads {
   openPortfolio: { returnTo?: 'settings' } | undefined;
   closePortfolio: undefined;
   loadPortfolioHistory: { range?: ApiPriceHistoryPeriod } | undefined;
-  loadPortfolioNetChange: undefined;
+  loadPortfolioPnlChange: undefined;
 
   closeAnyModal: undefined;
   submitSignature: { password: string };
@@ -1482,6 +1561,23 @@ export interface ActionPayloads {
 
   openOffRampWidgetModal: undefined;
   closeOffRampWidgetModal: undefined;
+
+  // WalletConnect Pay
+  apiUpdateWalletConnectPayLoading: { accountId: string };
+  apiUpdateWalletConnectPayProcessing: ApiUpdateWalletConnectPayProcessing;
+  apiUpdateWalletConnectPayPaymentComplete: ApiUpdateWalletConnectPayPaymentComplete;
+  apiUpdateWalletConnectPaySignTransaction: ApiUpdateWalletConnectPaySignTransaction;
+  apiUpdateWalletConnectPaySignData: ApiUpdateWalletConnectPaySignData;
+  submitWalletConnectPaySignTransaction: { password?: string } | undefined;
+  submitWalletConnectPaySignData: { password?: string } | undefined;
+  clearWalletConnectPayError: undefined;
+  cancelWalletConnectPay: undefined;
+  closeWalletConnectPay: undefined;
+  completeWalletConnectPayDataCollection: undefined;
+  closeWalletConnectPayDataCollection: undefined;
+  confirmWalletConnectPayOptionSelection: { optionId: string };
+  closeWalletConnectPayOptionSelection: undefined;
+  switchWalletConnectPayOptionSelectionAccount: { accountId: string };
 
   // MediaViewer
   openMediaViewer: {

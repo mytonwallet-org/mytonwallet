@@ -153,9 +153,6 @@ class SwapEstimatedInfo(
             estRate.setTitleAndValue(
                 "${LocaleController.getString("Price per")} ${est.rateReceiveFmt}",
                 est.rateSendFmt,
-                est.dex?.dexLabel?.displayName,
-                est.dex?.dexLabel == (est.dex?.bestDexLabel ?: est.dex?.dexLabel),
-                (est.dex?.all?.size ?: 0) > 1
             )
         } else {
             estRate.clearValue(toToken)

@@ -64,7 +64,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
     private val topLeftLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(adaptiveFontSize(), WFont.DemiBold)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl.setSingleLine()
         lbl.ellipsize = TextUtils.TruncateAt.END
         lbl.isHorizontalFadingEdgeEnabled = true

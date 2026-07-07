@@ -11,7 +11,6 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionResponse
-import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
@@ -52,11 +51,15 @@ suspend fun WalletCore.Swap.swapEstimate(
     )
 }
 
-suspend fun WalletCore.Swap.swapCexEstimate(request: MApiSwapCexEstimateRequest) = run {
+suspend fun WalletCore.Swap.swapCexEstimate(
+    accountId: String,
+    request: MApiSwapEstimateRequest
+) = run {
     WalletCore.bridge!!.callApiAsync<MApiSwapCexEstimateResponse>(
-        "swapCexEstimate",
+        "swapEstimate",
         ArgumentsBuilder()
-            .jsObject(request, MApiSwapCexEstimateRequest::class.java)
+            .string(accountId)
+            .jsObject(request, MApiSwapEstimateRequest::class.java)
             .build(),
         MApiSwapCexEstimateResponse::class.java
     )
@@ -99,29 +102,34 @@ suspend fun WalletCore.Swap.swapBuildTransfer(
 }
 
 suspend fun WalletCore.Swap.swapSubmit(
+    chain: MBlockchain,
     accountId: String,
     passcode: String,
-    transfers: List<MApiSwapTransfer>,
+    transfers: List<MApiSwapTransfer>?,
     historyItem: MApiSwapHistoryItem,
-    withDiesel: Boolean
+    withDiesel: Boolean,
+    transaction: String?
 ) = run {
     val moshi = WalletCore.moshi
-    val argT = moshi.adapter<List<MApiSwapTransfer>>(
-        Types.newParameterizedType(
-            List::class.java,
-            MApiSwapTransfer::class.java
-        )
-    )
-        .toJson(transfers)
+    val argT = if (transfers != null) {
+        moshi.adapter<List<MApiSwapTransfer>>(
+            Types.newParameterizedType(
+                List::class.java,
+                MApiSwapTransfer::class.java
+            )
+        ).toJson(transfers)
+    } else "null"
     val argH = moshi.adapter(MApiSwapHistoryItem::class.java)
         .toJson(historyItem)
 
+    val quotedChain = JSONObject.quote(chain.name)
     val quotedAccountId = JSONObject.quote(accountId)
     val quotedPasscode = JSONObject.quote(passcode)
+    val argTx = transaction?.let { JSONObject.quote(it) } ?: "null"
 
     WalletCore.bridge!!.callApiAsync<MApiSubmitMultiTransferResult>(
         "swapSubmit",
-        "[$quotedAccountId,$quotedPasscode,$argT,$argH,$withDiesel]",
+        "[$quotedChain,$quotedAccountId,$quotedPasscode,$argT,$argH,$withDiesel,$argTx]",
         MApiSubmitMultiTransferResult::class.java
     )
 }

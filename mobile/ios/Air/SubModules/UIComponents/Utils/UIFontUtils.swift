@@ -7,7 +7,6 @@ public enum CompactDisplayWeight {
 
 public enum CompactRoundedWeight {
     case bold
-    case semibold
 }
 
 public extension UIFont {
@@ -15,7 +14,6 @@ public extension UIFont {
     class func compactRounded(ofSize size: CGFloat, weight: CompactRoundedWeight) -> UIFont {
         switch weight {
         case .bold: UIFont(name: "SFCompactRounded-Bold", size: size)!
-        case .semibold: UIFont(name: "SFCompactRounded-Semibold", size: size)!
         }
     }
     
@@ -33,11 +31,6 @@ public extension UIFont {
 }
 
 public extension Font {
-    static func nunito(size: CGFloat) -> Font {
-        let font = UIFont(name: "Nunito-ExtraBold", size: size)!
-        return Font(font)
-    }
-    
     static func calSans(size: CGFloat) -> Font {
         let font = UIFont(name: "CalSans-Regular", size: size)!
         return Font(font)

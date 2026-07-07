@@ -1787,7 +1787,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
     }
 
     private fun updateDates(stepIn: Int) {
-        var step = stepIn
+        var step = stepIn.coerceIn(0, 1 shl 29)
         val current = currentBottomSignatures
         if (current == null || step >= current.stepMax || step <= current.stepMin) {
             step = Integer.highestOneBit(step) shl 1

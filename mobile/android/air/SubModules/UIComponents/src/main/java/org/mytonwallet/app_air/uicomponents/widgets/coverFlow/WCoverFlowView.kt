@@ -185,7 +185,7 @@ class WCoverFlowView @JvmOverloads constructor(
         paint.color = WColor.SecondaryText.color
         paint.textSize = textSize
         paint.textAlign = Paint.Align.CENTER
-        paint.typeface = WFont.NunitoExtraBold.typeface
+        paint.typeface = WFont.Balance.typeface
         canvas.drawText(
             LocaleController.getString("No Image"),
             COVER_WIDTH / 2f,

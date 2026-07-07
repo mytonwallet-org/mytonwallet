@@ -20,7 +20,7 @@ import androidx.core.view.isVisible
 class SubwalletsHeaderCell(context: Context) : WCell(context), WThemedView {
     private val titleLabel = WLabel(context).apply {
         text = LocaleController.getString("Subwallets")
-        setStyle(14f, WFont.DemiBold)
+        setStyle(14f, WFont.Medium)
     }
     private val progressDrawable =
         RoundProgressDrawable(sizeDp = 11.5f, strokeWidthDp = 1f).also {

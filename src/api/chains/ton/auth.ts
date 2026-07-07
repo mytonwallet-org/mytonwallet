@@ -336,6 +336,8 @@ export async function getWalletsFromLedgerAndLoadBalance(
   network: ApiNetwork,
   accountIndices: number[],
 ): Promise<{ wallet: ApiTonWallet; balance: bigint }[] | { error: ApiAnyDisplayError }> {
+  if (process.env.NO_LEDGER === '1') throw new Error('Ledger is disabled');
+
   const { getLedgerTonWallet } = await import('./ledger');
   const wallets: ApiTonWallet[] = [];
 
