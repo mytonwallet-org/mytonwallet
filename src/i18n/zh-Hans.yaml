@@ -1643,3 +1643,5 @@ Sent!: 已发送！
 $chart_months_short: 1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月
 $chart_week_days: 星期日,星期一,星期二,星期三,星期四,星期五,星期六
 $chart_week_days_short: 周日,周一,周二,周三,周四,周五,周六
+Unsupported Chain: 不支持的网络
+Please upgrade to multichain to use this app.: 请升级到多链钱包以使用此应用。

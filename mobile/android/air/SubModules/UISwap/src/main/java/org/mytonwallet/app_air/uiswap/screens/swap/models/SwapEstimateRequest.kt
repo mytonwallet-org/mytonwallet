@@ -98,8 +98,8 @@ data class SwapEstimateRequest(
                 cexLabel = null,
                 shouldTryDiesel = null,
                 walletVersion = null,
-                isFromAmountMax = null,
-                toncoinBalance = null
+                isFromAmountMax = isFromAmountMax,
+                toncoinBalance = nativeTokenToSendBalance
             )
         }
 }

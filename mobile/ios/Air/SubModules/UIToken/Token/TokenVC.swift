@@ -65,6 +65,14 @@ public class TokenVC: ActivityListViewController {
 
     private var suppressScrollUpdates = false
 
+    private struct NavigationHeaderSnapshot: Equatable {
+        var title: String
+        var badgeLabel: String?
+        var isRwaStock: Bool
+    }
+
+    private var navigationHeaderSnapshot: NavigationHeaderSnapshot?
+
     private func updateHeaderHeight() {
         suppressScrollUpdates = true
         defer { suppressScrollUpdates = false }
@@ -135,7 +143,8 @@ public class TokenVC: ActivityListViewController {
     }
 
     private func setupViews() {
-        navigationHeader.setTitle(token.name)
+        updateNavigationHeader()
+
         navigationHeader.viewToRedirectTouchesTo = expandableContentView
         navigationHeader.onSizeChanged = { [weak self] in
             self?.updateScroll()
@@ -269,6 +278,30 @@ public class TokenVC: ActivityListViewController {
         navigationHeader.visibilityAlpha = min(1, max(0, (30 - scrollOffset) / 14 + 1))
     }
 
+    private func updateNavigationHeader() {
+        let token = currentToken
+        let badgeLabel = token.label?.nilIfEmpty
+        let title = token.displayName(strippingLabelWhenShown: badgeLabel != nil)
+        let snapshot = NavigationHeaderSnapshot(
+            title: title,
+            badgeLabel: badgeLabel,
+            isRwaStock: token.isRwaStock
+        )
+
+        guard snapshot != navigationHeaderSnapshot else { return }
+        navigationHeaderSnapshot = snapshot
+
+        guard let badgeLabel else {
+            navigationHeader.setTitle(title)
+            return
+        }
+
+        let titleLabel = NavigationHeader2.makeTitleLabel(title)
+        let badge = BadgeView(style: .large)
+        badge.configureTokenLabel(text: badgeLabel, style: token.isRwaStock ? .stock : .regular)
+        navigationHeader.setStack(of: [titleLabel, badge], spacing: 4)
+    }
+
     private func updateNavigationMenu() {
         navigationItem.rightBarButtonItem = ConfigStore.shared.shouldRestrictSwapsAndOnRamp
             ? nil
@@ -303,6 +336,8 @@ extension TokenVC: WalletCoreData.EventsObserver {
         switch event {
         case .configChanged:
             updateNavigationMenu()
+        case .tokensChanged:
+            updateNavigationHeader()
         default:
             break
         }
@@ -312,6 +347,7 @@ extension TokenVC: WalletCoreData.EventsObserver {
 extension TokenVC: TokenVMDelegate {
     func dataUpdated(isUpdateEvent: Bool) {
         expandableContentView.configure(token: currentToken)
+        updateNavigationHeader()
         reconfigureCustomSection(id: actionsCustomSectionID)
         reconfigureCustomSection(id: chartCustomSectionID)
         super.transactionsUpdated(accountChanged: false, isUpdateEvent: isUpdateEvent)
@@ -322,6 +358,7 @@ extension TokenVC: TokenVMDelegate {
     }
     func stateChanged() {
         expandableContentView.configure(token: currentToken)
+        updateNavigationHeader()
         reconfigureCustomSection(id: actionsCustomSectionID)
         reconfigureCustomSection(id: chartCustomSectionID)
     }
@@ -332,6 +369,7 @@ extension TokenVC: TokenVMDelegate {
             self.activityViewModel = await ActivityListViewModel(accountId: newAccountId, token: token, customSectionIDs: customSectionIDs, delegate: self)
             self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
             self.tokenVM.refreshTransactions()
+            self.updateNavigationHeader()
         }
     }
 }

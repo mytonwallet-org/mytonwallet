@@ -4,15 +4,12 @@
   position: relative;
 
   display: flex;
+  flex-shrink: 0;
   align-items: center;
 
   height: 4rem;
 
   color: var(--color-black);
-
-  &.withContent {
-    margin-top: 0.5625rem;
-  }
 }
 
 .titleWrap {

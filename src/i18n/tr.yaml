@@ -1648,3 +1648,5 @@ Sent!: Gönderildi!
 $chart_months_short: Oca,Şub,Mar,Nis,May,Haz,Tem,Ağu,Eyl,Eki,Kas,Ara
 $chart_week_days: Pazar,Pazartesi,Salı,Çarşamba,Perşembe,Cuma,Cumartesi
 $chart_week_days_short: Paz,Pzt,Sal,Çar,Per,Cum,Cmt
+Unsupported Chain: Desteklenmeyen ağ
+Please upgrade to multichain to use this app.: Bu uygulamayı kullanmak için çoklu zincir cüzdanına yükseltin.

@@ -305,9 +305,17 @@ export async function swapCexCreateTransaction(
 }
 
 export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitGasfullTransferOptions, swapId: string) {
-  const result = await chains[chain].submitGasfullTransfer(transferOptions);
+  const submitGasfullTransfer = chains[chain].submitGasfullTransfer;
+  let result: Awaited<ReturnType<typeof submitGasfullTransfer>>;
+  try {
+    result = await submitGasfullTransfer(transferOptions);
+  } catch (err) {
+    await patchSwapSubmitError(transferOptions, swapId, errorToString(err));
+    throw err;
+  }
 
   if ('error' in result) {
+    await patchSwapSubmitError(transferOptions, swapId, result.error);
     return result;
   }
 
@@ -329,4 +337,23 @@ export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitG
   }
 
   return result;
+}
+
+async function patchSwapSubmitError(
+  transferOptions: ApiSubmitGasfullTransferOptions,
+  swapId: string,
+  error: string | undefined,
+) {
+  const { accountId, password } = transferOptions;
+  // CEX swap history rows are owned by the TON history address even when the
+  // actual deposit transfer is submitted from another source chain.
+  const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
+  const authToken = await getBackendAuthToken(accountId, password ?? '');
+  await patchSwapItem({ address: historyAddress, authToken, error: error || 'Unknown', swapId });
+}
+
+function errorToString(err: unknown) {
+  if (typeof err === 'string') return err;
+  if (err instanceof Error) return err.stack ?? err.message;
+  return String(err);
 }

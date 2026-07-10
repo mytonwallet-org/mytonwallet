@@ -240,7 +240,7 @@ class SwapVC(
 
         linearLayout.addView(cexProviderInfoView)
         estShowMoreContainer.addView(estShowMore)
-        estOuterContainer.addView(estLayout)
+        estOuterContainer.addView(estLayout, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         estOuterContainer.addView(
             estShowMoreContainer,
             ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)

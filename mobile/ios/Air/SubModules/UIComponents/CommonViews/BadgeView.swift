@@ -10,14 +10,35 @@ public final class BadgeView: UIView {
         case regular
         case stock
     }
+    
+    public enum Style {
+        case regular
+        case large
+    }
 
     private static let stockLabelColor = UIColor(hex: "#DE8C00")
+    private let horizontalPadding: CGFloat
+    private let badgeHeight: CGFloat
+    private let style: Style
     
     private var label = UILabel()
     private var backgroundGradient = CAGradientLayer()
     private var labelGradient = CAGradientLayer()
     
-    public init() {
+    public init(style: Style = .regular) {
+        self.style = style
+        
+        switch style {
+        case .regular:
+            horizontalPadding = 6
+            badgeHeight = 14
+            label.font = .systemFont(ofSize: 10, weight: .semibold)
+        case .large:
+            horizontalPadding = 8
+            badgeHeight = 16
+            label.font = .systemFont(ofSize: 13, weight: .semibold)
+        }
+
         super.init(frame: .zero)
         setup()
     }
@@ -39,12 +60,11 @@ public final class BadgeView: UIView {
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 3),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -3),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: horizontalPadding / 2),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -horizontalPadding / 2),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            self.heightAnchor.constraint(equalToConstant: 14)
+            self.heightAnchor.constraint(equalToConstant: badgeHeight)
         ])
-        label.font = .systemFont(ofSize: 10, weight: .semibold)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         label.textColor = .white
         
@@ -58,6 +78,18 @@ public final class BadgeView: UIView {
         noAnim["colors"] = NSNull()
         backgroundGradient.actions = noAnim
         labelGradient.actions = noAnim
+    }
+
+    public override var intrinsicContentSize: CGSize {
+        guard !isHidden else { return .zero }
+        var labelWidth = label.intrinsicContentSize.width
+        if labelWidth == UIView.noIntrinsicMetric || labelWidth <= 0 {
+            labelWidth = label.sizeThatFits(
+                CGSize(width: CGFloat.greatestFiniteMagnitude, height: badgeHeight)
+            ).width
+        }
+        guard labelWidth > 0 else { return .zero }
+        return CGSize(width: ceil(labelWidth) + horizontalPadding, height: badgeHeight)
     }
 
     public override func layoutSubviews() {
@@ -81,6 +113,7 @@ public final class BadgeView: UIView {
         labelGradient.isHidden = true
         
         self.isHidden = false
+        invalidateIntrinsicContentSize()
     }
     
     public func configureStakingInactive(yieldType: ApiYieldType, apy: Double) {
@@ -102,6 +135,7 @@ public final class BadgeView: UIView {
         labelGradient.isHidden = false
         
         self.isHidden = false
+        invalidateIntrinsicContentSize()
     }
 
     public func configureChain(chain: ApiChain) {
@@ -134,10 +168,12 @@ public final class BadgeView: UIView {
         labelGradient.isHidden = true
 
         self.isHidden = false
+        invalidateIntrinsicContentSize()
     }
     
     public func configureHidden() {
         label.text = " "
         self.isHidden = true
+        invalidateIntrinsicContentSize()
     }
 }

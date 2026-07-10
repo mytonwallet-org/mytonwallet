@@ -134,7 +134,9 @@ class SwapEstimatedInfo(
 
     var est: SwapEstimateResponse? = null
     fun setEstimated(est: SwapEstimateResponse?, toToken: IApiToken?) {
-        estBlockchainFee.value = est?.transactionFeeFmt2
+        val transactionFee = est?.transactionFeeFmt2
+        estBlockchainFee.value = transactionFee
+        estBlockchainFee.visibility = if (transactionFee == null) GONE else VISIBLE
         if ((est?.explainedFee?.excessFee ?: BigInteger.ZERO) > BigInteger.ZERO) {
             estBlockchainFee.setValueDrawable(
                 org.mytonwallet.app_air.icons.R.drawable.ic_info_24,

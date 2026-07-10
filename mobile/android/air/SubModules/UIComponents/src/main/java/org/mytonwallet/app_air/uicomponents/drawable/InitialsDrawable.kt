@@ -9,10 +9,14 @@ import android.graphics.drawable.Drawable
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountAvatarRenderer
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class InitialsDrawable(private val text: String) : Drawable() {
+class InitialsDrawable(
+    private val text: String,
+    private val rounding: Content.Rounding = Content.Rounding.Round
+) : Drawable() {
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Balance.typeface
@@ -36,7 +40,17 @@ class InitialsDrawable(private val text: String) : Drawable() {
 
         val inset = borderPaint.strokeWidth / 2f
         borderRect.set(b.left + inset, b.top + inset, b.right - inset, b.bottom - inset)
-        canvas.drawOval(borderRect, borderPaint)
+        when (rounding) {
+            is Content.Rounding.Radius ->
+                canvas.drawRoundRect(borderRect, rounding.radius, rounding.radius, borderPaint)
+
+            is Content.Rounding.RadiusRatio -> {
+                val radius = size * rounding.ratio
+                canvas.drawRoundRect(borderRect, radius, radius, borderPaint)
+            }
+
+            else -> canvas.drawOval(borderRect, borderPaint)
+        }
 
         AccountAvatarRenderer.drawCenteredText(
             canvas,

@@ -1,6 +1,5 @@
 //
-//  BadgeHelper.swift
-//  MyTonWalletAir
+//  BadgeContent.swift
 //
 //  Created by nikstar on 24.06.2025.
 //

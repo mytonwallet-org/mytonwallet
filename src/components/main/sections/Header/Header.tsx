@@ -145,77 +145,57 @@ function Header({
     );
   }
 
-  if (isPortrait) {
-    const fullClassName = buildClassName(
-      styles.header,
-      areTabsStuck && styles.areTabsStuck,
-      isScrolled && styles.isScrolled,
-    );
-    const showBackButton = isTemporaryAccount && !IS_EXPLORER;
-    const iconsAmount = IS_EXTENSION
-      ? 1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0)
-      : 1 + (isAppLockEnabled ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0) + (canToggleAppLayout ? 1 : 0);
+  const showBackButton = isTemporaryAccount && !IS_EXPLORER;
+  const headerClassName = buildClassName(
+    styles.header,
+    areTabsStuck && styles.areTabsStuck,
+    isScrolled && styles.isScrolled,
+  );
 
-    if (IS_EXPLORER) {
-      return (
-        <div className={fullClassName}>
-          <div className={styles.headerInner} style="--icons-amount: 3">
-            <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
-            <div className={styles.portraitActionsRight}>
-              <a
-                href={SELF_UNIVERSAL_HOST_URL}
-                className={styles.openLink}
-                onClick={handleOpenInAppClick}
-              >
-                <img src={logoSrc} alt="" className={styles.mtLogo} />
-                {lang('Open')}
-              </a>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
+  if (isPortrait && IS_EXPLORER) {
     return (
-      <div className={fullClassName}>
-        <div className={styles.headerInner} style={`--icons-amount: ${iconsAmount}`}>
-          {IS_EXTENSION ? (
-            <div className={styles.portraitActionsLeft}>
-              {showBackButton ? <BackButton isIconOnly /> : <QrScannerButton isViewMode={isViewMode} />}
-              <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
-              {isAppLockEnabled && <AppLockButton />}
-            </div>
-          ) : (
-            showBackButton ? <BackButton /> : <QrScannerButton isViewMode={isViewMode} />
-          )}
+      <div className={headerClassName}>
+        <div className={styles.headerInner} style="--icons-amount: 3">
           <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
-
           <div className={styles.portraitActionsRight}>
-            {!IS_EXTENSION && isAppLockEnabled && <AppLockButton />}
-            {!IS_EXTENSION && <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />}
-            {IS_TELEGRAM_APP && <ToggleFullscreenButton isFullscreen={isFullscreen} />}
-            {canToggleAppLayout && <ToggleLayoutButton />}
+            <a
+              href={SELF_UNIVERSAL_HOST_URL}
+              className={styles.openLink}
+              onClick={handleOpenInAppClick}
+            >
+              <img src={logoSrc} alt="" className={styles.mtLogo} />
+              {lang('Open')}
+            </a>
           </div>
         </div>
       </div>
     );
   }
 
-  const showBackButton = isTemporaryAccount && !IS_EXPLORER;
   const buttonsAmount = Math.max(
     1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0),
     (isQrScannerSupported ? 1 : 0) + (canToggleAppLayout ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0),
   );
 
+  const actionsStartClassName = isPortrait
+    ? styles.portraitActionsLeft
+    : buildClassName(
+      styles.landscapeActions,
+      styles.landscapeActionsStart,
+      styles[`landscapeActionsButtons${buttonsAmount}`],
+    );
+  const actionsEndClassName = isPortrait
+    ? styles.portraitActionsRight
+    : buildClassName(
+      styles.landscapeActions,
+      styles.landscapeActionsEnd,
+      buttonsAmount > 1 && styles[`landscapeActionsButtons${buttonsAmount}`],
+    );
+
   return (
-    <div className={styles.header}>
-      <div className={styles.headerInner}>
-        <div className={buildClassName(
-          styles.landscapeActions,
-          styles[`landscapeActionsButtons${buttonsAmount}`],
-          styles.landscapeActionsStart,
-        )}
-        >
+    <div className={headerClassName}>
+      <div className={styles.headerInner} style={`--icons-amount: ${buttonsAmount}`}>
+        <div className={actionsStartClassName}>
           {showBackButton && <BackButton isIconOnly />}
           {!IS_EXPLORER && <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />}
           {isAppLockEnabled && <AppLockButton />}
@@ -223,12 +203,7 @@ function Header({
 
         <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
 
-        <div className={buildClassName(
-          styles.landscapeActions,
-          buttonsAmount > 1 && styles[`landscapeActionsButtons${buttonsAmount}`],
-          styles.landscapeActionsEnd,
-        )}
-        >
+        <div className={actionsEndClassName}>
           <QrScannerButton isViewMode={isViewMode} />
           {IS_TELEGRAM_APP && <ToggleFullscreenButton isFullscreen={isFullscreen} />}
           {canToggleAppLayout && <ToggleLayoutButton />}

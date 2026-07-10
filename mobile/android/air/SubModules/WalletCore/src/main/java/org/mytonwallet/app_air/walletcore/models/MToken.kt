@@ -155,7 +155,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
 
     val isOnChain: Boolean
         get() {
-            return chain == "ton" || (chain == "tron" && AccountStore.activeAccount?.tronAddress?.isNotBlank() == true)
+            return AccountStore.activeAccount?.isChainSupported(chain) == true
         }
 
     fun explorerUrl(network: MBlockchainNetwork): String? {

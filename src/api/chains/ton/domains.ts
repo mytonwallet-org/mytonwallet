@@ -1,17 +1,24 @@
-import type { ApiDomainData, ApiNft } from '../../types';
+import type { ApiDomainData, ApiNetwork, ApiNft } from '../../types';
 import type { TonTransferParams } from './types';
 
 import { parseAccountId } from '../../../util/account';
 import { YEAR } from '../../../util/dateFormat';
 import { split } from '../../../util/iteratees';
+import { logDebugError } from '../../../util/logs';
+import { createTaskQueue } from '../../../util/schedulers';
 import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
 import { parseTonapiioNft } from './util/metadata';
+import { getDnsItemDomain, toBase64Address } from './util/tonCore';
 import { DnsItem } from './contracts/DnsItem';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
+import { resolveAddressByDomain } from './address';
 import { TON_GAS } from './constants';
 import { checkMultiTransactionDraft, submitMultiTransferWithMfa } from './transfer';
+
+const LINKED_ADDRESS_VERIFICATION_CONCURRENCY = 3;
+const linkedAddressVerificationQueue = createTaskQueue(LINKED_ADDRESS_VERIFICATION_CONCURRENCY);
 
 export async function checkDnsRenewalDraft(accountId: string, nftAddresses: string[]) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
@@ -98,21 +105,55 @@ export async function fetchDomains(accountId: string) {
   const linkedAddressByAddress: Record<string, string> = {};
   const nfts: Record<string, ApiNft> = {};
 
-  Object.keys(data).forEach((nftAddress) => {
+  await Promise.all(Object.keys(data).map(async (nftAddress) => {
     const { lastFillUpTime, linkedAddress, nft: rawNft } = data[nftAddress];
     expirationByAddress[nftAddress] = new Date(lastFillUpTime).getTime() + YEAR;
     if (linkedAddress) {
-      linkedAddressByAddress[nftAddress] = linkedAddress;
+      const verifiedLinkedAddress = await linkedAddressVerificationQueue.run(
+        () => verifyTonDnsLinkedAddress(network, nftAddress, linkedAddress),
+      );
+
+      if (verifiedLinkedAddress) {
+        linkedAddressByAddress[nftAddress] = verifiedLinkedAddress;
+      }
     }
     const nft = parseTonapiioNft(network, rawNft, nftSuperCollectionsByCollectionAddress);
     if (nft) {
       nfts[nftAddress] = nft;
     }
-  });
+  }));
 
   return {
     expirationByAddress,
     linkedAddressByAddress,
     nfts,
   };
+}
+
+async function verifyTonDnsLinkedAddress(network: ApiNetwork, nftAddress: string, linkedAddress: string) {
+  try {
+    const domain = await getDnsItemDomain(network, nftAddress);
+    const resolvedLinkedAddress = await resolveAddressByDomain(network, domain);
+
+    if (!resolvedLinkedAddress) {
+      return undefined;
+    }
+
+    const normalizedLinkedAddress = toBase64Address(linkedAddress, true, network);
+    const normalizedResolvedLinkedAddress = toBase64Address(resolvedLinkedAddress, true, network);
+
+    if (normalizedLinkedAddress !== normalizedResolvedLinkedAddress) {
+      logDebugError('verifyTonDnsLinkedAddress:mismatch', {
+        nftAddress,
+        linkedAddress,
+        resolvedLinkedAddress,
+      });
+      return undefined;
+    }
+
+    return normalizedResolvedLinkedAddress;
+  } catch (err) {
+    logDebugError('verifyTonDnsLinkedAddress', { nftAddress }, err);
+    return undefined;
+  }
 }

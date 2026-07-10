@@ -497,19 +497,25 @@ $labelSidePadding: 0.5rem;
 
 .optionTokenIcon {
   flex-shrink: 0;
-  width: 2.625rem;
-  height: 2.625rem;
-  border-radius: 50%;
 
   &_fallback {
     display: flex;
     align-items: center;
     justify-content: center;
 
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+
     font-size: 1.25rem;
     color: var(--color-gray-2);
 
     background: var(--color-background-second);
+
+    @include mixins.is-mobile() {
+      width: 2.625rem;
+      height: 2.625rem;
+    }
   }
 }
 

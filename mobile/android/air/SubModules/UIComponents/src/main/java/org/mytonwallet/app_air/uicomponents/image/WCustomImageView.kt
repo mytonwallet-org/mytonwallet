@@ -274,7 +274,8 @@ open class WCustomImageView @JvmOverloads constructor(
             else -> when (val placeholder = getPlaceholderMode(content)) {
                 is Content.Placeholder.Default -> throw IllegalArgumentException()
                 is Content.Placeholder.Color -> placeholder.color.color.toDrawable()
-                is Content.Placeholder.Initials -> InitialsDrawable(placeholder.text)
+                is Content.Placeholder.Initials ->
+                    InitialsDrawable(placeholder.text, getRoundingMode(content))
             }
         }
     }

@@ -7,7 +7,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.max
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.MAX_PRICE_IMPACT_VALUE
-import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
@@ -149,18 +148,12 @@ data class SwapEstimateResponse(
             if (request.isCex) {
                 val nativeToken = request.nativeTokenToSend
 
-                val fee = fee ?: FeeEstimationHelpers.networkFeeData(
-                    request.tokenToSend,
-                    request.wallet.isSupportedChain(request.tokenToSend.mBlockchain),
-                    swapType,
-                    dex?.networkFee
-                )?.fee?.toBigInteger()
                 return fee?.toString(
                     decimals = nativeToken.decimals,
                     currency = nativeToken.symbol ?: "",
                     currencyDecimals = fee.smartDecimalsCount(nativeToken.decimals),
                     showPositiveSign = false
-                ) ?: ""
+                )
             } else {
                 val shouldShowFullFee = hasInsufficientFeeError
                 return (if (shouldShowFullFee) explainedFee.fullFee else explainedFee.realFee)?.toString(

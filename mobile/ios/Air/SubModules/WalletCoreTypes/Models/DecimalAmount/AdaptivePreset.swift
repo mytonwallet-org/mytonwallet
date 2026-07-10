@@ -59,7 +59,7 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
     var zeroCountSubscriptMinCount: Int? {
         switch self {
         case .fee:
-            return 5
+            return 6
         default:
             return nil
         }

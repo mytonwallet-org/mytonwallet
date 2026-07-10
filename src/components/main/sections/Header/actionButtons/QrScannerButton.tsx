@@ -1,7 +1,6 @@
 import React, { memo } from '../../../../../lib/teact/teact';
 import { getActions } from '../../../../../global';
 
-import buildClassName from '../../../../../util/buildClassName';
 import { getIsMobileTelegramApp, IS_IOS } from '../../../../../util/windowEnvironment';
 
 import useLang from '../../../../../hooks/useLang';
@@ -35,7 +34,7 @@ function QrScannerButton({ isViewMode }: OwnProps) {
 
   return (
     <Button
-      className={buildClassName(styles.button, styles.qrScannerButton)}
+      className={styles.button}
       isText
       isSimple
       kind="transparent"

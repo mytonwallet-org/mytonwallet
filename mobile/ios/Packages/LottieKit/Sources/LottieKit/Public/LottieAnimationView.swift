@@ -705,9 +705,11 @@ public final class LottieAnimationView: UIImageView {
         self.updatePlaybackActivity(resetTiming: false)
     }
 
-    @objc private func processInfoPowerStateDidChange() {
-        self.handleLowPowerModePlaybackPolicyChange()
-        self.handleRenderTargetChange()
+    @objc private nonisolated func processInfoPowerStateDidChange() {
+        Task { @MainActor in
+            self.handleLowPowerModePlaybackPolicyChange()
+            self.handleRenderTargetChange()
+        }
     }
 
     private func handleLowPowerModePlaybackPolicyChange() {

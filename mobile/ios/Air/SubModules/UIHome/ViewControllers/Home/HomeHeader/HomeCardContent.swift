@@ -38,6 +38,8 @@ struct HomeCardContent: View {
                     .backportGeometryGroup()
                     .offset(y: -bottomPadding)
                     .id(accountContext.accountId)
+                    .animation(.default, value: accountContext.balance)
+
                 _AddressLine(accountContext: accountContext)
                     .frame(maxHeight: .infinity, alignment: .bottom)
             }

@@ -377,6 +377,8 @@ class SearchVC(context: Context) : WViewController(context),
 
             SEARCH_SEARCHED_CELL -> {
                 SearchItemCell(context, onTap = { history ->
+                    if (WalletContextManager.delegate?.get()?.handleDeeplink(history) == true)
+                        return@SearchItemCell
                     val (isValidUrl, uri) = InAppBrowserVC.convertToUri(history)
                     openInAppBrowser(
                         InAppBrowserConfig(

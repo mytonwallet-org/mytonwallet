@@ -115,6 +115,48 @@ describe('swapCexSubmit', () => {
     }));
   });
 
+  it('patches CEX history with frontend error when the deposit transfer returns an error', async () => {
+    chains.base.submitGasfullTransfer.mockResolvedValue({ error: 'InsufficientBalance' });
+    const transferOptions = {
+      accountId: '0-mainnet',
+      password: 'password',
+      toAddress: '0xdeposit',
+      amount: 1n,
+      fee: 1n,
+    } as unknown as ApiSubmitGasfullTransferOptions;
+
+    const result = await swapCexSubmit('base' as ApiChain, transferOptions, 'swap-id');
+
+    expect(result).toEqual({ error: 'InsufficientBalance' });
+    expect(patchSwapItem).toHaveBeenCalledWith({
+      address: 'EQ-ton-history-owner',
+      authToken: 'backend-auth-token',
+      error: 'InsufficientBalance',
+      swapId: 'swap-id',
+    });
+  });
+
+  it('patches CEX history with frontend error when the deposit transfer throws', async () => {
+    const submitError = new Error('submit failed');
+    chains.base.submitGasfullTransfer.mockRejectedValue(submitError);
+    const transferOptions = {
+      accountId: '0-mainnet',
+      password: 'password',
+      toAddress: '0xdeposit',
+      amount: 1n,
+      fee: 1n,
+    } as unknown as ApiSubmitGasfullTransferOptions;
+
+    await expect(swapCexSubmit('base' as ApiChain, transferOptions, 'swap-id')).rejects.toThrow('submit failed');
+
+    expect(patchSwapItem).toHaveBeenCalledWith({
+      address: 'EQ-ton-history-owner',
+      authToken: 'backend-auth-token',
+      error: expect.stringContaining('submit failed'),
+      swapId: 'swap-id',
+    });
+  });
+
   it('publishes MFA requests instead of patching CEX history immediately', async () => {
     const mfaRequest = {
       payload: 'payload',

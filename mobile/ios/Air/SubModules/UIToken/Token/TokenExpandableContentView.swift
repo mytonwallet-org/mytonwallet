@@ -140,12 +140,21 @@ private final class TokenHeaderBalanceModel {
     var balance: BigInt?
     var baseCurrencyAmount: BaseCurrencyAmount?
     var expansionProgress: CGFloat = 1
+    
+    var amount: TokenAmount? {
+        if let token, let balance {
+            return TokenAmount(balance, token)
+        }
+        return nil
+    }
 }
 
 private struct TokenHeaderBalanceView: View {
     let model: TokenHeaderBalanceModel
 
     @State private var showsFullBalance = false
+    @State private var isNumericTransitionDisabled = false
+    
 
     private let primaryFontSize: CGFloat = 40
     private var collapseProgress: CGFloat { 1 - model.expansionProgress }
@@ -169,13 +178,15 @@ private struct TokenHeaderBalanceView: View {
             .padding(.bottom, bottomPadding)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .animation(.default, value: model.amount)
         }
     }
 
     @ViewBuilder
     private var balanceView: some View {
-        if let token = model.token, let balance = model.balance {
-            let amount = TokenAmount(balance, token)
+        if let amount = model.amount {
+            let balance = amount.amount
+            let token = amount.token
             let decimalsCount = showsFullBalance
                 ? token.decimals
                 : tokenDecimals(for: balance, tokenDecimals: token.decimals)
@@ -190,19 +201,21 @@ private struct TokenHeaderBalanceView: View {
                 fractionColor: fadeDecimals ? .air.secondaryLabel : UIColor.label,
                 symbolColor: .air.secondaryLabel
             )
-            .contentTransition(.numericText())
+            .contentTransition(isNumericTransitionDisabled ? .interpolate : .numericText())
             .lineLimit(1)
-            .animation(.default, value: amount.amount)
-            .animation(.default, value: showsFullBalance)
             .contentShape(Rectangle())
             .onTapGesture {
-                showsFullBalance.toggle()
-            }
-            .onChange(of: token.slug) { _ in
-                showsFullBalance = false
-            }
-            .onChange(of: balance) { _ in
-                showsFullBalance = false
+                withAnimation(showsFullBalance ? .smooth(duration: 0.25) : .default) {
+                    if showsFullBalance {
+                        isNumericTransitionDisabled = true
+                        showsFullBalance = false
+                        DispatchQueue.main.async {
+                            isNumericTransitionDisabled = false
+                        }
+                    } else {
+                        showsFullBalance = true
+                    }
+                }
             }
             .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 12, theme: .adaptive, cornerRadius: 10)
         } else {

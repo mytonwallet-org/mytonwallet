@@ -249,7 +249,6 @@ function WalletConnectPayOptionSelectionModal({
               token={token}
               withChainIcon
               className={styles.optionTokenIcon}
-              iconClassName={styles.optionTokenIcon}
             />
           ) : (
             <i
@@ -361,11 +360,11 @@ function WalletConnectPayOptionSelectionModal({
 
         <div className={styles.optionSelectionEmpty}>
           <p className={styles.optionSelectionEmptyTitle}>
-            {lang(shouldSwitchWallet ? 'No matching chains' : 'You don\'t have any eligible tokens for this payment')}
+            {lang(shouldSwitchWallet ? 'Unsupported Chain' : 'You don\'t have any eligible tokens for this payment')}
           </p>
           <p className={styles.optionSelectionEmptyHint}>
             {lang(shouldSwitchWallet
-              ? 'Select multichain wallet'
+              ? 'Please upgrade to multichain to use this app.'
               : 'Buy, swap, or receive a supported token to continue.')}
           </p>
         </div>

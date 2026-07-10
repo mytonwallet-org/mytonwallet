@@ -306,8 +306,8 @@ function DappConnectModal({
         {shouldRenderAccountSelector && renderAccountSelector()}
         {!isSelectedAccountCompatible && (
           <div className={buildClassName(styles.multichainWarning, styles.warning)}>
-            <div className={styles.warningTitle}>{lang('No matching chains')}</div>
-            {lang('Select multichain wallet')}
+            <div className={styles.warningTitle}>{lang('Unsupported Chain')}</div>
+            {lang('Please upgrade to multichain to use this app.')}
           </div>
         )}
 

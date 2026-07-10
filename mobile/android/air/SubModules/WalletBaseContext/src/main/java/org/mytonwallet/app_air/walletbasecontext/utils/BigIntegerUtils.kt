@@ -38,7 +38,7 @@ fun BigInteger.toString(
     showPositiveSign: Boolean,
     forceCurrencyToRight: Boolean = false,
     roundUp: Boolean = true,
-    zeroCountSubscriptMinCount: Int? = 5
+    zeroCountSubscriptMinCount: Int? = 6
 ): String {
     val scale = BigInteger.TEN.pow(decimals)
     val absValue = abs()
@@ -109,7 +109,7 @@ private fun Int.toSubscriptString(): String {
     return toString().map { subscriptDigits[it.digitToInt()] }.joinToString("")
 }
 
-// Collapse leading fractional zeros into a subscript count, e.g. "0.0000056" -> "0.0₅56".
+// Collapse leading fractional zeros into a subscript count, e.g. "0.00000056" -> "0.0₆56".
 // Only applies when the value starts with "0." and has at least [minZeroCount] leading zeros.
 private fun String.applyZeroCountSubscript(minZeroCount: Int?): String {
     if (minZeroCount == null || minZeroCount <= 0 || !startsWith("0$decimalSeparator")) {

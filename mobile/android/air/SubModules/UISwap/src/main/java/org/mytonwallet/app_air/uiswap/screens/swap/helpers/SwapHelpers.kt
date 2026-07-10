@@ -74,12 +74,20 @@ class SwapHelpers {
 
             var maxAmount = tokenBalance
 
-            lastSwapEstimateResponse?.explainedFee?.fullFee?.networkTerms?.let { networkTerms ->
-                maxAmount -= networkTerms.token ?: BigInteger.ZERO
+            val networkTerms = lastSwapEstimateResponse?.explainedFee?.fullFee?.networkTerms
+            networkTerms?.let {
+                maxAmount -= it.token ?: BigInteger.ZERO
 
                 if (tokenToSend.isBlockchainNative) {
-                    maxAmount -= networkTerms.native ?: BigInteger.ZERO
+                    maxAmount -= it.native ?: BigInteger.ZERO
                 }
+            }
+
+            val shouldUseCexNativeFee = lastSwapEstimateResponse?.request?.isCex == true &&
+                tokenToSend.isBlockchainNative &&
+                networkTerms == null
+            if (shouldUseCexNativeFee) {
+                maxAmount -= lastSwapEstimateResponse?.fee ?: BigInteger.ZERO
             }
 
             val ourFeePercent = lastSwapEstimateResponse?.dex?.ourFeePercent
@@ -88,7 +96,7 @@ class SwapHelpers {
                 .divide((1 + (ourFeePercent / 100)).toBigInteger(9))
 
             if (maxAmount <= BigInteger.ZERO) {
-                return if (fallbackToMax) tokenBalance else BigInteger.ZERO
+                return if (fallbackToMax && !shouldUseCexNativeFee) tokenBalance else BigInteger.ZERO
             }
 
             return maxAmount

@@ -32,7 +32,7 @@ class FeeEstimationHelpers private constructor() {
             val chainConfigIn = tokenInChain.gas
 
             val fee: BigDecimal? = run {
-                var value: BigDecimal? = BigDecimal.ZERO
+                var value: BigDecimal? = null
                 when {
                     networkFee != null && networkFee > 0 -> {
                         value = networkFee.toBigDecimal()

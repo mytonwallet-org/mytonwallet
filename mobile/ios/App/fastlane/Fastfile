@@ -225,6 +225,16 @@ platform :ios do
       }
     }
     upload_options[:metadata_path] = $metadata_path if $metadata_path
+
+    # App Store Connect can have localizations that are not represented in fastlane/metadata.
+    # This updates the edit version's existing localizations before deliver submits for review.
+    set_changelog(
+      app_identifier: $app_identifier,
+      version: version,
+      changelog: changelog,
+      platform: "ios"
+    )
+
     upload_to_app_store(upload_options)
   end
 

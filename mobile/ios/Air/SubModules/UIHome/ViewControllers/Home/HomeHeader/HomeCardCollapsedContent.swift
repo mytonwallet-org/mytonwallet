@@ -30,6 +30,7 @@ struct HomeCardCollapsedContent: View {
             VStack(spacing: spacing) {
                 _CollapsedBalanceView(accountContext: accountContext)
                     .scaleEffect(balanceScale, anchor: .bottom)
+                    .animation(.default, value: accountContext.balance)
                 _CollapsedDisplayName(accountContext: accountContext)
                     .scaleEffect(subtitleScale, anchor: .top)
             }

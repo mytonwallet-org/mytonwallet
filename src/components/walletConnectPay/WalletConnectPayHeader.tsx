@@ -20,7 +20,7 @@ function WalletConnectPayHeader({ title, subtitle, children, onClose }: OwnProps
   const lang = useLang();
 
   return (
-    <div className={buildClassName(styles.header, Boolean(children) && styles.withContent)}>
+    <div className={styles.header}>
       {children}
 
       {(title || subtitle) && (

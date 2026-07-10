@@ -1646,3 +1646,5 @@ $chart_months_short: Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec
 $chart_week_days: Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday
 $chart_week_days_short: Sun,Mon,Tue,Wed,Thu,Fri,Sat
 Select multichain wallet: Select multichain wallet
+Unsupported Chain: Unsupported Chain
+Please upgrade to multichain to use this app.: Please upgrade to multichain to use this app.

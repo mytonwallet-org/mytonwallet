@@ -18,6 +18,7 @@ public class ExploreTabVC: WViewController {
         var lastScrollOffset: CGFloat = 0
     }
     private var state = State()
+    private var didCompleteInitialAppearance = false
 
     private static let deeplinkSchemes: Set<String> = ["ton", "tc", TONCONNECT_PROTOCOL_SCHEME, "wc", SELF_PROTOCOL_SCHEME]
     private static var deeplinkUniversalHosts: Set<String> {
@@ -42,6 +43,16 @@ public class ExploreTabVC: WViewController {
         syncNavChrome()
     }
 
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        let isFirstAppearance = !didCompleteInitialAppearance
+        didCompleteInitialAppearance = true
+        if isFirstAppearance {
+            state.lastScrollOffset = 0
+        }
+        syncNavChrome(animated: false)
+    }
+
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         view.endEditing(true)
@@ -59,6 +70,7 @@ public class ExploreTabVC: WViewController {
         exploreVC.onScrollOffsetChange = { [weak self] offset in
             guard let self else { return }
             state.lastScrollOffset = offset
+            guard didCompleteInitialAppearance else { return }
             syncNavChrome()
         }
 
@@ -120,6 +132,8 @@ public class ExploreTabVC: WViewController {
             largeExploreTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             largeExploreTitleLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -8),
         ])
+
+        syncNavChrome(animated: false)
     }
 
     private func applySearchModeChange() {
@@ -134,8 +148,7 @@ public class ExploreTabVC: WViewController {
         applyNavChromeAccessibility(isLargeTitleVisible: false, isNavigationTitleVisible: false)
     }
 
-    private func syncNavChrome() {
-        
+    private func syncNavChrome(animated: Bool = true) {
         let isLargeTitleVisible: Bool
         let isNavigationTitleVisible: Bool
 
@@ -153,16 +166,35 @@ public class ExploreTabVC: WViewController {
             }
             isNavigationTitleVisible = true
         }
-        
+
         applyNavChromeAccessibility(isLargeTitleVisible: isLargeTitleVisible, isNavigationTitleVisible: isNavigationTitleVisible)
 
         if state.isLargeTitleVisible != isLargeTitleVisible || state.isNavigationTitleVisible != isNavigationTitleVisible {
             state.isLargeTitleVisible = isLargeTitleVisible
             state.isNavigationTitleVisible = isNavigationTitleVisible
-            UIView.animate(withDuration: 0.2) {
-                self.largeExploreTitleLabel.alpha = isLargeTitleVisible ? 1 : 0
-                self.navigationHeader.visibilityAlpha = isNavigationTitleVisible ? (isLargeTitleVisible ? 0 : 1) : 0
-            }
+            applyNavChromeVisuals(
+                isLargeTitleVisible: isLargeTitleVisible,
+                isNavigationTitleVisible: isNavigationTitleVisible,
+                animated: animated
+            )
+        }
+    }
+
+    private func applyNavChromeVisuals(
+        isLargeTitleVisible: Bool,
+        isNavigationTitleVisible: Bool,
+        animated: Bool
+    ) {
+        let largeTitleAlpha: CGFloat = isLargeTitleVisible ? 1 : 0
+        let compactTitleAlpha: CGFloat = isNavigationTitleVisible ? (isLargeTitleVisible ? 0 : 1) : 0
+        let applyAlphas = {
+            self.largeExploreTitleLabel.alpha = largeTitleAlpha
+            self.navigationHeader.visibilityAlpha = compactTitleAlpha
+        }
+        if animated {
+            UIView.animate(withDuration: 0.2, animations: applyAlphas)
+        } else {
+            UIView.performWithoutAnimation(applyAlphas)
         }
     }
 

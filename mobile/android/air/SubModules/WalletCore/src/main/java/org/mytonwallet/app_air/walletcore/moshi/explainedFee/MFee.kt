@@ -18,7 +18,7 @@ class MFee(
 ) {
 
     companion object {
-        private const val ZERO_COUNT_SUBSCRIPT_MIN_COUNT = 5
+        private const val ZERO_COUNT_SUBSCRIPT_MIN_COUNT = 6
     }
 
     val isNativeOnly: Boolean

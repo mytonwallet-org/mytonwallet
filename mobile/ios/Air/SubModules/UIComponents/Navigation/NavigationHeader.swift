@@ -81,6 +81,16 @@ open class NavigationHeader2: UILabel {
         guard let navBar = navigationBar else { return contentHeight / 2 }
         return navBar.bounds.maxY - convert(bounds.center, to: navBar).y
     }
+
+    public static func makeTitleLabel(_ title: String, fixedColor: Bool = false) -> UILabel {
+        let label: UILabel = fixedColor ? FixedColorLabel() : UILabel()
+        label.font = .systemFont(ofSize: 17, weight: .semibold)
+        label.text = title
+        label.textColor = .label
+        label.numberOfLines = 1
+        label.lineBreakMode = .byTruncatingTail
+        return label
+    }
         
     /// In fact this sets UILabel of standard font size as the content view.
     public func setTitle(_ title: String, fixedColor: Bool = false) {
@@ -89,13 +99,8 @@ open class NavigationHeader2: UILabel {
             setNeedsLayout()
             return
         }
-        
-        let label: UILabel = fixedColor ? FixedColorLabel() : UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .semibold)
-        label.text = title
-        label.textColor = .label
-        label.numberOfLines = 1
-        setContentView(label)
+
+        setContentView(Self.makeTitleLabel(title, fixedColor: fixedColor))
     }
 
     public func setTitleAnimated(_ title: String) {
@@ -145,7 +150,11 @@ open class NavigationHeader2: UILabel {
         
         setNeedsLayout()
     }
-    
+
+    public func setStack(of views: [UIView], spacing: CGFloat = 0, truncatingAt indices: IndexSet = [0]) {
+        setContentView(_HorizontalStackView(views: views, spacing: spacing, truncatingAt: indices))
+    }
+        
     /// Common case: taping on transparent header for proxing to a scrolled controls underneath.
     public var onTap: ((UITapGestureRecognizer) -> Void)? {
         didSet {
@@ -227,6 +236,147 @@ open class NavigationHeader2: UILabel {
         let halfSlack = max(0, bounds.width - width) / 2
         centerXConstraint.constant = offset.clamped(to: -halfSlack...halfSlack)
         widthConstraint.constant = CGFloat(width)
+    }
+}
+
+private final class _HorizontalStackView: UIView {
+    private var arrangedSubviews: [UIView] = []
+    private var spacing: CGFloat = 0
+    private var truncatingIndices: IndexSet = [0]
+
+    init(views: [UIView] = [], spacing: CGFloat = 0, truncatingAt indices: IndexSet = [0]) {
+        self.spacing = spacing
+        self.truncatingIndices = indices
+        super.init(frame: .zero)
+        clipsToBounds = true
+        setArrangedSubviews(views, spacing: spacing, truncatingAt: indices)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    func setArrangedSubviews(_ views: [UIView], spacing: CGFloat, truncatingAt indices: IndexSet) {
+        self.spacing = spacing
+        self.truncatingIndices = indices
+        arrangedSubviews.forEach { $0.removeFromSuperview() }
+        arrangedSubviews = views
+        for view in views {
+            addSubview(view)
+        }
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
+    override func invalidateIntrinsicContentSize() {
+        super.invalidateIntrinsicContentSize()
+        superview?.setNeedsLayout()
+    }
+
+    override var intrinsicContentSize: CGSize {
+        let visibleEntries = visibleSubviewEntries()
+        guard !visibleEntries.isEmpty else { return .zero }
+
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+        for (index, entry) in visibleEntries.enumerated() {
+            let size = contentSize(for: entry.view)
+            width += size.width
+            if index > 0 {
+                width += spacing
+            }
+            height = max(height, size.height)
+        }
+        return CGSize(width: width, height: height)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        let visibleEntries = visibleSubviewEntries()
+        guard !visibleEntries.isEmpty else { return }
+
+        let sizes = layoutSizes(for: visibleEntries)
+        let isRTL = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        var x = isRTL ? bounds.maxX : bounds.minX
+
+        for (index, entry) in visibleEntries.enumerated() {
+            let size = sizes[index]
+            let y = bounds.midY - size.height / 2
+
+            if isRTL {
+                x -= size.width
+                entry.view.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
+                if index < visibleEntries.count - 1 {
+                    x -= spacing
+                }
+            } else {
+                entry.view.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
+                x += size.width
+                if index < visibleEntries.count - 1 {
+                    x += spacing
+                }
+            }
+        }
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.layoutDirection != previousTraitCollection?.layoutDirection {
+            setNeedsLayout()
+        }
+    }
+
+    private struct SubviewEntry {
+        var index: Int
+        var view: UIView
+    }
+
+    private func visibleSubviewEntries() -> [SubviewEntry] {
+        arrangedSubviews.enumerated().compactMap { index, view in
+            view.isHidden ? nil : SubviewEntry(index: index, view: view)
+        }
+    }
+
+    private func layoutSizes(for entries: [SubviewEntry]) -> [CGSize] {
+        var sizes = entries.map { contentSize(for: $0.view) }
+        guard bounds.width > 0 else { return sizes }
+
+        let spacingTotal = spacing * CGFloat(max(0, entries.count - 1))
+        let totalWidth = sizes.reduce(0) { $0 + $1.width } + spacingTotal
+        guard totalWidth > bounds.width else { return sizes }
+
+        var excess = totalWidth - bounds.width
+        for (sizeIndex, entry) in entries.enumerated() where truncatingIndices.contains(entry.index) {
+            guard excess > 0 else { break }
+            let shrinkBy = min(excess, sizes[sizeIndex].width)
+            sizes[sizeIndex].width -= shrinkBy
+            excess -= shrinkBy
+        }
+        if excess > 0 {
+            for sizeIndex in entries.indices.reversed() where !truncatingIndices.contains(entries[sizeIndex].index) {
+                guard excess > 0 else { break }
+                let shrinkBy = min(excess, sizes[sizeIndex].width)
+                sizes[sizeIndex].width -= shrinkBy
+                excess -= shrinkBy
+            }
+        }
+        return sizes
+    }
+
+    private func contentSize(for view: UIView) -> CGSize {
+        let intrinsic = view.intrinsicContentSize
+        var width = intrinsic.width
+        var height = intrinsic.height
+        let fittingWidth = CGFloat.greatestFiniteMagnitude
+
+        if width == UIView.noIntrinsicMetric || width < 0 {
+            width = view.sizeThatFits(CGSize(width: fittingWidth, height: fittingWidth)).width
+        }
+        if height == UIView.noIntrinsicMetric || height < 0 {
+            height = view.sizeThatFits(CGSize(width: width, height: fittingWidth)).height
+        }
+
+        return CGSize(width: ceil(max(0, width)), height: ceil(max(0, height)))
     }
 }
 

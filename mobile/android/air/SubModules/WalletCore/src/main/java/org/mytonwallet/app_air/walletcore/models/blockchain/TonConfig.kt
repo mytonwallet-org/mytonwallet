@@ -28,7 +28,7 @@ object TonConfig : MBlockchainConfig {
         "#13499C".toColorInt(),
     )
 
-    override val feeCheckAddress: String? = null
+    override val feeCheckAddress = "UQBE5NzPPnfb6KAy7Rba2yQiuUnihrfcFw96T-p5JtZjAl_c"
 
     override val isCommentSupported = true
     override val isEncryptedCommentSupported = true
