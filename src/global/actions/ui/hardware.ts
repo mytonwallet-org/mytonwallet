@@ -3,7 +3,7 @@ import type { ErrorTransferResult } from '../../helpers/transfer';
 import { ApiHardwareError } from '../../../api/types';
 import { AppState, HardwareConnectState } from '../../types';
 
-import { IS_CAPACITOR, IS_EXTENSION } from '../../../config';
+import { IS_EXTENSION } from '../../../config';
 import { mergeSortedArrays } from '../../../util/iteratees';
 import { closeThisTab, onLedgerTabClose, openLedgerTab } from '../../../util/ledger/tab';
 import { pause } from '../../../util/schedulers';
@@ -28,50 +28,23 @@ addActionHandler('initLedgerPage', (global) => {
 
 addActionHandler('initializeHardwareWalletModal', async (global, actions) => {
   const ledgerApi = await import('../../../util/ledger');
-  const {
-    isBluetoothAvailable,
-    isUsbAvailable,
-  } = await ledgerApi.detectAvailableTransports();
-  const hasUsbDevice = await ledgerApi.hasUsbDevice();
-  const availableTransports: LedgerTransport[] = [];
-  if (isUsbAvailable) {
-    availableTransports.push('usb');
-  }
-  if (isBluetoothAvailable) {
-    availableTransports.push('bluetooth');
-  }
+  const { isUsbAvailable } = await ledgerApi.detectAvailableTransports();
+  const availableTransports: LedgerTransport[] = isUsbAvailable ? ['usb'] : [];
 
   global = getGlobal();
   global = updateHardware(global, { availableTransports });
+  setGlobal(global);
 
-  if (availableTransports.length === 0) {
-    setGlobal(global);
-    if (IS_CAPACITOR) {
-      actions.showDialog({
-        title: 'Bluetooth unavailable',
-        message: '$bluetooth_enable_guide',
-        buttons: {
-          confirm: { title: 'Open Settings', action: 'openBluetoothSettings' },
-          cancel: { title: 'Cancel' },
-        },
-      });
-    } else {
-      actions.showToast({
-        message: 'Ledger is not supported on this device.',
-      });
-    }
-  } else if (availableTransports.length === 1) {
-    setGlobal(global);
+  if (!availableTransports.length) {
+    actions.showToast({
+      message: 'Ledger is not supported on this device.',
+    });
+    return;
+  }
 
-    // Chrome requires a user gesture before showing the WebHID permission dialog in extension tabs.
-    if (!IS_LEDGER_EXTENSION_TAB) {
-      actions.initializeHardwareWalletConnection({ transport: availableTransports[0] });
-    }
-  } else {
-    if (!hasUsbDevice) {
-      global = updateHardware(global, { lastUsedTransport: 'bluetooth' });
-    }
-    setGlobal(global);
+  // Chrome requires a user gesture before showing the WebHID permission dialog in extension tabs.
+  if (!IS_LEDGER_EXTENSION_TAB) {
+    actions.initializeHardwareWalletConnection({ transport: availableTransports[0] });
   }
 });
 
@@ -136,10 +109,6 @@ async function connectLedgerDevice(transport: LedgerTransport): Promise<boolean>
       isLedgerConnected: false,
       hardwareState: HardwareConnectState.Failed,
     });
-
-    if (transport === 'usb' && global.hardware.availableTransports?.includes('bluetooth')) {
-      global = updateHardware(global, { lastUsedTransport: 'bluetooth' });
-    }
 
     setGlobal(global);
     return false;

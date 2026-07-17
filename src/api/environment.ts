@@ -7,7 +7,7 @@ import type { ApiInitArgs, ApiNetwork } from './types';
 import {
   ELECTRON_TONCENTER_MAINNET_KEY,
   ELECTRON_TONCENTER_TESTNET_KEY,
-  IS_CAPACITOR,
+  IS_AIR_APP,
   IS_EXTENSION,
   TONCENTER_MAINNET_KEY,
   TONCENTER_TESTNET_KEY,
@@ -27,7 +27,7 @@ let environment: AppEnvironment;
 function getAppOrigin(args: ApiInitArgs): string | undefined {
   if (args.isElectron) {
     return ELECTRON_ORIGIN;
-  } else if (IS_CAPACITOR || IS_EXTENSION) {
+  } else if (IS_AIR_APP || IS_EXTENSION) {
     return self?.origin;
   } else {
     return undefined;
@@ -39,7 +39,7 @@ export function setEnvironment(args: ApiInitArgs) {
   environment = {
     ...args,
     isDappSupported: true,
-    isSseSupported: args.isElectron || IS_CAPACITOR,
+    isSseSupported: args.isElectron || IS_AIR_APP,
     apiHeaders: appOrigin ? { 'X-App-Origin': appOrigin } : {},
     byNetwork: {
       mainnet: {

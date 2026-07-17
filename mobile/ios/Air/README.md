@@ -2,6 +2,8 @@
 
 Air is the native iOS UI for MyTonWallet. It lives in the monorepo and uses the shared TypeScript SDK through a hidden WebView bridge.
 
+The iOS app shell always launches Air; the former Capacitor/Classic switching path is no longer part of the native app.
+
 ## Build
 
 Use the workspace in `mobile/ios/App`, not the Air project directly.
@@ -9,19 +11,13 @@ Use the workspace in `mobile/ios/App`, not the Air project directly.
 From the repository root, refresh SDK and iOS app artifacts when needed:
 
 ```bash
-CAP_PLATFORM=ios npm run mobile:build:dev
+npm run mobile:build:dev
 ```
 
 For a full app build:
 
 ```bash
 xcodebuild -workspace mobile/ios/App/App.xcworkspace -scheme MyTonWallet_AirOnly -configuration Debug -destination 'generic/platform=iOS Simulator' build | xcbeautify
-```
-
-For local run through Capacitor tooling:
-
-```bash
-npm run mobile:run:ios
 ```
 
 Do not pass `-sdk iphonesimulator` to this workspace.

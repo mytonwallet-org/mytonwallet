@@ -76,7 +76,7 @@ object AccountStore : IStore {
     val stakingData: MUpdateStaking?
         get() {
             activeAccountId?.let {
-                return StakingStore.getStakingState(activeAccountId!!)
+                return StakingStore.getStakingState(it)
             }
             return null
         }

@@ -258,6 +258,9 @@ object WalletCore {
 
     var bridge: JSWebViewBridge? = null
         private set
+
+    val requiredBridge: JSWebViewBridge
+        get() = bridge ?: throw IllegalStateException("JS bridge is not initialized")
     var nextAccountId: String? = null
     var nextAccountIsPushedTemporary: Boolean? = null
 
@@ -388,9 +391,11 @@ object WalletCore {
                 onReady()
             }
         } else {
-            if (bridge!!.parent != bridgeHostView && isOnAirApp) {
-                (bridge!!.parent as? ViewGroup)?.removeView(bridge)
-                bridgeHostView.addView(bridge)
+            bridge?.let { existingBridge ->
+                if (existingBridge.parent != bridgeHostView && isOnAirApp) {
+                    (existingBridge.parent as? ViewGroup)?.removeView(existingBridge)
+                    bridgeHostView.addView(existingBridge)
+                }
             }
             doOnBridgeReady {
                 onReady()
@@ -530,9 +535,10 @@ object WalletCore {
         val accounts = ArrayList<MAccount>()
         for (accountId in accountIds) {
             try {
+                val globalJSON = WGlobalStorage.getAccount(accountId) ?: continue
                 val account = MAccount(
                     accountId = accountId,
-                    globalJSON = WGlobalStorage.getAccount(accountId)!!
+                    globalJSON = globalJSON
                 )
                 accounts.add(account)
             } catch (_: Exception) {
@@ -545,7 +551,7 @@ object WalletCore {
     object Transfer
 
     suspend fun <T> call(method: ApiMethod<T>): T {
-        return bridge!!.callApiAsync(method.name, method.arguments, method.type)
+        return requiredBridge.callApiAsync(method.name, method.arguments, method.type)
     }
 
     fun <T> call(method: ApiMethod<T>, callback: (String?, T?, JSWebViewBridge.ApiError?) -> Unit) {

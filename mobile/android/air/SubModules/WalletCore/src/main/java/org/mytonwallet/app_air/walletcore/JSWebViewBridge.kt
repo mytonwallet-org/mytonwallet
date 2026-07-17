@@ -106,6 +106,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 isRenderProcessGone = true
                 injecting = false
                 injected = false
+                failPendingCallbacks()
                 WalletCore.onBridgeRenderProcessGone(this@JSWebViewBridge)
                 return true
             }
@@ -141,6 +142,14 @@ class JSWebViewBridge(context: Context) : WebView(context) {
     private var callIdentifier: Int = 0
     private var callbacks: HashMap<Int, (result: String?, error: MBridgeError?) -> Unit> =
         hashMapOf()
+
+    private fun failPendingCallbacks() {
+        val pending = callbacks.values.toList()
+        callbacks.clear()
+        for (callback in pending) {
+            callback(null, MBridgeError.UNKNOWN)
+        }
+    }
 
     internal fun callApi(
         methodName: String,
@@ -401,7 +410,14 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     val localTransactions = ArrayList<MApiTransaction>()
                     for (index in 0..<transactionJSONArray.length()) {
                         val transactionObj = transactionJSONArray.getJSONObject(index)
-                        val transaction = MApiTransaction.fromJson(transactionObj)!!
+                        val transaction = MApiTransaction.fromJson(transactionObj)
+                        if (transaction == null) {
+                            Logger.e(
+                                Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                                "newLocalActivities: dropped unparsable activity"
+                            )
+                            throw Exception()
+                        }
                         localTransactions.add(transaction)
                     }
                     ActivityStore.receivedLocalTransactions(
@@ -429,13 +445,27 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         val transactions = ArrayList<MApiTransaction>()
                         for (index in 0..<transactionJSONArray.length()) {
                             val transactionObj = transactionJSONArray.getJSONObject(index)
-                            val transaction = MApiTransaction.fromJson(transactionObj)!!
+                            val transaction = MApiTransaction.fromJson(transactionObj)
+                            if (transaction == null) {
+                                Logger.e(
+                                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                                    "newActivities: dropped unparsable activity"
+                                )
+                                throw Exception()
+                            }
                             transactions.add(transaction)
                         }
                         val pendingTransactions = ArrayList<MApiTransaction>()
                         for (index in 0..<pendingTransactionsJSONArray.length()) {
                             val transactionObj = pendingTransactionsJSONArray.getJSONObject(index)
-                            val transaction = MApiTransaction.fromJson(transactionObj)!!
+                            val transaction = MApiTransaction.fromJson(transactionObj)
+                            if (transaction == null) {
+                                Logger.e(
+                                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                                    "newActivities: dropped unparsable pending activity"
+                                )
+                                throw Exception()
+                            }
                             pendingTransactions.add(transaction)
                         }
                         if (pendingTransactions.isNotEmpty()) {
@@ -494,7 +524,15 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         objectJSONObject.optJSONArray("nfts") ?: return
                     val nfts = ArrayList<ApiNft>()
                     for (index in 0..<nftsJSONArray.length()) {
-                        nfts.add(ApiNft.fromJson(nftsJSONArray.getJSONObject(index))!!)
+                        val nft = ApiNft.fromJson(nftsJSONArray.getJSONObject(index))
+                        if (nft == null) {
+                            Logger.e(
+                                Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                                "nfts: dropped unparsable nft"
+                            )
+                            throw Exception()
+                        }
+                        nfts.add(nft)
                     }
                     if (collectionAddress.isNotEmpty()) {
                         ensureMainThread {
@@ -665,7 +703,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             arg1: String?
         ) {
             when (methodName) {
-                "capacitorStorageGetItem" -> {
+                "airStorageGetItem" -> {
                     val result = WSecureStorage.getSecValue(arg0)
                     val resultInJs =
                         if (result.isEmpty()) "null" else JSONObject.quote(result)
@@ -676,7 +714,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                 }
 
-                "capacitorStorageSetItem" -> {
+                "airStorageSetItem" -> {
                     WSecureStorage.setSecValue(arg0, arg1 ?: "")
                     val script =
                         "window.airBridge.nativeCallCallbacks[$requestNumber]?.({ok: true})"
@@ -685,7 +723,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                 }
 
-                "capacitorStorageRemoveItem" -> {
+                "airStorageRemoveItem" -> {
                     WSecureStorage.setSecValue(arg0, "")
                     val script =
                         "window.airBridge.nativeCallCallbacks[$requestNumber]?.({ok: true})"
@@ -694,7 +732,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                 }
 
-                "capacitorStorageKeys" -> {
+                "airStorageKeys" -> {
                     val resultInJs = WSecureStorage.getKeys().toJSONString
                     val script =
                         "window.airBridge.nativeCallCallbacks[$requestNumber]?.({ok: true, result: ${resultInJs}})"
@@ -757,10 +795,12 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                                         methodName = methodName,
                                         raw = res,
                                         parsed = err,
-                                        parsedResult = try {
-                                            parseResult(methodName, args, res!!, clazz)
-                                        } catch (_: Throwable) {
-                                            null
+                                        parsedResult = res?.let {
+                                            try {
+                                                parseResult(methodName, args, it, clazz)
+                                            } catch (_: Throwable) {
+                                                null
+                                            }
                                         }
                                     )
                                 )

@@ -8,7 +8,6 @@ import {
   APP_NAME,
   INACTIVE_MARKER,
   IS_ANDROID_DIRECT,
-  IS_CAPACITOR,
   IS_CORE_WALLET,
   IS_EXPLORER,
 } from '../config';
@@ -55,7 +54,6 @@ import BackupModal from './main/modals/BackupModal';
 import NftAttributesModal from './main/modals/NftAttributesModal';
 import OffRampWidgetModal from './main/modals/OffRampWidgetModal';
 import OnRampWidgetModal from './main/modals/OnRampWidgetModal';
-import QrScannerModal from './main/modals/QrScannerModal';
 import SignatureModal from './main/modals/SignatureModal';
 import UnhideNftModal from './main/modals/UnhideNftModal';
 import BottomBar from './main/sections/Actions/BottomBar';
@@ -68,7 +66,6 @@ import Settings from './settings/Settings';
 import SwapModal from './swap/SwapModal';
 import TransferModal from './transfer/TransferModal';
 import ConfettiContainer from './ui/ConfettiContainer';
-import InAppBrowser from './ui/InAppBrowser';
 import LoadingOverlay from './ui/LoadingOverlay';
 import Transition from './ui/Transition';
 import WalletConnectPayDataCollectionModal from './walletConnectPay/WalletConnectPayDataCollectionModal';
@@ -82,7 +79,6 @@ interface StateProps {
   appState: AppState;
   accountId?: string;
   isBackupWalletModalOpen?: boolean;
-  isQrScannerOpen?: boolean;
   isHardwareModalOpen?: boolean;
   isCustomizeWalletModalOpen?: boolean;
   isAgentOpen?: boolean;
@@ -110,7 +106,6 @@ function App({
   isBackupWalletModalOpen,
   isHardwareModalOpen,
   isCustomizeWalletModalOpen,
-  isQrScannerOpen,
   isAgentOpen,
   isExploreOpen,
   isPortfolioOpen,
@@ -125,7 +120,6 @@ function App({
     closeHardwareWalletModal,
     closeSettings,
     cancelCaching,
-    closeQrScanner,
     checkAppVersion,
   } = getActions();
 
@@ -284,17 +278,11 @@ function App({
           <WalletConnectPayDataCollectionModal />
           <UnhideNftModal />
           <NftAttributesModal />
-          {IS_CAPACITOR && (
-            <QrScannerModal
-              isOpen={isQrScannerOpen}
-              onClose={closeQrScanner}
-            />
-          )}
           <Toasts />
           <WalletRenameModal />
           <Dialogs />
           <ConfettiContainer />
-          {IS_CAPACITOR ? <InAppBrowser /> : <IFrameBrowser />}
+          <IFrameBrowser />
           <LoadingOverlay />
         </>
       )}
@@ -314,7 +302,6 @@ export default memo(withGlobal((global): StateProps => {
     isExploreOpen: global.isExploreOpen,
     isPortfolioOpen: global.isPortfolioOpen,
     areSettingsOpen: global.areSettingsOpen,
-    isQrScannerOpen: global.isQrScannerOpen,
     isFullscreen: Boolean(global.isFullscreen),
     theme: global.settings.theme,
     accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,

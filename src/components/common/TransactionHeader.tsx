@@ -7,7 +7,6 @@ import { ANIMATED_STICKER_TINY_ICON_PX } from '../../config';
 import { getIsActivityPendingForUser, getTransactionTitle, isScamTransaction } from '../../util/activities';
 import buildClassName from '../../util/buildClassName';
 import { formatFullDay, formatTime } from '../../util/dateFormat';
-import { getShareIcon } from '../../util/share';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useLang from '../../hooks/useLang';
@@ -70,7 +69,7 @@ function TransactionHeader({
           ariaLabel={lang('Share Link')}
           onClick={onShareClick}
         >
-          <i className={getShareIcon()} aria-hidden />
+          <i className="icon-link" aria-hidden />
         </Button>
       )}
       <div className={buildClassName(modalStyles.title, styles.modalTitle)}>

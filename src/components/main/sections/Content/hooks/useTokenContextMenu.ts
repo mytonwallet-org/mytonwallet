@@ -132,7 +132,7 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
   ]);
 
   const handleMenuItemSelect = useLastCallback((value: MenuHandler) => {
-    void vibrate();
+    vibrate();
 
     switch (value) {
       case 'add':

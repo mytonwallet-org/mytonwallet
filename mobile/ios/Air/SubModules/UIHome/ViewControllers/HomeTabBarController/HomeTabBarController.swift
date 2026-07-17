@@ -330,7 +330,7 @@ public class HomeTabBarController: UITabBarController {
 #if DEBUG
     @objc private func onExploreLongTap(_ gesture: UIGestureRecognizer) {
         if gesture.state == .began {
-            (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.showDebugView()
+            AppActions.showDebugView()
         }
     }
 #endif

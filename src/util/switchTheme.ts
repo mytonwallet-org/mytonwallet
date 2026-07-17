@@ -2,21 +2,19 @@ import { getGlobal } from '../global';
 
 import type { Theme } from '../global/types';
 
-import { IS_CAPACITOR, IS_TELEGRAM_APP } from '../config';
+import { IS_TELEGRAM_APP } from '../config';
 import { requestMeasure } from '../lib/fasterdom/fasterdom';
-import { switchStatusBar } from './capacitor/switchStatusBar';
 import cssColorToHex from './cssColorToHex';
 import { getTelegramApp, getTelegramAppAsync } from './telegram';
 
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 let currentTheme: Theme;
-let forcedDarkStatusBarBackground: boolean | undefined;
 
-export default function switchTheme(theme: Theme, isInModal?: boolean) {
+export default function switchTheme(theme: Theme) {
   currentTheme = theme;
 
   setThemeValue();
-  setStatusBarStyle({ isInModal });
+  setStatusBarStyle();
   setThemeColor();
 }
 
@@ -47,26 +45,20 @@ function setThemeColor() {
   });
 }
 
-export function setStatusBarStyle(options?: { forceDarkBackground?: boolean; isInModal?: boolean }) {
-  if (IS_TELEGRAM_APP) {
-    requestMeasure(() => {
-      const color = getComputedStyle(document.documentElement)
-        .getPropertyValue('--color-background-second');
-      if (!color) return;
+export function setStatusBarStyle() {
+  if (!IS_TELEGRAM_APP) return;
 
-      const hexColor = cssColorToHex(color) as `#${string}`;
+  requestMeasure(() => {
+    const color = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-background-second');
+    if (!color) return;
 
-      getTelegramApp()?.setHeaderColor(hexColor);
-      getTelegramApp()?.setBackgroundColor(hexColor);
-      getTelegramApp()?.setBottomBarColor(hexColor);
-    });
+    const hexColor = cssColorToHex(color) as `#${string}`;
 
-    return;
-  }
-  if (!IS_CAPACITOR) return;
-
-  if (options?.forceDarkBackground !== undefined) forcedDarkStatusBarBackground = options.forceDarkBackground;
-  switchStatusBar(currentTheme, prefersDark.matches, forcedDarkStatusBarBackground, options?.isInModal);
+    getTelegramApp()?.setHeaderColor(hexColor);
+    getTelegramApp()?.setBackgroundColor(hexColor);
+    getTelegramApp()?.setBottomBarColor(hexColor);
+  });
 }
 
 prefersDark.addEventListener('change', handlePrefersColorSchemeChange);

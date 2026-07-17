@@ -113,7 +113,7 @@ function TransferConfirm({
   });
 
   const handleConfirm = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     submitTransferConfirm();
   });
 

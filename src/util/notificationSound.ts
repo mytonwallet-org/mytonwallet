@@ -1,6 +1,3 @@
-import { NativeAudio } from '@capgo/native-audio';
-
-import { IS_CAPACITOR } from '../config';
 import { SECOND } from './dateFormat';
 import { logDebug, logDebugError } from './logs';
 import { debounce } from './schedulers';
@@ -12,7 +9,7 @@ const DEBOUNCE_MS = SECOND;
 const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
 const audioContext = new AudioContextConstructor();
 let audioBuffer: AudioBuffer | undefined;
-let isSoundInitialized = IS_CAPACITOR || audioContext.state === 'running';
+let isSoundInitialized = audioContext.state === 'running';
 
 // Workaround: this function is called once on the first user interaction.
 // After that, it will be possible to play the notification without problems.
@@ -30,33 +27,16 @@ export function initializeSounds() {
     });
 }
 
-async function loadSound() {
-  const audioSettings = {
-    assetId: 'incomingTransactionSound',
-    assetPath: 'public/incoming-transaction.mp3',
-    audioChannelNum: 1,
-    isUrl: false,
-  };
-
-  if (IS_CAPACITOR) {
-    if (await NativeAudio.isPreloaded(audioSettings)) {
-      return;
-    }
-
-    NativeAudio.preload(audioSettings).catch((err: any) => {
+function loadSound() {
+  fetch(incomingTransactionSound)
+    .then((response) => response.arrayBuffer())
+    .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer))
+    .then((decodedAudioBuffer) => {
+      audioBuffer = decodedAudioBuffer;
+    })
+    .catch((err: any) => {
       logDebugError('appSounds:loadSound', err);
     });
-  } else {
-    fetch(incomingTransactionSound)
-      .then((response) => response.arrayBuffer())
-      .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer))
-      .then((decodedAudioBuffer) => {
-        audioBuffer = decodedAudioBuffer;
-      })
-      .catch((err: any) => {
-        logDebugError('appSounds:loadSound', err);
-      });
-  }
 }
 
 void loadSound();
@@ -64,17 +44,6 @@ void loadSound();
 export const playIncomingTransactionSound = debounce(() => {
   if (!isSoundInitialized) {
     logDebug('appSounds:playIncomingTransactionSound', 'sound is not initialized');
-    return;
-  }
-
-  if (IS_CAPACITOR) {
-    NativeAudio
-      .play({
-        assetId: 'incomingTransactionSound',
-      })
-      .catch((err: any) => {
-        logDebugError('appSounds:playIncomingTransactionSound', err);
-      });
     return;
   }
 

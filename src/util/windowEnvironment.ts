@@ -1,7 +1,7 @@
 import type { LangCode } from '../global/types';
 
 import {
-  IS_CAPACITOR, IS_CORE_WALLET, IS_EXTENSION, IS_FIREFOX_EXTENSION, IS_TELEGRAM_APP, LANG_LIST,
+  IS_CORE_WALLET, IS_EXTENSION, IS_FIREFOX_EXTENSION, IS_TELEGRAM_APP, LANG_LIST, LEGACY_APP_HOSTS,
 } from '../config';
 import { requestForcedReflow } from '../lib/fasterdom/fasterdom';
 import { DETACHED_TAB_URL } from './ledger/tab';
@@ -39,24 +39,26 @@ export const IS_FIREFOX = navigator.userAgent.includes('Firefox/');
 export const IS_TOUCH_ENV = window.matchMedia('(pointer: coarse)').matches;
 export const IS_CHROME_EXTENSION = Boolean(window.chrome?.system);
 export const IS_ELECTRON = Boolean(window.electron);
-export const IS_WEB = !IS_CAPACITOR && !IS_ELECTRON && !IS_EXTENSION && !IS_TELEGRAM_APP;
+export const IS_WEB = !IS_ELECTRON && !IS_EXTENSION && !IS_TELEGRAM_APP;
+export const IS_LEGACY_APP_HOST = IS_WEB && LEGACY_APP_HOSTS.includes(window.location.hostname);
+// On the deprecated host, new-wallet creation is hidden to steer newcomers to the current site. `?old-but-gold` is
+// an escape hatch that brings the button back (support and testing on the old domain).
+export const IS_NEW_WALLET_CREATION_HIDDEN = IS_LEGACY_APP_HOST
+  && !new URLSearchParams(window.location.search).has('old-but-gold');
 export const DEFAULT_LANG_CODE = 'en';
 export let USER_AGENT_LANG_CODE = getBrowserLanguage();
 export function setUserAgentLangCode(langCode: LangCode) {
   USER_AGENT_LANG_CODE = langCode;
 }
 export const DPR = window.devicePixelRatio || 1;
-export const IS_LEDGER_SUPPORTED = IS_CAPACITOR
-  || !(IS_CORE_WALLET || IS_IOS || IS_FIREFOX_EXTENSION || IS_TELEGRAM_APP);
+export const IS_LEDGER_SUPPORTED = !(IS_CORE_WALLET || IS_IOS || IS_FIREFOX_EXTENSION || IS_TELEGRAM_APP);
 export const IS_LEDGER_EXTENSION_TAB = global.location.hash.startsWith(DETACHED_TAB_URL);
 // Disable biometric auth on electron for now until this issue is fixed:
 // https://github.com/electron/electron/issues/24573
 export const IS_BIOMETRIC_AUTH_SUPPORTED = Boolean(
-  !IS_CAPACITOR && !IS_TELEGRAM_APP && window.navigator.credentials && (!IS_ELECTRON || IS_MAC_OS),
+  !IS_TELEGRAM_APP && window.navigator.credentials && (!IS_ELECTRON || IS_MAC_OS),
 );
-export const IS_DAPP_SUPPORTED = IS_EXTENSION || IS_ELECTRON || IS_CAPACITOR;
-export const IS_IOS_APP = IS_IOS && IS_CAPACITOR;
-export const IS_ANDROID_APP = IS_ANDROID && IS_CAPACITOR;
+export const IS_DAPP_SUPPORTED = IS_EXTENSION || IS_ELECTRON;
 export const IS_VIEW_TRANSITION_SUPPORTED = typeof document.startViewTransition === 'function';
 
 // Note: As of 01-10-2025, Firefox extensions require `clipboardRead` permission in manifest to read data

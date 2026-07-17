@@ -19,9 +19,6 @@ public final class DeeplinkHandler {
 
     public func handle(_ url: URL, source: DeeplinkOpenSource = .generic) -> Bool {
         guard let deeplink = Deeplink(url: url) else { return false }
-        if case .switchToClassic = deeplink, !isCapacitorAvailable {
-            return false
-        }
         if case .sell = deeplink, !source.canRouteOfframp {
             return false
         }

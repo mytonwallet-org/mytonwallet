@@ -250,7 +250,7 @@ $listHorizontalPadding: 1rem;
 
     background: none !important;
 
-    :global(html.with-bottombar:not(.is-keyboard-open)) & {
+    :global(html.with-bottombar) & {
       padding-bottom: calc(0.75rem + var(--bottombar-height));
     }
   }

@@ -43,7 +43,7 @@
   @include mixins.respond-below(xs) {
     padding-bottom: 4.25rem; // Input height + margin top and bottom
 
-    :global(html.with-bottombar:not(.is-keyboard-open)) & {
+    :global(html.with-bottombar) & {
       padding-bottom: calc(4.25rem + var(--bottombar-height));
     }
   }

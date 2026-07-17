@@ -9,11 +9,6 @@
 
   background-color: var(--color-background-window);
 
-  // For Android App, the bottom indentation is set in the `Modal` module itself
-  :global(html.is-android-app) & {
-    padding-bottom: 1rem;
-  }
-
   &.standard {
     --current-accent-color: var(--color-default-accent);
     --current-accent-color-hover: var(--color-default-accent-hover);

@@ -138,7 +138,7 @@ function Nft({
       return;
     }
 
-    void vibrate();
+    vibrate();
     openNftAttributesModal({ nft });
   }
 

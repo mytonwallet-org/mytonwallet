@@ -7,7 +7,6 @@ import type { ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiGroupedWalletVaria
 import type { Account, AccountChain, GlobalState, UserToken } from '../../../global/types';
 import type Big from '../../../lib/big.js';
 
-import { IS_CAPACITOR } from '../../../config';
 import { selectCurrentAccountId, selectCurrentAccountTokens } from '../../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { getDoesUsePinPad } from '../../../util/biometrics';
@@ -563,7 +562,7 @@ function SettingsWalletVariants({
             <PasswordForm
               isActive={isSlideActive && !!isActive}
               error={passwordError}
-              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormWithHeaderOffset}
+              containerClassName={styles.passwordFormWithHeaderOffset}
               placeholder={lang('Enter your current password')}
               submitLabel={lang('Continue')}
               noAutoConfirm

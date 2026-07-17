@@ -9,9 +9,11 @@ import com.squareup.moshi.ToJson
 import kotlin.reflect.KClass
 
 class EnumJsonAdapter<T : Enum<T>>(private val enumClass: KClass<T>) : JsonAdapter<T>() {
-    private val values = enumClass.java.enumConstants!!.associateBy {
-        enumClass.java.getField(it.name).getAnnotation(Json::class.java)?.name ?: it.name
-    }
+    private val values =
+        requireNotNull(enumClass.java.enumConstants) { "$enumClass is not an enum class" }
+            .associateBy {
+                enumClass.java.getField(it.name).getAnnotation(Json::class.java)?.name ?: it.name
+            }
 
     @FromJson
     override fun fromJson(reader: JsonReader): T? {

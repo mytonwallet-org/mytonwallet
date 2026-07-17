@@ -187,7 +187,12 @@ enum WalletSetupResult {
     
     private func _createWallet(passcode: String, biometricsEnabled: Bool?) async throws {
         let hadExistingAccounts = !AccountStore.accountsById.isEmpty
-        let accounts = try await AccountStore.importMnemonic(network: network, words: words.orThrow(), passcode: passcode, version: nil)
+        let accounts = try await AccountStore.importMnemonic(
+            network: network,
+            words: words.orThrow(),
+            passcode: passcode,
+            isNewMnemonic: true
+        )
         KeychainHelper.save(biometricPasscode: passcode)
         if let biometricsEnabled { // nil if not first wallet
             AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
@@ -202,7 +207,12 @@ enum WalletSetupResult {
             let account = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], passcode: passcode)
             importedAccountIds.append(account.id)
         } else {
-            let accounts = try await AccountStore.importMnemonic(network: network, words: words, passcode: passcode, version: nil)
+            let accounts = try await AccountStore.importMnemonic(
+                network: network,
+                words: words,
+                passcode: passcode,
+                isNewMnemonic: false
+            )
             importedAccountIds += accounts.map { $0.id }
         }
         KeychainHelper.save(biometricPasscode: passcode)

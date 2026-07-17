@@ -136,6 +136,19 @@ describe('fetchDomains', () => {
     expect(mockedLogDebugError).toHaveBeenCalledWith('verifyTonDnsLinkedAddress', { nftAddress: NFT_ADDRESS }, error);
   });
 
+  it('omits a backend linked address when the domain has no on-chain wallet record', async () => {
+    mockedCallBackendGet.mockResolvedValue(makeDomainData({ linkedAddress: LINKED_ADDRESS }));
+    mockedResolveAddressByDomain.mockResolvedValue(undefined);
+
+    const result = await fetchDomains(ACCOUNT_ID);
+
+    expect(result.linkedAddressByAddress).toEqual({});
+    expect(result.nfts).toEqual({
+      [NFT_ADDRESS]: expect.objectContaining({ address: NFT_ADDRESS }),
+    });
+    expect(mockedLogDebugError).not.toHaveBeenCalled();
+  });
+
   it('does not resolve on-chain DNS when the backend does not return a linked address', async () => {
     mockedCallBackendGet.mockResolvedValue(makeDomainData());
 

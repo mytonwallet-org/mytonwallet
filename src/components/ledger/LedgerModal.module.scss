@@ -26,10 +26,6 @@
   min-height: 0; // To make children with `overflow: auto` scroll instead of expanding the container
   padding: 0 1rem max(var(--safe-area-bottom, 1rem), 1rem);
 
-  :global(html.is-android-app) &:not(.containerStatic) {
-    padding-bottom: 0;
-  }
-
   &.containerStatic {
     padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom));
   }

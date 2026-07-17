@@ -24,6 +24,7 @@ const WALLET_CONNECT_SOLANA_AUTH_METHODS = [
   'solana_signMessage',
   'solana_signTransaction',
   'solana_signAllTransactions',
+  'solana_signAndSendTransaction',
 ] as const;
 
 export const WALLET_CONNECT_SUPPORTED_AUTH_METHODS = [

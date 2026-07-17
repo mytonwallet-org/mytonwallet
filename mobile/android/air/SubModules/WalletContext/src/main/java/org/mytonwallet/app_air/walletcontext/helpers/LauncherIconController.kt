@@ -43,17 +43,18 @@ package org.mytonwallet.app_air.walletcontext.helpers
         }
 
         fun isEnabled(applicationContext: Context, icon: LauncherIcon): Boolean {
+            val componentName = icon.getComponentName(applicationContext) ?: return false
             val i: Int =
-                applicationContext.packageManager
-                    .getComponentEnabledSetting(icon.getComponentName(applicationContext)!!)
+                applicationContext.packageManager.getComponentEnabledSetting(componentName)
             return i == PackageManager.COMPONENT_ENABLED_STATE_ENABLED || i == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && icon == LauncherIcon.CLASSIC
         }
 
         fun setIcon(applicationContext: Context, icon: LauncherIcon) {
             val pm: PackageManager = applicationContext.packageManager
             for (i in LauncherIcon.entries) {
+                val componentName = i.getComponentName(applicationContext) ?: continue
                 pm.setComponentEnabledSetting(
-                    i.getComponentName(applicationContext)!!,
+                    componentName,
                     if (i == icon) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP
                 )

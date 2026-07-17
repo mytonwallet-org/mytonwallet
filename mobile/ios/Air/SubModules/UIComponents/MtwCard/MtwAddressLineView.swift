@@ -142,6 +142,7 @@ public struct MtwCardAddressLine: View {
                         }
                     } else {
                         leadingIcon.image
+                            .imageScale(.small)
                             .opacity(style.textOpacity)
                     }
                 }

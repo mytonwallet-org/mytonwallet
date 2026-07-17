@@ -1,10 +1,9 @@
-import { AirAppLauncher } from '@mytonwallet/air-app-launcher';
 import React, { memo } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type { LangCode } from '../../global/types';
 
-import { IS_CAPACITOR, LANG_LIST } from '../../config';
+import { LANG_LIST } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { setLanguage } from '../../util/langProvider';
 
@@ -43,7 +42,6 @@ function SettingsLanguage({
   const handleLanguageChange = useLastCallback((newLangCode: LangCode) => {
     void setLanguage(newLangCode, () => {
       changeLanguage({ langCode: newLangCode });
-      if (IS_CAPACITOR) void AirAppLauncher.setLanguage({ langCode: newLangCode });
     });
   });
 

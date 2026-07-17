@@ -4,16 +4,19 @@ import type { ZerionNftTransfer, ZerionTokenTransfer, ZerionTransaction, ZerionT
 import { parseAccountId } from '../../../util/account';
 import { getChainConfig, getIsSupportedChain } from '../../../util/chain';
 import { toDecimal } from '../../../util/decimals';
-import { fetchJson } from '../../../util/fetch';
+import { fetchJson, isNegativeCacheableStatus } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { getEvmProvider } from './util/client';
 import { updateTokensMetadataByAddress } from './util/metadata';
 import { getZerionFungibleImplementation, getZerionFungibleTokenSlug } from './util/tokens';
+import { untrackableRegistry } from './util/untrackable';
 import { fetchStoredWallet } from '../../common/accounts';
+import { getIsNegVerdictCacheEnabled } from '../../common/cache';
 import { updateActivityMetadata } from '../../common/helpers';
 import { getTokenBySlug } from '../../common/tokens';
 import { SEC } from '../../constants';
+import { ApiServerError } from '../../errors';
 import { normalizeAddress } from './address';
 import { getApiChainByZerionChain, getEvmApiUrl, getZerionChainByApiChain } from './constants';
 
@@ -103,6 +106,13 @@ export async function fetchEvmTxs(options: {
 }) {
   const { chain, network, address, slug, toTimestamp, fromTimestamp, limit, isCrossChain, hash } = options;
 
+  const isUntrackableGuarded = getIsNegVerdictCacheEnabled();
+  if (isUntrackableGuarded && untrackableRegistry.has(network, address)) {
+    // Zerion already told us this address is untrackable; skip the round-trip and return an
+    // empty, terminal result so the activity state machine converges (history end reached).
+    return [];
+  }
+
   const tokenAddress = slug
     ? (slug === getChainConfig(chain).nativeToken.slug || slug === 'eth')
       ? undefined
@@ -119,12 +129,31 @@ export async function fetchEvmTxs(options: {
     'filter[search_query]': hash,
   };
 
-  const data = await fetchJson<ZerionTransactionsResponse>(
-    `${getEvmApiUrl(network)}/v1/wallets/${address}/transactions/`,
-    params,
-  );
+  try {
+    const data = await fetchJson<ZerionTransactionsResponse>(
+      `${getEvmApiUrl(network)}/v1/wallets/${address}/transactions/`,
+      params,
+    );
 
-  return data.data;
+    return data.data;
+  } catch (err) {
+    // Only a plain address-scoped history request (no hash, no token filter) proves the ADDRESS
+    // itself is untrackable. A 4xx on a hash- or token-scoped request can be caused by those
+    // params rather than the address, so marking here would wrongly freeze a real wallet - e.g.
+    // fetchEvmTx() below fetches a user's own outgoing tx by hash with address = the user's own
+    // address, and a 400 there must not blank that user's history and balances.
+    const isAddressScopedHistory = !hash && !slug;
+    if (
+      isUntrackableGuarded && isAddressScopedHistory
+      && err instanceof ApiServerError && isNegativeCacheableStatus(err.statusCode)
+    ) {
+      untrackableRegistry.mark(network, address);
+      logDebugError('fetchEvmTxs: wallet is untrackable on Zerion', { address, chain, status: err.statusCode });
+      return [];
+    }
+
+    throw err;
+  }
 }
 
 export async function fetchEvmTx(

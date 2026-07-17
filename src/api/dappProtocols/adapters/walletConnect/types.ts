@@ -77,7 +77,7 @@ export interface WalletConnectSignRequest {
   url?: string;
   address?: string;
   /** Raw message / hex payload (personal_sign, eth_sign); omit when `eip712` is set */
-  data?: string | EvmTransactionParams;
+  data?: string | string[] | EvmTransactionParams;
   /** EIP-712 typed data (eth_signTypedData_v4); takes precedence over `data` for signing */
   eip712?: WalletConnectEip712Params;
   isEthSign?: boolean;

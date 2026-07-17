@@ -139,19 +139,8 @@ class SettingsHeaderView: WTouchPassView {
                         
             heightAnchor.constraint(equalToConstant: 200) // in fact it affects almost nothing
         ])
-                
-        avatarImageView.isUserInteractionEnabled = true
-        avatarImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(headerTapped)))
     }
-    
-    var tapCount = 0
-    @objc private func headerTapped() {
-        tapCount += 1
-        if tapCount == 5 {
-            WalletContextManager.delegate?.switchToCapacitor()
-        }
-    }
-         
+
     func updateAll() {
         avatarImageView.config(with: accountContext.account)
         updateTitle()

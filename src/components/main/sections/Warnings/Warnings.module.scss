@@ -100,6 +100,52 @@
   font-weight: 500;
 }
 
+/* The strip is not a single click target - it holds an inline link and a button - so neutralize the base
+   wrapper's clickable affordance (cursor and hover recolor) that the other warnings rely on. */
+.wrapperStatic {
+  cursor: default;
+
+  &:active {
+    color: var(--color-red-warning-text);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      color: var(--color-red-warning-text);
+    }
+  }
+}
+
+/* Override the global accent-colored `a` (index.scss) - blue on the red strip is unreadable. */
+.textLink {
+  color: var(--color-red-warning-text) !important;
+  text-decoration: underline;
+}
+
+.actions {
+  margin-top: 0.625rem;
+}
+
+.actionButton {
+  width: auto !important;
+  max-width: 100%;
+  height: auto !important;
+  min-height: 1.875rem !important;
+  padding: 0.25rem 0.75rem !important;
+
+  font-size: 0.8125rem !important;
+  color: var(--color-red-warning-text) !important;
+  /* A long localized label wraps inside the strip instead of overflowing it (Button defaults to nowrap). */
+  white-space: normal !important;
+
+  background-color: var(--color-red-warning-button-background) !important;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--color-red-warning-button-background-hover) !important;
+  }
+}
+
 .closeButton {
   cursor: var(--custom-cursor, pointer);
 

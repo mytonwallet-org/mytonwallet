@@ -27,23 +27,28 @@ class MFee(
 
     fun toString(token: IApiToken, appendNonNative: Boolean): String {
         var result = ""
+        val nativeToken = token.nativeToken
 
         networkTerms?.native?.takeIf { it > BigInteger.ZERO }?.let { native ->
-            result += native.toString(
-                token.nativeToken!!.decimals,
-                token.nativeToken!!.symbol,
-                native.smartDecimalsCount(token.nativeToken!!.decimals),
-                false,
-                zeroCountSubscriptMinCount = ZERO_COUNT_SUBSCRIPT_MIN_COUNT
-            )
+            if (nativeToken != null) {
+                result += native.toString(
+                    nativeToken.decimals,
+                    nativeToken.symbol,
+                    native.smartDecimalsCount(nativeToken.decimals),
+                    false,
+                    zeroCountSubscriptMinCount = ZERO_COUNT_SUBSCRIPT_MIN_COUNT
+                )
+            }
         } ?: terms.native?.takeIf { it > BigInteger.ZERO }?.let { native ->
-            result += native.toString(
-                token.nativeToken!!.decimals,
-                token.nativeToken!!.symbol,
-                native.smartDecimalsCount(token.nativeToken!!.decimals),
-                false,
-                zeroCountSubscriptMinCount = ZERO_COUNT_SUBSCRIPT_MIN_COUNT
-            )
+            if (nativeToken != null) {
+                result += native.toString(
+                    nativeToken.decimals,
+                    nativeToken.symbol,
+                    native.smartDecimalsCount(nativeToken.decimals),
+                    false,
+                    zeroCountSubscriptMinCount = ZERO_COUNT_SUBSCRIPT_MIN_COUNT
+                )
+            }
         }
 
         if (appendNonNative) {
@@ -76,7 +81,7 @@ class MFee(
         if (result.isEmpty()) {
             result += BigInteger.ZERO.toString(
                 0,
-                token.nativeToken!!.symbol,
+                nativeToken?.symbol ?: token.symbol ?: "",
                 0,
                 false
             )

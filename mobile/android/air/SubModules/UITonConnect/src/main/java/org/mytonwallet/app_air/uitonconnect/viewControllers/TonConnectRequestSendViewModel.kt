@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -63,10 +64,14 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappT
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.toAmountString
 import java.math.BigDecimal
 import java.math.BigInteger
+
+private const val WRAPPED_TON_SLUG = "ton-eqcm3b12qk"
+private const val UNKNOWN_TOKEN_SYMBOL = "[Unknown]"
 
 class TonConnectRequestSendViewModel private constructor(
     private val update: ApiUpdate.ApiUpdateDappSignRequest
@@ -91,6 +96,52 @@ class TonConnectRequestSendViewModel private constructor(
 
     }.distinctUntilChanged()
     val uiItemsFlow = tokensMapFlow.map(this::buildUiItems)
+
+    val insufficientTokensFlow = combine(
+        BalanceStore.balancesFlow,
+        TokenStore.tokensFlow
+    ) { balances, _ ->
+        insufficientTokens(balances[update.accountId])
+    }.distinctUntilChanged()
+
+    private fun insufficientTokens(balances: Map<String, BigInteger>?): String? {
+        if (update !is ApiUpdate.ApiUpdateDappSendTransactions)
+            return null
+        val nativeSlug =
+            MBlockchain.valueOfOrNull(update.operationChain)?.nativeSlug ?: return null
+
+        val totals = linkedMapOf<String, BigInteger>()
+        fun addAmount(slug: String, amount: BigInteger) {
+            totals[slug] = (totals[slug] ?: BigInteger.ZERO) + amount
+        }
+
+        for (transaction in update.transactions) {
+            addAmount(nativeSlug, transaction.amount + transaction.networkFee)
+
+            val payload = transaction.payload
+            if (payload is ApiParsedPayload.ApiTokensTransferPayload ||
+                payload is ApiParsedPayload.ApiTokensTransferNonStandardPayload
+            ) {
+                val slug = payload.payloadTokenSlug
+                val amount = payload.payloadTokenAmount
+                if (slug != null && amount != null)
+                    addAmount(slug, amount)
+            }
+        }
+
+        val insufficientSymbols = totals.mapNotNull { (slug, requiredAmount) ->
+            val balanceSlug = if (slug == WRAPPED_TON_SLUG) MBlockchain.ton.nativeSlug else slug
+            val availableBalance = balances?.get(balanceSlug) ?: BigInteger.ZERO
+            if (availableBalance < requiredAmount) {
+                if (slug == WRAPPED_TON_SLUG)
+                    TokenStore.getToken(MBlockchain.ton.nativeSlug)?.symbol ?: "TON"
+                else
+                    TokenStore.getToken(slug)?.symbol ?: UNKNOWN_TOKEN_SYMBOL
+            } else null
+        }
+
+        return if (insufficientSymbols.isEmpty()) null else insufficientSymbols.joinToString(", ")
+    }
 
     private data class Tokens(
         val currency: MBaseCurrency,

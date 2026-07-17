@@ -15,9 +15,6 @@ public struct ScanQRCodeIntent: AppIntent {
 
     @MainActor
     public func perform() async throws -> some IntentResult {
-        guard AirLauncher.isOnTheAir else {
-            return .result()
-        }
         AirLauncher.handle(systemAction: .scanQR)
         return .result()
     }

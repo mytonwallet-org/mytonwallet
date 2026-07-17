@@ -591,7 +591,7 @@ export function initEvmConnect(apiConnector: Connector) {
       uuid: crypto.randomUUID(),
       name: APP_NAME,
       icon: `data:image/svg+xml,${encodeURIComponent(INJECTED_ICON)}`,
-      rdns: 'app.mytonwallet',
+      rdns: 'app.mywallet',
     },
     provider: evm.provider,
   });

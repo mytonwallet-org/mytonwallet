@@ -12,6 +12,7 @@ import {
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
 } from './auth';
+import { EVM_DERIVATION_PATHS } from './constants';
 import { signDappData, signDappTransfers } from './dapp';
 import { parseTransactionForPreview } from './emulation';
 import {
@@ -55,6 +56,7 @@ class EVMChainSdk<T extends EVMChain> implements ChainSdk<T> {
   decryptComment = notSupported;
 
   normalizeAddress = normalizeAddress;
+  getDefaultDerivation = () => ({ path: EVM_DERIVATION_PATHS.default, index: 0, label: 'default' });
   getWalletFromBip39Mnemonic = this.#bindChain(getWalletFromBip39Mnemonic);
   getWalletFromPrivateKey = getWalletFromPrivateKey;
   getWalletFromAddress = getWalletFromAddress;

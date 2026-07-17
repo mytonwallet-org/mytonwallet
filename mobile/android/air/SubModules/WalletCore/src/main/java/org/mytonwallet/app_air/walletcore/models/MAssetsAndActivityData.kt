@@ -107,7 +107,7 @@ data class MAssetsAndActivityData(
                 amount = BalanceStore.getBalances(accountId)
                     ?.get(token.slug)
                     ?: BigInteger.valueOf(0)
-            )!!
+            )
         }.toMutableList()
 
         if (addVirtualStakingTokens) {

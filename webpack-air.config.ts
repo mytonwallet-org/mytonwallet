@@ -85,7 +85,6 @@ export default function createConfig(
         IS_GRAM_WALLET: '0',
         APP_VERSION: appVersion,
         PLATFORM_ENV: '',
-        IS_CAPACITOR: '1',
         IS_AIR_APP: '1',
         IS_ANDROID_DIRECT: '0',
         TONCENTER_MAINNET_URL: '',

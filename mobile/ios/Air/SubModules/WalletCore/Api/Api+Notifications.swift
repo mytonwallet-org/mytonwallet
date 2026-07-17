@@ -31,11 +31,11 @@ public struct ApiNotificationAddress: Encodable, Sendable {
 
 public struct ApiSubscribeNotificationsProps: Encodable, Sendable {
     public let userToken: String
-    public let platform: CapacitorPlatform
+    public let platform: NativePlatform
     public let langCode: String
     public let addresses: [ApiNotificationAddress]
 
-    public init(userToken: String, platform: CapacitorPlatform, langCode: String, addresses: [ApiNotificationAddress]) {
+    public init(userToken: String, platform: NativePlatform, langCode: String, addresses: [ApiNotificationAddress]) {
         self.userToken = userToken
         self.platform = platform
         self.langCode = langCode
@@ -49,7 +49,7 @@ public struct ApiSubscribeNotificationsResult: Decodable, Sendable {
 }
 
 
-public enum CapacitorPlatform: String, Equatable, Hashable, Codable, Sendable {
+public enum NativePlatform: String, Equatable, Hashable, Codable, Sendable {
     case ios = "ios"
     case android = "android"
 }

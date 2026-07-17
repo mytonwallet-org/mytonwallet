@@ -2,7 +2,7 @@ export enum StorageType {
   IndexedDb,
   LocalStorage,
   ExtensionLocal,
-  CapacitorStorage,
+  AirStorage,
   NodeFile,
 }
 

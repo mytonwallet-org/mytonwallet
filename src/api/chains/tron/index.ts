@@ -8,6 +8,7 @@ import {
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
 } from './auth';
+import { TRON_BIP39_PATH } from './constants';
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { fetchTransactionById } from './transactionInfo';
 import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer } from './transfer';
@@ -23,6 +24,7 @@ const tronSdk: ChainSdk<'tron'> = {
   fetchActivityDetails,
   decryptComment: notSupported,
   normalizeAddress,
+  getDefaultDerivation: () => ({ path: TRON_BIP39_PATH, index: 0 }),
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
   getWalletFromAddress,

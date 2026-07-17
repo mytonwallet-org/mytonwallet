@@ -20,7 +20,6 @@ import { stopEvent } from '../../util/domEvents';
 import { getTranslation } from '../../util/langProvider';
 import { pause } from '../../util/schedulers';
 import { createSignal } from '../../util/signals';
-import { IS_ANDROID_APP } from '../../util/windowEnvironment';
 import { callApi } from '../../api';
 import { ANIMATED_STICKERS_PATHS } from './helpers/animatedAssets';
 
@@ -38,7 +37,6 @@ import AnimatedIconWithPreview from './AnimatedIconWithPreview';
 import Button from './Button';
 import Checkbox from './Checkbox';
 import Input from './Input';
-import Modal from './Modal';
 import PinPad from './PinPad';
 
 import modalStyles from './Modal.module.scss';
@@ -154,7 +152,7 @@ function PasswordForm({
   onCancel,
   onSubmit,
 }: OwnProps & StateProps) {
-  const { openSettings, setInMemoryPassword, setIsAutoConfirmEnabled } = getActions();
+  const { setInMemoryPassword, setIsAutoConfirmEnabled } = getActions();
 
   const lang = useLang();
 
@@ -165,8 +163,6 @@ function PasswordForm({
   const passwordRef = useRef<HTMLInputElement>();
   const [password, setPassword] = useState<string>('');
   const [localError, setLocalError] = useState<string>('');
-  const [wrongAttempts, setWrongAttempts] = useState(0);
-  const [isResetBiometricsWarningOpen, openResetBiometricsWarning, closeResetBiometricsWarning] = useFlag(false);
   const { isSmallHeight, isPortrait } = useDeviceScreen();
   const isSubmitDisabled = !password.length && !withConfirmScreenOnly;
   const canUsePinPad = getDoesUsePinPad();
@@ -178,7 +174,6 @@ function PasswordForm({
     if (isActive) {
       setLocalError('');
       setPassword('');
-      setWrongAttempts(0);
     }
   }, [isActive]);
 
@@ -211,12 +206,7 @@ function PasswordForm({
       setLocalError('');
       const biometricPassword = await authApi.getPassword(authConfig!);
       if (!biometricPassword) {
-        setWrongAttempts(wrongAttempts + 1);
         setLocalError('Biometric confirmation failed');
-
-        if (IS_ANDROID_APP && wrongAttempts > 2) {
-          openResetBiometricsWarning();
-        }
       } else {
         void submitCallback(biometricPassword);
       }
@@ -248,12 +238,6 @@ function PasswordForm({
   const handleClearError = useLastCallback(() => {
     setLocalError('');
     onUpdate();
-  });
-
-  const handleOpenSettings = useLastCallback(() => {
-    closeResetBiometricsWarning();
-    onCancel?.();
-    openSettings();
   });
 
   const handleInput = useLastCallback((value: string) => {
@@ -514,23 +498,6 @@ function PasswordForm({
 
       {renderFooterButtons()}
 
-      <Modal
-        isOpen={isResetBiometricsWarningOpen}
-        isCompact
-        title={lang('Biometric authentication failed')}
-        onClose={closeResetBiometricsWarning}
-      >
-        <p className={modalStyles.text}>
-          {lang('Reinstall biometrics in your device\'s system settings, or use a passcode.')}
-        </p>
-
-        <div className={modalStyles.buttons}>
-          <Button className={modalStyles.button} onClick={closeResetBiometricsWarning}>{lang('Close')}</Button>
-          <Button isPrimary className={modalStyles.button} onClick={handleOpenSettings}>
-            {lang('Settings')}
-          </Button>
-        </div>
-      </Modal>
       {operationType === 'unlock' && (
         <LogOutModal isOpen={isLogOutModalOpened} onClose={closeLogOutModal} isInAppLock />
       )}

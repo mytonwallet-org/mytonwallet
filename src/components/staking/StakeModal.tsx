@@ -5,7 +5,6 @@ import type { ApiStakingState, ApiTokenWithPrice } from '../../api/types';
 import type { GlobalState } from '../../global/types';
 import { StakingState } from '../../global/types';
 
-import { IS_CAPACITOR } from '../../config';
 import {
   selectAccountStakingState,
   selectCurrentAccountId,
@@ -135,7 +134,6 @@ function StakeModal({
           isActive={isActive}
           isLoading={isLoading}
           error={error}
-          withCloseButton={IS_CAPACITOR}
           operationType="staking"
           placeholder={lang(placeholder)}
           submitLabel={lang('Confirm')}

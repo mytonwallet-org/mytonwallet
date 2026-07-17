@@ -1,6 +1,4 @@
-import React, {
-  memo, useState,
-} from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiNft } from '../../api/types';
@@ -9,13 +7,10 @@ import type { AnimationLevel, Theme } from '../../global/types';
 import {
   ANIMATION_LEVEL_MAX,
   ANIMATION_LEVEL_MIN,
-  IS_CAPACITOR,
   IS_CORE_WALLET,
 } from '../../config';
 import { selectCurrentAccountSettings } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { switchToAir } from '../../util/capacitor';
-import { pause } from '../../util/schedulers';
 import switchAnimationLevel from '../../util/switchAnimationLevel';
 import switchTheme from '../../util/switchTheme';
 import { IS_ELECTRON, IS_WINDOWS } from '../../util/windowEnvironment';
@@ -31,7 +26,6 @@ import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
 
-import airImg from '../../assets/settings/settings_air.svg';
 import darkThemeImg from '../../assets/theme/theme_dark.png';
 import lightThemeImg from '../../assets/theme/theme_light.png';
 import systemThemeImg from '../../assets/theme/theme_system.png';
@@ -52,7 +46,6 @@ interface StateProps {
 }
 
 const SWITCH_THEME_DURATION_MS = 300;
-const SWITCH_APPLICATION_DURATION_MS = 300;
 const THEME_OPTIONS = [{
   value: 'light',
   name: 'Light',
@@ -86,7 +79,6 @@ function SettingsAppearance({
   } = getActions();
 
   const lang = useLang();
-  const [isAirVersionEnabled, setIsAirVersionEnabled] = useState(false);
 
   useHistoryBack({
     isActive,
@@ -97,14 +89,6 @@ function SettingsAppearance({
     handleScroll: handleContentScroll,
     isScrolled,
   } = useScrolledState();
-
-  const handleAirVersionSwitch = useLastCallback(async () => {
-    setIsAirVersionEnabled(true);
-
-    await pause(SWITCH_APPLICATION_DURATION_MS);
-
-    switchToAir();
-  });
 
   const handleThemeChange = useLastCallback((newTheme: string) => {
     document.documentElement.classList.add('no-transitions');
@@ -129,28 +113,6 @@ function SettingsAppearance({
     openCustomizeWalletModal({ returnTo: 'settings' });
     return false;
   });
-
-  function renderAirSwitcher() {
-    return (
-      <>
-        <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-          <div className={styles.item} onClick={handleAirVersionSwitch}>
-            <img className={styles.menuIcon} src={airImg} alt="" aria-hidden />
-            <span className={styles.itemTitle}>My Wallet Air</span>
-
-            <Switcher
-              className={styles.menuSwitcher}
-              label="My Wallet Air"
-              checked={isAirVersionEnabled}
-            />
-          </div>
-        </div>
-        <p className={styles.blockDescription}>
-          {lang('$try_new_air_version')}
-        </p>
-      </>
-    );
-  }
 
   function renderThemes() {
     return THEME_OPTIONS.map(({ name, value, icon }) => {
@@ -187,8 +149,6 @@ function SettingsAppearance({
         className={buildClassName(styles.content, 'custom-scroll')}
         onScroll={handleContentScroll}
       >
-        {IS_CAPACITOR && renderAirSwitcher()}
-
         <p className={styles.blockTitle}>{lang('Theme')}</p>
         <div className={styles.settingsBlock}>
           <div className={styles.themeWrapper}>

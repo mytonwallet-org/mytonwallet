@@ -86,13 +86,6 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
     public var preferredAgent: ApiUpdate.UpdateConfig.PreferredAgent { config?.preferredAgent ?? .online }
     
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
-        if config.switchToClassic == true {
-            Task {
-                log.info("updateConfig.switchToClassic = true")
-                await WalletContextManager.delegate?.switchToCapacitor()
-            }
-            return
-        }
         WalletCoreData.notify(event: .configChanged)
     }
     

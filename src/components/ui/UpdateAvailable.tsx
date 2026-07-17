@@ -11,10 +11,8 @@ import {
 import buildClassName from '../../util/buildClassName';
 import { openUrl } from '../../util/openUrl';
 import {
-  IS_ANDROID_APP,
   IS_CHROME_EXTENSION,
   IS_EDGE,
-  IS_IOS_APP,
   IS_WEB,
 } from '../../util/windowEnvironment';
 
@@ -69,14 +67,6 @@ function getUrl(appVersion?: string) {
     return appVersion
       ? `${APP_REPO_URL}/releases/download/v${encodeURIComponent(appVersion || '')}/${encodeURIComponent(APP_NAME)}.apk`
       : 'https://github.com/mytonwallet-org/mytonwallet/releases/latest';
-  }
-
-  if (IS_ANDROID_APP) {
-    return `${APP_INSTALL_URL}android-store`;
-  }
-
-  if (IS_IOS_APP) {
-    return `${APP_INSTALL_URL}ios`;
   }
 
   if (IS_CHROME_EXTENSION) {

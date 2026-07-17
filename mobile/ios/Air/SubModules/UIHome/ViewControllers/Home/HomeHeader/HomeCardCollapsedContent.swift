@@ -63,9 +63,9 @@ private struct _CollapsedDisplayName: View {
         WithPerceptionTracking {
             HStack(spacing: 4) {
                 if accountContext.account.isView {
-                    Image.airBundle("inline_view")
+                    Image.airBundle(MAccount.AddressLine.LeadingIcon.view.symbolName)
+                        .imageScale(.small)
                         .accessibilityHidden(true)
-                        .padding(.top, 2)
                 }
                 Text(accountContext.account.displayName)
                     .lineLimit(1)

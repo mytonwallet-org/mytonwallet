@@ -14,7 +14,6 @@ public final class LocalizationSupport: Sendable {
     private static let supportedLanguageCodes = Set(Language.supportedLanguages.map(\.langCode))
     private static let langCodeStorageKey = "settings.langCode"
     private static let langSourceStorageKey = "settings.langSource"
-    private static let langSourceSystem = "system"
     private static let langSourceUser = "user"
     private static let nativeLanguageMigrationKey = "settings.langMigrationToUserDefaultsCompleted"
     private static let appleLanguagesStorageKey = "AppleLanguages"
@@ -73,16 +72,6 @@ public final class LocalizationSupport: Sendable {
         LocalizationSupport.persistLanguageCode(LocalizationSupport.storedLanguageCode(global: global))
         LocalizationSupport.markNativeLanguageMigrationCompleted()
         applyLanguageCode(langCode)
-    }
-
-    @MainActor public func syncLanguageToGlobalStorage(global: GlobalStorage) {
-        let storedLanguageCode = LocalizationSupport.storedLanguageCode()
-        global.update {
-            $0[LocalizationSupport.langCodeStorageKey] = storedLanguageCode
-            $0[LocalizationSupport.langSourceStorageKey] = storedLanguageCode == nil
-                ? LocalizationSupport.langSourceSystem
-                : LocalizationSupport.langSourceUser
-        }
     }
 
     private static func normalizedSupportedLanguageCode(_ code: String) -> String {

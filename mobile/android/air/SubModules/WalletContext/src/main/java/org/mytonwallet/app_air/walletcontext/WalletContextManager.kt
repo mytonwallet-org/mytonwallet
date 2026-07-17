@@ -85,7 +85,10 @@ object WalletContextManager {
     }
 
     fun getMainActivityIntent(context: Context): Intent {
-        return context.packageManager.getLaunchIntentForPackage(context.packageName)!!.apply {
+        val launchIntent = checkNotNull(
+            context.packageManager.getLaunchIntentForPackage(context.packageName)
+        ) { "No launch intent for own package" }
+        return launchIntent.apply {
             putExtra("switchToLegacy", true)
         }
     }

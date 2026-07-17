@@ -21,7 +21,7 @@ import { logDebugError } from '../../../util/logs';
 import { getWalletPublicKey, toBase64Address } from './util/tonCore';
 import { resolveMfaExtensionAddress } from './contracts/util';
 import { fetchStoredAccount } from '../../common/accounts';
-import { getMnemonic } from '../../common/mnemonic';
+import { getMnemonic, validateBip39Mnemonic } from '../../common/mnemonic';
 import { bytesToHex, hexToBytes } from '../../common/utils';
 import { ApiServerError } from '../../errors';
 import { resolveAddress } from './address';
@@ -49,8 +49,21 @@ function buildOfflineWalletFromPublicKey(
   };
 }
 
-export function generateMnemonic() {
-  return tonWebMnemonic.generateMnemonic();
+export async function generateMnemonic(): Promise<string[]> {
+  // Roughly 1 in 256 TON-native phrases also pass the BIP39 checksum, since both share the wordlist and BIP39 only
+  // adds an 8-bit checksum. Such a phrase is ambiguous: an importer reads it as BIP39 and derives a different
+  // address than this wallet shows, so the same words restore an empty wallet in any TON-native app. Reroll until
+  // the phrase can only be read as a TON-native one. The cap only ever trips if the generator keeps returning
+  // BIP39-valid phrases, which at ~1/256 per draw means a broken RNG, so fail loudly rather than mint an
+  // ambiguous phrase or spin forever.
+  for (let attempt = 0; attempt < 1000; attempt++) {
+    const mnemonic = await tonWebMnemonic.generateMnemonic();
+    if (!validateBip39Mnemonic(mnemonic)) {
+      return mnemonic;
+    }
+  }
+
+  throw new Error('Failed to generate an unambiguous TON mnemonic');
 }
 
 export function validateMnemonic(mnemonic: string[]) {
@@ -130,10 +143,18 @@ export async function getWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
   derivation?: ApiDerivation,
+  isNewMnemonic?: boolean,
 ): Promise<ApiTonWallet[]> {
   if (derivation) {
     const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
     const keypair = getWalletVariantByIndex(seed.toString('hex'), derivation.index, derivation.path);
+    if (isNewMnemonic) {
+      return [buildOfflineWalletFromPublicKey(network, keypair.publicKey, {
+        path: derivation.path,
+        index: derivation.index,
+      })];
+    }
+
     try {
       const { wallet, version } = await pickBestWalletVersion(network, keypair.publicKey);
       return [{
@@ -190,6 +211,9 @@ export async function getWalletFromBip39Mnemonic(
 export async function getWalletFromMnemonic(
   network: ApiNetwork,
   mnemonic: string[],
+  // The offline wallet carries no `lastTxId`, so a caller that reads on-chain history to make a decision must be
+  // able to tell "no history" from "could not look it up" and opt out of the fallback
+  isOfflineFallbackAllowed = true,
 ): Promise<ApiTonWallet & { lastTxId?: string }> {
   const { publicKey } = await tonWebMnemonic.mnemonicToKeyPair(mnemonic);
   try {
@@ -198,7 +222,7 @@ export async function getWalletFromMnemonic(
       [{ publicKey }],
     );
   } catch (err) {
-    if (!(err instanceof ApiServerError)) throw err;
+    if (!isOfflineFallbackAllowed || !(err instanceof ApiServerError)) throw err;
     return buildOfflineWalletFromPublicKey(network, publicKey);
   }
 }

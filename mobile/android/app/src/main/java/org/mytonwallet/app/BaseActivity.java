@@ -40,18 +40,4 @@ abstract public class BaseActivity extends AppCompatActivity {
       window.setFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
     }
   }
-
-  protected void updateStatusBarStyle() {
-    String style = ((MTWApplication) getApplicationContext()).getCurrentStatusBar();
-    if (style == null || style.equals("DEFAULT"))
-      return;
-
-    Window window = getWindow();
-    View decorView = window.getDecorView();
-
-    WindowInsetsControllerCompat windowInsetsControllerCompat = WindowCompat.getInsetsController(window, decorView);
-    windowInsetsControllerCompat.setAppearanceLightStatusBars(!style.equals("DARK"));
-    windowInsetsControllerCompat.setAppearanceLightNavigationBars(!style.equals("DARK"));
-  }
-
 }

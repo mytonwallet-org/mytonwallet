@@ -85,7 +85,7 @@ function ExploreSearch({
   });
 
   const handleOpenSite = useLastCallback((url: string) => {
-    void vibrate();
+    vibrate();
     handleMenuClose();
 
     // Searching our site catalog to get possible information on how to open it and what its title is
@@ -101,7 +101,7 @@ function ExploreSearch({
   });
 
   const handleWalletSelect = useLastCallback((wallet: WalletSuggestion) => {
-    void vibrate();
+    vibrate();
     handleMenuClose();
     setSearchValue('');
 

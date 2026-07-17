@@ -403,7 +403,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                 activitiesToSave.filter { !it.isLocal() && (it as? MApiTransaction.Transaction)?.isPending() != true },
                 false,
                 slug
-            )!!
+            )
 
             // Get existing IDs from in-memory cache
             val existingIds = getActivityIds(accountId, slug)
@@ -701,7 +701,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                 newActivities,
                 false,
                 null
-            )!!
+            )
 
             // Update in-memory cache
             updateInMemoryCache(accountId, filteredActivities, pendingAndNewActivities)

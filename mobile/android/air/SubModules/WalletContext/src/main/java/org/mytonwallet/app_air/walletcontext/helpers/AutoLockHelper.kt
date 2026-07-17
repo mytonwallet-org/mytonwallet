@@ -34,10 +34,10 @@ class AutoLockHelper {
         }
 
         fun appResumed() {
-            if (timerStartAt == null || period == null)
-                return
-            val passedTimeMs = System.currentTimeMillis() - timerStartAt!!
-            val periodTime = period!! * 1000L
+            val timerStartAt = timerStartAt ?: return
+            val period = period ?: return
+            val passedTimeMs = System.currentTimeMillis() - timerStartAt
+            val periodTime = period * 1000L
             if (passedTimeMs >= periodTime) {
                 WalletContextManager.delegate?.get()?.lockScreen()
             } else {

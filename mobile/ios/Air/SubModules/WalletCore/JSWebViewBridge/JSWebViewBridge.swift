@@ -426,7 +426,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                     }
                     
                     switch methodName {
-                    case "capacitorStorageGetItem":
+                    case "airStorageGetItem":
                         guard let key = data?["arg0"] as? String
                         else {
                             await completeNativeCallVoid()
@@ -435,19 +435,19 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         let result = KeychainHelper.getStorage(key: key)
                         await completeNativeCallOk(result: result)
                         
-                    case "capacitorStorageSetItem":
+                    case "airStorageSetItem":
                         if let key = data?["arg0"] as? String, let value = data?["arg1"] as? String {
                             KeychainHelper.saveStorage(key: key, value: value)
                         }
                         await completeNativeCallVoid()
                         
-                    case "capacitorStorageRemoveItem":
+                    case "airStorageRemoveItem":
                         if let key = data?["arg0"] as? String {
                             KeychainHelper.saveStorage(key: key, value: nil)
                         }
                         await completeNativeCallVoid()
                         
-                    case "capacitorStorageKeys":
+                    case "airStorageKeys":
                         await completeNativeCallOk(result: KeychainHelper.keys())
                         
                     case "exchangeWithLedger":

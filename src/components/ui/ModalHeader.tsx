@@ -5,7 +5,6 @@ import type { IAnchorPosition } from '../../global/types';
 import type { DropdownItem } from './Dropdown';
 
 import buildClassName from '../../util/buildClassName';
-import { getShareIcon } from '../../util/share';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -89,7 +88,7 @@ function ModalHeader<T extends string>({
           ariaLabel={lang('Share Link')}
           onClick={onShareClick}
         >
-          <i className={getShareIcon()} aria-hidden />
+          <i className="icon-link" aria-hidden />
         </Button>
       )}
       {title !== undefined && (

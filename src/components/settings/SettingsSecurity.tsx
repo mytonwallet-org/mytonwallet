@@ -1,5 +1,3 @@
-import { Dialog } from '@capacitor/dialog';
-import { AndroidSettings, IOSSettings, NativeSettings } from 'capacitor-native-settings';
 import React, { memo, useEffect, useLayoutEffect, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -14,7 +12,6 @@ import {
   AUTO_CONFIRM_DURATION_MINUTES,
   AUTOLOCK_OPTIONS_LIST,
   DEFAULT_AUTOLOCK_OPTION,
-  IS_CAPACITOR,
   IS_GRAM_WALLET,
   PIN_LENGTH,
 } from '../../config';
@@ -36,7 +33,7 @@ import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { pause } from '../../util/schedulers';
 import { getIsTelegramBiometricsRestricted } from '../../util/telegram';
-import { IS_BIOMETRIC_AUTH_SUPPORTED, IS_ELECTRON, IS_IOS, IS_IOS_APP } from '../../util/windowEnvironment';
+import { IS_BIOMETRIC_AUTH_SUPPORTED, IS_ELECTRON } from '../../util/windowEnvironment';
 import { callApi } from '../../api';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -167,7 +164,6 @@ function SettingsSecurity({
   const [backupType, setBackupType] = useState<'key' | 'words' | undefined>(undefined);
   const [hasMnemonicWallet, setHasMnemonicWallet] = useState<boolean>(false);
 
-  // For Capacitor only
   const [pinValue, setPinValue] = useState<string>('');
   const [confirmPinValue, setConfirmPinValue] = useState<string>('');
 
@@ -361,27 +357,9 @@ function SettingsSecurity({
       openBiometricsTurnOn();
     }
   });
-  const handleNativeBiometricsTurnOnOpen = useLastCallback(async () => {
+  const handleNativeBiometricsTurnOnOpen = useLastCallback(() => {
     if (getIsNativeBiometricAuthSupported()) {
       setSettingsState({ state: SettingsState.NativeBiometricsTurnOn });
-      return;
-    }
-
-    const warningDescription = IS_IOS
-      ? 'To use this feature, first enable Face ID in your phone settings.'
-      : 'To use this feature, first enable biometrics in your phone settings.';
-
-    const { value } = await Dialog.confirm({
-      title: lang('Warning!'),
-      message: lang(warningDescription),
-      okButtonTitle: lang('Open Settings'),
-      cancelButtonTitle: lang('Cancel'),
-    });
-    if (value) {
-      await NativeSettings.open({
-        optionAndroid: AndroidSettings.ApplicationDetails,
-        optionIOS: IOSSettings.App,
-      });
     }
   });
 
@@ -397,7 +375,7 @@ function SettingsSecurity({
   // When activated, it will show a warning to the user indicating that they need to grant
   // the appropriate permissions for biometric authentication to function properly.
   const shouldRenderNativeBiometrics = (
-    getIsNativeBiometricAuthSupported() || IS_IOS_APP || getIsTelegramBiometricsRestricted()
+    getIsNativeBiometricAuthSupported() || getIsTelegramBiometricsRestricted()
   );
   const isAutoConfirmAvailable = !isBiometricAuthEnabled;
 
@@ -611,7 +589,7 @@ function SettingsSecurity({
             <PasswordForm
               isActive={isSlideActive && isActive}
               error={passwordError}
-              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormWithHeaderOffset}
+              containerClassName={styles.passwordFormWithHeaderOffset}
               placeholder={lang('Enter your current password')}
               submitLabel={lang('Continue')}
               noAutoConfirm

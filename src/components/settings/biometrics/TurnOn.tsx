@@ -3,7 +3,7 @@ import { getActions } from '../../../global';
 
 import { BiometricsState } from '../../../global/types';
 
-import { ANIMATED_STICKER_HUGE_SIZE_PX, IS_CAPACITOR } from '../../../config';
+import { ANIMATED_STICKER_HUGE_SIZE_PX } from '../../../config';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
@@ -79,7 +79,7 @@ function TurnOn({
             <PasswordForm
               isActive={isActive}
               isLoading={isLoading}
-              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormWithHeaderOffset}
+              containerClassName={styles.passwordFormWithHeaderOffset}
               error={error || localError}
               operationType="turnOnBiometrics"
               help={lang(help)}

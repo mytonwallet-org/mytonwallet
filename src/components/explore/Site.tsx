@@ -34,7 +34,7 @@ function Site({
   const lang = useLang();
 
   function handleClick() {
-    void vibrate();
+    vibrate();
     void openUrl(url, { isExternal, title: name, subtitle: getHostnameFromUrl(url) });
   }
 

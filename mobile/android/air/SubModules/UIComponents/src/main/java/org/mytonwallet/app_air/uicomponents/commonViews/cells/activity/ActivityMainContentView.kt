@@ -14,6 +14,7 @@ import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.setBoundsFit
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -391,9 +392,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
                     val drawable = context.requireDrawableCompat(it)
                     drawable.mutate()
                     drawable.setTint(WColor.PrimaryLightText.color)
-                    val width = 12.dp
-                    val height = 12.dp
-                    drawable.setBounds(0, 0, width, height)
+                    drawable.setBoundsFit(12.dp)
                     val imageSpan = VerticalImageSpan(drawable)
                     builder.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     builder.append(" ")

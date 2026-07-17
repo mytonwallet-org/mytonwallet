@@ -28,7 +28,6 @@ extension ApiUpdate {
         public var countryCode: String?
         public var isAppUpdateRequired: Bool?
         public var seasonalTheme: SeasonalTheme?
-        public var switchToClassic: Bool?
         public var knowledgeBaseVersion: String?
         public var preferredAgent: PreferredAgent?
 
@@ -40,7 +39,6 @@ extension ApiUpdate {
             case countryCode
             case isAppUpdateRequired
             case seasonalTheme
-            case switchToClassic
             case knowledgeBaseVersion
             case preferredAgent
         }
@@ -53,7 +51,6 @@ extension ApiUpdate {
             supportAccountsCount = try container.decodeIfPresent(Int.self, forKey: .supportAccountsCount)
             countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode)
             isAppUpdateRequired = try container.decodeIfPresent(Bool.self, forKey: .isAppUpdateRequired)
-            switchToClassic = try container.decodeIfPresent(Bool.self, forKey: .switchToClassic)
             seasonalTheme = try? container.decodeIfPresent(SeasonalTheme.self, forKey: .seasonalTheme)
             knowledgeBaseVersion = try? container.decodeIfPresent(String.self, forKey: .knowledgeBaseVersion)
             preferredAgent = try? container.decodeIfPresent(PreferredAgent.self, forKey: .preferredAgent)

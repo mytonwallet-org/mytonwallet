@@ -22,14 +22,14 @@ import org.mytonwallet.app_air.walletcore.moshi.MSwapCexValidateAddressResult
 
 /*
 suspend fun WalletCore.Swap.swapGetAssets() =
-    WalletCore.bridge!!.callApiAsync<List<ApiSwapAsset>>(
+    WalletCore.requiredBridge.callApiAsync<List<ApiSwapAsset>>(
         "swapGetAssets",
         "[]",
         Types.newParameterizedType(List::class.java, ApiSwapAsset::class.java))
 */
 
 suspend fun swapGetPairs(slug: String) =
-    WalletCore.bridge!!.callApiAsync<List<MApiSwapPairAsset>>(
+    WalletCore.requiredBridge.callApiAsync<List<MApiSwapPairAsset>>(
         "swapGetPairs",
         ArgumentsBuilder()
             .string(slug)
@@ -41,7 +41,7 @@ suspend fun WalletCore.Swap.swapEstimate(
     accountId: String,
     request: MApiSwapEstimateRequest
 ) = run {
-    WalletCore.bridge!!.callApiAsync<MApiSwapEstimateResponse>(
+    WalletCore.requiredBridge.callApiAsync<MApiSwapEstimateResponse>(
         "swapEstimate",
         ArgumentsBuilder()
             .string(accountId)
@@ -55,7 +55,7 @@ suspend fun WalletCore.Swap.swapCexEstimate(
     accountId: String,
     request: MApiSwapEstimateRequest
 ) = run {
-    WalletCore.bridge!!.callApiAsync<MApiSwapCexEstimateResponse>(
+    WalletCore.requiredBridge.callApiAsync<MApiSwapCexEstimateResponse>(
         "swapEstimate",
         ArgumentsBuilder()
             .string(accountId)
@@ -76,7 +76,7 @@ suspend fun WalletCore.Swap.swapCexCreateTransaction(
     val quotedAccountId = JSONObject.quote(accountId)
     val quotedPasscode = JSONObject.quote(passcode)
 
-    WalletCore.bridge!!.callApiAsync<MApiSwapCexCreateTransactionResponse>(
+    WalletCore.requiredBridge.callApiAsync<MApiSwapCexCreateTransactionResponse>(
         "swapCexCreateTransaction",
         "[$quotedAccountId,$quotedPasscode,$arg]",
         MApiSwapCexCreateTransactionResponse::class.java
@@ -94,7 +94,7 @@ suspend fun WalletCore.Swap.swapBuildTransfer(
     val quotedAccountId = JSONObject.quote(accountId)
     val quotedPasscode = JSONObject.quote(passcode)
 
-    WalletCore.bridge!!.callApiAsync<MApiSwapBuildResponse>(
+    WalletCore.requiredBridge.callApiAsync<MApiSwapBuildResponse>(
         "swapBuildTransfer",
         "[$quotedAccountId,$quotedPasscode,$arg]",
         MApiSwapBuildResponse::class.java
@@ -127,7 +127,7 @@ suspend fun WalletCore.Swap.swapSubmit(
     val quotedPasscode = JSONObject.quote(passcode)
     val argTx = transaction?.let { JSONObject.quote(it) } ?: "null"
 
-    WalletCore.bridge!!.callApiAsync<MApiSubmitMultiTransferResult>(
+    WalletCore.requiredBridge.callApiAsync<MApiSubmitMultiTransferResult>(
         "swapSubmit",
         "[$quotedChain,$quotedAccountId,$quotedPasscode,$argT,$argH,$withDiesel,$argTx]",
         MApiSubmitMultiTransferResult::class.java
@@ -135,7 +135,7 @@ suspend fun WalletCore.Swap.swapSubmit(
 }
 
 suspend fun WalletCore.Swap.swapCexValidateAddress(params: MSwapCexValidateAddressParams) = run {
-    WalletCore.bridge!!.callApiAsync<MSwapCexValidateAddressResult>(
+    WalletCore.requiredBridge.callApiAsync<MSwapCexValidateAddressResult>(
         "swapCexValidateAddress",
         ArgumentsBuilder()
             .jsObject(params, MSwapCexValidateAddressParams::class.java)
@@ -153,7 +153,7 @@ suspend fun WalletCore.Transfer.swapCexSubmit(
     val arg = moshi.adapter(MApiSubmitTransferOptions::class.java).toJson(options)
     val args = "[\"${chain.name}\", $arg, ${JSONObject.quote(swapId)}]"
 
-    WalletCore.bridge!!.callApiAsync(
+    WalletCore.requiredBridge.callApiAsync(
         "swapCexSubmit",
         args,
         ApiSubmitTransferResult::class.java,

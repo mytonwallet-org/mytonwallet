@@ -11,7 +11,6 @@ import {
   DEFAULT_SWAP_AMOUNT,
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
-  IS_CAPACITOR,
   IS_EXPLORER,
   TONCOIN,
   TRC20_USDT_MAINNET,
@@ -27,7 +26,6 @@ import {
   selectTokenByMinterAddress,
 } from '../../global/selectors';
 import { callApi } from '../../api';
-import { switchToAir } from '../capacitor';
 import {
   getChainConfig,
   getEvmChains,
@@ -57,7 +55,6 @@ import {
 } from './constants';
 
 export const enum DeeplinkCommand {
-  Air = 'air',
   CheckinWithR = 'r',
   Swap = 'swap',
   BuyWithCrypto = 'buy-with-crypto',
@@ -97,7 +94,6 @@ const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
 };
 
 const VIEW_MODE_ALLOWED_COMMANDS = new Set([
-  DeeplinkCommand.Air,
   DeeplinkCommand.CheckinWithR,
   DeeplinkCommand.Explore,
   DeeplinkCommand.View,
@@ -707,12 +703,6 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
     }
 
     switch (command) {
-      case DeeplinkCommand.Air: {
-        if (!IS_CAPACITOR) return false;
-        switchToAir();
-        return true;
-      }
-
       case DeeplinkCommand.CheckinWithR: {
         const r = pathname.match(/r\/(.*)$/)?.[1];
         const url = `${CHECKIN_URL}${r ? `?r=${r}` : ''}`;

@@ -25,12 +25,6 @@ const CONVERSATION_ID_STORAGE_KEY = 'agentConversationId';
 
 let conversationId: string | undefined;
 
-function getAgentStreamFetch(): typeof fetch {
-  // Capacitor stores the unpatched browser fetch here before replacing `window.fetch`
-  // with a native bridge that buffers POST responses and breaks streaming.
-  return window.CapacitorWebFetch ?? window.fetch;
-}
-
 async function generateConversationId(): Promise<string> {
   const id = crypto.randomUUID();
   await agentStore.setItem(CONVERSATION_ID_STORAGE_KEY, id);
@@ -77,11 +71,10 @@ export function createAgentStream(
   callbacks: StreamCallbacks,
 ): { abort: () => void } {
   const abortController = new AbortController();
-  const fetchAgentStream = getAgentStreamFetch();
 
   void (async () => {
     try {
-      const response = await fetchAgentStream(`${AGENT_API_URL}/message`, {
+      const response = await fetch(`${AGENT_API_URL}/message`, {
         method: 'POST',
         headers: AGENT_FETCH_HEADERS,
         signal: abortController.signal,

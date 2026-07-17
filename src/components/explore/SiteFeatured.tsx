@@ -23,7 +23,7 @@ function SiteFeatured({ site, className }: OwnProps) {
   } = site;
 
   function handleClick() {
-    void vibrate();
+    vibrate();
     void openUrl(url, { isExternal, title: name, subtitle: getHostnameFromUrl(url) });
   }
 

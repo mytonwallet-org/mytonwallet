@@ -25,5 +25,5 @@
   <string name="app_portfolio_url" translatable="false">https://portfolio.mywallet.io</string>
   <string name="app_giveaway_url" translatable="false">https://giveaway.mytonwallet.io/</string>
   <string name="app_direct_apk_release_url" translatable="false">https://github.com/mytonwallet-org/mytonwallet/releases/latest</string>
-  <string name="app_direct_apk_version_url_template" translatable="false">https://github.com/mytonwallet-org/mytonwallet/releases/download/v%1$s/MyTonWallet.apk</string>
+  <string name="app_direct_apk_version_url_template" translatable="false">https://github.com/mytonwallet-org/mytonwallet/releases/download/v%1$s/MyWallet.apk</string>
 </resources>

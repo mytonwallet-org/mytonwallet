@@ -251,7 +251,7 @@ function DappTransferInitial({
             {sortedTransactions?.map(renderTransactionRow)}
           </div>
         )}
-        {renderingTransactions.length > 1 && hasAmount && (
+        {!shouldHideTransfers && renderingTransactions.length > 1 && hasAmount && (
           <DappAmountField label={lang('Total Amount')} amountsBySlug={totalAmountsBySlug} nftCount={nftCount} />
         )}
       </>

@@ -114,7 +114,7 @@ public enum DebugPromotionPreset {
     }
 
     public static let airPromotion = ApiPromotion(
-        id: "airPromotion-2026",
+        id: "securityCheckup-2026",
         kind: .cardOverlay,
         cardOverlay: .init(
             mascotIcon: .init(
@@ -131,14 +131,14 @@ public enum DebugPromotionPreset {
             backgroundImageUrl: "https://static.mytonwallet.org/icons/promotion-air-bg.webp",
             backgroundFallback: "linear-gradient(135deg, #71AAEF 0%, #3F79CF 33.85%, #2E74B5 70.83%, #2160A1 100%)",
             heroImageUrl: "https://static.mytonwallet.org/icons/promotion-air-hero.webp",
-            title: "Tired of MyTonWallet Air?",
+            title: "Keep Your Wallet Protected",
             titleColor: "#FFFFFF",
-            description: "This month, it will become the default interface for all users. The Classic interface can still be chosen in **Settings > Appearance**.",
+            description: "Review your recovery phrase backup and keep biometric confirmation enabled for faster, safer approvals.",
             descriptionColor: "rgba(255, 255, 255, 0.75)",
             availabilityIndicator: nil,
             actionButton: .init(
-                title: "Try MyTonWallet Classic",
-                url: "mtw://classic"
+                title: "Open Security Guide",
+                url: "https://help.mytonwallet.io"
             )
         )
     )

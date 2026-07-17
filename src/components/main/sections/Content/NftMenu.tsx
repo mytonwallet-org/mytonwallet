@@ -119,7 +119,7 @@ function NftMenu({
     if (isOpen) {
       onClose();
     } else {
-      void vibrate();
+      vibrate();
       onOpen();
     }
   };

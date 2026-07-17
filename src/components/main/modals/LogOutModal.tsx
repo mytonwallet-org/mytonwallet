@@ -15,7 +15,6 @@ import {
 import { getAccountTitle } from '../../../util/account';
 import buildClassName from '../../../util/buildClassName';
 import isViewAccount from '../../../util/isViewAccount';
-import { IS_IOS_APP } from '../../../util/windowEnvironment';
 
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
@@ -158,8 +157,6 @@ function LogOutModal({
 
   const shouldRenderWarningForAnotherAccounts = isLogOutFromAllAccounts && accountsWithoutBackups.length > 0;
   const shouldRenderWarningForCurrentAccount = isBackupRequired && !shouldRenderWarningForAnotherAccounts;
-  // Sibling button has wider text on iOS due to App Store "Remove Wallet" requirements
-  const cancelButtonClassNames = buildClassName(modalStyles.button, IS_IOS_APP && modalStyles.shortButton);
 
   return (
     <Modal
@@ -189,11 +186,11 @@ function LogOutModal({
       {shouldRenderWarningForAnotherAccounts && renderBackupForAccountsWarning()}
 
       <div className={modalStyles.buttons}>
-        <Button className={cancelButtonClassNames} onClick={handleClose}>
+        <Button className={modalStyles.button} onClick={handleClose}>
           {lang('Cancel')}
         </Button>
         <Button isDestructive onClick={handleLogOut} className={modalStyles.button}>
-          {IS_IOS_APP ? lang('Remove Wallet') : lang('Exit')}
+          {lang('Exit')}
         </Button>
       </div>
     </Modal>

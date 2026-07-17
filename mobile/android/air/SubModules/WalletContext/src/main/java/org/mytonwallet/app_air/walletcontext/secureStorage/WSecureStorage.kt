@@ -22,10 +22,12 @@ object WSecureStorage {
         getFailedLoginAttempts()
     }
 
-    fun isFreshInstall(): Boolean {
-        val storage = secureStorage
+    private val requiredStorage: WSecureStorageProvider
+        get() = secureStorage
             ?: throw IllegalStateException("WSecureStorage not initialized.")
-        return storage.keys().size == 0
+
+    fun isFreshInstall(): Boolean {
+        return requiredStorage.keys().size == 0
     }
 
     private const val ACCOUNTS = "accounts"
@@ -86,10 +88,11 @@ object WSecureStorage {
     private val storageLock = Any()
     fun deleteAllWalletValues() {
         synchronized(storageLock) {
-            val walletKeys = secureStorage!!.keys()
+            val storage = requiredStorage
+            val walletKeys = storage.keys()
             for (key in walletKeys) {
                 _cachedValues.remove(key)
-                secureStorage!!.remove(key)
+                storage.remove(key)
             }
             setSecValue(STATE_VERSION_KEY, STATE_VERSION_VAL.toString())
         }
@@ -98,20 +101,20 @@ object WSecureStorage {
     fun setSecValue(key: String, value: String) {
         _cachedValues[key] = value
         synchronized(storageLock) {
-            secureStorage!!.setData(key, value)
+            requiredStorage.setData(key, value)
         }
     }
 
     fun getSecValue(key: String): String {
         return _cachedValues.getOrPut(key) {
             synchronized(storageLock) {
-                secureStorage!!.getStringData(key)
+                requiredStorage.getStringData(key)
             }
         }
     }
 
     fun getKeys(): Array<String> {
-        return secureStorage!!.keys()
+        return requiredStorage.keys()
     }
 
     fun clearCache() {

@@ -2,10 +2,10 @@
 public struct GlobalPushNotifications: Equatable, Hashable, Codable, Sendable {
     public var isAvailable: Bool?
     public var userToken: String?
-    public var platform: CapacitorPlatform?
+    public var platform: NativePlatform?
     public var enabledAccounts: [String]
     
-    public init(isAvailable: Bool?, userToken: String?, platform: CapacitorPlatform?, enabledAccounts: [String]) {
+    public init(isAvailable: Bool?, userToken: String?, platform: NativePlatform?, enabledAccounts: [String]) {
         self.isAvailable = isAvailable
         self.userToken = userToken
         self.platform = platform

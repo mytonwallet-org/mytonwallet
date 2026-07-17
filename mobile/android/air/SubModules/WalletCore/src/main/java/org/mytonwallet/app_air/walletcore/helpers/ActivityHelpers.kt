@@ -52,14 +52,24 @@ class ActivityHelpers {
             return it.parsedTxId.hash == newActivity.parsedTxId.hash
         }
 
+        @JvmName("filterNullable")
         fun filter(
             accountId: String,
             array: List<MApiTransaction>?,
             hideTinyIfRequired: Boolean,
             checkSlug: String?,
         ): List<MApiTransaction>? {
+            return array?.let { filter(accountId, it, hideTinyIfRequired, checkSlug) }
+        }
+
+        fun filter(
+            accountId: String,
+            array: List<MApiTransaction>,
+            hideTinyIfRequired: Boolean,
+            checkSlug: String?,
+        ): List<MApiTransaction> {
             val hideTiny = hideTinyIfRequired && WGlobalStorage.getAreTinyTransfersHidden()
-            return array?.filter { transaction ->
+            return array.filter { transaction ->
                 transaction.shouldHide != true &&
                     !transaction.isPoisoning(accountId) &&
                     !transaction.isHiddenNftActivity(accountId) &&

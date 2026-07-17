@@ -33,7 +33,7 @@ import {
 } from '../config';
 import { getTokenInfo } from '../util/chain';
 import { buildCollectionByKey, mapValues } from '../util/iteratees';
-import { IS_IOS_APP, USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
+import { USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
 export const STATE_VERSION = 59;
 
@@ -109,7 +109,6 @@ export const INITIAL_STATE: GlobalState = {
     animationLevel: ANIMATION_LEVEL_DEFAULT,
     areTinyTransfersHidden: !SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
     canPlaySounds: true,
-    hasOpenedAir: false,
     langCode: USER_AGENT_LANG_CODE,
     langSource: 'system',
     byAccountId: {},
@@ -128,10 +127,10 @@ export const INITIAL_STATE: GlobalState = {
 
   restrictions: {
     isLimitedRegion: false,
-    isSwapDisabled: IS_IOS_APP || IS_CORE_WALLET,
-    isOnRampDisabled: IS_IOS_APP || IS_CORE_WALLET,
-    isOffRampDisabled: IS_IOS_APP || IS_CORE_WALLET,
-    isNftBuyingDisabled: IS_IOS_APP,
+    isSwapDisabled: IS_CORE_WALLET,
+    isOnRampDisabled: IS_CORE_WALLET,
+    isOffRampDisabled: IS_CORE_WALLET,
+    isNftBuyingDisabled: false,
   },
 
   mediaViewer: {},

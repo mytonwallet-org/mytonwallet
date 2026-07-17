@@ -61,10 +61,10 @@ import type {
   ApiUpdateWalletVersions,
   ApiVestingInfo,
   ApiWalletWithVersionInfo,
+  NativePlatform,
 } from '../api/types';
 import type { AUTOLOCK_OPTIONS_LIST } from '../config';
 import type { AuthConfig } from '../util/authApi/types';
-import type { CapacitorPlatform } from '../util/capacitor/platform';
 import type { ExplainedTransferFee } from '../util/fee/transferFee';
 import type { LedgerTransport } from '../util/ledger/types';
 
@@ -110,7 +110,7 @@ export type AnimationLevel = 0 | 1 | 2;
 export type Theme = 'light' | 'dark' | 'system';
 export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
-export type DialogAction = 'openBluetoothSettings' | 'signOutAll' | 'openReturnUrl';
+export type DialogAction = 'signOutAll' | 'openReturnUrl';
 export type ToastAction = 'openRenameWallet';
 
 export type DeveloperSettingsUndefinedOverride = '__undefined';
@@ -1016,8 +1016,6 @@ export type GlobalState = {
     isTestnet?: boolean;
     isSecurityWarningHidden?: boolean;
     areTokensWithNoCostHidden: boolean;
-    hasOpenedAir?: boolean;
-    shouldAutoSwitchToAirOnNextStart?: boolean;
     importToken?: {
       isLoading?: boolean;
       token?: UserToken | UserSwapToken;
@@ -1059,7 +1057,6 @@ export type GlobalState = {
   isBackupWalletModalOpen?: boolean;
   isHardwareModalOpen?: boolean;
   isStakingInfoModalOpen?: boolean;
-  isQrScannerOpen?: boolean;
   isCustomizeWalletModalOpen?: boolean;
   customizeWalletReturnTo?: 'accountSelector' | 'settings';
   areSettingsOpen?: boolean;
@@ -1097,12 +1094,6 @@ export type GlobalState = {
     isLoading?: boolean;
   };
 
-  currentQrScan?: {
-    currentTransfer?: GlobalState['currentTransfer'];
-    currentSwap?: GlobalState['currentSwap'];
-    currentDomainLinking?: GlobalState['currentDomainLinking'];
-  };
-
   latestAppVersion?: string;
   stateVersion: number;
   restrictions: {
@@ -1138,7 +1129,7 @@ export type GlobalState = {
   pushNotifications: {
     isAvailable?: boolean;
     userToken?: string;
-    platform?: CapacitorPlatform;
+    platform?: NativePlatform;
     enabledAccounts: string[]; // Values - account ids
   };
 
@@ -1381,7 +1372,6 @@ export interface ActionPayloads {
   clearIsPinAccepted: undefined;
 
   requestOpenQrScanner: undefined;
-  closeQrScanner: undefined;
   handleQrCode: { data: string };
 
   // Staking
@@ -1631,7 +1621,7 @@ export interface ActionPayloads {
   tryAddNotificationAccount: { accountId: string };
   deleteNotificationAccount: { accountId: string; withAbort?: boolean };
   deleteAllNotificationAccounts: undefined | { accountIds: string[] };
-  registerNotifications: { userToken: string; platform: CapacitorPlatform };
+  registerNotifications: { userToken: string; platform: NativePlatform };
 
   openFullscreen: undefined;
   closeFullscreen: undefined;

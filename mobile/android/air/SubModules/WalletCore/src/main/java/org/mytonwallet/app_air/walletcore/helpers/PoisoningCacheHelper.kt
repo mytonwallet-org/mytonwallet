@@ -21,9 +21,8 @@ class PoisoningCacheHelper {
 
         private fun addToCache(accountId: String, address: String, amount: BigInteger, timestamp: Long) {
             val key = getKey(address)
-            if (cache[accountId] == null)
-                cache[accountId] = ConcurrentHashMap()
-            cache[accountId]!![key] = CacheEntry(timestamp, amount, address)
+            cache.computeIfAbsent(accountId) { ConcurrentHashMap() }[key] =
+                CacheEntry(timestamp, amount, address)
         }
 
         private fun getFromCache(accountId: String, address: String): CacheEntry? {

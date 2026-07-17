@@ -150,13 +150,6 @@
     }
   }
 
-  // Fix transparent navigation bar in Capacitor app for Android.
-  :global(html.is-android-app) &:not(.forceBottomSheet) .dialog {
-    max-height: 100%;
-    padding-top: var(--safe-area-top);
-    padding-bottom: var(--safe-area-bottom);
-  }
-
   :global(html.is-mobile-telegram-app.is-fullscreen) &:not(.forceBottomSheet) {
     .dialog {
       max-height: 100%;
@@ -226,6 +219,21 @@
       max-width: 24rem;
     }
   }
+}
+
+// Opt-in corner radius (larger than the shared `--border-radius-default`), applied via `dialogClassName` to modals
+// where the extra rounding reads better. `overflow: hidden` clips the content to the rounded box, so the corners
+// hold regardless of the inner Transition structure; the mobile bottom sheet keeps its bottom corners square since
+// it sits flush to the screen edge.
+.dialog.extraRounded {
+  --dialog-radius: 2rem;
+
+  overflow: hidden;
+  border-radius: var(--dialog-radius);
+}
+
+.slideUpAnimation .dialog.extraRounded {
+  border-radius: var(--dialog-radius) var(--dialog-radius) 0 0;
 }
 
 .header {
@@ -538,15 +546,12 @@
   min-width: 0;
   min-height: 0;
   padding: 0 1rem 1rem;
+  padding-bottom: max(var(--safe-area-bottom, 1rem), 1rem);
 
   background-color: inherit;
 
   &_simple {
     padding-top: 5.5rem;
-  }
-
-  :global(html:not(.is-android-app)) & {
-    padding-bottom: max(var(--safe-area-bottom, 1rem), 1rem);
   }
 
   :global(html.with-safe-area-bottom.is-telegram-app) & {

@@ -1,18 +1,14 @@
-import { NativeBiometric } from '@capgo/capacitor-native-biometric';
-
 import type { ApiChain, ApiNetwork } from '../../../api/types';
 import type { Account, GlobalState } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
 
 import {
-  APP_NAME,
   IS_CORE_WALLET,
   IS_EXPLORER,
-  IS_TELEGRAM_APP,
-  IS_TON_MNEMONIC_ONLY,
   MNEMONIC_CHECK_COUNT,
   MNEMONIC_COUNT,
+  SHOULD_GENERATE_TON_MNEMONIC,
   TEMPORARY_ACCOUNT_NAME,
 } from '../../../config';
 import { generateAccountTitle, generateNextSubwalletTitle, parseAccountId } from '../../../util/account';
@@ -145,7 +141,8 @@ addActionHandler('startCreatingWallet', async (global, actions) => {
     return;
   }
 
-  const mnemonicPromise = callApi('generateMnemonic', !IS_TON_MNEMONIC_ONLY && !global.auth.forceAddingTonOnlyAccount);
+  const isBip39 = !SHOULD_GENERATE_TON_MNEMONIC && !global.auth.forceAddingTonOnlyAccount;
+  const mnemonicPromise = callApi('generateMnemonic', isBip39);
   const pausePromise = isPasswordPresent ? Promise.resolve() : pause(CREATING_DURATION);
 
   setGlobal(
@@ -352,7 +349,7 @@ addActionHandler('createAccount', async (global, actions, {
   const accounts = isMnemonicPrivateKey(mnemonic)
     // todo: Create a separate screen for private key importing, where users will choose the chain
     ? await callApi('importPrivateKey', 'ton', networks, mnemonic[0], password)
-    : await callApi('importMnemonic', networks, mnemonic, password);
+    : await callApi('importMnemonic', networks, mnemonic, password, !isImporting);
 
   global = getGlobal();
 
@@ -825,20 +822,7 @@ addActionHandler('enableNativeBiometrics', async (global, actions, { password })
   setGlobal(global);
 
   try {
-    let isVerified: boolean;
-
-    if (IS_TELEGRAM_APP) {
-      const verificationResult = await verifyTelegramBiometricIdentity();
-      isVerified = verificationResult.success;
-    } else {
-      isVerified = await NativeBiometric.verifyIdentity({
-        title: APP_NAME,
-        subtitle: '',
-        maxAttempts: 1,
-      })
-        .then(() => true)
-        .catch(() => false);
-    }
+    const { success: isVerified } = await verifyTelegramBiometricIdentity();
 
     if (!isVerified) {
       global = getGlobal();
@@ -848,7 +832,7 @@ addActionHandler('enableNativeBiometrics', async (global, actions, { password })
       };
       global = clearIsPinAccepted(global);
       setGlobal(global);
-      void vibrateOnError();
+      vibrateOnError();
 
       return;
     }
@@ -873,7 +857,7 @@ addActionHandler('enableNativeBiometrics', async (global, actions, { password })
     global = clearIsPinAccepted(global);
     setGlobal(global);
 
-    void vibrateOnError();
+    vibrateOnError();
   }
 });
 

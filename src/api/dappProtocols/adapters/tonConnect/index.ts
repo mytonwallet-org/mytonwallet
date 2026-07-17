@@ -67,7 +67,7 @@ import {
 import { DappProtocolType } from '../../types';
 import { CHAIN } from './types';
 
-import { IS_CAPACITOR, IS_EXTENSION, SSE_BRIDGE_URL, TONCOIN } from '../../../../config';
+import { IS_AIR_APP, IS_EXTENSION, SSE_BRIDGE_URL, TONCOIN } from '../../../../config';
 import { parseAccountId } from '../../../../util/account';
 import { areDeepEqual } from '../../../../util/areDeepEqual';
 import { bigintDivideToNumber } from '../../../../util/bigint';
@@ -153,7 +153,7 @@ const ALLOWED_SSE_METHODS = new Set<RpcMethod>(['sendTransaction', 'disconnect',
 const TTL_SEC = 300;
 const NONCE_SIZE = 24;
 const MAX_CONFIRM_DURATION = 60 * 1000;
-const SHOULD_SHOW_LOADER_ON_SSE_START = IS_CAPACITOR;
+const SHOULD_SHOW_LOADER_ON_SSE_START = IS_AIR_APP;
 
 const MFA_POLL_INTERVAL_START_MS = 1000;
 const MFA_POLL_INTERVAL_MAX_MS = 5000;

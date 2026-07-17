@@ -4,7 +4,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiTokenWithPrice } from '../../api/types';
 import type { Account, UserSwapToken, UserToken } from '../../global/types';
 
-import { DEFAULT_CHAIN, IS_CAPACITOR } from '../../config';
+import { DEFAULT_CHAIN } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccount, selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -116,9 +116,7 @@ function InvoiceModal({
               </p>
               <InteractiveTextField
                 text={invoiceUrl}
-                addressUrl={IS_CAPACITOR ? invoiceUrl : undefined}
                 noExplorer
-                withShareInMenu={IS_CAPACITOR}
                 copyNotification={lang('Invoice Link Copied')}
                 className={styles.invoiceLinkField}
               />

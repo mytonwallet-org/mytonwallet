@@ -31,9 +31,6 @@ public struct SendTokenIntent: AppIntent {
 
     @MainActor
     public func perform() async throws -> some IntentResult {
-        guard AirLauncher.isOnTheAir else {
-            return .result()
-        }
         AirLauncher.handle(systemAction: .sendToken(
             accountId: sender?.id,
             recipient: recipient?.systemRecipient,

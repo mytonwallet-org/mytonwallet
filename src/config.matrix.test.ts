@@ -65,7 +65,7 @@ async function withFlavor(
 }
 
 // Behavior/storage + brand constants.
-const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean>> = {
+const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean | number[]>> = {
   default: {
     APP_NAME: 'My Wallet',
     IS_TON_BRAND: false,
@@ -76,7 +76,8 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean>> = {
     BETA_URL: 'https://beta.mywallet.io',
     APP_INSTALL_URL: 'https://get.mywallet.io/',
     APP_WEBSITE_URL: 'https://mywallet.io',
-    IS_TON_MNEMONIC_ONLY: false,
+    SHOULD_GENERATE_TON_MNEMONIC: false,
+    MNEMONIC_COUNTS: [12, 24],
     IS_STAKING_DISABLED: false,
     SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: false,
     WINDOW_PROVIDER_PORT: 'MyWallet_popup_reversed',
@@ -91,7 +92,8 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean>> = {
     BETA_URL: 'https://beta.wallet.ton.org',
     APP_INSTALL_URL: 'https://get.mywallet.io/',
     APP_WEBSITE_URL: 'https://mywallet.io',
-    IS_TON_MNEMONIC_ONLY: true,
+    SHOULD_GENERATE_TON_MNEMONIC: true,
+    MNEMONIC_COUNTS: [24, 12],
     IS_STAKING_DISABLED: true,
     SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: true,
     WINDOW_PROVIDER_PORT: 'TonWallet_popup_reversed',
@@ -106,7 +108,8 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean>> = {
     BETA_URL: 'https://beta.mywallet.io',
     APP_INSTALL_URL: 'https://get.gramwallet.io/',
     APP_WEBSITE_URL: 'https://gramwallet.io',
-    IS_TON_MNEMONIC_ONLY: false,
+    SHOULD_GENERATE_TON_MNEMONIC: false,
+    MNEMONIC_COUNTS: [12, 24],
     IS_STAKING_DISABLED: false,
     SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: false,
     WINDOW_PROVIDER_PORT: 'MyWallet_popup_reversed',
@@ -122,7 +125,8 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean>> = {
     BETA_URL: 'https://beta.wallet.ton.org',
     APP_INSTALL_URL: 'https://get.gramwallet.io/',
     APP_WEBSITE_URL: 'https://gramwallet.io',
-    IS_TON_MNEMONIC_ONLY: true,
+    SHOULD_GENERATE_TON_MNEMONIC: true,
+    MNEMONIC_COUNTS: [24, 12],
     IS_STAKING_DISABLED: true,
     SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: true,
     WINDOW_PROVIDER_PORT: 'TonWallet_popup_reversed',
@@ -162,7 +166,7 @@ describe.each(FLAVORS)('build flavor: %s', (flavor) => {
   it('resolves brand/behavior config constants', async () => {
     await withFlavor(flavor, (config) => {
       const expected = CONFIG_EXPECTATIONS[flavor];
-      const actual: Record<string, string | boolean> = {
+      const actual: Record<string, string | boolean | number[]> = {
         APP_NAME: config.APP_NAME,
         IS_TON_BRAND: config.IS_TON_BRAND,
         GLOBAL_STATE_CACHE_KEY: config.GLOBAL_STATE_CACHE_KEY,
@@ -172,7 +176,8 @@ describe.each(FLAVORS)('build flavor: %s', (flavor) => {
         BETA_URL: config.BETA_URL,
         APP_INSTALL_URL: config.APP_INSTALL_URL,
         APP_WEBSITE_URL: config.APP_WEBSITE_URL,
-        IS_TON_MNEMONIC_ONLY: config.IS_TON_MNEMONIC_ONLY,
+        SHOULD_GENERATE_TON_MNEMONIC: config.SHOULD_GENERATE_TON_MNEMONIC,
+        MNEMONIC_COUNTS: config.MNEMONIC_COUNTS,
         IS_STAKING_DISABLED: config.IS_STAKING_DISABLED,
         SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: config.SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
         WINDOW_PROVIDER_PORT: config.WINDOW_PROVIDER_PORT,

@@ -163,7 +163,7 @@ function SwapBlockchain({
   }, [toAddress, validateToAddress]);
 
   const submitPassword = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     setSwapScreen({ state: SwapState.Password });
   });
 

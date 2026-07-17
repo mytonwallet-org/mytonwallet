@@ -23,7 +23,6 @@ import type {
 } from '../types';
 import { ApiCommonError } from '../types';
 
-import { IS_TON_MNEMONIC_ONLY } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { getChainConfig, getChainsByStandard, getOrderedAccountChains, getSupportedChains } from '../../util/chain';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
@@ -59,6 +58,7 @@ import { handleServerError } from '../errors';
 import { storage } from '../storages';
 import { activateAccount, deactivateAllAccounts } from './accounts';
 import { removeAccountDapps, removeAllDapps, removeNetworkDapps } from './dapps';
+import { isBackendAuthTokenValid } from './other';
 import {
   addPollingAccount,
   removeAllPollingAccounts,
@@ -67,6 +67,16 @@ import {
 } from './polling';
 
 let onUpdate: OnApiUpdate;
+
+function getWalletForReplacement<
+  T extends ApiChain,
+  TWallet extends ApiWalletByChain[T] | Omit<ApiWalletByChain[T], 'index'>,
+>(chain: T, wallet: TWallet) {
+  if (chain !== 'ton') return wallet;
+
+  const { authToken: _authToken, ...walletWithoutAuthToken } = wallet as ApiTonWallet;
+  return walletWithoutAuthToken as TWallet;
+}
 
 export function initAuth(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
@@ -78,7 +88,9 @@ export function generateMnemonic(isBip39: boolean) {
 }
 
 export async function validateMnemonic(mnemonic: string[]) {
-  if (!IS_TON_MNEMONIC_ONLY && validateBip39Mnemonic(mnemonic)) {
+  // Every build accepts a BIP39 phrase, even one that only ever mints TON-specific ones: a wallet has to stay
+  // restorable in the app that created it, whichever way that app was built at the time.
+  if (validateBip39Mnemonic(mnemonic)) {
     return true;
   }
 
@@ -89,8 +101,9 @@ export async function importMnemonic(
   networks: ApiNetwork[],
   mnemonic: string[],
   password: string,
+  isNewMnemonic = false,
 ) {
-  const isBip39Mnemonic = !IS_TON_MNEMONIC_ONLY && validateBip39Mnemonic(mnemonic);
+  const isBip39Mnemonic = validateBip39Mnemonic(mnemonic);
   const isTonMnemonic = await ton.validateMnemonic(mnemonic);
 
   if (!isBip39Mnemonic && !isTonMnemonic) {
@@ -103,100 +116,27 @@ export async function importMnemonic(
   }
 
   try {
-    return (await Promise.all(networks.map(async (network) => {
+    // Phase 1: derive every network's wallets without touching storage. The TON history probe can throw on an
+    // unreachable node, so deriving up front means such a failure aborts before anything is persisted; a partial
+    // write would otherwise leave a ghost account that a retry duplicates and that shadows `verifyPassword`, which
+    // authenticates against the first stored mnemonic account.
+    const derivedByNetwork = await Promise.all(networks.map(async (network) => {
       let accounts: (ApiAccountWithMnemonic & { derivedFromIndex?: number })[] = [];
       let tonWallet: ApiTonWallet & { lastTxId?: string } | undefined;
       let shouldForceTonMnemonic = false;
 
-      if (isBip39Mnemonic && isTonMnemonic) {
-        tonWallet = await ton.getWalletFromMnemonic(network, mnemonic);
+      if (!isNewMnemonic && isBip39Mnemonic && isTonMnemonic) {
+        // On-chain history is the only tiebreaker between the two derivations, and they yield different addresses.
+        // An unreachable node must therefore abort the import (the caller turns it into a retriable error) rather
+        // than read as "no history" and quietly hand the user a BIP39 address instead of their funded one.
+        tonWallet = await ton.getWalletFromMnemonic(network, mnemonic, false);
         if (tonWallet.lastTxId) {
           shouldForceTonMnemonic = true;
         }
       }
 
       if (isBip39Mnemonic && !shouldForceTonMnemonic) {
-        let foundWallets: (ApiWalletByChain[ApiChain] & { chain: ApiChain })[] = [];
-
-        await Promise.all((Object.keys(chains) as (keyof typeof chains)[]).map(async (_chain) => {
-          // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
-          // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
-          // some type checking.
-          const chain = _chain as 'ton';
-          const wallets = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
-
-          if (wallets.length > 0) {
-            foundWallets = [...foundWallets, ...wallets.map((e) => ({ ...e, chain }))];
-          }
-        }));
-
-        if (foundWallets.length > 0) {
-          type WalletWithChain = ApiWalletByChain[ApiChain] & { chain: ApiChain };
-          const walletsByDerivationIndex = new Map<number, WalletWithChain[]>();
-
-          for (const e of foundWallets) {
-            const idx = e.derivation?.index ?? 0;
-            if (!walletsByDerivationIndex.has(idx)) {
-              walletsByDerivationIndex.set(idx, []);
-            }
-            walletsByDerivationIndex.get(idx)!.push(e);
-          }
-
-          // For non-zero derivation indices, fill in chains that were missing (had no balance there)
-          // using the derivation path from the chain's index-0 wallet.
-          const allChainKeys = Object.keys(chains) as ApiChain[];
-          const index0Group = walletsByDerivationIndex.get(0) ?? [];
-
-          for (const [derivationIndex, groupWallets] of walletsByDerivationIndex) {
-            if (derivationIndex === 0) continue;
-
-            const foundChains = new Set(groupWallets.map((w) => w.chain));
-
-            await Promise.all(allChainKeys.map(async (_chain) => {
-              // TypeScript emits false notices, because it doesn't see relations between the key and value
-              // types in record mapping. We lock the key type to one of the possible values to resolve the
-              // TS notices and have at least some type checking.
-              const chain = _chain as 'ton';
-              if (foundChains.has(chain)) return;
-
-              // Derive the chain's path from its index-0 wallet
-              const chain0Wallet = index0Group.find((w) => w.chain === chain);
-
-              if (!chain0Wallet?.derivation?.path) {
-                const [placeholderWallet] = await chains[chain].getWalletFromBip39Mnemonic(
-                  network, mnemonic,
-                );
-                if (placeholderWallet) {
-                  groupWallets.push({ ...placeholderWallet, chain });
-                }
-                return;
-              }
-
-              const fillerDerivation: ApiDerivation = {
-                path: chain0Wallet.derivation.path,
-                index: derivationIndex,
-                label: chain0Wallet.derivation.label,
-              };
-
-              const [fillerWallet] = await chains[chain].getWalletFromBip39Mnemonic(
-                network, mnemonic, fillerDerivation,
-              );
-
-              if (fillerWallet) {
-                groupWallets.push({ ...fillerWallet, chain });
-              }
-            }));
-          }
-
-          for (const [index, wallets] of walletsByDerivationIndex) {
-            accounts.push({
-              derivedFromIndex: index,
-              type: 'bip39',
-              mnemonicEncrypted,
-              byChain: Object.fromEntries(wallets.map((e) => [e.chain, e])),
-            });
-          }
-        }
+        accounts = await buildBip39Accounts(network, mnemonic, mnemonicEncrypted, isNewMnemonic);
       } else {
         tonWallet ||= await ton.getWalletFromMnemonic(network, mnemonic);
         accounts = [{
@@ -208,40 +148,162 @@ export async function importMnemonic(
         }];
       }
 
-      let primaryAccountId: string | undefined;
-
       // We need to preserve accountId in account object for return
       const sortedAccounts: (ApiAccountWithMnemonic & { id?: string; derivedFromIndex?: number })[]
       = accounts.sort((a, b) => (a.derivedFromIndex ?? 0) - (b.derivedFromIndex ?? 0));
 
+      return { network, sortedAccounts };
+    }));
+
+    // Phase 2: every network derived successfully, so the storage writes below cannot be interrupted part way
+    // through by a probe failure on another network.
+    const imported: { accountId: string; byChain: ReturnType<typeof getAccountChains> }[] = [];
+    let firstPrimaryAccountId: string | undefined;
+
+    for (const { network, sortedAccounts } of derivedByNetwork) {
       for (const account of sortedAccounts) {
-        // We need to remove temporary id and derivedFromIndex from the account to preserve db schema
-        const accountToSave = account;
+        // Persist a copy stripped of the transient id and derivedFromIndex fields, and never touch it again, so a
+        // storage backend that caches the value by reference cannot pick up a stray id from a later mutation.
+        const accountToSave = { ...account };
         delete accountToSave.id;
         delete accountToSave.derivedFromIndex;
 
         const accountId = await addAccount(network, accountToSave);
-        account.id = accountId;
+        firstPrimaryAccountId ??= accountId;
 
-        if (!primaryAccountId) {
-          primaryAccountId = accountId;
-        }
+        imported.push({ accountId, byChain: getAccountChains(accountToSave) });
       }
+    }
 
-      if (!primaryAccountId) {
-        throw new Error('No primary account found');
-      }
+    if (!firstPrimaryAccountId) {
+      throw new Error('No primary account found');
+    }
 
-      void activateAccount(primaryAccountId);
+    void activateAccount(firstPrimaryAccountId);
 
-      return sortedAccounts.map((account) => ({
-        accountId: account.id!,
-        byChain: getAccountChains(account),
-      }));
-    }))).flat();
+    return imported;
   } catch (err) {
     return handleServerError(err);
   }
+}
+
+async function buildBip39Accounts(
+  network: ApiNetwork,
+  mnemonic: string[],
+  mnemonicEncrypted: string,
+  isNewMnemonic: boolean,
+): Promise<(ApiAccountWithMnemonic & { derivedFromIndex?: number })[]> {
+  if (isNewMnemonic) {
+    return [{
+      derivedFromIndex: 0,
+      type: 'bip39',
+      mnemonicEncrypted,
+      byChain: await getNewMnemonicWallets(network, mnemonic),
+    }];
+  }
+
+  const walletsByDerivationIndex = await findBip39WalletGroups(network, mnemonic);
+
+  return Array.from(walletsByDerivationIndex, ([index, wallets]) => ({
+    derivedFromIndex: index,
+    type: 'bip39' as const,
+    mnemonicEncrypted,
+    byChain: Object.fromEntries(wallets.map((e) => [e.chain, e])),
+  }));
+}
+
+async function findBip39WalletGroups(network: ApiNetwork, mnemonic: string[]) {
+  type WalletWithChain = ApiWalletByChain[ApiChain] & { chain: ApiChain };
+  const chainKeys = Object.keys(chains) as (keyof typeof chains)[];
+  const walletGroups = await Promise.all(chainKeys.map(async (_chain) => {
+    // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
+    // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
+    // some type checking.
+    const chain = _chain as 'ton';
+    const wallets = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
+
+    return wallets.map((e) => ({ ...e, chain })) as WalletWithChain[];
+  }));
+
+  const walletsByDerivationIndex = new Map<number, WalletWithChain[]>();
+
+  for (const e of walletGroups.flat()) {
+    const idx = e.derivation?.index ?? 0;
+    if (!walletsByDerivationIndex.has(idx)) {
+      walletsByDerivationIndex.set(idx, []);
+    }
+    walletsByDerivationIndex.get(idx)!.push(e);
+  }
+
+  // For non-zero derivation indices, fill in chains that were missing (had no balance there)
+  // using the derivation path from the chain's index-0 wallet.
+  const allChainKeys = Object.keys(chains) as ApiChain[];
+  const index0Group = walletsByDerivationIndex.get(0) ?? [];
+
+  for (const [derivationIndex, groupWallets] of walletsByDerivationIndex) {
+    if (derivationIndex === 0) continue;
+
+    const foundChains = new Set(groupWallets.map((w) => w.chain));
+
+    await Promise.all(allChainKeys.map(async (_chain) => {
+      // TypeScript emits false notices, because it doesn't see relations between the key and value
+      // types in record mapping. We lock the key type to one of the possible values to resolve the
+      // TS notices and have at least some type checking.
+      const chain = _chain as 'ton';
+      if (foundChains.has(chain)) return;
+
+      // Derive the chain's path from its index-0 wallet
+      const chain0Wallet = index0Group.find((w) => w.chain === chain);
+
+      if (!chain0Wallet?.derivation?.path) {
+        const [placeholderWallet] = await chains[chain].getWalletFromBip39Mnemonic(
+          network, mnemonic,
+        );
+        if (placeholderWallet) {
+          groupWallets.push({ ...placeholderWallet, chain });
+        }
+        return;
+      }
+
+      const fillerDerivation: ApiDerivation = {
+        path: chain0Wallet.derivation.path,
+        index: derivationIndex,
+        label: chain0Wallet.derivation.label,
+      };
+
+      const [fillerWallet] = await chains[chain].getWalletFromBip39Mnemonic(
+        network, mnemonic, fillerDerivation,
+      );
+
+      if (fillerWallet) {
+        groupWallets.push({ ...fillerWallet, chain });
+      }
+    }));
+  }
+
+  return walletsByDerivationIndex;
+}
+
+async function getNewMnemonicWallets(network: ApiNetwork, mnemonic: string[]) {
+  const byChain: ApiBip39Account['byChain'] = {};
+
+  await Promise.all((Object.keys(chains) as ApiChain[]).map(async (_chain) => {
+    // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
+    // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
+    // some type checking.
+    const chain = _chain as 'ton';
+    const derivation = chains[chain].getDefaultDerivation();
+
+    const [wallet] = await chains[chain].getWalletFromBip39Mnemonic(
+      network, mnemonic, derivation, true,
+    );
+
+    if (wallet) {
+      (byChain as Record<ApiChain, ApiWalletByChain[ApiChain]>)[chain] = wallet;
+    }
+  }));
+
+  return byChain;
 }
 
 export async function importPrivateKey(
@@ -459,6 +521,23 @@ export async function upgradeMultichainAccounts(password: string) {
       } catch (err) {
         logDebugError('upgradeMultichainAccounts: chain failed', { accountId, chain }, err);
       }
+    }
+  }
+}
+
+export async function repairInvalidBip39TonAuthTokens() {
+  const accounts = await fetchStoredAccounts();
+
+  for (const [accountId, account] of Object.entries(accounts)) {
+    if (account.type !== 'bip39') continue;
+
+    const tonWallet = account.byChain.ton;
+    if (!tonWallet?.authToken || !tonWallet.publicKey) continue;
+
+    // Older subwallet creation could retain a parent signature after TON identity changed, which backend auth rejects.
+    // Clear that cache so normal password-backed signing regenerates it for the current wallet.
+    if (!isBackendAuthTokenValid(tonWallet.authToken, tonWallet.publicKey)) {
+      await updateStoredWallet(accountId, 'ton', { authToken: undefined });
     }
   }
 }
@@ -799,8 +878,8 @@ export async function createSubWallet(accountId: string, password: string) {
       }
 
       (newByChain as Record<ApiChain, ApiWalletByChain[ApiChain]>)[chain] = {
-        ...parentWallet,
-        ...wallet,
+        ...getWalletForReplacement(chain, parentWallet),
+        ...getWalletForReplacement(chain, wallet),
         index: parentWallet.index,
       } as ApiWalletByChain[typeof chain];
     }
@@ -913,8 +992,8 @@ export async function addSubWallet(
     const newWallet = partialByChain[chain]!;
 
     (newByChain as Record<ApiChain, ApiWalletByChain[ApiChain]>)[chain] = {
-      ...parentWallet,
-      ...newWallet,
+      ...getWalletForReplacement(chain, parentWallet),
+      ...getWalletForReplacement(chain, newWallet),
       index: parentWallet.index,
       publicKey: newWallet.publicKey || parentWallet.publicKey,
     } as ApiWalletByChain[typeof chain]; // merged chain wallet shapes differ per chain

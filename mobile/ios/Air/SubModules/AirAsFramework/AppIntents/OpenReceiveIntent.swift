@@ -22,9 +22,6 @@ public struct OpenReceiveIntent: AppIntent {
 
     @MainActor
     public func perform() async throws -> some IntentResult {
-        guard AirLauncher.isOnTheAir else {
-            return .result()
-        }
         AirLauncher.handle(systemAction: .openReceive(accountId: account?.id, chain: chain?.id))
         return .result()
     }

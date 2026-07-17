@@ -1,11 +1,6 @@
 package org.mytonwallet.app;
 
-import com.capacitorjs.plugins.statusbar.StatusBarPluginDelegate;
+import org.mytonwallet.app_air.airasframework.MTWApplicationBase;
 
-public class MTWApplication extends MTWApplicationBase implements StatusBarPluginDelegate {
-
-  @Override
-  public void didUpdateStatusBar(String newStatusBar) {
-    setCurrentStatusBar(newStatusBar);
-  }
+public class MTWApplication extends MTWApplicationBase {
 }

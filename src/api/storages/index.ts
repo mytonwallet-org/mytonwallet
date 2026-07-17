@@ -1,8 +1,8 @@
 import type { ApiStorageConfig, NodeFileStorageConfig, Storage, StorageKey } from './types';
 import { StorageType } from './types';
 
-import { IS_CAPACITOR, IS_EXTENSION } from '../../config';
-import capacitorStorage from './capacitorStorage';
+import { IS_AIR_APP, IS_EXTENSION } from '../../config';
+import airStorage from './airStorage';
 import extensionStorage from './extension';
 import idb from './idb';
 import localStorage from './localStorage';
@@ -11,7 +11,7 @@ const storages = {
   [StorageType.IndexedDb]: idb,
   [StorageType.LocalStorage]: localStorage,
   [StorageType.ExtensionLocal]: extensionStorage,
-  [StorageType.CapacitorStorage]: capacitorStorage,
+  [StorageType.AirStorage]: airStorage,
 } satisfies Partial<Record<StorageType, Storage>>;
 
 // These singletons live on globalThis so that duplicated bundle chunks share the same state.
@@ -143,7 +143,7 @@ function createStorageFacade(resolveStorageInstance: () => Storage): Storage {
 }
 
 function resolveDefaultStorage() {
-  return IS_EXTENSION ? extensionStorage : IS_CAPACITOR ? capacitorStorage : idb;
+  return IS_EXTENSION ? extensionStorage : IS_AIR_APP ? airStorage : idb;
 }
 
 function resolveStorage(storageConfig: ApiStorageConfig) {

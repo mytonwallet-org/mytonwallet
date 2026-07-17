@@ -21,10 +21,6 @@ $footerPaddingBottom: 1rem;
 .modalDialog {
   --top-height-compensation: 0rem;
 
-  :global(html.is-android-app) & {
-    --top-height-compensation: var(--safe-area-top);
-  }
-
   height: $modalHeight;
   padding: 0 !important;
 
@@ -32,22 +28,6 @@ $footerPaddingBottom: 1rem;
     height: calc($modalHeight + var(--safe-area-bottom));
   }
 
-}
-
-// Fix transparent navigation bar in Capacitor app for Android.
-.compensateSafeArea {
-  :global(html.is-android-app) & {
-    padding-top: var(--safe-area-top) !important;
-    padding-bottom: var(--safe-area-bottom) !important;
-
-    &PinPad {
-      padding-bottom: 0 !important;
-    }
-
-    &ViewAccount {
-      padding-bottom: max(0px, calc(var(--safe-area-bottom) - 1rem)) !important;
-    }
-  }
 }
 
 .rootTransition,
@@ -70,8 +50,7 @@ $footerPaddingBottom: 1rem;
 
   @include mixins.transition('background-color 300ms ease-out');
 
-  :global(html.is-mobile-telegram-app.is-fullscreen) &,
-  :global(html.is-android-app) & {
+  :global(html.is-mobile-telegram-app.is-fullscreen) & {
     box-sizing: content-box;
     padding-top: var(--top-height-compensation);
   }
@@ -319,10 +298,8 @@ $footerPaddingBottom: 1rem;
   text-align: center;
 
   @include mixins.respond-below(xs) {
-    :global(html:not(.is-android-app)) & {
-      @supports (margin-bottom: max(var(--safe-area-bottom), 1.5rem)) {
-        margin-bottom: max(var(--safe-area-bottom), 1.5rem);
-      }
+    @supports (margin-bottom: max(var(--safe-area-bottom), 1.5rem)) {
+      margin-bottom: max(var(--safe-area-bottom), 1.5rem);
     }
   }
 }

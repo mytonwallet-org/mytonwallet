@@ -64,7 +64,7 @@ private suspend fun WalletCore.fetchPortfolioHistory(
         put("to", toIsoString(nowMs))
         put("density", period.toDensity())
     }
-    val response: ApiPortfolioHistoryResponse = bridge!!.callApiAsync(
+    val response: ApiPortfolioHistoryResponse = requiredBridge.callApiAsync(
         methodName,
         ArgumentsBuilder()
             .jsArray(wallets, String::class.java)
@@ -98,12 +98,12 @@ private fun MHistoryTimePeriod.durationMs(): Long? = when (this) {
 // `from` is the start of the UTC day of (now − period length); ALL is anchored at 2020-01-01.
 private fun MHistoryTimePeriod.fromIsoString(nowMs: Long): String {
     val fromMs = durationMs()?.let { startOfUtcDay(nowMs - it) } ?: PORTFOLIO_ALL_START_EPOCH_MS
-    return ISO_DATE_FORMAT.get()!!.format(Date(fromMs))
+    return isoDateFormat().format(Date(fromMs))
 }
 
 // `to` is the end of the UTC day of now (23:59:59.000).
 private fun toIsoString(nowMs: Long): String {
-    return ISO_DATE_FORMAT.get()!!.format(Date(startOfUtcDay(nowMs) + DAY_MS - 1000L))
+    return isoDateFormat().format(Date(startOfUtcDay(nowMs) + DAY_MS - 1000L))
 }
 
 // The epoch is aligned to UTC midnight, so flooring by whole days yields start-of-day UTC.
@@ -112,10 +112,13 @@ private fun startOfUtcDay(ms: Long): Long = ms - (ms % DAY_MS)
 private const val DAY_MS: Long = 24L * 60 * 60 * 1000
 private const val PORTFOLIO_ALL_START_EPOCH_MS: Long = 1_577_836_800_000L // 2020-01-01 UTC
 
-private val ISO_DATE_FORMAT: ThreadLocal<SimpleDateFormat> = object : ThreadLocal<SimpleDateFormat>() {
-    override fun initialValue(): SimpleDateFormat {
-        return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
+private val ISO_DATE_FORMAT: ThreadLocal<SimpleDateFormat> =
+    object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue(): SimpleDateFormat {
+            return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
         }
     }
-}
+
+private fun isoDateFormat(): SimpleDateFormat = requireNotNull(ISO_DATE_FORMAT.get())

@@ -21,19 +21,17 @@ import androidx.core.splashscreen.SplashScreen;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.webkit.WebViewCompat;
 
-import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
-import org.mytonwallet.plugins.air_app_launcher.airLauncher.LaunchConfig;
+import org.mytonwallet.app_air.airasframework.airLauncher.AirLauncher;
+import org.mytonwallet.app_air.airasframework.airLauncher.LaunchConfig;
 
 /*
   Application entry point.
-    - Decides to open the classic LegacyActivity (mytonwallet flavor only) or
-      trigger AirLauncher.
+    - Triggers AirLauncher.
     - Only passes deeplink data into active activity and finishes itself if any activities are already open.
     - Plays splash-screen for MTW Air (This flow may be enhanced later)
  */
 public class MainActivity extends BaseActivity {
   private final int DELAY = 300;
-  private final LegacyLauncher legacyLauncher = new LegacyLauncherImpl();
   private boolean keep = true;
 
   @Override
@@ -48,18 +46,8 @@ public class MainActivity extends BaseActivity {
 
     LaunchConfig.recordAppOpened(this);
     Activity activity = this;
-    boolean shouldStartOnAir = !legacyLauncher.isAvailable()
-      || LaunchConfig.shouldStartOnAir(activity);
 
     AirLauncher airLauncher = AirLauncher.getInstance();
-    if (!shouldStartOnAir) {
-      if (airLauncher != null) {
-        airLauncher.switchingToClassic();
-        AirLauncher.setInstance(null);
-      }
-      legacyLauncher.launch(activity, getIntent());
-      return;
-    }
 
     // Do not let MainActivity open again if MTW Air is already on, just pass deeplink to handle, if required.
     if (airLauncher != null && airLauncher.getIsOnTheAir()) {
@@ -70,7 +58,6 @@ public class MainActivity extends BaseActivity {
 
     makeStatusBarTransparent();
     makeNavigationBarTransparent();
-    updateStatusBarStyle();
 
     airLauncher = new AirLauncher(this);
     AirLauncher.setInstance(airLauncher);
@@ -120,7 +107,6 @@ public class MainActivity extends BaseActivity {
 
   private void splashScreenAnimatedEnded() {
     Log.i("MTWAirApplication", "Splash animation ended");
-    updateStatusBarStyle();
     AirLauncher.getInstance().soarIntoAir(this, false);
   }
 

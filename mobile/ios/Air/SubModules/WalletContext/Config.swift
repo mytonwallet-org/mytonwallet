@@ -1,7 +1,6 @@
 
 import Foundation
 
-public let DEFAULT_TO_AIR = true
 public let SINGLETON_TABLE_ROW_ID: Int64 = 0
 public var IS_GRAM_WALLET: Bool {
     Bundle.main.bundleIdentifier?.hasPrefix("io.gramwallet.") == true

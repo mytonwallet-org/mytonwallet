@@ -28,7 +28,6 @@ import {
   EXTENSION_NAME,
   IFRAME_WHITELIST,
   IPFS_GATEWAY_BASE_URL,
-  IS_CAPACITOR,
   IS_CORE_WALLET,
   IS_EXPLORER,
   IS_EXTENSION,
@@ -63,7 +62,7 @@ import {
 const destinationDir = path.resolve(__dirname, 'dist');
 const appCommitHash = APP_COMMIT_HASH || new GitRevisionPlugin().commithash();
 const isStatoscopeBuild = process.env.IS_STATOSCOPE === '1'; // "Statoscope build" is a special mode where all the entries are used. It is used for comprehensive code size comparison in PRs.
-const isWebApp = !(IS_EXTENSION || IS_PACKAGED_ELECTRON || IS_CAPACITOR);
+const isWebApp = !(IS_EXTENSION || IS_PACKAGED_ELECTRON);
 const canUseStatoscope = isStatoscopeBuild || isWebApp;
 const cspConnectSrcExtra = APP_ENV === 'development'
   ? `http://localhost:3000 ${process.env.CSP_CONNECT_SRC_EXTRA_URL}`
@@ -142,6 +141,17 @@ const CSP = `
   frame-src 'self' https: ${cspFrameSrcExtra};`
   .replace(/\s+/g, ' ').trim();
 
+// Kept out of `CSP` because that string is also served via a `<meta>` tag and the extension manifest,
+// where `frame-ancestors` is invalid. It only works as an HTTP header, so it is appended in `_headers`.
+// `X-Frame-Options` stays in `_headers` as a fail-closed fallback should this directive ever be dropped.
+// Empty for the Telegram build, which is itself framed by web.telegram.org and whose framing policy
+// `_headers_telegram` owns; any directive here would override that file's `X-Frame-Options`.
+const cspFrameAncestors = IS_TELEGRAM_APP ? '' : `${[
+  'frame-ancestors \'self\'',
+  'https://stand.ton-connect.io', // The TON Connect conformance stand embeds the wallet in an iframe.
+  ...(APP_ENV === 'production' ? [] : ['http://localhost:*', 'http://127.0.0.1:*']),
+].join(' ')};`;
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const appVersion = require('./package.json').version;
 
@@ -173,9 +183,6 @@ export default function createConfig(
       usedExports: true,
       ...(APP_ENV === 'staging' && {
         chunkIds: 'named',
-      }),
-      ...(IS_CAPACITOR && {
-        splitChunks: false,
       }),
     },
 
@@ -427,7 +434,6 @@ export default function createConfig(
         BOT_USERNAME: '',
         IS_EXTENSION: '', // It's necessary to use an empty string, because it's used in bundle-time conditions
         IS_FIREFOX_EXTENSION: 'false',
-        IS_CAPACITOR: 'false',
         IS_AIR_APP: 'false',
         IS_CORE_WALLET: 'false',
         IS_GRAM_WALLET: 'false',
@@ -506,7 +512,8 @@ export default function createConfig(
           },
           {
             from: IS_TELEGRAM_APP ? 'src/_headers_telegram' : 'src/_headers',
-            transform: (content: Buffer) => content.toString().replace('{{CSP}}', CSP),
+            transform: (content: Buffer) => content.toString()
+              .replace('{{CSP}}', `${CSP} ${cspFrameAncestors}`.trim()),
           },
         ],
       }),

@@ -20,6 +20,7 @@ export default tseslint.config(
     'src/push/lib/zk-email-helpers/',
     '.github/',
     '.claude/',
+    'headless/',
     'babel.config.js',
     'jest.config.js',
     'playwright.config.ts',

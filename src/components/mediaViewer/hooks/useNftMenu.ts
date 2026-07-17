@@ -13,7 +13,7 @@ import { formatRelativeDays } from '../../../util/dateFormat';
 import { isDotTonDomainNft, isLinkableDnsNft, isRenewableDnsNft } from '../../../util/dns';
 import { compact } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
-import { getShareIcon, shareUrl } from '../../../util/share';
+import { shareUrl } from '../../../util/share';
 import {
   getExplorerName,
   getExplorerNftUrl,
@@ -117,7 +117,7 @@ const CHANGE_LINKED_ADDRESS: DropdownItem<NftMenuHandler> = {
 const SHARE_LINK_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Share Link',
   value: 'shareLink',
-  fontIcon: getShareIcon(),
+  fontIcon: 'icon-link',
 };
 
 export default function useNftMenu({

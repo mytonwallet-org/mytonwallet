@@ -10,7 +10,7 @@ cp ./src/lib/rlottie/rlottie-wasm.wasm "$DESTINATION/"
 
 FILES_TO_REMOVE=("static-sites")
 
-if [ "$IS_CAPACITOR" = "1" ] || [ "$IS_EXTENSION" = "1" ] || [ "$IS_PACKAGED_ELECTRON" = "1" ]; then
+if [ "$IS_EXTENSION" = "1" ] || [ "$IS_PACKAGED_ELECTRON" = "1" ]; then
     FILES_TO_REMOVE+=("get" "_headers" "_headers_telegram" "_redirects")
 fi
 

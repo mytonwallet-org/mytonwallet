@@ -6,13 +6,15 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
+  selectIsMnemonicAccount,
 } from '../../../../global/selectors';
-import { IS_ANDROID, IS_ELECTRON, IS_IOS } from '../../../../util/windowEnvironment';
+import { IS_ANDROID, IS_ELECTRON, IS_IOS, IS_LEGACY_APP_HOST } from '../../../../util/windowEnvironment';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
 
 import BackupWarning from './BackupWarning';
+import LegacyDomainWarning from './LegacyDomainWarning';
 import RenewDomainWarning from './RenewDomainWarning';
 import ScamWalletWarning from './ScamWalletWarning';
 import SecurityWarning from './SecurityWarning';
@@ -27,6 +29,7 @@ type StateProps = {
   isTestnet?: boolean;
   isBackupRequired: boolean;
   isViewMode: boolean;
+  isMnemonicAccount: boolean;
 };
 
 const IS_UNSAFE_WEB = !IS_CORE_WALLET && !IS_ELECTRON && !IS_EXTENSION && !IS_IOS && !IS_ANDROID && !IS_TELEGRAM_APP;
@@ -35,6 +38,7 @@ function Warnings({
   isBackupRequired,
   isTestnet,
   isViewMode,
+  isMnemonicAccount,
   onOpenBackupWallet,
 }: OwnProps & StateProps) {
   const { isPortrait } = useDeviceScreen();
@@ -48,6 +52,10 @@ function Warnings({
         </div>
       )}
 
+      {IS_LEGACY_APP_HOST && (
+        <LegacyDomainWarning isMnemonicAccount={isMnemonicAccount} onOpenBackupWallet={onOpenBackupWallet} />
+      )}
+
       {!isViewMode && (
         <>
           <BackupWarning isRequired={isBackupRequired} onOpenBackupWallet={onOpenBackupWallet} />
@@ -55,7 +63,8 @@ function Warnings({
           <ScamWalletWarning />
         </>
       )}
-      {IS_UNSAFE_WEB && !IS_EXPLORER && <SecurityWarning />}
+      {/* On the legacy host, "install the native app" only competes with the migration notice above */}
+      {IS_UNSAFE_WEB && !IS_EXPLORER && !IS_LEGACY_APP_HOST && <SecurityWarning />}
     </>
   );
 }
@@ -67,6 +76,7 @@ export default memo(
         isBackupRequired: Boolean(selectCurrentAccountState(global)?.isBackupRequired),
         isTestnet: global.settings.isTestnet,
         isViewMode: selectIsCurrentAccountViewMode(global),
+        isMnemonicAccount: selectIsMnemonicAccount(global),
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

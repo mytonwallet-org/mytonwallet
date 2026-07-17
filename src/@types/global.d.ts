@@ -6,7 +6,7 @@ declare namespace React {
   interface HTMLAttributes {
     // Optimization for DOM nodes prepends and inserts
     teactFastList?: boolean;
-    // `focusScroll.ts` uses this attribute to decide where to scroll the focused element to in Capacitor environments.
+    // `focusScroll.ts` uses this attribute to decide where to scroll the focused element to on mobile.
     // 'nearest' - no scroll unless the element is hidden; 'start' - the element will at the top; 'end' - at the bottom.
     'data-focus-scroll-position'?: ScrollLogicalPosition;
   }
@@ -121,7 +121,6 @@ interface IWebpWorker extends Worker {
 }
 
 interface Window {
-  CapacitorWebFetch?: typeof fetch;
   webkitAudioContext: typeof AudioContext;
 }
 
@@ -193,7 +192,3 @@ interface FileSystemSyncAccessHandle {
 type FilesystemReadWriteOptions = {
   at: number;
 };
-
-interface Cordova {
-  InAppBrowser: InAppBrowser;
-}

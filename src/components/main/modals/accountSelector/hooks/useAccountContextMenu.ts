@@ -64,7 +64,7 @@ function useAccountContextMenu(ref: ElementRef<HTMLElement>, options: {
   const isContextMenuShown = contextMenuAnchor !== undefined;
 
   const handleMenuItemSelect = useLastCallback((value: MenuHandler) => {
-    void vibrate();
+    vibrate();
 
     switch (value) {
       case 'reorder':

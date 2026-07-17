@@ -116,7 +116,7 @@ function ChartCard({
     if (!IS_IOS) return;
 
     if (prevHistoryIndex !== undefined) {
-      void vibrate();
+      vibrate();
     }
   }, [selectedHistoryIndex]);
 

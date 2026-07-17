@@ -13,7 +13,7 @@ const mockToRawAddress = jest.fn();
 
 jest.mock('../../../../config', () => ({
   ...jest.requireActual('../../../../config'),
-  IS_CAPACITOR: false,
+  IS_AIR_APP: false,
   IS_EXTENSION: false,
   SSE_BRIDGE_URL: 'https://bridge.example/',
 }));

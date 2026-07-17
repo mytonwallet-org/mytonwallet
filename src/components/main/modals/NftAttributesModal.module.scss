@@ -14,11 +14,6 @@
     max-height: 100% !important;
     border-radius: 0 !important;
   }
-
-  :global(html.is-android-app) & {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-  }
 }
 
 .container {

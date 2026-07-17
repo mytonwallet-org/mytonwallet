@@ -1,4 +1,4 @@
-import { convertExplorerUrl, getViewAccountUrl, isValidUrl, normalizeUrl } from './url';
+import { convertExplorerUrl, getViewAccountUrl, isInIframeWhitelist, isValidUrl, normalizeUrl } from './url';
 
 // Test constants
 const TEST_TON_ADDRESS = 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S';
@@ -242,5 +242,49 @@ describe('convertExplorerUrl', () => {
       const input = `https://tronscan.org/#/address/${TEST_TRON_ADDRESS}`;
       expect(convertExplorerUrl(input, 'tonscan')).toBeUndefined();
     });
+  });
+});
+
+describe('isInIframeWhitelist', () => {
+  it('accepts the whitelisted explorers', () => {
+    expect(isInIframeWhitelist('https://tonscan.org')).toBe(true);
+    expect(isInIframeWhitelist('https://tonscan.org/address/EQ123')).toBe(true);
+    expect(isInIframeWhitelist('https://testnet.tonviewer.com/')).toBe(true);
+  });
+
+  it('accepts localhost on any port', () => {
+    expect(isInIframeWhitelist('http://localhost:4321/index.html')).toBe(true);
+  });
+
+  // A whitelisted page gets the embedded dapp bridge (TonConnect connect/send), so a host that merely starts with
+  // an allowed origin must not pass: `tonscan.org.evil.tld` is a domain the attacker owns.
+  it('rejects a host that only starts with a whitelisted origin', () => {
+    expect(isInIframeWhitelist('https://tonscan.org.evil.tld/steal')).toBe(false);
+    expect(isInIframeWhitelist('https://tonviewer.com.evil.tld')).toBe(false);
+    expect(isInIframeWhitelist('https://tonscan.org.evil.tld/tonscan.org')).toBe(false);
+  });
+
+  it('rejects a whitelisted host reached over a different scheme or as a subdomain', () => {
+    expect(isInIframeWhitelist('http://tonscan.org')).toBe(false);
+    expect(isInIframeWhitelist('https://evil.tonscan.org')).toBe(false);
+    expect(isInIframeWhitelist('https://localhost.evil.tld')).toBe(false);
+  });
+
+  it('rejects a whitelisted origin smuggled into credentials or a path', () => {
+    expect(isInIframeWhitelist('https://tonscan.org@evil.tld/')).toBe(false);
+    expect(isInIframeWhitelist('https://evil.tld/https://tonscan.org')).toBe(false);
+  });
+
+  it('returns false on a malformed url instead of throwing', () => {
+    expect(isInIframeWhitelist('not a url')).toBe(false);
+    expect(isInIframeWhitelist('https://')).toBe(false);
+    expect(isInIframeWhitelist('')).toBe(false);
+  });
+
+  // The bare origin carries an implicit default port, so the explicit form has to resolve to the same
+  // whitelisted page, and localhost stays http-only because that is the single entry the list grants.
+  it('normalizes the default port and keeps localhost http-only', () => {
+    expect(isInIframeWhitelist('https://tonscan.org:443/address/EQ123')).toBe(true);
+    expect(isInIframeWhitelist('https://localhost:4321')).toBe(false);
   });
 });

@@ -24,7 +24,7 @@ import {
 } from '../common/accounts';
 import * as dappPromises from '../common/dappPromises';
 import { getMnemonic } from '../common/mnemonic';
-import { upgradeMultichainAccounts } from './auth';
+import { repairInvalidBip39TonAuthTokens, upgradeMultichainAccounts } from './auth';
 
 let onUpdate: OnApiUpdate;
 
@@ -75,6 +75,7 @@ export async function verifyPassword(password: string): Promise<boolean> {
 
     isValidPassword = true;
 
+    await repairInvalidBip39TonAuthTokens();
     await upgradeMultichainAccounts(password);
 
     return true;

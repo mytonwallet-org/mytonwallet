@@ -238,19 +238,20 @@ data class ApiNft(
         }
     val isInstalledMtwCard: Boolean
         get() {
-            val installedCard = WGlobalStorage.getCardBackgroundNft(AccountStore.activeAccountId!!)
+            val accountId = AccountStore.activeAccountId ?: return false
+            val installedCard = WGlobalStorage.getCardBackgroundNft(accountId)
             installedCard?.let {
-                val installedNft = fromJson(installedCard)!!
+                val installedNft = fromJson(installedCard) ?: return false
                 return metadata?.mtwCardId == installedNft.metadata?.mtwCardId
             }
             return false
         }
     val isInstalledMtwCardPalette: Boolean
         get() {
-            val installedPaletteNft =
-                WGlobalStorage.getAccentColorNft(AccountStore.activeAccountId!!)
+            val accountId = AccountStore.activeAccountId ?: return false
+            val installedPaletteNft = WGlobalStorage.getAccentColorNft(accountId)
             installedPaletteNft?.let {
-                val installedNft = fromJson(installedPaletteNft)!!
+                val installedNft = fromJson(installedPaletteNft) ?: return false
                 return metadata?.mtwCardId == installedNft.metadata?.mtwCardId
             }
             return false

@@ -7,13 +7,12 @@ import type { Account } from '../../../../global/types';
 import type { IAnchorPosition } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 
-import { IS_CAPACITOR } from '../../../../config';
 import { selectCurrentAccount } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { getChainConfig, getChainTitle, getOrderedAccountChains } from '../../../../util/chain';
 import { copyTextToClipboard } from '../../../../util/clipboard';
 import { stopEvent } from '../../../../util/domEvents';
-import { getShareIcon, shareUrl } from '../../../../util/share';
+import { shareUrl } from '../../../../util/share';
 import { shortenDomain } from '../../../../util/shortenDomain';
 import { getViewAccountUrl } from '../../../../util/url';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
@@ -257,7 +256,7 @@ function ShareButton({
   const shareIconClassName = buildClassName(
     menuStyles.fontIcon,
     menuStyles.fontIconBig,
-    getShareIcon(),
+    'icon-link',
   );
 
   return (
@@ -268,7 +267,7 @@ function ShareButton({
     >
       <i className={shareIconClassName} aria-hidden />
       <span className={buildClassName(menuStyles.itemName, styles.menuItemName)}>
-        {lang(IS_CAPACITOR ? 'Share Wallet Link' : 'Copy Wallet Link')}
+        {lang('Copy Wallet Link')}
       </span>
     </button>
   );

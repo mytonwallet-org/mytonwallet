@@ -11,14 +11,6 @@ import struct os.OSAllocatedUnfairLock
 
 public typealias UnfairLock = OSAllocatedUnfairLock
 
-@MainActor public protocol MtwAppDelegateProtocol {
-    func showDebugView()
-    func switchToCapacitor()
-    func switchToAir()
-    var canSwitchToCapacitor: Bool { get }
-    var isFirstLaunch: Bool { get }
-}
-
 public enum DeeplinkOpenSource: Equatable {
     case generic
     case exploreSearchBar
@@ -40,7 +32,6 @@ public extension DeeplinkOpenSource {
 @MainActor public protocol WalletContextDelegate: NSObject, Sendable {
     func bridgeIsReady()
     func walletIsReady(isReady: Bool)
-    func switchToCapacitor()
     func restartApp()
     func handleDeeplink(url: URL, source: DeeplinkOpenSource) -> Bool
     var isWalletReady: Bool { get }
@@ -57,10 +48,6 @@ public class WalletContextManager {
     private init() {}
     
     @MainActor public static weak var delegate: WalletContextDelegate? = nil
-}
-
-@MainActor public var isCapacitorAvailable: Bool {
-    (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
 }
 
 #if SWIFT_PACKAGE

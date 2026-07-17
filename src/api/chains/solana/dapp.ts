@@ -1,5 +1,5 @@
 import type { DappProtocolType, DappSignDataResult, UnifiedSignDataPayload } from '../../dappProtocols';
-import type { ApiDappTransfer } from '../../types';
+import type { ApiDappTransfer, ApiSignedTransfer } from '../../types';
 
 import { fetchStoredChainAccount } from '../../common/accounts';
 import { signPayload, signTransfer } from './sign';
@@ -15,6 +15,7 @@ export async function signDappData(
 
   const account = await fetchStoredChainAccount(accountId, 'solana');
   const signature = await signPayload(accountId, payloadToSign, password);
+
   if ('error' in signature) return signature;
 
   const result: DappSignDataResult<DappProtocolType.WalletConnect> = {
@@ -36,17 +37,23 @@ export async function signDappTransfers(
   options: {
     password?: string;
     vestingAddress?: string;
-    /** Unix seconds */
+    // Unix seconds
     validUntil?: number;
     // Deal with solana b58/b64 issues based on requested method
     isLegacyOutput?: boolean;
   } = {}) {
   const { password, isLegacyOutput } = options;
+  const signedTransfers: ApiSignedTransfer<DappProtocolType.WalletConnect>[] = [];
 
-  return signTransfer(
-    accountId,
-    messages[0].rawPayload!,
-    password,
-    isLegacyOutput,
-  );
+  for (const message of messages) {
+    const result = await signTransfer(accountId, message.rawPayload!, password, isLegacyOutput);
+
+    if ('error' in result) {
+      return result;
+    }
+
+    signedTransfers.push(...result);
+  }
+
+  return signedTransfers;
 }

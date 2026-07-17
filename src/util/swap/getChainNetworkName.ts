@@ -1,3 +1,5 @@
+import { findChainConfig } from '../chain';
+
 const NETWORK_NAMES_EXCEPTIONS: Record<string, string> = {
   binance_smart_chain: 'Binance Smart Chain',
   internet_computer: 'Internet Computer',
@@ -27,5 +29,5 @@ const NETWORK_NAMES_EXCEPTIONS: Record<string, string> = {
 export default function getChainNetworkName(networkName?: string) {
   if (!networkName) return '';
 
-  return NETWORK_NAMES_EXCEPTIONS[networkName] ?? networkName;
+  return findChainConfig(networkName)?.title ?? NETWORK_NAMES_EXCEPTIONS[networkName] ?? networkName;
 }

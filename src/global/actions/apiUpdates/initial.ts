@@ -3,8 +3,6 @@ import type { AccountChain } from '../../types';
 
 import {
   DEFAULT_STAKING_STATE,
-  IS_AIR_APP,
-  IS_CAPACITOR,
   IS_CORE_WALLET,
   MW_CARDS_COLLECTION,
   STAKING_SLUG_PREFIX,
@@ -15,7 +13,6 @@ import { areDeepEqual } from '../../../util/areDeepEqual';
 import { buildCollectionByKey, unique } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
 import { getIsActiveStakingState } from '../../../util/staking';
-import { IS_IOS_APP } from '../../../util/windowEnvironment';
 import { pinMwCardsFirst } from '../../helpers/nfts';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -381,18 +378,11 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         supportAccountsCount,
         countryCode,
         isAppUpdateRequired,
-        shouldAutoSwitchToAir,
         swapVersion,
         seasonalTheme,
       } = update;
 
-      if (shouldAutoSwitchToAir && IS_CAPACITOR && !IS_AIR_APP && global.settings.hasOpenedAir !== true) {
-        global = updateSettings(global, {
-          shouldAutoSwitchToAirOnNextStart: true,
-        });
-      }
-
-      const shouldRestrictSwapsAndOnOffRamp = (IS_IOS_APP && isLimitedRegion) || IS_CORE_WALLET;
+      const shouldRestrictSwapsAndOnOffRamp = IS_CORE_WALLET;
       global = updateRestrictions(global, {
         isLimitedRegion,
         isSwapDisabled: shouldRestrictSwapsAndOnOffRamp,

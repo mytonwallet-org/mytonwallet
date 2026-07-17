@@ -99,7 +99,7 @@ function PinPad({
       }
       onClearError?.();
     }, resetStateDelayMs);
-    void vibrateOnError();
+    vibrateOnError();
 
     return () => {
       window.clearTimeout(timeoutId);

@@ -39,12 +39,15 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import java.lang.ref.WeakReference
 
 class DebugMenuVC(context: Context) : WViewController(context) {
     override val TAG = "DebugMenu"
 
     override val shouldDisplayBottomBar = true
+
+    private val isDebugSectionVisible = DEBUG_MODE || EnvironmentStore.isBeta
 
     // Section 1: Logs
     private val logsTitleLabel = HeaderCell(context).apply {
@@ -174,16 +177,16 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         isLast = true,
     )
 
-    // Section 5: Debug (DEBUG_MODE only)
-    private val spacer4: WBaseView? = if (DEBUG_MODE) WBaseView(context) else null
+    // Section 5: Debug (debug and beta builds only)
+    private val spacer4: WBaseView? = if (isDebugSectionVisible) WBaseView(context) else null
 
-    private val debugTitleLabel: HeaderCell? = if (DEBUG_MODE) {
+    private val debugTitleLabel: HeaderCell? = if (isDebugSectionVisible) {
         HeaderCell(context).apply {
             configure("Debug", titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
         }
     } else null
 
-    private val seasonalThemeDropdown: WEditableItemView? = if (DEBUG_MODE) {
+    private val seasonalThemeDropdown: WEditableItemView? = if (isDebugSectionVisible) {
         WEditableItemView(context).apply {
             id = generateViewId()
             drawable = context.getDrawableCompat(
@@ -193,7 +196,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         }
     } else null
 
-    private val seasonalThemeRow: KeyValueRowView? = if (DEBUG_MODE) {
+    private val seasonalThemeRow: KeyValueRowView? = if (isDebugSectionVisible) {
         KeyValueRowView(
             context,
             "Seasonal Theme",
@@ -228,8 +231,8 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             addView(deviceModelRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(androidVersionRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(performanceClassRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
-            // Section 5: Debug (DEBUG_MODE only)
-            if (DEBUG_MODE) {
+            // Section 5: Debug (debug and beta builds only)
+            if (isDebugSectionVisible) {
                 addView(spacer4!!, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
                 addView(debugTitleLabel!!, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
                 addView(seasonalThemeRow!!, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
@@ -261,7 +264,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                 topToBottom(androidVersionRow, deviceModelRow)
                 topToBottom(performanceClassRow, androidVersionRow)
                 // Debug or bottom
-                if (DEBUG_MODE) {
+                if (isDebugSectionVisible) {
                     topToBottom(spacer4!!, performanceClassRow)
                     topToBottom(debugTitleLabel!!, spacer4)
                     topToBottom(seasonalThemeRow!!, debugTitleLabel)
@@ -340,7 +343,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         deviceModelRow.setBackgroundColor(WColor.Background.color)
         androidVersionRow.setBackgroundColor(WColor.Background.color)
         performanceClassRow.setBackgroundColor(WColor.Background.color)
-        if (DEBUG_MODE) {
+        if (isDebugSectionVisible) {
             debugTitleLabel?.setBackgroundColor(
                 WColor.Background.color,
                 ViewConstants.BLOCK_RADIUS.dp,

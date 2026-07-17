@@ -46,3 +46,12 @@ export async function getBackendConfigCache() {
 export function getBackendConfigCacheSync() {
   return backendConfig;
 }
+
+/**
+ * Feature flag for the L1 retry-break (negative-verdict cache + EVM untrackable registry).
+ * Reads synchronously; before the backend config arrives (or if it never does) this is `false`,
+ * so the safe legacy behavior stays in force. Flipping the backend field kills it fleet-wide.
+ */
+export function getIsNegVerdictCacheEnabled() {
+  return backendConfig?.isNegVerdictCacheEnabled ?? false;
+}

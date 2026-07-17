@@ -12,7 +12,7 @@ import type {
 } from '../types';
 
 import {
-  IS_CAPACITOR, IS_CORE_WALLET, IS_EXTENSION, MAIN_ACCOUNT_ID,
+  IS_AIR_APP, IS_CORE_WALLET, IS_EXTENSION, MAIN_ACCOUNT_ID,
 } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
@@ -23,7 +23,7 @@ import { toBase64Address } from '../chains/ton/util/tonCore';
 import { getEnvironment } from '../environment';
 import * as migrations from '../migrations';
 import { storage } from '../storages';
-import capacitorStorage from '../storages/capacitorStorage';
+import airStorage from '../storages/airStorage';
 import idbStorage from '../storages/idb';
 import localStorage from '../storages/localStorage';
 import {
@@ -123,7 +123,7 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
     await migrateCoreWallet(onUpdate);
   }
 
-  if (IS_CAPACITOR && !version) {
+  if (IS_AIR_APP && !version) {
     if (await storage.getItem('accounts' as StorageKey, true)) {
       // Fix broken version
       version = 10;
@@ -305,12 +305,12 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
   }
 
   if (version === 9) {
-    if (IS_CAPACITOR) {
+    if (IS_AIR_APP) {
       const data = await idbStorage.getAll!();
 
       for (const [key, value] of Object.entries(data)) {
-        await capacitorStorage.setItem(key as StorageKey, value);
-        const newValue = await capacitorStorage.getItem(key as StorageKey, true);
+        await airStorage.setItem(key as StorageKey, value);
+        const newValue = await airStorage.getItem(key as StorageKey, true);
 
         if (!areDeepEqual(value, newValue)) {
           throw new Error('Migration error!');
@@ -440,7 +440,7 @@ function buildOldAccountId(account: { id: number; network: string }) {
 }
 
 async function iosBackupAndMigrateKeychainMode() {
-  const keys = await capacitorStorage.getKeys();
+  const keys = await airStorage.getKeys();
 
   if (keys?.length) {
     const items: [string, any][] = [];
@@ -451,11 +451,11 @@ async function iosBackupAndMigrateKeychainMode() {
       }
 
       const backupKey = `backup_${key}` as StorageKey;
-      const value = await capacitorStorage.getItem(key as StorageKey, true);
+      const value = await airStorage.getItem(key as StorageKey, true);
 
       assert(value !== undefined, 'Empty value!');
-      await capacitorStorage.setItem(backupKey, value);
-      const backupValue = await capacitorStorage.getItem(backupKey);
+      await airStorage.setItem(backupKey, value);
+      const backupValue = await airStorage.getItem(backupKey);
       assert(areDeepEqual(value, backupValue), 'Data has not been saved!');
 
       items.push([key, value]);
@@ -463,13 +463,13 @@ async function iosBackupAndMigrateKeychainMode() {
 
     for (const [key, value] of items) {
       let shouldRewrite = false;
-      await capacitorStorage.setItem(key as StorageKey, value).catch(() => {
+      await airStorage.setItem(key as StorageKey, value).catch(() => {
         shouldRewrite = true;
       });
 
       if (shouldRewrite) {
-        await capacitorStorage.removeItem(key as StorageKey);
-        await capacitorStorage.setItem(key as StorageKey, value);
+        await airStorage.removeItem(key as StorageKey);
+        await airStorage.setItem(key as StorageKey, value);
       }
     }
   }

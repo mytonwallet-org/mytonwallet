@@ -18,7 +18,7 @@ function AppLockButton() {
   const handleManualLock = useLastCallback(() => {
     setIsManualLockActive({ isActive: true, shouldHideBiometrics: true });
 
-    void vibrate();
+    vibrate();
   });
 
   return (

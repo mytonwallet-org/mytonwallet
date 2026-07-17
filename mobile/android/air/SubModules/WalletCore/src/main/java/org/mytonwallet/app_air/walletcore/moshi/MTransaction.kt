@@ -318,13 +318,15 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         val isInternalSwap: Boolean
             get() {
                 val isMultichain = AccountStore.activeAccount?.isMultichain == true
+                val fromToken = fromToken
+                val toToken = toToken
 
                 return (fromToken?.chain == MBlockchain.ton.name && toToken?.chain == MBlockchain.ton.name) ||
                     (isMultichain &&
                         fromToken != null &&
                         toToken != null &&
-                        AccountStore.activeAccount?.addressByChain[fromToken!!.chain] != null &&
-                        AccountStore.activeAccount?.addressByChain[toToken!!.chain] == cex?.payoutAddress)
+                        AccountStore.activeAccount?.addressByChain[fromToken.chain] != null &&
+                        AccountStore.activeAccount?.addressByChain[toToken.chain] == cex?.payoutAddress)
             }
     }
 
@@ -465,7 +467,8 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                         return false
                     }
                     val isOutgoingBouncedSpam = type == ApiTransactionType.BOUNCED && !isIncoming
-                    if (type != null && !isOutgoingBouncedSpam) {
+                    val isMint = type == ApiTransactionType.MINT
+                    if (type != null && !isOutgoingBouncedSpam && !isMint) {
                         return false
                     }
                     token.priceUsd * amount.doubleAbsRepresentation(

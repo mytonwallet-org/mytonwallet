@@ -12,9 +12,9 @@ import { IS_AIR_APP } from '../../config';
 import { callWindow } from '../../util/windowProvider/connector';
 
 /**
- * Serialization format differs between web/capacitor and native apps:
+ * Serialization format differs between web and native apps:
  *  - Native (AIR) apps: Use hex format (expected by native Ledger library implementations)
- *  - Web/Capacitor apps: Use base64 format (more efficient for browser message passing)
+ *  - Web apps: Use base64 format (more efficient for browser message passing)
  */
 const serializationFormat = IS_AIR_APP ? 'hex' : 'base64';
 
@@ -22,7 +22,7 @@ const BROKEN_CONNECTION_ERRORS = new Set([
   // This error occurs sometimes if the chains' Ledger app is closed during a data transmission with Ledger
   'DisconnectedDeviceDuringOperation',
   // One way to reproduce this error is:
-  // 1. Run the app in Capacitor on iOS,
+  // 1. Use Ledger over Bluetooth (mobile app),
   // 2. Connect Ledger and open TON App,
   // 3. Start the connection in the UI, e.g. by sending a transaction,
   // 4. As soon as the checklist screen appears, exit TON App immediately,

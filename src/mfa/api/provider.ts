@@ -204,7 +204,6 @@ async function updateMfaConfig() {
       isCopyStorageEnabled: config.isCopyStorageEnabled ?? false,
       supportAccountsCount: config.supportAccountsCount,
       countryCode: config.country,
-      shouldAutoSwitchToAir: config.shouldAutoSwitchToAir,
       isAppUpdateRequired: config.isUpdateRequired,
       swapVersion: config.swapVersion ?? SWAP_API_VERSION,
       seasonalTheme: config.seasonalTheme,

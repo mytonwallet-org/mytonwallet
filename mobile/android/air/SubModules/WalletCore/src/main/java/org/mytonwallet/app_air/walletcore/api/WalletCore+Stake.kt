@@ -14,7 +14,7 @@ import java.math.BigInteger
 suspend fun WalletCore.getBackendStakingState(accountId: String) = run {
     val quotedAccountId = JSONObject.quote(accountId)
 
-    bridge!!.callApiAsync<MStakingStateResponse>(
+    requiredBridge.callApiAsync<MStakingStateResponse>(
         "getStakingState",
         "[$quotedAccountId]",
         MStakingStateResponse::class.java
@@ -26,7 +26,7 @@ suspend fun WalletCore.getStakingHistory(
 ) = run {
     val quotedAccountId = JSONObject.quote(accountId)
 
-    bridge!!.callApiAsync<List<MStakeHistoryItem>>(
+    requiredBridge.callApiAsync<List<MStakeHistoryItem>>(
         "getStakingHistory",
         "[$quotedAccountId]",
         Types.newParameterizedType(List::class.java, MStakeHistoryItem::class.java)
@@ -45,7 +45,7 @@ suspend fun WalletCore.submitStake(
     val stakingStateArgument = moshi.adapter(StakingState::class.java).toJson(stakingState)
     val args =
         "[$quotedAccountId,$quotedPasscode,\"bigint:$amount\",$stakingStateArgument,\"bigint:$realFee\"]"
-    bridge!!.callApiAsync<ApiSubmitTransferResult>(
+    requiredBridge.callApiAsync<ApiSubmitTransferResult>(
         "submitStake",
         args,
         ApiSubmitTransferResult::class.java
@@ -65,7 +65,7 @@ suspend fun WalletCore.submitUnstake(
     val argumentStakingState = moshi.adapter(StakingState::class.java).toJson(stakingState)
     val args =
         "[$quotedAccountId,$quotedPasscode,\"bigint:${unstakeDraft.tokenAmount}\",$argumentStakingState,\"bigint:$realFee\"]"
-    bridge!!.callApiAsync<ApiSubmitTransferResult>(
+    requiredBridge.callApiAsync<ApiSubmitTransferResult>(
         "submitUnstake",
         args,
         ApiSubmitTransferResult::class.java

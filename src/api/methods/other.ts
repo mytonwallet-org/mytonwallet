@@ -21,6 +21,20 @@ import RECEIVE_GRADIENT_SVGS from '../../assets/receiveGradientSvgs';
 // `MyTonWallet` is here for backward compatibility reasons
 const SIGN_MESSAGE = Buffer.from('MyTonWallet_AuthToken_n6i0k4w8pb');
 
+export function isBackendAuthTokenValid(authToken: string, publicKey: string) {
+  try {
+    const signature = Buffer.from(authToken, 'base64');
+
+    if (signature.length !== nacl.sign.signatureLength || signature.toString('base64') !== authToken) {
+      return false;
+    }
+
+    return nacl.sign.detached.verify(SIGN_MESSAGE, signature, hexToBytes(publicKey));
+  } catch {
+    return false;
+  }
+}
+
 export async function getBackendAuthToken(accountId: string, password: string) {
   const accountWallet = await fetchStoredWallet(accountId, 'ton');
   let { authToken } = accountWallet;

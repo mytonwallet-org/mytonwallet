@@ -4,7 +4,8 @@ import { getActions, withGlobal } from '../../global';
 import { type Theme } from '../../global/types';
 
 import {
-  APP_NAME, IS_CORE_WALLET, IS_EXPLORER, IS_GRAM_WALLET, IS_TON_BRAND,
+  APP_INSTALL_URL, APP_NAME, IS_EXPLORER, IS_CORE_WALLET, IS_GRAM_WALLET, IS_TON_BRAND, NEW_APP_URL,
+  PRODUCTION_URL,
 } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccountId } from '../../global/selectors';
@@ -12,7 +13,9 @@ import buildClassName from '../../util/buildClassName';
 import { getChainsSupportingLedger } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
 import { PARTICLE_BURST_PARAMS, type ParticleConfig, setupParticles } from '../../util/particles';
-import { IS_LEDGER_SUPPORTED, REM } from '../../util/windowEnvironment';
+import {
+  IS_LEDGER_SUPPORTED, IS_LEGACY_APP_HOST, IS_NEW_WALLET_CREATION_HIDDEN, REM,
+} from '../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../hooks/useAppTheme';
@@ -54,6 +57,8 @@ const PARTICLE_PARAMS: Partial<ParticleConfig> = {
 
 const PARTICLE_COLORS_LIGHT = [44 / 255, 146 / 255, 240 / 255] as [number, number, number]; // #2C92F0
 const PARTICLE_COLORS_DARK = [70 / 255, 156 / 255, 236 / 255] as [number, number, number]; // #469CEC
+
+const NEW_DOMAIN = new URL(PRODUCTION_URL).hostname;
 
 function AuthStart({
   isActive,
@@ -144,111 +149,134 @@ function AuthStart({
   const brandLogoPreviewUrl = IS_TON_BRAND ? ANIMATED_STICKERS_PATHS.coreWalletLogoPreview : undefined;
 
   return (
-    <div className={buildClassName(styles.container, 'custom-scroll')}>
-      {hasAccounts && (
-        <Button isSimple isText onClick={resetAuth} className={styles.headerBack}>
-          <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-          <span>{lang('Back')}</span>
-        </Button>
-      )}
-
-      <div
-        className={styles.logoContainer}
-        tabIndex={-1}
-        role="button"
-        onClick={handleParticlesClick}
-      >
-        <canvas ref={canvasRef} className={styles.logoParticles} />
-        {brandLogoTgsUrl ? (
-          <AnimatedIconWithPreview
-            play={isActive}
-            tgsUrl={brandLogoTgsUrl}
-            previewUrl={brandLogoPreviewUrl}
-            className={buildClassName(
-              styles.logo,
-              isLogoAnimated && styles.logoReadyToScale,
-            )}
-            noLoop={false}
-            nonInteractive
-          />
-        ) : (
-          <img
-            ref={logoRef}
-            src={IS_GRAM_WALLET ? gramWalletLogoPath : logoWebpPath}
-            alt={APP_NAME}
-            className={buildClassName(
-              styles.logo,
-              isLogoAnimated && styles.logoReadyToScale,
-            )}
-            onLoad={markLogoReady}
-          />
-        )}
-      </div>
-
-      <div className={buildClassName(styles.appName, 'brand-font')}>{APP_NAME}</div>
-      {IS_EXPLORER ? (
-        <div className={styles.info}>
-          {lang('Waiting for a View deeplink to display a wallet address.')}
+    <>
+      {IS_LEGACY_APP_HOST && (
+        <div className={styles.legacyBar}>
+          {lang('This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.', {
+            new_domain: (
+              <a href={NEW_APP_URL} target="_blank" rel="noopener noreferrer" className={styles.legacyBarLink}>
+                {NEW_DOMAIN}
+              </a>
+            ),
+            download_app: (
+              <a href={APP_INSTALL_URL} target="_blank" rel="noopener noreferrer" className={styles.legacyBarLink}>
+                {lang('download the app')}
+              </a>
+            ),
+          })}
         </div>
-      ) : (
-        <>
-          <div className={styles.info}>
-            {renderText(lang('$auth_intro'))}
-          </div>
+      )}
+      <div className={buildClassName(
+        styles.container, 'custom-scroll', IS_LEGACY_APP_HOST && styles.containerWithLegacyBar,
+      )}
+      >
+        {hasAccounts && (
+          <Button isSimple isText onClick={resetAuth} className={styles.headerBack}>
+            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
+            <span>{lang('Back')}</span>
+          </Button>
+        )}
 
-          {!IS_CORE_WALLET && (
-            <Button
-              isText
-              className={buildClassName(styles.btn, styles.btn_about)}
-              onClick={openAbout}
-            >
-              {lang('More about %app_name%', { app_name: APP_NAME })}{' '}›
-            </Button>
-          )}
-          <div className={buildClassName(styles.buttons, IS_CORE_WALLET && styles.coreWalletButtons)}>
-            <Checkbox
-              checked={isAccepted}
-              onChange={setIsAccepted}
-              className={IS_CORE_WALLET ? styles.responsibilityCheckboxSimple : styles.responsibilityCheckbox}
-              contentClassName={styles.responsibilityCheckboxContent}
-            >
-              {lang('$accept_terms_with_link', {
-                link: (
-                  <a
-                    href="#"
-                    target="_blank"
-                    rel="noreferrer"
-                    className={styles.responsibilityCheckboxLink}
-                    onClick={handleDisclaimerClick}
-                  >
-                    {lang('use the wallet responsibly')}
-                  </a>
-                ) },
+        <div
+          className={styles.logoContainer}
+          tabIndex={-1}
+          role="button"
+          onClick={handleParticlesClick}
+        >
+          <canvas ref={canvasRef} className={styles.logoParticles} />
+          {brandLogoTgsUrl ? (
+            <AnimatedIconWithPreview
+              play={isActive}
+              tgsUrl={brandLogoTgsUrl}
+              previewUrl={brandLogoPreviewUrl}
+              className={buildClassName(
+                styles.logo,
+                isLogoAnimated && styles.logoReadyToScale,
               )}
-            </Checkbox>
-            <Button
-              isPrimary
-              isDisabled={!isAccepted}
-              className={styles.btn}
-              isLoading={isLoading}
-              onClick={!isLoading ? startCreatingWallet : undefined}
-            >
-              {lang('Create New Wallet')}
-            </Button>
-            {IS_CORE_WALLET ? renderSimpleImportForm() : (
+              noLoop={false}
+              nonInteractive
+            />
+          ) : (
+            <img
+              ref={logoRef}
+              src={IS_GRAM_WALLET ? gramWalletLogoPath : logoWebpPath}
+              alt={APP_NAME}
+              className={buildClassName(
+                styles.logo,
+                isLogoAnimated && styles.logoReadyToScale,
+              )}
+              onLoad={markLogoReady}
+            />
+          )}
+        </div>
+
+        <div className={buildClassName(styles.appName, 'brand-font')}>{APP_NAME}</div>
+        {IS_EXPLORER ? (
+          <div className={styles.info}>
+            {lang('Waiting for a View deeplink to display a wallet address.')}
+          </div>
+        ) : (
+          <>
+            <div className={styles.info}>
+              {renderText(lang('$auth_intro'))}
+            </div>
+
+            {!IS_CORE_WALLET && (
               <Button
                 isText
-                isDisabled={!isAccepted}
-                className={buildClassName(styles.btn, styles.btn_text)}
-                onClick={!isLoading ? openAuthImportWalletModal : undefined}
+                className={buildClassName(styles.btn, styles.btn_about)}
+                onClick={openAbout}
               >
-                {lang('Import Existing Wallet')}
+                {lang('More about %app_name%', { app_name: APP_NAME })}{' '}›
               </Button>
             )}
-          </div>
-        </>
-      )}
-    </div>
+            <div className={buildClassName(styles.buttons, IS_CORE_WALLET && styles.coreWalletButtons)}>
+              <Checkbox
+                checked={isAccepted}
+                onChange={setIsAccepted}
+                className={IS_CORE_WALLET ? styles.responsibilityCheckboxSimple : styles.responsibilityCheckbox}
+                contentClassName={styles.responsibilityCheckboxContent}
+              >
+                {lang('$accept_terms_with_link', {
+                  link: (
+                    <a
+                      href="#"
+                      target="_blank"
+                      rel="noreferrer"
+                      className={styles.responsibilityCheckboxLink}
+                      onClick={handleDisclaimerClick}
+                    >
+                      {lang('use the wallet responsibly')}
+                    </a>
+                  ) },
+                )}
+              </Checkbox>
+              {!IS_NEW_WALLET_CREATION_HIDDEN && (
+                <Button
+                  isPrimary
+                  isDisabled={!isAccepted}
+                  className={styles.btn}
+                  isLoading={isLoading}
+                  onClick={!isLoading ? startCreatingWallet : undefined}
+                >
+                  {lang('Create New Wallet')}
+                </Button>
+              )}
+              {IS_CORE_WALLET ? renderSimpleImportForm() : (
+                <Button
+                  isText
+                  isDisabled={!isAccepted}
+                  className={buildClassName(styles.btn, styles.btn_text)}
+                  onClick={!isLoading ? openAuthImportWalletModal : undefined}
+                >
+                  {lang('Import Existing Wallet')}
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 

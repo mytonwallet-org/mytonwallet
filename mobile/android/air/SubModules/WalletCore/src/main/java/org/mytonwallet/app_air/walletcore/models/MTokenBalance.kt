@@ -110,9 +110,14 @@ data class MTokenBalance(
         }
 
         // Factory method to create an instance from separate parameters
+        @JvmName("fromParametersNullable")
         fun fromParameters(token: MToken?, amount: BigInteger?): MTokenBalance? {
             if (token == null || amount == null)
                 return null
+            return fromParameters(token, amount)
+        }
+
+        fun fromParameters(token: MToken, amount: BigInteger): MTokenBalance {
             val toBaseCurrency =
                 when {
                     amount == BigInteger.ZERO -> 0.0
@@ -124,7 +129,7 @@ data class MTokenBalance(
                     }
                 }
             val priceYesterday =
-                token.price?.let { (token.price!!) / (1 + token.percentChange24hReal / 100) }?.let {
+                token.price?.let { price -> price / (1 + token.percentChange24hReal / 100) }?.let {
                     if (it.isFinite()) it else null
                 }
             val toBaseCurrency24h =
@@ -146,7 +151,7 @@ data class MTokenBalance(
         }
 
         fun fromVirtualStakingData(baseToken: MToken, amount: BigInteger): MTokenBalance {
-            return fromParameters(baseToken, amount)!!.copy(
+            return fromParameters(baseToken, amount).copy(
                 token = baseToken.slug,
                 isVirtualStakingRow = true
             )

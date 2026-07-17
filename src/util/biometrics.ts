@@ -1,9 +1,4 @@
-import { IS_CAPACITOR, IS_TELEGRAM_APP } from '../config';
-import {
-  getIsCapacitorBiometricAuthSupported,
-  getIsCapacitorFaceIdAvailable,
-  getIsCapacitorTouchIdAvailable,
-} from './capacitor';
+import { IS_TELEGRAM_APP } from '../config';
 import {
   getIsTelegramBiometricAuthSupported,
   getIsTelegramFaceIdAvailable,
@@ -16,18 +11,17 @@ export function getIsBiometricAuthSupported() {
 }
 
 export function getIsNativeBiometricAuthSupported() {
-  return (IS_CAPACITOR && getIsCapacitorBiometricAuthSupported())
-    || (IS_TELEGRAM_APP && getIsTelegramBiometricAuthSupported());
+  return IS_TELEGRAM_APP && getIsTelegramBiometricAuthSupported();
 }
 
 export function getIsFaceIdAvailable() {
-  return (IS_CAPACITOR && getIsCapacitorFaceIdAvailable()) || (IS_TELEGRAM_APP && getIsTelegramFaceIdAvailable());
+  return IS_TELEGRAM_APP && getIsTelegramFaceIdAvailable();
 }
 
 export function getIsTouchIdAvailable() {
-  return (IS_CAPACITOR && getIsCapacitorTouchIdAvailable()) || (IS_TELEGRAM_APP && getIsTelegramTouchIdAvailable());
+  return IS_TELEGRAM_APP && getIsTelegramTouchIdAvailable();
 }
 
 export function getDoesUsePinPad() {
-  return IS_CAPACITOR || getIsMobileTelegramApp();
+  return getIsMobileTelegramApp();
 }

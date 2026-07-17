@@ -1,7 +1,6 @@
 import React, { memo } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import { IS_CAPACITOR } from '../../../config';
 import { selectCurrentAccount, selectCurrentAccountId } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 
@@ -116,7 +115,6 @@ function MfaPassword({
         <PasswordForm
           isActive={isActive}
           error={error}
-          withCloseButton={IS_CAPACITOR}
           submitLabel={isInstall ? lang('Connect') : lang('Disconnect')}
           noAutoConfirm
           onSubmit={onSubmit}

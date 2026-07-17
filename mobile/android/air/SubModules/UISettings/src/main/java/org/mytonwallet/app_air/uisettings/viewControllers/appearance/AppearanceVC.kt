@@ -30,15 +30,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme.AppearanceAppThemeView
-import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
-import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -52,28 +49,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
     override val TAG = "Appearance"
 
     override val shouldDisplayBottomBar = true
-
-    private val isGramApp = ApplicationContextHolder.isGramApp
-
-    private val switchToLegacyCell: SettingsItemCell? =
-        if (isGramApp) null else SettingsItemCell(context).apply {
-            configure(
-                SettingsItem(
-                    identifier = SettingsItem.Identifier.SWITCH_TO_LEGACY,
-                    icon = R.drawable.ic_legacy,
-                    title = LocaleController.getString("Switch to Legacy Version"),
-                    hasTintColor = false
-                ),
-                subtitle = null,
-                isFirst = false,
-                isLast = true,
-                isEnabled = true,
-                onTap = {
-                    WalletCore.switchingToLegacy()
-                    WalletContextManager.delegate?.get()?.switchToLegacy()
-                }
-            )
-        }
 
     private val appThemeView: AppearanceAppThemeView by lazy {
         val v = AppearanceAppThemeView(context)
@@ -231,7 +206,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
                     addUpdateListener { animator ->
                         val radius = animator.animatedValue as Float
-                        val topItem: View = switchToLegacyCell ?: appThemeView
+                        val topItem: View = appThemeView
                         topItem.setBackgroundColor(
                             WColor.Background.color,
                             radius,
@@ -343,9 +318,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
-        switchToLegacyCell?.let {
-            v.addView(it, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        }
         v.addView(appThemeView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appPaletteView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         v.addView(gradientNavigationBarRow, ConstraintLayout.LayoutParams(0, 50.dp))
@@ -363,13 +335,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             sideGuttersRow.isEnabled = false
         }
         v.setConstraints {
-            if (switchToLegacyCell != null) {
-                toTop(switchToLegacyCell)
-                toCenterX(switchToLegacyCell)
-                topToBottom(appThemeView, switchToLegacyCell, ViewConstants.GAP.toFloat())
-            } else {
-                toTop(appThemeView)
-            }
+            toTop(appThemeView)
             toCenterX(appThemeView)
             topToBottom(appPaletteView, appThemeView, ViewConstants.GAP.toFloat())
             toCenterX(appPaletteView)
@@ -436,13 +402,11 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
         appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
 
-        if (switchToLegacyCell == null) {
-            appThemeView.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.TOOLBAR_RADIUS.dp,
-                ViewConstants.BLOCK_RADIUS.dp,
-            )
-        }
+        appThemeView.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.TOOLBAR_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
+        )
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
     }

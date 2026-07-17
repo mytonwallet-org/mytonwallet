@@ -74,3 +74,14 @@ fun Drawable.withGradient(colors: IntArray): Drawable {
 fun Drawable.setSizeBounds(widthPx: Int, heightPx: Int) {
     setBounds(0, 0, widthPx, heightPx)
 }
+
+fun Drawable.setBoundsFit(maxSizePx: Int) {
+    val iw = intrinsicWidth
+    val ih = intrinsicHeight
+    val (width, height) = when {
+        iw <= 0 || ih <= 0 -> maxSizePx to maxSizePx
+        iw >= ih -> maxSizePx to (maxSizePx.toFloat() * ih / iw).toInt()
+        else -> (maxSizePx.toFloat() * iw / ih).toInt() to maxSizePx
+    }
+    setBounds(0, 0, width, height)
+}

@@ -199,7 +199,7 @@ function Transaction({
   const handleNftClick = useLastCallback((event: React.MouseEvent) => {
     event.stopPropagation();
 
-    void vibrate();
+    vibrate();
     openNftAttributesModal({ nft: nft! });
   });
 

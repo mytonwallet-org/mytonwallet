@@ -10,9 +10,10 @@ with support of jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic. **No
 After cloning the Air repository, follow the build instructions and run:
 
 ```
-npm run build
-npm run mobile:run:android
+npm run mobile:build:dev
 ```
+
+Then open this directory in Android Studio and run the app.
 
 If you've modified SDK files (src/api/*), please run the SDK file generator command:
 

@@ -4,6 +4,7 @@ import type { LangCode } from '../global/types';
 import {
   DEFAULT_CHAIN,
   EMPTY_HASH_VALUE,
+  IFRAME_WHITELIST,
   MW_CARDS_BASE_URL,
   MW_NEWS_CHANNEL_NAME,
   MW_TIPS_CHANNEL_NAME,
@@ -22,6 +23,17 @@ import {
 import { logDebugError } from './logs';
 
 const VALID_PROTOCOLS = new Set(['http:', 'https:']);
+
+// Every predicate in this file parses untrusted strings, so the parse lives in one place: a caller that
+// forgets to guard `new URL` can no longer turn a malformed link into a thrown exception.
+export function safeParseUrl(url: string): URL | undefined {
+  try {
+    return new URL(url);
+  } catch (e) {
+    logDebugError('safeParseUrl', e);
+    return undefined;
+  }
+}
 
 function isValidIp(ip: string) {
   const parts = ip.split(/[.:]/);
@@ -48,21 +60,20 @@ function isValidIp(ip: string) {
 }
 
 export function isValidUrl(url: string, validProtocols = VALID_PROTOCOLS) {
-  try {
-    const urlObject = new URL(url);
-    const isValidProtocol = validProtocols.has(urlObject.protocol);
-    const isLocalhost = urlObject.hostname === 'localhost';
-    const isIp = isValidIp(urlObject.hostname);
-
-    const parts = urlObject.hostname.split('.');
-    // http://data.iana.org/TLD/tlds-alpha-by-domain.txt
-    const hasValidTld = parts.length > 1 && parts[parts.length - 1].length > 1 && parts[parts.length - 1].length <= 24;
-
-    return isValidProtocol && (isLocalhost || isIp || hasValidTld);
-  } catch (e) {
-    logDebugError('isValidUrl', e);
+  const urlObject = safeParseUrl(url);
+  if (!urlObject) {
     return false;
   }
+
+  const isValidProtocol = validProtocols.has(urlObject.protocol);
+  const isLocalhost = urlObject.hostname === 'localhost';
+  const isIp = isValidIp(urlObject.hostname);
+
+  const parts = urlObject.hostname.split('.');
+  // http://data.iana.org/TLD/tlds-alpha-by-domain.txt
+  const hasValidTld = parts.length > 1 && parts[parts.length - 1].length > 1 && parts[parts.length - 1].length <= 24;
+
+  return isValidProtocol && (isLocalhost || isIp || hasValidTld);
 }
 
 export function normalizeUrl(url: string): string {
@@ -71,14 +82,7 @@ export function normalizeUrl(url: string): string {
 }
 
 export function getHostnameFromUrl(url: string) {
-  try {
-    const urlObject = new URL(url);
-
-    return urlObject.hostname;
-  } catch (e) {
-    logDebugError('getHostnameFromUrl', e);
-    return url;
-  }
+  return safeParseUrl(url)?.hostname ?? url;
 }
 
 export function getMarketplaceName(chain: ApiChain = DEFAULT_CHAIN, id?: string) {
@@ -236,6 +240,27 @@ export function getMarketplaceNftUrl(
 
 export function isTelegramUrl(url: string) {
   return url.startsWith('https://t.me/');
+}
+
+export function isInIframeWhitelist(url: string) {
+  // Whitelisted pages open in the in-app browser, which hands them the embedded dapp bridge (TonConnect
+  // connect/send, and the same for the other chains). A prefix match would let `https://tonscan.org.evil.tld`
+  // through, so the whole origin has to match; the `:*` entries stand for "any port", not "any suffix".
+  const parsed = safeParseUrl(url);
+  if (!parsed) {
+    return false;
+  }
+
+  const { origin, protocol, hostname } = parsed;
+
+  return IFRAME_WHITELIST.some((allowedOrigin) => {
+    if (!allowedOrigin.endsWith(':*')) {
+      return origin === allowedOrigin;
+    }
+
+    const allowed = new URL(allowedOrigin.slice(0, -2));
+    return protocol === allowed.protocol && hostname === allowed.hostname;
+  });
 }
 
 export function getCardNftImageUrl(nft: ApiNft, format: 'svg' | 'webp' = 'svg'): string {

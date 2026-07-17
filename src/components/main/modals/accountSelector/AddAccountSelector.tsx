@@ -49,7 +49,7 @@ function AddAccountSelector({
   const lang = useLang();
 
   return (
-    <div className={buildClassName(modalStyles.transitionContentWrapper, styles.compensateSafeArea)}>
+    <div className={modalStyles.transitionContentWrapper}>
       <ModalHeader
         title={lang('Add Wallet')}
         onBackButtonClick={shouldHideBackButton ? undefined : onBack}

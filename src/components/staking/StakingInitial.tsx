@@ -223,7 +223,7 @@ function StakingInitial({
       return;
     }
 
-    void vibrate();
+    vibrate();
 
     submitStakingInitial({ amount });
   });

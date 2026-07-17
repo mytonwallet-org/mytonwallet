@@ -367,7 +367,7 @@ function TransferInitial({
       return;
     }
 
-    void vibrate();
+    vibrate();
 
     submitTransferInitial({
       tokenSlug,

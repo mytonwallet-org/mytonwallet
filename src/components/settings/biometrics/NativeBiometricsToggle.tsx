@@ -1,8 +1,6 @@
-import { Dialog } from '@capacitor/dialog';
 import React, { memo } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import { IS_CAPACITOR } from '../../../config';
 import renderText from '../../../global/helpers/renderText';
 import { selectIsNativeBiometricAuthEnabled } from '../../../global/selectors';
 import {
@@ -17,7 +15,6 @@ import { IS_IOS } from '../../../util/windowEnvironment';
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
-import useSyncEffect from '../../../hooks/useSyncEffect';
 
 import Button from '../../ui/Button';
 import Modal from '../../ui/Modal';
@@ -59,25 +56,6 @@ function NativeBiometricsToggle({ isBiometricAuthEnabled, onEnable }: OwnProps &
     disableNativeBiometrics();
   });
 
-  useSyncEffect(() => {
-    if (!IS_CAPACITOR) return;
-
-    if (isWarningModalOpen) {
-      void Dialog.confirm({
-        title: lang(warningTitle),
-        message: lang(warningDescription),
-        okButtonTitle: lang('Yes'),
-        cancelButtonTitle: lang('Cancel'),
-      })
-        .then(({ value }) => {
-          if (value) {
-            handleConfirmDisableBiometrics();
-          }
-        })
-        .finally(closeWarningModal);
-    }
-  }, [handleConfirmDisableBiometrics, isWarningModalOpen, lang, warningDescription, warningTitle]);
-
   const handleBiometricAuthToggle = useLastCallback(() => {
     if (getIsTelegramBiometricsRestricted()) {
       getTelegramApp()?.BiometricManager.openSettings();
@@ -92,8 +70,6 @@ function NativeBiometricsToggle({ isBiometricAuthEnabled, onEnable }: OwnProps &
   });
 
   function renderDisableNativeBiometricsWarning() {
-    if (IS_CAPACITOR) return undefined;
-
     return (
       <Modal
         isCompact

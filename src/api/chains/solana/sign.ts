@@ -29,11 +29,11 @@ export async function signPayload(
   const privateKey = (await fetchPrivateKeyString(accountId, password))!;
   const signer = getSignerFromPrivateKey(network, privateKey);
 
-  if (payloadToSign.type !== 'text') {
+  if (payloadToSign.type !== 'binary') {
     return { error: ApiCommonError.Unexpected };
   }
 
-  const messageBytes = new Uint8Array(getBase58Encoder().encode(payloadToSign.text));
+  const messageBytes = new Uint8Array(getBase58Encoder().encode(payloadToSign.bytes));
 
   const signature = nacl.sign.detached(messageBytes, signer.secretKey);
 

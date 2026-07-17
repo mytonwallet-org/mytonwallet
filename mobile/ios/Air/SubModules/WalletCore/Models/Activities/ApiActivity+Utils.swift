@@ -321,7 +321,8 @@ public extension ApiActivity {
             }
             
             let isOutgoingBouncedSpam = type == .bounced && !transaction.isIncoming
-            if type != nil && !isOutgoingBouncedSpam {
+            let isMint = type == .mint
+            if type != nil && !isOutgoingBouncedSpam && !isMint {
                 return false
             }
             

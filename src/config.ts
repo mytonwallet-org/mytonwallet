@@ -44,9 +44,7 @@ export const IS_EXTENSION = process.env.IS_EXTENSION === '1';
 export const IS_FIREFOX_EXTENSION = process.env.IS_FIREFOX_EXTENSION === '1';
 export const IS_OPERA_EXTENSION = process.env.IS_OPERA_EXTENSION === '1';
 export const IS_PACKAGED_ELECTRON = process.env.IS_PACKAGED_ELECTRON === '1';
-export const IS_CAPACITOR = process.env.IS_CAPACITOR === '1';
 export const IS_ANDROID_DIRECT = process.env.IS_ANDROID_DIRECT === '1';
-export const IS_ANDROID = IS_ANDROID_DIRECT || process.env.CAP_PLATFORM === 'android';
 export const IS_AIR_APP = process.env.IS_AIR_APP === '1';
 export const IS_TELEGRAM_APP = process.env.IS_TELEGRAM_APP === '1';
 export const IS_EXPLORER = process.env.IS_EXPLORER === '1';
@@ -55,6 +53,15 @@ export const ELECTRON_HOST_URL = 'https://dumb-host';
 export const INACTIVE_MARKER = '[Inactive]';
 export const PRODUCTION_URL = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://web.mywallet.io';
 export const BETA_URL = IS_CORE_WALLET ? 'https://beta.wallet.ton.org' : 'https://beta.mywallet.io';
+// The pre-rebrand host still serves this very build - it is an extra domain of the same site, kept alive because
+// outdated desktop clients poll it for update manifests. Listed explicitly rather than derived by negating
+// PRODUCTION_URL, which would also match self-hosted installations.
+export const LEGACY_APP_HOSTS = ['mytonwallet.app'];
+// Where a legacy-host visitor is nudged to continue on the current brand. Opened via a plain anchor or `window.open`,
+// never `openUrl`: `SUBPROJECT_URL_MASK` treats every `*.mywallet.io` host as a subproject, so `openUrl` would append
+// the wallet context (addresses included) and open it in the in-app iframe browser - where the site renders blank
+// under `X-Frame-Options: Deny`. `utm_source` attributes the migrated traffic.
+export const NEW_APP_URL = `${PRODUCTION_URL}?utm_source=legacy_web`;
 export const APP_INSTALL_URL = IS_GRAM_WALLET ? 'https://get.gramwallet.io/' : 'https://get.mywallet.io/';
 export const APP_REPO_URL = 'https://github.com/mytonwallet-org/mytonwallet';
 export const SELF_UNIVERSAL_HOST_URL = 'https://my.tt';
@@ -76,15 +83,22 @@ export const STRICTERDOM_ENABLED = DEBUG && !IS_PACKAGED_ELECTRON;
 export const DEBUG_ALERT_MSG = 'Shoot!\nSomething went wrong, please see the error details in Dev Tools Console.';
 
 export const PIN_LENGTH = 4;
-export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet';
-export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
+export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'My Wallet';
+export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://web.mywallet.io';
 export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in My Wallet';
 
-/** If `true`, the app supports only TON-specific mnemonics */
-export const IS_TON_MNEMONIC_ONLY = IS_CORE_WALLET;
+/**
+ * If `true`, a wallet created by this build gets a TON-specific mnemonic, which can never derive a foreign address.
+ * Generation only: importing a BIP39 phrase works on every build. Those two used to be the same flag, which made
+ * the restriction a trap - a phrase minted by a fuller build of the same product would have become unimportable
+ * here the moment that build was rolled back to this one.
+ */
+export const SHOULD_GENERATE_TON_MNEMONIC = IS_CORE_WALLET;
 
 export const MNEMONIC_COUNT = 24;
-export const MNEMONIC_COUNTS = IS_TON_MNEMONIC_ONLY ? [24] : [12, 24];
+// A TON-native build mints 24-word phrases, so it offers 24 first while still accepting the 12-word BIP39 ones a
+// rollback might have to restore; the multichain builds lead with 12, matching what they mint.
+export const MNEMONIC_COUNTS = SHOULD_GENERATE_TON_MNEMONIC ? [24, 12] : [12, 24];
 
 export const PRIVATE_KEY_HEX_LENGTH = 64;
 export const MNEMONIC_CHECK_COUNT = 3;
@@ -236,7 +250,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-321';
+export const LANG_CACHE_NAME = 'mtw-lang-324';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',

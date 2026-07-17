@@ -130,12 +130,14 @@ object AirPushNotifications {
                         ApiMethod.Notifications.SubscribeNotifications(
                             ApiMethod.Notifications.SubscribeNotifications.Props(
                                 token,
-                                newAccounts.map {
-                                    ApiNotificationAddress(
-                                        it.name,
-                                        it.tonAddress!!,
-                                        MBlockchain.ton
-                                    )
+                                newAccounts.mapNotNull { account ->
+                                    account.tonAddress?.let { address ->
+                                        ApiNotificationAddress(
+                                            account.name,
+                                            address,
+                                            MBlockchain.ton
+                                        )
+                                    }
                                 },
                                 WGlobalStorage.getLangCode()
                             )
@@ -172,13 +174,14 @@ object AirPushNotifications {
             withQueue {
                 val token = WGlobalStorage.getPushNotificationsToken() ?: return@withQueue
                 val tonAddress = account.tonAddress ?: return@withQueue
-                val enabledAccounts = WGlobalStorage.getPushNotificationsEnabledAccounts()
-                if (enabledAccounts?.contains(account.accountId) == true)
+                val enabledAccounts =
+                    WGlobalStorage.getPushNotificationsEnabledAccounts().orEmpty()
+                if (enabledAccounts.contains(account.accountId))
                     return@withQueue
-                if ((enabledAccounts?.size ?: 0) >= MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT) {
+                if (enabledAccounts.size >= MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT) {
                     if (ignoreIfLimitReached)
                         return@withQueue
-                    val removingAccount = enabledAccounts!!.last()
+                    val removingAccount = enabledAccounts.last()
                     val removingTonAddress =
                         WGlobalStorage.getAccountTonAddress(removingAccount)
                     if (removingTonAddress == null) {

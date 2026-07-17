@@ -53,7 +53,6 @@ interface StateProps {
   orderedAddresses?: string[];
   selectedNfts?: ApiNft[];
   byAddress?: Record<string, ApiNft>;
-  collection?: ApiNftCollection;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
   isNftBuyingDisabled?: boolean;
@@ -235,11 +234,10 @@ function Nfts({
 
 export default memo(
   withGlobal<OwnProps>(
-    (global, { collection: ownCollection }): StateProps => {
+    (global): StateProps => {
       const {
         orderedAddresses,
         byAddress,
-        currentCollection,
         selectedNfts,
         dnsExpiration,
         isFullLoadingByChain,
@@ -260,7 +258,6 @@ export default memo(
         orderedAddresses,
         selectedNfts,
         byAddress,
-        collection: ownCollection ?? currentCollection,
         blacklistedNftAddresses,
         whitelistedNftAddresses,
         isNftBuyingDisabled,
@@ -272,15 +269,12 @@ export default memo(
         animationDuration,
       };
     },
-    (global, { collection: ownCollection }, stickToFirst) => {
-      const collection = ownCollection
-        ?? selectCurrentAccountState(global)?.nfts?.currentCollection;
-
-      return stickToFirst(
-        `${selectCurrentAccountId(global)}_${collection
-          ? `${collection.address}_${collection.chain}`
-          : 'all'}`,
-      );
-    },
+    // A container sticks to the first truthy key it sees and only reactivates when the live key
+    // returns to that value, so a key built from volatile global state (e.g. `nfts.currentCollection`)
+    // freezes this widget whenever it mounts while a collection is open: the key never returns to the
+    // opened-collection value once the collection closes. Keying on the account id avoids that, because
+    // the id only changes together with a remount. The displayed collection is an own prop, and slides
+    // remount via `key` when it changes.
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Nfts),
 );

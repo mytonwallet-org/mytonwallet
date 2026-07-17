@@ -28,6 +28,8 @@ import type {
 import type {
   ApiChain,
   ApiDappRequest,
+  ApiDappTransfer,
+  ApiEmulationResult,
   ApiNetwork,
   EVMChain,
   OnApiUpdate,
@@ -470,7 +472,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     chain: ApiChain,
     topic: string,
     url: string,
-    tx: string | EvmTransactionParams,
+    tx: string | EvmTransactionParams | string[],
     full?: boolean,
   ) {
     const message: DappTransactionRequest<typeof this.protocolType> = {
@@ -603,24 +605,20 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         });
         break;
       }
-      case 'solana_signAllTransactions': {
-        const signatures = new Set<string>();
-
-        for (const tx of request.params.transactions) {
-          const response = await this.requestTransactionSign(
-            id,
-            namespace.chain,
+      case 'solana_signAndSendTransaction': {
+        const message: DappTransactionRequest<typeof this.protocolType> = {
+          id: String(id),
+          chain: namespace.chain,
+          payload: {
             topic,
-            byTopic.dapp.url,
-            tx,
-            true,
-          );
+            data: request.params.transaction,
+          },
+        };
 
-          if (!response.success) {
-            return;
-          }
+        const response = await this.sendTransaction({ url: byTopic.dapp.url }, message);
 
-          signatures.add(response.result.result);
+        if (!response?.success) {
+          return;
         }
 
         await this.walletKit.respondSessionRequest({
@@ -628,7 +626,33 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           response: {
             id,
             jsonrpc: '2.0',
-            result: { transactions: [...signatures] },
+            result: { signature: response.result.result },
+          },
+        });
+        break;
+      }
+      case 'solana_signAllTransactions': {
+        const response = await this.requestTransactionSign(
+          id,
+          namespace.chain,
+          topic,
+          byTopic.dapp.url,
+          request.params.transactions,
+          true,
+        );
+
+        if (!response.success) {
+          return;
+        }
+
+        const signedTransactions = response.result.results ?? [response.result.result];
+
+        await this.walletKit.respondSessionRequest({
+          topic,
+          response: {
+            id,
+            jsonrpc: '2.0',
+            result: { transactions: signedTransactions },
           },
         });
         break;
@@ -1143,9 +1167,13 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       const { network } = parseAccountId(accountId);
 
+      const isBatchSign = Array.isArray(message.payload.data);
+
+      const txBatch = isBatchSign ? message.payload.data as string[] : undefined;
+
       let serializedTxForPreview: string;
 
-      if (message.chain !== 'solana') {
+      if (message.chain !== 'solana' && !txBatch) {
         const caip2 = getEip155Caip2ForEvmChain(message.chain as EVMChain, network);
 
         if (!caip2) {
@@ -1159,12 +1187,14 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         }
 
         serializedTxForPreview = await resolveWalletConnectEvmSerializedTx({
-          raw,
+          raw: raw as string | EvmTransactionParams,
           chain: message.chain as EVMChain,
           network,
           caip2,
           signerAddress: accountAddress,
         });
+      } else if (txBatch) {
+        serializedTxForPreview = txBatch[0];
       } else {
         const raw = message.payload.data;
 
@@ -1183,11 +1213,35 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         accountId,
       });
 
-      const { transfers, emulation } = await this.chainDappSupports[message.chain]!.parseTransactionForPreview!(
-        serializedTxForPreview,
-        accountAddress,
-        network,
-      );
+      let transfers: ApiDappTransfer[];
+      let emulation: ApiEmulationResult | undefined;
+
+      if (txBatch) {
+        transfers = [];
+
+        for (const rawTx of txBatch) {
+          const parsed = await this.chainDappSupports[message.chain]!.parseTransactionForPreview!(
+            rawTx,
+            accountAddress,
+            network,
+          );
+
+          transfers.push(...parsed.transfers);
+
+          if (!emulation && parsed.emulation) {
+            emulation = parsed.emulation;
+          }
+        }
+      } else {
+        const parsed = await this.chainDappSupports[message.chain]!.parseTransactionForPreview!(
+          serializedTxForPreview,
+          accountAddress,
+          network,
+        );
+
+        transfers = parsed.transfers;
+        emulation = parsed.emulation;
+      }
 
       const { promiseId, promise } = createDappPromise();
 
@@ -1241,7 +1295,9 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       });
 
       // DApp accepts signedTx in extension and signature only in walletConnect
-      const toReturn = message.payload.topic && !message.payload.isFullTxRequested
+      const useSignatureOnly = message.payload.topic && !message.payload.isFullTxRequested;
+
+      const toReturn = useSignatureOnly
         ? signedTransactions[0].payload.signature
         : signedTransactions[0].payload.signedTx;
 
@@ -1251,6 +1307,13 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         success: true,
         result: {
           result: toReturn,
+          ...(isBatchSign && {
+            results: signedTransactions.map((signedTransaction) => (
+              useSignatureOnly
+                ? signedTransaction.payload.signature
+                : signedTransaction.payload.signedTx
+            )),
+          }),
           id: message.id,
         },
       };

@@ -9,7 +9,7 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
+import org.mytonwallet.app_air.airasframework.airLauncher.AirLauncher;
 
 import java.util.Objects;
 

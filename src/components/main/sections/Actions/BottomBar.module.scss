@@ -10,10 +10,6 @@
     transform: translateY(100%);
   }
 
-  :global(html.is-android-app.is-keyboard-open:where(.is-agent-active, .is-explore-active)) & {
-    display: none;
-  }
-
   :global(html.with-menu-backdrop) & {
     background: none !important;
   }

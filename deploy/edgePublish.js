@@ -4,7 +4,7 @@ const {
   EDGE_PRODUCT_ID,
   EDGE_CLIENT_ID,
   EDGE_API_KEY,
-  EDGE_FILE_PATH = './MyTonWallet-chrome.zip',
+  EDGE_FILE_PATH = './MyWallet-chrome.zip',
   EDGE_NOTES_PATH,
 } = process.env;
 

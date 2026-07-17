@@ -8,111 +8,33 @@
 import type Transport from '@ledgerhq/hw-transport';
 import TransportWebHID from '@ledgerhq/hw-transport-webhid';
 import TransportWebUSB from '@ledgerhq/hw-transport-webusb';
-import type { HIDTransport } from '@mytonwallet/capacitor-usb-hid';
-import type { ICapacitorUSBDevice } from '@mytonwallet/capacitor-usb-hid/dist/esm/definitions';
 
 import type { LedgerTransport } from './types';
 
-import { IS_CAPACITOR } from '../../config';
-import BleTransport from '../../lib/ledger-hw-transport-ble/BleTransport';
 import { logDebug, logDebugError } from '../logs';
 import { pause } from '../schedulers';
-import { IS_ANDROID_APP } from '../windowEnvironment';
-import { ATTEMPTS, DEVICE_DETECT_ATTEMPTS, PAUSE } from './constants';
+import { ATTEMPTS, PAUSE } from './constants';
 
-type BleConnectorClass = typeof import('./bleConnector').BleConnector;
-type HIDTransportClass = typeof import('@mytonwallet/capacitor-usb-hid/dist/esm').HIDTransport;
-type ListLedgerDevicesFunction = typeof import('@mytonwallet/capacitor-usb-hid/dist/esm').listLedgerDevices;
-
-let transport: TransportWebHID | TransportWebUSB | BleTransport | HIDTransport | undefined;
+let transport: TransportWebHID | TransportWebUSB | undefined;
+let currentLedgerTransport: LedgerTransport | undefined;
 let transportSupport: {
   hid: boolean;
   webUsb: boolean;
-  bluetooth: boolean;
 } | undefined;
-let currentLedgerTransport: LedgerTransport | undefined;
-
-let hidImportPromise: Promise<{
-  transport: HIDTransportClass;
-  listLedgerDevices: ListLedgerDevicesFunction;
-}> | undefined;
-let bleImportPromise: Promise<BleConnectorClass> | undefined;
-let BleConnector: BleConnectorClass;
-let MwHidTransport: HIDTransportClass;
-let listLedgerDevices: ListLedgerDevicesFunction;
-
-async function ensureBleConnector() {
-  if (!IS_CAPACITOR) return undefined;
-
-  if (!bleImportPromise) {
-    bleImportPromise = import('./bleConnector').then((module) => {
-      return module.BleConnector;
-    });
-    BleConnector = await bleImportPromise;
-  }
-
-  return bleImportPromise;
-}
-
-async function ensureHidTransport() {
-  if (!IS_ANDROID_APP) return undefined;
-
-  if (!hidImportPromise) {
-    hidImportPromise = import('@mytonwallet/capacitor-usb-hid/dist/esm').then((module) => {
-      return {
-        transport: module.HIDTransport,
-        listLedgerDevices: module.listLedgerDevices,
-      };
-    });
-    const result = await hidImportPromise;
-    MwHidTransport = result.transport;
-    listLedgerDevices = result.listLedgerDevices;
-  }
-
-  return hidImportPromise;
-}
-
-void ensureBleConnector();
-void ensureHidTransport();
 
 export async function detectAvailableTransports() {
-  await ensureBleConnector();
-  await ensureHidTransport();
-  const [hid, bluetooth, webUsb] = await Promise.all([
-    IS_ANDROID_APP ? MwHidTransport.isSupported() : TransportWebHID.isSupported(),
-    BleConnector ? BleConnector.isSupported() : false,
+  const [hid, webUsb] = await Promise.all([
+    TransportWebHID.isSupported(),
     TransportWebUSB.isSupported(),
   ]);
 
-  logDebug('LEDGER TRANSPORTS', { hid, bluetooth, webUsb });
+  logDebug('LEDGER TRANSPORTS', { hid, webUsb });
 
-  transportSupport = { hid, bluetooth, webUsb };
+  transportSupport = { hid, webUsb };
 
   return {
     isUsbAvailable: hid || webUsb,
-    isBluetoothAvailable: bluetooth,
   };
-}
-
-export async function hasUsbDevice() {
-  const support = await getTransportSupport();
-
-  if (support.hid) {
-    return IS_ANDROID_APP
-      ? await hasCapacitorHIDDevice()
-      : await hasWebHIDDevice();
-  }
-
-  if (support.webUsb) {
-    return await hasWebUsbDevice();
-  }
-
-  return false;
-}
-
-export function openSystemBluetoothSettings() {
-  if (!BleConnector) return;
-  void BleConnector.openSettings();
 }
 
 /**
@@ -123,19 +45,13 @@ export async function connectLedger(preferredTransport?: LedgerTransport) {
 
   if (preferredTransport) currentLedgerTransport = preferredTransport;
 
-  // Note: if you call transport?.close() here, the Bluetooth transport won't work as expected. For example, if TON App
-  // is closed in the middle of an operation, the following operations will hang indefinitely.
-
   try {
     switch (currentLedgerTransport) {
-      case 'bluetooth':
-        transport = await connectBLE();
-        break;
-
+      // Bluetooth (web-ble) is not implemented yet; add a `case 'bluetooth'` here when it is
       case 'usb':
       default:
         if (support.hid) {
-          transport = await connectHID();
+          transport = await connectWebHID();
         } else if (support.webUsb) {
           transport = await connectWebUsb();
         }
@@ -143,7 +59,7 @@ export async function connectLedger(preferredTransport?: LedgerTransport) {
     }
 
     if (!transport) {
-      logDebugError('connectLedger: BLE and/or HID are not supported');
+      logDebugError('connectLedger: HID and WebUSB are not supported');
       return false;
     }
 
@@ -154,33 +70,16 @@ export async function connectLedger(preferredTransport?: LedgerTransport) {
   }
 }
 
-export async function disconnectLedger(options: { force?: boolean } = {}) {
+export async function disconnectLedger() {
   const activeTransport = transport;
   transport = undefined;
   currentLedgerTransport = undefined;
 
   try {
-    if (options.force && activeTransport instanceof BleTransport) {
-      const didDisconnect = await BleConnector?.disconnect();
-      if (!didDisconnect) {
-        await BleTransport.disconnectDevice(activeTransport.id, activeTransport.onDisconnect);
-      }
-      return;
-    }
-
-    BleConnector?.stop();
     await activeTransport?.close();
   } catch (err) {
     logDebugError('disconnectLedger', err);
   }
-}
-
-function connectHID() {
-  if (IS_ANDROID_APP) {
-    return connectCapacitorHID();
-  }
-
-  return connectWebHID();
 }
 
 async function connectWebHID() {
@@ -221,71 +120,6 @@ async function connectWebUsb() {
   }
 
   throw new Error('Failed to connect');
-}
-
-async function connectCapacitorHID(): Promise<HIDTransport> {
-  for (let i = 0; i < ATTEMPTS; i++) {
-    const [device] = await listLedgerDevices();
-
-    if (!device) {
-      await pause(PAUSE);
-      continue;
-    }
-
-    try {
-      return await Promise.race([
-        MwHidTransport.open(device),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error()), 1000);
-        }),
-      ]);
-    } catch (error) {
-      await pause(PAUSE);
-    }
-  }
-
-  throw new Error('Failed to connect');
-}
-
-async function connectBLE(): Promise<BleTransport> {
-  if (!BleConnector) {
-    throw new Error('BLE is not supported on this device.');
-  }
-
-  const connection = await BleConnector.connect();
-  return connection.bleTransport;
-}
-
-async function tryDetectDevice(
-  listDeviceFn: () => Promise<ICapacitorUSBDevice[]>,
-  createTransportFn?: () => Promise<unknown> | void,
-) {
-  try {
-    for (let i = 0; i < DEVICE_DETECT_ATTEMPTS; i++) {
-      const [device] = await listDeviceFn();
-      if (!device) {
-        if (createTransportFn) await createTransportFn();
-        await pause(PAUSE);
-        continue;
-      }
-
-      return true;
-    }
-  } catch (err: any) {
-    logDebugError('tryDetectDevice', err);
-  }
-
-  return false;
-}
-
-function hasWebHIDDevice() {
-  return tryDetectDevice(() => TransportWebHID.list(), () => TransportWebHID.create());
-}
-function hasWebUsbDevice() {
-  return tryDetectDevice(() => TransportWebUSB.list(), () => TransportWebUSB.create());
-}
-function hasCapacitorHIDDevice() {
-  return tryDetectDevice(listLedgerDevices);
 }
 
 async function getTransportSupport() {

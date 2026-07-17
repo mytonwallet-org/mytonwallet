@@ -6,7 +6,7 @@ import React, {
   useRef,
 } from '../../lib/teact/teact';
 
-import { ANIMATION_END_DELAY, IS_CAPACITOR, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
+import { ANIMATION_END_DELAY, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
@@ -22,7 +22,6 @@ import windowSize from '../../util/windowSize';
 
 import freezeWhenClosed from '../../hooks/freezeWhenClosed';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
-import useHideBrowser from '../../hooks/useHideBrowser';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -30,7 +29,6 @@ import useShowTransition from '../../hooks/useShowTransition';
 import useToggleClass from '../../hooks/useToggleClass';
 
 import Button from './Button';
-import { getInAppBrowser } from './InAppBrowser';
 import Portal from './Portal';
 
 import styles from './Modal.module.scss';
@@ -97,8 +95,6 @@ function Modal({
 
   const { isPortrait } = useDeviceScreen();
 
-  useHideBrowser(isOpen, isCompact);
-
   const animationDuration = (isPortrait ? CLOSE_DURATION_PORTRAIT : CLOSE_DURATION) + ANIMATION_END_DELAY;
 
   const isSlideUp = !isCompact && isPortrait;
@@ -132,22 +128,6 @@ function Modal({
   useLayoutEffect(() => (
     isOpen ? beginHeavyAnimation(animationDuration) : undefined
   ), [animationDuration, isOpen]);
-
-  // Make sure to hide browser before presenting modals
-  useEffect(() => {
-    if (!IS_CAPACITOR || isCompact) return;
-
-    const browser = getInAppBrowser();
-    if (!isOpen) {
-      // Before showing browser, make sure that closed modals are updated state properly
-      requestAnimationFrame(() => {
-        browser?.show();
-      });
-      return;
-    }
-
-    void browser?.hide();
-  }, [isOpen, isCompact]);
 
   useEffect(() => {
     if (!IS_TOUCH_ENV || !isOpen || !isPortrait || !isSlideUp) {

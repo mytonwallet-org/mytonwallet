@@ -27,9 +27,6 @@ public struct OpenTokenIntent: OpenIntent {
 
     @MainActor
     public func perform() async throws -> some IntentResult {
-        guard AirLauncher.isOnTheAir else {
-            return .result()
-        }
         AirLauncher.handle(systemAction: .openToken(accountId: account?.id, tokenSlug: target.tokenSlug))
         return .result()
     }

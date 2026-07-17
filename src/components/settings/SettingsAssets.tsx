@@ -1,4 +1,3 @@
-import { AirAppLauncher } from '@mytonwallet/air-app-launcher';
 import React, {
   memo, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
@@ -7,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../api/types';
 import { SettingsState, type UserToken } from '../../global/types';
 
-import { CURRENCIES, IS_CAPACITOR, TINY_TRANSFER_MAX_COST } from '../../config';
+import { CURRENCIES, TINY_TRANSFER_MAX_COST } from '../../config';
 import {
   selectAccountStakingStates,
   selectCurrentAccountId,
@@ -124,7 +123,6 @@ function SettingsAssets({
   const handleBaseCurrencyChange = useLastCallback((currency: ApiBaseCurrency) => {
     setLocalBaseCurrency(currency);
     changeBaseCurrency({ currency });
-    if (IS_CAPACITOR) void AirAppLauncher.setBaseCurrency({ currency });
   });
 
   const {

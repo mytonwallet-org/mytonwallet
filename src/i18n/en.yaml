@@ -1648,3 +1648,7 @@ $chart_week_days_short: Sun,Mon,Tue,Wed,Thu,Fri,Sat
 Select multichain wallet: Select multichain wallet
 Unsupported Chain: Unsupported Chain
 Please upgrade to multichain to use this app.: Please upgrade to multichain to use this app.
+Deprecated Website: Deprecated Website
+This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.: This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.
+download the app: download the app
+Open %new_domain%: Open %new_domain%

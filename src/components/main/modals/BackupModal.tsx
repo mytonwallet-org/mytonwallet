@@ -3,7 +3,7 @@ import React, {
 } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import { IS_CAPACITOR, MNEMONIC_COUNT } from '../../../config';
+import { MNEMONIC_COUNT } from '../../../config';
 import { selectMnemonicForCheck } from '../../../global/actions/api/auth';
 import { selectCurrentAccountId, selectCurrentAccountState } from '../../../global/selectors';
 import { getDoesUsePinPad } from '../../../util/biometrics';
@@ -76,7 +76,7 @@ function BackupModal({
       const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
       setError(error);
       setIsLoading(false);
-      void vibrateOnError();
+      vibrateOnError();
       return;
     }
     if (getDoesUsePinPad()) {
@@ -140,7 +140,6 @@ function BackupModal({
               isActive={isActive}
               isLoading={isLoading}
               error={error}
-              withCloseButton={IS_CAPACITOR}
               submitLabel={lang('$back_up_auth')}
               cancelLabel={lang('Cancel')}
               noAutoConfirm
@@ -185,7 +184,7 @@ function BackupModal({
     <Modal
       isOpen={isOpen}
       hasCloseButton
-      dialogClassName={styles.modalDialog}
+      dialogClassName={buildClassName(styles.modalDialog, modalStyles.extraRounded)}
       onClose={onClose}
       onCloseAnimationEnd={handleModalClose}
     >

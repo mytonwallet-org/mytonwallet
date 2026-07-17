@@ -89,10 +89,30 @@ export interface ChainSdk<T extends ApiChain> {
   // Authentication
   //
 
+  /**
+   * Returns the chain-owned default BIP-39 derivation used for newly generated mnemonic wallets.
+   * The returned path is a template and may contain `{index}`; callers should pass it back to
+   * `getWalletFromBip39Mnemonic` with `index: 0` for the first wallet. `label`, when present, must match
+   * the chain's own derivation variant name.
+   */
+  getDefaultDerivation(): ApiDerivation;
+
+  /**
+   * Derives one or more wallets from a BIP-39 mnemonic for this chain.
+   *
+   * When `derivation` is provided, the result is limited to that derivation. When it is omitted, chain
+   * implementations may inspect known derivation variants and on-chain activity to find import candidates.
+   * `isNewMnemonic` is only for freshly generated words: implementations should skip discovery/network
+   * lookups that exist to restore old wallets, including version/balance selection such as TON's
+   * `pickBestWalletVersion`, and return the deterministic offline wallet for the supplied derivation.
+   * Results are ordered by chain preference/discovery result and never return display errors;
+   * unexpected failures are thrown.
+   */
   getWalletFromBip39Mnemonic(
     network: ApiNetwork,
     mnemonic: string[],
     derivation?: ApiDerivation,
+    isNewMnemonic?: boolean,
   ): MaybePromise<ApiWalletByChain[T][]>;
 
   getWalletFromPrivateKey(network: ApiNetwork, privateKey: string): MaybePromise<ApiWalletByChain[T]>;

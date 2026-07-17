@@ -12,7 +12,7 @@ suspend fun WalletCore.Transfer.checkTransactionDraft(
     val moshi = WalletCore.moshi
     val arg = moshi.adapter(MApiCheckTransactionDraftOptions::class.java).toJson(options)
 
-    WalletCore.bridge!!.callApiAsync<MApiCheckTransactionDraftResult>(
+    WalletCore.requiredBridge.callApiAsync<MApiCheckTransactionDraftResult>(
         "checkTransactionDraft",
         "[\"${chain.name}\", $arg]",
         MApiCheckTransactionDraftResult::class.java

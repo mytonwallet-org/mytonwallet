@@ -95,32 +95,32 @@ function LandscapeTopActions({
   useHorizontalScroll({ containerRef, shouldPreventDefault: true });
 
   const handleBuyClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     openOnRampWidgetModal({ chain: onRampChain! });
   });
 
   const handleDepositClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     openReceiveModal();
   });
 
   const handleTradeClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     startSwap();
   });
 
   const handleEarnClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     openStakingInfoOrStart();
   });
 
   const handleSellClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     openOffRampWidgetModal();
   });
 
   const handleSendClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     startTransfer();
   });
 

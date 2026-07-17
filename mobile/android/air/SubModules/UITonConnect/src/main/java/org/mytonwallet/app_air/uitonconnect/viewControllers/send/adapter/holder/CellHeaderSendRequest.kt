@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.holder
 
 import android.content.Context
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import android.text.Layout
 import android.text.TextUtils
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
@@ -37,8 +38,20 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.toAmountString
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 class CellHeaderSendRequest(context: Context) : WView(context) {
+    companion object {
+        private const val START_MARGIN = 16f
+        private const val LABEL_GAP = 4f
+        private const val IMAGE_GAP = 12f
+        private const val IMAGE_MARGIN = 12f
+        private const val IMAGE_SIZE = 48
+    }
+
     var onShowUnverifiedSourceWarning: (() -> Unit)? = null
 
     private val backgroundImageView = AppCompatImageView(context).apply {
@@ -94,7 +107,7 @@ class CellHeaderSendRequest(context: Context) : WView(context) {
     init {
         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, 72.dp)
         addView(backgroundImageView, LayoutParams(0, 0))
-        addView(imageView, LayoutParams(48.dp, 48.dp))
+        addView(imageView, LayoutParams(IMAGE_SIZE.dp, IMAGE_SIZE.dp))
         addView(walletNameLabel, LayoutParams(0, WRAP_CONTENT))
         addView(walletBalanceLabel, LayoutParams(0, WRAP_CONTENT))
         addView(dappNameLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -102,19 +115,36 @@ class CellHeaderSendRequest(context: Context) : WView(context) {
 
         setConstraints {
             allEdges(backgroundImageView)
-            toEnd(imageView, 12f)
+            toEnd(imageView, IMAGE_MARGIN)
             toCenterY(imageView)
-            toStart(walletNameLabel, 16f)
+            toStart(walletNameLabel, START_MARGIN)
             toTop(walletNameLabel, 16f)
-            toStart(walletBalanceLabel, 16f)
+            toStart(walletBalanceLabel, START_MARGIN)
             toBottom(walletBalanceLabel, 15f)
             toTop(dappNameLabel, 16f)
-            endToStart(dappNameLabel, imageView, 12f)
+            endToStart(dappNameLabel, imageView, IMAGE_GAP)
             toBottom(dappAddressLabel, 15f)
-            endToStart(dappAddressLabel, imageView, 12f)
-            endToStart(walletNameLabel, dappNameLabel, 4f)
-            endToStart(walletBalanceLabel, dappAddressLabel, 4f)
+            endToStart(dappAddressLabel, imageView, IMAGE_GAP)
+            endToStart(walletNameLabel, dappNameLabel, LABEL_GAP)
+            endToStart(walletBalanceLabel, dappAddressLabel, LABEL_GAP)
         }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val reservedWidth =
+            (START_MARGIN + LABEL_GAP + IMAGE_GAP + IMAGE_MARGIN).dp.roundToInt() + IMAGE_SIZE.dp
+        val availableWidth = MeasureSpec.getSize(widthMeasureSpec) - reservedWidth
+        if (availableWidth > 0) {
+            val walletNameWidth =
+                Layout.getDesiredWidth(walletNameLabel.text ?: "", walletNameLabel.paint)
+            val dappNameWidth =
+                Layout.getDesiredWidth(dappNameLabel.text ?: "", dappNameLabel.paint)
+            dappNameLabel.maxWidth = max(
+                (availableWidth * 0.7f).toInt(),
+                availableWidth - walletNameWidth.roundToInt()
+            ).coerceAtMost(min(availableWidth, ceil(dappNameWidth).toInt()))
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
     var update: ApiUpdate.ApiUpdateDappSignRequest? = null

@@ -415,6 +415,10 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
 
+    static func showDebugView() {
+        _showDebugView()
+    }
+
     static func showDeleteAccount(accountId: String) {
         if let account = AccountStore.accountsById[accountId] {
             showDeleteAccountAlert(accountToDelete: account, isCurrentAccount: AccountStore.accountId == account.id)
@@ -470,6 +474,8 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func showHiddenNfts(accountSource: AccountSource) {
+        let accountId = AccountStore.resolveAccountId(source: accountSource)
+        guard NftStore.getAccountHasHiddenNfts(accountId: accountId) else { return }
         let hiddenVC = HiddenNftsVC()
         let topVC = topViewController()
         if let nc = topVC as? WNavigationController {
@@ -692,7 +698,7 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func showUpgradeCard() {
-        log.info("showUpgradeCard - switchToCapacitor")
+        log.info("showUpgradeCard")
         AppActions.openInBrowser(URL(string:  "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!, title: "My Wallet NFT Cards", injectDappConnect: true)
     }
     
@@ -729,6 +735,7 @@ private class AppActionsImpl: AppActionsProtocol {
         case .about:
             return [AboutVC(showLegalSection: true)]
         case .hiddenNfts:
+            guard NftStore.getAccountHasHiddenNfts(accountId: AccountStore.currentAccountId) else { return nil }
             return [AssetsAndActivityVC(), HiddenNftsVC()]
         }
     }

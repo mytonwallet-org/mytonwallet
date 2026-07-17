@@ -13,7 +13,7 @@ object EthereumConfig : MBlockchainConfig {
     )
 
     override val symbolIcon = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_eth
-    override val symbolIconPadded = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_eth
+    override val symbolIconPadded = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_eth_13
     override val receiveOrnamentImage =
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_eth_light
 

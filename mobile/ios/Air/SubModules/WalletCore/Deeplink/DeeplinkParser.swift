@@ -238,9 +238,6 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     case "agent":
         return .agent
 
-    case "classic":
-        return .switchToClassic
-
     case "wc":
         return parseWalletConnectWrapperUrl(url)
         

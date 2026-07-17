@@ -19,7 +19,7 @@
   "include": [
     "src", "tests", "plugins", "webpack.config.ts", "webpack-electron.config.ts",
     "webpack-multisend.config.ts", "webpack-portfolio.config.ts", "webpack-air.config.ts",
-    "webpack-push.config.ts", "webpack-mfa.config.ts", "capacitor.config.ts", "eslint.config.mjs", ".fantasticonrc.js", "svgo.config.mjs"
+    "webpack-push.config.ts", "webpack-mfa.config.ts", "eslint.config.mjs", ".fantasticonrc.js", "svgo.config.mjs"
   ],
   "exclude": ["trash"]
 }

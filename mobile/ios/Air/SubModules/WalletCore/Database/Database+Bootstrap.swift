@@ -106,21 +106,6 @@ public enum DatabaseBootstrap {
     }
 
     @MainActor
-    public static func exportStateToCapacitor(db: any DatabaseWriter) async throws {
-        let migrationGlobalStorage = GlobalStorage()
-        do {
-            try await migrationGlobalStorage.loadFromWebView()
-            try await migrationGlobalStorage.migrate()
-        } catch {
-            log.error("failed to load existing global storage before switch: \(error, .public)")
-            migrationGlobalStorage.update {
-                $0["stateVersion"] = STATE_VERSION
-            }
-        }
-        try await switchStorageToCapacitor(global: migrationGlobalStorage, db: db)
-    }
-
-    @MainActor
     private static func bootstrapLegacyStorageIfNeeded(
         db: any DatabaseWriter,
         walletEvidence initialWalletEvidence: StartupWalletEvidence

@@ -6,42 +6,20 @@ import UIComponents
 import WalletContext
 import Perception
 
-private let log = Log("AppearanceSettingsView")
-
 struct AppearanceSettingsView: View {
-    
-    var canSwitchToCapacitor: Bool {
-        isCapacitorAvailable
-    }
-    
+
     var body: some View {
         WithPerceptionTracking {
             InsetList(topPadding: 16, spacing: 24) {
-                if canSwitchToCapacitor {
-                    switchToClassicSection
-                }
                 themeSection
                 PaletteAndCardSection()
                 
-                if IS_DEBUG_OR_TESTFLIGHT_DEFAULT {
+                if IS_DEBUG_OR_TESTFLIGHT {
                     AppTabsSection()
                 }
                 
                 OtherAppearanceSettingsSection()
                     .padding(.bottom, 48)
-            }
-        }
-    }
-    
-    var switchToClassicSection: some View {
-        InsetSection {
-            InsetButtonCell(alignment: .center) {
-                log.info("switchToCapacitor")
-                WalletContextManager.delegate?.switchToCapacitor()
-            } label: {
-                Text(lang("Switch to Legacy Version"))
-                    .padding(.vertical, 1)
-                    .foregroundStyle(Color.accentColor)
             }
         }
     }

@@ -5,9 +5,8 @@
 //
 // The wallet adapter enforces this set as a security boundary; client-side
 // copies (see EvmConnector.ts) avoid round-trips for clearly unsupported
-// methods. Native injection scripts (Air iOS Swift, Air Android Kotlin,
-// Classic Capacitor injected string) must mirror this list manually — they
-// run in contexts that cannot import TS modules.
+// methods. Native injection scripts (Air iOS Swift, Air Android Kotlin) must
+// mirror this list manually — they run in contexts that cannot import TS modules.
 export const READONLY_EVM_RPC_METHODS: ReadonlySet<string> = new Set([
   'eth_blockNumber',
   'eth_getBalance',

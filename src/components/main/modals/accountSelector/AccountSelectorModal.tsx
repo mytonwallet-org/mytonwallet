@@ -283,7 +283,7 @@ function AccountSelectorModal({
   });
 
   const handleSwitchAccount = useLastCallback((accountId: string) => {
-    void vibrate();
+    vibrate();
     handleCloseAccountSelectorForced();
 
     if (accountId !== currentAccountId) {
@@ -360,7 +360,7 @@ function AccountSelectorModal({
   });
 
   const handleAddWalletClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     setPreviousViewMode(renderingKey);
 
     const selectedTabId = tabs[currentTabIndex]?.id ?? AccountTab.My;
@@ -382,7 +382,7 @@ function AccountSelectorModal({
   });
 
   const handleReorderDoneClick = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     const previousMode = viewModeInitial === 'list'
       ? AccountSelectorState.List
       : AccountSelectorState.Cards;
@@ -390,12 +390,12 @@ function AccountSelectorModal({
   });
 
   const handleRenameClick = useLastCallback((accountId: string) => {
-    void vibrate();
+    vibrate();
     openWalletRenameModal({ accountId });
   });
 
   const handleLogOutClick = useLastCallback((accountId: string) => {
-    void vibrate();
+    vibrate();
     setLogOutAccountId(accountId);
     openLogOutModal();
   });
@@ -552,7 +552,7 @@ function AccountSelectorModal({
 
       case AccountSelectorState.AddAccountConnectHardware:
         return (
-          <div className={buildClassName(modalStyles.transitionContentWrapper, styles.compensateSafeArea)}>
+          <div className={modalStyles.transitionContentWrapper}>
             <LedgerConnect
               isActive={isActive}
               onConnected={handleHardwareWalletConnected}
@@ -564,7 +564,7 @@ function AccountSelectorModal({
 
       case AccountSelectorState.AddAccountSelectHardware:
         return (
-          <div className={buildClassName(modalStyles.transitionContentWrapper, styles.compensateSafeArea)}>
+          <div className={modalStyles.transitionContentWrapper}>
             <LedgerSelectWallets
               withCloseButton
               onBackClick={handleBackFromAddAccount}
@@ -575,12 +575,7 @@ function AccountSelectorModal({
 
       case AccountSelectorState.AddAccountViewMode:
         return (
-          <div className={buildClassName(
-            modalStyles.transitionContentWrapper,
-            styles.compensateSafeArea,
-            styles.compensateSafeAreaViewAccount,
-          )}
-          >
+          <div className={modalStyles.transitionContentWrapper}>
             <AuthImportViewAccount
               isActive={isActive}
               isLoading={isLoading}

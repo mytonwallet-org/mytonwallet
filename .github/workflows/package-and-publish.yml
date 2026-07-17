@@ -45,7 +45,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  APP_NAME: MyTonWallet
+  # Base of downloadable artifact filenames (dmg/exe/AppImage/apk). The user-visible
+  # app name is NOT set here - src/config.ts derives it per flavor ('My Wallet',
+  # 'Gram Wallet', 'TON Wallet'), and the TonConnect protocol identity stays
+  # 'MyTonWallet' via the mapping in src/util/tonConnectEnvironment.ts.
+  # Must match `artifactName` in src/electron/config.yml (pinned by config.test.ts).
+  ARTIFACT_NAME_BASE: MyWallet
   PROXY_HOSTS: ${{ vars.PROXY_HOSTS }}
   STAKING_POOLS: ${{ vars.STAKING_POOLS }}
   PUBLISH_REPO: ${{ vars.PUBLISH_REPO }}
@@ -236,32 +241,64 @@ jobs:
             npm run electron:release:production
           fi
 
+      # electron-builder publishes the draft release itself, so the release exists with an UNSIGNED
+      # Windows installer before signing runs. Signing and the feed recompute used to live in
+      # `publish-release`, which is skipped on manual dispatches and on release branches - both
+      # paths left a draft that looked complete and shipped an unsigned exe once a human pressed
+      # Publish (v26.7.0). Delete the installer as soon as it is published instead: a draft that
+      # never carries an unsigned exe cannot become a release with one, no matter which path
+      # reaches the publish button. `electron-publish-windows` puts the signed one back.
+      - name: Remove the unsigned Windows installer from the draft release
+        if: env.PUBLISH_REPO != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+
+          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
+
+          for NAME in "${{ env.ARTIFACT_NAME_BASE }}-x64.exe" "${{ env.ARTIFACT_NAME_BASE }}-x64.exe.blockmap"; do
+            ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" \
+              | jq -r --arg NAME "$NAME" '.[] | select(.name == $NAME) | .id')
+
+            if [ -z "$ASSET_ID" ] || [ "$ASSET_ID" = "null" ]; then
+              echo "$NAME is not among the release assets - nothing to remove"
+              continue
+            fi
+
+            curl -sf -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
+            echo "Removed unsigned $NAME"
+          done
+
       - name: Upload macOS x64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-x64.dmg
-          path: dist-electron/${{ env.APP_NAME }}-x64.dmg
+          name: ${{ env.ARTIFACT_NAME_BASE }}-x64.dmg
+          path: dist-electron/${{ env.ARTIFACT_NAME_BASE }}-x64.dmg
           if-no-files-found: error
 
       - name: Upload macOS arm64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-arm64.dmg
-          path: dist-electron/${{ env.APP_NAME }}-arm64.dmg
+          name: ${{ env.ARTIFACT_NAME_BASE }}-arm64.dmg
+          path: dist-electron/${{ env.ARTIFACT_NAME_BASE }}-arm64.dmg
           if-no-files-found: error
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-x86_64.AppImage
-          path: dist-electron/${{ env.APP_NAME }}-x86_64.AppImage
+          name: ${{ env.ARTIFACT_NAME_BASE }}-x86_64.AppImage
+          path: dist-electron/${{ env.ARTIFACT_NAME_BASE }}-x86_64.AppImage
           if-no-files-found: error
 
       - name: Upload Windows x64 artifact (unsigned)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-x64-unsigned.exe
-          path: dist-electron/${{ env.APP_NAME }}-x64.exe
+          name: ${{ env.ARTIFACT_NAME_BASE }}-x64-unsigned.exe
+          path: dist-electron/${{ env.ARTIFACT_NAME_BASE }}-x64.exe
           if-no-files-found: error
 
   electron-sign-for-windows:
@@ -286,7 +323,7 @@ jobs:
         shell: bash
         run: |
           echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          echo "FILE_NAME_X64=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
+          echo "FILE_NAME_X64=${{ env.ARTIFACT_NAME_BASE }}-x64.exe" >> "$GITHUB_ENV"
           echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
           echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
           echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV"
@@ -299,7 +336,7 @@ jobs:
         id: download-x64
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-x64-unsigned.exe
+          name: ${{ env.ARTIFACT_NAME_BASE }}-x64-unsigned.exe
 
       - name: Sign Windows packages
         env:
@@ -315,6 +352,94 @@ jobs:
         with:
           name: ${{ env.FILE_NAME_X64 }}
           path: ${{ steps.download-x64.outputs.download-path }}/${{ env.FILE_NAME_X64 }}
+
+  # Runs on every path that creates a draft release (the same `PUBLISH_REPO` condition that makes
+  # electron-builder publish one), not only on the master push that `publish-release` is gated to.
+  # The draft has no Windows installer until this job lands the signed one.
+  electron-publish-windows:
+    name: Publish signed Windows package
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    needs: electron-sign-for-windows
+    if: vars.PUBLISH_REPO != ''
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Set environment variables
+        run: |
+          echo "WINDOWS_X64_FILE_NAME=${{ env.ARTIFACT_NAME_BASE }}-x64.exe" >> "$GITHUB_ENV"
+
+      - name: Download signed Windows x64 package
+        id: dl_win_x64
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME_BASE }}-x64.exe
+
+      - name: Publish the signed installer and its feed
+        env:
+          FILE_PATH_X64: ${{ steps.dl_win_x64.outputs.download-path }}
+        run: |
+          set -e
+
+          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
+
+          upload () {
+            local FILE_PATH="$1"
+            local FILE_NAME="$2"
+            local PUBLISH_FILE_NAME="${FILE_NAME// /-}"
+
+            ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" \
+              | jq -r --arg PUBLISH_FILE_NAME "$PUBLISH_FILE_NAME" '.[] | select(.name == $PUBLISH_FILE_NAME) | .id')
+
+            if [ "$ASSET_ID" != "null" ] && [ -n "$ASSET_ID" ]; then
+              curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
+            fi
+
+            curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$FILE_PATH/$FILE_NAME" \
+              "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
+
+            echo "Uploaded $FILE_NAME"
+          }
+
+          upload "$FILE_PATH_X64" "$WINDOWS_X64_FILE_NAME"
+
+          # electron-builder published latest.yml before the exe was signed, so the feed still
+          # describes the unsigned bytes and electron-updater rejects the download on sha512
+          # mismatch. Recompute the metadata from the signed exe with the same tool
+          # electron-builder uses and republish the feed together with its blockmap.
+          npm install --no-save --no-audit --no-fund app-builder-bin@5.0.0-alpha.12
+          APP_BUILDER=node_modules/app-builder-bin/linux/x64/app-builder
+
+          YML_ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" \
+            | jq -r '.[] | select(.name == "latest.yml") | .id')
+          curl -sL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$YML_ASSET_ID" -o latest.yml
+
+          BLOCKMAP_NAME="${WINDOWS_X64_FILE_NAME// /-}.blockmap"
+          META=$("$APP_BUILDER" blockmap --input "$FILE_PATH_X64/$WINDOWS_X64_FILE_NAME" --output "$BLOCKMAP_NAME")
+          NEW_SHA512=$(echo "$META" | jq -r '.sha512')
+          NEW_SIZE=$(echo "$META" | jq -r '.size')
+          OLD_SHA512=$(grep -m1 'sha512:' latest.yml | awk '{print $2}')
+          OLD_SIZE=$(grep -m1 'size:' latest.yml | awk '{print $2}')
+
+          if [ -z "$OLD_SHA512" ] || [ -z "$OLD_SIZE" ]; then
+            echo "latest.yml carries no sha512/size - refusing to publish an inconsistent feed"
+            exit 1
+          fi
+
+          # base64 uses only [A-Za-z0-9+/=], so "|" is a safe sed delimiter and the
+          # replacement cannot contain "&" or "\".
+          sed -i "s|$OLD_SHA512|$NEW_SHA512|g; s|size: $OLD_SIZE|size: $NEW_SIZE|" latest.yml
+
+          upload "." "latest.yml"
+          upload "." "$BLOCKMAP_NAME"
 
   extensions-package:
     name: Build and package extensions
@@ -346,14 +471,14 @@ jobs:
       - name: Upload Chrome extension artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-chrome.zip
-          path: ${{ env.APP_NAME }}-chrome.zip
+          name: ${{ env.ARTIFACT_NAME_BASE }}-chrome.zip
+          path: ${{ env.ARTIFACT_NAME_BASE }}-chrome.zip
 
       - name: Upload Firefox extension artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-firefox.zip
-          path: ${{ env.APP_NAME }}-firefox.zip
+          name: ${{ env.ARTIFACT_NAME_BASE }}-firefox.zip
+          path: ${{ env.ARTIFACT_NAME_BASE }}-firefox.zip
 
   chrome-publish:
     name: Publish Chrome extension
@@ -374,8 +499,8 @@ jobs:
       - name: Set environment variables
         id: variables
         run: |
-          echo "CHROME_FILE_NAME=${{ env.APP_NAME }}-chrome.zip" >> "$GITHUB_ENV"
-          echo "FIREFOX_FILE_NAME=${{ env.APP_NAME }}-firefox.zip" >> "$GITHUB_ENV"
+          echo "CHROME_FILE_NAME=${{ env.ARTIFACT_NAME_BASE }}-chrome.zip" >> "$GITHUB_ENV"
+          echo "FIREFOX_FILE_NAME=${{ env.ARTIFACT_NAME_BASE }}-firefox.zip" >> "$GITHUB_ENV"
 
       - name: Download Chrome extension artifact
         uses: actions/download-artifact@v4
@@ -410,7 +535,7 @@ jobs:
       - name: Set environment variables
         id: variables
         run: |
-          echo "FIREFOX_FILE_NAME=${{ env.APP_NAME }}-firefox.zip" >> "$GITHUB_ENV"
+          echo "FIREFOX_FILE_NAME=${{ env.ARTIFACT_NAME_BASE }}-firefox.zip" >> "$GITHUB_ENV"
 
       - name: Download Firefox extension artifact
         uses: actions/download-artifact@v4
@@ -424,7 +549,7 @@ jobs:
           FIREFOX_EXTENSION_ID: ${{ vars.FIREFOX_EXTENSION_ID }}
         run: |
           npm i jsonwebtoken@9 web-ext-submit@7
-          UNZIP_DIR=/tmp/${{ env.APP_NAME }}-firefox
+          UNZIP_DIR=/tmp/${{ env.ARTIFACT_NAME_BASE }}-firefox
           mkdir $UNZIP_DIR
           unzip ${{ env.FIREFOX_FILE_NAME }} -d $UNZIP_DIR
           npx web-ext-submit --source-dir=$UNZIP_DIR
@@ -456,7 +581,7 @@ jobs:
       - name: Set environment variables
         id: variables
         run: |
-          echo "CHROME_FILE_NAME=${{ env.APP_NAME }}-chrome.zip" >> "$GITHUB_ENV"
+          echo "CHROME_FILE_NAME=${{ env.ARTIFACT_NAME_BASE }}-chrome.zip" >> "$GITHUB_ENV"
 
       - name: Download Chrome extension artifact
         uses: actions/download-artifact@v4
@@ -491,7 +616,7 @@ jobs:
         run: |
           mkdir release
           mv */*.dmg */*.AppImage */*.apk release/
-          mv ${{ env.APP_NAME }}-x64.exe/${{ env.APP_NAME }}-x64.exe release/
+          mv ${{ env.ARTIFACT_NAME_BASE }}-x64.exe/${{ env.ARTIFACT_NAME_BASE }}-x64.exe release/
           sha256sum release/* >${{ env.HASH_FILENAME }}
 
       - name: Upload hash artifact
@@ -525,7 +650,7 @@ jobs:
             mytonwallet)
               echo "ANDROID_APP_NAME=MyTonWallet" >> "$GITHUB_ENV"
               echo "ANDROID_PACKAGE_NAME=org.mytonwallet.app" >> "$GITHUB_ENV"
-              echo "ANDROID_ARTIFACT_NAME=MyTonWallet.apk" >> "$GITHUB_ENV"
+              echo "ANDROID_ARTIFACT_NAME=${{ env.ARTIFACT_NAME_BASE }}.apk" >> "$GITHUB_ENV"
               ;;
             gram)
               echo "ANDROID_APP_NAME=Gram Wallet" >> "$GITHUB_ENV"
@@ -544,8 +669,6 @@ jobs:
           node-version: ${{ vars.NODE_VERSION }}
 
       - name: Build and sync mobile project
-        env:
-          CAP_PLATFORM: android
         run: |
           if [ -z "$PUBLISH_REPO" ]; then
             npm run mobile:build:staging
@@ -602,7 +725,6 @@ jobs:
       - name: Build project for direct apk
         env:
           IS_ANDROID_DIRECT: 1
-          CAP_PLATFORM: android
         run: |
           if [ -z "$PUBLISH_REPO" ]; then
             npm run mobile:build:staging
@@ -634,7 +756,8 @@ jobs:
     needs: detect-changes
     runs-on: macos-26
     environment: production
-    timeout-minutes: 30
+    # The mytonwallet variant takes 30+ minutes on slow runners; v26.7.1 needed 3 attempts against a 30-minute cap
+    timeout-minutes: 45
     if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.android-only != 'true' && needs.detect-changes.outputs.ios-variants != '[]'
     strategy:
       fail-fast: false
@@ -686,8 +809,6 @@ jobs:
           node-version: ${{ vars.NODE_VERSION }}
 
       - name: Build and sync mobile project
-        env:
-          CAP_PLATFORM: ios
         run: |
           defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
@@ -850,22 +971,11 @@ jobs:
     timeout-minutes: 30
     needs:
       - android-release
-      - electron-sign-for-windows
+      - electron-publish-windows
     if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && vars.PUBLISH_REPO != ''
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Set environment variables
-        id: variables
-        run: |
-          echo "WINDOWS_X64_FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
-
-      - name: Download Windows x64 package
-        id: dl_win_x64
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.WINDOWS_X64_FILE_NAME }}
-
       - name: Download Android packages
         id: download-android
         uses: actions/download-artifact@v4
@@ -880,37 +990,6 @@ jobs:
           RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
           echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
 
-      - name: Replace Windows assets
-        env:
-          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
-          FILE_PATH_X64: ${{ steps.dl_win_x64.outputs.download-path }}
-        run: |
-          set -e
-
-          upload () {
-            local FILE_PATH="$1"
-            local FILE_NAME="$2"
-            local PUBLISH_FILE_NAME="${FILE_NAME// /-}"
-
-            ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" \
-              | jq -r --arg PUBLISH_FILE_NAME "$PUBLISH_FILE_NAME" '.[] | select(.name == $PUBLISH_FILE_NAME) | .id')
-
-            if [ "$ASSET_ID" != "null" ] && [ -n "$ASSET_ID" ]; then
-              curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
-                "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
-            fi
-
-            curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$FILE_PATH/$FILE_NAME" \
-              "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
-
-            echo "Uploaded $FILE_NAME"
-          }
-
-          upload "$FILE_PATH_X64" "$WINDOWS_X64_FILE_NAME"
-
       - name: Replace Android assets
         env:
           RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
@@ -924,9 +1003,9 @@ jobs:
             exit 1
           fi
 
-          for FILE_PATH in "${APK_FILES[@]}"; do
-            FILE_NAME=$(basename "$FILE_PATH")
-            PUBLISH_FILE_NAME="${FILE_NAME// /-}"
+          upload_apk () {
+            local FILE_PATH="$1"
+            local PUBLISH_FILE_NAME="$2"
 
             ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" \
@@ -942,7 +1021,19 @@ jobs:
               --data-binary "@$FILE_PATH" \
               "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
 
-            echo "Uploaded $FILE_NAME"
+            echo "Uploaded $PUBLISH_FILE_NAME"
+          }
+
+          for FILE_PATH in "${APK_FILES[@]}"; do
+            FILE_NAME=$(basename "$FILE_PATH")
+            upload_apk "$FILE_PATH" "${FILE_NAME// /-}"
+
+            # Installed sideload clients fetch the APK by a name baked into the app
+            # (app_direct_apk_version_url_template), so every release must also carry
+            # the pre-rename filename until those clients rotate out.
+            if [ "$FILE_NAME" = "${{ env.ARTIFACT_NAME_BASE }}.apk" ]; then
+              upload_apk "$FILE_PATH" "MyTonWallet.apk"
+            fi
           done
 
       - name: Publish release
@@ -950,3 +1041,109 @@ jobs:
           RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
         run: |
           curl -X PATCH -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID" -d '{"draft": false}'
+
+  # Release assets are mutated after electron-builder publishes the feeds that describe them
+  # (the Windows exe is swapped for a signed one), so feed and asset can silently diverge and
+  # every electron-updater client then fails the download on sha512 mismatch. This job re-reads
+  # what was actually published and fails the run on any divergence.
+  #
+  # It checks the release whether or not it is still a draft, because a draft is what a human
+  # presses Publish on. Gating it to the master push (as it was) left exactly the paths that
+  # skip `publish-release` unverified - which is how v26.7.0 shipped unsigned.
+  verify-release:
+    name: Verify release feed integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - electron-publish-windows
+      - publish-release
+    if: ${{ !cancelled() && needs.electron-publish-windows.result == 'success' }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # The feed check below compares the feed against the asset, so it passes just as happily on a
+      # release whose exe was never signed at all (v26.7.0: consistent feed, unsigned installer,
+      # SmartScreen for every user). Signedness is a property of the bytes alone, so it needs its
+      # own check: `verify` exits non-zero when the installer carries no Authenticode signature, or
+      # one that does not match its bytes.
+      - name: Check that every Windows installer is signed
+        run: |
+          set -e
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq osslsigncode
+
+          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq '.[0]')
+
+          INSTALLERS=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".exe")) | "\(.id) \(.name)"')
+          if [ -z "$INSTALLERS" ]; then
+            echo "The release carries no Windows installer - the signed one was never uploaded"
+            exit 1
+          fi
+
+          # Fed by a here-string rather than a pipe: a piped `while` runs in a subshell, where the
+          # `exit 1` below would end the subshell and leave the step green.
+          while read -r ASSET_ID NAME; do
+            curl -sL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID" -o installer.exe
+
+            if ! osslsigncode verify installer.exe; then
+              echo "$NAME is not signed. Windows would greet every user with a SmartScreen warning."
+              exit 1
+            fi
+
+            echo "OK       $NAME is signed"
+            rm -f installer.exe
+          done <<< "$INSTALLERS"
+
+      - name: Check every update feed against the published assets
+        run: |
+          set -e
+
+          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq '.[0]')
+          echo "Verifying release $(echo "$RELEASE_JSON" | jq -r '.tag_name')"
+
+          # Download through the assets API rather than browser_download_url: the CDN links can
+          # lag right after the release leaves draft, and a missing asset surfaces as an explicit
+          # failure instead of a hashed 404 page.
+          download () {
+            local NAME="$1"
+            local ASSET_ID
+            ASSET_ID=$(echo "$RELEASE_JSON" | jq -r --arg NAME "$NAME" '.assets[] | select(.name == $NAME) | .id')
+            if [ -z "$ASSET_ID" ]; then
+              echo "Asset $NAME is referenced by a feed but missing from the release"
+              return 1
+            fi
+            curl -sL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID" -o "$2"
+          }
+
+          FAILED=0
+          for FEED in $(echo "$RELEASE_JSON" | jq -r '.assets[].name | select(test("^latest.*\\.yml$"))'); do
+            download "$FEED" "$FEED"
+            COUNT=$(yq '.files | length' "$FEED")
+            for i in $(seq 0 $((COUNT - 1))); do
+              URL=$(yq ".files[$i].url" "$FEED")
+              WANT_SHA=$(yq ".files[$i].sha512" "$FEED")
+              WANT_SIZE=$(yq ".files[$i].size" "$FEED")
+              if ! download "$URL" asset.bin; then
+                FAILED=1
+                continue
+              fi
+              GOT_SHA=$(openssl dgst -sha512 -binary asset.bin | base64 -w0)
+              GOT_SIZE=$(stat -c %s asset.bin)
+              if [ "$GOT_SHA" = "$WANT_SHA" ] && [ "$GOT_SIZE" = "$WANT_SIZE" ]; then
+                echo "OK       $FEED -> $URL"
+              else
+                echo "MISMATCH $FEED -> $URL"
+                echo "  feed:  size=$WANT_SIZE sha512=$WANT_SHA"
+                echo "  asset: size=$GOT_SIZE sha512=$GOT_SHA"
+                FAILED=1
+              fi
+              rm -f asset.bin
+            done
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "A feed describes different bytes than the published asset. Auto-update would fail on sha512."
+            exit 1
+          fi

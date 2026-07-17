@@ -6,7 +6,7 @@ import type { ApiToken } from '../../api/types';
 import type { GlobalState } from '../../global/types';
 import { WalletConnectPayState } from '../../global/types';
 
-import { ANIMATED_STICKER_BIG_SIZE_PX, IS_CAPACITOR } from '../../config';
+import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../config';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
@@ -148,7 +148,7 @@ function WalletConnectPayModal({
           isActive={isActive}
           isLoading={isLoading}
           error={error}
-          withCloseButton={IS_CAPACITOR || getDoesUsePinPad()}
+          withCloseButton={getDoesUsePinPad()}
           operationType="transfer"
           submitLabel={submitLabel}
           cancelLabel={lang('Cancel')}

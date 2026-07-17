@@ -268,6 +268,7 @@ public class AssetsAndActivityVC: WViewController {
         if NftStore.getAccountHasHiddenNfts(accountId: account.id) {
             snapshot.appendSections([.hiddenNfts])
             snapshot.appendItems([.hiddenNfts])
+            snapshot.reconfigureItems([.hiddenNfts])
         }
         snapshot.appendSections([.hideNoCost])
         snapshot.appendItems([.hideNoCost])

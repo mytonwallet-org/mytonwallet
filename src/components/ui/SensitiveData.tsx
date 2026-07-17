@@ -89,7 +89,7 @@ function SensitiveData({
     if (!isActive) return;
 
     setIsShown(!isShown);
-    void vibrate();
+    vibrate();
   }
 
   const fullClassName = buildClassName(

@@ -37,7 +37,7 @@ fun WalletCore.importWallet(
 
     bridge?.callApi(
         "importMnemonic",
-        "[$quotedNetwork, ${words.toJSONString}, $quotedPasscode]"
+        "[$quotedNetwork, ${words.toJSONString}, $quotedPasscode, $isNew]"
     ) { result, error ->
         if (error != null || result == null) {
             callback(null, error)

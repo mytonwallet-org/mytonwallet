@@ -86,6 +86,37 @@ $footerPaddingBottomMin: 1rem;
   padding: 0 !important;
 }
 
+/* Full-width strip pinned to the top of the page, shown only on a legacy host (web-only, so fixed = viewport). */
+.legacyBar {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  right: 0;
+  left: 0;
+
+  /* Pad the text below the notch; the strip background still fills up to the top edge. */
+  padding: calc(0.625rem + var(--safe-area-top, 0px)) 1rem 0.625rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-red-warning-text);
+  text-align: center;
+
+  background-color: var(--color-red-warning-background);
+}
+
+/* Override the global accent-colored `a` (index.scss) - blue on the red strip is unreadable. */
+.legacyBarLink {
+  color: var(--color-red-warning-text) !important;
+  text-decoration: underline;
+}
+
+.containerWithLegacyBar {
+  /* Clear a two-line strip (the notice wraps on narrow screens and longer locales) plus the notch inset. */
+  padding-top: calc(3.75rem + var(--safe-area-top, 0px));
+}
+
 .aboutSlide {
   position: static !important;
   padding-top: 0 !important;

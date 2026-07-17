@@ -15,7 +15,6 @@ import { createAgentStream } from './agentApi';
 
 describe('createAgentStream', () => {
   const originalFetch = window.fetch;
-  const originalCapacitorWebFetch = window.CapacitorWebFetch;
 
   afterEach(() => {
     Object.defineProperty(window, 'fetch', {
@@ -24,33 +23,10 @@ describe('createAgentStream', () => {
       value: originalFetch,
     });
 
-    if (originalCapacitorWebFetch) {
-      window.CapacitorWebFetch = originalCapacitorWebFetch;
-    } else {
-      delete window.CapacitorWebFetch;
-    }
-
     jest.clearAllMocks();
   });
 
-  it('uses CapacitorWebFetch when available to preserve stream responses', async () => {
-    const fallbackFetch = jest.fn();
-    const capacitorWebFetch = jest.fn().mockResolvedValue(createStreamingResponse('hello from stream'));
-
-    Object.defineProperty(window, 'fetch', {
-      configurable: true,
-      writable: true,
-      value: fallbackFetch,
-    });
-    window.CapacitorWebFetch = capacitorWebFetch as unknown as typeof fetch;
-
-    await expectStreamCompletion('hello from stream');
-
-    expect(capacitorWebFetch).toHaveBeenCalledTimes(1);
-    expect(fallbackFetch).not.toHaveBeenCalled();
-  });
-
-  it('falls back to window.fetch when CapacitorWebFetch is not available', async () => {
+  it('uses window.fetch to stream responses', async () => {
     const fallbackFetch = jest.fn().mockResolvedValue(createStreamingResponse('hello from fetch'));
 
     Object.defineProperty(window, 'fetch', {
@@ -58,7 +34,6 @@ describe('createAgentStream', () => {
       writable: true,
       value: fallbackFetch,
     });
-    delete window.CapacitorWebFetch;
 
     await expectStreamCompletion('hello from fetch');
 

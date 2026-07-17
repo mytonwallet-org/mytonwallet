@@ -9,6 +9,7 @@ import {
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
 } from './auth';
+import { SOLANA_DERIVATION_PATHS } from './constants';
 import { signDappData, signDappTransfers } from './dapp';
 import { parseTransactionForPreview } from './emulation';
 import {
@@ -40,6 +41,7 @@ const solanaSdk: ChainSdk<'solana'> = {
   fetchActivityDetails,
   decryptComment: notSupported,
   normalizeAddress,
+  getDefaultDerivation: () => ({ path: SOLANA_DERIVATION_PATHS.phantom, index: 0, label: 'phantom' }),
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
   getWalletFromAddress,

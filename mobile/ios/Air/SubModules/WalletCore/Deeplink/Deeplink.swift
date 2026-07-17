@@ -13,7 +13,6 @@ public enum Deeplink {
     case stake
     case portfolio
     case url(url: URL, title: String?, injectDappConnect: Bool)
-    case switchToClassic
     case transfer
     case receive
     case explore(siteHost: String?)
@@ -28,7 +27,7 @@ public enum Deeplink {
 public extension Deeplink {
     var isAllowedFromExploreSearchBar: Bool {
         switch self {
-        case .switchToClassic, .url:
+        case .url:
             false
         default:
             true

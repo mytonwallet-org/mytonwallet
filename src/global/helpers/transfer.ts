@@ -94,7 +94,7 @@ export function isErrorTransferResult(result: unknown): result is ErrorTransferR
 }
 
 export function reportErrorTransferResult(result: ErrorTransferResult, updateForm: FormReducer<never>) {
-  void vibrateOnError();
+  vibrateOnError();
 
   const error = result?.error;
   let global = getGlobal();

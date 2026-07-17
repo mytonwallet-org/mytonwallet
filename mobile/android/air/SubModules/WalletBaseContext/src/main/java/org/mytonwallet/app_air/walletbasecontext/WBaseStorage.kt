@@ -45,14 +45,15 @@ object WBaseStorage {
             return it
         }
 
-        cachedLanguage =
+        val resolvedLanguage =
             LocaleController.appSpecificLanguageCode()
                 ?: resolveSystemLanguageCode()
                     ?: sharedPreferences.getString(
                     CACHE_ACTIVE_LANGUAGE,
                     WLanguage.ENGLISH.langCode
                 ) ?: WLanguage.ENGLISH.langCode
-        return cachedLanguage!!
+        cachedLanguage = resolvedLanguage
+        return resolvedLanguage
     }
 
     fun setActiveLanguage(value: String) {

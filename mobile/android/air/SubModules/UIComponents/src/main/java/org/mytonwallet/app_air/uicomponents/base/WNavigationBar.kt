@@ -171,7 +171,10 @@ class WNavigationBar(
             toStartPx(backButton, startInset + viewController.additionalTabletPadding + 8.dp)
             leadingView?.let {
                 toStartPx(it, startInset + viewController.additionalTabletPadding + 8.dp)
-            } ?: run {
+            }
+            if (titleGravity == Gravity.CENTER) {
+                toCenterX(titleLinearLayout, if (backButton.isVisible) 64f else 24f)
+            } else if (leadingView == null) {
                 toStartPx(
                     titleLinearLayout,
                     startInset + viewController.additionalTabletPadding +
@@ -180,7 +183,7 @@ class WNavigationBar(
             }
             if (closeButton.parent != null) {
                 toEndPx(closeButton, closeButtonEndMarginPx)
-            } else if (trailingView == null) {
+            } else if (trailingView == null && titleGravity != Gravity.CENTER) {
                 toEndPx(titleLinearLayout, endInset + 20.dp)
             }
             trailingView?.let {
@@ -315,7 +318,9 @@ class WNavigationBar(
             toTopPx(closeButton, topOffset)
             toBottom(closeButton)
             toEndPx(closeButton, closeButtonEndMarginPx)
-            endToStart(titleLinearLayout, closeButton, 4f)
+            if (titleGravity != Gravity.CENTER) {
+                endToStart(titleLinearLayout, closeButton, 4f)
+            }
         }
         return true
     }
@@ -347,7 +352,9 @@ class WNavigationBar(
                 leadingView,
                 viewController.systemBarStartInset + viewController.additionalTabletPadding + 8.dp
             )
-            startToEnd(titleLinearLayout, leadingView, 4f)
+            if (titleGravity != Gravity.CENTER) {
+                startToEnd(titleLinearLayout, leadingView, 4f)
+            }
         }
     }
 
@@ -367,7 +374,9 @@ class WNavigationBar(
             } else {
                 toEndPx(trailingView, viewController.systemBarEndInset + 8.dp)
             }
-            endToStart(titleLinearLayout, trailingView, 4f)
+            if (titleGravity != Gravity.CENTER) {
+                endToStart(titleLinearLayout, trailingView, 4f)
+            }
         }
     }
 
@@ -388,7 +397,9 @@ class WNavigationBar(
         }
     }
 
+    private var titleGravity: Int = Gravity.START
     fun setTitleGravity(gravity: Int) {
+        titleGravity = gravity
         titleLabel.gravity = gravity
         subtitleLabel.gravity = gravity
         contentView.setConstraints {

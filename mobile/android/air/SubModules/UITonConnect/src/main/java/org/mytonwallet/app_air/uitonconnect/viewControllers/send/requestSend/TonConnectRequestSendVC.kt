@@ -33,6 +33,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
@@ -61,6 +62,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.roundToInt
+import androidx.core.view.isVisible
 
 private const val NOT_RESPONDING_DELAY_MS = 7000L
 
@@ -112,6 +114,13 @@ class TonConnectRequestSendVC(
             layoutParams = ViewGroup.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT)
             text = LocaleController.getString("Cancel")
         }
+    private val errorLabel = WLabel(context).apply {
+        setStyle(14f)
+        setTextColor(WColor.Error)
+        gravity = Gravity.CENTER
+        maxLines = 2
+        visibility = View.GONE
+    }
     private val rvAdapter = Adapter()
 
     private val recyclerView = RecyclerView(context).apply {
@@ -224,6 +233,13 @@ class TonConnectRequestSendVC(
         )
         view.addView(cancelButtonView)
         view.addView(confirmButtonView)
+        view.addView(
+            errorLabel,
+            ConstraintLayout.LayoutParams(
+                MATCH_CONSTRAINT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
 
         view.setConstraints {
             topToTop(
@@ -237,6 +253,9 @@ class TonConnectRequestSendVC(
 
             leftToRight(confirmButtonView, cancelButtonView, 6f)
             rightToLeft(cancelButtonView, confirmButtonView, 6f)
+
+            toCenterX(errorLabel, 20f)
+            bottomToTop(errorLabel, cancelButtonView, 12f)
 
             topToBottom(headerSkeletonContainer, navigationBar!!)
             toCenterX(headerSkeletonContainer, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
@@ -325,9 +344,33 @@ class TonConnectRequestSendVC(
         collectFlow(viewModel!!.uiStateFlow) {
             cancelButtonView.isLoading = it.cancelButtonIsLoading
         }
+        collectFlow(viewModel!!.insufficientTokensFlow, ::updateInsufficientTokens)
 
-        confirmButtonView.isEnabled = true
+        confirmButtonView.isEnabled = insufficientTokens == null
         updateConfirmButtonStyle()
+    }
+
+    private var insufficientTokens: String? = null
+    private fun updateInsufficientTokens(symbols: String?) {
+        if (insufficientTokens == symbols)
+            return
+        insufficientTokens = symbols
+        errorLabel.text = symbols?.let {
+            LocaleController.getStringWithKeyValues(
+                "Not Enough %symbol%",
+                listOf(Pair("%symbol%", it))
+            )
+        }
+        errorLabel.visibility = if (symbols == null) View.GONE else View.VISIBLE
+        confirmButtonView.isEnabled = symbols == null
+        view.setConstraints {
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                if (symbols == null) cancelButtonView else errorLabel,
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
+            )
+        }
+        insetsUpdated()
     }
 
     private fun updateConfirmButtonStyle() {
@@ -556,8 +599,9 @@ class TonConnectRequestSendVC(
             0
         )
 
+        val errorExtra = if (errorLabel.isVisible) 26.dp else 0
         view.setConstraints {
-            toBottomPx(recyclerView, 90.dp + max(ime, nav))
+            toBottomPx(recyclerView, 90.dp + errorExtra + max(ime, nav))
             toBottomPx(cancelButtonView, 20.dp + max(ime, nav))
             toBottomPx(confirmButtonView, 20.dp + max(ime, nav))
         }

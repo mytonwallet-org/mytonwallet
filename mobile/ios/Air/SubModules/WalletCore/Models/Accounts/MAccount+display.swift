@@ -73,13 +73,16 @@ public extension MAccount {
         public var isTestnet: Bool
         public enum LeadingIcon {
             case ledger, view
-            public var image: Image {
+            public var symbolName: String {
                 switch self {
                 case .ledger:
-                    Image.airBundle("inline_ledger")
+                    "inline_ledger"
                 case .view:
-                    Image.airBundle("inline_view")
+                    "inline_view"
                 }
+            }
+            public var image: Image {
+                Image.airBundle(symbolName)
             }
         }
         public var leadingIcon: LeadingIcon?
@@ -151,10 +154,7 @@ public extension MAccount {
                 result.append(space)
             }
             if let leadingIcon {
-                switch leadingIcon {
-                case .ledger: appendIcon("inline_ledger")
-                case .view: appendIcon("inline_view")
-                }
+                appendSymbol(leadingIcon.symbolName)
                 result.append(space)
             }
 

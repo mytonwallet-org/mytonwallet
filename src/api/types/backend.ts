@@ -431,8 +431,10 @@ export type ApiBackendConfig = {
   isUpdateRequired: boolean;
   isVestingEnabled?: boolean;
   isWebSocketEnabled?: boolean;
+  // Enables the L1 client-side negative-verdict cache + EVM untrackable-address registry
+  // (retry-break on deterministic 4xx). Absent/false = safe legacy behavior. Global kill switch.
+  isNegVerdictCacheEnabled?: boolean;
   isTonConnectAnalyticsEnabled?: boolean;
-  shouldAutoSwitchToAir?: boolean;
   swapVersion?: ApiSwapVersion;
   seasonalTheme?: 'newYear' | 'valentine';
   knowledgeBaseVersion?: string;

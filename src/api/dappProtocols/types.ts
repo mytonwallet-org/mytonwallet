@@ -73,6 +73,7 @@ type ProtocolSpecificData<T extends string> = {
     ? SendTransactionRpcResponseSuccess | SignDataRpcResponseSuccess | DisconnectRpcResponseSuccess
     : {
       result: string;
+      results?: string[];
       id: string;
     };
 };

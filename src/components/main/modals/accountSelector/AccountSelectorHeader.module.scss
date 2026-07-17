@@ -13,8 +13,7 @@
   width: 100%;
   padding: 1rem 1rem 1.25rem;
 
-  :global(html.is-mobile-telegram-app.is-fullscreen) &,
-  :global(html.is-android-app) & {
+  :global(html.is-mobile-telegram-app.is-fullscreen) & {
     top: var(--top-height-compensation);
   }
 }

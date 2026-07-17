@@ -5,7 +5,6 @@ import type { ApiActivity, ApiDappTransfer, ApiToken } from '../../api/types';
 import type { GlobalState } from '../../global/types';
 import { TransferState } from '../../global/types';
 
-import { IS_CAPACITOR } from '../../config';
 import { selectCurrentDappTransferTotals } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -65,13 +64,6 @@ function DappTransferModal({
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
   const needsExtraHeight = useMemo(
     () => {
-      // Apply the extra height only on mobile apps.
-      // On the web, the height is controlled by the CSS.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      if (IS_CAPACITOR && renderingKey === TransferState.Password) {
-        return true;
-      }
-
       // Do not apply the extra height if the transfer is complete, otherwise the Close button will be hidden on the iOS device
       // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
       if (renderingKey === TransferState.Complete) {
@@ -116,7 +108,6 @@ function DappTransferModal({
           isActive={isActive}
           isLoading={isLoading}
           error={error}
-          withCloseButton={IS_CAPACITOR}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
           noAutoConfirm

@@ -71,10 +71,10 @@ final class AirRuntimeCoordinator: NSObject {
         lockCoordinator.lockApp(animated: animated)
     }
 
+    // Queued deeplinks/notifications/system actions are intentionally kept: events may arrive
+    // before `soarIntoAir` resets the coordinator (e.g. a cold-start deeplink) and must survive
+    // until the wallet is ready and unlocked.
     func reset() {
-        nextDeeplink = nil
-        nextNotification = nil
-        nextSystemActions.removeAll()
         _isWalletReady = false
         didSchedulePushPermissionRequest = false
         startupImportError = nil
@@ -340,13 +340,6 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
         }
     }
 
-    func switchToCapacitor() {
-        log.info("switch to capacitor")
-        Task {
-            await AirLauncher.switchToCapacitor()
-        }
-    }
-
     func restartApp() {
         WalletCoreData.removeObservers()
         _isWalletReady = false
@@ -415,9 +408,6 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
 
             case .url(let url, let title, let injectDappConnect):
                 AppActions.openInBrowser(url, title: title, injectDappConnect: injectDappConnect)
-
-            case .switchToClassic:
-                WalletContextManager.delegate?.switchToCapacitor()
 
             case .send(chain: _, address: let address, amount: let amount, comment: let comment, binaryPayload: let binaryPayload, tokenSlug: let tokenSlug, stateInit: let stateInit):
                 AppActions.showSend(accountContext: accountContext, prefilledValues: SendPrefilledValues(

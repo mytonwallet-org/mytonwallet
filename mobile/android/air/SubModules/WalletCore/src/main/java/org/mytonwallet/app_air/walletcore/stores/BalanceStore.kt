@@ -106,15 +106,15 @@ object BalanceStore : IStore {
         onCompletion: (() -> Unit)? = null
     ) {
         processorQueue.execute {
+            val existingBalances = balances[accountId]
             val newBalances: ConcurrentHashMap<String, BigInteger> =
-                if (removeOtherTokens || balances[accountId]?.keys.isNullOrEmpty()) {
+                if (removeOtherTokens || existingBalances.isNullOrEmpty()) {
                     ConcurrentHashMap()
                 } else {
-                    ConcurrentHashMap(balances[accountId]!!)
+                    ConcurrentHashMap(existingBalances)
                 }
-            for (it in accountBalances.keys) {
-                val balanceToUpdate = accountBalances[it]!!
-                newBalances[it] = balanceToUpdate
+            for ((slug, balanceToUpdate) in accountBalances) {
+                newBalances[slug] = balanceToUpdate
             }
             _balancesFlow.value = _balancesFlow.value.toMutableMap().apply {
                 put(accountId, newBalances.toMap())

@@ -10,13 +10,17 @@ import type {
 import { ApiCommonError } from '../../types';
 
 import { getChainConfig, getChainsByStandard } from '../../../util/chain';
-import { fetchJson } from '../../../util/fetch';
+import { fetchJson, isNegativeCacheableStatus } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
+import { logDebugError } from '../../../util/logs';
 import withCacheAsync from '../../../util/withCacheAsync';
 import { getEvmProvider } from './util/client';
 import { getZerionFungibleImplementation, isZerionNativeFungible } from './util/tokens';
+import { untrackableRegistry } from './util/untrackable';
 import { getKnownAddressInfo } from '../../common/addresses';
+import { getIsNegVerdictCacheEnabled } from '../../common/cache';
 import { buildTokenSlug, updateTokens } from '../../common/tokens';
+import { ApiServerError } from '../../errors';
 import { isValidAddress } from './address';
 import { EVM_RPC_URLS, getApiChainByZerionChain, getEvmApiUrl, getZerionChainByApiChain } from './constants';
 
@@ -130,6 +134,13 @@ async function fetchAccountAssetsUncoalesced(
   sendUpdateTokens: NoneToVoidFunction,
   isCrossChain?: boolean,
 ): Promise<ApiBalanceBySlug> {
+  const isUntrackableGuarded = getIsNegVerdictCacheEnabled();
+  if (isUntrackableGuarded && untrackableRegistry.has(network, address)) {
+    // Same address Zerion already rejected (e.g. on the transactions endpoint); skip the
+    // round-trip and return converged-empty positions so the balance poller stops probing it.
+    return buildEmptyEvmBalances(chain, isCrossChain);
+  }
+
   const zerionChain = getZerionChainByApiChain(chain);
 
   const params = {
@@ -141,10 +152,21 @@ async function fetchAccountAssetsUncoalesced(
       : zerionChain,
   };
 
-  const response = await fetchJson<ZerionPositionsResponse>(
-    `${getEvmApiUrl(network)}/v1/wallets/${address}/positions/`,
-    params,
-  );
+  let response: ZerionPositionsResponse;
+  try {
+    response = await fetchJson<ZerionPositionsResponse>(
+      `${getEvmApiUrl(network)}/v1/wallets/${address}/positions/`,
+      params,
+    );
+  } catch (err) {
+    if (isUntrackableGuarded && err instanceof ApiServerError && isNegativeCacheableStatus(err.statusCode)) {
+      untrackableRegistry.mark(network, address);
+      logDebugError('fetchAccountAssets: wallet is untrackable on Zerion', { address, chain, status: err.statusCode });
+      return buildEmptyEvmBalances(chain, isCrossChain);
+    }
+
+    throw err;
+  }
 
   const tokenEntities: ApiTokenWithMaybePrice[] = [];
   const slugPairs: Record<string, bigint> = {};
@@ -216,6 +238,18 @@ async function fetchAccountAssetsUncoalesced(
   return slugPairs;
 }
 
+// An untrackable address genuinely has no positions; return the same converged-empty shape a
+// normal empty wallet produces (native slug present at 0) so the balance poller emits a zero
+// update instead of leaving the previous balances stale (an empty {} yields no update at all).
+function buildEmptyEvmBalances(chain: EVMChain, isCrossChain?: boolean): ApiBalanceBySlug {
+  const chainsForNative = (isCrossChain ? getChainsByStandard(chain) : [chain]) as EVMChain[];
+  const balances: ApiBalanceBySlug = {};
+  for (const balanceChain of chainsForNative) {
+    balances[getChainConfig(balanceChain).nativeToken.slug] = 0n;
+  }
+  return balances;
+}
+
 function isNativeZerionAsset(chain: EVMChain, zerionChain: string, position: ZerionPosition) {
   return position.relationships.chain.data.id === zerionChain
     && isZerionNativeFungible(
@@ -272,6 +306,12 @@ export const getAddressInfo = (
 
 export const getIsWalletActive = withCacheAsync(
   async (network: ApiNetwork, chain: EVMChain, address: string) => {
+    const balance = await getWalletBalance(chain, network, address);
+
+    if (balance > 0n) {
+      return true;
+    }
+
     const payload = {
       method: 'POST',
       body: JSON.stringify({

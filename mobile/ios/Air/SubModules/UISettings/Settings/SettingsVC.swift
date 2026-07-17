@@ -269,7 +269,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     
     @objc private func onVersionMultipleTap(_ gesture: UIGestureRecognizer) {
         if gesture.state == .ended {
-            (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.showDebugView()
+            AppActions.showDebugView()
         }
     }
     

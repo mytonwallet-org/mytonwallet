@@ -1,7 +1,6 @@
 import React, { memo } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
-import { IS_CAPACITOR } from '../../config';
 import { getDoesUsePinPad } from '../../util/biometrics';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -34,7 +33,6 @@ function MfaPassword({ isActive, error, onSubmit, onCancel, onClose }: OwnProps)
       <PasswordForm
         isActive={isActive}
         error={error}
-        withCloseButton={IS_CAPACITOR}
         submitLabel={lang('Connect')}
         cancelLabel={lang('Cancel')}
         noAutoConfirm

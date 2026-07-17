@@ -11,8 +11,8 @@ TARGET="$1"
 
 IS_EXTENSION=1 ./deploy/copy_to_dist.sh
 
-rm -f "MyTonWallet-$TARGET.zip"
+rm -f "MyWallet-$TARGET.zip"
 
 cd dist
 
-zip -r -X "../MyTonWallet-$TARGET.zip" ./*
+zip -r -X "../MyWallet-$TARGET.zip" ./*

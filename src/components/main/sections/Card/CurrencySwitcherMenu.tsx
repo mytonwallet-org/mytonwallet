@@ -1,4 +1,3 @@
-import { AirAppLauncher } from '@mytonwallet/air-app-launcher';
 import type { ElementRef } from '../../../../lib/teact/teact';
 import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
@@ -8,7 +7,7 @@ import type { IAnchorPosition, UserToken } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
-import { CURRENCIES, IS_CAPACITOR } from '../../../../config';
+import { CURRENCIES } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
 import {
   selectAccountStakingStates,
@@ -99,7 +98,6 @@ function CurrencySwitcherMenu({
     if (currency === currentCurrency) return;
 
     changeBaseCurrency({ currency: currency as ApiBaseCurrency });
-    if (IS_CAPACITOR) void AirAppLauncher.setBaseCurrency({ currency });
     onChange?.(currency as ApiBaseCurrency);
   });
 

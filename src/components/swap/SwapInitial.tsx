@@ -277,7 +277,7 @@ function SwapInitial({
       return;
     }
 
-    void vibrate();
+    vibrate();
 
     const amount = toDecimal(maxAmount, tokenIn!.decimals);
     setSwapAmountIn({ amount, isMaxAmount: true });
@@ -295,7 +295,7 @@ function SwapInitial({
       return;
     }
 
-    void vibrate();
+    vibrate();
 
     if (swapType === SwapType.CrosschainFromWallet) {
       setSwapCexAddress({ toAddress: '' });
@@ -306,7 +306,7 @@ function SwapInitial({
   });
 
   const handleSwitchTokens = useLastCallback(() => {
-    void vibrate();
+    vibrate();
     switchSwapTokens();
   });
 
@@ -564,7 +564,7 @@ function useReverseProhibited(
   const handleBuyAmountInputClick = useMemo(() => {
     return isReverseProhibited
       ? () => {
-        void vibrate();
+        vibrate();
         showToast({ message: lang('$swap_reverse_prohibited') });
       }
       : undefined;

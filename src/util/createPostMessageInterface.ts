@@ -1,4 +1,3 @@
-import type InAppBrowserPostMessageAdapter from './embeddedDappBridge/provider/InAppBrowserPostMessageAdapter';
 import type {
   ApiUpdate,
   CancellableCallback,
@@ -33,7 +32,7 @@ bindGlobalErrorListeners();
 export function createPostMessageInterface(
   api: ApiConfig,
   channel?: string,
-  target: DedicatedWorkerGlobalScope | Worker | InAppBrowserPostMessageAdapter = self as DedicatedWorkerGlobalScope,
+  target: DedicatedWorkerGlobalScope | Worker = self as DedicatedWorkerGlobalScope,
   shouldIgnoreErrors?: boolean,
 ) {
   let unsubscribeErrorHandler: VoidFunction | undefined;

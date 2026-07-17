@@ -1,4 +1,3 @@
-import { AirAppLauncher } from '@mytonwallet/air-app-launcher';
 import { getIsHeavyAnimating, onFullyIdle } from '../lib/teact/teact';
 import { addCallback, removeCallback } from '../lib/teact/teactn';
 
@@ -7,7 +6,6 @@ import type {
   Account,
   AccountState,
   GlobalState,
-  LanguageSource,
   PortfolioState,
   SavedAddress,
   TokenPeriod,
@@ -20,7 +18,6 @@ import {
   DEBUG,
   GLOBAL_STATE_CACHE_DISABLED,
   GLOBAL_STATE_CACHE_KEY,
-  IS_CAPACITOR,
   MAIN_ACCOUNT_ID,
   TONCOIN,
 } from '../config';
@@ -38,12 +35,12 @@ import {
 } from '../util/poisoningHash';
 import { onBeforeUnload, throttle } from '../util/schedulers';
 import { getIsActiveStakingState } from '../util/staking';
-import { IS_ANDROID_APP, IS_ELECTRON, setUserAgentLangCode, USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
+import { IS_ELECTRON } from '../util/windowEnvironment';
 import { addActionHandler, getGlobal } from './index';
 import { INITIAL_STATE, STATE_VERSION } from './initialState';
 import { selectAccountState, selectAccountTokens } from './selectors';
 
-const UPDATE_THROTTLE = IS_CAPACITOR ? 500 : 5000;
+const UPDATE_THROTTLE = 5000;
 const ACTIVITIES_LIMIT = 20;
 const ACTIVITY_TOKENS_LIMIT = 30;
 const STAKING_HISTORY_LIMIT = 30;
@@ -133,30 +130,10 @@ export function loadCache(initialState: GlobalState): GlobalState {
     ...cached,
   };
 
-  return normalizeCapacitorLanguageSettings(merged);
-}
-
-function normalizeCapacitorLanguageSettings(global: GlobalState): GlobalState {
-  if (!IS_CAPACITOR) {
-    return global;
-  }
-
-  const settings = global.settings;
-  const langSource: LanguageSource = settings.langSource === 'user' ? 'user' : 'system';
-
-  return {
-    ...global,
-    settings: {
-      ...settings,
-      langCode: !IS_ANDROID_APP && langSource === 'user' ? settings.langCode : USER_AGENT_LANG_CODE,
-      langSource,
-    },
-  };
+  return merged;
 }
 
 function migrateCache(cached: GlobalState, initialState: GlobalState) {
-  const rawSettings = cached.settings;
-
   // Pre-fill settings with defaults
   cached.settings = {
     ...initialState.settings,
@@ -635,14 +612,6 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     cached.stateVersion = 53;
   }
   if (cached.stateVersion === 53) {
-    const hasStoredLangSource = rawSettings ? Object.hasOwn(rawSettings, 'langSource') : false;
-    if (IS_CAPACITOR && !hasStoredLangSource) {
-      cached.settings.langSource = 'user';
-      if (IS_ANDROID_APP) {
-        void AirAppLauncher.setLanguage({ langCode: cached.settings.langCode });
-        setUserAgentLangCode(cached.settings.langCode);
-      }
-    }
     cached.stateVersion = 54;
   }
   if (cached.stateVersion === 54) {

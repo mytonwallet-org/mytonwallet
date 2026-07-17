@@ -15,7 +15,6 @@ struct SettingsSection: Identifiable {
         case general
         case questionAndAnswers
         case about
-        case switchToCapacitor
     }
     let id: Section
     var children: [SettingsItem]

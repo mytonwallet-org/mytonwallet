@@ -72,16 +72,6 @@ function comparator(factorsA: SearchFactors<6>, factorsB: SearchFactors<6>) {
   return 0;
 }
 
-export function filterSites(sites?: ApiSite[], shouldRestrict?: boolean) {
-  if (!sites) {
-    return undefined;
-  }
-
-  return shouldRestrict
-    ? sites.filter((site) => !site.canBeRestricted)
-    : sites;
-}
-
 export function validateAddressForChains(
   address: string,
 ): Array<{ chain: ApiChain; isValid: boolean }> {

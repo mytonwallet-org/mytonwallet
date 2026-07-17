@@ -7,7 +7,6 @@ import buildClassName from '../../util/buildClassName';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import {
   IS_ANDROID,
-  IS_ANDROID_APP,
   IS_IOS,
   IS_LINUX,
   IS_MAC_OS,
@@ -210,9 +209,6 @@ function applyDocumentClasses() {
     documentElement.classList.add('is-ios', 'is-mobile');
   } else if (IS_ANDROID) {
     documentElement.classList.add('is-android', 'is-mobile');
-    if (IS_ANDROID_APP) {
-      documentElement.classList.add('is-android-app');
-    }
   } else if (IS_MAC_OS) {
     documentElement.classList.add('is-macos');
   } else if (IS_WINDOWS) {

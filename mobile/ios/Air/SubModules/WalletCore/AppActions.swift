@@ -44,6 +44,7 @@ import WalletCoreTypes
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?)
     static func showCustomizeAppTabs()
     static func showCustomizeWallet(accountId: String?)
+    static func showDebugView()
     static func showDeleteAccount(accountId: String)
     static func showEarn(accountContext: AccountContext, tokenSlug: String?)
     static func showError(error: Error?)
@@ -172,6 +173,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?) { }
     static func showCustomizeWallet(accountId: String?) { }
     static func showCustomizeAppTabs() { }
+    static func showDebugView() { }
     static func showDeleteAccount(accountId: String) { }
     static func showEarn(accountContext: AccountContext, tokenSlug: String?) { }
     static func showError(error: Error?) { }

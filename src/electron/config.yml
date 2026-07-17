@@ -1,8 +1,21 @@
-productName: "MyTonWallet"
-artifactName: "MyTonWallet-${arch}.${ext}"
+productName: "My Wallet"
+# Pinned by config.test.ts: change ONLY together with ARTIFACT_NAME_BASE in
+# package-and-publish.yml (workflow artifact names must match electron-builder output) and the
+# get.mywallet.io download page. Renaming is safe for installed clients: the update feed
+# (latest*.yml) and the files it points at are generated together into the same release, so old
+# clients download whatever name the new feed declares.
+artifactName: "MyWallet-${arch}.${ext}"
 appId: "io.mytonwallet.electron"
 extraMetadata:
   main: "./dist/electron.js"
+  # DO NOT RENAME. This is the sole source of `app.getName()`, which keys `app.getPath('userData')`
+  # (the IndexedDB holding every wallet) and the macOS keychain entry `<name> Safe Storage`. Turning
+  # on Touch ID re-encrypts the wallet under a random password whose only copy is sealed by that
+  # keychain entry, so losing the entry leaves the mnemonic undecryptable and the seed phrase the
+  # only way back. No migration exists, and any other value - including deleting the key, which
+  # falls back to package.json `name` ("mytonwallet") - strands existing desktop wallets.
+  # `CFBundleName` has no say in either path. The user-visible name is `productName` above, which
+  # never reaches the packaged package.json and is safe to change. Enforced by `config.test.ts`.
   productName: "MyTonWallet"
 files:
   - "dist"
@@ -53,10 +66,6 @@ mac:
     arch: ["x64", "arm64"]
   entitlements: "public/electron-entitlements.mac.plist"
   icon: "public/icon-electron-macos.icns"
-  extendInfo:
-    # Show "My Wallet" in Finder/Dock while keeping CFBundleName (=productName)
-    # "MyTonWallet" so userData path and the safeStorage keychain entry stay put.
-    CFBundleDisplayName: "My Wallet"
 
 dmg:
   title: "My Wallet installer"

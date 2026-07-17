@@ -13,7 +13,7 @@ if (!WEB_EXT_API_KEY || !WEB_EXT_API_SECRET || !FIREFOX_EXTENSION_ID) {
 
 const extId = FIREFOX_EXTENSION_ID;
 const baseUrl = 'https://addons.mozilla.org';
-const sourceFile = 'MyTonWallet-firefox-sources.tgz';
+const sourceFile = 'MyWallet-firefox-sources.tgz';
 
 const token = getAuthToken(WEB_EXT_API_KEY, WEB_EXT_API_SECRET);
 const headers = { Authorization: `JWT ${token}` };

@@ -9,6 +9,7 @@ import UIKit
 import UIComponents
 import SwiftUI
 import WalletContext
+import WalletCore
 
 public class IntroVC: CreateWalletBaseVC {
 
@@ -50,7 +51,7 @@ public class IntroVC: CreateWalletBaseVC {
     
     @objc func onLongPress(_ gesture: UIGestureRecognizer) {
         if gesture.state == .began {
-            (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.showDebugView()
+            AppActions.showDebugView()
         }
     }
 }

@@ -2,7 +2,7 @@
 
 set -e
 
-rm -f MyTonWallet-firefox-sources.tgz
+rm -f MyWallet-firefox-sources.tgz
 
 COPYFILE_DISABLE=1 tar \
   --exclude='*.zip' \
@@ -16,8 +16,6 @@ COPYFILE_DISABLE=1 tar \
   --exclude=./.idea \
   --exclude=./mobile/android \
   --exclude=./mobile/ios \
-  --exclude=./mobile/plugins/air-app-launcher/node_modules \
-  --exclude=./mobile/plugins/native-dialog/node_modules \
-  "$@" -cvzf /tmp/MyTonWallet-firefox-sources.tgz ./
+  "$@" -cvzf /tmp/MyWallet-firefox-sources.tgz ./
 
-mv /tmp/MyTonWallet-firefox-sources.tgz ./
+mv /tmp/MyWallet-firefox-sources.tgz ./

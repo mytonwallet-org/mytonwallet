@@ -27,12 +27,12 @@ export const SEND_CONTEXT_MENU_ITEMS: DropdownItem<MenuHandler>[] = [{
 export function handleSendMenuItemClick(value: MenuHandler) {
   switch (value) {
     case 'send':
-      void vibrate();
+      vibrate();
       getActions().startTransfer();
       break;
 
     case 'multisend':
-      void vibrate();
+      vibrate();
       void openUrl(MULTISEND_DAPP_URL, {
         title: getTranslation('Multisend'),
         subtitle: getHostnameFromUrl(MULTISEND_DAPP_URL),
@@ -40,7 +40,7 @@ export function handleSendMenuItemClick(value: MenuHandler) {
       break;
 
     case 'sell':
-      void vibrate();
+      vibrate();
       getActions().openOffRampWidgetModal();
       break;
   }

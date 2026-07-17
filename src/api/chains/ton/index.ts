@@ -10,6 +10,7 @@ import {
   getWalletFromPrivateKey,
   getWalletsFromLedgerAndLoadBalance,
 } from './auth';
+import { TON_BIP39_PATH } from './constants';
 import { signConnectionProof, signDappData, signDappTransfers } from './dapp';
 import {
   checkNftOwnership,
@@ -47,6 +48,7 @@ const tonSdk: ChainSdk<'ton'> = {
   fetchActivityDetails,
   decryptComment,
   normalizeAddress,
+  getDefaultDerivation: () => ({ path: TON_BIP39_PATH, index: 0 }),
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
   getWalletFromAddress,

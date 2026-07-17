@@ -1,10 +1,8 @@
-import { Dialog } from '@capacitor/dialog';
 import React, { type FC, memo, useEffect } from '../lib/teact/teact';
 import { getActions, withGlobal } from '../global';
 
 import type { DialogAction, DialogType } from '../global/types';
 
-import { IS_CAPACITOR } from '../config';
 import renderText from '../global/helpers/renderText';
 import { pick } from '../util/iteratees';
 import { openUrl } from '../util/openUrl';
@@ -35,18 +33,13 @@ const Dialogs: FC<StateProps> = ({ dialogs }) => {
   const hasCancel = Boolean(dialog?.buttons?.cancel);
   const confirmTitle = lang(buttons.confirm.title ?? 'OK');
   const cancelTitle = hasCancel ? lang(buttons.cancel?.title ?? 'Cancel') : undefined;
-  const isNativeDialog = IS_CAPACITOR && typeof dialog?.message === 'string';
 
   const handleAction = useLastCallback(() => {
     if (buttons.confirm.action) {
-      void executeDialogAction(buttons.confirm.action, dialog);
+      executeDialogAction(buttons.confirm.action, dialog);
     }
 
-    if (isNativeDialog) {
-      dismissDialog();
-    } else {
-      closeModal();
-    }
+    closeModal();
   });
 
   useEffect(() => {
@@ -55,31 +48,8 @@ const Dialogs: FC<StateProps> = ({ dialogs }) => {
       return;
     }
 
-    if (isNativeDialog) {
-      if (hasCancel) {
-        void Dialog.confirm({
-          title,
-          message: lang(dialog.message as string),
-          okButtonTitle: confirmTitle,
-          cancelButtonTitle: cancelTitle,
-        }).then((result) => {
-          if (result.value) {
-            handleAction();
-          } else {
-            dismissDialog();
-          }
-        });
-      } else {
-        void Dialog.alert({
-          title,
-          message: lang(dialog.message as string),
-          buttonTitle: confirmTitle,
-        }).then(handleAction);
-      }
-    } else {
-      openModal();
-    }
-  }, [cancelTitle, confirmTitle, dialog, hasCancel, isNativeDialog, lang, title]);
+    openModal();
+  }, [dialog]);
 
   if (!dialog) {
     return undefined;
@@ -120,15 +90,8 @@ export default memo(withGlobal(
   (global): StateProps => pick(global, ['dialogs']),
 )(Dialogs));
 
-async function executeDialogAction(action: DialogAction, dialog: DialogType) {
+function executeDialogAction(action: DialogAction, dialog: DialogType) {
   switch (action) {
-    case 'openBluetoothSettings': {
-      const { openSystemBluetoothSettings } = await import('../util/ledger');
-
-      openSystemBluetoothSettings();
-      break;
-    }
-
     case 'signOutAll': {
       const { signOut } = getActions();
 

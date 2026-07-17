@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Ledger
 import UIKit
 import UIAgent
 import UIComponents
@@ -18,93 +17,60 @@ import Dependencies
 
 private let log = Log("AirLauncher")
 
+private let firstLaunchDateKey = "firstLaunchDate"
+private let firstLaunchVersionKey = "firstLaunchVersion"
+private let lastLaunchDateKey = "lastLaunchDate"
+private let lastLaunchVersionKey = "lastLaunchVersion"
+
 
 @MainActor
 public class AirLauncher {
-    private static let startupModePreference = StartupModePreference()
-    
-    private static var canSwitchToCapacitor: Bool {
-        isCapacitorAvailable
-    }
-    
-    public static var isOnTheAir: Bool {
-        get {
-            currentStartupMode.mode.isAir
-        }
-        set {
-            setStartupMode(StartupMode(isAir: newValue))
-        }
-    }
-
-    public static var currentStartupMode: StartupModeDecision {
-        startupModePreference.currentMode(canUseClassic: canSwitchToCapacitor)
-    }
-
-    @discardableResult
-    public static func setStartupMode(_ mode: StartupMode) -> StartupModeDecision {
-        startupModePreference.setMode(mode, canUseClassic: canSwitchToCapacitor)
-    }
-
-    @discardableResult
-    public static func applyMissingFirstLaunchMarkerPolicy() -> StartupModeDecision {
-        startupModePreference.applyMissingFirstLaunchMarkerPolicy(canUseClassic: canSwitchToCapacitor)
-    }
-
-    @discardableResult
-    public static func forceAir() -> StartupModeDecision {
-        startupModePreference.forceAir()
-    }
-    
     private static var window: WWindow!
-    private static var runtimeCoordinator: AirRuntimeCoordinator? {
-        didSet {
-            guard let runtimeCoordinator else { return }
-            if let pendingDeeplinkURL {
-                _ = runtimeCoordinator.handle(url: pendingDeeplinkURL)
-                self.pendingDeeplinkURL = nil
-            }
-            if let pendingNotification {
-                runtimeCoordinator.handle(notification: pendingNotification)
-                self.pendingNotification = nil
-            }
-            if !pendingSystemActions.isEmpty {
-                let actions = pendingSystemActions
-                pendingSystemActions.removeAll()
-                for action in actions {
-                    runtimeCoordinator.handle(systemAction: action)
-                }
-            }
-        }
-    }
+    // Long-lived: queues incoming deeplinks/notifications/system actions until the wallet
+    // is ready and unlocked, including those arriving before `soarIntoAir` has run.
+    private static let runtimeCoordinator = AirRuntimeCoordinator()
 
     private static var db: (any DatabaseWriter)?
     private static var hasStartedDeferredLaunch = false
-    static var pendingDeeplinkURL: URL? = nil
-    static var pendingNotification: UNNotification? = nil
-    static var pendingSystemActions: [AirSystemAction] = []
     static var pendingPushToken: String? = nil
     static var appUnlocked = false
     private static var hasStartedWalletCore = false
-    
-    public static func set(window: WWindow) {
-        AirLauncher.window = window
-        StartupTrace.mark("airLauncher.window.set")
+    public private(set) static var isFirstLaunch = false
+
+    public static func recordLaunchMetadata() {
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: firstLaunchDateKey) as? Date == nil {
+            log.info("firstLaunchDate key not found")
+            defaults.set(Date(), forKey: firstLaunchDateKey)
+            defaults.set(appVersion, forKey: firstLaunchVersionKey)
+            isFirstLaunch = true
+        }
+        defaults.set(Date(), forKey: lastLaunchDateKey)
+        defaults.set(appVersion, forKey: lastLaunchVersionKey)
     }
 
-    public static func installRootViewControllerIfNeeded() {
+    public static func launch(window: WWindow) {
+        AirLauncher.window = window
+        StartupTrace.mark("airLauncher.window.set")
+        installRootViewControllerIfNeeded()
+        Task(priority: .userInitiated) {
+            await soarIntoAir()
+        }
+    }
+
+    static func installRootViewControllerIfNeeded() {
         guard let window else { return }
         RootStateCoordinator.shared.installAsRootViewController(on: window, animationDuration: nil)
     }
-    
-    public static func soarIntoAir() async {
+
+    static func soarIntoAir() async {
         log.info("soarIntoAir")
         StartupTrace.beginInterval("airLauncher.soarIntoAir")
         StartupTrace.mark("airLauncher.soarIntoAir.begin")
         hasStartedWalletCore = false
         hasStartedDeferredLaunch = false
         appUnlocked = false
-        runtimeCoordinator?.reset()
-        runtimeCoordinator = nil
+        runtimeCoordinator.reset()
         RootStateCoordinator.shared.reset()
         AgentStore.shared.clean()
         installRootViewControllerIfNeeded()
@@ -137,7 +103,6 @@ public class AirLauncher {
         }
         StartupTrace.mark("airLauncher.walletCoreData.minimal.end")
 
-        let isFirstLaunch = (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.isFirstLaunch == true
         if isFirstLaunch && AccountStore.accountsById.isEmpty && launchPreparation.shouldDeletePreviousInstallAccountsOnFirstLaunch {
             log.info("Deleting accounts from previous install")
             KeychainHelper.deleteAccountsFromPreviousInstall()
@@ -151,8 +116,7 @@ public class AirLauncher {
         window?.updateTheme()
         StartupTrace.mark("airLauncher.theme.ready", details: "nightMode=\(String(describing: nightMode)) animations=\(AppStorageHelper.animations)")
 
-        let runtimeCoordinator = AirRuntimeCoordinator()
-        self.runtimeCoordinator = runtimeCoordinator
+        let runtimeCoordinator = self.runtimeCoordinator
         runtimeCoordinator.beginLaunch()
         DispatchQueue.main.async {
             runtimeCoordinator.start()
@@ -187,7 +151,7 @@ public class AirLauncher {
 
         UIApplication.shared.registerForRemoteNotifications()
         StartupTrace.mark("airLauncher.remoteNotifications.requested")
-        await runtimeCoordinator?.walletCoreBootstrapDidFinish()
+        await runtimeCoordinator.walletCoreBootstrapDidFinish()
     }
 
     private static func presentStartupFailure(_ error: any Error, phase: StartupFailurePhase) async {
@@ -208,105 +172,25 @@ public class AirLauncher {
         StartupTrace.mark("airLauncher.theme.account.ready", details: "accent=\(String(describing: activeColorTheme))")
     }
     
-    public static func switchToCapacitor() async {
-        log.info("switchToCapacitor")
-        guard canSwitchToCapacitor else {
-            log.info("switchToCapacitor ignored: capacitor unavailable")
-            return
-        }
-
-        do {
-            try await AccountStore.removeAllTemporaryAccounts()
-        } catch {
-            log.error("failed to remove all temporary accounts: \(error, .public)")
-        }
-
-        guard let db else {
-            log.error("failed to switch to capacitor: database is unavailable")
-            AppActions.showError(error: DisplayError(text: "Unable to switch to Classic app."))
-            return
-        }
-
-        do {
-            try await DatabaseBootstrap.exportStateToCapacitor(db: db)
-        } catch {
-            log.error("failed to export state before switching to capacitor: \(error, .public)")
-            AppActions.showError(error: DisplayError(text: capacitorSwitchErrorMessage(for: error)))
-            return
-        }
-
-        await disconnectLedgerIfNeeded()
-
-        isOnTheAir = false
-        hasStartedWalletCore = false
-        (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.switchToCapacitor()
-        UIView.transition(with: window!, duration: 0.5, options: .transitionCrossDissolve) {
-        } completion: { _ in
-            Task {
-                Api.stop()
-                AgentStore.shared.resetConversation()
-                await WalletCoreData.clean()
-                AgentStore.shared.clean()
-                self.runtimeCoordinator?.reset()
-                self.runtimeCoordinator = nil
-                WalletContextManager.delegate = nil
-                RootStateCoordinator.shared.reset()
-            }
-        }
-    }
-
-    private static func disconnectLedgerIfNeeded() async {
-        do {
-            try await LedgerConnectionManager.shared.disconnect()
-        } catch {
-            log.error("failed to disconnect Ledger before switching to Classic: \(error, .public)")
-        }
-    }
-
-    private static func capacitorSwitchErrorMessage(for error: any Error) -> String {
-        if let storageDetails = StartupFailureDiagnostics.webViewStorageDetails(error),
-           storageDetails.localizedCaseInsensitiveContains("quotaexceeded") {
-            return "Unable to switch to Classic app because browser storage is full."
-        }
-        return "Unable to switch to Classic app."
-    }
-    
     public static func setAppIsFocused(_ isFocused: Bool) {
-        guard isOnTheAir else { return }
         Task {
             try? await Api.setIsAppFocused(isFocused)
         }
     }
     
     public static func handle(url: URL) {
-        guard isOnTheAir else { return }
-        if let runtimeCoordinator {
-            _ = runtimeCoordinator.handle(url: url)
-        } else {
-            pendingDeeplinkURL = url
-        }
+        _ = runtimeCoordinator.handle(url: url)
     }
-    
+
     public static func handle(notification: UNNotification) {
-        guard isOnTheAir else { return }
-        if let runtimeCoordinator {
-            runtimeCoordinator.handle(notification: notification)
-        } else {
-            pendingNotification = notification
-        }
+        runtimeCoordinator.handle(notification: notification)
     }
 
     public static func handle(systemAction: AirSystemAction) {
-        guard isOnTheAir else { return }
-        if let runtimeCoordinator {
-            runtimeCoordinator.handle(systemAction: systemAction)
-        } else {
-            pendingSystemActions.append(systemAction)
-        }
+        runtimeCoordinator.handle(systemAction: systemAction)
     }
 
     public static func didRegisterForPushNotifications(userToken: String) {
-        guard isOnTheAir else { return }
         guard hasStartedWalletCore else {
             pendingPushToken = userToken
             return
@@ -315,6 +199,6 @@ public class AirLauncher {
     }
 
     static func lockApp(animated: Bool) {
-        runtimeCoordinator?.lockApp(animated: animated)
+        runtimeCoordinator.lockApp(animated: animated)
     }
 }

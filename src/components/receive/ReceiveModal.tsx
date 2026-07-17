@@ -3,7 +3,6 @@ import { getActions, withGlobal } from '../../global';
 
 import { selectCurrentAccountId, selectIsHardwareAccount, selectIsMultichainAccount } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { IS_IOS_APP } from '../../util/windowEnvironment';
 
 import useLang from '../../hooks/useLang';
 
@@ -41,7 +40,7 @@ function ReceiveModal({
   return (
     <Modal
       isOpen={isOpen}
-      dialogClassName={IS_IOS_APP ? styles.iosModalDialog : styles.modalDialog}
+      dialogClassName={styles.modalDialog}
       onClose={closeReceiveModal}
     >
       <ModalHeader

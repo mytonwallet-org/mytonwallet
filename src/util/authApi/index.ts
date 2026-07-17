@@ -1,11 +1,7 @@
-import { NativeBiometric } from '@capgo/capacitor-native-biometric';
-
 import type { AuthConfig, BiometricsSetupResult } from './types';
 import type { CredentialCreationResult } from './webAuthn';
 
-import {
-  APP_NAME, IS_TELEGRAM_APP, NATIVE_BIOMETRICS_SERVER, NATIVE_BIOMETRICS_USERNAME,
-} from '../../config';
+import { IS_TELEGRAM_APP } from '../../config';
 import { logDebugError } from '../logs';
 import { randomBytes } from '../random';
 import {
@@ -45,20 +41,11 @@ async function setupBiometrics({ credential }: { credential?: CredentialCreation
 }
 
 async function setupNativeBiometrics(password: string): Promise<BiometricsSetupResult> {
-  if (IS_TELEGRAM_APP) {
-    await setTelegramBiometricCredentials(password);
-
-    return {
-      password,
-      config: { kind: 'native-biometrics' },
-    };
+  if (!IS_TELEGRAM_APP) {
+    throw new Error('Native biometrics are only supported in Telegram');
   }
 
-  await NativeBiometric.setCredentials({
-    username: NATIVE_BIOMETRICS_USERNAME,
-    password,
-    server: NATIVE_BIOMETRICS_SERVER,
-  });
+  await setTelegramBiometricCredentials(password);
 
   return {
     password,
@@ -67,13 +54,7 @@ async function setupNativeBiometrics(password: string): Promise<BiometricsSetupR
 }
 
 function removeNativeBiometrics() {
-  if (IS_TELEGRAM_APP) {
-    return setTelegramBiometricCredentials('');
-  }
-
-  return NativeBiometric.deleteCredentials({
-    server: NATIVE_BIOMETRICS_SERVER,
-  });
+  return setTelegramBiometricCredentials('');
 }
 
 async function getPassword(config: AuthConfig) {
@@ -89,23 +70,6 @@ async function getPassword(config: AuthConfig) {
 
       if (!isVerified) return undefined;
       password = token;
-    } else if (config.kind === 'native-biometrics') {
-      const result = await NativeBiometric.verifyIdentityAndGetCredentials({
-        title: APP_NAME,
-        subtitle: '',
-        isWeakAuthenticatorAllowed: true,
-        maxAttempts: 1,
-        server: NATIVE_BIOMETRICS_SERVER,
-      })
-        .then((credentials) => credentials.password)
-        .catch((e) => {
-          logDebugError('getPassword', e);
-          return undefined;
-        });
-
-      if (!result) return undefined;
-
-      password = result;
     } else {
       throw new Error('Unexpected auth kind');
     }
