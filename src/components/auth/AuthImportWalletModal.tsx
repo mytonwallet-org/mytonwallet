@@ -1,7 +1,7 @@
 import React, { memo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import { IS_CORE_WALLET } from '../../config';
+import { IS_FEATURE_LIMITED } from '../../config';
 import { getChainsSupportingLedger } from '../../util/chain';
 import { IS_LEDGER_SUPPORTED } from '../../util/windowEnvironment';
 
@@ -69,7 +69,7 @@ function AuthImportWalletModal({ isOpen }: StateProps) {
         )}
       </div>
 
-      {!IS_CORE_WALLET && (
+      {!IS_FEATURE_LIMITED && (
         <div className={styles.actionsSection}>
           <ListItem
             icon="wallet-view"

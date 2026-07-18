@@ -14,7 +14,7 @@ import type {
   OnApiUpdate,
 } from '../types';
 
-import { IS_CORE_WALLET, IS_STAKING_DISABLED, NO_MFA, NO_STAKING, NO_SWAP } from '../../config';
+import { IS_FEATURE_LIMITED, IS_STAKING_DISABLED, NO_MFA, NO_STAKING, NO_SWAP } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import { omit } from '../../util/iteratees';
@@ -239,7 +239,7 @@ export async function setActivePollingAccount(
     const account = await fetchStoredAccount(accountId);
 
     const stopPollingFns = [
-      !IS_CORE_WALLET ? setupAccountConfigPolling(accountId, account).stop : undefined,
+      !IS_FEATURE_LIMITED ? setupAccountConfigPolling(accountId, account).stop : undefined,
       !NO_MFA && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
 
       ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
@@ -290,7 +290,13 @@ export function removeAllPollingAccounts() {
 function setupAccountConfigPolling(accountId: string, account: ApiAccountAny) {
   let lastResult: ApiAccountConfig | undefined;
 
-  const partialAccount = omit(account as ApiAccountWithMnemonic, ['mnemonicEncrypted']);
+  // The endpoint reads the account type and the chain addresses only, while `authToken` is a bearer credential for
+  // our own API - it has no business riding a polling loop's request body once a swap has put it on the wallet.
+  const { byChain } = account;
+  const partialAccount = {
+    ...omit(account as ApiAccountWithMnemonic, ['mnemonicEncrypted']),
+    ...(byChain.ton && { byChain: { ...byChain, ton: omit(byChain.ton, ['authToken']) } }),
+  };
 
   return pollingLoop({
     period: ACCOUNT_CONFIG_INTERVAL,

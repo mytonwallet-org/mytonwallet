@@ -422,9 +422,15 @@ export type ApiMigrateCoreApplication = {
   isTestnet?: boolean;
   accountId: string;
   address: string;
-  secondAccountId: string;
-  secondAddress: string;
+  // Absent on the full-featured combo build, which no longer mirrors the wallet onto the opposite network.
+  secondAccountId?: string;
+  secondAddress?: string;
   isTonProxyEnabled?: boolean;
+};
+
+export type ApiUpdateRemoveAccounts = {
+  type: 'removeAccounts';
+  accountIds: string[];
 };
 
 export type ApiUpdateAccountConfig = {
@@ -491,6 +497,7 @@ export type ApiUpdate =
   | ApiUpdatingStatus
   | ApiUpdateSettings
   | ApiMigrateCoreApplication
+  | ApiUpdateRemoveAccounts
   | ApiUpdateAccountConfig
   | ApiUpdateAccountDomainData;
 

@@ -1,6 +1,6 @@
 import React, { memo } from '../../../../lib/teact/teact';
 
-import { IS_CORE_WALLET } from '../../../../config';
+import { IS_FEATURE_LIMITED } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 import { IS_LEDGER_SUPPORTED } from '../../../../util/windowEnvironment';
 
@@ -94,7 +94,7 @@ function AddAccountSelector({
         )}
       </div>
 
-      {!IS_CORE_WALLET && (
+      {!IS_FEATURE_LIMITED && (
         <div className={styles.actionsSection}>
           <ListItem
             icon="wallet-view"

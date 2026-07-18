@@ -3,7 +3,7 @@ import { getActions } from '../../../../global';
 
 import type { StakingStateStatus } from '../../../../util/staking';
 
-import { IS_CORE_WALLET } from '../../../../config';
+import { IS_FEATURE_LIMITED } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 import { vibrate } from '../../../../util/haptics';
 import { handleSendMenuItemClick, SEND_CONTEXT_MENU_ITEMS } from './helpers/sendMenu';
@@ -46,13 +46,13 @@ function PortraitActions({
   const lang = useLang();
 
   const isOnRampAllowed = !isTestnet && !isOnRampDisabled;
-  const addBuyButtonName = IS_CORE_WALLET
+  const addBuyButtonName = IS_FEATURE_LIMITED
     ? lang('Receive')
     : (!isSwapDisabled || isOnRampAllowed
       ? lang('Fund')
       : lang('Add')
     );
-  const sendButtonName = IS_CORE_WALLET || isOffRampDisabled || lang.code !== 'en'
+  const sendButtonName = IS_FEATURE_LIMITED || isOffRampDisabled || lang.code !== 'en'
     ? lang('Send')
     : <span className={styles.name}>{lang('Send')}<span className={styles.divider}>/</span>{lang('Sell')}</span>;
 

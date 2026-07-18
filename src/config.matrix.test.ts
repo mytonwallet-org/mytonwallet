@@ -1,9 +1,12 @@
-// Guards the two orthogonal build axes that the wallet.ton.org combo profile introduced:
-//   - behavior/storage axis, driven by IS_CORE_WALLET (Core behavior)
-//   - brand axis, driven by IS_GRAM_WALLET (Gram branding), with IS_TON_BRAND = IS_CORE_WALLET && !IS_GRAM_WALLET
-// The combo build (both flags) must inherit Core behavior/storage while wearing the Gram brand, and
-// the three clean flavors (default / core / gram) must keep resolving exactly as before. Config reads
-// the flags from process.env at module-eval time, so every flavor gets a clean env + an isolated re-import.
+// Guards the three orthogonal build axes that the wallet.ton.org combo profile introduced:
+//   - identity/storage axis, driven by IS_CORE_WALLET (storage keys, jsbridge, domain, extension ports)
+//   - brand axis: exactly one of IS_GRAM_WALLET / IS_TON_BRAND / IS_MY_WALLET_BRAND holds, and it decides both the
+//     outbound links and which brand-specific products (cards, MYCOIN vesting, the tips channel) exist at all
+//   - feature axis, driven by IS_FEATURE_LIMITED: only the legacy TON Wallet build is trimmed down
+// The combo build (both flags) must inherit Core identity/storage while wearing the Gram brand AND shipping the
+// full feature set, and the three clean flavors (default / core / gram) must keep resolving exactly as before.
+// Config reads the flags from process.env at module-eval time, so every flavor gets a clean env + an isolated
+// re-import.
 
 type Flavor = 'default' | 'core' | 'gram' | 'combo';
 
@@ -64,11 +67,13 @@ async function withFlavor(
   });
 }
 
-// Behavior/storage + brand constants.
+// Identity/storage + brand + feature constants.
 const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean | number[]>> = {
   default: {
     APP_NAME: 'My Wallet',
     IS_TON_BRAND: false,
+    IS_MY_WALLET_BRAND: true,
+    IS_FEATURE_LIMITED: false,
     GLOBAL_STATE_CACHE_KEY: 'mytonwallet-global-state',
     ACTIVE_TAB_STORAGE_KEY: 'mtw-active-tab',
     TONCONNECT_WALLET_JSBRIDGE_KEY: 'mytonwallet',
@@ -76,15 +81,21 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean | numb
     BETA_URL: 'https://beta.mywallet.io',
     APP_INSTALL_URL: 'https://get.mywallet.io/',
     APP_WEBSITE_URL: 'https://mywallet.io',
+    APP_PROMO_URL: 'https://mywallet.io/',
+    APP_TERMS_OF_USE_URL: 'https://mywallet.io/terms-of-use',
+    APP_PRIVACY_POLICY_URL: 'https://mywallet.io/privacy-policy',
     SHOULD_GENERATE_TON_MNEMONIC: false,
     MNEMONIC_COUNTS: [12, 24],
     IS_STAKING_DISABLED: false,
     SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: false,
     WINDOW_PROVIDER_PORT: 'MyWallet_popup_reversed',
   },
+  // The only trimmed-down product: the legacy TON Wallet extension and its pre-Gram web build.
   core: {
     APP_NAME: 'TON Wallet',
     IS_TON_BRAND: true,
+    IS_MY_WALLET_BRAND: false,
+    IS_FEATURE_LIMITED: true,
     GLOBAL_STATE_CACHE_KEY: 'tonwallet-global-state',
     ACTIVE_TAB_STORAGE_KEY: 'tw-active-tab',
     TONCONNECT_WALLET_JSBRIDGE_KEY: 'tonwallet',
@@ -92,6 +103,9 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean | numb
     BETA_URL: 'https://beta.wallet.ton.org',
     APP_INSTALL_URL: 'https://get.mywallet.io/',
     APP_WEBSITE_URL: 'https://mywallet.io',
+    APP_PROMO_URL: 'https://mywallet.io/',
+    APP_TERMS_OF_USE_URL: 'https://mywallet.io/terms-of-use',
+    APP_PRIVACY_POLICY_URL: 'https://mywallet.io/privacy-policy',
     SHOULD_GENERATE_TON_MNEMONIC: true,
     MNEMONIC_COUNTS: [24, 12],
     IS_STAKING_DISABLED: true,
@@ -101,6 +115,8 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean | numb
   gram: {
     APP_NAME: 'Gram Wallet',
     IS_TON_BRAND: false,
+    IS_MY_WALLET_BRAND: false,
+    IS_FEATURE_LIMITED: false,
     GLOBAL_STATE_CACHE_KEY: 'mytonwallet-global-state',
     ACTIVE_TAB_STORAGE_KEY: 'mtw-active-tab',
     TONCONNECT_WALLET_JSBRIDGE_KEY: 'mytonwallet',
@@ -108,16 +124,21 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean | numb
     BETA_URL: 'https://beta.mywallet.io',
     APP_INSTALL_URL: 'https://get.gramwallet.io/',
     APP_WEBSITE_URL: 'https://gramwallet.io',
+    APP_PROMO_URL: 'https://gramwallet.io/',
+    APP_TERMS_OF_USE_URL: 'https://gramwallet.io/terms-of-use/',
+    APP_PRIVACY_POLICY_URL: 'https://gramwallet.io/privacy-policy/',
     SHOULD_GENERATE_TON_MNEMONIC: false,
     MNEMONIC_COUNTS: [12, 24],
     IS_STAKING_DISABLED: false,
     SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: false,
     WINDOW_PROVIDER_PORT: 'MyWallet_popup_reversed',
   },
-  // The crux: Gram brand strings, Core behavior/storage strings.
+  // The crux: Gram brand strings and the full feature set, over Core identity/storage strings.
   combo: {
     APP_NAME: 'Gram Wallet',
     IS_TON_BRAND: false,
+    IS_MY_WALLET_BRAND: false,
+    IS_FEATURE_LIMITED: false,
     GLOBAL_STATE_CACHE_KEY: 'tonwallet-global-state',
     ACTIVE_TAB_STORAGE_KEY: 'tw-active-tab',
     TONCONNECT_WALLET_JSBRIDGE_KEY: 'tonwallet',
@@ -125,10 +146,13 @@ const CONFIG_EXPECTATIONS: Record<Flavor, Record<string, string | boolean | numb
     BETA_URL: 'https://beta.wallet.ton.org',
     APP_INSTALL_URL: 'https://get.gramwallet.io/',
     APP_WEBSITE_URL: 'https://gramwallet.io',
-    SHOULD_GENERATE_TON_MNEMONIC: true,
-    MNEMONIC_COUNTS: [24, 12],
-    IS_STAKING_DISABLED: true,
-    SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: true,
+    APP_PROMO_URL: 'https://gramwallet.io/',
+    APP_TERMS_OF_USE_URL: 'https://gramwallet.io/terms-of-use/',
+    APP_PRIVACY_POLICY_URL: 'https://gramwallet.io/privacy-policy/',
+    SHOULD_GENERATE_TON_MNEMONIC: false,
+    MNEMONIC_COUNTS: [12, 24],
+    IS_STAKING_DISABLED: false,
+    SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY: false,
     WINDOW_PROVIDER_PORT: 'TonWallet_popup_reversed',
   },
 };
@@ -169,6 +193,8 @@ describe.each(FLAVORS)('build flavor: %s', (flavor) => {
       const actual: Record<string, string | boolean | number[]> = {
         APP_NAME: config.APP_NAME,
         IS_TON_BRAND: config.IS_TON_BRAND,
+        IS_MY_WALLET_BRAND: config.IS_MY_WALLET_BRAND,
+        IS_FEATURE_LIMITED: config.IS_FEATURE_LIMITED,
         GLOBAL_STATE_CACHE_KEY: config.GLOBAL_STATE_CACHE_KEY,
         ACTIVE_TAB_STORAGE_KEY: config.ACTIVE_TAB_STORAGE_KEY,
         TONCONNECT_WALLET_JSBRIDGE_KEY: config.TONCONNECT_WALLET_JSBRIDGE_KEY,
@@ -176,6 +202,9 @@ describe.each(FLAVORS)('build flavor: %s', (flavor) => {
         BETA_URL: config.BETA_URL,
         APP_INSTALL_URL: config.APP_INSTALL_URL,
         APP_WEBSITE_URL: config.APP_WEBSITE_URL,
+        APP_PROMO_URL: config.APP_PROMO_URL,
+        APP_TERMS_OF_USE_URL: config.APP_TERMS_OF_USE_URL,
+        APP_PRIVACY_POLICY_URL: config.APP_PRIVACY_POLICY_URL,
         SHOULD_GENERATE_TON_MNEMONIC: config.SHOULD_GENERATE_TON_MNEMONIC,
         MNEMONIC_COUNTS: config.MNEMONIC_COUNTS,
         IS_STAKING_DISABLED: config.IS_STAKING_DISABLED,
@@ -197,9 +226,10 @@ describe.each(FLAVORS)('build flavor: %s', (flavor) => {
   });
 });
 
-describe('getDefaultEnabledSlugs resolves per behavior axis', () => {
-  // Chains of the default-enabled token set per flavor. This is what puts zero-balance rows on an
-  // empty wallet's home screen, so for Core/combo it must stay TON-only (the wallet.ton.org storefront).
+describe('getDefaultEnabledSlugs resolves per identity axis', () => {
+  // Chains of the default-enabled token set per flavor. This is what puts zero-balance rows on an empty wallet's
+  // home screen. It stays TON-only for core/combo even though combo is fully featured: wallet.ton.org accounts hold
+  // TON-native mnemonics that cannot derive foreign addresses, so those rows would be dead. Air does the same.
   const chainsByFlavor: Partial<Record<Flavor, Set<string>>> = {};
 
   beforeAll(async () => {
@@ -223,7 +253,7 @@ describe('getDefaultEnabledSlugs resolves per behavior axis', () => {
   });
 });
 
-describe('TON_DNS_ZONES resolves per behavior axis', () => {
+describe('TON_DNS_ZONES resolves per feature axis', () => {
   // Suffix signatures per flavor: each zone -> its suffixes array, joined for stable comparison.
   const signatureByFlavor: Partial<Record<Flavor, string[]>> = {};
 
@@ -239,17 +269,38 @@ describe('TON_DNS_ZONES resolves per behavior axis', () => {
     expect(signatureByFlavor.combo).toContain('t.me');
   });
 
-  it('combo uses the same official DNS set as core', () => {
-    expect(signatureByFlavor.combo).toEqual(signatureByFlavor.core);
+  it('every full-featured flavor exposes the same full DNS set', () => {
+    expect(signatureByFlavor.combo).toEqual(signatureByFlavor.default);
+    expect(signatureByFlavor.gram).toEqual(signatureByFlavor.default);
   });
 
-  it('default and gram expose the full (superset) DNS set', () => {
-    expect(signatureByFlavor.gram).toEqual(signatureByFlavor.default);
-    expect(signatureByFlavor.default!.length).toBeGreaterThan(signatureByFlavor.core!.length);
-    // The official (core/combo) set must be a subset of the full (default/gram) set.
+  it('only the trimmed-down build drops the unofficial zones, and keeps a strict subset', () => {
+    expect(signatureByFlavor.core!.length).toBeLessThan(signatureByFlavor.default!.length);
     const fullSet = new Set(signatureByFlavor.default);
     for (const suffix of signatureByFlavor.core!) {
       expect(fullSet.has(suffix)).toBe(true);
     }
+  });
+});
+
+describe('brand axis is exclusive', () => {
+  // A build wears exactly one brand. Products that belong to a single brand (cards, MYCOIN vesting, the tips
+  // channel) key off this, so an overlap would leak My Wallet goods into Gram Wallet Web or vice versa.
+  it('each flavor resolves to exactly one brand', async () => {
+    for (const flavor of FLAVORS) {
+      await withFlavor(flavor, (config) => {
+        const brands = [config.IS_GRAM_WALLET, config.IS_TON_BRAND, config.IS_MY_WALLET_BRAND];
+        expect(brands.filter(Boolean)).toHaveLength(1);
+      });
+    }
+  });
+
+  it('no outbound link points at another brand', async () => {
+    await withFlavor('combo', (config) => {
+      for (const url of [config.APP_PROMO_URL, config.APP_TERMS_OF_USE_URL, config.APP_PRIVACY_POLICY_URL,
+        config.APP_WEBSITE_URL, config.APP_INSTALL_URL]) {
+        expect(url).toContain('gramwallet.io');
+      }
+    });
   });
 });

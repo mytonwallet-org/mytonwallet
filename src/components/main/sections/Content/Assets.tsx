@@ -7,7 +7,7 @@ import type {
 import type { LoadMoreDirection, Theme, UserSwapToken, UserToken } from '../../../../global/types';
 import { SettingsState } from '../../../../global/types';
 
-import { ANIMATED_STICKER_SMALL_SIZE_PX, IS_CORE_WALLET } from '../../../../config';
+import { ANIMATED_STICKER_SMALL_SIZE_PX, IS_FEATURE_LIMITED, IS_MY_WALLET_BRAND } from '../../../../config';
 import {
   selectAccountStakingStates,
   selectCurrentAccountId,
@@ -122,7 +122,7 @@ function Assets({
   const appTheme = useAppTheme(theme);
 
   const activeStates = useMemo(() => {
-    if (IS_CORE_WALLET) return [];
+    if (IS_FEATURE_LIMITED) return [];
 
     return states?.filter(getIsActiveStakingState) ?? [];
   }, [states]);
@@ -146,6 +146,7 @@ function Assets({
     return buildCollectionByKey<UserSwapToken>(swapTokens ?? [], 'slug');
   }, [swapTokens]);
 
+  // Vesting is a MYCOIN perk, i.e. a My Wallet product that the Gram brand does not carry
   const {
     ref: vestingTokenRef,
     shouldRender: shouldRenderVestingToken,
@@ -153,7 +154,7 @@ function Assets({
     vestingStatus,
     unfreezeEndDate,
     onVestingTokenClick,
-  } = useVesting({ vesting, userMycoin, isDisabled: IS_CORE_WALLET });
+  } = useVesting({ vesting, userMycoin, isDisabled: !IS_MY_WALLET_BRAND });
 
   const tokenSlugs = useMemo(() => (
     allTokensWithStaked

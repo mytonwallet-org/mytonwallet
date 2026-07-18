@@ -3,7 +3,12 @@ import { useMemo } from '../../../../../lib/teact/teact';
 import type { ApiNft } from '../../../../../api/types';
 import type { DropdownItem } from '../../../../ui/Dropdown';
 
-import { IS_CORE_WALLET, MW_CARDS_COLLECTION, TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../../../config';
+import {
+  IS_FEATURE_LIMITED,
+  IS_MY_WALLET_BRAND,
+  MW_CARDS_COLLECTION,
+  TELEGRAM_GIFTS_SUPER_COLLECTION,
+} from '../../../../../config';
 import { buildNftCollectionIndex, getCollectionKey } from '../../../../../global/helpers/nfts';
 
 import useLang from '../../../../../hooks/useLang';
@@ -33,7 +38,7 @@ export default function useNftCollectionMenuItems({
     );
 
     const hasTelegramGifts = byKey.has(TELEGRAM_GIFTS_KEY);
-    const hasMwCards = !IS_CORE_WALLET && byKey.has(MW_CARDS_KEY);
+    const hasMwCards = IS_MY_WALLET_BRAND && byKey.has(MW_CARDS_KEY);
     const telegramGiftsName = lang('Telegram Gifts');
     const unnamedLabel = lang('Unnamed Collection');
 
@@ -74,7 +79,7 @@ export default function useNftCollectionMenuItems({
     }
 
     const blacklistedSet = new Set(blacklistedNftAddresses);
-    const shouldRenderHiddenNftsSection = !IS_CORE_WALLET && Object.values(nfts ?? {}).some(
+    const shouldRenderHiddenNftsSection = !IS_FEATURE_LIMITED && Object.values(nfts ?? {}).some(
       (nft) => blacklistedSet.has(nft.address) || nft.isHidden,
     );
 

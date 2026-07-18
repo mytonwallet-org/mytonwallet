@@ -20,6 +20,13 @@ export const IS_GRAM_WALLET = process.env.IS_GRAM_WALLET === '1';
 // Both flags together form the wallet.ton.org combo build: Gram branding over Core behavior.
 // Brand-axis code must check IS_GRAM_WALLET first, then IS_TON_BRAND; behavior/storage code keeps using IS_CORE_WALLET.
 export const IS_TON_BRAND = IS_CORE_WALLET && !IS_GRAM_WALLET;
+// The third brand. Cards, MYCOIN vesting and the tips channel are My Wallet products that neither the Gram nor the
+// TON Wallet brand carries, so they hang off this axis rather than off the identity or feature ones (Air agrees).
+export const IS_MY_WALLET_BRAND = !IS_GRAM_WALLET && !IS_TON_BRAND;
+// The trimmed-down product is the legacy TON Wallet (extension and the pre-Gram web app): no swaps, staking,
+// ramps, multi-account, Ledger, BIP39 or locale choice. Gram Wallet Web keeps Core identity (storage key, jsbridge,
+// domain) but ships the full feature set, so feature gates must check this axis, never IS_CORE_WALLET.
+export const IS_FEATURE_LIMITED = IS_TON_BRAND;
 export const APP_NAME = process.env.APP_NAME
   || (IS_GRAM_WALLET ? 'Gram Wallet' : IS_TON_BRAND ? 'TON Wallet' : 'My Wallet');
 export const APP_VERSION = process.env.APP_VERSION!;
@@ -93,7 +100,7 @@ export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in My Wallet';
  * the restriction a trap - a phrase minted by a fuller build of the same product would have become unimportable
  * here the moment that build was rolled back to this one.
  */
-export const SHOULD_GENERATE_TON_MNEMONIC = IS_CORE_WALLET;
+export const SHOULD_GENERATE_TON_MNEMONIC = IS_FEATURE_LIMITED;
 
 export const MNEMONIC_COUNT = 24;
 // A TON-native build mints 24-word phrases, so it offers 24 first while still accepting the 12-word BIP39 ones a
@@ -213,13 +220,20 @@ export const NFT_MARKETPLACE_TITLES: Record<ApiNftMarketplace, string> = {
 export const MW_STATIC_BASE_URL = 'https://static.mytonwallet.org';
 export const MW_CARDS_BASE_URL = `${MW_STATIC_BASE_URL}/cards/v2/cards/`;
 export const MW_CARDS_MINT_BASE_URL = `${MW_STATIC_BASE_URL}/mint-cards/`;
-export const MY_WALLET_PROMO_URL = 'https://mywallet.io/';
+// Every outbound link the app puts in front of a user follows its brand. The blog and the help center stay on the
+// My Wallet domain for all brands, since that is the only place they are published (Air links them the same way).
+export const APP_PROMO_URL = IS_GRAM_WALLET ? 'https://gramwallet.io/' : 'https://mywallet.io/';
+export const APP_WEBSITE_HOST = IS_GRAM_WALLET ? 'gramwallet.io' : 'mywallet.io';
+export const APP_TERMS_OF_USE_URL = IS_GRAM_WALLET
+  ? 'https://gramwallet.io/terms-of-use/'
+  : 'https://mywallet.io/terms-of-use';
+export const APP_PRIVACY_POLICY_URL = IS_GRAM_WALLET
+  ? 'https://gramwallet.io/privacy-policy/'
+  : 'https://mywallet.io/privacy-policy';
 export const MY_WALLET_BLOG: Partial<Record<LangCode, string>> = {
   en: 'https://mywallet.io/en/blog/',
   ru: 'https://mywallet.io/ru/blog/',
 };
-export const MY_WALLET_TERMS_OF_USE_URL = 'https://mywallet.io/terms-of-use';
-export const MY_WALLET_PRIVACY_POLICY_URL = 'https://mywallet.io/privacy-policy';
 
 export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://multisend.mywallet.io/';
 export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mywallet.io/';
@@ -304,7 +318,7 @@ export const LANG_LIST: LangItem[] = [{
   rtl: false,
 }];
 
-export const IS_STAKING_DISABLED = IS_CORE_WALLET;
+export const IS_STAKING_DISABLED = IS_FEATURE_LIMITED;
 
 // Blacklist-style feature flags (default unset = feature ON). Each is substituted at build time by
 // `EnvironmentPlugin`, so it both drives Webpack dead-code elimination (drops code + npm deps) and is
@@ -747,7 +761,7 @@ export const INDEXED_DB_STORE_NAME = 'keyval';
 export const WINDOW_PROVIDER_CHANNEL = 'windowProvider';
 export const WINDOW_PROVIDER_PORT = `${IS_CORE_WALLET ? 'TonWallet' : 'MyWallet'}_popup_reversed`;
 
-export const SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY = IS_CORE_WALLET;
+export const SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY = IS_FEATURE_LIMITED;
 export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 6;
 
 export const DEFAULT_PRICE_CURRENCY = 'USD';
@@ -993,7 +1007,7 @@ const ALL_TON_DNS_ZONES = [
   },
 ] as const;
 
-export const TON_DNS_ZONES = IS_CORE_WALLET
+export const TON_DNS_ZONES = IS_FEATURE_LIMITED
   ? ALL_TON_DNS_ZONES.filter(({ isUnofficial }) => !isUnofficial)
   : ALL_TON_DNS_ZONES;
 

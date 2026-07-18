@@ -12,7 +12,7 @@ import type {
   UserToken,
 } from '../../../../global/types';
 
-import { DEFAULT_PRICE_CURRENCY, HISTORY_PERIODS, IS_CORE_WALLET, TONCOIN } from '../../../../config';
+import { DEFAULT_PRICE_CURRENCY, HISTORY_PERIODS, IS_FEATURE_LIMITED, TONCOIN } from '../../../../config';
 import {
   selectAccountStakingStates,
   selectCurrentAccountId,
@@ -127,7 +127,7 @@ function ChartCard({
   const isNetWorthMode = tokenChartMode === 'netWorth' && isNetWorthChartAvailable(token);
 
   const { annualYield, yieldType, id: stakingId } = useMemo(() => {
-    if (IS_CORE_WALLET) return undefined;
+    if (IS_FEATURE_LIMITED) return undefined;
 
     return stakingStates?.reduce((bestState, state) => {
       if (state.tokenSlug === slug && (!bestState || state.balance > bestState.balance)) {

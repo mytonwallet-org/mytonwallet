@@ -12,7 +12,7 @@ import type {
 } from '../types';
 
 import {
-  IS_AIR_APP, IS_CORE_WALLET, IS_EXTENSION, MAIN_ACCOUNT_ID,
+  IS_AIR_APP, IS_CORE_WALLET, IS_EXTENSION, IS_FEATURE_LIMITED, MAIN_ACCOUNT_ID,
 } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
@@ -32,6 +32,7 @@ import {
   getKnownAddresses,
   getScamMarkers,
 } from './addresses';
+import { purgeCoreTwins } from './coreTwins';
 import { hexToBytes } from './utils';
 
 const actualStateVersion = 22;
@@ -102,7 +103,11 @@ export function isUpdaterAlive(onUpdate: OnApiUpdate) {
 
 export async function tryMigrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, accountIds?: string[]) {
   try {
-    return await migrateStorage(onUpdate, ton, accountIds);
+    const result = await migrateStorage(onUpdate, ton, accountIds);
+    // Not a state migration: runs on EVERY boot (including when the version is already current) and self-gates
+    // by build flavor and its own storage marker. See `coreTwins.ts` for why it must not ride stateVersion.
+    await purgeCoreTwins(onUpdate);
+    return result;
   } catch (err) {
     logDebugError('Migration error', err);
     onUpdate?.({
@@ -509,10 +514,6 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
   const accountId = `0-ton-${network}`;
 
   if (address && words && publicKey) {
-    const secondNetwork = network === 'mainnet' ? 'testnet' : 'mainnet';
-    const secondAccountId = `0-ton-${secondNetwork}`;
-    const secondAddress = toBase64Address(address, false, secondNetwork);
-
     const newAccountById: Record<string, ApiTonAccount> = {};
     newAccountById[accountId] = {
       type: 'ton',
@@ -527,18 +528,28 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
       },
     };
 
-    newAccountById[secondAccountId] = {
-      type: 'ton',
-      mnemonicEncrypted: words,
-      byChain: {
-        ton: {
-          address: secondAddress,
-          version: walletVersion,
-          publicKey,
-          index: 0,
+    // The trimmed core build mirrors the wallet onto the opposite network (it has no network switcher and relies on
+    // wipe-both logout). The full-featured combo build must NOT create that invisible twin - it would leave the
+    // mnemonic behind on logout once the network switcher and per-account removal are reachable.
+    let secondAccountId: string | undefined;
+    let secondAddress: string | undefined;
+    if (IS_FEATURE_LIMITED) {
+      const secondNetwork = network === 'mainnet' ? 'testnet' : 'mainnet';
+      secondAccountId = `0-ton-${secondNetwork}`;
+      secondAddress = toBase64Address(address, false, secondNetwork);
+      newAccountById[secondAccountId] = {
+        type: 'ton',
+        mnemonicEncrypted: words,
+        byChain: {
+          ton: {
+            address: secondAddress,
+            version: walletVersion,
+            publicKey,
+            index: 0,
+          },
         },
-      },
-    };
+      };
+    }
 
     await storage.setItem('accounts', newAccountById);
 

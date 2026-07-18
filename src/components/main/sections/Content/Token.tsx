@@ -5,7 +5,7 @@ import type { AppTheme, UserToken } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 import type { StakingStateStatus } from '../../../../util/staking';
 
-import { ANIMATED_STICKER_TINY_ICON_PX, IS_CORE_WALLET } from '../../../../config';
+import { ANIMATED_STICKER_TINY_ICON_PX, IS_FEATURE_LIMITED } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
 import buildClassName from '../../../../util/buildClassName';
 import { calcChangeValue } from '../../../../util/calcChangeValue';
@@ -114,7 +114,7 @@ function Token({
   const changeClassName = change > 0 ? styles.change_up : change < 0 ? styles.change_down : undefined;
   const changeValue = Math.abs(round(calcChangeValue(Number(value), change), 4));
   const changePercent = Math.abs(round(change * 100, 2));
-  const withYield = !IS_CORE_WALLET && annualYield !== undefined && annualYield > 0;
+  const withYield = !IS_FEATURE_LIMITED && annualYield !== undefined && annualYield > 0;
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const withLabel = Boolean(!isVesting && label);
   const isRwaStock = getIsRwaStockToken(token);

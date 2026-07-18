@@ -10,6 +10,8 @@ import {
   IS_ANDROID_DIRECT,
   IS_CORE_WALLET,
   IS_EXPLORER,
+  IS_FEATURE_LIMITED,
+  IS_MY_WALLET_BRAND,
 } from '../config';
 import { selectCurrentAccountId, selectCurrentAccountSettings, selectCurrentAccountState } from '../global/selectors';
 import { useAccentColor } from '../util/accentColor';
@@ -143,6 +145,7 @@ function App({
     renderingKey === AppState.Auth && !canPrerenderMain ? PRERENDER_MAIN_DELAY : undefined,
   );
 
+  // Core builds are deployed to a domain we do not own and have no store presence, so there is no version to nag about
   useInterval(checkAppVersion, IS_CORE_WALLET ? undefined : APP_UPDATE_INTERVAL);
 
   useEffect(() => {
@@ -257,9 +260,10 @@ function App({
             onClose={closeBackupWalletModal}
           />
           <TransferModal />
-          {!IS_CORE_WALLET && (
+          {!IS_FEATURE_LIMITED && <SwapModal />}
+          {/* Cards and the wallet customization built on them are a My Wallet product, absent from the Gram brand */}
+          {IS_MY_WALLET_BRAND && (
             <>
-              <SwapModal />
               <MintCardModal />
               <CustomizeWalletModal isOpen={isCustomizeWalletModalOpen} />
             </>

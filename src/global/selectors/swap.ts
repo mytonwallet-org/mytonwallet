@@ -1,7 +1,12 @@
 import type { ApiBalanceBySlug, ApiBaseCurrency, ApiCurrencyRates, ApiSwapAsset } from '../../api/types';
 import type { AccountSettings, GlobalState, UserSwapToken } from '../types';
 
-import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, IS_CORE_WALLET, TONCOIN } from '../../config';
+import {
+  DEFAULT_SWAP_FIRST_TOKEN_SLUG,
+  DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+  IS_FEATURE_LIMITED,
+  TONCOIN,
+} from '../../config';
 import { calculateTokenPrice } from '../../util/calculatePrice';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
@@ -226,7 +231,7 @@ export function selectSwapType(global: GlobalState) {
 }
 
 export function selectIsSwapDisabled(global: GlobalState) {
-  return IS_CORE_WALLET
+  return IS_FEATURE_LIMITED
     || global.restrictions.isSwapDisabled
     || global.settings.isTestnet
     || selectIsHardwareAccount(global);

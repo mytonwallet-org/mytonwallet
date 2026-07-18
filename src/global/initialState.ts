@@ -25,8 +25,8 @@ import {
   DEFAULT_STAKING_STATE,
   DEFAULT_TRANSFER_TOKEN_SLUG,
   INIT_SWAP_ASSETS,
-  IS_CORE_WALLET,
   IS_EXPLORER,
+  IS_FEATURE_LIMITED,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
   SWAP_API_VERSION,
   THEME_DEFAULT,
@@ -127,9 +127,9 @@ export const INITIAL_STATE: GlobalState = {
 
   restrictions: {
     isLimitedRegion: false,
-    isSwapDisabled: IS_CORE_WALLET,
-    isOnRampDisabled: IS_CORE_WALLET,
-    isOffRampDisabled: IS_CORE_WALLET,
+    isSwapDisabled: IS_FEATURE_LIMITED,
+    isOnRampDisabled: IS_FEATURE_LIMITED,
+    isOffRampDisabled: IS_FEATURE_LIMITED,
     isNftBuyingDisabled: false,
   },
 

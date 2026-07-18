@@ -1,7 +1,7 @@
 import type { AccountIdParsed, ApiNetwork } from '../api/types';
 import type { Account, AccountType } from '../global/types';
 
-import { APP_NAME } from '../config';
+import { APP_NAME, IS_MY_WALLET_BRAND } from '../config';
 import { escapeStringRegexp } from './regex';
 import { shortenAddress } from './shortenAddress';
 
@@ -65,7 +65,8 @@ export function generateAccountTitle(params: {
   const walletTypeConfig: Record<AccountType, { prefix: string; count: string | number }> = {
     view: { prefix: 'Wallet', count: walletCounts.view + 1 },
     hardware: { prefix: 'Ledger', count: `#${walletCounts.hardware + 1}` },
-    mnemonic: { prefix: 'My Wallet', count: walletCounts.mnemonic + 1 },
+    // Other brands fall back to the plain noun, the way Air names wallets outside My Wallet
+    mnemonic: { prefix: IS_MY_WALLET_BRAND ? 'My Wallet' : 'Wallet', count: walletCounts.mnemonic + 1 },
   };
 
   const config = walletTypeConfig[accountType];

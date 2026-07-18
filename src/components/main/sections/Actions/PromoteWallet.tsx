@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from '../../../../lib/teact/teact';
 
-import { APP_INSTALL_URL, APP_NAME, MY_WALLET_PROMO_URL, SELF_UNIVERSAL_HOST_URL } from '../../../../config';
+import { APP_INSTALL_URL, APP_NAME, APP_PROMO_URL, SELF_UNIVERSAL_HOST_URL } from '../../../../config';
 import { tryOpenNativeApp } from '../../../../util/deeplink';
 import { getTelegramNewsChannelUrl } from '../../../../util/url';
 
@@ -19,10 +19,10 @@ function PromoteWallet() {
   const links: { name: string; url: string }[] = useMemo(() => {
     return [{
       name: lang('About'),
-      url: MY_WALLET_PROMO_URL,
+      url: APP_PROMO_URL,
     }, {
       name: lang('Blog'),
-      url: `${MY_WALLET_PROMO_URL}blog`,
+      url: `${APP_PROMO_URL}blog`,
     }, {
       name: lang('Apps'),
       url: APP_INSTALL_URL,

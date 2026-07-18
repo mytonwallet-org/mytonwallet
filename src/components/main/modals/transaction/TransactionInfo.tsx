@@ -15,7 +15,7 @@ import type { Account, SavedAddress, Theme } from '../../../../global/types';
 
 import {
   ANIMATED_STICKER_TINY_ICON_PX,
-  IS_CORE_WALLET,
+  IS_FEATURE_LIMITED,
   TONCOIN,
 } from '../../../../config';
 import {
@@ -320,7 +320,7 @@ function TransactionInfo({
         </Button>,
       );
     }
-    if (!IS_CORE_WALLET && isOurStaking && onStartStakingClick) {
+    if (!IS_FEATURE_LIMITED && isOurStaking && onStartStakingClick) {
       buttons.push(
         <Button
           onClick={onStartStakingClick}

@@ -4,9 +4,9 @@ import { withGlobal } from '../../../../global';
 import type { TokenChartMode } from '../../../../global/types';
 
 import {
-  IS_CORE_WALLET,
   IS_EXPLORER,
   IS_EXTENSION,
+  IS_FEATURE_LIMITED,
   IS_TELEGRAM_APP,
   SELF_UNIVERSAL_HOST_URL,
 } from '../../../../config';
@@ -156,7 +156,7 @@ function Header({
     return (
       <div className={headerClassName}>
         <div className={styles.headerInner} style="--icons-amount: 3">
-          <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
+          <AccountSelector withBalance={withBalance} withAccountSelector={!IS_FEATURE_LIMITED && !IS_EXPLORER} />
           <div className={styles.portraitActionsRight}>
             <a
               href={SELF_UNIVERSAL_HOST_URL}
@@ -201,7 +201,7 @@ function Header({
           {isAppLockEnabled && <AppLockButton />}
         </div>
 
-        <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
+        <AccountSelector withBalance={withBalance} withAccountSelector={!IS_FEATURE_LIMITED && !IS_EXPLORER} />
 
         <div className={actionsEndClassName}>
           <QrScannerButton isViewMode={isViewMode} />

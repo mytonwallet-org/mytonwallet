@@ -2,7 +2,8 @@ import type { ApiActivity, ApiChain, ApiTransactionActivity } from '../../../api
 import type { GlobalState } from '../../types';
 
 import {
-  IS_CORE_WALLET,
+  IS_FEATURE_LIMITED,
+  IS_MY_WALLET_BRAND,
   MINT_CARD_ADDRESS,
   MINT_CARD_REFUND_COMMENT,
   MW_CARDS_COLLECTION,
@@ -112,7 +113,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       notifyAboutNewActivities(global, accountId, newConfirmedActivities);
       updatePoisoningCacheFromActivities(newConfirmedActivities);
 
-      if (!IS_CORE_WALLET) {
+      if (!IS_FEATURE_LIMITED) {
         // NFT polling is executed at long intervals, so a transaction-event with an NFT can arrive
         // long before the next polling round. Apply the change to local NFT state immediately so the UI
         // reflects new ownership (incl. MW-card auto-install) without waiting for polling.
@@ -127,7 +128,9 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           if (isNftIncoming) {
             global = applyIncomingNftFromActivity(global, accountId, activity.nft);
 
-            if (activity.nft.collectionAddress === MW_CARDS_COLLECTION) {
+            // Auto-installing a card is only safe where the card can also be taken off: every removal surface
+            // (customization modal, accent picker, the NFT menu's reset action) belongs to the My Wallet brand
+            if (IS_MY_WALLET_BRAND && activity.nft.collectionAddress === MW_CARDS_COLLECTION) {
               const settings = selectAccountSettings(global, accountId);
 
               if (!settings?.cardBackgroundNft) {
@@ -141,9 +144,11 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           }
         }
 
-        // Left intact: handles the `isCardMinting` flag reset and refund branch. `addNft`/`setCardBackgroundNft`
-        // are idempotent, so the small overlap with the loop above is harmless.
-        global = processCardMintingActivity(global, accountId, newConfirmedActivities);
+        // Handles the `isCardMinting` flag reset and refund branch. `addNft`/`setCardBackgroundNft` are
+        // idempotent, so the small overlap with the loop above is harmless.
+        if (IS_MY_WALLET_BRAND) {
+          global = processCardMintingActivity(global, accountId, newConfirmedActivities);
+        }
       }
 
       setGlobal(global);

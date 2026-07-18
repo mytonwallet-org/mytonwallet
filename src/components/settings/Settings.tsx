@@ -12,9 +12,10 @@ import {
   APP_ENV_MARKER, APP_INSTALL_URL,
   APP_NAME,
   APP_VERSION,
-  IS_CORE_WALLET,
   IS_EXPLORER,
   IS_EXTENSION,
+  IS_FEATURE_LIMITED,
+  IS_MY_WALLET_BRAND,
   LANG_LIST,
   MW_CARDS_WEBSITE,
   PROXY_HOSTS,
@@ -245,7 +246,7 @@ function Settings({
   const handlCloseDeveloperModal = useLastCallback(() => {
     closeDeveloperModal();
 
-    if (IS_CORE_WALLET) {
+    if (IS_FEATURE_LIMITED) {
       handleCloseSettings();
     }
   });
@@ -443,7 +444,7 @@ function Settings({
           onScroll={isPortrait ? handleContentScroll : undefined}
         >
 
-          {IS_CORE_WALLET && (
+          {IS_FEATURE_LIMITED && (
             <div className={styles.block}>
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallApp}>
                 <img className={styles.menuIcon} src={upgradeImg} alt={lang('Upgrade to My Wallet')} />
@@ -453,7 +454,7 @@ function Settings({
               </div>
             </div>
           )}
-          {!IS_CORE_WALLET && IS_WEB && (
+          {!IS_FEATURE_LIMITED && IS_WEB && (
             <div className={styles.block}>
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallApp}>
                 <img className={styles.menuIcon} src={installAppImg} alt={lang('Install App')} />
@@ -500,7 +501,7 @@ function Settings({
             </div>
           )}
 
-          {!IS_CORE_WALLET && (
+          {!IS_FEATURE_LIMITED && (
             <p className={buildClassName(styles.blockTitle, styles.blockTitleSmall)}>
               {lang('Settings')}
             </p>
@@ -562,7 +563,7 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            {!IS_CORE_WALLET && IS_DAPP_SUPPORTED && !isViewMode && dapps.length > 0 && (
+            {!IS_FEATURE_LIMITED && IS_DAPP_SUPPORTED && !isViewMode && dapps.length > 0 && (
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleConnectedDappsOpen}>
                 <img className={styles.menuIcon} src={connectedDappsImg} alt={lang('Apps')} />
                 <div className={styles.itemContent}>
@@ -587,7 +588,7 @@ function Settings({
               </div>
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>
-            {!IS_CORE_WALLET && (
+            {!IS_FEATURE_LIMITED && (
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleLanguageOpen}>
                 <img className={styles.menuIcon} src={languageImg} alt={lang('Language')} />
                 <div className={styles.itemContent}>
@@ -599,14 +600,14 @@ function Settings({
             )}
           </div>
 
-          {!IS_CORE_WALLET && (
+          {!IS_FEATURE_LIMITED && (
             <p className={buildClassName(styles.blockTitle, styles.blockTitleSmall)}>
               {lang('Help')}
             </p>
           )}
 
           <div className={styles.block}>
-            {!IS_CORE_WALLET && (
+            {!IS_FEATURE_LIMITED && (
               <>
                 {supportAccountsCount > 0 && (
                   <a
@@ -635,17 +636,19 @@ function Settings({
 
                   <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                 </a>
-                <a
-                  href={getTelegramTipsChannelUrl(langCode)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={buildClassName(styles.item, styles.itemMenu)}
-                >
-                  <img className={styles.menuIcon} src={tipsImg} alt={lang('My Wallet Features')} />
-                  <span className={styles.itemTitle}>{lang('My Wallet Features')}</span>
+                {IS_MY_WALLET_BRAND && (
+                  <a
+                    href={getTelegramTipsChannelUrl(langCode)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={buildClassName(styles.item, styles.itemMenu)}
+                  >
+                    <img className={styles.menuIcon} src={tipsImg} alt={lang('My Wallet Features')} />
+                    <span className={styles.itemTitle}>{lang('My Wallet Features')}</span>
 
-                  <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
-                </a>
+                    <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+                  </a>
+                )}
               </>
             )}
             <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleDisclaimerOpen}>
@@ -656,11 +659,11 @@ function Settings({
             </div>
           </div>
 
-          {!IS_CORE_WALLET && (
+          {!IS_FEATURE_LIMITED && (
             <>
               <p className={buildClassName(styles.blockTitle, styles.blockTitleSmall)}>{lang('About')}</p>
               <div className={styles.block}>
-                {!isNftBuyingDisabled && (
+                {IS_MY_WALLET_BRAND && !isNftBuyingDisabled && (
                   <a
                     href={MW_CARDS_WEBSITE}
                     target="_blank"

@@ -909,7 +909,7 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: 请使用 My Wallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
+$reopen_in_iab: 请使用 %app_name% %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
 $reopen_in_iab_explore: 浏览应用时，请使用 %exploreTab% 栏目以避免此警告。
 My Wallet Browser: My Wallet 浏览器
 mobile app: 移动应用

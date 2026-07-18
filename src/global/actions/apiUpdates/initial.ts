@@ -4,15 +4,19 @@ import type { AccountChain } from '../../types';
 import {
   DEFAULT_STAKING_STATE,
   IS_CORE_WALLET,
+  IS_FEATURE_LIMITED,
+  IS_MY_WALLET_BRAND,
   MW_CARDS_COLLECTION,
   STAKING_SLUG_PREFIX,
   SWAP_API_VERSION,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../config';
+import { parseAccountId } from '../../../util/account';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { buildCollectionByKey, unique } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
 import { getIsActiveStakingState } from '../../../util/staking';
+import { omitAccounts } from '../../helpers/auth';
 import { pinMwCardsFirst } from '../../helpers/nfts';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -211,7 +215,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         },
       });
 
-      if (!IS_CORE_WALLET) {
+      if (IS_MY_WALLET_BRAND) {
         // Diff against persistent `ownedSet` so a card the user removed (via `clearCardBackgroundNft`)
         // isn't re-installed every polling round when it remains in the wallet
         const ownedSet = new Set(currentNfts?.ownedMwCardAddresses ?? []);
@@ -248,7 +252,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
       // On the round's final batch: rebuild `ownedSet` from current ownership, then auto-install
       // a new card if the user has none set
-      if (streamedAddresses && !IS_CORE_WALLET) {
+      if (streamedAddresses && IS_MY_WALLET_BRAND) {
         const candidates = pendingNewMwCardsByAccount.get(accountId);
         pendingNewMwCardsByAccount.delete(accountId);
 
@@ -301,7 +305,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       global = applyIncomingNftFromActivity(global, accountId, nft);
       setGlobal(global);
 
-      if (!IS_CORE_WALLET) {
+      if (IS_MY_WALLET_BRAND) {
         actions.checkCardNftOwnership({ accountId });
         const settings = selectAccountSettings(global, accountId);
         if (nft.collectionAddress === MW_CARDS_COLLECTION && !settings?.cardBackgroundNft) {
@@ -382,7 +386,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         seasonalTheme,
       } = update;
 
-      const shouldRestrictSwapsAndOnOffRamp = IS_CORE_WALLET;
+      const shouldRestrictSwapsAndOnOffRamp = IS_FEATURE_LIMITED;
       global = updateRestrictions(global, {
         isLimitedRegion,
         isSwapDisabled: shouldRestrictSwapsAndOnOffRamp,
@@ -474,13 +478,16 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         type: 'mnemonic',
         byChain: { ton: { address } },
       });
-      global = createAccount({
-        global,
-        accountId: secondAccountId,
-        type: 'mnemonic',
-        byChain: { ton: { address: secondAddress } },
-        network: isTestnet ? 'mainnet' : 'testnet', // Second account should be created on opposite network
-      });
+      // The opposite-network twin exists only on the trimmed core build; the combo build omits it (no secondAccountId).
+      if (secondAccountId && secondAddress) {
+        global = createAccount({
+          global,
+          accountId: secondAccountId,
+          type: 'mnemonic',
+          byChain: { ton: { address: secondAddress } },
+          network: isTestnet ? 'mainnet' : 'testnet', // Second account should be created on opposite network
+        });
+      }
       setGlobal(global);
 
       // Run the application only after the post-migration GlobalState has been applied
@@ -493,6 +500,39 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           actions.toggleTonProxy({ isEnabled: true });
         }
       });
+      break;
+    }
+
+    case 'removeAccounts': {
+      const { accountIds } = update;
+      const removed = new Set(accountIds);
+      const wasCurrentRemoved = Boolean(global.currentAccountId && removed.has(global.currentAccountId));
+      global = omitAccounts(global, accountIds);
+
+      // Drop any push-notification references to the removed accounts (local only; twins were never subscribed).
+      const { enabledAccounts } = global.pushNotifications;
+      const nextEnabledAccounts = enabledAccounts.filter((id) => !removed.has(id));
+      if (nextEnabledAccounts.length !== enabledAccounts.length) {
+        global = {
+          ...global,
+          pushNotifications: { ...global.pushNotifications, enabledAccounts: nextEnabledAccounts },
+        };
+      }
+
+      setGlobal(global);
+
+      // `omitAccounts` clears `currentAccountId` when the active account is removed, but nothing downstream
+      // self-heals from `currentAccountId === undefined` (`activateAccount` bails out). Re-select a survivor via
+      // `switchAccount` (which also syncs `settings.isTestnet` — see the `migrateCoreApplication` case above).
+      // Zero survivors is a full wipe: leave `currentAccountId` undefined. `orderedAccountIds` is a merge-only
+      // hint that can retain ids of accounts removed in earlier sessions, so pick the first one still live.
+      if (wasCurrentRemoved) {
+        const survivorId = global.settings.orderedAccountIds?.find((id) => id in global.byAccountId)
+          ?? Object.keys(global.byAccountId)[0];
+        if (survivorId) {
+          actions.switchAccount({ accountId: survivorId, newNetwork: parseAccountId(survivorId).network });
+        }
+      }
       break;
     }
 

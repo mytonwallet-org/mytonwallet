@@ -1,7 +1,7 @@
 import type { LangCode } from '../global/types';
 
 import {
-  IS_CORE_WALLET, IS_EXTENSION, IS_FIREFOX_EXTENSION, IS_TELEGRAM_APP, LANG_LIST, LEGACY_APP_HOSTS,
+  IS_EXTENSION, IS_FEATURE_LIMITED, IS_FIREFOX_EXTENSION, IS_TELEGRAM_APP, LANG_LIST, LEGACY_APP_HOSTS,
 } from '../config';
 import { requestForcedReflow } from '../lib/fasterdom/fasterdom';
 import { DETACHED_TAB_URL } from './ledger/tab';
@@ -10,7 +10,7 @@ import { getPlatform } from './getPlatform';
 const TELEGRAM_MOBILE_PLATFORM = new Set(['android', 'android_x', 'ios']);
 
 function getBrowserLanguage(): LangCode {
-  if (IS_CORE_WALLET) return 'en';
+  if (IS_FEATURE_LIMITED) return 'en';
 
   const { language } = navigator;
   const lang = language.startsWith('zh')
@@ -51,7 +51,7 @@ export function setUserAgentLangCode(langCode: LangCode) {
   USER_AGENT_LANG_CODE = langCode;
 }
 export const DPR = window.devicePixelRatio || 1;
-export const IS_LEDGER_SUPPORTED = !(IS_CORE_WALLET || IS_IOS || IS_FIREFOX_EXTENSION || IS_TELEGRAM_APP);
+export const IS_LEDGER_SUPPORTED = !(IS_FEATURE_LIMITED || IS_IOS || IS_FIREFOX_EXTENSION || IS_TELEGRAM_APP);
 export const IS_LEDGER_EXTENSION_TAB = global.location.hash.startsWith(DETACHED_TAB_URL);
 // Disable biometric auth on electron for now until this issue is fixed:
 // https://github.com/electron/electron/issues/24573

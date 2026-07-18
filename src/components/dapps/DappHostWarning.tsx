@@ -3,7 +3,7 @@ import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiDappurlTrustStatusStatus } from '../../api/types';
 
-import { APP_INSTALL_URL } from '../../config';
+import { APP_INSTALL_URL, APP_NAME } from '../../config';
 import renderText from '../../global/helpers/renderText';
 
 import useLang from '../../hooks/useLang';
@@ -29,6 +29,7 @@ function DappHostWarning({ url, iconClassName, urlTrustStatus = 'unknown' }: Own
   const reopenBody = (
     <p className={styles.dappHostWarningText}>
       {renderText(lang('$reopen_in_iab', {
+        app_name: APP_NAME,
         mobileAppButton: (
           <a
             href={`${APP_INSTALL_URL}/mobile`}

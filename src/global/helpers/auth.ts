@@ -23,19 +23,21 @@ export async function removeTemporaryAccount(accountId: string) {
   setGlobal(updatedGlobal);
 }
 
-function cleanupTemporaryAccountState(global: GlobalState, accountId: string): GlobalState {
-  const { accounts, byAccountId, settings, currentAccountId } = global;
+/** Drops the given accounts from every account-keyed map, clearing `currentAccountId` if it is among them. */
+export function omitAccounts(global: GlobalState, accountIds: string[]): GlobalState {
+  if (!accountIds.length) return global;
 
-  const newAccountsById = accounts ? omit(accounts.byId, [accountId]) : undefined;
-  const newByAccountId = omit(byAccountId, [accountId]);
-  const newSettingsByAccountId = omit(settings.byAccountId, [accountId]);
-  const orderedAccountIds = settings.orderedAccountIds?.filter((id) => id !== accountId);
+  const { accounts, byAccountId, settings, currentAccountId } = global;
+  const removed = new Set(accountIds);
+
+  const newAccountsById = accounts ? omit(accounts.byId, accountIds) : undefined;
+  const newByAccountId = omit(byAccountId, accountIds);
+  const newSettingsByAccountId = omit(settings.byAccountId, accountIds);
+  const orderedAccountIds = settings.orderedAccountIds?.filter((id) => !removed.has(id));
 
   return {
     ...global,
-    currentTemporaryViewAccountId: undefined,
-    // Clear currentAccountId if it points to the removed account
-    currentAccountId: currentAccountId === accountId ? undefined : currentAccountId,
+    currentAccountId: currentAccountId && removed.has(currentAccountId) ? undefined : currentAccountId,
     accounts: accounts && newAccountsById ? { ...accounts, byId: newAccountsById } : accounts,
     byAccountId: newByAccountId,
     settings: {
@@ -43,6 +45,13 @@ function cleanupTemporaryAccountState(global: GlobalState, accountId: string): G
       byAccountId: newSettingsByAccountId,
       orderedAccountIds,
     },
+  };
+}
+
+function cleanupTemporaryAccountState(global: GlobalState, accountId: string): GlobalState {
+  return {
+    ...omitAccounts(global, [accountId]),
+    currentTemporaryViewAccountId: undefined,
   };
 }
 

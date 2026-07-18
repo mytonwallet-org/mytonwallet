@@ -914,7 +914,7 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: Please, use My Wallet %mobileAppButton% or %browserExtensionButton% to avoid this warning.
+$reopen_in_iab: Please, use %app_name% %mobileAppButton% or %browserExtensionButton% to avoid this warning.
 $reopen_in_iab_explore: Please use the %exploreTab% section when browsing apps to avoid this warning.
 My Wallet Browser: My Wallet Browser
 mobile app: mobile app

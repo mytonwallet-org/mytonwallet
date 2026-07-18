@@ -31,6 +31,7 @@ import {
   IS_CORE_WALLET,
   IS_EXPLORER,
   IS_EXTENSION,
+  IS_FEATURE_LIMITED,
   IS_FIREFOX_EXTENSION,
   IS_GRAM_WALLET,
   IS_OPERA_EXTENSION,
@@ -68,7 +69,7 @@ const cspConnectSrcExtra = APP_ENV === 'development'
   ? `http://localhost:3000 ${process.env.CSP_CONNECT_SRC_EXTRA_URL}`
   : '';
 const cspScriptSrcExtra = IS_TELEGRAM_APP ? 'https://telegram.org' : '';
-const cspFrameSrcExtra = IS_CORE_WALLET ? '' : [
+const cspFrameSrcExtra = IS_FEATURE_LIMITED ? '' : [
   'https://buy-sandbox.moonpay.com/',
   'https://buy.moonpay.com/',
   'https://sell.moonpay.com/',

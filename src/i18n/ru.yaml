@@ -923,7 +923,7 @@ DappurlTrustStatusInvalidTitle: Несовпадение домена
 $DappurlTrustStatusInvalidHelp: Источник не совпадает с проверенным доменом приложения. Продолжайте только если доверяете этому сайту.
 DappurlTrustStatusDangerousTitle: Потенциально опасный сайт
 $DappurlTrustStatusDangerousHelp: Домен помечен проверками безопасности как опасный. Подключение может подвергнуть риску ваши средства. Продолжайте только если полностью уверены.
-$reopen_in_iab: Пожалуйста, используйте My Wallet %mobileAppButton% или %browserExtensionButton%, чтобы избежать этого предупреждения.
+$reopen_in_iab: Пожалуйста, используйте %app_name% %mobileAppButton% или %browserExtensionButton%, чтобы избежать этого предупреждения.
 $reopen_in_iab_explore: Пожалуйста, используйте раздел %exploreTab% при просмотре приложений, чтобы избежать этого предупреждения.
 My Wallet Browser: браузере My Wallet
 mobile app: мобильное приложение

@@ -12,7 +12,7 @@ import type {
   OnUpdatingStatusChange,
 } from '../../types';
 
-import { IS_CORE_WALLET, IS_STAKING_DISABLED, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../../config';
+import { IS_MY_WALLET_BRAND, IS_STAKING_DISABLED, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs } from '../../../util/activities';
 import { areDeepEqual } from '../../../util/areDeepEqual';
@@ -565,7 +565,8 @@ function setupTonDnsPolling(
 }
 
 function setupVestingPolling(accountId: string, onUpdate: OnApiUpdate) {
-  if (IS_CORE_WALLET) {
+  // Vesting is a MYCOIN perk, so only the My Wallet brand renders it; polling for the rest would be dead traffic
+  if (!IS_MY_WALLET_BRAND) {
     return () => {};
   }
 

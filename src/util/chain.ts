@@ -1055,8 +1055,10 @@ export const getTrustedUsdtSlugs = /* #__PURE__ */ withCache((): ReadonlySet<str
 });
 
 export const getDefaultEnabledSlugs = /* #__PURE__ */ withCache((network: ApiNetwork): ReadonlySet<string> => {
-  // Core builds are TON-only: without this gate, foreign-chain defaults get zero-balance rows
-  // injected for every account (see `updateBalances` in `global/reducers/misc.ts`) and rendered on empty wallets.
+  // Deliberately keyed on the build, not on the feature axis: the TON-forward brands default to TON tokens even
+  // though they support every chain, matching Air (`ApiToken.defaultSlugs`). It also spares the wallet.ton.org
+  // accounts, whose TON-native mnemonic cannot derive foreign addresses, zero-balance rows they can never use:
+  // `updateBalances` (`global/reducers/misc.ts`) seeds every default slug and empty wallets render them all.
   const chainConfigs = IS_CORE_WALLET ? [CHAIN_CONFIG.ton] : Object.values(CHAIN_CONFIG);
 
   return new Set(

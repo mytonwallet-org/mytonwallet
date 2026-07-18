@@ -3,7 +3,7 @@ import { useMemo } from '../lib/teact/teact';
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState } from '../api/types';
 import type { UserToken } from '../global/types';
 
-import { IS_CORE_WALLET, STAKING_SLUG_PREFIX } from '../config';
+import { IS_FEATURE_LIMITED, STAKING_SLUG_PREFIX } from '../config';
 import { calculateTokenPrice } from '../util/calculatePrice';
 import { toBig } from '../util/decimals';
 import { buildCollectionByKey } from '../util/iteratees';
@@ -28,7 +28,7 @@ export default function useTokensWithStaking({
   alwaysHiddenSlugs = [],
 }: UseTokensWithStakingOptions) {
   const activeStates = useMemo(() => {
-    if (IS_CORE_WALLET) return [];
+    if (IS_FEATURE_LIMITED) return [];
 
     return states?.filter(getIsActiveStakingState) ?? [];
   }, [states]);

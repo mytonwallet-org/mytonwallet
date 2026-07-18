@@ -6,7 +6,8 @@ import type { ApiChain, ApiNft } from '../../../api/types';
 import type { DropdownItem } from '../../ui/Dropdown';
 
 import {
-  IS_CORE_WALLET,
+  IS_FEATURE_LIMITED,
+  IS_MY_WALLET_BRAND,
   MW_CARDS_COLLECTION,
 } from '../../../config';
 import { formatRelativeDays } from '../../../util/dateFormat';
@@ -319,7 +320,7 @@ export default function useNftMenu({
     const isDotTon = isDotTonDomainNft(nft);
     const isRenewable = isRenewableDnsNft(nft);
     const isLinkable = isLinkableDnsNft(nft);
-    const isCard = !IS_CORE_WALLET && nft.collectionAddress === MW_CARDS_COLLECTION;
+    const isCard = IS_MY_WALLET_BRAND && nft.collectionAddress === MW_CARDS_COLLECTION;
 
     return compact([
       ...(isCard ? [!isNftInstalled ? INSTALL_CARD : RESET_CARD] : []),
@@ -338,9 +339,9 @@ export default function useNftMenu({
       getExplorerItem(nft.chain),
       SHARE_LINK_ITEM,
       collectionAddress && COLLECTION_ITEM,
-      !IS_CORE_WALLET && ((!isScam && !isNftBlacklisted) || isNftWhitelisted) && HIDE_ITEM,
-      !IS_CORE_WALLET && isScam && !isNftWhitelisted && NOT_SCAM,
-      !IS_CORE_WALLET && !isScam && isNftBlacklisted && UNHIDE,
+      !IS_FEATURE_LIMITED && ((!isScam && !isNftBlacklisted) || isNftWhitelisted) && HIDE_ITEM,
+      !IS_FEATURE_LIMITED && isScam && !isNftWhitelisted && NOT_SCAM,
+      !IS_FEATURE_LIMITED && !isScam && isNftBlacklisted && UNHIDE,
       ...(!isOnSale && !isViewMode ? [
         BURN_ITEM,
         !isWidget && SELECT_ITEM,

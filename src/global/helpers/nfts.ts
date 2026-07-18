@@ -1,6 +1,6 @@
 import type { ApiChain, ApiNft } from '../../api/types';
 
-import { IS_CORE_WALLET, MW_CARDS_COLLECTION, TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../config';
+import { IS_MY_WALLET_BRAND, MW_CARDS_COLLECTION, TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../config';
 
 export interface VisibleNftCollection {
   chain: ApiChain;
@@ -22,7 +22,7 @@ export function pinMwCardsFirst(
   orderedAddresses: string[],
   byAddress: Record<string, ApiNft>,
 ): string[] {
-  if (IS_CORE_WALLET) return orderedAddresses;
+  if (!IS_MY_WALLET_BRAND) return orderedAddresses;
 
   const cards: string[] = [];
   const rest: string[] = [];

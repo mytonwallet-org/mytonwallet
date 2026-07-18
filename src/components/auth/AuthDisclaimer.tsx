@@ -4,8 +4,8 @@ import { getActions } from '../../global';
 import {
   ANIMATED_STICKER_MIDDLE_SIZE_PX,
   APP_NAME,
-  MY_WALLET_PRIVACY_POLICY_URL,
-  MY_WALLET_TERMS_OF_USE_URL,
+  APP_PRIVACY_POLICY_URL,
+  APP_TERMS_OF_USE_URL,
 } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
@@ -67,7 +67,7 @@ function AuthDisclaimer({ isActive }: OwnProps) {
         </div>
         <div className={buildClassName(settingsStyles.block, styles.lawBlock)}>
           <a
-            href={MY_WALLET_TERMS_OF_USE_URL}
+            href={APP_TERMS_OF_USE_URL}
             target="_blank"
             rel="noreferrer"
             className={settingsStyles.item}
@@ -78,7 +78,7 @@ function AuthDisclaimer({ isActive }: OwnProps) {
             <i className={buildClassName(settingsStyles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
           </a>
           <a
-            href={MY_WALLET_PRIVACY_POLICY_URL}
+            href={APP_PRIVACY_POLICY_URL}
             target="_blank"
             rel="noreferrer"
             className={settingsStyles.item}

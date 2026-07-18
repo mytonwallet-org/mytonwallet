@@ -3,7 +3,7 @@ import React, { memo, useEffect, useRef } from '../../../../lib/teact/teact';
 import type { Account, AccountSettings, AccountType } from '../../../../global/types';
 import type { AccountTab } from './constants';
 
-import { IS_CORE_WALLET } from '../../../../config';
+import { IS_FEATURE_LIMITED } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 
 import Transition from '../../../ui/Transition';
@@ -74,7 +74,7 @@ function AccountsGridView({
         title={title}
         balanceData={balanceData}
         cardBackgroundNft={cardBackgroundNft}
-        withContextMenu={!IS_CORE_WALLET}
+        withContextMenu={!IS_FEATURE_LIMITED}
         isSensitiveDataHidden={isSensitiveDataHidden}
         onClick={onSwitchAccount}
         onRename={onRename}

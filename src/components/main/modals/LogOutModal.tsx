@@ -5,7 +5,7 @@ import { getActions, withGlobal } from '../../../global';
 
 import type { Account, AccountState } from '../../../global/types';
 
-import { IS_CORE_WALLET } from '../../../config';
+import { IS_FEATURE_LIMITED } from '../../../config';
 import renderText from '../../../global/helpers/renderText';
 import {
   selectCurrentAccountId,
@@ -63,7 +63,7 @@ function LogOutModal({
   const { signOut, switchAccount } = getActions();
 
   const lang = useLang();
-  const [isLogOutFromAllAccounts, setIsLogOutFromAllAccounts] = useState<boolean>(IS_CORE_WALLET || !!isInAppLock);
+  const [isLogOutFromAllAccounts, setIsLogOutFromAllAccounts] = useState<boolean>(IS_FEATURE_LIMITED || !!isInAppLock);
 
   const accountsWithoutBackups = useMemo(() => {
     if (!hasManyAccounts) {
@@ -84,7 +84,7 @@ function LogOutModal({
 
   useEffect(() => {
     if (isOpen) {
-      setIsLogOutFromAllAccounts(IS_CORE_WALLET || !!isInAppLock);
+      setIsLogOutFromAllAccounts(IS_FEATURE_LIMITED || !!isInAppLock);
     }
   }, [isOpen, isInAppLock]);
 
@@ -95,7 +95,11 @@ function LogOutModal({
 
   const handleLogOut = useLastCallback(() => {
     onClose(!isLogOutFromAllAccounts && hasManyAccounts);
-    const level = IS_CORE_WALLET ? 'all' : (isLogOutFromAllAccounts ? 'network' : 'account');
+    // The feature-limited legacy build mirrors every wallet across mainnet/testnet with no network switcher, so its
+    // "log out" must wipe both. Every other build (combo included, whose legacy testnet twins are purged on migration)
+    // has only deliberate accounts and logs out per-account or per-network like normal.
+    const shouldWipeBothNetworks = IS_FEATURE_LIMITED;
+    const level = shouldWipeBothNetworks ? 'all' : (isLogOutFromAllAccounts ? 'network' : 'account');
     signOut({ level, accountId: level === 'account' ? accountId : undefined });
   });
 
@@ -171,7 +175,7 @@ function LogOutModal({
           ? lang('$logout_current_wallet_warning')
           : `${lang('$logout_current_wallet_warning')} ${lang('$secret_words_backup_reminder')}`)}
       </p>
-      {!(IS_CORE_WALLET || !!isInAppLock) && hasManyAccounts && (
+      {!(IS_FEATURE_LIMITED || !!isInAppLock) && hasManyAccounts && (
         <Checkbox
           id="logount_all_accounts"
           className={styles.checkbox}

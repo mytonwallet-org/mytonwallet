@@ -1,7 +1,7 @@
 import React, { memo } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
-import { IS_CORE_WALLET, IS_EXPLORER, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
+import { IS_EXPLORER, IS_EXTENSION, IS_FEATURE_LIMITED, IS_TELEGRAM_APP } from '../../../../config';
 import {
   selectCurrentAccountId,
   selectCurrentAccountState,
@@ -32,7 +32,8 @@ type StateProps = {
   isMnemonicAccount: boolean;
 };
 
-const IS_UNSAFE_WEB = !IS_CORE_WALLET && !IS_ELECTRON && !IS_EXTENSION && !IS_IOS && !IS_ANDROID && !IS_TELEGRAM_APP;
+const IS_UNSAFE_WEB = !IS_FEATURE_LIMITED && !IS_ELECTRON && !IS_EXTENSION && !IS_IOS && !IS_ANDROID
+  && !IS_TELEGRAM_APP;
 
 function Warnings({
   isBackupRequired,

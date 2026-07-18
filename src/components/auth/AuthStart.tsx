@@ -4,7 +4,7 @@ import { getActions, withGlobal } from '../../global';
 import { type Theme } from '../../global/types';
 
 import {
-  APP_INSTALL_URL, APP_NAME, IS_EXPLORER, IS_CORE_WALLET, IS_GRAM_WALLET, IS_TON_BRAND, NEW_APP_URL,
+  APP_INSTALL_URL, APP_NAME, IS_EXPLORER, IS_FEATURE_LIMITED, IS_GRAM_WALLET, IS_TON_BRAND, NEW_APP_URL,
   PRODUCTION_URL,
 } from '../../config';
 import renderText from '../../global/helpers/renderText';
@@ -221,7 +221,7 @@ function AuthStart({
               {renderText(lang('$auth_intro'))}
             </div>
 
-            {!IS_CORE_WALLET && (
+            {!IS_FEATURE_LIMITED && (
               <Button
                 isText
                 className={buildClassName(styles.btn, styles.btn_about)}
@@ -230,11 +230,11 @@ function AuthStart({
                 {lang('More about %app_name%', { app_name: APP_NAME })}{' '}›
               </Button>
             )}
-            <div className={buildClassName(styles.buttons, IS_CORE_WALLET && styles.coreWalletButtons)}>
+            <div className={buildClassName(styles.buttons, IS_FEATURE_LIMITED && styles.coreWalletButtons)}>
               <Checkbox
                 checked={isAccepted}
                 onChange={setIsAccepted}
-                className={IS_CORE_WALLET ? styles.responsibilityCheckboxSimple : styles.responsibilityCheckbox}
+                className={IS_FEATURE_LIMITED ? styles.responsibilityCheckboxSimple : styles.responsibilityCheckbox}
                 contentClassName={styles.responsibilityCheckboxContent}
               >
                 {lang('$accept_terms_with_link', {
@@ -262,7 +262,7 @@ function AuthStart({
                   {lang('Create New Wallet')}
                 </Button>
               )}
-              {IS_CORE_WALLET ? renderSimpleImportForm() : (
+              {IS_FEATURE_LIMITED ? renderSimpleImportForm() : (
                 <Button
                   isText
                   isDisabled={!isAccepted}
