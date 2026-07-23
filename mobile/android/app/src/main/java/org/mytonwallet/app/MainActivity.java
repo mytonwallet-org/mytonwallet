@@ -37,6 +37,9 @@ public class MainActivity extends BaseActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     Log.i("MTWAirApplication", "Main Activity Created");
+    boolean shouldAnimateSplash = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+      Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU;
+    SplashScreen splashScreen = shouldAnimateSplash ? SplashScreen.installSplashScreen(this) : null;
     super.onCreate(savedInstanceState);
 
     if (!isWebViewAvailable()) {
@@ -64,14 +67,12 @@ public class MainActivity extends BaseActivity {
     airLauncher.handle(getIntent());
 
     // Splash-Screen doesn't work as expected on Android 12 and 13
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-      Build.VERSION.SDK_INT <= Build.VERSION_CODES.TIRAMISU) {
+    if (!shouldAnimateSplash) {
       splashScreenAnimatedEnded();
       return;
     }
 
     boolean isGramApp = getPackageName().startsWith("io.gramwallet.");
-    SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     splashScreen.setKeepOnScreenCondition(() -> keep);
     splashScreen.setOnExitAnimationListener(splashScreenView -> {
       AnimatorSet animationSet = new AnimatorSet();

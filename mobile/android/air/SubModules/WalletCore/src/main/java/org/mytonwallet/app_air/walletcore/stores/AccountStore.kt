@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MultiWalletSupport
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
+import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
@@ -143,9 +144,12 @@ object AccountStore : IStore {
             }
         }
 
-        update.domain?.let { newDomain ->
+        update.domain?.let { domainUpdate ->
             val existing = byChain[chain]
-            val newDomain = if (newDomain == "false") null else newDomain
+            val newDomain = when (domainUpdate) {
+                is AccountDomainUpdate.Set -> domainUpdate.value
+                AccountDomainUpdate.Clear -> null
+            }
             if (existing != null && existing.domain != newDomain) {
                 byChain[chain] = existing.copy(domain = newDomain)
                 didChange = true

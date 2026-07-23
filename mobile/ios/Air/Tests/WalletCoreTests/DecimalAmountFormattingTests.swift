@@ -203,6 +203,17 @@ struct DecimalAmountFormattingTests {
     }
 
     @Test
+    func `base currency card preset keeps minimum fraction digits`() {
+        let trailingZero = BaseCurrencyAmount(BigInt(12_345_100_000), .USD)
+        let whole = BaseCurrencyAmount(BigInt(12_345_000_000), .USD)
+        let small = BaseCurrencyAmount(BigInt(22_222), .USD)
+
+        #expect(trailingZero.formatted(.baseCurrencyEquivalentWithMinimumFractionDigits) == "$12 345.10")
+        #expect(whole.formatted(.baseCurrencyEquivalentWithMinimumFractionDigits) == "$12 345.00")
+        #expect(small.formatted(.baseCurrencyEquivalentWithMinimumFractionDigits) == "$0.022")
+    }
+
+    @Test
     func `base currency price uses significant digits for small values`() {
         let amount = BaseCurrencyAmount(BigInt(22_222), .USD)
 

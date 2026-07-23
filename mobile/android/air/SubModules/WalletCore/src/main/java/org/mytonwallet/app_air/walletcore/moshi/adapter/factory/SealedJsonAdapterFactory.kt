@@ -6,7 +6,7 @@ import com.squareup.moshi.adapters.PolymorphicJsonAdapterFactory
 
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.CLASS)
-annotation class JsonSealed(val labelKey: String)
+annotation class JsonSealed(val labelKey: String, val fallbackToNull: Boolean = false)
 
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.CLASS)
@@ -39,6 +39,10 @@ class SealedJsonAdapterFactory : JsonAdapter.Factory {
 
             polymorphicFactory =
                 polymorphicFactory.withSubtype(subclass.java as Class<out Nothing>, label)
+        }
+
+        if (jsonSealedAnnotation.fallbackToNull) {
+            polymorphicFactory = polymorphicFactory.withDefaultValue(null)
         }
 
         return polymorphicFactory.create(type, annotations, moshi)

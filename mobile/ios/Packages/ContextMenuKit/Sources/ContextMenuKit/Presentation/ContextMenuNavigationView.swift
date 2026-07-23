@@ -30,6 +30,8 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         self.hosts.count > 1
     }
 
+    private(set) var isTransitioningPages = false
+
     init(
         rootPage: ContextMenuPage,
         style: ContextMenuStyle,
@@ -201,6 +203,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         case .began, .changed:
             self.animator?.stopAnimation(true)
             self.animator = nil
+            self.isTransitioningPages = true
 
             let translation = max(0.0, recognizer.translation(in: self).x)
             self.transitionProgress = min(1.0, translation / currentWidth)
@@ -236,6 +239,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         self.pageClipView.addSubview(pageView)
         self.hosts.append(PageHost(page: page, pageView: pageView))
         self.transitionProgress = 1.0
+        self.isTransitioningPages = true
         self.updateNavigationGestureState()
         self.requestLayout?()
 
@@ -245,6 +249,8 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         }
         animator.addCompletion { _ in
             self.animator = nil
+            self.isTransitioningPages = false
+            self.requestLayout?()
         }
         self.animator = animator
         animator.startAnimation()
@@ -254,6 +260,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         self.animator?.stopAnimation(true)
         self.animator = nil
         self.clearSelections()
+        self.isTransitioningPages = true
 
         let animator = UIViewPropertyAnimator(duration: 0.45, dampingRatio: 0.82) {
             self.transitionProgress = 1.0
@@ -262,18 +269,20 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         animator.addCompletion { _ in
             guard self.hosts.count > 1 else {
                 self.transitionProgress = 0.0
-                self.requestLayout?()
                 self.animator = nil
+                self.isTransitioningPages = false
                 self.updateNavigationGestureState()
+                self.requestLayout?()
                 return
             }
 
             let removed = self.hosts.removeLast()
             removed.pageView.removeFromSuperview()
             self.transitionProgress = 0.0
+            self.animator = nil
+            self.isTransitioningPages = false
             self.updateNavigationGestureState()
             self.requestLayout?()
-            self.animator = nil
         }
         self.animator = animator
         animator.startAnimation()
@@ -282,6 +291,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
     private func animateCancelPop() {
         self.animator?.stopAnimation(true)
         self.animator = nil
+        self.isTransitioningPages = true
 
         let animator = UIViewPropertyAnimator(duration: 0.35, dampingRatio: 0.86) {
             self.transitionProgress = 0.0
@@ -289,6 +299,8 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         }
         animator.addCompletion { _ in
             self.animator = nil
+            self.isTransitioningPages = false
+            self.requestLayout?()
         }
         self.animator = animator
         animator.startAnimation()

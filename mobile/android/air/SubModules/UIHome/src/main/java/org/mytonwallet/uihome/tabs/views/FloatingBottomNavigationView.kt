@@ -514,6 +514,7 @@ class FloatingBottomNavigationView(
             tabs.values.forEach { it.container.updateThemeColors() }
             activeHighlight.contentView.updateThemeColors()
             incomingHighlight.contentView.updateThemeColors()
+            pillContainer.invalidate()
         }
 
         syncBlurView()

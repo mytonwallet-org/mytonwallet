@@ -186,14 +186,14 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
     }
 
     @Override
-    public int getDoNotSynchronize() {
-        return doNotSynchronize.get();
+    public void incrementDoNotSynchronize() {
+        doNotSynchronize.incrementAndGet();
     }
 
     @Override
-    public void setDoNotSynchronize(int i) {
-        doNotSynchronize.set(i);
-        if (i == 0)
+    public void decrementDoNotSynchronize() {
+        int previousValue = doNotSynchronize.getAndUpdate(value -> value > 0 ? value - 1 : 0);
+        if (previousValue == 1)
             persistChanges(PERSIST_NORMAL);
     }
 

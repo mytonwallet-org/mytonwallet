@@ -1,5 +1,9 @@
 <!doctype html>
-<html lang="en" translate="no" class="notranslate">
+<html
+  lang="en"
+  translate="no"
+  class="notranslate<%= process.env.IS_TELEGRAM_APP === '1' ? ' force-transparent-bg' : '' %>"
+>
   <head>
     <meta charset="UTF-8" />
 

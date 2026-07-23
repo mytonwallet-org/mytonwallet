@@ -10,7 +10,8 @@ interface IGlobalStorageProvider {
         const val PERSIST_INSTANT: Int = 2
     }
 
-    var doNotSynchronize: Int
+    fun incrementDoNotSynchronize()
+    fun decrementDoNotSynchronize()
 
     fun contains(key: String): Boolean
     fun getInt(key: String): Int?

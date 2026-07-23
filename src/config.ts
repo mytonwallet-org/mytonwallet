@@ -32,7 +32,7 @@ export const APP_NAME = process.env.APP_NAME
 export const APP_VERSION = process.env.APP_VERSION!;
 export const APP_COMMIT_HASH = process.env.APP_COMMIT_HASH!;
 export const APP_ENV_MARKER = APP_ENV === 'staging' ? 'Beta' : APP_ENV === 'development' ? 'Dev' : undefined;
-export const EXTENSION_NAME = IS_TON_BRAND ? 'TON Wallet' : 'My Wallet: Crypto Wallet';
+export const EXTENSION_NAME = IS_TON_BRAND ? 'TON Wallet' : 'My Wallet • Crypto & Web3';
 export const EXTENSION_DESCRIPTION = IS_TON_BRAND
   ? 'Set up your own TON Wallet on The Open Network'
   : 'Self-custodial wallet for TON, TRON, Solana, Ethereum and more. Swap, stake, buy crypto, manage NFTs and explore dapps.';
@@ -205,8 +205,8 @@ export const MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3;
 
 export const SUPPORT_USERNAME = 'mysupport';
 export const MW_NEWS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
-  en: 'MyTonWalletEn',
-  ru: 'MyTonWalletRu',
+  en: 'MyWalletEng',
+  ru: 'MyWalletRus',
 };
 export const MW_TIPS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
   en: 'MyTonWalletTips',

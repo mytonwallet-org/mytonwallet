@@ -22,7 +22,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import okio.IOException
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
@@ -639,25 +638,6 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                 }
 
-                "updateAccount" -> {
-                    val accountId = objectJSONObject.optString("accountId") ?: return
-                    val chain = objectJSONObject.optString("chain") ?: return
-                    val domain: String? =
-                        when (val value = objectJSONObject.opt("domain")) {
-                            is String -> value
-                            else -> null
-                        }
-                    val account = AccountStore.accountById(accountId) ?: return
-                    val byChain = account.byChain.toMutableMap()
-                    val accountChain = byChain[chain] ?: return
-                    byChain[chain] = accountChain.copy(domain = domain)
-                    val activeAccount = AccountStore.activeAccount
-                    if (activeAccount?.accountId == accountId) {
-                        activeAccount.byChain = byChain.toMap()
-                    }
-                    AccountStore.updateAccountByChain(accountId, byChain)
-                }
-
                 "openUrl" -> {
                     val rawUrl = objectJSONObject.optString("url").takeIfNotBlank() ?: return
                     val url = rawUrl.decodeUrlOrNull() ?: return
@@ -687,7 +667,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 // New Approach
                 val adapter = WalletCore.moshi.adapter(ApiUpdate::class.java)
                 try {
-                    val update = adapter.fromJson(updateString) ?: throw IOException()
+                    val update = adapter.fromJson(updateString) ?: return@launch
                     WalletCore.notifyApiUpdate(update)
                     // return@execute
                 } catch (_: Throwable) {

@@ -8,6 +8,8 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
     case compact
     /// Displays 2 fiat decimals for fiat currencies, even for large values. Used on card.
     case baseCurrencyEquivalent
+    /// Same as `baseCurrencyEquivalent`, but keeps at least 2 fraction digits for animated card balances.
+    case baseCurrencyEquivalentWithMinimumFractionDigits
     /// Similar to `baseCurrencyEquivalent` but shortened for large values with K/M format (as is for less than 1000, then 1.5K, 9.2K, 123K, 999.1K, 1M, 2.5M etc)
     case baseCurrencyEquivalentShortened
     /// Hide decimals for large amounts. Used for widgets.
@@ -38,7 +40,7 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
             }
             return resolved
 
-        case .baseCurrencyEquivalent, .baseCurrencyEquivalentShortened:
+        case .baseCurrencyEquivalent, .baseCurrencyEquivalentWithMinimumFractionDigits, .baseCurrencyEquivalentShortened:
             return tokenDecimals(for: abs(decimalAmount.amount), tokenDecimals: decimals)
             
         case .baseCurrencyPrice:
@@ -60,6 +62,15 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
         switch self {
         case .fee:
             return 6
+        default:
+            return nil
+        }
+    }
+
+    var minDecimals: Int? {
+        switch self {
+        case .baseCurrencyEquivalentWithMinimumFractionDigits:
+            return 2
         default:
             return nil
         }

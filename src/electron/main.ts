@@ -3,6 +3,7 @@ import contextMenu from 'electron-context-menu';
 import path from 'path';
 
 import { IS_PRODUCTION } from '../config';
+import { setupApplicationMenu } from './app-menu';
 import { initDeeplink } from './deeplink';
 import { setupSecrets } from './secrets';
 import { IS_LINUX, IS_MAC_OS, MTW_GTK_VERSION } from './utils';
@@ -34,6 +35,7 @@ app.on('ready', () => {
     app.dock!.setIcon(nativeImage.createFromPath(path.resolve(__dirname, '../public/icon-electron-macos.png')));
   }
 
+  setupApplicationMenu();
   createWindow();
   setupElectronActionHandlers();
   setupWalletConnectPayCollectHandlers();

@@ -185,6 +185,27 @@ struct WalletContextNumberFormattingTests {
     }
 
     @Test
+    func `formatBigIntText preserves requested minimum fraction digits`() {
+        let trailingZero = formatBigIntText(
+            BigInt(12_345_100_000),
+            currency: "$",
+            tokenDecimals: 6,
+            decimalsCount: 2,
+            minimumFractionDigits: 2
+        )
+        let whole = formatBigIntText(
+            BigInt(12_345_000_000),
+            currency: "$",
+            tokenDecimals: 6,
+            decimalsCount: 2,
+            minimumFractionDigits: 2
+        )
+
+        #expect(trailingZero == "$12 345.10")
+        #expect(whole == "$12 345.00")
+    }
+
+    @Test
     func `formatBigIntText can compact leading fractional zero count`() {
         let formatted = formatBigIntText(
             BigInt(560),

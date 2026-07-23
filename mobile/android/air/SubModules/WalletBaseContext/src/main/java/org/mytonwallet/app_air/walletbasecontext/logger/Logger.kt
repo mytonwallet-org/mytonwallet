@@ -104,7 +104,7 @@ object Logger {
     fun e(tag: LogTag, message: LogMessage) {
         Log.e(tag.tag, message.toString())
         log(tag, LogLevel.ERROR, message)
-        crashlytics?.log("E/${tag.tag}: $message")
+        crashlytics?.log(composeCrashlyticsEvent(LogLevel.ERROR, tag))
     }
 
     fun e(tag: LogTag, message: String) {
@@ -114,7 +114,7 @@ object Logger {
     fun w(tag: LogTag, message: LogMessage) {
         Log.w(tag.tag, message.toString())
         log(tag, LogLevel.WARN, message)
-        crashlytics?.log("W/${tag.tag}: $message")
+        crashlytics?.log(composeCrashlyticsEvent(LogLevel.WARN, tag))
     }
 
     fun w(tag: LogTag, message: String) {
@@ -143,6 +143,10 @@ object Logger {
         scope.launch {
             synchronize()
         }
+    }
+
+    internal fun composeCrashlyticsEvent(level: LogLevel, tag: LogTag): String {
+        return "${level.str}/${tag.tag}"
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
 

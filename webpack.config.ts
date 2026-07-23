@@ -513,8 +513,21 @@ export default function createConfig(
           },
           {
             from: IS_TELEGRAM_APP ? 'src/_headers_telegram' : 'src/_headers',
-            transform: (content: Buffer) => content.toString()
-              .replace('{{CSP}}', `${CSP} ${cspFrameAncestors}`.trim()),
+            transform: (content: Buffer) => {
+              const headers = content.toString().replace('{{CSP}}', `${CSP} ${cspFrameAncestors}`.trim());
+
+              // Consolidate the retiring mytonwallet.app brand host onto mywallet.io in search. The app
+              // keeps serving on .app (installed PWAs and deeplinks pin it), so this is a canonical
+              // header rather than a redirect; the same site also answers on web(.beta).mywallet.io, which
+              // self-canonicalizes. Omitted for Gram/core: those builds are a different brand
+              // (wallet.ton.org ships to ton-blockchain/ton-wallet) and must never point at mywallet.io.
+              const canonical = (IS_GRAM_WALLET || IS_CORE_WALLET) ? undefined
+                : APP_ENV === 'staging' ? 'https://web-beta.mywallet.io/'
+                  : 'https://web.mywallet.io/';
+              return canonical
+                ? headers.replace('{{CANONICAL}}', canonical)
+                : headers.replace(/^.*\{\{CANONICAL\}\}.*\n?/m, '');
+            },
           },
         ],
       }),

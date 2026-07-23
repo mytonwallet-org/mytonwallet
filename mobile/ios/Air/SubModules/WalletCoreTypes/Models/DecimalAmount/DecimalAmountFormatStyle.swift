@@ -26,6 +26,7 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     
     public var adaptivePreset: AdaptivePreset<Kind>?
     public var maxDecimals: Int?
+    public var minDecimals: Int?
     public var showPlus: Bool
     public var showMinus: Bool
     public var roundHalfUp: Bool
@@ -36,6 +37,7 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     public init(
         preset: AdaptivePreset<Kind>? = nil,
         maxDecimals: Int? = nil,
+        minDecimals: Int? = nil,
         showPlus: Bool = false,
         showMinus: Bool = true,
         roundHalfUp: Bool = true,
@@ -45,6 +47,7 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     ) {
         self.adaptivePreset = preset
         self.maxDecimals = maxDecimals
+        self.minDecimals = minDecimals
         self.showPlus = showPlus
         self.showMinus = showMinus
         self.roundHalfUp = roundHalfUp
@@ -55,7 +58,13 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     
     public func format(_ value: FormatInput) -> String {
         let prefix = precision?.prefix ?? ""
-        let maxDecimals = adaptivePreset?.resolve(value) ?? maxDecimals
+        let minDecimals = minDecimals ?? adaptivePreset?.minDecimals
+        let resolvedMaxDecimals = adaptivePreset?.resolve(value) ?? maxDecimals
+        let maxDecimals: Int? = if let resolvedMaxDecimals, let minDecimals {
+            max(resolvedMaxDecimals, minDecimals)
+        } else {
+            resolvedMaxDecimals
+        }
         let zeroCountSubscriptMinCount = zeroCountSubscriptMinCount ?? adaptivePreset?.zeroCountSubscriptMinCount
         return prefix + formatBigIntText(
             value.amount,
@@ -64,6 +73,7 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
             positiveSign: showPlus,
             tokenDecimals: value.decimals,
             decimalsCount: maxDecimals,
+            minimumFractionDigits: minDecimals,
             forceCurrencyToRight: value.forceCurrencyToRight,
             roundHalfUp: roundHalfUp,
             isShortened: adaptivePreset == .baseCurrencyEquivalentShortened,
@@ -76,6 +86,7 @@ extension DecimalAmount {
     public func formatted(
         _ preset: AdaptivePreset<Backing>?,
         maxDecimals: Int? = nil,
+        minDecimals: Int? = nil,
         showPlus: Bool = false,
         showMinus: Bool = true,
         roundHalfUp: Bool = true,
@@ -85,6 +96,7 @@ extension DecimalAmount {
         DecimalAmountFormatStyle(
             preset: preset,
             maxDecimals: maxDecimals,
+            minDecimals: minDecimals,
             showPlus: showPlus,
             showMinus: showMinus,
             roundHalfUp: roundHalfUp,

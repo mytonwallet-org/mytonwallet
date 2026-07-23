@@ -199,6 +199,7 @@ public func formatBigIntText(_ value: BigInt,
                             positiveSign: Bool = false,
                             tokenDecimals: Int,
                             decimalsCount: Int? = nil,
+                            minimumFractionDigits: Int? = nil,
                             forceCurrencyToRight: Bool = false,
                             roundHalfUp: Bool = true,
                             isShortened: Bool = false,
@@ -225,6 +226,7 @@ public func formatBigIntText(_ value: BigInt,
                 value,
                 tokenDecimals: tokenDecimals,
                 decimalsCount: decimalsCount,
+                minimumFractionDigits: minimumFractionDigits,
                 roundHalfUp: roundHalfUp
             ),
             minZeroCount: zeroCountSubscriptMinCount
@@ -272,25 +274,36 @@ private func subscriptString(_ value: Int) -> String {
     }.joined()
 }
 
-private func formatClassicBigIntText(_ value: BigInt, tokenDecimals: Int, decimalsCount: Int?, roundHalfUp: Bool) -> String {
+private func formatClassicBigIntText(_ value: BigInt, tokenDecimals: Int, decimalsCount: Int?, minimumFractionDigits: Int?, roundHalfUp: Bool) -> String {
     let rounded: BigInt = if let decimalsCount {
         value.rounded(digitsToRound: tokenDecimals - decimalsCount, roundHalfUp: roundHalfUp)
     } else {
         value
     }
+    let requestedMinimumFractionDigits = max(minimumFractionDigits ?? 0, 0)
+    let maxFractionDigits = max(decimalsCount ?? tokenDecimals, 0)
+    let availableFractionDigits = max(tokenDecimals, 0)
+    let minimumFractionDigits = min(requestedMinimumFractionDigits, min(maxFractionDigits, availableFractionDigits))
     
     var result = "\(abs(rounded))"
     while result.count < tokenDecimals + 1 {
         result.insert("0", at: result.startIndex)
     }
     result.insert(contentsOf: decimalSeparator, at: result.index(result.endIndex, offsetBy: -tokenDecimals))
-    while result.hasSuffix("0") {
+    while result.hasSuffix("0"), fractionDigitCount(in: result) > minimumFractionDigits {
         result.removeLast()
     }
     if result.hasSuffix(decimalSeparator) {
         result.removeLast()
     }
     return result
+}
+
+private func fractionDigitCount(in value: String) -> Int {
+    guard let separatorRange = value.range(of: decimalSeparator) else {
+        return 0
+    }
+    return value.distance(from: separatorRange.upperBound, to: value.endIndex)
 }
 
 private func formatShortenedDouble(_ v: Double,  kThreshold: Double, mThreshold: Double) -> String {

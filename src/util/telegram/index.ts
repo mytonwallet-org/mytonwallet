@@ -20,7 +20,7 @@ let isFaceIdAvailable = false;
 let isTouchIdAvailable = false;
 let disableSwipeRequests = 0;
 
-export function initTelegramApp() {
+export function initTelegramApp(onBeforeReady?: NoneToVoidFunction) {
   webApp = window.Telegram?.WebApp;
 
   if (!webApp) {
@@ -46,6 +46,7 @@ export function initTelegramApp() {
   updateSafeAreaProperties();
   initTelegramAppBiometric();
 
+  onBeforeReady?.();
   webApp.ready();
 }
 

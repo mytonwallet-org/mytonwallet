@@ -34,6 +34,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
     private var didMoveFromInitialExternalSelectionPoint = false
     private var frozenNavigationFrame: CGRect?
     private var currentPanelPlacement: PanelPlacement?
+    private var presentationVerticalDirection: VerticalDirection?
     private lazy var customRowContext = ContextMenuCustomRowContext(dismissHandler: { [weak self] in
         self?.dismissMenu()
     })
@@ -251,7 +252,9 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         self.navigationView.frame = navigationFrame
         self.navigationView.applyPanelLayout(panelSize: placement.panelSize)
         self.currentPanelPlacement = placement
-        self.updateNavigationAnchor(for: placement)
+        if !self.navigationView.isTransitioningPages {
+            self.updateNavigationAnchor(for: placement)
+        }
         self.frozenNavigationFrame = self.navigationView.frame
     }
 
@@ -266,16 +269,29 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
                 height: max(120.0, safeFrame.height * self.configuration.style.maximumHeightRatio)
             )
             let panelSize = self.navigationView.preferredPanelSize(constrainedTo: maxPanelSize)
-            let (panelOrigin, verticalDirection) = self.panelOriginScreenBalanced(for: panelSize, safeFrame: safeFrame, sourceRect: sourceRect)
-            return PanelPlacement(panelSize: panelSize, panelOrigin: panelOrigin, verticalDirection: verticalDirection)
+            let preferredDirection = self.preferredScreenBalancedVerticalDirection(
+                for: panelSize,
+                safeFrame: safeFrame,
+                sourceRect: sourceRect
+            )
+            let direction = self.lockedVerticalDirection(preferred: preferredDirection)
+            let panelOrigin = self.panelOriginScreenBalanced(
+                for: panelSize,
+                direction: direction,
+                safeFrame: safeFrame,
+                sourceRect: sourceRect
+            )
+            return PanelPlacement(panelSize: panelSize, panelOrigin: panelOrigin, verticalDirection: direction)
         case .sourceAttached:
             let idealPanelSize = self.navigationView.preferredPanelSize(
                 constrainedTo: CGSize(width: maxPanelWidth, height: max(1.0, safeFrame.height))
             )
-            let direction = self.preferredVerticalDirection(
-                idealPanelHeight: idealPanelSize.height,
-                safeFrame: safeFrame,
-                sourceRect: sourceRect
+            let direction = self.lockedVerticalDirection(
+                preferred: self.preferredVerticalDirection(
+                    idealPanelHeight: idealPanelSize.height,
+                    safeFrame: safeFrame,
+                    sourceRect: sourceRect
+                )
             )
             let availableHeight = self.availableHeight(for: direction, safeFrame: safeFrame, sourceRect: sourceRect)
             let panelSize = self.navigationView.preferredPanelSize(
@@ -291,19 +307,41 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         }
     }
 
-    private func panelOriginScreenBalanced(for panelSize: CGSize, safeFrame: CGRect, sourceRect: CGRect) -> (CGPoint, VerticalDirection) {
+    private func lockedVerticalDirection(preferred: VerticalDirection) -> VerticalDirection {
+        if let presentationVerticalDirection {
+            return presentationVerticalDirection
+        }
+        self.presentationVerticalDirection = preferred
+        return preferred
+    }
+
+    private func preferredScreenBalancedVerticalDirection(
+        for panelSize: CGSize,
+        safeFrame: CGRect,
+        sourceRect: CGRect
+    ) -> VerticalDirection {
         let availableAbove = sourceRect.minY - safeFrame.minY - self.configuration.style.sourceSpacing
         let availableBelow = safeFrame.maxY - sourceRect.maxY - self.configuration.style.sourceSpacing
 
         let wantsBelow = availableBelow >= min(panelSize.height, 180.0) || availableBelow >= availableAbove
+        return wantsBelow ? .below : .above
+    }
+
+    private func panelOriginScreenBalanced(
+        for panelSize: CGSize,
+        direction: VerticalDirection,
+        safeFrame: CGRect,
+        sourceRect: CGRect
+    ) -> CGPoint {
         let x = min(max(sourceRect.midX - panelSize.width * 0.5, safeFrame.minX), safeFrame.maxX - panelSize.width)
         let y: CGFloat
-        if wantsBelow {
+        switch direction {
+        case .below:
             y = min(sourceRect.maxY + self.configuration.style.sourceSpacing, safeFrame.maxY - panelSize.height)
-        } else {
+        case .above:
             y = max(safeFrame.minY, sourceRect.minY - self.configuration.style.sourceSpacing - panelSize.height)
         }
-        return (CGPoint(x: x, y: y), wantsBelow ? .below : .above)
+        return CGPoint(x: x, y: y)
     }
 
     private func panelOriginSourceAttached(

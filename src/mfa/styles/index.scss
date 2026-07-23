@@ -10,6 +10,10 @@ html {
   transition: none !important;
 }
 
+html:not(.force-transparent-bg) {
+  background-color: var(--mfa-background) !important;
+}
+
 .app-container {
   overflow: auto;
   height: 100%;

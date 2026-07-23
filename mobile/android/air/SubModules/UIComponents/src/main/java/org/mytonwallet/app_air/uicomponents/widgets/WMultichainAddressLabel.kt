@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.measureWidth
+import org.mytonwallet.app_air.uicomponents.extensions.setBoundsFit
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
@@ -293,12 +294,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             // Display prefix icons
             style.prefixIconResList.mapNotNull { loadDrawable(it) }.forEachIndexed { index, it ->
                 it.setTint(currentTextColor)
-                it.setBounds(
-                    0,
-                    0,
-                    style.prefixIconSize,
-                    style.prefixIconSize
-                )
+                it.setBoundsFit(style.prefixIconSize)
                 inSpans(
                     VerticalImageSpan(
                         it, verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
@@ -330,12 +326,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 if (chainStyle.displayChainIcon) {
                     val drawableRes = style.chainIconResMap[data.chainName]
                     val chainDrawable = drawableRes?.let { loadDrawable(it) }
-                    chainDrawable?.setBounds(
-                        0,
-                        0,
-                        style.chainIconSize,
-                        style.chainIconSize
-                    )
+                    chainDrawable?.setBoundsFit(style.chainIconSize)
                     if (chainDrawable != null) {
                         if (style.tintChainIcon) {
                             chainDrawable.setTint(currentTextColor)

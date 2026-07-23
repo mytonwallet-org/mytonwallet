@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron';
 import { app, Menu, nativeImage, Tray } from 'electron';
 import path from 'path';
 
+import { APP_NAME } from '../config';
 import { forceQuit, IS_WINDOWS, mainWindow, store } from './utils';
 
 const TRAY_ICON_SETTINGS_KEY = 'trayIcon';
@@ -69,7 +70,7 @@ const tray: TrayHelper = {
     }
 
     const icon = nativeImage.createFromPath(defaultIconPath);
-    const title = 'My Wallet';
+    const title = APP_NAME;
 
     this.instance = new Tray(icon);
 

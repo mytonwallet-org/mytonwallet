@@ -14,7 +14,7 @@ import { betterView } from '../util/betterView';
 import { forceLoadFonts } from '../util/fonts';
 import { setLanguage } from '../util/langProvider';
 import { logSelfXssWarnings } from '../util/logs';
-import switchTheme, { setStatusBarStyle } from '../util/switchTheme';
+import switchTheme from '../util/switchTheme';
 import { getTelegramApp, initTelegramApp } from '../util/telegram';
 import { setEnvironment } from '../api/environment';
 import { initMfaRuntime } from './runtime';
@@ -30,10 +30,11 @@ if (DEBUG) {
 }
 
 if (IS_TELEGRAM_APP) {
-  void initTelegramApp();
-
   document.documentElement.classList.add('force-transparent-bg');
-  setStatusBarStyle();
+  void initTelegramApp(() => {
+    switchTheme(THEME_DEFAULT);
+  });
+
   setTimeout(() => {
     requestMutation(() => {
       document.documentElement.classList.remove('force-transparent-bg');

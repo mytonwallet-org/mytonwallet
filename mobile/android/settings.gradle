@@ -36,6 +36,9 @@ def subModules = [
   "UIWidgetsConfigurations",
   "WalletBaseContext",
 ]
+include(airSubModulePath)
+project(airSubModulePath).projectDir = file('air/SubModules')
+
 include("$airSubModulePath:vkryl:core")
 include("$airSubModulePath:vkryl:android")
 

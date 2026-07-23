@@ -589,6 +589,7 @@ let package = Package(
         airTestTarget(
             "UIComponentsTests",
             dependencies: [
+                contextMenuKitDependency,
                 "UIComponents",
                 "WalletResources",
             ]

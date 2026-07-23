@@ -92,7 +92,7 @@ function App() {
   };
 
   return (
-    <div>
+    <div className={styles.root}>
       <Transition
         name="slideFade"
         activeKey={activeKey}

@@ -175,7 +175,7 @@ public struct MtwCardBalanceView: View, Equatable {
         HStack(spacing: 6) {
             Text(
                 balance.formatAttributed(
-                    format: .init(preset: .baseCurrencyEquivalent, roundHalfUp: true),
+                    format: .init(preset: .baseCurrencyEquivalentWithMinimumFractionDigits, roundHalfUp: true),
                     integerFont: style.integerFont,
                     fractionFont: style.fractionFont,
                     symbolFont: style.symbolFont,

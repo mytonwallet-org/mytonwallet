@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.PolymorphicJsonAdapterFactory
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdateAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.BigDecimalJsonAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.BigIntegerJsonAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONArrayAdapter
@@ -23,6 +24,7 @@ class MoshiBuilder {
                 .add(BigDecimalJsonAdapter())
                 .add(SealedJsonAdapterFactory())
                 .add(ReturnStrategyAdapter())
+                .add(AccountDomainUpdateAdapter())
                 .add(MfaUpdateAdapter())
                 .add(EnumJsonAdapterFactory())
                 .add(JSONArrayAdapter())

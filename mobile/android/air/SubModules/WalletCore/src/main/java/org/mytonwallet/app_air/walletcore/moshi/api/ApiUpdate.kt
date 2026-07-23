@@ -14,12 +14,13 @@ import org.mytonwallet.app_air.walletcore.moshi.WcPayAmount
 import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentInfo
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
+import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import java.math.BigInteger
 
-@JsonSealed("type")
+@JsonSealed("type", fallbackToNull = true)
 sealed class ApiUpdate {
 
     interface ApiUpdateDappSignRequest {
@@ -174,7 +175,7 @@ sealed class ApiUpdate {
         val chain: MBlockchain,
         val address: String?,
         /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
-        val domain: String?,
+        val domain: AccountDomainUpdate?,
         val isMultisig: Boolean?,
         val derivation: ApiDerivation?,
         /** `false` means the MFA was removed; absent means it has not changed */

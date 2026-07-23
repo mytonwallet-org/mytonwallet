@@ -70,12 +70,12 @@ object WGlobalStorage {
     }
 
     fun incDoNotSynchronize() {
-        globalStorageProvider.doNotSynchronize += 1
+        globalStorageProvider.incrementDoNotSynchronize()
         //Logger.d("---", "doNotSynchronize: ${globalStorageProvider.doNotSynchronize}")
     }
 
     fun decDoNotSynchronize() {
-        globalStorageProvider.doNotSynchronize -= 1
+        globalStorageProvider.decrementDoNotSynchronize()
         //Logger.d("---", "doNotSynchronize: ${globalStorageProvider.doNotSynchronize}")
     }
 
@@ -1463,7 +1463,11 @@ object WGlobalStorage {
                         limit < 30 -> "medium"
                         else -> "big"
                     }
-                    globalStorageProvider.set(cellSizeKey, cellSize, IGlobalStorageProvider.PERSIST_NO)
+                    globalStorageProvider.set(
+                        cellSizeKey,
+                        cellSize,
+                        IGlobalStorageProvider.PERSIST_NO
+                    )
                 }
                 globalStorageProvider.remove(limitKey, IGlobalStorageProvider.PERSIST_NO)
             }
