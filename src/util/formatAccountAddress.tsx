@@ -2,9 +2,11 @@ import type { TeactNode } from '../lib/teact/teact';
 import React from '../lib/teact/teact';
 
 import type { ApiChain } from '../api/types';
-import type { Account } from '../global/types';
+import type { Account, UserToken } from '../global/types';
 
-import { getOrderedAccountChains } from './chain';
+import { IS_GRAM_WALLET, TONCOIN } from '../config';
+import { getAddressLineChains, getOrderedAccountChains } from './chain';
+import { pick } from './iteratees';
 import { shortenAddress } from './shortenAddress';
 import { shortenDomain } from './shortenDomain';
 
@@ -55,6 +57,30 @@ const VARIANT_CONFIG: Record<FormatVariant, VariantConfig> = {
     separator: ', ',
   },
 };
+
+/**
+ * The `byChain` to feed into address rendering (`formatAccountAddresses`, the card address menu):
+ * the account's chains narrowed by `getAddressLineChains` to the shown tokens' chains.
+ * Returns the input object untouched (same reference) when no chain is hidden, so memoized
+ * consumers keep their cache.
+ */
+export function getAddressDisplayByChain(
+  byChain: Account['byChain'],
+  accountTokens?: UserToken[],
+): Account['byChain'] {
+  // The gate applies to the Gram Wallet build only; every other build must not pay for the work below,
+  // as the callers sit on hot paths (`withGlobal` mappers)
+  if (!IS_GRAM_WALLET || !accountTokens) return byChain;
+
+  const hasOnlyTonTokens = !accountTokens.some(
+    ({ isDisabled, chain }) => !isDisabled && chain !== TONCOIN.chain,
+  );
+  const chains = Object.keys(byChain) as ApiChain[];
+  const shownChains = getAddressLineChains(chains, hasOnlyTonTokens);
+  if (shownChains.length === chains.length) return byChain;
+
+  return pick(byChain, shownChains);
+}
 
 export function formatAccountAddresses(
   byChain: Account['byChain'],

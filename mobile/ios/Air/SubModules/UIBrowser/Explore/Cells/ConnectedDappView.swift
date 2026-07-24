@@ -1,4 +1,3 @@
-import Kingfisher
 import SwiftUI
 import UIComponents
 import WalletContext
@@ -39,9 +38,7 @@ struct ConnectedDappButton: View {
                                  layoutVariant: layoutVariant,
                                  regularSizeWithStroke: false,
                                  image: {
-                                     KFImage(URL(string: iconURL))
-                                         .placeholder { connectedDappBackgroundGradient }
-                                         .resizable()
+                                     DappIcon(iconUrl: iconURL)
                                  },
                                  onTap: onTap)
     }

@@ -17,6 +17,7 @@ import {
   HYPERLIQUID,
   HYPERLIQUID_USDC_MAINNET,
   IS_CORE_WALLET,
+  IS_GRAM_WALLET,
   MONAD,
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
@@ -1029,6 +1030,24 @@ export function getEvmChains() {
 /** Returns the chains supported by the given account in the proper order for showing in the UI */
 export function getOrderedAccountChains(byChain: Partial<Record<ApiChain, unknown>>) {
   return getDisplayOrderedChains().filter((chain) => chain in byChain);
+}
+
+/**
+ * The chains whose addresses the address rows show (the account card, the wallet lists). While a Gram Wallet
+ * account holds tokens on TON alone (or none at all), the row collapses to the TON address, matching Air
+ * (`MAccount.addressLineChains` on iOS, `WMultichainAddressLabel` on Android). Display-only: the other
+ * addresses keep existing and receiving.
+ * An undefined `hasOnlyTonTokens` means the token list is not known yet, so nothing is hidden.
+ */
+export function getAddressLineChains(
+  chains: ApiChain[],
+  hasOnlyTonTokens?: boolean,
+): ApiChain[] {
+  if (!IS_GRAM_WALLET || !hasOnlyTonTokens || !chains.includes(TONCOIN.chain)) {
+    return chains;
+  }
+
+  return [TONCOIN.chain];
 }
 
 export function getChainsSupportingLedger(): ApiChain[] {

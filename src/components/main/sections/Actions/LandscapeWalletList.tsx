@@ -57,7 +57,7 @@ function LandscapeWalletList({
     return orderedAccounts.slice(0, MAX_VISIBLE_WALLETS);
   }, [orderedAccounts]);
 
-  const { balancesByAccountId } = useMultipleAccountsBalances({
+  const { balancesByAccountId, displayedAccounts } = useMultipleAccountsBalances({
     filteredAccounts,
     sourceAccounts: networkAccounts,
     byAccountId,
@@ -84,7 +84,7 @@ function LandscapeWalletList({
 
   return (
     <div className={styles.root}>
-      {filteredAccounts.map(([accountId, { title, byChain, type }]) => (
+      {(displayedAccounts ?? filteredAccounts).map(([accountId, { title, byChain, type }]) => (
         <AccountRowContent
           key={accountId}
           accountId={accountId}

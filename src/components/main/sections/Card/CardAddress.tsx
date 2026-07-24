@@ -16,6 +16,7 @@ import buildClassName from '../../../../util/buildClassName';
 import { CHAIN_DISPLAY_ORDER, getChainTitle } from '../../../../util/chain';
 import { copyTextToClipboard } from '../../../../util/clipboard';
 import { toBig } from '../../../../util/decimals';
+import { getAddressDisplayByChain } from '../../../../util/formatAccountAddress';
 import { buildArrayCollectionByKey } from '../../../../util/iteratees';
 import { openUrl } from '../../../../util/openUrl';
 import { shortenAddress } from '../../../../util/shortenAddress';
@@ -194,8 +195,10 @@ export default memo(withGlobal((global): StateProps => {
   const accountTokens = selectCurrentAccountTokens(global);
   const stakingStates = accountId ? selectAccountStakingStates(global, accountId) : undefined;
 
+  const displayByChain = getAddressDisplayByChain(byChain || {}, accountTokens);
+
   // Maps preserve an order
-  const byChainWithBalances = new Map(Object.entries(byChain || {}).map(([chainKey, account]) => {
+  const byChainWithBalances = new Map(Object.entries(displayByChain).map(([chainKey, account]) => {
     const chain = chainKey as ApiChain;
 
     const balance = calculateChainBalanceUsd(chain, accountTokens, stakingStates);
