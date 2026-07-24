@@ -195,7 +195,7 @@ export default memo(withGlobal((global): StateProps => {
   const accountTokens = selectCurrentAccountTokens(global);
   const stakingStates = accountId ? selectAccountStakingStates(global, accountId) : undefined;
 
-  const displayByChain = getAddressDisplayByChain(byChain || {}, accountTokens);
+  const displayByChain = getAddressDisplayByChain(byChain || {}, accountTokens, stakingStates);
 
   // Maps preserve an order
   const byChainWithBalances = new Map(Object.entries(displayByChain).map(([chainKey, account]) => {

@@ -1,4 +1,7 @@
-import type { ApiChain, ApiNetwork, ApiToken, ApiTokenWithPrice } from '../api/types';
+import type {
+  ApiChain, ApiNetwork, ApiStakingState, ApiToken, ApiTokenWithPrice,
+} from '../api/types';
+import type { UserToken } from '../global/types';
 
 import {
   ARBITRUM,
@@ -40,6 +43,7 @@ import { TON_BIP39_PATH } from '../api/chains/ton/constants';
 import { TRON_BIP39_PATH } from '../api/chains/tron/constants';
 import formatTonTransferUrl from './ton/formatTransferUrl';
 import { buildCollectionByKey, compact } from './iteratees';
+import { getFullStakingBalance } from './staking';
 import withCache from './withCache';
 
 export type ExplorerLink = {
@@ -1034,20 +1038,49 @@ export function getOrderedAccountChains(byChain: Partial<Record<ApiChain, unknow
 
 /**
  * The chains whose addresses the address rows show (the account card, the wallet lists). While a Gram Wallet
- * account holds tokens on TON alone (or none at all), the row collapses to the TON address, matching Air
- * (`MAccount.addressLineChains` on iOS, `WMultichainAddressLabel` on Android). Display-only: the other
- * addresses keep existing and receiving.
- * An undefined `hasOnlyTonTokens` means the token list is not known yet, so nothing is hidden.
+ * account holds funds on TON alone (or none at all), the row collapses to the TON address; once foreign-chain
+ * funds appear, only the funded chains show - the release-branch stand-in for the master-side chainDisplay
+ * defaults (`getDefaultVisibleChains`). Display-only: the other addresses keep existing and receiving.
+ * An undefined `fundedChains` means the token list is not known yet, so nothing is hidden.
  */
 export function getAddressLineChains(
   chains: ApiChain[],
-  hasOnlyTonTokens?: boolean,
+  fundedChains?: ReadonlySet<ApiChain>,
 ): ApiChain[] {
-  if (!IS_GRAM_WALLET || !hasOnlyTonTokens || !chains.includes(TONCOIN.chain)) {
+  if (!IS_GRAM_WALLET || !fundedChains) {
     return chains;
   }
 
-  return [TONCOIN.chain];
+  const hasForeignFunds = [...fundedChains].some((chain) => chain !== TONCOIN.chain);
+  if (!hasForeignFunds) {
+    return chains.includes(TONCOIN.chain) ? [TONCOIN.chain] : chains;
+  }
+
+  const funded = chains.filter((chain) => fundedChains.has(chain));
+  return funded.length ? funded : chains;
+}
+
+/** Chains holding a non-zero amount of any token, staked balances included. Mirrors the master-side helper. */
+export function getChainsWithBalance(tokens?: UserToken[], stakingStates?: ApiStakingState[]) {
+  const result = new Set<ApiChain>();
+  if (!tokens?.length) return result;
+
+  const chainBySlug = new Map(tokens.map((token) => [token.slug, token.chain]));
+
+  for (const token of tokens) {
+    if (token.amount > 0n) {
+      result.add(token.chain);
+    }
+  }
+
+  for (const stakingState of stakingStates ?? []) {
+    const chain = chainBySlug.get(stakingState.tokenSlug);
+    if (chain && getFullStakingBalance(stakingState) > 0n) {
+      result.add(chain);
+    }
+  }
+
+  return result;
 }
 
 export function getChainsSupportingLedger(): ApiChain[] {
