@@ -73,7 +73,11 @@ export function useMultipleAccountsBalances({
 
     let isNarrowed = false;
     const narrowed = filteredAccounts.map(([accountId, account]): [string, Account] => {
-      const byChain = getAddressDisplayByChain(account.byChain, allAccountsTokens?.[accountId]);
+      const byChain = getAddressDisplayByChain(
+        account.byChain,
+        allAccountsTokens?.[accountId],
+        allAccountsStakingStates?.[accountId],
+      );
       if (byChain === account.byChain) return [accountId, account];
 
       isNarrowed = true;
@@ -81,7 +85,7 @@ export function useMultipleAccountsBalances({
     });
 
     return isNarrowed ? narrowed : filteredAccounts;
-  }, [filteredAccounts, allAccountsTokens]);
+  }, [filteredAccounts, allAccountsTokens, allAccountsStakingStates]);
 
   const balances = useAccountsBalances(
     filteredAccounts,
