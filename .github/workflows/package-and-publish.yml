@@ -256,7 +256,7 @@ jobs:
           set -e
 
           RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
+            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq -r 'max_by(.created_at).id')
 
           for NAME in "${{ env.ARTIFACT_NAME_BASE }}-x64.exe" "${{ env.ARTIFACT_NAME_BASE }}-x64.exe.blockmap"; do
             ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
@@ -383,7 +383,7 @@ jobs:
           set -e
 
           RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
+            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq -r 'max_by(.created_at).id')
 
           upload () {
             local FILE_PATH="$1"
@@ -987,7 +987,7 @@ jobs:
       - name: Get latest release ID
         id: release-id
         run: |
-          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
+          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq -r 'max_by(.created_at).id')
           echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
 
       - name: Replace Android assets
@@ -1072,7 +1072,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq osslsigncode
 
-          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq '.[0]')
+          # The releases API lists draft releases before published ones regardless of date, so `.[0]`
+          # can land on a stale leftover draft; take the newest by created_at, which is the release
+          # this run just published.
+          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq 'max_by(.created_at)')
 
           INSTALLERS=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".exe")) | "\(.id) \(.name)"')
           if [ -z "$INSTALLERS" ]; then
@@ -1099,7 +1102,7 @@ jobs:
         run: |
           set -e
 
-          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq '.[0]')
+          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq 'max_by(.created_at)')
           echo "Verifying release $(echo "$RELEASE_JSON" | jq -r '.tag_name')"
 
           # Download through the assets API rather than browser_download_url: the CDN links can

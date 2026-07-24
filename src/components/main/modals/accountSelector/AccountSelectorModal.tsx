@@ -144,7 +144,7 @@ function AccountSelectorModal({
   const currentTabIndex = useMemo(() => getCurrentTabIndex(tabs, activeTab), [activeTab, tabs]);
   const selectedTab = tabs[currentTabIndex]?.id ?? DEFAULT_TAB;
   const filteredAccounts = useFilteredAccounts(orderedAccounts, selectedTab);
-  const { balancesByAccountId, totalBalance } = useMultipleAccountsBalances({
+  const { balancesByAccountId, totalBalance, displayedAccounts } = useMultipleAccountsBalances({
     filteredAccounts,
     sourceAccounts: networkAccounts,
     byAccountId,
@@ -469,7 +469,7 @@ function AccountSelectorModal({
     const commonAccountsViewProps = {
       isActive,
       isTestnet,
-      filteredAccounts,
+      filteredAccounts: displayedAccounts ?? filteredAccounts,
       activeTab: selectedTab,
       balancesByAccountId,
       settingsByAccountId,

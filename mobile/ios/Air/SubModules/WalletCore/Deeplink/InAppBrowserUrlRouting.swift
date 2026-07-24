@@ -10,7 +10,14 @@ public enum InAppBrowserUrlRouting: Equatable {
     case ignore
 }
 
-public func resolveInAppBrowserNavigationUrlRouting(_ url: URL, shouldOpenInNewPage: Bool) -> InAppBrowserUrlRouting {
+public func resolveInAppBrowserNavigationUrlRouting(
+    _ url: URL,
+    isMainFrame: Bool,
+    shouldOpenInNewPage: Bool
+) -> InAppBrowserUrlRouting {
+    if !isMainFrame {
+        return isWebUrl(url) && !shouldOpenInNewPage ? .allow : .consume
+    }
     if isOfframpDeeplink(url) {
         return .consume
     }
@@ -49,8 +56,20 @@ public func resolveInAppBrowserWebKitPopupUrlRouting(_ url: URL?) -> InAppBrowse
     return resolveInAppBrowserWindowOpenUrlRouting(url)
 }
 
-public func resolveDappRequestOrigin(configURL: URL, webViewURL: URL?) -> String? {
-    webViewURL?.origin ?? configURL.origin
+public func resolveInAppBrowserMessageOrigin(scheme: String, host: String, port: Int) -> String? {
+    let scheme = scheme.lowercased()
+    guard scheme == "http" || scheme == "https", !host.isEmpty else {
+        return nil
+    }
+
+    var components = URLComponents()
+    components.scheme = scheme
+    components.host = host.lowercased()
+    let isDefaultPort = (scheme == "http" && port == 80) || (scheme == "https" && port == 443)
+    if port != 0 && !isDefaultPort {
+        components.port = port
+    }
+    return components.url?.origin
 }
 
 private let externalSystemUrlSchemes = Set(["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", SELF_PROTOCOL_SCHEME])

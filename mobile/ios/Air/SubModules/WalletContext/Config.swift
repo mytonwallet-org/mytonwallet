@@ -38,10 +38,21 @@ public let LIQUID_POOL = "EQD2_4d91M4TVbEBVyBF8J1UwpMJc361LKVCz6bBlffMW05o"
 public let NOMINATORS_STAKING_POOL = "Ef84o4VJRnlp1wsqSHov1QttqSTQda2Z1vGK-b7EaPQoeJMx"
 public let MYCOIN_STAKING_POOL = "EQC3roTiRRsoLzfYVK7yVVoIZjTEqAjQU3ju7aQ7HWTVL5o5"
 
+// Mirrors DEFAULT_STAKING_POOLS + ALL_STAKING_POOLS in src/config.ts; must include every
+// nominators pool the backend can return, or its stake/unstake transactions render as
+// ordinary transfers.
 public let ALL_STAKING_POOLS: Set<String> = [
   LIQUID_POOL,
+  "Ef8dgIOIRyCLU0NEvF8TD6Me3wrbrkS1z3Gpjk3ppd8m8-s_",
+  "Ef-WMmizoLk4CvqTKs-mDrGJwW4fiH5zVd4SaHih7PObxP_0",
+  "Ef9KkdMtAom9qYE64A_3ZA5sOP3OduRYPdavxGO3DH12fF5g",
+  "Ef9-8keOeXR4Sn-ywrlFgxma4ubJvEFRW3jgP0ib16A-HCiG",
   NOMINATORS_STAKING_POOL,
+  "Ef_CbvHoa5imR1x_ESkUT_6NJQoONbSGp8MkrAu1xtM6NOxE",
+  "Ef-j7wmnLdy54kZC0gtbVbCrdPA4cFLr3rxLOoDcpzR_SyBX",
   MYCOIN_STAKING_POOL,
+  "EQChGuD1u0e7KUWHH5FaYh_ygcLXhsdG2nSHPXHW8qqnpZXW", // ETHENA_STAKING_VAULT
+  "EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr", // TON_TSUSDE.tokenAddress
 ]
 
 public let BURN_ADDRESS = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"

@@ -172,9 +172,10 @@ final class InAppBrowserPageVC: WViewController {
     private func configure(_ webViewConfiguration: WKWebViewConfiguration) {
         webViewConfiguration.userContentController = WKUserContentController()
         let userContentController = webViewConfiguration.userContentController
-        userContentController.add(messageHandler, name: "inAppBrowserHandler")
 
         guard config.injectDappConnect else { return }
+
+        userContentController.add(messageHandler, name: "inAppBrowserHandler")
 
         let bridgeScript = WKUserScript(
             source: BridgeInjectionScript.source,
@@ -409,7 +410,11 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             return .cancel
         }
 
-        switch resolveInAppBrowserNavigationUrlRouting(url, shouldOpenInNewPage: navigationAction.targetFrame == nil) {
+        switch resolveInAppBrowserNavigationUrlRouting(
+            url,
+            isMainFrame: navigationAction.sourceFrame.isMainFrame,
+            shouldOpenInNewPage: navigationAction.targetFrame == nil
+        ) {
         case .consume:
             webView.stopLoading()
             return .cancel
@@ -440,6 +445,8 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        guard navigationAction.sourceFrame.isMainFrame else { return nil }
+
         switch resolveInAppBrowserWebKitPopupUrlRouting(navigationAction.request.url) {
         case .consume, .allow, .ignore:
             return nil

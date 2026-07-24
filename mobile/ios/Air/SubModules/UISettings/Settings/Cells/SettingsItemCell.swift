@@ -104,6 +104,7 @@ class SettingsItemCell: UICollectionViewCell {
         iconImageView.layer.cornerRadius = 8
         iconImageView.layer.cornerCurve = .continuous
         iconImageView.clipsToBounds = true
+        iconImageView.imageView.tintAdjustmentMode = .automatic
         
         valueContainer.isTapToRevealEnabled = false
         
