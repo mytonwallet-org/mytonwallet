@@ -1,4 +1,7 @@
 productName: "My Wallet"
+# Without this key electron-builder derives the copyright from package.json `author`, which is the
+# legacy brand and shows up in the macOS About panel.
+copyright: "Copyright © 2026 My Wallet Apps Ltd."
 # Pinned by config.test.ts: change ONLY together with ARTIFACT_NAME_BASE in
 # package-and-publish.yml (workflow artifact names must match electron-builder output) and the
 # get.mywallet.io download page. Renaming is safe for installed clients: the update feed
