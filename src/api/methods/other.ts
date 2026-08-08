@@ -9,6 +9,7 @@ import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
 import { pause } from '../../util/schedulers';
 import chains from '../chains';
+import { BACKEND_AUTH_SIGN_MESSAGE, buildBackendAuthToken } from '../chains/ton';
 import { fetchStoredAccounts, fetchStoredWallet, updateStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
 import { hexToBytes } from '../common/utils';
@@ -18,9 +19,6 @@ import { storage } from '../storages';
 
 import RECEIVE_GRADIENT_SVGS from '../../assets/receiveGradientSvgs';
 
-// `MyTonWallet` is here for backward compatibility reasons
-const SIGN_MESSAGE = Buffer.from('MyTonWallet_AuthToken_n6i0k4w8pb');
-
 export function isBackendAuthTokenValid(authToken: string, publicKey: string) {
   try {
     const signature = Buffer.from(authToken, 'base64');
@@ -29,21 +27,24 @@ export function isBackendAuthTokenValid(authToken: string, publicKey: string) {
       return false;
     }
 
-    return nacl.sign.detached.verify(SIGN_MESSAGE, signature, hexToBytes(publicKey));
+    return nacl.sign.detached.verify(BACKEND_AUTH_SIGN_MESSAGE, signature, hexToBytes(publicKey));
   } catch {
     return false;
   }
 }
 
-export async function getBackendAuthToken(accountId: string, password: string) {
+export async function getBackendAuthToken(accountId: string, enclaveToken: string) {
   const accountWallet = await fetchStoredWallet(accountId, 'ton');
   let { authToken } = accountWallet;
   const { publicKey, isInitialized } = accountWallet;
 
   if (!authToken) {
-    const privateKey = await chains.ton.fetchPrivateKeyString(accountId, password);
-    const signature = nacl.sign.detached(SIGN_MESSAGE, hexToBytes(privateKey!));
-    authToken = Buffer.from(signature).toString('base64');
+    const privateKey = await chains.ton.fetchPrivateKeyString(accountId, enclaveToken);
+    if (!privateKey) {
+      throw new Error(`Failed to export the private key for account ${accountId} to build the backend auth token`);
+    }
+
+    authToken = buildBackendAuthToken(hexToBytes(privateKey));
 
     await updateStoredWallet(accountId, 'ton', {
       authToken,

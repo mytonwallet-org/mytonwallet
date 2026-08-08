@@ -56,6 +56,7 @@ interface StateProps {
   currentTokenSlug?: string;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
+  areUnverifiedNftsHidden?: boolean;
   states?: ApiStakingState[];
   hasVesting: boolean;
   alwaysHiddenSlugs?: string[];
@@ -77,6 +78,7 @@ function PortraitContent({
   selectedNfts,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
+  areUnverifiedNftsHidden,
   selectedNftsToHide,
   states,
   hasVesting,
@@ -111,6 +113,7 @@ function PortraitContent({
     nfts,
     blacklistedNftAddresses,
     whitelistedNftAddresses,
+    areUnverifiedNftsHidden,
     collectionTabs,
     activeContentTab,
     activityReturnContentTab,
@@ -324,6 +327,7 @@ export default memo(
         currentTokenSlug,
         blacklistedNftAddresses,
         whitelistedNftAddresses,
+        areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
         selectedNftsToHide,
         states,
         hasVesting,

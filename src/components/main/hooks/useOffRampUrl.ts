@@ -14,7 +14,8 @@ const MOONPAY_CURRENCY: ApiBaseCurrency = 'EUR';
 
 interface UseOffRampUrlParams {
   isOpen: boolean;
-  currency: ApiBaseCurrency;
+  // Absent while the surface has no allowed currency to offer; `isOpen` is false in that case
+  currency?: ApiBaseCurrency;
   chain?: ApiChain;
   address?: string;
   token?: ApiToken;

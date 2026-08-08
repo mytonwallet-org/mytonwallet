@@ -15,8 +15,6 @@ import Perception
 import Dependencies
 import SwiftNavigation
 
-private let log = Log("HomeCard")
-
 enum HomeHeaderState {
     case collapsed
     case expanded
@@ -43,7 +41,8 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
         return ConfigStore.shared.config?.seasonalTheme
     }
 
-    let collapsedHeight: CGFloat = 95
+    let collapsedHeight: CGFloat
+    let rootNavigationStyle: HomeRootNavigationStyle
     
     @PerceptionIgnored
     var onSelect: (String) -> () = { _ in }
@@ -53,8 +52,15 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     @PerceptionIgnored
     @Dependency(\.accountStore) var accountStore
     
-    init(accountSource: AccountSource) {
+    init(
+        accountSource: AccountSource,
+        rootNavigationStyle: HomeRootNavigationStyle = .standard
+    ) {
         self.accountSource = accountSource
+        self.rootNavigationStyle = rootNavigationStyle
+        self.collapsedHeight = rootNavigationStyle.usesNavigationBarTopTabs
+            ? 166
+            : 95
         WalletCoreData.add(eventObserver: self)
     }
     

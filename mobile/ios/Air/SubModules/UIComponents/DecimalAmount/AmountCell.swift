@@ -49,9 +49,9 @@ public struct AmountCell: View {
         AmountText(
             amount: amount,
             format: format,
-            integerFont: .systemFont(ofSize: 24, weight: .semibold),
-            fractionFont: .systemFont(ofSize: 20, weight: .semibold),
-            symbolFont: .systemFont(ofSize: 20, weight: .semibold),
+            integerFont: WTypography.uiFont(.amount, content: .technical),
+            fractionFont: WTypography.uiFont(.amountSecondary, content: .technical),
+            symbolFont: WTypography.uiFont(.amountSecondary, content: .technical),
             integerColor: UIColor.label,
             fractionColor: UIColor.label,
             symbolColor: .air.secondaryLabel

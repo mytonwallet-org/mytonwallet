@@ -24,8 +24,10 @@ open class WLinearGradientLabel(context: Context) : WLabel(context) {
         }
 
         val gradient = LinearGradient(
-            0f, 0f,
-            width.toFloat(), 0f,
+            0f,
+            0f,
+            width.toFloat(),
+            0f,
             gradientColors!!,
             null,
             Shader.TileMode.CLAMP

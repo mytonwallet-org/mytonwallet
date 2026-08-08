@@ -21,9 +21,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     
     private var config: StakingConfig { earnVM.config }
     private var tokenSlug: String { config.baseTokenSlug }
-    private var stakedTokenSlug: String { config.stakedTokenSlug }
     private var token: ApiToken { config.baseToken }
-    private var stakedToken: ApiToken { config.stakedToken }
     private var stakingState: ApiStakingState? { config.stakingState(stakingData: stakingData) }
 
     private var areProfitsCollapsed = true
@@ -244,6 +242,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     }
 
     func stakeUnstakePressed(isStake: Bool) {
+        guard !isStake || config.canAddStake else { return }
         if let stakingState = earnVM.stakingState {
             if isStake {
                 let vc = AddStakeVC(config: config, stakingState: stakingState, accountContext: accountContext)

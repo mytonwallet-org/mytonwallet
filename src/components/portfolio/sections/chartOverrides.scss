@@ -1,10 +1,9 @@
 @use "../../../styles/mixins";
 
-@use "../../../styles/scssVariables" as v;
-
 .portfolio-chart-card {
+  // Canvas labels read the computed family off the container, so keep the per-language body font
   .lovely-chart--container {
-    font-family: v.$fontFamily;
+    font-family: inherit;
   }
 
   // Title is hidden - we render our own SectionHeader
@@ -82,7 +81,7 @@
 
     &.lovely-chart--state-checked .lovely-chart--button-check {
       width: 0.875rem;
-      margin-right: 0.25rem;
+      margin-inline-end: 0.25rem;
     }
   }
 

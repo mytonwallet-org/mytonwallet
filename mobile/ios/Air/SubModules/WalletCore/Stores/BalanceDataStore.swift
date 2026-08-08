@@ -216,7 +216,7 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         let balances = balancesStore.getAccountBalances(accountId: accountId)
         let stakingData = stakingStore.stakingData(accountId: accountId)
         let account = accountStore.get(accountId: accountId)
-        var walletTokens: [MTokenBalance] = balances.map { slug, amount in
+        let walletTokens: [MTokenBalance] = balances.map { slug, amount in
             MTokenBalance(tokenSlug: slug, balance: amount, isStaking: false)
         }
 
@@ -249,38 +249,10 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
             log.error("not all tokens found \(accountId, .public)")
         }
 
-        if AppStorageHelper.hideNoCostTokens {
-            walletTokens = walletTokens.filter { balance in
-                if (balance.toUsd ?? 0) <= 0.01, balance.token?.isPricelessToken != true {
-                    return false
-                }
-                return true
-            }
-        }
-
         let prefs = assetsAndActivityDataStore.data(accountId: accountId) ?? MAssetsAndActivityData.empty
 
-        for slug in prefs.importedSlugs {
-            if !walletTokens.contains(where: { $0.tokenSlug == slug }),
-               account.supports(chain: tokenStore.tokens[slug]?.chain) {
-                walletTokens.append(MTokenBalance(tokenSlug: slug, balance: 0, isStaking: false))
-            }
-        }
-
-        if totalBalance == 0 || totalBalanceUsd < TINY_TRANSFER_MAX_COST {
-            let slugsInWallet = Set(walletTokens.map { $0.tokenSlug })
-            let defaultSlugs = ApiToken.defaultSlugs(forNetwork: account.network, account: account)
-            for slug in defaultSlugs.subtracting(slugsInWallet) {
-                if account.supports(chain: tokenStore.tokens[slug]?.chain) {
-                    walletTokens.append(MTokenBalance(tokenSlug: slug, balance: 0, isStaking: false))
-                }
-            }
-        }
-
-        walletTokens.removeAll(where: { prefs.isTokenHidden(slug: $0.tokenSlug, isStaking: $0.isStaking) })
-
         var stakingSlugsToAutoPin: [String] = []
-        var walletStaked: [MTokenBalance] = stakingData?.stateById.values.compactMap { stakingState in
+        let walletStaked: [MTokenBalance] = stakingData?.stateById.values.compactMap { stakingState in
             let fullBalance = getFullStakingBalance(state: stakingState)
             guard fullBalance > 0 else {
                 return nil
@@ -308,8 +280,6 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
             }
         }
 
-        walletStaked.removeAll(where: { prefs.isTokenHidden(slug: $0.tokenSlug, isStaking: $0.isStaking) })
-
         let baseCurrency = tokenStore.baseCurrency
         let totalBalanceAmount = BaseCurrencyAmount.fromDouble(totalBalance, baseCurrency)
         let totalBalanceYesterdayAmount = BaseCurrencyAmount.fromDouble(totalBalanceYesterday, baseCurrency)
@@ -318,13 +288,17 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         } else {
             nil
         }
-        let orderedTokenBalances = MTokenBalance.sortedForBalanceData(
-            tokenBalances: walletTokens + walletStaked,
-            balances: balances,
-            defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network, account: account),
-            importedTokenSlugs: prefs.importedSlugs
+        let presentation = MTokenBalance.presentationForUI(
+            walletTokens: walletTokens,
+            walletStaked: walletStaked,
+            account: account,
+            assetsAndActivityData: prefs,
+            hidesTokensWithNoCost: AppStorageHelper.hideNoCostTokens
         )
-        let walletTokensData = MAccountWalletTokensData(orderedTokenBalances: orderedTokenBalances)
+        let walletTokensData = MAccountWalletTokensData(
+            orderedTokenBalances: presentation.visible,
+            hiddenTokenBalances: presentation.hidden
+        )
         let balanceTotals = MAccountBalanceTotals(
             totalBalance: totalBalanceAmount,
             totalBalanceYesterday: totalBalanceYesterdayAmount,

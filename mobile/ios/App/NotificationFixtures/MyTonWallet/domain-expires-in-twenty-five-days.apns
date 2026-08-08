@@ -1,0 +1,22 @@
+{
+  "Simulator Target Bundle": "org.mytonwallet.app",
+  "aps": {
+    "category": "domain_expiry",
+    "thread-id": "domain:EQDOMAINAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "alert": {
+      "title-loc-key": "push_domain_title_renew",
+      "loc-key": "push_domain_expires_in_days",
+      "loc-args": [
+        "example.ton",
+        "25"
+      ]
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "action": "expiringDns",
+  "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c",
+  "domain": "example.ton",
+  "domainAddress": "EQDOMAINAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "daysUntilExpiration": "25"
+}

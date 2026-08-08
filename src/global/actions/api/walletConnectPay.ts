@@ -2,10 +2,10 @@ import type { GlobalState } from '../../types';
 import { WalletConnectPayState } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
-import { getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { pause } from '../../../util/schedulers';
 import { callApi } from '../../../api';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { handleDappSignatureResult, prepareDappOperation } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -16,7 +16,12 @@ import {
   updateCurrentWalletConnectPay,
   updateWalletConnectPayDataCollection,
 } from '../../reducers';
-import { selectCurrentAccountId, selectIsHardwareAccount } from '../../selectors';
+import {
+  selectCurrentAccountId,
+  selectEnclaveToken,
+  selectIsEnclaveSessionValid,
+  selectIsHardwareAccount,
+} from '../../selectors';
 import { switchAccount } from './auth';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
@@ -27,13 +32,12 @@ const ANIMATION_END_DELAY = 300;
 
 const WALLET_CONNECT_PAY_SIGN_URL = 'https://walletconnect.com/pay';
 
-async function beginWalletConnectPayPasswordEntry(actions: {
+function beginWalletConnectPayPasswordEntry(actions: {
   showError: (payload: { error: string }) => void;
   cancelWalletConnectPay: () => void;
-  submitWalletConnectPaySignData: (payload: { password: string }) => void;
-  submitWalletConnectPaySignTransaction: (payload: { password: string }) => void;
+  submitWalletConnectPaySignData: (payload: { enclaveToken: string }) => void;
+  submitWalletConnectPaySignTransaction: (payload: { enclaveToken: string }) => void;
 }) {
-  const inMemoryPassword = await getInMemoryPassword();
   let global = getGlobal();
 
   if (selectIsHardwareAccount(global)) {
@@ -43,14 +47,16 @@ async function beginWalletConnectPayPasswordEntry(actions: {
     return;
   }
 
-  if (inMemoryPassword) {
+  const enclaveToken = selectIsEnclaveSessionValid(global) ? selectEnclaveToken(global) : undefined;
+
+  if (enclaveToken) {
     global = updateCurrentWalletConnectPay(global, { isLoading: true });
     setGlobal(global);
 
     if (global.currentWalletConnectPay.operation === 'signData') {
-      actions.submitWalletConnectPaySignData({ password: inMemoryPassword });
+      actions.submitWalletConnectPaySignData({ enclaveToken });
     } else {
-      actions.submitWalletConnectPaySignTransaction({ password: inMemoryPassword });
+      actions.submitWalletConnectPaySignTransaction({ enclaveToken });
     }
   }
 }
@@ -180,7 +186,7 @@ addActionHandler('apiUpdateWalletConnectPaySignTransaction', async (global, acti
     }),
   );
 
-  await beginWalletConnectPayPasswordEntry(actions);
+  beginWalletConnectPayPasswordEntry(actions);
 });
 
 addActionHandler('apiUpdateWalletConnectPaySignData', async (global, actions, payload) => {
@@ -220,10 +226,13 @@ addActionHandler('apiUpdateWalletConnectPaySignData', async (global, actions, pa
     }),
   );
 
-  await beginWalletConnectPayPasswordEntry(actions);
+  beginWalletConnectPayPasswordEntry(actions);
 });
 
-addActionHandler('submitWalletConnectPaySignTransaction', async (global, actions, { password } = {}) => {
+addActionHandler('submitWalletConnectPaySignTransaction', withEnclaveSessionRelease(async (
+  global, actions, payload,
+) => {
+  const { enclaveToken } = payload ?? {};
   const {
     promiseId,
     transactions,
@@ -237,12 +246,11 @@ addActionHandler('submitWalletConnectPaySignTransaction', async (global, actions
   }
 
   // FIXME: EVM Pay does not support Ledger, so value is unused for software accounts
-  if (!await prepareDappOperation(
+  if (!prepareDappOperation(
     selectCurrentAccountId(global)!,
     0 as never,
     updateCurrentWalletConnectPay,
     true,
-    password,
   )) {
     return;
   }
@@ -263,7 +271,7 @@ addActionHandler('submitWalletConnectPaySignTransaction', async (global, actions
     accountId,
     transactions!,
     {
-      password,
+      enclaveToken,
       validUntil,
       isLegacyOutput: isLegacyOutput ?? isSignOnly,
     },
@@ -278,9 +286,10 @@ addActionHandler('submitWalletConnectPaySignTransaction', async (global, actions
   }
 
   await callApi('confirmWalletConnectPaySignTransaction', promiseId, signedTransactions);
-});
+}));
 
-addActionHandler('submitWalletConnectPaySignData', async (global, actions, { password } = {}) => {
+addActionHandler('submitWalletConnectPaySignData', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
   const {
     promiseId,
     payloadToSign,
@@ -294,12 +303,11 @@ addActionHandler('submitWalletConnectPaySignData', async (global, actions, { pas
     return;
   }
 
-  if (!await prepareDappOperation(
+  if (!prepareDappOperation(
     selectCurrentAccountId(global)!,
     0 as never,
     updateCurrentWalletConnectPay,
     true,
-    password,
   )) {
     return;
   }
@@ -320,7 +328,7 @@ addActionHandler('submitWalletConnectPaySignData', async (global, actions, { pas
     accountId,
     WALLET_CONNECT_PAY_SIGN_URL,
     payloadToSign,
-    password,
+    enclaveToken,
   );
 
   if (!handleDappSignatureResult(signedData, updateCurrentWalletConnectPay)) {
@@ -351,7 +359,7 @@ addActionHandler('submitWalletConnectPaySignData', async (global, actions, { pas
     accountId,
     approveTransactions,
     {
-      password,
+      enclaveToken,
       validUntil: approveValidUntil,
       isLegacyOutput: false,
     },
@@ -373,7 +381,7 @@ addActionHandler('submitWalletConnectPaySignData', async (global, actions, { pas
     signDataSignature: signedData.result.signature,
     signedApproveTransactions,
   });
-});
+}));
 
 addActionHandler('cancelWalletConnectPay', (global) => {
   cancelWalletConnectPayOperation(global);

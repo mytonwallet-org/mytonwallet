@@ -1,0 +1,1771 @@
+$auth_intro: |-
+  خزّن العملات المشفرة **بأمان** ونفّذ مدفوعات
+  البلوكتشين **بسرعة الضوء**.
+Create New Wallet: إنشاء محفظة جديدة
+Import From %1$d Secret Words: استيراد من %1$d عبارة استرداد
+More about %app_name%: المزيد عن %app_name%
+Creating Wallet...: جارٍ إنشاء المحفظة...
+On the count of three...: عند العد لثلاثة...
+$back_up_auth: النسخ الاحتياطي
+$back_up_security: النسخ الاحتياطي
+Confirm with: تأكيد مع
+Add an extra layer of security for your wallet in TON network.: أضف طبقة إضافية من الأمان لمحفظتك في شبكة TON.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: قم بتسجيل عمليات النقل والإجراءات المهمة باستخدام رمز المرور الخاص بك، ثم قم بتأكيدها في Telegram.
+This helps protect your funds even if your recovery phrase or keys are compromised.: وهذا يساعد على حماية أموالك حتى لو تعرضت عبارة الاسترداد أو المفاتيح الخاصة بك للاختراق.
+"Connection Fee:": "رسوم الاتصال:"
+Connect Telegram: قم بتوصيل Telegram
+Add in Gram Wallet: أضف في Gram Wallet
+Telegram will be used to confirm transfers and important actions.: سيتم استخدام Telegram لتأكيد عمليات النقل والإجراءات المهمة.
+My Telegram Account: حساب Telegram الخاص بي
+Without username: بدون اسم المستخدم
+Unlink Account: إلغاء ربط الحساب
+An extra security layer requires confirming actions in Telegram after signing.: تتطلب طبقة الأمان الإضافية تأكيد الإجراءات في Telegram بعد التوقيع.
+Confirm Connection: تأكيد الاتصال
+Confirm Disconnection: تأكيد قطع الاتصال
+$2fa_security: 2FA مع Telegram
+2FA with Telegram: 2FA مع Telegram
+Confirm operations in Telegram as a second step.: قم بتأكيد العمليات في Telegram كخطوة ثانية.
+Passwords must be equal.: يجب أن تكون كلمات المرور متساوية.
+To protect your wallet as much as possible, use a password with: لحماية محفظتك قدر الإمكان، استخدم كلمة مرور مع
+$auth_password_rule_8chars: 8 أحرف على الأقل
+$auth_password_rule_one_small_char: حرف واحد صغير
+$auth_password_rule_one_capital_char: حرف واحد كبير
+$auth_password_rule_one_digit: رقم واحد
+$auth_password_rule_one_special_char: ورمز خاص واحد
+Create a password to protect it.: قم بإنشاء كلمة مرور لحمايتها.
+Enter your password: أدخل كلمة المرور الخاصة بك
+Enter your password...: أدخل كلمة المرور الخاصة بك...
+...and repeat it: .. وكرر ذلك
+Cancel: إلغاء
+Insecure Password: كلمة مرور غير آمنة
+Your have entered an insecure password, which can be easily guessed by scammers.: لقد قمت بإدخال كلمة مرور غير آمنة، والتي يمكن للمحتالين تخمينها بسهولة.
+Continue or change password to something more secure?: هل تريد المتابعة أو تغيير كلمة المرور إلى شيء أكثر أمانًا؟
+Change: تغيير
+"%1$d Secret Words": عبارات الاسترداد %1$d
+Secret Words: عبارات الاسترداد
+$auth_import_mnemonic_description: يمكنك استعادة الوصول إلى محفظتك بإدخال **%counts% عبارة استرداد** التي دوّنتها عند إنشاء المحفظة.
+Let’s make sure your secrets words are recorded correctly.: لنتأكد من أنك دوّنت عبارات الاسترداد بشكل صحيح.
+$check_words_description: لنتحقق الآن من أنك كتبت عبارات الاسترداد بشكل صحيح.
+$mnemonic_list_description: اكتب هذه الكلمات **بالترتيب الصحيح** واحفظها في **مكان آمن**.
+$private_key_description: احفظ هذا المفتاح الخاص **بشكل صحيح** وقم بتخزينه في **مكان آمن**.
+$mnemonic_warning: |-
+  لا ترسلها أو تظهرها لأي شخص،
+  لا تدخله في أي مكان.
+View Secret Words: عرض عبارات الاسترداد
+View %chain% Private Key: عرض المفتاح الخاص %chain%
+Can be imported to non-multichain wallets for %chain%.: يمكن استيرادها إلى محافظ غير متعددة السلسلة لـ %chain%.
+Can be imported to any multichain wallet supporting %chain%.: يمكن استيرادها إلى أي محفظة متعددة السلاسل تدعم %chain%.
+Let's Check: دعونا نتحقق
+Let's Check!: دعونا نتحقق!
+Safety Rules: قواعد السلامة
+$safety_rules_private_key_one: في الشاشة التالية سترى **المفتاح الخاص %chain%**. احفظه بشكل صحيح و**خزنه في مكان آمن**.
+$safety_rules_private_key_two: فهو يسمح بـ **فتح محفظتك** إذا فقدت كلمة المرور الخاصة بك أو الوصول إلى هذا الجهاز.
+$safety_rules_private_key_three: إذا رأى أي شخص آخر هذا المفتاح الخاص، **قد تُسرق أموالك**. **لا ترسله أو تعرضه لأي شخص**، ولا حتى للمطورين أو الدعم الفني.
+$safety_rules_one: في الشاشة التالية سترى **عبارات الاسترداد**. اكتبها بالترتيب الصحيح و**خزنها في مكان آمن**.
+$safety_rules_two: إنها تسمح بـ **فتح محفظتك** إذا فقدت كلمة المرور الخاصة بك أو الوصول إلى هذا الجهاز.
+$safety_rules_three: إذا رأى أي شخص آخر هذه العبارات، **قد تُسرق أموالك**. **لا ترسلها لأي شخص**، ولا حتى للمطورين أو الدعم الفني.
+Continue: متابعة
+Close: يغلق
+Back: رجوع
+Search...: يبحث...
+Main menu: القائمة الرئيسية
+TON Proxy: TON Proxy
+Toggle TON Proxy: تبديل TON Proxy
+Back Up Secret Words: نسخ عبارات الاسترداد احتياطيًا
+Settings: إعدادات
+About %app_name%: حول %app_name%
+Exit: خروج
+Remove Wallet: إزالة المحفظة
+Remove Wallets: إزالة المحافظ
+Something went wrong.: حدث خطأ ما.
+Something went wrong: حدث خطأ ما
+Logo: الشعار
+$about_description1: قم بتخزين العملات المشفرة بشكل آمن، واستكشف التطبيقات اللامركزية، وقم بإجراء مدفوعات blockchain بسرعة **سرعة الضوء**.
+$about_description2: المحفظة **غير احتجازية وآمنة**. المطورون **لا يملكون** حق الوصول إلى أموالك أو سجل التصفح أو أي معلومات أخرى.
+What is TON Proxy?: ما هو TON Proxy؟
+$about_extension_description1: يفتح TON Proxy طريقة **للإنترنت اللامركزي** من خلال السماح بالوصول المجهول إلى TON Sites.
+More info and demo.: مزيد من المعلومات والعرض التوضيحي.
+$about_proxy_magic_description: للاستمتاع **بالإنترنت اللامركزي** والوصول إلى **TON Sites**، لا تتردد في تثبيت %extension_link%.
+$about_extension_link_text: "**امتداد %app_name%**"
+Is it open source?: هل هو مفتوح المصدر؟
+$about_wallet_github: نعم إنه كذلك. لا تتردد في استكشاف %github_link% لدينا.
+$about_github_link_text: "**مستودع جيثب**"
+Is there a community?: هل هناك مجتمع؟
+$about_wallet_community: بالتأكيد، مرحبًا بك في %community_link%.
+$about_community_link_text: "**قناة Telegram**"
+Currency History: تاريخ العملة
+Net Worth: صافي القيمة
+Price: سعر
+Enter Password: أدخل كلمة المرور
+Send: يرسل
+Add Wallet: أضف المحفظة
+Done: منتهي
+Delete: يمسح
+Delete Saved Address: حذف العنوان المحفوظ
+Are you sure you want to remove this address from your saved ones?: هل أنت متأكد أنك تريد إزالة هذا العنوان من عناوينك المحفوظة؟
+Address removed from saved: تمت إزالة العنوان من الحفظ
+Warning!: تحذير!
+$logout_without_backup_warning: لم تقم بعمل نسخة احتياطية لهذه المحفظة. إذا قمت بإزالته الآن، فسوف تفقد الوصول إلى الرموز المميزة الخاصة بك وNFTs.
+$logout_accounts_without_backup_warning: لم تقم بعمل نسخة احتياطية من %links%. إذا قمت بالمتابعة، فسوف تفقد الوصول إلى الرموز المميزة الخاصة بك وNFTs.
+$logout_current_wallet_warning: سيؤدي هذا إلى إزالة المحفظة الحالية من التطبيق.
+$logout_selected_wallet_warning: سيؤدي هذا إلى إزالة المحفظة المحددة من التطبيق.
+$logout_selected_wallets_warning: سيؤدي هذا إلى إزالة المحافظ المحددة من التطبيق.
+$logout_all_wallets_warning: سيؤدي هذا إلى إزالة جميع المحافظ من التطبيق.
+$secret_words_backup_reminder: تأكد من حفظ **عبارات الاسترداد** احتياطيًا.
+$all_secret_words_backup_reminder: تأكد من حفظ جميع **عبارات الاسترداد** احتياطيًا.
+Create Deposit Link: إنشاء رابط الإيداع
+$receive_invoice_description: |-
+  يمكنك تحديد المبلغ والغرض منه
+  الدفع لإنقاذ المرسل بعض الوقت.
+Amount: كمية
+Comment: تعليق
+Comment or Memo: تعليق أو Memo
+Share this URL to receive %token%: قم بمشاركة URL لتحصل على %token%
+Invoice Link Copied: تم نسخ رابط الفاتورة
+Theme: سمة
+Language: لغة
+Enable Animations: تمكين الرسوم المتحركة
+Enable Seasonal Theming: تمكين السمات الموسمية
+Enable Landscape Mode: تمكين الوضع الأفقي
+Disable Seasonal Theming: تعطيل السمات الموسمية
+You can always enable seasonal theming again in the appearance settings.: يمكنك دائمًا تمكين السمات الموسمية مرة أخرى في إعدادات المظهر.
+Base Currency: العملة الأساسية
+Investor View: عرض المستثمر
+Toggle Investor View: تبديل عرض المستثمر
+Hide Tiny Transfers: إخفاء التحويلات الصغيرة
+Toggle Hide Tiny Transfers: تبديل إخفاء عمليات النقل الصغيرة
+Network: شبكة
+Developer Options: خيارات المطور
+All Wallet Versions: جميع إصدارات المحفظة
+Confirmation: تأكيد
+Signing Data: بيانات التوقيع
+Contract Initialization Data: بيانات تهيئة العقد
+$dont_have_required_token: ليس لديك التوكن المطلوب لإرساله، ولكن يمكن استبداله.
+$unknown_token_address: عنوان رمزي غير معروف.
+$dont_have_required_nft: ليس لديك NFT المطلوب لإرساله.
+$state_init_invalid: بيانات تهيئة العقد غير صالحة.
+$signature_warning: يعد التوقيع على البيانات المخصصة أمرًا خطيرًا للغاية. استخدمه فقط إذا كنت تثق بمصدره.
+Sign: لافتة
+Done!: منتهي!
+Signing Confirmed: تم تأكيد التوقيع
+Activity Details: تفاصيل النشاط
+No activities found: لم يتم العثور على أي أنشطة
+Comment Copied: تم نسخ التعليق
+Copy Text: نسخ النص
+Copy Description: نسخ الوصف
+Description Copied: الوصف منسوخ
+Message Copied: تم نسخ الرسالة
+Sender: مرسل
+Recipient: متلقي
+"%chain% Address Copied": تم نسخ عنوان %chain%
+Repeat: يكرر
+Switch Account: تبديل الحساب
+Copy wallet address: انسخ عنوان المحفظة
+View address on %explorer_name%: عرض العنوان على %explorer_name%
+You have just created a new wallet: لقد قمت للتو بإنشاء محفظة جديدة
+Assets: أصول
+Activity: نشاط
+NFT: NFT
+No NFTs yet: لا يوجد NFTs حتى الآن
+No hidden NFTs.: لا توجد رموز NFT مخفية.
+$nft_explore_offer: |-
+  استكشف السوق لاكتشافه
+  مجموعات NFT الحالية.
+Received: تلقى
+Sent: مرسل
+$transaction_from: من %address%
+$transaction_to: إلى %address%
+$transaction_on: على %address%
+Wallet is not backed up: لم يتم الاحتفاظ بنسخة احتياطية من المحفظة
+Testnet Version: نسخة Testnet
+Error reading clipboard: خطأ في قراءة الحافظة
+$fee_value: رسوم %fee%
+$fee_value_with_colon: "الرسوم: %fee%"
+Pay fee with %stars_symbol%: ادفع الرسوم باستخدام %stars_symbol%
+Loading...: تحميل...
+No price data: لا توجد بيانات الأسعار
+Price Copied: السعر منسوخ
+Recipient Address: عنوان المستلم
+Wallet address or domain: عنوان المحفظة أو المجال
+Incorrect address: عنوان غير صحيح
+Incorrect address.: عنوان غير صحيح.
+Paste: لصق
+Insufficient balance: رصيد غير كاف
+Insufficient Balance: رصيد غير كافي
+$seed_phrase_scam_warning: |-
+  لا تحتوي هذه المحفظة على أموال كافية لتغطية رسوم سحب الرموز المميزة.
+
+  يبدو أن هذه عملية **احتيال** شائعة حيث يتم تشجيعك على إيداع أموالك الخاصة لتغطية الرسوم.
+
+  **لا تقم بإيداع** أموالك الخاصة، فقد تخسرها! تعرف على المزيد حول هذا الأمر وغيره من عمليات الاحتيال في %help_center_link% الخاص بنا.
+$help_center_prepositional: مركز المساعدة
+Optional: خياري
+$send_token_symbol: أرسل %1$s
+Is it all ok?: هل كل شيء على ما يرام؟
+Receiving Address: عنوان الاستلام
+Fee: مصاريف
+Edit: يحرر
+Confirm: يتأكد
+Data Signed: البيانات الموقعة
+Details: تفاصيل
+View details: عرض التفاصيل
+Change password visibility: تغيير رؤية كلمة المرور
+Amount value: قيمة المبلغ
+Save Address: حفظ العنوان
+Name: اسم
+Save: يحفظ
+Copy: ينسخ
+Remove from Saved: إزالة من المحفوظة
+View on Explorer: عرض على اكسبلورر
+No suggestions, you're on your own!: لا توجد اقتراحات، أنت لوحدك!
+Play Sounds: تشغيل الأصوات
+Focus on asset value rather than current balance: التركيز على قيمة الأصول بدلا من الرصيد الحالي
+$logout_confirm: قم بإزالة **جميع** المحافظ
+$tiny_transfers_help: "إخفاء التحويلات التي تقل قيمتها عن $%value%. ضع في اعتبارك: غالبًا ما يتم إرسال مبالغ صغيرة بواسطة مرسلي البريد العشوائي والمحتالين."
+Today: اليوم
+Total: المجموع
+Zoom Out: كل الوقت
+Yesterday: أمس
+Now: الآن
+$receive_description: امسح رمز QR هذا ضوئيًا أو شارك العنوان لتعبئة رصيد المحفظة.
+Wrong password, please try again.: كلمة المرور خاطئة، يرجى المحاولة مرة أخرى.
+Appearance: مظهر
+Light: ضوء
+Dark: مظلم
+System: نظام
+$stake_asset: حصة %symbol%
+Add Stake: أضف حصة
+Earn from your tokens while holding them: اربح من الرموز الخاصة بك أثناء الاحتفاظ بها
+Current APY: أبي الحالي
+Est. Yearly Earnings: "\u200FEST. الأرباح السنوية"
+Staking Details: تفاصيل التوقيع المساحي
+Why this is safe: لماذا هذا آمن
+$safe_staking_description1: الستاكينغ **لامركزي بالكامل** ويتم تشغيله بواسطة العقود الذكية **TON Liquid Scking** الرسمية.
+$safe_staking_description2: سيتم استخدام الحصة المودعة للتحقق من صحة شبكة %chain% كجزء من جوهر **إثبات الحصة**.
+$safe_staking_description3: يمكنك سحب حصتك في **أي وقت** وسيتم إيداعها مرة أخرى في حسابك خلال **يومين**.
+$safe_staking_description_jetton1: إن تخزين الرموز المميزة **لامركزي بالكامل** ويتم تشغيله بواسطة العقود الذكية **مفتوحة المصدر** التي طورتها %jvault_link% واجتازت **عمليات التدقيق الأمني**.
+$safe_staking_description_jetton2: يمكنك سحب حصتك في **أي وقت** وسيتم إيداعها مرة أخرى في حسابك **على الفور**.
+$min_value: الحد الأدنى %value%
+Est. balance in a year: "\u200FEST. الرصيد في السنة"
+Confirm Staking: تأكيد التوقيع المساحي
+View: منظر
+Stake More: حصة أكثر
+Staking: التوقيع المساحي
+Currently Staked: راهنة حاليا
+Total Staked: إجمالي الرهان
+Total Stakers: مجموع ستيكرز
+Unstake: غير مستقر
+Earning History: تاريخ الكسب
+$total: "الإجمالي: %value%"
+$unstake_asset: إلغاء تثبيت %symbol%
+Amount to unstake: المبلغ المراد فكه
+Confirm Unstaking: تأكيد عدم الثبات
+$unstaking_when_receive: سوف تتلقى وديعتك غير المستحقة في %time%.
+$unstaking_when_receive_with_amount: سوف تتلقى %amount% غير المقيد في %time%.
+$unstaking_when_receive_with_amount_ethena: ستتمكن من استلام %amount% غير المقيد في %time%.
+$unstake_insufficient_balance: يجب أن يكون لديك %balance% في رصيدك الرئيسي حتى تتمكن من متابعة عملية الإزالة.
+at %annual_yield%: في %annual_yield%
+Est. %annual_yield%: EST. %annual_yield%
+Staked: راهن
+$stake_action: حصة
+Unstaked: غير مقيد
+Not staked: غير مراهنة
+Unstaking: غير مؤكد
+$unstake_action: غير مستقر
+The network fee has slightly changed, try sending again.: لقد تغيرت رسوم الشبكة قليلاً، حاول الإرسال مرة أخرى.
+Transfer was unsuccessful. Try again later.: لم ينجح النقل. حاول مرة أخرى لاحقًا.
+Action Partially Completed: اكتمل الإجراء جزئيًا
+$action_partially_completed_description: "اكتملت %completed% من أصل %total% عمليات. لم تكتمل العمليات المتبقية. تحقق من نشاطك قبل المحاولة مرة أخرى."
+Action Status Unknown: حالة الإجراء غير معروفة
+$action_status_unknown_description: "تعذر التحقق من حالة الاكتمال. تحقق من نشاطك ورصيدك قبل إعادة المحاولة؛ فقد تؤدي إعادة المحاولة الآن إلى إرسال الإجراء مرتين."
+Invalid amount: مبلغ غير صالح
+Invalid address: عنوان غير صالح
+Domain is not connected to a wallet: المجال غير متصل بالمحفظة
+Unexpected error: خطأ غير متوقع
+Unexpected Error: خطأ غير متوقع
+Earn: يكسب
+Earning: كسب
+Unexpected: خطأ غير متوقع
+You can save this address for quick access while sending.: يمكنك حفظ هذا العنوان للوصول إليه بسرعة أثناء الإرسال.
+Stake Again: حصة مرة أخرى
+Earned: حصل
+$staking_history_earned: حصل
+Select wallet to use on this app: حدد المحفظة لاستخدامها في هذا التطبيق
+Connect: يتصل
+Already Connected: متصل بالفعل
+Return to the dapp to proceed, or reconnect.: ارجع إلى التطبيق اللامركزي للمتابعة، أو أعد الاتصال.
+Dapp Disconnected: تم قطع اتصال Dapp
+Please reconnect your wallet from the dapp.: يرجى إعادة توصيل محفظتك في dapp.
+Dapp Not Responding: داب لا يستجيب
+You may need to reconnect your wallet from the dapp if this keeps happening.: قد تحتاج إلى إعادة توصيل محفظتك في التطبيق اللامركزي إذا استمر حدوث ذلك.
+Payload: الحمولة
+$many_transactions:
+  zeroValue: لا التحويلات
+  oneValue: نقل %1$d
+  otherValue: تحويلات %1$d
+Total Amount: المبلغ الإجمالي
+$unstaking_short: غير مؤكد
+Handle ton:// links: "التعامل مع طن: // الروابط"
+Back up wallet to have full access to it: قم بعمل نسخة احتياطية من المحفظة للوصول إليها بشكل كامل
+Consider More Secure Version: فكر في إصدار أكثر أمانًا
+Install our native app or browser extension.: قم بتثبيت تطبيقنا الأصلي أو امتداد المتصفح.
+Scam: غش
+Scam comment is hidden.: تعليق احتيال مخفي.
+Display: عرض
+Disconnect All Apps: افصل جميع التطبيقات
+Disconnect: قطع الاتصال
+Disconnect App: قطع اتصال التطبيق
+Disconnect Apps: افصل التطبيقات
+Are you sure you want to disconnect?: هل أنت متأكد أنك تريد قطع اتصال %dappname%؟
+Are you sure you want to disconnect all websites?: هل أنت متأكد أنك تريد قطع اتصال جميع مواقع الويب؟
+Logged in with %app_name%: تم تسجيل الدخول باستخدام %app_name%
+No active connections: لا توجد اتصالات نشطة
+Other: آخر
+Portfolio: مَلَفّ
+Performance, insights and P&L: الأداء والرؤى والأرباح والخسائر
+Overview: ملخص
+Total Balance: الرصيد الإجمالي
+Net Change: صافي التغيير
+No data: لا توجد بيانات
+Total Value: القيمة الإجمالية
+Tracked asset value over time.: تتبع قيمة الأصول مع مرور الوقت.
+Total P&L: إجمالي الربح والخسارة
+Daily P&L: الربح والخسارة اليومية
+Portfolio Share: حصة المحفظة
+Current allocation across tracked assets.: التخصيص الحالي عبر الأصول المتعقبة.
+Deep history analysis will be available in upcoming updates.: سيكون تحليل التاريخ العميق متاحًا في التحديثات القادمة.
+By Chain: بواسطة السلسلة
+No chain balances: لا أرصدة السلسلة
+Native: محلي
+Stablecoins: العملات المستقرة
+Altcoins: العملات البديلة
+Asset Mix: مزيج الأصول
+No asset balances: عدم وجود أرصدة الأصول
+No staked assets: لا الأصول المرهونة
+Entire Period: الفترة بأكملها
+Asset %1$@: الأصل %1$@
+Assets & Activity: الأصول والنشاط
+Token Settings: إعدادات التوكن
+Add Token: إضافة توكن
+Delete Token: حذف التوكن
+Are you sure you want to delete?: هل أنت متأكد أنك تريد حذف %token%؟
+Hide Tokens With No Cost: إخفاء الرموز دون أي تكلفة
+Localized Token Names: الأسماء المترجمة
+Sort By Cost: فرز حسب التكلفة
+Update %app_name%: تحديث %app_name%
+Connect Ledger: قم بتوصيل Ledger
+Connecting to your Ledger...: جارٍ الاتصال بـ Ledger...
+Failed to connect: فشل الاتصال
+Ledger Connected!: "\u200FLedger متصل!"
+Select Ledger Wallets: حدد محافظ Ledger
+"%1$d Selected": "%1$d تم التحديد"
+Add: يضيف
+Try Again: حاول ثانية
+Driver: سائق
+Unlock it and open the %chain% App: افتحه وافتح تطبيق %chain%
+Maybe you need to check the password or change the driver.: ربما تحتاج إلى التحقق من كلمة المرور أو تغيير برنامج التشغيل.
+Confirm via Ledger: قم بالتأكيد عبر Ledger
+$ledger_confirm_progress: قم بتأكيد %1$d من %2$d
+Declined: انخفض
+Switch to the newly opened tab to connect Ledger.: قم بالتبديل إلى علامة التبويب المفتوحة حديثًا للاتصال Ledger.
+Once connected, switch back to this window to proceed.: بمجرد الاتصال، قم بالتبديل مرة أخرى إلى هذه النافذة للمتابعة.
+The time on your device is incorrect, sync it and try again.: الوقت الموجود على جهازك غير صحيح، قم بمزامنته وحاول مرة أخرى.
+Name or Address...: الاسم أو العنوان...
+Such error, many tabs: مثل هذا الخطأ، العديد من علامات التبويب
+$many_tabs_error_description: |-
+  يدعم %app_name% علامة تبويب نشطة واحدة فقط مع التطبيق.
+  يرجى إعادة تحميل هذه الصفحة لمواصلة استخدام علامة التبويب هذه أو إغلاقها.
+Reload App: إعادة تحميل التطبيق
+Token Not Found: لم يتم العثور على التوكن
+Try another keyword or address.: جرّب كلمة رئيسية أو عنوانًا آخر.
+Decrypt: فك التشفير
+Encrypted Message: رسالة مشفرة
+Message is encrypted: الرسالة مشفرة
+Agree: يوافق
+$swap_action: تبديل
+Swap: تبديل
+You sell: أنت تبيع
+You buy: تشتري
+Swap Details: تفاصيل المبادلة
+Blockchain Fee: رسوم البلوكشين
+Included: متضمنة
+Price Impact: تأثير السعر
+Minimum Received: الحد الأدنى المستلم
+Slippage: الانزلاق
+$swap_from_to: قم بتبديل %from% %icon% %to%
+The exchange rate is below market value!: سعر الصرف %value% أقل من القيمة السوقية!
+Invalid Pair: زوج غير صالح
+We do not recommend to perform an exchange, try to specify a lower amount.: لا ننصح بإجراء عملية تبادل، حاول تحديد مبلغ أقل.
+$swap_minimum_received_tooltip1: هذا هو أقل قدر من الرموز الجديدة التي ستحصل عليها من هذه المبادلة، مع الأخذ في الاعتبار ظروف السوق الحالية، وتحمل الانزلاق، والتأثير المحتمل على السعر.
+$swap_minimum_received_tooltip2: إنه الحد الأدنى المتوقع، ولكن إذا تغيرت الظروف كثيرًا أثناء معالجة المبادلة الخاصة بك، فقد يكون المبلغ النهائي أقل.
+$swap_price_impact_tooltip1: يوضح هذا مقدار تأثير تجارتك على سعر التوكن.
+$swap_price_impact_tooltip2: الصفقات الكبيرة يمكن أن تجعل السعر يرتفع أو ينخفض ​​أكثر. أقل عادة ما يكون أفضل.
+$swap_slippage_tooltip1: يحدد هذا المبلغ المسموح للسعر بالتغيير قبل معالجة المبادلة الخاصة بك.
+$swap_slippage_tooltip2: إذا تغير السعر أكثر من هذه القيمة أثناء معالجة المبادلة الخاصة بك، فسيتم إلغاء طلبك.
+Slippage not specified: الانزلاق غير محدد
+Slippage too high: الانزلاق مرتفع جدًا
+Not Enough %symbol%: لا يكفي %symbol%
+Use Responsibly: استخدم بمسؤولية
+$auth_responsibly_description1: "%app_name% هي محفظة **ذاتية الحراسة**، مما يعني أنك **أنت فقط** تتمتع بالتحكم الكامل، والأهم من ذلك، **المسؤولية الكاملة** عن أموالك."
+$auth_responsibly_description2: تُخزّن مفاتيحك الخاصة على جهازك وقد تتعرض **لهجمات القراصنة**. إذا كان جهازك مصابًا **ببرامج ضارة**، فمن المرجح أن تُسرق أموالك.
+$auth_responsibly_description3: فريق %app_name% **ليس مسؤولاً** عن سلامة أموالك، تمامًا كما أن الشركة المصنعة لجهاز الكمبيوتر الخاص بك أو مزود الإنترنت ليس مسؤولاً.
+$auth_responsibly_description4: "**لا تخزّن أبدًا** كل أموالك في مكان واحد. **نوّع** واستخدم برامج وأجهزة مختلفة. احرص دائمًا على **إجراء بحثك الخاص** وتعلّم المزيد عن أمان العملات المشفرة."
+Start Wallet: ابدأ المحفظة
+$auth_backup_warning_notice: تحتاج الآن إلى **نسخ المفاتيح السرية احتياطيًا** يدويًا في حال نسيت كلمة المرور أو فقدت الوصول إلى هذا الجهاز.
+$ledger_verify_address: تحقق دائمًا من العنوان الذي تم لصقه باستخدام جهاز Ledger الخاص بك.
+$ledger_not_ready: "\u200FLedger غير متصل أو تطبيق %chain% غير مفتوح."
+Verify now: تحقق الآن
+Invalid address format. Only URL Safe Base64 format is allowed.: تنسيق العنوان غير صالح. يُسمح فقط بتنسيق URL Safe Base64.
+Swap Placed: تم وضع المبادلة
+Swapping: مبادلة
+Swapped: مبادلة
+Swap Again: مبادلة مرة أخرى
+Terms of Use: شروط الاستخدام
+Privacy Policy: سياسة الخصوصية
+Insufficient liquidity: سيولة غير كافية
+This address is new and never received transfers before.: هذا العنوان جديد ولم يتم استقبال تحويلات من قبل.
+Create Backup: إنشاء نسخة احتياطية
+Sending: إرسال
+$send_action: يرسل
+Failed: فشل
+Refunded: ردها
+On Hold: في الانتظار
+Expired: منتهي الصلاحية
+In Progress: في تَقَدم
+Waiting for Payment: في انتظار الدفع
+Blockchain: بلوكتشين
+Your address on another blockchain: عنوانك على blockchain آخر
+Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: يرجى تقديم عنوان محفظتك في %blockchain% blockchain لتلقي الرموز المميزة المشتراة.
+The time for sending coins is over.: لقد انتهى وقت إرسال العملات المعدنية.
+You have not sent the coins to the specified address.: لم تقم بإرسال العملات المعدنية إلى العنوان المحدد.
+$swap_changelly_to_wallet_description1: أرسل %value% إلى هذا العنوان في %blockchain% blockchain داخل %time%
+Exchange failed and coins were refunded to your wallet.: فشل التبادل وتم رد العملات المعدنية إلى محفظتك.
+$swap_changelly_kyc_security: "برجاء الاتصال بـ **%email%** وتقديم **المعاملة ID** لتمرير إجراء KYC:"
+Swap Expired: انتهت صلاحية المبادلة
+Address for %blockchain% transfer: عنوان نقل %blockchain%
+Cross-chain exchange provided by Changelly: التبادل عبر السلسلة مقدم من Changelly
+$swap_changelly_terms_of_use: شروط الاستخدام
+$swap_changelly_privacy_policy: سياسة الخصوصية
+Password must contain %length% digits.: يجب أن تحتوي كلمة المرور على أرقام %length%.
+Deposit Link: رابط الإيداع
+$swap_changelly_from_wallet_description: "سيتم إرسال الرموز المميزة إلى عنوانك في %blockchain% blockchain قريبًا:"
+Please note that it may take up to a few hours for tokens to appear in your wallet.: يرجى ملاحظة أن الأمر قد يستغرق ما يصل إلى بضع ساعات حتى تظهر الرموز المميزة في محفظتك.
+Minimum amount: الحد الأدنى %value%
+Maximum amount: الحد الأقصى لـ %value%
+Display Tray Icon: أيقونة عرض الدرج
+Auto-Updates: التحديثات التلقائية
+Biometric Authentication: المصادقة البيومترية
+If you turn off biometric protection, you will need to create a password.: إذا قمت بإيقاف تشغيل الحماية البيومترية، فستحتاج إلى إنشاء كلمة مرور.
+Enter your current password: أدخل كلمة المرور الحالية الخاصة بك
+Turn On Biometrics: قم بتشغيل القياسات الحيوية
+Enabling biometric confirmation will reset the password.: سيؤدي تمكين التأكيد البيومتري إلى إعادة تعيين كلمة المرور.
+Biometric Registration: التسجيل البيومتري
+Step 1 of 2. Registration: الخطوة 1 من 2. التسجيل
+Step 2 of 2. Verification: الخطوة 2 من 2. التحقق
+Download Logs: تحميل السجلات
+Copy Logs: نسخ السجلات
+Logs Copied: تم نسخ السجلات
+Biometric setup failed.: فشل إعداد المقاييس الحيوية.
+Biometric confirmation failed.: فشل التأكيد البيومتري.
+Failed to disable biometrics.: فشل في تعطيل القياسات الحيوية.
+Biometric Confirmation: التأكيد البيومتري
+Create Password: إنشاء كلمة المرور
+Complete: مكتمل
+Verification: تَحَقّق
+Connect Biometrics: ربط القياسات الحيوية
+Use Password: استخدم كلمة المرور
+Biometrics Disabled: القياسات الحيوية معطلة
+Biometrics Enabled: تم تمكين القياسات الحيوية
+A request is already pending: الطلب معلق بالفعل
+Please confirm action using biometrics: يرجى تأكيد الإجراء باستخدام القياسات الحيوية
+Scan QR Code: مسح رمز الاستجابة السريعة
+Open the QR scanner.: افتح الماسح الضوئي QR.
+Open scanner in ${applicationName}: فتح الماسح الضوئي في ${applicationName}
+Scan a code with ${applicationName}: امسح رمزًا ضوئيًا باستخدام ${applicationName}
+Scan QR: مسح QR
+Scan QR with ${applicationName}: مسح QR ضوئيًا باستخدام ${applicationName}
+Account: حساب
+Accounts: الحسابات
+Networks: الشبكات
+Blockchains: سلاسل البلوكشين
+All Chains: جميع سلاسل البلوكشين
+"You will still be able to receive and send tokens in hidden chains.": "سيظل بإمكانك استلام الرموز وإرسالها على سلاسل البلوكشين المخفية."
+"Sort by Value": "الترتيب حسب القيمة"
+"Automatically sort and hide chains based on your portfolio.": "رتّب سلاسل البلوكشين وأخفِها تلقائيًا بناءً على محفظتك."
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "ستظل سلاسل البلوكشين المخفية متاحة لاستلام الرموز وإرسالها، لكنها لن تظهر في القائمة الرئيسية."
+"Move Up": "تحريك لأعلى"
+"Move Down": "تحريك لأسفل"
+Tokens: الرموز
+Receive Funds: تلقي الأموال
+Open the receive screen.: افتح شاشة الاستلام.
+Receive with ${applicationName}: تلقي مع ${applicationName}
+Add crypto with ${applicationName}: أضف التشفير باستخدام ${applicationName}
+Open receive in ${applicationName}: فتح الاستلام في ${applicationName}
+Send Token: إرسال رمز
+Open Token: فتح التوكن
+Open ${target} in ${applicationName}: افتح ${target} في ${applicationName}
+Show ${target} in ${applicationName}: إظهار ${target} في ${applicationName}
+Open the token screen.: افتح شاشة التوكن.
+Open the send screen.: افتح شاشة الإرسال.
+Send token with ${applicationName}: إرسال التوكن مع ${applicationName}
+Send crypto with ${applicationName}: أرسل التشفير باستخدام ${applicationName}
+Open send in ${applicationName}: فتح إرسال ${applicationName}
+Permission denied. Please grant camera permission to use the QR code scanner.: تم رفض الإذن. يرجى منح الكاميرا الإذن لاستخدام الماسح الضوئي لرمز الاستجابة السريعة.
+This QR Code is not supported: رمز الاستجابة السريعة هذا غير مدعوم
+An error on the server side. Please try again.: خطأ من جانب الخادم. يرجى المحاولة مرة أخرى.
+Address Saved: تم حفظ العنوان
+US Dollar: الدولار الأمريكي
+Euro: اليورو
+Russian Ruble: الروبل الروسي
+Chinese Yuan: اليوان الصيني
+Bitcoin: بيتكوين
+$max_balance: "الحد الأقصى: %balance%"
+$send_recipient_invalid: غير صالح
+$send_recipient_not_compatible: غير متوافق
+$unstake_information_instantly: سوف تحصل على الودائع الخاصة بك على الفور
+Select Token: حدد التوكن
+$token_picker_hidden: المخفية
+MY: لي
+Popular: شائع
+Not Found: لم يتم العثور عليه
+Wallet is ready!: المحفظة جاهزة!
+Wallet is imported!: المحفظة مستوردة!
+Create a code to protect it: قم بإنشاء رمز لحمايته
+Enter your code again: أدخل الرمز الخاص بك مرة أخرى
+Code set successfully: تم تعيين الرمز بنجاح
+Use Biometrics: استخدم القياسات الحيوية
+Use Touch ID: استخدم اللمس ID
+Use Face ID: استخدم الوجه ID
+Connect Touch ID: قم بتوصيل المس ID
+Connect Face ID: ربط الوجه ID
+Not Now: ليس الآن
+Touch ID: المس ID
+Face ID: الوجه ID
+Turn Off Touch ID: قم بإيقاف تشغيل اللمس ID
+Turn Off Face ID: قم بإيقاف تشغيل الوجه ID
+Turn Off Biometrics: قم بإيقاف تشغيل القياسات الحيوية
+Enter code: أدخل الرمز
+Enter code or use Face ID: أدخل الرمز أو استخدم Face ID
+Enter code or use Touch ID: أدخل الرمز أو استخدم المس ID
+Enter code or use biometrics: أدخل الرمز أو استخدم القياسات الحيوية
+Wrong code, please try again: رمز خاطئ، يرجى المحاولة مرة أخرى
+Scan your fingerprint: مسح بصمة الإصبع الخاصة بك
+Incorrect code, please try again.: الرمز غير صحيح، يرجى المحاولة مرة أخرى.
+Correct: صحيح
+Confirm Action: تأكيد الإجراء
+$classic_confirm_actions: تأكيد الإجراءات
+Confirm Swap: تأكيد المبادلة
+Confirm Rewards Claim: تأكيد المطالبة بالمكافآت
+"%amount% to %address%": "%amount% إلى %address%"
+"%amount_from% to %amount_to%": "%amount_from% إلى %amount_to%"
+Failed to enable biometrics.: فشل في تمكين القياسات الحيوية.
+Please try to confirm your biometrics again: يرجى محاولة تأكيد القياسات الحيوية الخاصة بك مرة أخرى
+Unknown error: خطأ غير معروف
+Are you sure you want to disable Face ID?: هل أنت متأكد أنك تريد تعطيل Face ID؟
+Are you sure you want to disable Touch ID?: هل أنت متأكد أنك تريد تعطيل Touch ID؟
+Are you sure you want to disable biometrics?: هل أنت متأكد أنك تريد تعطيل القياسات الحيوية؟
+"Yes": نعم
+Biometric confirmation failed: فشل التأكيد البيومتري
+No Activity: لا يوجد نشاط
+Fund: تمويل
+Buy with Card: الشراء بالبطاقة
+Buy with Crypto: الشراء باستخدام التشفير
+Cannot load widget: لا يمكن تحميل القطعة
+Error: خطأ
+Explore: يستكشف
+$lockdown_mode_enabled_title: تم تمكين وضع التأمين
+$lockdown_mode_walletconnect_unavailable: "\u200FWalletConnect غير متوفر في وضع التأمين. لاستخدامه، قم بتعطيل وضع التأمين لـ %app_name% في الإعدادات > الخصوصية والأمان > وضع التأمين > تكوين تصفح الويب."
+No partners yet: لا يوجد شركاء حتى الآن
+Clear: واضح
+Unavailable: غير متاح
+$unstake_up_to_information: على الفور – حتى %value%
+$all_balance: "الكل: %balance%"
+$unstaking_not_enough_balance: يجب أن يكون لديك %value% في رصيدك الرئيسي حتى تتمكن من متابعة عملية الإزالة.
+$ledger_verify_address_on_device: يرجى التحقق من العنوان الموجود على Ledger الخاص بك.
+Wallet Versions: إصدارات المحفظة
+$read_more_about_wallet_version: اقرأ المزيد حول أنواع عقود المحفظة على %link%.
+$current_wallet_version: إصدار محفظتك الحالي هو %version%.
+You have tokens on other versions of your wallet. You can import them from here.: لديك رموز مميزة على إصدارات أخرى من محفظتك. يمكنك استيرادها من هنا.
+$wallet_switch_version_1: يمكنك أيضًا استخدام %action%.
+$wallet_switch_version_2: التبديل إلى إصدار محفظة آخر
+or import from: أو الاستيراد من
+Insufficient fee: رسوم غير كافية
+$insufficient_fee: "رسوم غير كافية: %fee%"
+Required: مطلوب
+Comment is too long.: التعليق طويل جدًا.
+Memo: Memo
+Memo Copied: تم نسخ Memo
+$hide_tokens_no_cost_help: "إخفاء الرموز المميزة التي تقل قيمتها عن $%value%. ضع في اعتبارك: غالبًا ما يتم إرسال الرموز المميزة التي لا قيمة لها بواسطة مرسلي البريد العشوائي والمحتالين. على نفس الشاشة أدناه، يمكنك إخفاء الرموز الفردية."
+No internet connection. Please check your connection and try again.: لا يوجد اتصال بالإنترنت. يرجى التحقق من اتصالك والمحاولة مرة أخرى.
+To use this feature, first enable Face ID in your phone settings.: لاستخدام هذه الميزة، قم أولاً بتمكين Face ID في إعدادات هاتفك.
+To use this feature, first enable biometrics in your phone settings.: لاستخدام هذه الميزة، قم أولاً بتمكين القياسات الحيوية في إعدادات هاتفك.
+Open Settings: افتح الإعدادات
+No Price: لا يوجد سعر
+$dapp_transfer_tokens_burn: حرق %amount%
+$dapp_dns_set_wallet_payload: تغيير المحفظة المرتبطة للمجال %domain% إلى %address%
+$dapp_dns_delete_wallet_payload: حذف المحفظة المرتبطة للمجال %domain%
+$dapp_dns_change_record_payload: تغيير سجل "%category%" للمجال %domain% إلى %value%
+$dapp_dns_delete_record_payload: حذف سجل "%category%" للمجال %domain%
+$dapp_token_bridge_pay_swap_payload: تأكيد التبادل عبر جسر عبر السلسلة
+$dapp_liquid_staking_deposit_payload: إيداع في عمادا السائل
+$dapp_liquid_staking_vote_payload: التصويت بـ "%vote%" لاقتراح %votingAddress%
+$dapp_single_nominator_change_validator_payload: تغيير عنوان مدقق عقد التوقيع المساحي SingleNominator إلى %address%
+$dapp_single_nominator_withdraw_payload: سحب %amount% من عقد التوقيع المساحي SingleNominator
+$dapp_vesting_add_whitelist_payload: إضافة %address% إلى القائمة البيضاء للمحفظة
+Connecting apps is not yet supported by Ledger.: ربط التطبيقات غير مدعوم حتى الآن بواسطة Ledger.
+Time synchronization issue. Please ensure your device's time settings are correct.: مشكلة مزامنة الوقت. يرجى التأكد من صحة إعدادات الوقت بجهازك.
+Data Copied: تم نسخ البيانات
+URL Copied: تم نسخ URL
+Private Key Copied: تم نسخ المفتاح الخاص
+Contract Initialization Data Copied: تم نسخ بيانات تهيئة العقد
+Open NFT Collection: افتح مجموعة NFT
+Previous: سابق
+Next: التالي
+Updating: تحديث
+Insufficient %token% for fee.%fee%: "%token% غير كافية للرسوم.%fee%"
+Send NFT: أرسل NFT
+Send Collectible: إرسال تحصيل
+Send Collectibles: إرسال المقتنيات
+$nfts_sent:
+  zeroValue: تم إرسال %1$d NFTs!
+  oneValue: تم إرسال %1$d NFT!
+  otherValue: تم إرسال %1$d NFTs!
+$nfts_burned:
+  zeroValue: تم حرق %count% NFTs
+  oneValue: تم حرق %count% NFT
+  otherValue: تم حرق %count% NFTs
+No NFT selected: لم يتم تحديد NFT
+Cannot be sent: لا يمكن إرسالها
+NFT is for sale: "\u200FNFT للبيع"
+More actions: المزيد من الإجراءات
+Open on %explorer_name%: مفتوح على %explorer_name%
+Swap is not supported in Testnet.: المبادلة غير مدعومة في Testnet.
+Swap is not yet supported by Ledger.: المبادلة غير مدعومة حتى الآن بواسطة Ledger.
+Buying with card is not supported in Testnet.: الشراء باستخدام البطاقة غير مدعوم في Testnet.
+Staking is not supported in Testnet.: التوقيع المساحي غير مدعوم في Testnet.
+Get Support: احصل على الدعم
+$transfer_link_expired: انتهت صلاحية رابط النقل
+$transfer_text_and_bin_exclusive: لا يمكن استخدام معلمات النص وbin معًا
+$unsupported_deeplink_parameter: يحتوي هذا الرابط لموضع معين على معلمات غير مدعومة.
+$unsupported_chain: "\u200Fblockchain غير مدعوم."
+Successfully: بنجاح
+Unstake More: إلغاء المزيد
+Are you sure you want to burn this NFT? It will be lost forever.: |-
+  هل أنت متأكد أنك تريد حرق NFT؟
+  وسوف تضيع إلى الأبد.
+$multi_burn_nft_warning: |-
+  سوف تقوم بحرق ملف %amount% NFTs. قد تستغرق العملية ~%duration%. يرجى عدم إغلاق التطبيق أو تبديل المحافظ حتى الانتهاء.
+
+  سيتم فقدان NFTs إلى الأبد.
+$duration_minutes:
+  zeroValue: دقائق %1$d
+  oneValue: دقيقة %1$d
+  otherValue: دقائق %1$d
+$multi_send_nft_warning: قد تستغرق العملية حوالي دقيقة (دقائق) %duration%. يرجى عدم إغلاق التطبيق وعدم تبديل الحسابات حتى يتم الانتهاء منه.
+Burn NFT: حرق NFT
+Burn Collectibles: حرق المقتنيات
+Burn: يحرق
+Private Key: مفتاح خاص
+"%amount% NFTs": "%amount% NFTs"
+1 NFT: 1 NFT
+1 NFT Selected: تم تحديد 1 NFT
+"%amount% NFTs Selected": "%amount% NFTs تم التحديد"
+For sale. Cannot be sent and burned: للبيع. لا يمكن إرسالها وحرقها
+Select: يختار
+Send All: أرسل الكل
+Burn All: حرق الكل
+Select All: حدد الكل
+Collection: مجموعة
+Unnamed Collection: مجموعة غير محددة
+Transaction ID Copied: تم نسخ المعاملة ID
+$swap_changelly_support: "إذا كانت هناك أية مشكلات، فيرجى الاتصال بـ %livechat% أو %email% وتقديم **المعاملة ID**:"
+Changelly Live Chat: الدردشة الحية تشينجلي
+Your %blockchain% Address: عنوان %blockchain% الخاص بك
+My %blockchain% Address: عنوان %blockchain% الخاص بي
+"%blockchain% Address": عنوان %blockchain%
+$view_only_wallet_receive_warning: |-
+  **وضع العرض: هذه ليست محفظتك**
+  تحقق بعناية قبل إرسال الأموال.
+Vesting: استحقاق
+Vesting Balance: رصيد الاستحقاق
+Ready to Unfreeze: جاهز لفك التجميد
+You will receive your unfrozen coins in a few minutes.: سوف تتلقى عملاتك المعدنية غير المجمدة في بضع دقائق.
+Vesting Schedule: جدول الاستحقاق
+Loyal User Airdrop: المستخدم المخلص Airdrop
+Unfrozen: غير مجمدة
+Missed: مٌفتَقد
+Frozen: المجمدة
+until %date%: حتى %date%
+Until %date%: حتى %date%
+"%volume% in %amount% parts": "%volume% في أجزاء %amount%"
+Unfreeze: قم بإلغاء التجميد
+Claim: مطالبة
+Confirm Unfreezing: تأكيد إلغاء التجميد
+Insufficient Balance for Fee: رصيد غير كافي للرسوم
+$fee_value_bold: "**الرسوم:** %fee%"
+"%app_name% Features": ميزات %app_name%
+Security: حماية
+To avoid entering the passcode every time, you can use biometrics.: لتجنب إدخال رمز المرور في كل مرة، يمكنك استخدام القياسات الحيوية.
+To avoid entering the password every time, you can use biometrics.: لتجنب إدخال كلمة المرور في كل مرة، يمكنك استخدام القياسات الحيوية.
+Change Passcode: تغيير رمز المرور
+Change Password: تغيير كلمة المرور
+Confirm Password: تأكيد كلمة المرور
+The passcode will be changed for all your wallets.: سيتم تغيير رمز المرور لجميع محافظك.
+The password will be changed for all your wallets.: سيتم تغيير كلمة المرور لجميع محافظك.
+Password Changed!: تم تغيير كلمة المرور!
+Passcode Changed!: تم تغيير رمز المرور!
+New code set successfully: تم تعيين الكود الجديد بنجاح
+Codes don’t match: الرموز غير متطابقة
+Enter your new code: أدخل الرمز الجديد الخاص بك
+Re-enter your new code: أعد إدخال الرمز الجديد الخاص بك
+Install on Desktop: تثبيت على سطح المكتب
+Install on Mobile: التثبيت على الجوال
+Install App: تثبيت التطبيق
+Hide: يخفي
+Hide and Report: إخفاء وإبلاغ
+Hide and Report NFT: إخفاء NFT والإبلاغ عنه
+Report: إبلاغ
+Report NFT: الإبلاغ عن NFT
+This NFT will remain hidden on this device and be reported.: سيظل NFT هذا مخفيًا على هذا الجهاز وسيتم الإبلاغ عنه.
+Only Hide: إخفاء فقط
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: هل تريد أيضًا الإبلاغ عن هذا الـ NFT باعتباره غير لائق؟ ستتم إزالته نهائيًا من هذا الجهاز بعد ذلك.
+This NFT will be permanently hidden on this device and reported.: سيتم إخفاء NFT هذا نهائيًا على هذا الجهاز والإبلاغ عنه.
+Hidden NFTs: "\u200FNFTs المخفية"
+Hidden By Me: مخفي من قبلي
+Probably Scam: ربما عملية احتيال
+$settings_nft_probably_scam_description: تم تعطيل NFTs تلقائيًا بواسطة الحماية ضد الاحتيال. يمكنك إعادة العناصر الضرورية إلى الصفحة الرئيسية إذا كنت تعتقد أنها مدرجة في هذه القائمة عن طريق الخطأ.
+Unhide: إظهار
+Hide All: إخفاء الكل
+Hide NFT: إخفاء NFT
+Reload Page: إعادة تحميل الصفحة
+Open in Safari: فتح في Safari
+Open in Browser: فتح في المتصفح
+CopyURL: انسخ URL
+Share: يشارك
+Unhide NFT: إظهار NFT
+$unhide_nft_warning: هل أنت متأكد أنك تريد إظهار %name%؟ يبدو NFT مشبوهًا وقد لا يتطابق مع اسمه ووصفه.
+Hide NFTs: إخفاء NFTs
+Are you sure you want to hide this NFT collection containing %number% NFTs?: هل أنت متأكد أنك تريد إخفاء مجموعة NFT التي تحتوي على %number% NFTs؟
+Are you sure you want to hide these %number% NFTs?: هل أنت متأكد أنك تريد إخفاء %number% NFTs؟
+Show: يعرض
+Confirm Sending: تأكيد الإرسال
+Confirm Burning: تأكيد الحرق
+Confirm Passcode: تأكيد رمز المرور
+Enter your code: أدخل الرمز الخاص بك
+$hardware_blind_sign_not_enabled: للمتابعة، قم بتمكين خيار "Blind Signing" في إعدادات تطبيق %chain% على Ledger.
+Switch to W5: قم بالتبديل إلى W5
+Not Scam: لا احتيال
+Untitled: بدون عنوان
+Multichain: متعدد السلاسل
+$swap_too_small_amount: كمية صغيرة جدًا
+$swap_slippage_violation: فشلت محاكاة المبادلة بسبب انتهاك الانزلاق. يرجى المحاولة مرة أخرى.
+Not enough %symbol%: لا يكفي %symbol%
+Enter Secret Words: أدخل عبارات الاسترداد
+Turn this off so you can manually download updates and verify signatures.: قم بإيقاف تشغيل هذا حتى تتمكن من تنزيل التحديثات يدويًا والتحقق من التوقيعات.
+InvalidMnemonic: عبارات الاسترداد غير صالحة
+NFT Menu: قائمة NFT
+Connection Type: نوع الاتصال
+Ledger is not supported on this device: "\u200FLedger غير مدعوم على هذا الجهاز"
+Connect your Ledger: قم بتوصيل Ledger الخاص بك
+$app_lock_description: عند تمكين قفل التطبيق، يظهر رمز القفل على البطاقة في الصفحة الرئيسية. استخدامه لقفل %app_name%.
+App Lock: قفل التطبيق
+Auto-Lock: القفل التلقائي
+Disabled: عاجز
+30 seconds: 30 ثانية
+3 minutes: 3 دقائق
+10 minutes: 10 دقائق
+If away for 30 sec: إذا كنت بعيدا لمدة 30 ثانية
+If away for 3 min: إذا كنت بعيدا لمدة 3 دقائق
+If away for 10 min: إذا كنت بعيدا لمدة 10 دقيقة
+Unlock: فتح
+This address mimics another address that you previously interacted with.: يحاكي هذا العنوان عنوانًا آخر تفاعلت معه مسبقًا.
+Biometric authentication failed: فشلت المصادقة البيومترية
+Authentication is already configured: تم إعداد المصادقة بالفعل
+Reset biometrics in security settings, or use a passcode.: قم بإعادة ضبط القياسات الحيوية في إعدادات الأمان، أو استخدم رمز المرور.
+Add Tokens: إضافة الرموز
+No tokens yet: لا توجد رموز حتى الآن
+$no_tokens_description: احصل على الرموز المميزة من محفظة أخرى، أو ببساطة قم بتمكين الرموز المميزة المفضلة في إعدادات المراقبة.
+Exchange Rate: سعر الصرف
+Install Card: تثبيت البطاقة
+Reset Card: إعادة تعيين البطاقة
+Apply Palette: تثبيت لوحة
+Reset Palette: إعادة ضبط اللوحة
+Notifications & Sounds: الإخطارات والأصوات
+Sounds: يبدو
+Push Notifications: الإشعارات الفورية
+Select up to %count% wallets for notifications: حدد ما يصل إلى محافظ %count% للإشعارات
+Accumulated Rewards: المكافآت المتراكمة
+$swap_reverse_prohibited: من المستحيل تحديد مبلغ الشراء لهذا الزوج من الرموز المميزة
+Blockchain Fee Details: تفاصيل رسوم البلوكشين
+Final Fee: الرسوم النهائية
+Excess: إفراط
+$fee_details: |-
+  يجب خصم %full_fee% على الفور من محفظتك لدفع الرسوم. سيتم إرجاع جزء من هذا **في **%excess_symbol% إليك كفائض في غضون بضع دقائق.
+
+  هذه هي الطريقة التي يعمل بها %chain_name% Blockchain.
+Got It: فهمتها
+Wallet: محفظة
+Trending: تتجه
+No Data: لا توجد بيانات
+Toggle fullscreen: تبديل ملء الشاشة
+Transaction ID: المعاملة ID
+Help Center: مركز المساعدة
+"%app_name% Tips": نصائح %app_name%
+Open %nft_marketplace%: افتح %nft_marketplace%
+Link Copied: تم نسخ الرابط
+Share Link: مشاركة الرابط
+$dapp_return_details: |-
+  سيتم خصم %fee_amount% على الفور من محفظتك لدفع الرسوم.
+
+  سيتم إرجاع %received_amount% إليك خلال بضع دقائق.
+$dapp_return_disclaimer: المبلغ المُعاد المعروض غير مضمون، وقد تتلاعب به التطبيقات اللامركزية الضارة. ألغِ العملية إذا لم تكن متأكدًا من موثوقية هذه الخدمة.
+Additional Amount Sent: المبلغ الإضافي المرسل
+Show Sensitive Data: إظهار البيانات الحساسة
+Hide Sensitive Data: إخفاء البيانات الحساسة
+Copy Address: نسخ العنوان
+Copy Transaction ID: نسخ المعاملة ID
+Requesting Unstake: طلب فك الارتباط
+Requested Unstake: طلب فك الارتباط
+Unstake Requested: طلب فك الارتباط
+$request_unstake_action: طلب إلغاء الاشتراك
+Calling Contract: عقد الدعوة
+Called Contract: يسمى العقد
+$call_contract_action: عقد الاتصال
+Deploying Contract: نشر العقد
+Deployed Contract: عقد منتشر
+$deploy_contract_action: نشر العقد
+Minting: سك العملة
+Minted: سكت
+$mint_action: نعناع
+Burning: حرق
+Burned: محترق
+$burn_action: يحرق
+Updating Address: تحديث العنوان
+Updated Address: العنوان المحدث
+$update_address_action: تحديث العنوان
+Updating Site: تحديث الموقع
+Updated Site: الموقع المحدث
+$update_site_action: تحديث الموقع
+Updating Subdomains: تحديث النطاقات الفرعية
+Updated Subdomains: النطاقات الفرعية المحدثة
+$update_subdomains_action: تحديث النطاقات الفرعية
+Updating Storage: تحديث التخزين
+Updated Storage: تخزين محدث
+$update_storage_action: تحديث التخزين
+Deleting Domain Record: حذف سجل المجال
+Deleted Domain Record: سجل المجال المحذوف
+$delete_domain_record_action: حذف سجل المجال
+Renewing Domain: تجديد النطاق
+Renewed Domain: النطاق المتجدد
+$renew_domain_action: تجديد المجال
+Providing Liquidity: توفير السيولة
+Provided Liquidity: السيولة المقدمة
+$provide_liquidity_action: توفير السيولة
+Withdrawing Liquidity: سحب السيولة
+Withdrawn Liquidity: السيولة المسحوبة
+$withdraw_liquidity_action: سحب السيولة
+Bounced: ارتد
+Bouncing: كذاب
+$bounce_action: ترتد
+NFT Auction Bid: عرض مزاد NFT
+Bidding at NFT Auction: المزايدة في مزاد NFT
+Buying NFT: شراء NFT
+Bought NFT: اشترى NFT
+$buy_nft_action: شراء NFT
+Sold NFT: تم بيعها NFT
+Selling NFT: بيع NFT
+$sell_nft_action: بيع NFT
+Receiving: الاستلام
+$receive_action: يستلم
+Change Palette: تغيير لوحة
+Palette: لوحة
+Unlock New Palettes: فتح لوحات جديدة
+Get a unique My Wallet Card to unlock new palettes.: احصل على بطاقة My Wallet الفريدة لفتح لوحات جديدة.
+Mint Cards: بطاقات النعناع
+Card has been upgraded!: تمت ترقية البطاقة!
+$mint_card_result: سيتم **سك** بطاقة NFT و **تثبيتها تلقائيًا** خلال دقيقة واحدة.
+Unique: فريد
+Get a card with unique background and personalized palette for wallet interface.: احصل على بطاقة ذات خلفية فريدة ولوحة مخصصة لواجهة المحفظة.
+Transferable: قابلة للتحويل
+Easily send your upgraded card to any of your friends.: أرسل بطاقتك التي تمت ترقيتها بسهولة إلى أي من أصدقائك.
+Tradable: قابلة للتداول
+Sell or auction your card on third-party NFT marketplaces.: قم ببيع بطاقتك أو بيعها بالمزاد العلني في أسواق NFT التابعة لجهات خارجية.
+Upgrade for %amount% %currency%: الترقية إلى %amount% %currency%
+"%amount% left": "%amount% اليسار"
+"%amount% sold": تم بيع %amount%
+This card has been sold out: لقد تم بيع هذه البطاقة
+Import Existing Wallet: استيراد المحفظة الموجودة
+View Any Address: عرض أي عنوان
+View Mode: وضع العرض
+"%counts% Secret Words": عبارات الاسترداد %counts%
+Address or Domain: العنوان أو المجال
+$import_view_account_note: أضف **أي** عنوان **لمراقبة** نشاطه.
+$view_mode: منظر
+Import Wallet: استيراد المحفظة
+Please top up your %token% balance.: يرجى تعبئة رصيد %token% الخاص بك.
+Remember Passcode: تذكر رمز المرور
+Remember Password: تذكر كلمة المرور
+Not available with biometrics.: غير متوفر مع القياسات الحيوية.
+App will not ask for signature for %1$d minutes after last entry.: لن يطلب التطبيق توقيعًا لمدة دقائق %1$d بعد آخر إدخال.
+Remember for %1$d minutes: تذكر دقائق %1$d
+Preview: معاينة
+$preview_not_guaranteed: نتيجة المعاينة **غير مضمونة** و **يمكن تزويرها** بواسطة الخدمة.
+Unverified Source: مصدر لم يتم التحقق منه
+DappurlTrustStatusInvalidTitle: عدم تطابق المجال
+$DappurlTrustStatusInvalidHelp: الأصل لا يتطابق مع المجال الذي تم التحقق منه لهذا التطبيق. تابع فقط إذا كنت تثق بهذا الموقع.
+DappurlTrustStatusDangerousTitle: موقع ضار محتمل
+$DappurlTrustStatusDangerousHelp: تم وضع علامة على هذا النطاق على أنه خطير من خلال عمليات التحقق الأمني. الاتصال قد يعرض أموالك للخطر. استمر فقط إذا كنت متأكدًا تمامًا.
+$reopen_in_iab: من فضلك، استخدم %app_name% %mobileAppButton% أو %browserExtensionButton% لتجنب هذا التحذير.
+$reopen_in_iab_explore: يرجى استخدام قسم %exploreTab% عند تصفح التطبيقات لتجنب هذا التحذير.
+My Wallet Browser: متصفح My Wallet
+mobile app: تطبيق جوال
+browser extension: امتداد المتصفح
+Exit all wallets: الخروج من جميع المحافظ
+Can't confirm?: لا يمكن تأكيد؟
+$safe_staking_ethena_description1: الستاكينغ لامركزي بالكامل وتديره **عقود Ethena الرسمية** للتخزين السائل **المدققة**.
+$safe_staking_ethena_description2: يتم استخدام حصة USDe المودعة في **استراتيجيات التداول والاستثمار** الخاصة بـ Ethena للحصول على مكافآت تلقائيًا وبشفافية.
+$safe_staking_ethena_description3: يمكنك **سحب** حصتك مع المكافآت في أي وقت، وسيتم إعادتها إلى حسابك **في 7 أيام**، وفقًا لفترة السحب القياسية في Ethena.
+Unstake %amount%: إلغاء تثبيت %amount%
+Request Unstaking: طلب غير ثابت
+$unstaking_when_receive_ethena: ستتمكن من استلام إيداعك بعد إلغاء الستاكينغ خلال **7 أيام**.
+Confirm Upgrading: تأكيد الترقية
+How does it work?: كيف يعمل؟
+Multisend: إرسال متعدد
+Renew All: تجديد الكل
+Renew: تجديد
+Renew Domain: تجديد المجال
+Renew Domains: تجديد النطاقات
+Some domains are about to expire: بعض النطاقات على وشك الانتهاء
+$domain_expire: "**%domain%** تنتهي صلاحية %days%"
+"%token% Staking": "%token% التوقيع المساحي"
+Add Tab: إضافة علامة تبويب
+Customize Tabs: تخصيص علامات التبويب
+Remove Tab: إزالة علامة التبويب
+Reset: إعادة ضبط
+Tabs: علامات التبويب
+Tap or drag to add tabs.: انقر أو اسحب لإضافة علامات التبويب.
+$iab_tabs_count:
+  zeroValue: علامات التبويب %1$d
+  oneValue: علامة التبويب %1$d
+  otherValue: علامات التبويب %1$d
+$domains_amount %1$d:
+  zeroValue: لا المجالات
+  oneValue: المجال %1$d
+  otherValue: مجالات %1$d
+Stake: حصة
+Manage Tokens: إدارة الرموز
+Claim Rewards: المطالبة بالمكافآت
+Configure DNS: تكوين DNS
+Link to Wallet: رابط إلى المحفظة
+Change Wallet: تغيير المحفظة
+Change Linked Wallet: تغيير المحفظة المرتبطة
+Domain Renewed: تم تجديد النطاق
+Domains Renewed: تم تجديد النطاقات
+Linked Wallet: المحفظة المرتبطة
+Domain Linked: المجال مرتبط
+Link: وصلة
+Confirm Renewing: تأكيد التجديد
+Confirm Linking: تأكيد الارتباط
+$domains_expire:
+  zeroValue: لا توجد مجالات تنتهي صلاحيتها %days%
+  oneValue: "**نطاق %domain%** تنتهي صلاحيته %days%"
+  otherValue: "**نطاقات %domain%** تنتهي صلاحية %days%"
+$in_days:
+  zeroValue: في أيام %1$d
+  oneValue: في يوم %1$d
+  otherValue: في أيام %1$d
+$domain_was_expired: "**%domain%** انتهت صلاحيته"
+$domains_was_expired:
+  zeroValue: لا توجد مجالات منتهية الصلاحية
+  oneValue: "**نطاق %domain%** منتهي الصلاحية"
+  otherValue: "**نطاقات %domain%** منتهية الصلاحية"
+Reload: إعادة تحميل
+Copy Link: نسخ الوصلة
+Check eligibility for max APY: تحقق من أهلية الحد الأقصى لـ APY
+Check eligibility: التحقق من الأهلية
+$expired_many: منتهي الصلاحية
+$one_domain_expires %days%: تنتهي صلاحية %days%
+$multiple_domains_expire %days%: تنتهي صلاحية %days%
+Message: رسالة
+Binary Data: البيانات الثنائية
+The binary data content is unclear. Sign it only if you trust the service.: محتوى البيانات الثنائية غير واضح. قم بالتوقيع عليه فقط إذا كنت تثق في الخدمة.
+Cell Schema: مخطط الخلية
+Cell Data: بيانات الخلية
+Sign Data: بيانات التوقيع
+EIP-712 typed data: "\u200FEIP-712 البيانات المكتوبة"
+Domain: اِختِصاص
+Primary type: النوع الأساسي
+Please confirm signature on your Ledger: يرجى تأكيد التوقيع على Ledger الخاص بك
+Utilities: المرافق
+Games: ألعاب
+Entertainment: ترفيه
+Toggle to landscape layout: التبديل إلى تخطيط أفقي
+Toggle to portrait layout: التبديل إلى التخطيط العمودي
+Attributes: صفات
+Show All: إظهار الكل
+Description: وصف
+No additional data.: لا توجد بيانات إضافية.
+"%chain% Domain Copied": تم نسخ المجال %chain%
+$in_currency: في %currency%
+Rename Wallet: إعادة تسمية المحفظة
+You can rename this wallet for easier identification.: يمكنك إعادة تسمية هذه المحفظة لتسهيل التعرف عليها.
+$storage_cleared_title: تم مسح مساحة تخزين التطبيق
+$storage_cleared_message: |-
+  لقد تم مسح بيانات محفظتك بسبب مشكلات متعلقة بالمتصفح أو بمساحة القرص. يرجى تسجيل الخروج من جميع المحافظ ثم إعادة استيرادها يدويًا باستخدام عبارات الاسترداد.
+
+  إذا كنت بحاجة إلى المساعدة، يرجى الاتصال بـ %support_link%.
+Telegram Gifts: هدايا Telegram
+Collectibles: المقتنيات
+Bluetooth unavailable: البلوتوث غير متوفر
+$bluetooth_enable_guide: قم بتشغيل Bluetooth في إعدادات الجهاز واسمح للتطبيق بالوصول إلى Bluetooth.
+Canceled by the user: تم الإلغاء من قبل المستخدم
+The proof for signing provided by the app is too large: إثبات التوقيع المقدم من التطبيق كبير جدًا
+$domain_like_scam_warning: |-
+  من المحتمل أن يكون العنوان الذي تم إدخاله **عملية احتيال**. هذا **ليس** عنوانًا لأي بورصة أو لمحفظة العملات الرقمية الخاصة بك.
+
+  هذا **نطاق** طويل يستخدمه **المحتالون** لإقناع الأشخاص بأنهم يرسلون رموزًا مميزة إلى عنوان معروف.
+
+  **ألغِ** عملية النقل هذه و **لا** تثق أبدًا في الغرباء. تعرف على المزيد حول هذا الأمر وغيره من عمليات الاحتيال في %help_center_link% الخاص بنا.
+Allow Suspicious Actions: السماح بالإجراءات المشبوهة
+$allow_suspicious_actions_description: السماح بالإرسال إلى عناوين مشبوهة والتفاعل مع العقود التي قد تكون غير آمنة.
+Multisig Wallet Detected: تم اكتشاف محفظة Multisig
+$multisig_warning_text: تتطلب هذه المحفظة توقيعات متعددة لإجراء التحويلات. **لا يمكنك سحب** أي أموال هنا باستخدام %app_name%. تأكد من أنها ملكك، وإلا فقد تكون جزءًا من عملية احتيال. %multisig_warning_link%
+$multisig_warning_link: انقر لمعرفة المزيد
+Multisig sending disabled: تم تعطيل إرسال Multisig
+$try_new_air_version: جرّب تجربة التطبيق الأصلي، فهو أخف وأسرع ومصمم لجهازك. يمكنك التبديل مرة أخرى في أي وقت.
+$accept_terms_with_link: أنا أوافق على %link%
+use the wallet responsibly: استخدم المحفظة بمسؤولية
+"%app_name% Resources": موارد %app_name%
+Resources: موارد
+Watch Video about Features: شاهد الفيديو حول الميزات
+Enjoy Monthly Updates in Blog: استمتع بالتحديثات الشهرية في المدونة
+Learn New Things in Help Center: تعلم أشياء جديدة في مركز المساعدة
+Frequent Questions & Answers: أسئلة وأجوبة متكررة
+Paste from Clipboard: لصق من الحافظة
+Use biometric authentication or create a password to protect it.: استخدم المصادقة البيومترية أو قم بإنشاء كلمة مرور لحمايتها.
+Go to Words: الانتقال إلى العبارات
+Copy to Clipboard: نسخ إلى الحافظة
+$mnemonic_check_words_list: "الرجاء اختيار الكلمات الصحيحة %word_numbers%:"
+$mnemonic_check_error: الكلمات غير متطابقة، يرجى المحاولة مرة أخرى.
+Open Wallet: افتح المحفظة
+All Set!: كل شيء جاهز!
+$wallet_create_done: منتهي! لقد قمت بإنشاء محفظة.
+$wallet_import_done:
+  zeroValue: منتهي! لقد قمت باستيراد محفظة.
+  oneValue: منتهي! لقد قمت باستيراد محفظة.
+  otherValue: منتهي! لقد قمت باستيراد محافظ %1$d.
+$wallet_done_description: يمكنك الآن تخزين واستقبال وإرسال العملات المعدنية والأصول الرقمية الأخرى بشكل آمن.
+Security Warning: تحذير أمني
+Go back to Words: ارجع إلى الكلمات
+I’m sure. Continue: أنا متأكد. متابعة
+$copy_mnemonic_warning: تخزين عبارات الاسترداد في بيئة رقمية، بما في ذلك **الحافظة**، ليس آمنًا. تأكد من حفظ عبارات الاسترداد بأمان.
+$screenshot_mnemonic_warning: تخزين عبارات الاسترداد في بيئة رقمية، بما في ذلك **لقطة الشاشة**، ليس آمنًا. تأكد من حفظ عبارات الاسترداد بأمان.
+Other apps will be able to read your secret words!: ستتمكن التطبيقات الأخرى من قراءة عبارات الاسترداد!
+I’m sure. Copy anyway: أنا متأكد. انسخ على أي حال
+$auth_biometric_info: يمكنك ربط بياناتك البيومترية **لمزيد من الراحة.**
+Open wallet without checking: فتح المحفظة دون التحقق
+Make sure you have your secret words securely saved.: تأكد من حفظ عبارات الاسترداد بأمان.
+Without it, you won't be able to access your wallet.: وبدون ذلك، لن تتمكن من الوصول إلى محفظتك.
+$ledger_connection_broken: لقد انقطع اتصال Ledger. الرجاء إعادة الاتصال والمحاولة مرة أخرى.
+$ledger_wrong_device: تم إعداد الحساب الحالي بعبارات الاسترداد أو عبارة مرور Ledger مختلفة، أو تم تخزينه على جهاز Ledger آخر
+Show More: عرض المزيد
+Search app or enter address: ابحث في التطبيق أو أدخل العنوان
+Connected Apps: التطبيقات المتصلة
+Connected Sites: المواقع المتصلة
+Popular Apps: التطبيقات الشعبية
+Popular Sites: المواقع الشعبية
+$wallets_amount:
+  zeroValue: لا محافظ
+  oneValue: محفظة %1$d
+  otherValue: محافظ %1$d
+$total_balance: إجمالي %balance%
+No wallets: لا محافظ
+View as List: عرض كقائمة
+View as Cards: عرض كبطاقات
+Reorder: إعادة الترتيب
+Reorder Tabs: إعادة ترتيب علامات التبويب
+Rename: إعادة تسمية
+Customize: تخصيص
+Manage Wallets: إدارة المحافظ
+i18n_dragToSort: اسحب للفرز
+My: لي
+All: الجميع
+$view_accounts: منظر
+Add your first one to begin.: أضف أول واحد للبدء.
+You don’t have any wallets yet: ليس لديك أي محافظ حتى الآن
+Add Ledger Wallet: أضف محفظة Ledger
+Add View Wallet: إضافة عرض المحفظة
+No Ledger wallets yet: لا توجد محافظ Ledger حتى الآن
+No view wallets yet: لم يتم عرض المحافظ حتى الآن
+View wallets can receive assets, but you cannot use them to send or sign transactions.: يمكن أن تتلقى محافظ العرض الأصول، لكن لا يمكنك استخدامها لإرسال المعاملات أو التوقيع عليها.
+Add the first one to track balances and activity for any address.: أضف الأول لتتبع الأرصدة والنشاط لأي عنوان.
+Customize Wallet: تخصيص المحفظة
+"Select the card stored in this wallet:": "حدد البطاقة المخزنة في هذه المحفظة:"
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: سيتم تثبيت هذه البطاقة لهذه المحفظة وسيتم عرضها على الشاشة الرئيسية وفي قائمة المحافظ.
+Get More Cards: احصل على المزيد من البطاقات
+Browse My Wallet Cards available for purchase.: تصفح بطاقات My Wallet المتاحة للشراء.
+You don’t have any cards to customize yet: ليس لديك أي بطاقات لتخصيصها بعد
+My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: يمكن تثبيت بطاقات My Wallet للمحافظ وعرضها على الشاشة الرئيسية وفي قائمة المحفظة.
+Get First Card: احصل على البطاقة الأولى
+Palette and Card: لوحة وبطاقة
+Customize the wallet's home screen and color accents the way you like.: قم بتخصيص الشاشة الرئيسية للمحفظة ولون اللمسات بالطريقة التي تريدها.
+Address doesn't exist: العنوان غير موجود
+The address is not a token minter address: العنوان ليس عنوانًا مميزًا
+$joining_comma: "، "
+$joining_and: " و "
+$joining_or: " أو "
+View in App: عرض في التطبيق
+Save Account: حفظ الحساب
+$invalid_address_format: تنسيق العنوان غير صالح
+$no_valid_view_addresses: لا توجد عناوين صالحة لعرضها
+Account Saved: تم حفظ الحساب
+Share Wallet Link: مشاركة رابط المحفظة
+Address: العنوان
+Remove: يزيل
+$missing_offramp_deposit_address: عنوان الإيداع مفقود خارج الطريق المنحدر.
+Buy: يشتري
+Sell: يبيع
+Sell on Card: بيع على البطاقة
+Sell %symbol%: بيع %symbol%
+$connect_dapp_description: يمكن للتطبيقات المتصلة رؤية عنوان محفظتك فقط ولن تتمكن من نقل الأصول الخاصة بك دون إذن.
+$connect_dapp_title: الاتصال بـ %name%؟
+Choose Wallet: اختر المحفظة
+Wallet to use on %host%: المحفظة المستخدمة على %host%
+Selected Wallet: المحفظة المختارة
+Connect Wallet: ربط المحفظة
+Connect Anyway: الاتصال على أي حال
+Insufficient Fee: رسوم غير كافية
+Waiting for a View deeplink to display a wallet address.: في انتظار عرض الرابط العميق لعرض عنوان المحفظة.
+Adding wallets is not available in explorer mode: إضافة المحافظ غير متاح في وضع المستكشف
+$explorer_mode_warning: "وضع المستكشف: انتظار رابط عرض عميق لفتح عنوان"
+This command is not supported in explorer mode: هذا الأمر غير مدعوم في وضع المستكشف
+$saved_addresses_header: أنقذ
+confirm an action in My Wallet: تأكيد الإجراء في My Wallet
+Timed out waiting for account to be ready: انتهت المهلة في انتظار أن يصبح الحساب جاهزًا
+$connected_apps:
+  otherValue: "%1$d متصل"
+Night Mode, Palette, Card: الوضع الليلي، لوحة الألوان، البطاقة
+Back Up, Passcode, Auto-Lock: النسخ الاحتياطي، رمز المرور، القفل التلقائي
+Back Up, Password, Auto-Lock: النسخ الاحتياطي، كلمة المرور، القفل التلقائي
+Base Currency, Token Order, Hidden NFTs: العملة الأساسية، طلب التوكن، NFTs المخفي
+Your assets on other contracts: الأصول الخاصة بك على العقود الأخرى
+Wallets, Sounds: محافظ، الأصوات
+Help: يساعد
+About: عن
+Wallets: محافظ
+Open: يفتح
+Open in %app_name%: فتح في %app_name%
+Blog: مدونة
+Apps: تطبيقات
+$nft_not_found: لم يتم العثور على NFT
+You will be able to save it again via Transfer Info with this address.: ستتمكن من حفظه مرة أخرى عبر معلومات النقل بهذا العنوان.
+Transfer Info: معلومات النقل
+Transfer not found: لم يتم العثور على النقل
+Failed to fetch transfer: فشل جلب النقل
+Transfer in progress: النقل قيد التقدم
+Please confirm transfer on your Ledger: يرجى تأكيد النقل على Ledger الخاص بك
+Please confirm action on your Ledger: يرجى تأكيد الإجراء على Ledger الخاص بك
+Not all transfers were sent successfully: لم يتم إرسال كافة التحويلات بنجاح
+$swap_changelly_agreement_message: من خلال المتابعة، فإنك توافق على %terms% و%policy% وتدرك أن النقل قد يؤدي إلى التحقق وفقًا لـ %kyc%.
+Please confirm transfer using biometrics: يرجى تأكيد النقل باستخدام القياسات الحيوية
+$transfer_inactive_contract_error: |-
+  لقد أدخلت عنوانًا بتنسيق "EQ..."، لكن العنوان غير نشط، لذا لن يكتمل النقل.
+  إذا كنت تريد بالتأكيد الإرسال إلى هذا العنوان، فأدخل العنوان بتنسيق "UQ...".
+$transaction_not_found: لم يتم العثور على النقل.
+$could_not_determine_address: لا يمكن تحديد عنوان المحفظة من التحويل
+WrongAddress: طلب التطبيق إجراءً من محفظة أخرى.
+WrongNetwork: طلب التطبيق إجراءً من شبكة أخرى.
+Another transfer was sent from this wallet simultaneously. Please try again.: تم إرسال تحويل آخر من هذه المحفظة في وقت واحد. يرجى المحاولة مرة أخرى.
+Confirm action with your password: قم بتأكيد الإجراء باستخدام كلمة المرور الخاصة بك
+$dapps-description: يمكنك تسجيل الدخول على التطبيقات التي تدعم %app_name%. يمكنهم عرض عنوان المحفظة والرصيد وطلب الإجراءات.
+Please verify the action.: يرجى التحقق من الإجراء.
+$service_token_transfer_warning: أنت على وشك نقل رمز خدمة مهم مطلوب لسحب إيداعك أو إكمال إجراءات الخدمة. يرجى التأكد من أن هذا هو الإجراء الذي تنوي اتخاذه.
+$ledger_outdated: هذا الإجراء غير مدعوم في إصدار تطبيق Ledger %chain%. يرجى تحديثه باستخدام Ledger Live.
+$hardware_payload_warning: "**تطلب خدمة تابعة لجهة خارجية الوصول إلى محفظتك.** قد يؤدي ذلك إلى فقدان الأموال. قم بإلغاء الإجراء إذا لم تكن متأكدًا من موثوقية هذه الخدمة."
+Pin: دبوس
+Unpin: إزالة التثبيت
+My Assets: أصولي
+Owner: مالك
+Show All Wallets: عرض الكل المحافظ
+Ask a Question: اطرح سؤالاً
+Ask anything: اسأل أي شيء
+Agent: عامل
+Learn more: يتعلم أكثر
+Data shared with Agent: البيانات المشتركة مع الوكيل
+$agent_consent_allow_button: السماح للوكيل
+$agent_consent_subtitle: اطلب من الوكيل مساعدة المحفظة ومعلومات التوكن والإجراءات المدعومة.
+$agent_consent_feature_answers: احصل على إجابات حول %app_name% والرموز المميزة ونشاط المحفظة.
+$agent_consent_feature_actions: قم بإعداد الإجراءات المدعومة مثل الإرسال والاستلام والتخزين.
+$agent_consent_feature_context: استخدم سياق المحفظة حتى تتمكن الإجابات من الرجوع إلى الأصول والعناوين ذات الصلة.
+$agent_consent_disclosure_text: من خلال النقر على "السماح للوكيل"، فإنك تسمح لـ %app_name% بإرسال رسائل الوكيل وسياق المحفظة ذات الصلة إلى وكيل %app_name% (agent.mywallet.io) وAnthropic Claude API، موفر الذكاء الاصطناعي التابع لجهة خارجية، لمعالجة طلباتك. قد يتضمن سياق المحفظة عناوين المحفظة والأرصدة والرموز المميزة والنشاط وتفاصيل الإجراء المطلوب. يتم استخدام البيانات فقط لتوفير استجابات الوكيل وإعداد الإجراءات التي تطلبها.
+$agent_consent_debug_reset_button: إعادة تعيين حالة موافقة الوكيل
+$agent_consent_debug_reset_footer: يعرض شاشة موافقة الوكيل مرة أخرى عند فتح علامة تبويب الوكيل.
+Clear Chat: مسح الدردشة
+Unsupported link: رابط غير معتمد
+My Wallet Features: ميزات My Wallet
+Notifications: إشعارات
+Wrong passcode, please try again: رمز المرور خاطئ، يرجى المحاولة مرة أخرى
+Use biometric authentication or create a passcode to protect it.: استخدم المصادقة البيومترية أو قم بإنشاء رمز مرور لحمايتها.
+Use Passcode: استخدم رمز المرور
+Create Passcode: إنشاء رمز المرور
+Create a passcode to protect it.: قم بإنشاء رمز مرور لحمايته.
+Enter Passcode: أدخل رمز المرور
+If you turn off biometric protection, you will need to create a passcode.: إذا قمت بإيقاف تشغيل الحماية البيومترية، فستحتاج إلى إنشاء رمز مرور.
+Enabling biometric confirmation will reset the passcode.: سيؤدي تمكين التأكيد البيومتري إلى إعادة تعيين رمز المرور.
+Confirm action with your passcode: قم بتأكيد الإجراء باستخدام رمز المرور الخاص بك
+No Image: لا توجد صورة
+Different blockchain. Cannot be selected: بلوكتشين مختلفة. لا يمكن تحديده
+Subwallets: محافظ فرعية
+Other addresses for this wallet: عناوين أخرى لهذه المحفظة
+Current Wallet: المحفظة الحالية
+Add Subwallet: إضافة المحفظة الفرعية
+Create Subwallet: إنشاء محفظة فرعية
+Add All Found: أضف كل ما تم العثور عليه
+You have tokens on other subwallets. You can switch to them here.: لديك الرموز المميزة على المحافظ الفرعية الأخرى. يمكنك التبديل إليهم هنا.
+Subwallet Created: تم إنشاء المحفظة الفرعية
+Subwallet Added: تمت إضافة المحفظة الفرعية
+Subwallet Switched: تم تبديل المحفظة الفرعية
+Top 5: أعلى 5
+Top 10: أعلى 10
+Top 30: أعلى 30
+Manage Assets: إدارة الأصول
+Pulse: نبض
+Edit Message: تحرير الرسالة
+Toggle Hints: تبديل التلميحات
+AgentErrorResponseFailed: "خطأ: فشل في الحصول على الاستجابة"
+AgentErrorConnectionFailed: "خطأ: فشل الاتصال"
+Scroll To Bottom: قم بالتمرير إلى الأسفل
+$agent_clear_chat_confirm: هل أنت متأكد أنك تريد مسح سجل الدردشة؟
+$unknown_swap_token: رمز غير معروف في رابط المبادلة. تم استخدام الرموز الافتراضية.
+$action_not_available_view_mode: هذا الإجراء غير متاح لعرض المحافظ
+Deposit: إيداع
+Trade: تجارة
+Show All Assets: إظهار كافة الأصول
+Show All Collectibles: عرض جميع المقتنيات
+Show All %collection_name%: إظهار الكل %collection_name%
+Scanning for subwallets...: جارٍ البحث عن المحافظ الفرعية...
+This process may take up to a minute. Please wait.: قد تستغرق هذه العملية مدة تصل إلى دقيقة. انتظر من فضلك.
+Your assets on other TON contracts: الأصول الخاصة بك على عقود TON الأخرى
+No existing subwallets found: لم يتم العثور على محافظ فرعية موجودة
+You can create a new subwallet if you need another address on the same secret words.: يمكنك إنشاء محفظة فرعية جديدة إذا كنت بحاجة إلى عنوان آخر بنفس عبارات الاسترداد.
+You have tokens on other subwallets. Each subwallet has its own address.: لديك الرموز المميزة على المحافظ الفرعية الأخرى. كل محفظة فرعية لها عنوانها الخاص.
+Scanning...: مسح...
+No collectibles yet: لا يوجد مقتنيات حتى الآن
+Hide Tab: إخفاء علامة التبويب
+Show Collectibles: عرض المقتنيات
+Show Assets: إظهار الأصول
+Top %amount%: أعلى %amount%
+No subwallets yet.: لا توجد محافظ فرعية حتى الآن.
+$subwallets_found:
+  oneValue: "تم العثور عليه: %1$d"
+  otherValue: "تم العثور عليه: %1$d"
+$subwallet_scan_no_native_balances: لا توجد أرصدة محلية
+$subwallet_scan_other_tokens_suffix:
+  oneValue: + %1$d توكن آخر
+  otherValue: + %1$d الرموز الأخرى
+Send, receive, and trade tokens and collectibles.: إرسال واستقبال وتداول الرموز والمقتنيات.
+$overview_cell_size_small: صغير
+$overview_cell_size_medium: واسطة
+$overview_cell_size_big: كبير
+Set Name: تعيين الاسم
+Wallet Created: تم إنشاء المحفظة
+Wallet Imported: المحفظة مستوردة
+View Wallet Added: عرض المحفظة المضافة
+Scroll Left: قم بالتمرير إلى اليسار
+Scroll Right: قم بالتمرير إلى اليمين
+Sent NFT: تم إرسال NFT
+Sending NFT: إرسال NFT
+$send_nft_action: أرسل NFT
+Received NFT: تم استلام NFT
+Receiving NFT: جارٍ استلام NFT
+$receive_nft_action: تلقي NFT
+Minted NFT: سك NFT
+Minting NFT: سك NFT
+$mint_nft_action: النعناع NFT
+Burned NFT: تم حرق NFT
+Burning NFT: حرق NFT
+$burn_nft_action: حرق NFT
+New Wallet: محفظة جديدة
+From new secret words: من عبارات الاسترداد الجديدة
+New Subwallet: المحفظة الفرعية الجديدة
+From current secret words: من عبارات الاسترداد الحالية
+$secret_words: عبارات الاسترداد
+Restore wallet from 12 or 24 words: استعادة المحفظة من 12 أو 24 كلمة
+Connect your hardware wallet: قم بتوصيل محفظة الأجهزة الخاصة بك
+Watch wallet in read-only mode: مشاهدة المحفظة في وضع القراءة فقط
+More: أكثر
+at: في
+I agree to %term%: أنا أوافق على %term%
+See Words: انظر الكلمات
+Wrong Phrase: عبارة خاطئة
+Permission Denied: تم رفض الإذن
+USB: USB
+Bluetooth: بلوتوث
+Locked: مغلق
+Enter passcode or use fingerprint: أدخل رمز المرور أو استخدم بصمة الإصبع
+Use PIN: استخدم PIN
+Try again in %1$@: حاول مرة أخرى في %1$@
+Try again in %1$@ and %2$@: حاول مرة أخرى في %1$@ و%2$@
+Screen Recording Detected: تم اكتشاف تسجيل الشاشة
+$screen_recording_info: |-
+  أنت تقوم حاليًا بتسجيل شاشتك.
+  قد تحتوي هذه الشاشة على معلومات حساسة أو خاصة.
+  يرجى التأكد من أنك على علم بما سيتم مشاركته.
+Screen Recording: تسجيل الشاشة
+Disable Screen Record Warning: تعطيل تحذير تسجيل الشاشة
+I Understand, Proceed: أنا أفهم، تابع
+Waiting for Network: في انتظار الشبكة
+My Wallet: My Wallet
+$no_activity_history: لا يوجد سجل نشاط في هذه المحفظة حتى الآن.
+Standalone: مستقل
+"Enter wallet name:": "أدخل اسم المحفظة:"
+All Telegram Gifts: جميع هدايا Telegram
+Add Crypto: أضف التشفير
+Share QR Code: مشاركة رمز الاستجابة السريعة
+$send_only_ton: أرسل فقط الأصول المستندة إلى Gram (GRAM) أو TON إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+$send_only_chain: أرسل فقط الأصول المستندة إلى %chain% (%symbol%) أو %chain% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+Buying with card is not supported for this account.: الشراء باستخدام البطاقة غير مدعوم لهذا الحساب.
+Swapped at: تم المبادلة عند
+Price per: السعر لكل
+Changelly ID: تشينجلي ID
+Copy Changelly ID: انسخ ملف Changelly ID
+Changelly ID Copied!: تم نسخ Changelly ID!
+from: من
+to: ل
+Currency: عملة
+Select Token to Send: حدد التوكن للإرسال
+Send to: أرسل إلى
+Add a message, if needed: أضف رسالة، إذا لزم الأمر
+Collapse: ينهار
+Expand: يوسع
+Standalone NFT: مستقل NFT
+$nft_select: يختار
+$nft_batch_on_sale: مقتنيات مختارة معروضة للبيع.
+$nft_batch_different_chains: المقتنيات المختارة موجودة في سلاسل مختلفة.
+$nft_expired: منتهي الصلاحية
+Linked Address: العنوان المرتبط
+Enter Address: أدخل العنوان
+D: ي
+W: أ
+M: ش
+3M: ٣ش
+"Y": س
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
+Happening Now: يحدث الآن
+No Dapps Found!: لم يتم العثور على تطبيقات دابس!
+Edit Wallet Name: تحرير اسم المحفظة
+Wallet Name: اسم المحفظة
+App Icon: أيقونة التطبيق
+Rounded Toolbars: أشرطة الأدوات المستديرة
+Side Gutters: المزاريب الجانبية
+Gradient Navigation Bar: شريط التنقل المتدرج
+Tokens on Home Screen: الرموز على الشاشة الرئيسية
+Current Wallet Version: نسخة المحفظة الحالية
+Tokens on Other Versions: الرموز على الإصدارات الأخرى
+Show Secret Words: إظهار عبارات الاسترداد
+Passcode: رمز المرور
+Lock the app after: قفل التطبيق بعد
+Never: أبداً
+"%1$@ seconds": "%1$@ ثانية"
+"%1$@ minutes": دقائق %1$@
+Unstake Request: طلب إلغاء الاشتراك
+History: تاريخ
+Earn up to %1$@ per year from your tokens: اربح ما يصل إلى %1$@ سنويًا من الرموز المميزة الخاصة بك
+Insufficient %1$@ Balance: رصيد %1$@ غير كافي
+Instant Withdrawal: السحب الفوري
+Instantly: فورا
+Up to %1$@: ما يصل إلى %1$@
+up to %1$@: ما يصل إلى %1$@
+Current APR: أبريل الحالي
+in: في
+Network Error: خطأ في الشبكة
+Enter Amount: أدخل المبلغ
+Swap %1$@ to %2$@: قم بتبديل %1$@ إلى %2$@
+"%1$@ to %2$@": "%1$@ إلى %2$@"
+Max %1$@: ماكس %1$@
+Authorize %1$@ fee: تفويض رسوم %1$@
+Pending previous fee: في انتظار الرسوم السابقة
+AML/KYC: مكافحة غسل الأموال/اعرف عميلك
+Receive to: تلقي ل
+Enter %1$@ address: أدخل عنوان %1$@
+"Send %1$@ this address:": "أرسل %1$@ هذا العنوان:"
+Swap is not supported on this account.: المبادلة غير مدعومة في هذا الحساب.
+"%1$@ will be returned": سيتم إرجاع %1$@
+Connecting your wallet: ربط محفظتك
+Action is not possible on a view-only wallet.: الإجراء غير ممكن على محفظة العرض فقط.
+No matching chains: لا توجد شبكات متوافقة
+Logged in with My Wallet: تم تسجيل الدخول باستخدام My Wallet
+You have no apps connected to this wallet.: ليس لديك أي تطبيقات متصلة بهذه المحفظة.
+Asset: أصل
+Sent to: أرسلت إلى
+via %agg%: عبر %agg%
+Switch to Legacy Version: التبديل إلى الإصدار الكلاسيكي
+Received from: تم الاستلام من
+Your Secret Words: عبارات الاسترداد الخاصة بك
+day:
+  zeroValue: يوم %1$d
+  oneValue: يوم %1$d
+  otherValue: "%1$d أيام"
+hour:
+  zeroValue: ساعة %1$d
+  oneValue: ساعة %1$d
+  otherValue: ساعات %1$d
+minute:
+  zeroValue: دقيقة
+  oneValue: دقيقة
+  otherValue: دقائق %1$d
+second:
+  zeroValue: "%1$d الثانية"
+  oneValue: "%1$d الثانية"
+  otherValue: "%1$d ثانية"
+transfer:
+  zeroValue: نقل %1$d
+  oneValue: نقل %1$d
+  otherValue: تحويلات %1$d
+Confirm Actions:
+  zeroValue: قم بتأكيد إجراءات %1$d
+  oneValue: تأكيد الإجراء
+  otherValue: تأكيد الإجراءات
+A ~ Z: أ~ز
+Biometric authentication not available.: المصادقة البيومترية غير متوفرة.
+Changelly Payment Address: عنوان الدفع تشينجلي
+Wallet to use on: المحفظة لاستخدامها
+Clipboard empty: الحافظة فارغة
+Confirm Connect: تأكيد الاتصال
+Connected apps can only see your wallet address and will not be able to move your assets without permission.: يمكن للتطبيقات المتصلة رؤية عنوان محفظتك فقط ولن تتمكن من نقل الأصول الخاصة بك دون إذن.
+Connect to %1$@?: الاتصال بـ %1$@؟
+Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.: لا تعرض الرموز المميزة على حسابك بقيمة أقل من 0.01 دولار. يمكنك أيضًا تمكين وتعطيل رموز معينة بشكل انتقائي باستخدام القائمة أدناه.
+Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.: لا تعرض المعاملات التي تقل قيمتها عن 0.01 دولار. غالبًا ما تُستخدم مثل هذه المعاملات الصغيرة في البريد العشوائي والاحتيال.
+Enter your Wallet Passcode: أدخل رمز المرور الخاص بمحفظتك
+Import failed: فشل الاستيراد
+Install Palette: تثبيت لوحة
+Ledger: Ledger
+Moving to staking balance: الانتقال إلى التوازن المساحي
+My Wallet uses biometric authentication to unlock and authorize transactions: يستخدم My Wallet المصادقة البيومترية لفتح المعاملات والترخيص بها
+Network error: خطأ في الشبكة
+No Camera Access: لا يوجد وصول للكاميرا
+Not all transactions were sent successfully.: لم يتم إرسال كافة المعاملات بنجاح.
+OK: نعم
+Open in Explorer: فتح في اكسبلورر
+Open in...: فتح في...
+Passcode changed: تم تغيير رمز المرور
+Please make sure your internet connection is working and try again.: يرجى التأكد من أن اتصالك بالإنترنت يعمل ثم حاول مرة أخرى.
+Please set a passcode on your device, and then try to use biometric authentication.: يرجى تعيين رمز مرور على جهازك، ثم حاول استخدام المصادقة البيومترية.
+Please try again: يرجى المحاولة مرة أخرى
+Please wait...: انتظر من فضلك...
+Preview is currently unavailable.: المعاينة غير متاحة حاليًا.
+Read-only account: حساب للقراءة فقط
+Request for unstaking: طلب التفكيك
+Set a passcode: قم بتعيين رمز مرور
+Show All %1$@: إظهار الكل %1$@
+TON Wallet Versions: إصدارات المحفظة TON
+Tap to reveal: انقر للكشف
+The current version of Ledger only supports English-language comments without special characters.: الإصدار الحالي من Ledger يدعم فقط التعليقات باللغة الإنجليزية بدون أحرف خاصة.
+There is no activity history for this wallet yet.: لا يوجد سجل نشاط لهذه المحفظة حتى الآن.
+This type of transaction is not yet supported by Ledger.: هذا النوع من المعاملات غير مدعوم حتى الآن بواسطة Ledger.
+Transaction to this smart contract is not yet supported by Ledger.: المعاملة على هذا العقد الذكي غير مدعومة حتى الآن بواسطة Ledger.
+Transferring NFT is not yet supported by Ledger.: نقل NFT غير مدعوم حتى الآن بواسطة Ledger.
+Connect your Ledger via Bluetooth: قم بتوصيل Ledger عبر البلوتوث
+Discovering wallets: اكتشاف المحافظ
+Bluetooth Access Denied: تم رفض الوصول إلى البلوتوث
+Bluetooth access is needed to connect Ledger.: يلزم الوصول إلى البلوتوث لتوصيل Ledger.
+Address not resolved: لم يتم حل العنوان
+Sending more than one NFT isn't supported by Ledger: لا يدعم Ledger إرسال أكثر من NFT
+Updating…: جارٍ التحديث…
+This is how the TON Blockchain works.: هذه هي الطريقة التي تعمل بها سلسلة TON Blockchain.
+Waiting for network…: في انتظار الشبكة...
+Wallet is Locked: المحفظة مقفلة
+Warning: تحذير
+Wear: يرتدي
+Passcodes don't match. Please try again.: رموز المرور غير متطابقة. يرجى المحاولة مرة أخرى.
+Secret phrase was copied to clipboard: تم نسخ العبارة السرية إلى الحافظة
+Copy Anyway: نسخ على أي حال
+12 Words: 12 كلمة
+24 Words: 24 كلمة
+Words don’t match, please try again.: الكلمات غير متطابقة، يرجى المحاولة مرة أخرى.
+Load 5 More Wallets: قم بتحميل 5 محافظ أخرى
+$n_wallets_selected:
+  zeroValue: تم تحديد %1$d
+  oneValue: تم تحديد %1$d
+  otherValue: تم تحديد %1$d
+Are you sure you want to unpin %tab%?: هل أنت متأكد أنك تريد إلغاء تثبيت %tab%؟
+add: يضيف
+send: يرسل
+swap: تبديل
+earn: يكسب
+Actions: الإجراءات
+$actions_description: الوصول بسرعة إلى الإجراءات الأكثر شيوعا.
+Rate: معدل
+$rate_description: عرض المعدل الحالي لأي رمز محدد.
+Rate with Chart: معدل مع الرسم البياني
+$rate_with_chart_description: عرض المعدل الحالي وتتبع أداء أي رمز محدد.
+Style: أسلوب
+Neutral: حيادي
+Vivid: واضح
+Chart Period: فترة الرسم البياني
+$period_all: كل الوقت
+$period_day: 1 يوم
+$period_week: 1 أسبوع
+$period_month: 1 شهر
+$period_3months: 3 أشهر
+$period_year: 1 سنة
+Token: توكن
+All Tokens: جميع الرموز
+Customize Widget: تخصيص القطعة
+Recent Searches: عمليات البحث الأخيرة
+Clear All: مسح الكل
+Suggestions: اقتراحات
+Popular and connected apps: التطبيقات الشائعة والمتصلة
+Connected Dapp: تطبيق متصل
+$ago: منذ %1$d
+$visited_ago: تمت زيارته منذ %1$d
+Notifications are disabled: تم تعطيل الإخطارات
+Enable in Settings: تمكين في الإعدادات
+Open Link: افتح الرابط
+Open in App: فتح في التطبيق
+Search in Google: ابحث في جوجل
+$remove_wallets:
+  zeroValue: إزالة المحفظة
+  oneValue: إزالة المحفظة
+  otherValue: قم بإزالة محافظ %1$d
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: التشفير غير ممكن. المستلم ليس محفظة أو ليس لديه معاملات صادرة.
+just now: الآن
+"No": لا
+Search: يبحث
+State init supplied without message body: تم توفير الحالة init بدون نص الرسالة
+Swap Failed: فشل المبادلة
+The wallet is ready: المحفظة جاهزة
+Unexpected error. Please let the support know.: خطأ غير متوقع. يرجى إعلام الدعم.
+Unlock it and open the TON App: افتحه وافتح تطبيق TON
+Use 4-digit Passcode: استخدم رمز المرور المكون من 4 أرقام
+Use 6-digit Passcode: استخدم رمز المرور المكون من 6 أرقام
+Authorize %token% Fee: تفويض رسوم %token%
+Awaiting Previous Fee: في انتظار الرسوم السابقة
+Lock: قفل
+My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: يمكن تثبيت بطاقات My Wallet للمحافظ وعرضها على الشاشة الرئيسية وفي قائمة المحفظة.
+Receive: يستلم
+Scan: مسح
+$web_permission_prompt: هل تسمح لـ %origin% باستخدام %permissions% الخاص بك؟
+$web_permission_allow: يسمح
+$web_permission_deny: لا تسمح
+$web_permission_camera: آلة تصوير
+$web_permission_microphone: ميكروفون
+$web_permission_location: موقع
+$web_permission_device_features: ميزات الجهاز
+$web_permission_this_site: هذا الموقع
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: تم إرسال %amount% %symbol%
+push_activity_token_received: تم استلام %amount% %symbol%
+push_activity_contract_called: يسمى العقد الذكي
+push_activity_contract_deployed: نشر العقد الذكي
+push_activity_token_minted: سك %amount% %symbol%
+push_activity_token_burned: تم حرق %amount% %symbol%
+push_activity_nft_sent: تم إرسال NFT
+push_activity_nft_sent_named: "تم إرسال NFT: %name%"
+push_activity_nft_received: تم استلام NFT
+push_activity_nft_received_named: "تم استلام NFT: %name%"
+push_activity_nft_minted: سك NFT
+push_activity_nft_minted_named: "سك NFT: %name%"
+push_activity_liquidity_deposited: توفير السيولة
+push_activity_liquidity_withdrawn: سحب السيولة
+push_activity_stake_deposit: رهنا %amount% %symbol%
+push_activity_stake_withdrawal: "%amount% غير المقيد %symbol%"
+push_activity_stake_withdrawal_request: طلب سحب الرهن العقاري
+push_activity_auction_bid: تم تقديم عرض المزاد %amount% %symbol%
+push_activity_dns_changed: تم تحديث سجل DNS
+push_activity_dns_deleted: سجل DNS المحذوف
+push_activity_dns_renewed: تجديد DNS
+push_activity_subscription_started: بدأ الاشتراك
+push_activity_subscription_payment_received: تم استلام دفعة الاشتراك %amount% %symbol%
+push_activity_subscription_canceled: تم إلغاء الاشتراك
+push_activity_swap_completed: تم تبديل %from_symbol% → %to_symbol%
+push_activity_swap_failed: تبديل %from_symbol% → فشل %to_symbol%
+push_activity_swap_expired: مبادلة %from_symbol% → انتهت صلاحية %to_symbol%
+push_activity_swap_pending: مبادلة %from_symbol% → %to_symbol% %status%
+push_activity_staking_profit: تكديس الأرباح %amount% GRAM
+push_activity_staking_loyalty_profit: تكديس أرباح الولاء %amount% GRAM
+push_domain_title_renew: تجديد المجال الخاص بك
+push_domain_expired_yesterday: انتهت صلاحية نطاقك %domain% أمس. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+push_domain_expired_days_ago: انتهت صلاحية نطاقك %domain% منذ أيام %days%. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+push_domain_expires_today: ستنتهي صلاحية نطاقك %domain% اليوم. يرجى تجديده لتجنب فقدان الوصول
+push_domain_expires_tomorrow: ستنتهي صلاحية نطاقك %domain% غدًا. يرجى تجديده لتجنب فقدان الوصول
+push_domain_expires_in_days: ستنتهي صلاحية نطاقك %domain% خلال أيام %days%. يرجى تجديده لتجنب فقدان الوصول
+$more_nfts:
+  zeroValue: لا يوجد NFTs
+  oneValue: +1 NFT
+  otherValue: +%count% NFTs
+$subwallets_hint: استخدم المحافظ الفرعية للحصول على عناوين إضافية دون إنشاء مجموعة جديدة من عبارات الاسترداد.
+$subwallets_created_wallets: إذا قمت بإنشاء محافظ فرعية مسبقًا، فسوف تظهر في القائمة أدناه.
+$subwallets_none: لا توجد محافظ فرعية حتى الآن.
+Tracked asset value over time: تتبع قيمة الأصول مع مرور الوقت
+Current allocation across tracked assets: التخصيص الحالي عبر الأصول المتعقبة
+Limited history: تاريخ محدود
+Cumulative profit and loss over time: الربح والخسارة التراكمية مع مرور الوقت
+Day-by-day profit and loss: الربح والخسارة يوما بعد يوم
+This action is not supported in explorer mode.: هذا الإجراء غير مدعوم في وضع المستكشف.
+$relative_today: اليوم
+$relative_tomorrow: غداً
+$swap_activity_title: مبادلة
+Processing Payment: جارٍ معالجة الدفع
+It may take a few seconds: قد يستغرق ذلك بضع ثوانٍ
+$swap_cex_to_wallet_description: أرسل %value% إلى هذا العنوان في بلوكتشين %blockchain% خلال %time%
+Cross-chain exchange provided by %provider%: مبادلة عبر السلاسل مقدَّمة من %provider%
+$swap_cex_terms_of_use: شروط الاستخدام
+$swap_cex_privacy_policy: سياسة الخصوصية
+$swap_cex_aml_kyc_policy: AML/KYC
+$swap_cex_legal_message: بالمتابعة، أنت توافق على %terms% و%policy%.
+$swap_cex_legal_message_with_aml: بالمتابعة، أنت توافق على %terms% و%policy% وتدرك أن التحويل قد يستدعي التحقق وفقًا لسياسة %aml%.
+$swap_cex_from_wallet_description: "سيتم إرسال التوكنات إلى عنوانك في بلوكتشين %blockchain% قريبًا:"
+$available_balance: "المتاح: %balance%"
+$dapp_insufficient_network_fee_warning: لا يوجد %token% كافٍ لتغطية رسوم الشبكة
+External Exchange ID Copied: تم نسخ معرّف المنصة الخارجية
+$swap_cex_support: "إذا حدث خطأ ما، تواصل مع %support% وقدّم **معرّف المنصة الخارجية** هذا:"
+$swap_cex_hold_support: "يرجى التواصل مع %support% وتقديم **معرّف المنصة الخارجية** هذا لاجتياز مراجعة المزوّد:"
+$swap_cex_provider_support: دعم %provider%
+Email: البريد الإلكتروني
+The NFT has been hidden: تم إخفاء NFT
+The NFT is no longer hidden: لم يعد NFT مخفيًا
+Outgoing Transaction ID: معرّف المعاملة الصادرة
+Incoming Transaction ID: معرّف المعاملة الواردة
+Wallet to use for payment: المحفظة المستخدمة للدفع
+$wallet_connect_pay_no_options: لا تتوفر خيارات دفع لهذه المحفظة.
+$wallet_connect_pay_try_another_wallet: جرّب اختيار محفظة أخرى.
+Permissions: الأذونات
+Token approvals and wallet permissions: موافقات التوكن وأذونات المحفظة
+Approvals & Delegations: الموافقات والتفويضات
+Plugins: الإضافات
+No Permissions: لا توجد أذونات
+Unlimited: غير محدود
+Approved to %name%: موافقة ممنوحة لـ %name%
+Wallet Delegation: تفويض المحفظة
+Wallet Delegation to %name%: تفويض المحفظة إلى %name%
+Revoke Delegation: إلغاء التفويض
+Are you sure you want to revoke delegation for %name%?: هل أنت متأكد أنك تريد إلغاء التفويض لـ %name%؟
+Revoke: إلغاء
+Revoke Approval: إلغاء الموافقة
+Are you sure you want to revoke approval for %token%?: هل أنت متأكد أنك تريد إلغاء الموافقة على %token%؟
+Confirm Revoking: تأكيد الإلغاء
+Unknown Plugin: إضافة غير معروفة
+$address_suggestion_no_chain: بدون %chain%
+Swap ID: معرّف المبادلة
+Swap ID for %provider%: معرّف المبادلة لدى %provider%
+Copy Swap ID: نسخ معرّف المبادلة
+Swap ID Copied: تم نسخ معرّف المبادلة
+Payment Address: عنوان الدفع
+P&L Change: تغيّر الربح والخسارة
+Choose Token: اختيار التوكن
+You don't have any eligible tokens for this payment: ليس لديك أي توكنات مؤهلة لهذا الدفع
+Buy, swap, or receive a supported token to continue.: اشترِ أو بادل أو استلم توكنًا مدعومًا للمتابعة.
+Are you sure you want to cancel the payment?: هل أنت متأكد أنك تريد إلغاء الدفع؟
+Cancel Payment: إلغاء الدفع
+Paid: تم الدفع
+Payment: الدفع
+$chart_months_short: يناير,فبراير,مارس,أبريل,مايو,يونيو,يوليو,أغسطس,سبتمبر,أكتوبر,نوفمبر,ديسمبر
+$chart_week_days: الأحد,الاثنين,الثلاثاء,الأربعاء,الخميس,الجمعة,السبت
+$chart_week_days_short: أحد,اثنين,ثلاثاء,أربعاء,خميس,جمعة,سبت
+Select multichain wallet: اختيار محفظة متعددة السلاسل
+Rounded Corners: زوايا مستديرة
+Enable Blur: تفعيل التمويه
+App Font: خط التطبيق
+Rounded Balance Font: خط الرصيد المستدير
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: البيع على البطاقة غير مدعوم في Testnet.
+Selling to card is not supported for this account.: البيع على البطاقة غير مدعوم لهذا الحساب.
+Copy Wallet Link: نسخ رابط المحفظة
+$connect_dapp_no_compatible_wallets_found: يتطلب هذا الاتصال محفظة متعددة السلاسل. محفظتك الحالية تدعم TON فقط، وليس لديك محافظ أخرى متعددة السلاسل. استخدم الزر أدناه لإنشاء محفظة جديدة متعددة السلاسل.
+Create Multichain Wallet: إنشاء محفظة متعددة السلاسل
+push_domain_expired_days_ago_number:
+  zeroValue: انتهت صلاحية نطاقك %domain% منذ %days% يوم. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+  oneValue: انتهت صلاحية نطاقك %domain% منذ %days% يوم. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+  twoValue: انتهت صلاحية نطاقك %domain% منذ يومين. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+  fewValue: انتهت صلاحية نطاقك %domain% منذ %days% أيام. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+  manyValue: انتهت صلاحية نطاقك %domain% منذ %days% يومًا. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+  otherValue: انتهت صلاحية نطاقك %domain% منذ %days% يوم. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+push_domain_expires_in_days_number:
+  zeroValue: ستنتهي صلاحية نطاقك %domain% خلال %days% يوم. يرجى تجديده لتجنب فقدان الوصول
+  oneValue: ستنتهي صلاحية نطاقك %domain% خلال %days% يوم. يرجى تجديده لتجنب فقدان الوصول
+  twoValue: ستنتهي صلاحية نطاقك %domain% خلال يومين. يرجى تجديده لتجنب فقدان الوصول
+  fewValue: ستنتهي صلاحية نطاقك %domain% خلال %days% أيام. يرجى تجديده لتجنب فقدان الوصول
+  manyValue: ستنتهي صلاحية نطاقك %domain% خلال %days% يومًا. يرجى تجديده لتجنب فقدان الوصول
+  otherValue: ستنتهي صلاحية نطاقك %domain% خلال %days% يوم. يرجى تجديده لتجنب فقدان الوصول
+Migration was rolled back: تم التراجع عن الترحيل
+Rollback Enclave Migration: التراجع عن ترحيل Enclave
+Unable to migrate wallet data. Please contact support.: تعذر ترحيل بيانات المحفظة. يرجى التواصل مع الدعم.
+Failed to retrieve password from biometrics: فشل استرداد كلمة المرور من القياسات الحيوية
+Migration failed. Please try again.: فشل الترحيل. يرجى المحاولة مرة أخرى.
+Chains: السلاسل
+enclave_use_biometrics: استخدم القياسات الحيوية
+Copy Storage Data: نسخ بيانات التخزين
+Rollback Migration: التراجع عن الترحيل
+Enclave session expired: انتهت صلاحية جلسة Enclave
+Failed to setup auth: فشل إعداد المصادقة
+Failed to setup biometric auth: فشل إعداد المصادقة البيومترية
+No enclave session token available: لا يوجد رمز جلسة Enclave متاح
+Missing authorization: التفويض مفقود
+$enclave_use_biometrics: استخدم القياسات الحيوية
+$enclave_enter_passcode_or_use_biometrics: أدخل رمز المرور أو استخدم بصمة الإصبع
+$enclave_use_pin: استخدم رمز PIN
+$enclave_cancel: إلغاء
+Unsupported Chain: سلسلة غير مدعومة
+Please upgrade to multichain to use this app.: يرجى الترقية إلى محفظة متعددة السلاسل لاستخدام هذا التطبيق.
+Deprecated Website: موقع ويب قديم
+This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.: هذا الإصدار قديم. أعد استيراد محافظك على %new_domain% أو %download_app%.
+download the app: قم بتنزيل التطبيق
+Open %new_domain%: فتح %new_domain%
+"Why is %tokenName% %direction% %timeframe%?": "لماذا %direction% سعر %tokenName% %timeframe%؟"
+up: ارتفع
+down: انخفض
+today: اليوم
+this week: هذا الأسبوع
+this month: هذا الشهر
+Info: معلومات
+Market: السوق
+Market Cap: القيمة السوقية
+Created: تاريخ الإنشاء
+Expanded: موسّع
+Collapsed: مطوي
+Circulating / Total Supply: المعروض المتداول / الإجمالي
+Circulating Supply: المعروض المتداول
+Total Supply: إجمالي المعروض
+Volume · 24h: حجم التداول · 24 ساعة
+Token Info Mock: بيانات رمزية تجريبية
+Design: التصميم
+Localized Description: الوصف المترجم
+Long / Sparse: طويل / ناقص
+Loading: جارٍ التحميل
+Missing Description: الوصف مفقود
+Missing Token Info: معلومات الرمز مفقودة
+Website: الموقع الإلكتروني
+Documentation: التوثيق
+Source Code: الشيفرة المصدرية
+Translated from English: مترجم من الإنجليزية
+Show Original: عرض الأصل
+Show Translation: عرض الترجمة
+Original Text: النص الأصلي
+$token_info_market_cap_hint: القيمة السوقية الإجمالية للمعروض المتداول من الرمز.
+$token_info_supply_hint: عدد الرموز المتداولة حاليًا مقارنةً بإجمالي المعروض.
+$token_info_volume_hint: إجمالي القيمة المتداولة خلال آخر 24 ساعة.
+$token_info_expand_hint: يوسّع معلومات الرمز.
+$token_info_collapse_hint: يطوي معلومات الرمز.
+$token_info_open_in_browser_hint: يفتح في المتصفح.
+$token_info_fallback_description: لا تتوفر معلومات عامة
+$token_info_no_description: لا يتوفر وصف
+$swap_cex_aml_kyc_policy_with_provider: AML/KYC الخاصة بـ %provider%
+$enclave_migration_damaged_title: بيانات المحفظة تالفة
+$enclave_migration_damaged_message: |
+  المشكلة ليست في كلمة المرور. تعذّرت قراءة البيانات المحفوظة لإحدى محافظك، لذلك توقّف التحديث وبقيت محافظك الأخرى بالتنسيق السابق.
+
+  لا تعِد تثبيت التطبيق ولا تمسح بياناته، فهذا سيمحو المحافظ التي ما زالت سليمة. يُرجى التواصل مع %support_link% وسنساعدك في استعادتها.
+$enclave_migration_interrupted_title: توقّف التحديث
+$enclave_migration_interrupted_message: |
+  توقّفت محاولة سابقة لتحديث بيانات محفظتك في منتصفها، ولا يمكن استئنافها من هذه الشاشة. إعادة المحاولة هنا لن تفيد.
+
+  لا تعِد تثبيت التطبيق ولا تمسح بياناته، فمحافظك ما زالت مخزّنة على هذا الجهاز. يُرجى التواصل مع %support_link% وسنساعدك في إكمال التحديث.
+$enclave_migration_storage_title: تعذّر حفظ بيانات المحفظة
+$enclave_migration_storage_message: |
+  تعذّر حفظ بيانات المحفظة المحدَّثة على هذا الجهاز. قد يساعد تفريغ بعض المساحة على القرص.
+
+  لا تعِد تثبيت التطبيق ولا تمسح بياناته، فمحافظك ما زالت مخزّنة عليه. إذا تكرّر ذلك، يُرجى التواصل مع %support_link%.
+Hide Unverified NFTs: إخفاء NFTs غير الموثّقة
+Unverified: غير موثّقة

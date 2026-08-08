@@ -37,7 +37,8 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 
 @SuppressLint("ViewConstructor")
-class MiniCardView(context: Context, private val containerWidth: Int) : WView(context),
+class MiniCardView(context: Context, private val containerWidth: Int) :
+    WView(context),
     WThemedView {
 
     private var cardNft: ApiNft? = null
@@ -188,7 +189,9 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
         addressLabel.setTextColor(primaryColor, secondaryColor, drawGradient)
         val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.miniCardWalletViewStyle
+
             MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.miniCardWalletHardwareStyle
+
             else -> if (isActive()) {
                 WMultichainAddressLabel.miniCardWalletSelectedStyle
             } else {
@@ -201,8 +204,7 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
 
-        if (isActive())
-            drawSelectedBorder(canvas)
+        if (isActive()) drawSelectedBorder(canvas)
     }
 
     private fun drawSelectedBorder(canvas: Canvas) {
@@ -225,7 +227,5 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
         )
     }
 
-    private fun isActive(): Boolean {
-        return account?.accountId == AccountStore.activeAccountId
-    }
+    private fun isActive(): Boolean = account?.accountId == AccountStore.activeAccountId
 }

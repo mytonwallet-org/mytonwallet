@@ -80,11 +80,11 @@ $imageGapSize: 0.75rem;
 
   width: $imageSize;
   height: $imageSize;
-  margin-right: $imageGapSize;
+  margin-inline-end: $imageGapSize;
   border-radius: var(--border-radius-normal);
 
   .item.embedded & {
-    margin-right: 0.625rem;
+    margin-inline-end: 0.625rem;
   }
 
   @include mixins.transition('transform 300ms, opacity 0.15s ease', !important);
@@ -117,6 +117,15 @@ $imageGapSize: 0.75rem;
   text-overflow: ellipsis;
 }
 
+.title,
+.description {
+  unicode-bidi: plaintext;
+
+  :global(html[dir="rtl"]) & {
+    text-align: right;
+  }
+}
+
 .titleIcon {
   margin-inline-start: 0.25rem;
 
@@ -131,8 +140,10 @@ $imageGapSize: 0.75rem;
 }
 
 .badgeLabel {
+  unicode-bidi: plaintext;
   display: inline;
 
+  // Physical - the parent title is `unicode-bidi: plaintext`, dapp names render LTR
   margin-left: 0.25rem;
   padding: 0 0.25rem;
   border-radius: 0.3125rem;

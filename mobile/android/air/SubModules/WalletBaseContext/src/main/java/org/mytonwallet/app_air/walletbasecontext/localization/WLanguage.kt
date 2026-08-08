@@ -3,12 +3,13 @@ package org.mytonwallet.app_air.walletbasecontext.localization
 import java.util.Locale
 
 enum class WLanguage(val langCode: String) {
+    ARABIC("ar"),
     CHINESE_SIMPLIFIED("zh-Hans"),
     CHINESE_TRADITIONAL("zh-Hant"),
     ENGLISH("en"),
     GERMAN("de"),
 
-    //PERSIAN("fa"),
+    PERSIAN("fa"),
     POLISH("pl"),
     RUSSIAN("ru"),
     SPANISH("es"),
@@ -18,7 +19,7 @@ enum class WLanguage(val langCode: String) {
 
     val isRTL: Boolean
         get() {
-            return false // this == PERSIAN
+            return this == PERSIAN || this == ARABIC
         }
 
     val englishName: String
@@ -34,7 +35,8 @@ enum class WLanguage(val langCode: String) {
                 THAI -> "Thai"
                 UKRAINIAN -> "Ukrainian"
                 POLISH -> "Polish"
-                //PERSIAN -> "Persian"
+                PERSIAN -> "Persian"
+                ARABIC -> "Arabic"
             }
         }
 
@@ -51,11 +53,26 @@ enum class WLanguage(val langCode: String) {
                 THAI -> "ไทย"
                 UKRAINIAN -> "Українська"
                 POLISH -> "Polski"
-                //PERSIAN -> "فارسی"
+                PERSIAN -> "فارسی"
+                ARABIC -> "العربية"
+            }
+        }
+
+    val hasLocalizedDigits: Boolean
+        get() {
+            return when (this) {
+                PERSIAN, ARABIC -> true
+                else -> false
             }
         }
 
     companion object {
+        fun dateLocale(langCode: String): Locale = if (langCode == PERSIAN.langCode) {
+            Locale.forLanguageTag("fa-IR-u-ca-persian")
+        } else {
+            Locale.forLanguageTag(langCode)
+        }
+
         fun valueOfLocale(locale: Locale): WLanguage? {
             val language = locale.language.lowercase(Locale.ROOT)
 

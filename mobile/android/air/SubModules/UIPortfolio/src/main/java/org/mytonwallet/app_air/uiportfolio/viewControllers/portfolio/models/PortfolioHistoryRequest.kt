@@ -7,5 +7,5 @@ data class PortfolioHistoryRequest(
     val accountId: String,
     val wallets: List<String>,
     val baseCurrency: MBaseCurrency,
-    val period: MHistoryTimePeriod,
+    val period: MHistoryTimePeriod
 )

@@ -5,9 +5,7 @@ import android.view.View
 import androidx.annotation.CallSuper
 import androidx.recyclerview.widget.RecyclerView
 
-abstract class BaseListHolder<I: BaseListItem>(
-    view: View
-): RecyclerView.ViewHolder(view) {
+abstract class BaseListHolder<I : BaseListItem>(view: View) : RecyclerView.ViewHolder(view) {
     val context: Context
         get() = itemView.context
 
@@ -31,6 +29,5 @@ abstract class BaseListHolder<I: BaseListItem>(
 
     @CallSuper
     open fun onUnbind() {
-
     }
 }

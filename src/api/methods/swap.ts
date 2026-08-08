@@ -1,4 +1,5 @@
 import type {
+  ApiActivity,
   ApiChain,
   ApiSubmitGasfullTransferOptions,
   ApiSwapActivity,
@@ -18,8 +19,26 @@ import type {
 
 import { SWAP_API_VERSION } from '../../config';
 import { buildLocalTxId } from '../../util/activities';
+import { logDebugError } from '../../util/logs';
 import chains from '../chains';
 import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
+import {
+  expireActiveCexSwaps,
+  rememberActiveCexSwap,
+  rememberActiveCexSwaps,
+  rememberActiveCexSwapSubmittedHashes,
+} from '../common/activities/reconciler/activeCexSwapState';
+import {
+  buildCexSwapRefreshPatch,
+  normalizeCexSwapRefreshActivity,
+} from '../common/activities/reconciler/cexSwapReconciler';
+import {
+  buildSwapOperationId,
+  getWalletOperationIntents,
+  rememberCexSwapOperationIntent,
+  rememberDexSwapOperationIntent,
+  rememberWalletOperationSubmittedHashes,
+} from '../common/activities/reconciler/operationIntentStore';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { getBackendConfigCache } from '../common/cache';
 import {
@@ -42,10 +61,10 @@ export function initSwap(_onUpdate: OnApiUpdate) {
 
 export async function swapBuildTransfer(
   accountId: string,
-  password: string,
+  enclaveToken: string,
   request: ApiSwapBuildTransactionRequest,
 ) {
-  const authToken = await getBackendAuthToken(accountId, password);
+  const authToken = await getBackendAuthToken(accountId, enclaveToken);
 
   // Provide version anyway to avoid unnecessary complexity of multichain method
   // it will be used for TON only.
@@ -75,7 +94,7 @@ export async function swapBuildTransfer(
 export async function swapSubmit(
   chain: ApiChain,
   accountId: string,
-  password: string,
+  enclaveToken: string,
   transfers: ApiSwapTransfer[] | undefined,
   historyItem: ApiSwapHistoryItem,
   isGasless?: boolean,
@@ -83,23 +102,33 @@ export async function swapSubmit(
 ): Promise<{ activityId?: string; mfaRequestHash?: string; swapId: string } | { error: string }> {
   const swapId = historyItem.id;
 
-  const authToken = await getBackendAuthToken(accountId, password);
+  const authToken = await getBackendAuthToken(accountId, enclaveToken);
 
   const from = getSwapItemSlug(historyItem.from, chain);
   const to = getSwapItemSlug(historyItem.to, chain);
 
   const localActivityId = buildLocalTxId(swapId);
+  const operationId = buildSwapOperationId(swapId);
   const localSwap: ApiSwapActivity = {
     ...historyItem,
     id: localActivityId,
     from,
     to,
     kind: 'swap',
+    extra: {
+      reconciliation: {
+        operationId,
+        sourceActionIds: [localActivityId],
+        hiddenSourceActionIds: [],
+        reason: 'local-intent',
+      },
+    },
   };
+  await rememberDexSwapOperationIntent(accountId, localSwap, { gasless: isGasless });
 
   const result = await chains[chain].submitOnchainSwapTransfer({
     accountId,
-    password,
+    enclaveToken,
     transfers,
     transaction,
     historyItem,
@@ -111,6 +140,7 @@ export async function swapSubmit(
   }, onUpdate);
 
   if ('error' in result) {
+    await rememberDexSwapOperationIntent(accountId, { ...localSwap, status: 'failed' }, { gasless: isGasless });
     return result;
   }
 
@@ -119,6 +149,8 @@ export async function swapSubmit(
 
     return { swapId, mfaRequestHash };
   }
+
+  await rememberWalletOperationSubmittedHashes(accountId, operationId, result.submittedHashes);
 
   return { activityId: result.activityId, swapId };
 }
@@ -131,6 +163,7 @@ export async function confirmSwapMfaRequest(accountId: string, swapId: string, t
     throw new Error('Missing backend auth token for swap MFA confirmation');
   }
 
+  await rememberWalletOperationSubmittedHashes(accountId, buildSwapOperationId(swapId), [txHash]);
   await patchSwapItem({
     address,
     swapId,
@@ -142,20 +175,48 @@ export async function confirmSwapMfaRequest(accountId: string, swapId: string, t
 export async function fetchSwaps(
   accountId: string,
   items: Array<{ id: string; chain?: ApiChain }>,
+  existingActivities: ApiActivity[] = [],
+  options: { forceProviderRefresh?: boolean } = {},
 ) {
   const account = await fetchStoredAccount(accountId);
   const walletByChain = account.byChain as Partial<Record<ApiChain, ApiWalletByChain[ApiChain]>>;
+  const authToken = options.forceProviderRefresh ? await getStoredBackendAuthToken(accountId) : undefined;
+  const historyOptions = options.forceProviderRefresh
+    ? { ...options, forceProviderRefresh: Boolean(authToken), authToken }
+    : options;
 
   const perIdResults = await Promise.all(items.map(async ({ id, chain: chainHint }) => {
     const backendId = id.replace('swap:', '');
-    const lookupEntries = getSwapHistoryLookupEntries(walletByChain, chainHint);
 
-    if (!lookupEntries.length) {
+    // Fast path: caller knows the originating chain. Solana swap history is stored under the TON owner address.
+    if (chainHint) {
+      const historyChain = chainHint === 'solana' ? 'ton' : chainHint;
+      const address = walletByChain[historyChain]?.address;
+      if (!address) {
+        return { id };
+      }
+
+      try {
+        const swap = await swapGetHistoryItem(address, backendId, historyOptions);
+        return { id, found: { chain: chainHint, swap } };
+      } catch (err) {
+        const is404 = err instanceof ApiServerError && err.statusCode === 404;
+        return { id, isNonExistent: is404 };
+      }
+    }
+
+    // Slow path: probe every chain — only mark non-existent if every chain confirms 404
+    const chainEntries = Object.entries(walletByChain)
+      .filter(([, wallet]) => !!wallet?.address) as [ApiChain, ApiWalletByChain[ApiChain]][];
+    if (!chainEntries.length) {
       return { id };
     }
 
     const attempts = await Promise.allSettled(
-      lookupEntries.map(async ({ address }) => swapGetHistoryItem(address, backendId)),
+      chainEntries.map(async ([chain, wallet]) => ({
+        chain,
+        swap: await swapGetHistoryItem(wallet.address, backendId, historyOptions),
+      })),
     );
 
     const fulfilled = attempts.find((r) => r.status === 'fulfilled');
@@ -177,41 +238,30 @@ export async function fetchSwaps(
 
   for (const result of perIdResults) {
     if (result.found) {
-      swaps.push(swapItemToActivity(result.found));
+      swaps.push(swapItemToActivity(result.found.swap, result.found.chain));
     } else if (result.isNonExistent) {
       nonExistentIds.push(result.id);
     }
   }
 
-  return { nonExistentIds, swaps };
-}
+  const normalizedSwaps = swaps.map((swap) => {
+    return swap.cex ? normalizeCexSwapRefreshActivity(swap) : swap;
+  });
+  const cexSwaps = normalizedSwaps.filter((swap) => swap.cex);
+  await Promise.all(cexSwaps.map((swap) => rememberCexSwapOperationIntent(accountId, swap)));
+  await Promise.all([
+    rememberActiveCexSwaps(accountId, cexSwaps),
+    expireActiveCexSwaps(accountId, nonExistentIds),
+  ]);
 
-type SwapHistoryLookupEntry = {
-  address: string;
-};
+  const intents = await getWalletOperationIntents(accountId);
+  const patch = buildCexSwapRefreshPatch(accountId, normalizedSwaps, nonExistentIds, existingActivities, intents);
 
-function getSwapHistoryLookupEntries(
-  walletByChain: Partial<Record<ApiChain, ApiWalletByChain[ApiChain]>>,
-  chainHint?: ApiChain,
-): SwapHistoryLookupEntry[] {
-  const historyAddress = walletByChain.ton?.address;
-  const result: SwapHistoryLookupEntry[] = [];
-
-  if (historyAddress) {
-    result.push({ address: historyAddress });
-  }
-
-  const fallbackEntries = chainHint
-    ? [[chainHint, walletByChain[chainHint]] as [ApiChain, ApiWalletByChain[ApiChain] | undefined]]
-    : (Object.entries(walletByChain) as [ApiChain, ApiWalletByChain[ApiChain]][]);
-
-  for (const [, wallet] of fallbackEntries) {
-    if (wallet?.address && wallet.address !== historyAddress) {
-      result.push({ address: wallet.address });
-    }
-  }
-
-  return result;
+  return {
+    nonExistentIds,
+    swaps: patch.upsert.filter((activity): activity is ApiSwapActivity => activity.kind === 'swap'),
+    patch,
+  };
 }
 
 export async function swapEstimate(
@@ -275,13 +325,13 @@ export function swapCexValidateAddress(params: { slug: string; address: string; 
 
 export async function swapCexCreateTransaction(
   accountId: string,
-  password: string,
+  enclaveToken: string,
   request: ApiSwapBuildTransactionRequest,
 ): Promise<{
     swap: ApiSwapHistoryItem;
     activity: ApiSwapActivity;
   }> {
-  const authToken = await getBackendAuthToken(accountId, password);
+  const authToken = await getBackendAuthToken(accountId, enclaveToken);
 
   const buildResponse = await swapBuild(authToken, request);
 
@@ -291,7 +341,10 @@ export async function swapCexCreateTransaction(
 
   const swap = convertSwapItemToTrusted(buildResponse.swap);
 
-  const activity = swapItemToActivity(swap);
+  // TODO: use actual chain!!!
+  const activity = swapItemToActivity(swap, 'ton');
+  await rememberCexSwapOperationIntent(accountId, activity);
+  await rememberActiveCexSwap(accountId, activity);
 
   onUpdate({
     type: 'newActivities',
@@ -326,14 +379,26 @@ export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitG
     return { swapId, mfaRequestHash };
   }
 
-  const txHash = result.msgHashForCexSwap ?? result.txId;
-  if (txHash) {
-    const { accountId, password } = transferOptions;
-    // CEX swap history rows are owned by the TON history address even when the
-    // actual deposit transfer is submitted from another source chain.
-    const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
-    const authToken = await getBackendAuthToken(accountId, password ?? '');
-    await patchSwapItem({ address: historyAddress, authToken, msgHash: txHash, swapId });
+  const backendMsgHash = result.msgHashForCexSwap ?? result.txId;
+  if (backendMsgHash) {
+    const { accountId, enclaveToken } = transferOptions;
+    // TON keeps the backend BOC hash and the activity external-message hash in different namespaces.
+    // Persist both explicit values for SDK matching, but keep the backend-facing hash unchanged below.
+    const submittedHashes = Array.from(new Set(
+      [result.msgHashForCexSwap, result.txId].filter((hash): hash is string => Boolean(hash)),
+    ));
+    await rememberWalletOperationSubmittedHashes(accountId, buildSwapOperationId(swapId), submittedHashes);
+    await rememberActiveCexSwapSubmittedHashes(accountId, swapId, submittedHashes);
+    // The transfer already went through - if we can't tell the backend, just log it and move on
+    try {
+      // CEX swap history rows are owned by the TON history address even when the
+      // actual deposit transfer is submitted from another source chain.
+      const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
+      const authToken = await getBackendAuthToken(accountId, enclaveToken ?? '');
+      await patchSwapItem({ address: historyAddress, authToken, msgHash: backendMsgHash, swapId });
+    } catch (err) {
+      logDebugError('swapCexSubmit: failed to patch swap item', err);
+    }
   }
 
   return result;
@@ -344,12 +409,17 @@ async function patchSwapSubmitError(
   swapId: string,
   error: string | undefined,
 ) {
-  const { accountId, password } = transferOptions;
-  // CEX swap history rows are owned by the TON history address even when the
-  // actual deposit transfer is submitted from another source chain.
-  const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
-  const authToken = await getBackendAuthToken(accountId, password ?? '');
-  await patchSwapItem({ address: historyAddress, authToken, error: error || 'Unknown', swapId });
+  const { accountId, enclaveToken } = transferOptions;
+  // We already know why the transfer failed - if the backend call also fails, keep the real reason
+  try {
+    // CEX swap history rows are owned by the TON history address even when the
+    // actual deposit transfer is submitted from another source chain.
+    const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
+    const authToken = await getBackendAuthToken(accountId, enclaveToken ?? '');
+    await patchSwapItem({ address: historyAddress, authToken, error: error || 'Unknown', swapId });
+  } catch (err) {
+    logDebugError('patchSwapSubmitError: failed to patch swap item', err);
+  }
 }
 
 function errorToString(err: unknown) {

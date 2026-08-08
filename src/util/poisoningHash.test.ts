@@ -11,6 +11,8 @@ import {
 const VALID_ADDRESS_1 = 'EQD0vdSA_NedR9uvn89fL8n8F7pJezqhOlvjlpRThBdWNltI1234567890ABCDEF';
 const VALID_ADDRESS_2 = 'EQD2vdSA_NedR9uvn89fL8n8F7pJezqhOlvjlpRThBdWNltO1234567890ABCDEF';
 const SCAM_ADDRESS_1 = 'EQD0vdSA_NedR9uvn89fL8n8F7pJezqhOlvjlpRThBdWNltK1234567890ABCDEF';
+// Shares its shortened form with the two above, standing in for a wallet whose own address got poisoned.
+const OWN_ADDRESS = 'EQD0vdSA_NedR9uvn89fL8n8F7pJezqhOlvjlpRThBdWNltW1234567890ABCDEF';
 
 // Test amounts
 const LARGE_AMOUNT = BigInt(1000000000); // 1 TON
@@ -60,13 +62,35 @@ describe('Test poison address attack', () => {
       expect(originalTxCheckAfter).toBe(false);
     });
 
+    it('should not detect an outgoing transaction as scam, since its sender is the wallet itself', () => {
+      updatePoisoningCacheFromActivities([
+        makeMockTransactionActivity({
+          timestamp: TIMESTAMP_1,
+          amount: LARGE_AMOUNT,
+          fromAddress: VALID_ADDRESS_1,
+          toAddress: OWN_ADDRESS,
+          isIncoming: true,
+        }),
+      ]);
+
+      const outgoingTx = makeMockTransactionActivity({
+        timestamp: TIMESTAMP_2,
+        amount: MEDIUM_AMOUNT,
+        fromAddress: OWN_ADDRESS,
+        toAddress: VALID_ADDRESS_2,
+        isIncoming: false,
+      });
+
+      expect(getIsTransactionWithPoisoning(outgoingTx)).toBe(false);
+    });
+
     it('should not detect transaction as scam when no cache entry exists', () => {
       const tx = makeMockTransactionActivity({
         timestamp: TIMESTAMP_1,
         amount: LARGE_AMOUNT,
         fromAddress: VALID_ADDRESS_2,
         toAddress: VALID_ADDRESS_1,
-        isIncoming: false,
+        isIncoming: true,
       });
 
       const isValidScam = getIsTransactionWithPoisoning(tx);

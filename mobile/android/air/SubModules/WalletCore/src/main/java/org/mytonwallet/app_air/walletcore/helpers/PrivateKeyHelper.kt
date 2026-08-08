@@ -4,14 +4,17 @@ object PrivateKeyHelper {
     private const val PRIVATE_KEY_HEX_LENGTH = 64
     private const val PRIVATE_KEY_WITH_PUBLIC_KEY_HEX_LENGTH = 128
 
-    fun isValidPrivateKeyHex(privateKey: String): Boolean {
-        return privateKey.length == PRIVATE_KEY_HEX_LENGTH || privateKey.length == PRIVATE_KEY_WITH_PUBLIC_KEY_HEX_LENGTH
-    }
+    fun isValidPrivateKeyHex(privateKey: String): Boolean =
+        privateKey.length == PRIVATE_KEY_HEX_LENGTH ||
+            privateKey.length == PRIVATE_KEY_WITH_PUBLIC_KEY_HEX_LENGTH
 
     fun normalizePrivateKeyHex(privateKey: String): String? {
         if (!isValidPrivateKeyHex(privateKey)) return null
-        return if (privateKey.length == PRIVATE_KEY_HEX_LENGTH) privateKey
-        else privateKey.take(PRIVATE_KEY_HEX_LENGTH)
+        return if (privateKey.length == PRIVATE_KEY_HEX_LENGTH) {
+            privateKey
+        } else {
+            privateKey.take(PRIVATE_KEY_HEX_LENGTH)
+        }
     }
 
     fun normalizeMnemonicPrivateKey(mnemonic: Array<String>): Array<String>? {
@@ -20,7 +23,6 @@ object PrivateKeyHelper {
         return arrayOf(privateKey)
     }
 
-    fun isMnemonicPrivateKey(mnemonic: Array<String>): Boolean {
-        return normalizeMnemonicPrivateKey(mnemonic) != null
-    }
+    fun isMnemonicPrivateKey(mnemonic: Array<String>): Boolean =
+        normalizeMnemonicPrivateKey(mnemonic) != null
 }

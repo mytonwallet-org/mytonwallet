@@ -39,8 +39,8 @@ function AuthCheckPassword({
     !canUsePinPad && 'custom-scroll',
   );
 
-  const handleSubmit = useLastCallback((password: string) => {
-    addAccount({ method: isImporting ? 'importMnemonic' : 'createAccount', password, isAuthFlow: true });
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
+    addAccount({ method: isImporting ? 'importMnemonic' : 'createAccount', isAuthFlow: true, enclaveToken });
   });
 
   function renderTitle() {
@@ -58,6 +58,7 @@ function AuthCheckPassword({
   }
 
   return (
+
     <div className={styles.wrapper}>
       {!canUsePinPad && (
         <Header
@@ -76,7 +77,7 @@ function AuthCheckPassword({
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
           noAutoConfirm
-          onSubmit={handleSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={cancelCheckPassword}
           onUpdate={cleanAuthError}
         >

@@ -73,7 +73,7 @@ struct ThemeOption: View {
                         }
                     }
                 Text(theme.text)
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized)
                     .fixedSize()
                     .frame(height: 22)
                     .foregroundStyle(isCurrent ? .accentColor : Color.air.secondaryLabel)

@@ -6,13 +6,13 @@ import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import android.util.LruCache
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 
 object EmojiProvider {
 
@@ -67,7 +67,11 @@ object EmojiProvider {
 
             when (result) {
                 is DownloadResult.Success -> memoryCache.put(unified, result.bitmap)
-                is DownloadResult.NotFound -> synchronized(notFoundKeys) { notFoundKeys.add(unified) }
+
+                is DownloadResult.NotFound -> synchronized(notFoundKeys) {
+                    notFoundKeys.add(unified)
+                }
+
                 is DownloadResult.NetworkError -> {}
             }
 

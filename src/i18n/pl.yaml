@@ -154,7 +154,7 @@ $state_init_invalid: Nieprawidłowe dane inicjalizacji kontraktu.
 $signature_warning: Podpisywanie niestandardowych danych jest bardzo niebezpieczne. Używaj go tylko wtedy, gdy ufasz jego źródłu.
 Sign: Znak
 Done!: Gotowe!
-Signing was confirmed!: Podpisanie umowy zostało potwierdzone!
+Signing Confirmed: Podpis potwierdzony
 Activity Details: Szczegóły aktywności
 No activities found: Nie znaleziono aktywności
 Comment Copied: Komentarz został skopiowany
@@ -174,6 +174,7 @@ Assets: Aktywa
 Activity: Aktywność
 NFT: NFT
 No NFTs yet: Nie ma jeszcze NFT
+No hidden NFTs.: Brak ukrytych NFT.
 $nft_explore_offer: |
   Możesz zobaczyć kolekcje NFT
   na rynku.
@@ -210,7 +211,7 @@ Receiving Address: Adres odbioru
 Fee: Opłata
 Edit: Edytuj
 Confirm: Potwierdzenie
-Data Signed!: Dane podpisane!
+Data Signed: Dane podpisane
 Details: Szczegóły
 View details: Zobacz szczegóły
 Change password visibility: Zmiana widoczności hasła
@@ -252,7 +253,6 @@ $safe_staking_description_jetton2: Możesz wypłacić swoje stakowane środki **
 $min_value: Min. %value%
 Est. balance in a year: Szacowane saldo za rok
 Confirm Staking: Potwierdź staking
-Coins have been staked!: Monety zostały zastawione!
 View: Widok
 Stake More: Zastaw więcej
 Staking: Staking
@@ -265,7 +265,6 @@ $total: "Suma: %value%"
 $unstake_asset: Odzastaw %symbol%
 Amount to unstake: Kwota do odzastawienia
 Confirm Unstaking: Potwierdź odzastawienie
-Request for unstaking is sent!: Wysłano prośbę o odzastawienie!
 $unstaking_when_receive: Otrzymasz swoją odzastawioną wpłatę w ciągu %time%.
 $unstaking_when_receive_with_amount: Otrzymasz swoje wycofane %amount% za %time%.
 $unstaking_when_receive_with_amount_ethena: "%amount% będą dostępne do wypłaty za %time%."
@@ -279,6 +278,10 @@ Unstaking: Odzastawianie
 $unstake_action: Odzastawianie
 The network fee has slightly changed, try sending again.: Opłata sieciowa nieznacznie się zmieniła, spróbuj wysłać ponownie.
 Transfer was unsuccessful. Try again later.: Przelew nie powiódł się. Spróbuj ponownie później.
+Action Partially Completed: Operacja częściowo zakończona
+$action_partially_completed_description: "Ukończono %completed% z %total% operacji. Pozostałe operacje nie zostały ukończone. Przed ponowną próbą sprawdź swoją aktywność."
+Action Status Unknown: Status operacji jest nieznany
+$action_status_unknown_description: "Nie udało się zweryfikować stanu ukończenia. Przed ponowną próbą sprawdź aktywność i saldo; ponowienie teraz może spowodować dwukrotne wysłanie operacji."
 Invalid amount: Nieprawidłowa kwota
 Invalid address: Nieprawidłowy adres
 Domain is not connected to a wallet: Domena nie jest połączona z portfelem
@@ -358,6 +361,7 @@ Add Token: Dodaj token
 Delete Token: Usuń token
 Are you sure you want to delete?: Czy na pewno chcesz usunąć %token%?
 Hide Tokens With No Cost: Ukryj tokeny bez kosztu
+Localized Token Names: Zlokalizowane nazwy
 Sort By Cost: Sortuj według kosztu
 Update %app_name%: Zaktualizuj %app_name%
 Connect Ledger: Połącz Ledger
@@ -396,7 +400,6 @@ You sell: Sprzedajesz
 You buy: Kupujesz
 Swap Details: Szczegóły wymiany
 Blockchain Fee: Opłata blockchain
-Aggregator Fee: Opłata agregatora
 Included: Włączone
 Price Impact: Wpływ na cenę
 Minimum Received: Minimalna otrzymana ilość
@@ -411,7 +414,6 @@ $swap_price_impact_tooltip1: Pokazuje, jak bardzo twoja transakcja może zmieni�
 $swap_price_impact_tooltip2: Duże transakcje mogą spowodować większy wzrost lub spadek ceny. Zazwyczaj niższa wartość jest lepsza.
 $swap_slippage_tooltip1: Ustawia, o ile cena może się zmienić przed przetworzeniem twojej wymiany.
 $swap_slippage_tooltip2: Jeśli podczas przetwarzania twojej wymiany cena zmieni się bardziej niż ta wartość, twoje zamówienie zostanie anulowane.
-Coins have been swapped!: Monety zostały wymienione!
 Slippage not specified: Poślizg nie został określony
 Slippage too high: Poślizg jest zbyt duży
 Not Enough %symbol%: Niewystarczająca ilość %symbol%
@@ -508,6 +510,15 @@ Scan QR: Skanuj QR
 Account: Konto
 Accounts: Konta
 Networks: Sieci
+Blockchains: Blockchainy
+All Chains: Wszystkie blockchainy
+"You will still be able to receive and send tokens in hidden chains.": "Nadal będzie można odbierać i wysyłać tokeny w ukrytych blockchainach."
+"Sort by Value": "Sortuj według wartości"
+"Automatically sort and hide chains based on your portfolio.": "Automatycznie sortuj i ukrywaj blockchainy na podstawie swojego portfela."
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "Ukryte blockchainy nadal będą dostępne do odbierania i wysyłania tokenów, ale nie pojawią się na głównej liście."
+"Move Up": "Przenieś w górę"
+"Move Down": "Przenieś w dół"
+Tokens: Tokeny
 Receive Funds: Odbierz środki
 Open the receive screen.: Otwórz ekran odbioru.
 "Receive with ${applicationName}": Odbierz za pomocą ${applicationName}
@@ -533,8 +544,11 @@ Chinese Yuan: Chiński juan
 Bitcoin: Bitcoin
 $max_balance: "Maksymalnie: %balance%"
 $available_balance: "Dostępne: %balance%"
+$send_recipient_invalid: Nieprawidłowy
+$send_recipient_not_compatible: Niezgodny
 $unstake_information_instantly: Otrzymasz swoją kaucję natychmiast
 Select Token: Wybierz token
+$token_picker_hidden: Ukryte
 MY: Moje
 Popular: Popularne
 Not Found: Nie znaleziono
@@ -543,7 +557,6 @@ Wallet is imported!: Portfel został zaimportowany!
 Create a code to protect it: Utwórz kod, aby go chronić
 Enter your code again: Wprowadź swój kod ponownie
 Code set successfully: Kod ustawiono pomyślnie
-Use Biometrics: Użyj biometrii
 Use Touch ID: Użyj Touch ID
 Use Face ID: Użyj Face ID
 Connect Touch ID: Połącz Touch ID
@@ -637,11 +650,11 @@ Send NFT: Wyślij NFT
 Send Collectible: Wyślij kolekcjonerski przedmiot
 Send Collectibles: Wyślij kolekcjonerskie przedmioty
 $nfts_burned:
-  zeroValue: "%1$d NFT spalono!"
-  oneValue: "%1$d NFT spalono!"
-  fewValue: "%1$d NFT spalono!"
-  manyValue: "%1$d NFT spalono!"
-  otherValue: "%1$d NFT spalono!"
+  zeroValue: "%count% NFT spalono"
+  oneValue: "%count% NFT spalono"
+  fewValue: "%count% NFT spalono"
+  manyValue: "%count% NFT spalono"
+  otherValue: "%count% NFT spalono"
 No NFT selected: Nie wybrano NFT
 Cannot be sent: Nie można wysłać
 NFT is for sale: NFT jest na sprzedaż
@@ -729,6 +742,14 @@ Install on Desktop: Zainstaluj na komputerze
 Install on Mobile: Zainstaluj na telefonie komórkowym
 Install App: Zainstaluj aplikację
 Hide: Ukryj
+Hide and Report: Ukryj i zgłoś
+Hide and Report NFT: Ukryj i zgłoś NFT
+Report: Zgłoś
+Report NFT: Zgłoś NFT
+This NFT will remain hidden on this device and be reported.: Ten NFT pozostanie ukryty na tym urządzeniu i zostanie zgłoszony.
+Only Hide: Tylko ukryj
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: Czy chcesz również zgłosić ten NFT jako nieodpowiedni? Zostanie on następnie trwale usunięty z tego urządzenia.
+This NFT will be permanently hidden on this device and reported.: Ten NFT zostanie trwale ukryty na tym urządzeniu i zgłoszony.
 Hidden NFTs: Ukryte NFT
 Hidden By Me: Ukryte przeze mnie
 Probably Scam: Prawdopodobnie oszustwo
@@ -781,16 +802,8 @@ If away for 10 min: Po 10 min. nieaktywności
 Unlock: Odblokować
 This address mimics another address that you previously interacted with.: Ten adres imituje inny adres, z którym wcześniej miałeś kontakt.
 Biometric authentication failed: Niepowodzenie uwierzytelniania biometrycznego
+Authentication is already configured: Uwierzytelnianie jest już skonfigurowane
 Reset biometrics in security settings, or use a passcode.: Zresetuj biometrię w ustawieniach zabezpieczeń lub użyj kodu dostępu.
-Best Rate: Najlepszy Kurs
-via %dex_name%: przez %dex_name%
-$swap_dex_chooser_rate_title: Przeanalizowane rzeczywiste kursy na **DeDust** i **STON.fi**, aby wybrać **najlepszy kurs**.
-You will receive %amount% **more**.: Otrzymasz %amount% **więcej**.
-You will spend %amount% **less**.: Wydasz %amount% **mniej**.
-Best: Najlepszy
-Use Best Rate: Użyj najlepszego kursu
-Switch to %dex_name%: Przełącz na %dex_name%
-Built-in DEX Aggregator: Wbudowany agregator DEX
 Add Tokens: Dodaj tokeny
 No tokens yet: Brak tokenów
 $no_tokens_description: Otrzymaj tokeny z innego portfela lub po prostu włącz preferowane tokeny w ustawieniach, aby je monitorować.
@@ -803,7 +816,6 @@ Notifications & Sounds: Powiadomienia i dźwięki
 Sounds: Dźwięki
 Push Notifications: Powiadomienia Push
 Select up to %count% wallets for notifications: Wybierz do %count% portfeli do powiadomień
-$swap_aggregator_fee_tooltip: Wbudowany **agregator DEX** znajduje **najlepszy kurs** w dostępnych DEX-ach. Opłata za usługę wynosi %percent%.
 Accumulated Rewards: Nagromadzone nagrody
 $swap_reverse_prohibited: Ustawienie kwoty zakupu jest niemożliwe dla tej pary tokenów
 Blockchain Fee Details: Szczegóły opłaty blockchain
@@ -818,7 +830,6 @@ Wallet: Portfel
 Trending: Popularne
 No Data: Brak danych
 Toggle fullscreen: Przełącz tryb pełnoekranowy
-Request is sent!: Żądanie wysłane!
 Transaction ID: ID transakcji
 Outgoing Transaction ID: ID transakcji wychodzącej
 Incoming Transaction ID: ID transakcji przychodzącej
@@ -831,6 +842,7 @@ $dapp_return_details: |
   %fee_amount% zostanie natychmiast pobrane z Twojego portfela na opłatę.
 
   %received_amount% zostanie Ci zwrócone w ciągu kilku minut.
+$dapp_return_disclaimer: Wyświetlona zwrócona kwota nie jest gwarantowana i może zostać zmanipulowana przez złośliwe dappy. Anuluj operację, jeśli nie jesteś pewien niezawodności tej usługi.
 Additional Amount Sent: Dodatkowo zostanie wysłane
 Show Sensitive Data: Pokaż dane wrażliwe
 Hide Sensitive Data: Ukryj dane wrażliwe
@@ -838,6 +850,7 @@ Copy Address: Skopiuj adres
 Copy Transaction ID: Skopiuj ID transakcji
 Requesting Unstake: Żądanie odzastaw
 Requested Unstake: Wypłata zażądana
+Unstake Requested: Wypłata zażądana
 $request_unstake_action: Żądanie odzastaw
 Calling Contract: Wywoływanie kontraktu
 Called Contract: Wywołany kontrakt
@@ -939,7 +952,6 @@ $safe_staking_ethena_description3: Możesz **wypłacić depozyt** wraz z naliczo
 Unstake %amount%: Wycofać %amount%
 Request Unstaking: Żądaj odblokowania
 $unstaking_when_receive_ethena: Będziesz mógł otrzymać swój wycofany depozyt za **7 dni**.
-Coins have been unstaked!: Monety wycofane!
 Confirm Upgrading: Potwierdź ulepszenie
 How does it work?: Jak to działa?
 Multisend: Multiwysyłka
@@ -976,8 +988,8 @@ Configure DNS: Konfiguruj DNS
 Link to Wallet: Połącz z portfelem
 Change Wallet: Zmień portfel
 Change Linked Wallet: Zmień powiązany portfel
-Domain has been renewed!: Domena została odnowiona!
-Domains have been renewed!: Domeny zostały odnowione!
+Domain Renewed: Domena została odnowiona
+Domains Renewed: Domeny zostały odnowione
 Linked Wallet: Powiązany portfel
 Domain Linked: Domena została połączona
 Link: Połącz
@@ -1139,6 +1151,8 @@ $invalid_address_format: Nieprawidłowy format adresu
 $no_valid_view_addresses: Brak prawidłowych adresów do podglądu
 Account Saved: Konto zapisano pomyślnie
 Share Wallet Link: Udostępnij link do portfela
+Address: Adres
+Domain: Domena
 Remove: Usuń
 $missing_offramp_deposit_address: Brak adresu depozytowego dla off-ramp.
 Buy: Kup
@@ -1147,6 +1161,7 @@ Sell on Card: Sprzedaj na kartę
 Sell %symbol%: Sprzedaj %symbol%
 $connect_dapp_description: Połączone aplikacje mogą jedynie zobaczyć adres Twojego portfela i nie mogą przenosić Twoich aktywów bez Twojej zgody.
 $connect_dapp_title: Połączyć z %name%?
+$connect_dapp_no_compatible_wallets_found: To połączenie wymaga portfela multichain. Twój obecny portfel obsługuje wyłącznie TON, a nie masz innych portfeli multichain. Użyj przycisku poniżej, aby utworzyć nowy portfel multichain.
 Choose Wallet: Wybierz portfel
 Wallet to use on %host%: Portfel dla %host%
 Selected Wallet: Wybrany portfel
@@ -1154,6 +1169,8 @@ Wallet to use for payment: Portfel do płatności
 $wallet_connect_pay_no_options: Brak dostępnych opcji płatności dla tego portfela.
 $wallet_connect_pay_try_another_wallet: Spróbuj wybrać inny portfel.
 Connect Wallet: Połącz portfel
+Create Multichain Wallet: Utwórz portfel multichain
+Select multichain wallet: Wybierz portfel multichain
 Connect Anyway: Połącz mimo to
 Insufficient Fee: Niewystarczająca opłata
 Waiting for a View deeplink to display a wallet address.: Oczekiwanie na deeplink View do wyświetlenia adresu portfela.
@@ -1162,6 +1179,11 @@ $explorer_mode_warning: "Tryb eksplorera: oczekiwanie na deeplink View do otwarc
 This command is not supported in explorer mode: To polecenie nie jest obsługiwane w trybie eksplorera
 $saved_addresses_header: Zapisane
 confirm an action in My Wallet: potwierdź działanie w My Wallet
+Migration was rolled back: Migracja została wycofana
+Rollback Enclave Migration: Wycofaj migrację enclave
+Unable to migrate wallet data. Please contact support.: Nie można przeprowadzić migracji danych portfela. Proszę skontaktować się z pomocą techniczną.
+Failed to retrieve password from biometrics: Nie udało się pobrać hasła z biometrii
+Migration failed. Please try again.: Migracja nie powiodła się. Proszę spróbować ponownie.
 Timed out waiting for account to be ready: Przekroczono czas oczekiwania na gotowość konta
 $connected_apps:
   otherValue: "%1$d połączonych"
@@ -1200,7 +1222,6 @@ Transfer Info: Informacje o Transferze
 Transfer not found: Transfer nie znaleziony
 Failed to fetch transfer: Nie udało się pobrać transferu
 Transfer in progress: Transfer w toku
-Transfer Sent!: Transfer wysłany!
 Please confirm transfer on your Ledger: Proszę potwierdzić przelew na swoim Ledgerze
 Please confirm action on your Ledger: Proszę potwierdzić działanie na swoim Ledgerze
 Not all transfers were sent successfully: Nie wszystkie transfery zostały wysłane pomyślnie
@@ -1252,6 +1273,15 @@ Enabling biometric confirmation will reset the passcode.: Włączenie potwierdze
 Confirm action with your passcode: Potwierdź działanie swoim kodem dostępu
 No Image: Brak obrazu
 Different blockchain. Cannot be selected: Inny blockchain. Nie można wybrać
+Chains: Łańcuchy
+enclave_use_biometrics: Użyj biometrii
+Copy Storage Data: Skopiuj dane pamięci
+Rollback Migration: Wycofaj migrację
+Enclave session expired: Sesja Enclave wygasła
+Failed to setup auth: Nie udało się skonfigurować uwierzytelniania
+Failed to setup biometric auth: Nie udało się skonfigurować uwierzytelniania biometrycznego
+No enclave session token available: Brak tokena sesji Enclave
+Missing authorization: Brak autoryzacji
 $address_suggestion_no_chain: Brak %chain%
 Subwallets: Subportfele
 Other addresses for this wallet: Inne adresy dla tego portfela
@@ -1280,7 +1310,6 @@ Deposit: Wpłać
 Trade: Handluj
 Show All %collection_name%: Pokaż wszystkie %collection_name%
 Scanning for subwallets...: Wyszukiwanie subportfeli...
-This process may take up to a minute. Please wait.: Ten proces może potrwać do minuty. Proszę czekać.
 Your assets on other TON contracts: Twoje aktywa na innych kontraktach TON
 No existing subwallets found: Nie znaleziono istniejących subportfeli
 You can create a new subwallet if you need another address on the same secret words.: Możesz utworzyć nowy subportfel, jeśli potrzebujesz innego adresu na tych samych tajnych słowach.
@@ -1440,7 +1469,6 @@ Swap is not supported on this account.: Wymiana nie jest dostępna na tym koncie
 Connecting your wallet: Łączenie portfela
 Action is not possible on a view-only wallet.: To działanie nie jest dostępne w portfelu tylko do podglądu.
 No matching chains: Brak zgodnych sieci
-Select multichain wallet: Wybierz portfel multichain
 Logged in with My Wallet: Zalogowano przez My Wallet
 You have no apps connected to this wallet.: Nie masz aplikacji połączonych z tym portfelem.
 Asset: Aktywo
@@ -1610,6 +1638,11 @@ $web_permission_location: lokalizacji
 $web_permission_device_features: funkcji urządzenia
 $web_permission_this_site: tej witryny
 
+$enclave_use_biometrics: Użyj biometrii
+$enclave_enter_passcode_or_use_biometrics: Wprowadź kod lub użyj odcisku palca
+$enclave_use_pin: Użyj kodu PIN
+$enclave_cancel: Anuluj
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Wysłano %amount% %symbol%
 push_activity_token_received: Otrzymano %amount% %symbol%
@@ -1635,23 +1668,35 @@ push_activity_dns_renewed: Odnowiono DNS
 push_activity_subscription_started: Rozpoczęto subskrypcję
 push_activity_subscription_payment_received: Otrzymano płatność subskrypcji %amount% %symbol%
 push_activity_subscription_canceled: Anulowano subskrypcję
-push_activity_swap_completed: Zamieniono %from_symbol% -> %to_symbol%
-push_activity_swap_failed: Wymiana %from_symbol% -> %to_symbol% nie powiodła się
-push_activity_swap_expired: Wymiana %from_symbol% -> %to_symbol% wygasła
-push_activity_swap_pending: Wymiana %from_symbol% -> %to_symbol% %status%
+push_activity_swap_completed: Zamieniono %from_symbol% → %to_symbol%
+push_activity_swap_failed: Wymiana %from_symbol% → %to_symbol% nie powiodła się
+push_activity_swap_expired: Wymiana %from_symbol% → %to_symbol% wygasła
+push_activity_swap_pending: Wymiana %from_symbol% → %to_symbol% %status%
 push_activity_staking_profit: Zysk ze stakingu %amount% GRAM
 push_activity_staking_loyalty_profit: Zysk lojalnościowy ze stakingu %amount% GRAM
 push_domain_title_renew: Odnów swoją domenę
 push_domain_expired_yesterday: Twoja domena %domain% wygasła wczoraj. Odnów ją jak najszybciej, aby nie utracić dostępu
 push_domain_expired_days_ago: Twoja domena %domain% wygasła %days% dni temu. Odnów ją jak najszybciej, aby nie utracić dostępu
+push_domain_expired_days_ago_number:
+  zeroValue: Twoja domena %domain% wygasła %days% dni temu. Odnów ją jak najszybciej, aby nie utracić dostępu
+  oneValue: Twoja domena %domain% wygasła %days% dzień temu. Odnów ją jak najszybciej, aby nie utracić dostępu
+  fewValue: Twoja domena %domain% wygasła %days% dni temu. Odnów ją jak najszybciej, aby nie utracić dostępu
+  manyValue: Twoja domena %domain% wygasła %days% dni temu. Odnów ją jak najszybciej, aby nie utracić dostępu
+  otherValue: Twoja domena %domain% wygasła %days% dni temu. Odnów ją jak najszybciej, aby nie utracić dostępu
 push_domain_expires_today: Twoja domena %domain% wygaśnie dzisiaj. Odnów ją, aby nie utracić dostępu
 push_domain_expires_tomorrow: Twoja domena %domain% wygaśnie jutro. Odnów ją, aby nie utracić dostępu
 push_domain_expires_in_days: Twoja domena %domain% wygaśnie za %days% dni. Odnów ją, aby nie utracić dostępu
+push_domain_expires_in_days_number:
+  zeroValue: Twoja domena %domain% wygaśnie za %days% dni. Odnów ją, aby nie utracić dostępu
+  oneValue: Twoja domena %domain% wygaśnie za %days% dzień. Odnów ją, aby nie utracić dostępu
+  fewValue: Twoja domena %domain% wygaśnie za %days% dni. Odnów ją, aby nie utracić dostępu
+  manyValue: Twoja domena %domain% wygaśnie za %days% dni. Odnów ją, aby nie utracić dostępu
+  otherValue: Twoja domena %domain% wygaśnie za %days% dni. Odnów ją, aby nie utracić dostępu
 
 $more_nfts:
   zeroValue: Brak NFT
   oneValue: "+1 NFT"
-  otherValue: "+%1$d NFT"
+  otherValue: "+%count% NFT"
 
 $subwallets_hint: Używaj subportfeli, aby uzyskać dodatkowe adresy bez tworzenia nowych tajnych słów.
 $subwallets_created_wallets: Jeśli wcześniej tworzyłeś subportfele, pojawią się na poniższej liście.
@@ -1673,13 +1718,76 @@ Email: Email
 Choose Token: Wybierz token
 You don't have any eligible tokens for this payment: Nie masz odpowiednich tokenów do tej płatności
 Buy, swap, or receive a supported token to continue.: Kup, wymień lub odbierz obsługiwany token, aby kontynuować.
+Copy Wallet Link: Kopiuj link
 Are you sure you want to cancel the payment?: Czy na pewno chcesz anulować płatność?
 Cancel Payment: Anuluj płatność
-Paid!: Zapłacono!
+Paid: Zapłacono
 Payment: Płatność
-Sent!: Wysłano!
 $chart_months_short: sty,lut,mar,kwi,maj,cze,lip,sie,wrz,paź,lis,gru
 $chart_week_days: niedziela,poniedziałek,wtorek,środa,czwartek,piątek,sobota
 $chart_week_days_short: niedz.,pon.,wt.,śr.,czw.,pt.,sob.
 Unsupported Chain: Nieobsługiwana sieć
 Please upgrade to multichain to use this app.: Zaktualizuj portfel do multichain, aby korzystać z tej aplikacji.
+Rounded Corners: Zaokrąglone rogi
+Enable Blur: Włącz rozmycie
+App Font: Czcionka aplikacji
+Rounded Balance Font: Zaokrąglona czcionka salda
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: Sprzedaż na kartę nie jest obsługiwana w sieci testowej.
+Selling to card is not supported for this account.: Sprzedaż na kartę nie jest obsługiwana dla tego konta.
+"Why is %tokenName% %direction% %timeframe%?": "Dlaczego cena %tokenName% %direction% %timeframe%?"
+up: wzrosła
+down: spadła
+today: dziś
+this week: w tym tygodniu
+this month: w tym miesiącu
+Info: Informacje
+Market: Rynek
+Market Cap: Kapitalizacja rynkowa
+Created: Utworzono
+Expanded: Rozwinięte
+Collapsed: Zwinięte
+Circulating / Total Supply: Podaż w obiegu / całkowita
+Circulating Supply: Podaż w obiegu
+Total Supply: Całkowita podaż
+Volume · 24h: Wolumen · 24 godz.
+Token Info Mock: Makieta danych tokena
+Design: Projekt
+Localized Description: Zlokalizowany opis
+Long / Sparse: Długi / niepełny
+Loading: Wczytywanie
+Missing Description: Brak opisu
+Missing Token Info: Brak informacji o tokenie
+Website: Strona internetowa
+Documentation: Dokumentacja
+Source Code: Kod źródłowy
+Translated from English: Przetłumaczono z angielskiego
+Show Original: Pokaż oryginał
+Show Translation: Pokaż tłumaczenie
+Original Text: Tekst oryginalny
+$token_info_market_cap_hint: Łączna wartość rynkowa podaży tokena znajdującej się w obiegu.
+$token_info_supply_hint: Liczba tokenów obecnie znajdujących się w obiegu w porównaniu z całkowitą podażą.
+$token_info_volume_hint: Łączna wartość obrotu z ostatnich 24 godzin.
+$token_info_expand_hint: Rozwija informacje o tokenie.
+$token_info_collapse_hint: Zwija informacje o tokenie.
+$token_info_open_in_browser_hint: Otwiera w przeglądarce.
+$token_info_fallback_description: Brak dostępnych informacji publicznych
+$token_info_no_description: Brak dostępnego opisu
+$swap_cex_aml_kyc_policy_with_provider: AML/KYC %provider%
+$enclave_migration_damaged_title: Dane portfela uszkodzone
+$enclave_migration_damaged_message: |
+  Nie chodzi o hasło. Zapisanych danych jednego z Twoich portfeli nie da się odczytać, dlatego aktualizacja została zatrzymana, a pozostałe portfele zostały w poprzednim formacie.
+
+  Nie instaluj aplikacji ponownie i nie czyść jej danych: to usunęłoby portfele, które są jeszcze nienaruszone. Skontaktuj się z %support_link%, a pomożemy je odzyskać.
+$enclave_migration_interrupted_title: Aktualizacja została przerwana
+$enclave_migration_interrupted_message: |
+  Wcześniejsza próba aktualizacji danych portfela zatrzymała się w połowie i nie można jej wznowić z tego ekranu. Ponowna próba tutaj nie pomoże.
+
+  Nie instaluj aplikacji ponownie i nie czyść jej danych: Twoje portfele nadal są zapisane na tym urządzeniu. Skontaktuj się z %support_link%, a pomożemy dokończyć aktualizację.
+$enclave_migration_storage_title: Nie udało się zapisać danych portfela
+$enclave_migration_storage_message: |
+  Zaktualizowanych danych portfela nie udało się zapisać na tym urządzeniu. Może pomóc zwolnienie miejsca na dysku.
+
+  Nie instaluj aplikacji ponownie i nie czyść jej danych: Twoje portfele nadal są na nim zapisane. Jeśli to się powtarza, skontaktuj się z %support_link%.
+Hide Unverified NFTs: Ukryj niezweryfikowane NFT
+Unverified: Niezweryfikowane

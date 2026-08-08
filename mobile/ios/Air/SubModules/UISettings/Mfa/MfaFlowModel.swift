@@ -65,7 +65,7 @@ final class MfaFlowModel: ObservableObject {
         }
     }
 
-    func confirmInstall(passcode: String) async throws {
+    func confirmInstall(enclaveToken: EnclaveToken) async throws {
         guard let installCandidateUser, installCandidateUser.id?.nilIfEmpty != nil else {
             let error = DisplayError(text: "Telegram account is missing required id.")
             log.error("confirmInstall failed: \(error, .public)")
@@ -77,7 +77,7 @@ final class MfaFlowModel: ObservableObject {
             let address = try await Api.installMfaFromRequest(
                 accountId: accountContext.accountId,
                 user: installCandidateUser,
-                password: passcode
+                enclaveToken: enclaveToken
             )
             try await AccountStore.updateMfa(
                 accountId: accountContext.accountId,
@@ -92,11 +92,11 @@ final class MfaFlowModel: ObservableObject {
         didPresentInstallConfirmation = false
     }
 
-    func confirmRemove(passcode: String) async throws {
+    func confirmRemove(enclaveToken: EnclaveToken) async throws {
         do {
             let request = try await Api.publishRemoveMfaRequest(
                 accountId: accountContext.accountId,
-                password: passcode
+                enclaveToken: enclaveToken
             )
             removeRequestId = request.reqId
             openTelegram(startApp: request.reqId)
@@ -116,7 +116,7 @@ final class MfaFlowModel: ObservableObject {
         isRefreshingMfa = true
         defer { isRefreshingMfa = false }
         do {
-            let result = try await Api.refreshMfaState(accountId: accountContext.accountId, password: nil)
+            let result = try await Api.refreshMfaState(accountId: accountContext.accountId, enclaveToken: nil)
             guard generation == mfaRefreshGeneration else {
                 return
             }

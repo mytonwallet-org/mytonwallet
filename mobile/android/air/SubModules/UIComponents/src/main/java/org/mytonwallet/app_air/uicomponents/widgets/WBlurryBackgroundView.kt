@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.uicomponents.widgets;
+package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -24,11 +24,12 @@ class WBlurryBackgroundView(
     context: Context,
     val fadeSide: Side?,
     val overrideBlurRadius: Float? = null
-) : BlurView(context), WThemedView {
+) : BlurView(context),
+    WThemedView {
 
     enum class Side {
         TOP,
-        BOTTOM;
+        BOTTOM
     }
 
     init {
@@ -37,11 +38,9 @@ class WBlurryBackgroundView(
 
     private var configured = false
     override fun onAttachedToWindow() {
-        if (isPlaying != false)
-            super.onAttachedToWindow()
+        if (isPlaying != false) super.onAttachedToWindow()
         // else: should not call the super method to prevent unwanted blur resume!
-        if (configured)
-            return
+        if (configured) return
         configured = true
         setupViews()
     }
@@ -53,13 +52,19 @@ class WBlurryBackgroundView(
     private var overrideOverlayColor: WColor? = null
         set(value) {
             field = value
-            solidBackgroundColor = value?.color ?: WColor.SecondaryBackground.color
+            solidBackgroundColor = resolveSolidBackgroundColor()
         }
 
     private var overlayAlpha: Int? = null
 
-    private var solidBackgroundColor =
-        overrideOverlayColor?.color ?: WColor.SecondaryBackground.color
+    // Raw color override (e.g. NFT palette); takes precedence over overrideOverlayColor
+    private var overlayColorOverride: Int? = null
+
+    private var solidBackgroundColor = resolveSolidBackgroundColor()
+
+    private fun resolveSolidBackgroundColor(): Int = overlayColorOverride
+        ?: overrideOverlayColor?.color
+        ?: WColor.SecondaryBackground.color
 
     fun setOverlayColor(overlayColor: WColor, alpha: Int? = null): BlurViewFacade {
         overrideOverlayColor = overlayColor
@@ -68,12 +73,17 @@ class WBlurryBackgroundView(
         return super.setOverlayColor(overrideOverlayColor!!.color.colorWithAlpha(alpha))
     }
 
+    fun setTintOverlayColor(color: Int?) {
+        if (overlayColorOverride == color) return
+        overlayColorOverride = color
+        updateTheme()
+    }
+
     override fun updateTheme() {
         val blurEnabled = WGlobalStorage.isBlurEnabled()
         setBlurEnabled(blurEnabled)
 
-        solidBackgroundColor =
-            overrideOverlayColor?.color ?: WColor.SecondaryBackground.color
+        solidBackgroundColor = resolveSolidBackgroundColor()
 
         if (blurEnabled) {
             val blurRadius =

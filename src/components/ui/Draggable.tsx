@@ -36,17 +36,18 @@ type DraggableState = {
 
 type OwnProps = {
   children: TeactNode;
-  onDrag: (translation: TPoint, id: number | string) => void;
-  onDragEnd: NoneToVoidFunction;
   id: number | string;
   style?: string;
   knobStyle?: string;
   isDisabled?: boolean;
+  isKnobDisabled?: boolean;
   offset?: Offset;
   parentRef?: ElementRef<HTMLDivElement>;
   scrollRef?: ElementRef<HTMLDivElement>;
   className?: string;
   onClick: (e: React.MouseEvent | React.TouchEvent) => void;
+  onDrag: (translation: TPoint, id: number | string) => void;
+  onDragEnd: NoneToVoidFunction;
 };
 
 const ZERO_POINT: TPoint = { x: 0, y: 0 };
@@ -63,16 +64,17 @@ const EDGE_THRESHOLD = 150;
 function Draggable({
   children,
   id,
-  onDrag,
-  onDragEnd,
+  isDisabled,
+  isKnobDisabled,
   style: externalStyle,
   knobStyle,
-  isDisabled,
   offset = DEFAULT_OFFSET,
   parentRef,
   scrollRef,
   className,
   onClick,
+  onDrag,
+  onDragEnd,
 }: OwnProps) {
   const lang = useLang();
   const ref = useRef<HTMLDivElement>();
@@ -211,7 +213,7 @@ function Draggable({
   });
 
   useEffect(() => {
-    const dragButtonRef = buttonRef.current;
+    const dragButtonRef = isKnobDisabled ? undefined : buttonRef.current;
 
     if (dragButtonRef) {
       dragButtonRef.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -245,13 +247,11 @@ function Draggable({
         window.removeEventListener('touchend', handleMouseUp);
         window.removeEventListener('touchcancel', handleMouseUp);
         window.removeEventListener('mouseup', handleMouseUp);
-
-        if (dragButtonRef) {
-          dragButtonRef.removeEventListener('touchstart', handleTouchStart);
-        }
       }
+
+      dragButtonRef?.removeEventListener('touchstart', handleTouchStart);
     };
-  }, [handleMouseMove, handleMouseUp, handleTouchStart, state.isDragging, buttonRef, isDisabled]);
+  }, [handleMouseMove, handleMouseUp, handleTouchStart, state.isDragging, buttonRef, isDisabled, isKnobDisabled]);
 
   const fullClassName = buildClassName(styles.container, className, state.isDragging && styles.isDragging);
 
@@ -270,10 +270,11 @@ function Draggable({
         <div
           ref={buttonRef}
           aria-label={lang('i18n_dragToSort')}
-          tabIndex={0}
+          tabIndex={isKnobDisabled ? -1 : 0}
           role="button"
-          className={buildClassName(styles.knob, 'div-button', 'draggable-knob')}
-          onMouseDown={handleMouseDown}
+          aria-disabled={isKnobDisabled}
+          className={buildClassName(styles.knob, 'div-button', 'draggable-knob', isKnobDisabled && styles.knobDisabled)}
+          onMouseDown={isKnobDisabled ? undefined : handleMouseDown}
           style={knobStyle}
         >
           <i className="icon icon-sort" aria-hidden />

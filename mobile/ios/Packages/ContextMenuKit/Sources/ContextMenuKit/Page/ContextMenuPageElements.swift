@@ -105,6 +105,7 @@ final class ContextMenuPageRowElement {
     let controlView: UIControl?
     let isSelectable: Bool
     let isEnabled: Bool
+    let allowsImmediateSelectionCapture: Bool
     let activation: ContextMenuPageAction?
 
     private let measuredSizeImpl: (CGFloat) -> CGSize
@@ -117,6 +118,7 @@ final class ContextMenuPageRowElement {
         controlView: UIControl?,
         isSelectable: Bool,
         isEnabled: Bool,
+        allowsImmediateSelectionCapture: Bool,
         activation: ContextMenuPageAction?,
         measuredSize: @escaping (CGFloat) -> CGSize,
         applyLayout: @escaping (CGSize) -> Void,
@@ -127,6 +129,7 @@ final class ContextMenuPageRowElement {
         self.controlView = controlView
         self.isSelectable = isSelectable
         self.isEnabled = isEnabled
+        self.allowsImmediateSelectionCapture = allowsImmediateSelectionCapture
         self.activation = activation
         self.measuredSizeImpl = measuredSize
         self.applyLayoutImpl = applyLayout
@@ -197,6 +200,7 @@ final class ContextMenuSeparatorView: UIView {
 final class ContextMenuRowView: UIControl {
     private let presentation: ContextMenuRowPresentation
     private let style: ContextMenuStyle
+    private let sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection
 
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
@@ -204,17 +208,26 @@ final class ContextMenuRowView: UIControl {
     private let badgeView = UIImageView()
     private let accessoryView = UIImageView()
 
-    init(presentation: ContextMenuRowPresentation, style: ContextMenuStyle) {
+    init(
+        presentation: ContextMenuRowPresentation,
+        style: ContextMenuStyle,
+        sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection
+    ) {
         self.presentation = presentation
         self.style = style
+        self.sourceUserInterfaceLayoutDirection = sourceUserInterfaceLayoutDirection
 
         super.init(frame: .zero)
 
+        self.semanticContentAttribute = sourceUserInterfaceLayoutDirection.contextMenuSemanticContentAttribute
+
         self.titleLabel.font = ContextMenuVisuals.titleFont()
+        self.titleLabel.textAlignment = .natural
         self.titleLabel.numberOfLines = 2
         self.titleLabel.lineBreakMode = .byTruncatingTail
 
         self.subtitleLabel.font = ContextMenuVisuals.subtitleFont()
+        self.subtitleLabel.textAlignment = .natural
         self.subtitleLabel.numberOfLines = 1
         self.subtitleLabel.lineBreakMode = .byTruncatingTail
 
@@ -224,7 +237,9 @@ final class ContextMenuRowView: UIControl {
         self.badgeView.contentMode = .center
 
         self.accessoryView.contentMode = .center
-        self.accessoryView.image = presentation.accessory == .disclosure ? ContextMenuVisuals.chevronImage() : nil
+        self.accessoryView.image = presentation.accessory == .disclosure
+            ? ContextMenuVisuals.chevronImage(layoutDirection: sourceUserInterfaceLayoutDirection)
+            : nil
 
         self.addSubview(self.titleLabel)
         self.addSubview(self.subtitleLabel)
@@ -293,11 +308,14 @@ final class ContextMenuRowView: UIControl {
     }
 
     func applyLayout(size: CGSize) {
-        let iconX = self.style.iconSideInset
+        let isRightToLeft = self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft
         if let image = self.iconView.image {
             let iconSize = image.size
+            let iconContainerMinX = isRightToLeft
+                ? size.width - self.style.iconSideInset - self.reservedIconWidth
+                : self.style.iconSideInset
             self.iconView.frame = CGRect(
-                x: iconX + floor((self.reservedIconWidth - iconSize.width) * 0.5),
+                x: iconContainerMinX + floor((self.reservedIconWidth - iconSize.width) * 0.5),
                 y: floor((size.height - iconSize.height) * 0.5),
                 width: iconSize.width,
                 height: iconSize.height
@@ -306,43 +324,83 @@ final class ContextMenuRowView: UIControl {
             self.iconView.frame = .zero
         }
 
-        let titleX = self.reservesIconSpace
-            ? (self.style.iconSideInset + self.reservedIconWidth + self.style.iconSpacing)
-            : self.style.rowSideInset
-        var rightLimit = size.width - self.style.rowSideInset
-        if self.presentation.accessory == .disclosure {
-            let accessorySize = CGSize(width: 13.0, height: 13.0)
-            self.accessoryView.frame = CGRect(
-                x: size.width - self.style.rowSideInset - accessorySize.width,
-                y: floor((size.height - accessorySize.height) * 0.5),
-                width: accessorySize.width,
-                height: accessorySize.height
-            )
-            rightLimit = self.accessoryView.frame.minX - 12.0
+        let accessorySize = CGSize(width: 13.0, height: 13.0)
+        let textFrame: CGRect
+        if isRightToLeft {
+            let titleRight = self.reservesIconSpace
+                ? size.width - self.style.iconSideInset - self.reservedIconWidth - self.style.iconSpacing
+                : size.width - self.style.rowSideInset
+            var leftLimit = self.style.rowSideInset
+            if self.presentation.accessory == .disclosure {
+                self.accessoryView.frame = CGRect(
+                    x: self.style.rowSideInset,
+                    y: floor((size.height - accessorySize.height) * 0.5),
+                    width: accessorySize.width,
+                    height: accessorySize.height
+                )
+                leftLimit = self.accessoryView.frame.maxX + 12.0
+            } else {
+                self.accessoryView.frame = .zero
+            }
+
+            if let badgeImage = self.badgeView.image {
+                self.badgeView.frame = CGRect(
+                    x: leftLimit,
+                    y: floor((size.height - badgeImage.size.height) * 0.5),
+                    width: badgeImage.size.width,
+                    height: badgeImage.size.height
+                )
+                leftLimit = self.badgeView.frame.maxX + 8.0
+            } else {
+                self.badgeView.frame = .zero
+            }
+            textFrame = CGRect(x: leftLimit, y: 0.0, width: max(1.0, titleRight - leftLimit), height: 0.0)
         } else {
-            self.accessoryView.frame = .zero
+            let titleX = self.reservesIconSpace
+                ? (self.style.iconSideInset + self.reservedIconWidth + self.style.iconSpacing)
+                : self.style.rowSideInset
+            var rightLimit = size.width - self.style.rowSideInset
+            if self.presentation.accessory == .disclosure {
+                self.accessoryView.frame = CGRect(
+                    x: size.width - self.style.rowSideInset - accessorySize.width,
+                    y: floor((size.height - accessorySize.height) * 0.5),
+                    width: accessorySize.width,
+                    height: accessorySize.height
+                )
+                rightLimit = self.accessoryView.frame.minX - 12.0
+            } else {
+                self.accessoryView.frame = .zero
+            }
+
+            if let badgeImage = self.badgeView.image {
+                self.badgeView.frame = CGRect(
+                    x: rightLimit - badgeImage.size.width,
+                    y: floor((size.height - badgeImage.size.height) * 0.5),
+                    width: badgeImage.size.width,
+                    height: badgeImage.size.height
+                )
+                rightLimit = self.badgeView.frame.minX - 8.0
+            } else {
+                self.badgeView.frame = .zero
+            }
+            textFrame = CGRect(x: titleX, y: 0.0, width: max(1.0, rightLimit - titleX), height: 0.0)
         }
 
-        if let badgeImage = self.badgeView.image {
-            self.badgeView.frame = CGRect(
-                x: rightLimit - badgeImage.size.width,
-                y: floor((size.height - badgeImage.size.height) * 0.5),
-                width: badgeImage.size.width,
-                height: badgeImage.size.height
-            )
-            rightLimit = self.badgeView.frame.minX - 8.0
-        } else {
-            self.badgeView.frame = .zero
-        }
-
-        let availableTextWidth = max(1.0, rightLimit - titleX)
+        let availableTextWidth = textFrame.width
         let finalTitleSize = self.titleLabel.sizeThatFits(CGSize(width: availableTextWidth, height: 100.0))
-        let finalSubtitleSize = self.subtitleLabel.isHidden ? .zero : self.subtitleLabel.sizeThatFits(CGSize(width: availableTextWidth, height: 100.0))
+        let finalSubtitleSize = self.subtitleLabel.isHidden
+            ? .zero
+            : self.subtitleLabel.sizeThatFits(CGSize(width: availableTextWidth, height: 100.0))
 
         let totalTextHeight = finalTitleSize.height + (self.subtitleLabel.isHidden ? 0.0 : 1.0 + finalSubtitleSize.height)
         let titleY = floor((size.height - totalTextHeight) * 0.5)
-        self.titleLabel.frame = CGRect(x: titleX, y: titleY, width: availableTextWidth, height: finalTitleSize.height)
-        self.subtitleLabel.frame = CGRect(x: titleX, y: self.titleLabel.frame.maxY + 1.0, width: availableTextWidth, height: finalSubtitleSize.height)
+        self.titleLabel.frame = CGRect(x: textFrame.minX, y: titleY, width: availableTextWidth, height: finalTitleSize.height)
+        self.subtitleLabel.frame = CGRect(
+            x: textFrame.minX,
+            y: self.titleLabel.frame.maxY + 1.0,
+            width: availableTextWidth,
+            height: finalSubtitleSize.height
+        )
     }
 
     func updateColors() {
@@ -422,10 +480,16 @@ final class ContextMenuCustomRowView: UIControl {
             self.hostedContentView.bottomAnchor.constraint(equalTo: self.containerView.bottomAnchor)
         ])
 
-        if item.interaction.isSelectable {
+        if item.interaction.isSelectable, !item.interaction.allowsContentInteraction {
             self.containerView.isUserInteractionEnabled = false
             self.hostedContentView.isUserInteractionEnabled = false
+        }
+
+        if item.interaction.isSelectable {
             self.accessibilityTraits = .button
+            self.accessibilityLabel = self.hostedContentView.accessibilityLabel
+            self.accessibilityHint = self.hostedContentView.accessibilityHint
+            self.accessibilityCustomActions = self.hostedContentView.accessibilityCustomActions
         }
 
         if item.interaction.isSelectable, !item.interaction.isEnabled {
@@ -435,6 +499,16 @@ final class ContextMenuCustomRowView: UIControl {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard self.item.interaction.isSelectable, self.item.interaction.allowsContentInteraction else {
+            return super.hitTest(point, with: event)
+        }
+        guard let hitView = super.hitTest(point, with: event) else {
+            return nil
+        }
+        return hitView is UIControl ? hitView : self
     }
 
     override var isHighlighted: Bool {

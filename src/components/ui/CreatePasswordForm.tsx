@@ -5,6 +5,7 @@ import React, {
 import { PIN_LENGTH } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
+import { toNativeDigits } from '../../util/nativeDigits';
 import { IS_ANDROID, IS_IOS } from '../../util/windowEnvironment';
 
 import useFlag from '../../hooks/useFlag';
@@ -36,6 +37,7 @@ function CreatePasswordForm({
   const isMobile = IS_IOS || IS_ANDROID;
 
   const firstInputRef = useRef<HTMLInputElement>();
+  const isSubmittedRef = useRef(false);
 
   const [isJustSubmitted, setIsJustSubmitted] = useState<boolean>(false);
   const [firstPassword, setFirstPassword] = useState<string>('');
@@ -58,6 +60,15 @@ function CreatePasswordForm({
   });
 
   useFocusAfterAnimation(firstInputRef, !isActive);
+
+  // The submission is over - either it failed and the user may retry, or the screen is on its way out.
+  // The slide going inactive counts too: a caller that never drives `isLoading` would otherwise leave the
+  // latch closed for good.
+  useEffect(() => {
+    if (!isLoading || !isActive) {
+      isSubmittedRef.current = false;
+    }
+  }, [isActive, isLoading]);
 
   useEffect(() => {
     setIsPasswordsNotEqual(false);
@@ -99,7 +110,10 @@ function CreatePasswordForm({
   const handleSubmit = useLastCallback((e: React.FormEvent) => {
     stopEvent(e);
 
-    if (!canSubmit) {
+    // Submitting twice sets up the credential twice, and the second setup mints a master key over the
+    // secrets the first one is still storing. The loading flag alone cannot hold that door: it belongs to
+    // whichever action is running now, and the account import that follows owns it only from its own tick.
+    if (!canSubmit || isSubmittedRef.current) {
       return;
     }
 
@@ -121,6 +135,7 @@ function CreatePasswordForm({
       closeWeakPasswordModal();
     }
 
+    isSubmittedRef.current = true;
     onSubmit(firstPassword, isMobile);
   });
 
@@ -145,7 +160,7 @@ function CreatePasswordForm({
       return (
         <div className={styles.passwordRules}>
           <span className={getValidationRuleClass(shouldRenderError, invalidLength || noNumber)}>
-            {lang('Password must contain %length% digits.', { length: PIN_LENGTH })}
+            {toNativeDigits(lang('Password must contain %length% digits.', { length: PIN_LENGTH }) as string)}
           </span>
         </div>
       );
@@ -241,7 +256,13 @@ function CreatePasswordForm({
           <Button isPrimary onClick={closeWeakPasswordModal} className={modalStyles.buttonFullWidth}>
             {lang('Change')}
           </Button>
-          <Button isDestructive forFormId={formId} isSubmit className={modalStyles.buttonFullWidth}>
+          <Button
+            isDestructive
+            forFormId={formId}
+            isSubmit
+            isLoading={isLoading}
+            className={modalStyles.buttonFullWidth}
+          >
             {lang('Continue')}
           </Button>
         </div>

@@ -20,6 +20,18 @@ export class ApiServerError extends ApiBaseError {
   }
 }
 
+const WALLET_DISCOVERY_RECOVERABLE_FETCH_ERRORS = new Set([
+  'Failed to fetch', // Chromium
+  'NetworkError when attempting to fetch resource.', // Firefox (console shows "TypeError: …")
+  'Load failed', // Safari
+]);
+
+export function isWalletDiscoveryRecoverableTransportError(err: unknown): boolean {
+  // Check for the error text to catch specific offline-import case.
+  return err instanceof ApiServerError
+    || (err instanceof TypeError && WALLET_DISCOVERY_RECOVERABLE_FETCH_ERRORS.has(err.message));
+}
+
 export class AbortOperationError extends ApiBaseError {
   constructor(message: string = 'Abort operation') {
     super(message);

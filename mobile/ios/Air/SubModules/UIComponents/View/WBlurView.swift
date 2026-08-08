@@ -13,8 +13,8 @@ public class WBlurView: UIVisualEffectView {
         let v = WBlurView(style: style, background: background)
         view.insertSubview(v, at: 0)
         NSLayoutConstraint.activate([
-            v.leftAnchor.constraint(equalTo: view.leftAnchor),
-            v.rightAnchor.constraint(equalTo: view.rightAnchor),
+            v.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            v.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             v.topAnchor.constraint(equalTo: view.topAnchor),
             v.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])

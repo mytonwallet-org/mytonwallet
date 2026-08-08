@@ -24,6 +24,7 @@ public final class LedgerViewModel {
     internal(set) public var backEnabled: Bool = true
     internal(set) public var showRetry: Bool = false
     internal(set) public var retryEnabled: Bool = true
+    internal(set) public var exitButtonTitle: String = lang("Cancel")
  
     @PerceptionIgnored
     internal(set) public var stop: () -> () = { }

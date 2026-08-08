@@ -29,8 +29,8 @@
   &::before {
     content: '+';
 
-    margin-right: 0.375rem;
     margin-bottom: 0.1875rem;
+    margin-inline-end: 0.375rem;
 
     font-size: 1.5rem !important;
     font-weight: normal !important;
@@ -113,7 +113,8 @@
   align-items: center;
 
   min-height: 3rem;
-  padding: 0.625rem 0.75rem 0.625rem 0.625rem;
+  padding-block: 0.625rem;
+  padding-inline: 0.625rem 0.75rem;
 
   font-size: 1rem;
   font-weight: 600;
@@ -127,9 +128,9 @@
     content: '';
 
     position: absolute;
-    right: 0;
     bottom: 0;
-    left: 0.625rem;
+    inset-inline-start: 0.625rem;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -169,7 +170,7 @@
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-black);
-  text-align: left;
+  text-align: start;
 }
 
 .transferActions {
@@ -191,7 +192,8 @@
 
 @media (max-width: 480px) {
   .transferItem {
-    padding: 0.625rem 0.75rem 0.625rem 0.625rem;
+    padding-block: 0.625rem;
+    padding-inline: 0.625rem 0.75rem;
   }
 
   .transferContent {

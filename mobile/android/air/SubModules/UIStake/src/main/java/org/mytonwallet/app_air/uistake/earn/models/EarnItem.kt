@@ -1,17 +1,19 @@
 package org.mytonwallet.app_air.uistake.earn.models
 
 import androidx.annotation.DrawableRes
-import org.mytonwallet.app_air.uicomponents.R
+import java.math.BigInteger
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import java.math.BigInteger
 
 sealed class EarnItem(
     open val id: String,
     open val timestamp: Long,
-    open val amount: BigInteger, // amount without decimal
-    open val formattedAmount: String, // amount with decimal
+    // Amount without decimal.
+    open val amount: BigInteger,
+    // Amount with decimal.
+    open val formattedAmount: String
 ) : WEquatable<MApiTransaction> {
     open var amountInBaseCurrency: String = ""
 
@@ -22,18 +24,20 @@ sealed class EarnItem(
 
     abstract fun getGradientColors(): Pair<String, String>?
 
-    override fun isSame(comparing: WEquatable<*>): Boolean {
-        return if (comparing is EarnItem && comparing::class == this::class) {
+    override fun isSame(comparing: WEquatable<*>): Boolean =
+        if (comparing is EarnItem && comparing::class == this::class) {
             comparing.timestamp == timestamp && comparing.amount == amount
-        } else false
-    }
+        } else {
+            false
+        }
 
-    override fun isChanged(comparing: WEquatable<*>): Boolean {
-        return if (comparing is EarnItem && comparing::class == this::class) {
+    override fun isChanged(comparing: WEquatable<*>): Boolean =
+        if (comparing is EarnItem && comparing::class == this::class) {
             comparing.formattedAmount != formattedAmount ||
                 comparing.amountInBaseCurrency != amountInBaseCurrency
-        } else false
-    }
+        } else {
+            false
+        }
 
     data class Profit(
         override val id: String,
@@ -41,10 +45,9 @@ sealed class EarnItem(
         override val amount: BigInteger,
         override val formattedAmount: String,
         override var amountInBaseCurrency: String = "",
-        val profit: String,
+        val profit: String
     ) : EarnItem(id, timestamp, amount, formattedAmount) {
-        override fun getTitle() =
-            LocaleController.getString("Earned")
+        override fun getTitle() = LocaleController.getString("Earned")
 
         @DrawableRes
         override fun getIcon() = R.drawable.ic_earned
@@ -74,10 +77,9 @@ sealed class EarnItem(
         override val id: String,
         override val timestamp: Long,
         override val amount: BigInteger,
-        override val formattedAmount: String,
+        override val formattedAmount: String
     ) : EarnItem(id, timestamp, amount, formattedAmount) {
-        override fun getTitle() =
-            LocaleController.getString("Staked")
+        override fun getTitle() = LocaleController.getString("Staked")
 
         @DrawableRes
         override fun getIcon() = R.drawable.ic_staked
@@ -89,10 +91,9 @@ sealed class EarnItem(
         override val id: String,
         override val timestamp: Long,
         override val amount: BigInteger,
-        override val formattedAmount: String,
+        override val formattedAmount: String
     ) : EarnItem(id, timestamp, amount, formattedAmount) {
-        override fun getTitle() =
-            LocaleController.getString("Unstaked")
+        override fun getTitle() = LocaleController.getString("Unstaked")
 
         @DrawableRes
         override fun getIcon() = R.drawable.ic_unstaked
@@ -104,10 +105,9 @@ sealed class EarnItem(
         override val id: String,
         override val timestamp: Long,
         override val amount: BigInteger,
-        override val formattedAmount: String,
+        override val formattedAmount: String
     ) : EarnItem(id, timestamp, amount, formattedAmount) {
-        override fun getTitle() =
-            LocaleController.getString("Unstake Request")
+        override fun getTitle() = LocaleController.getString("Unstake Request")
 
         @DrawableRes
         override fun getIcon() = R.drawable.ic_unstaked
@@ -119,11 +119,10 @@ sealed class EarnItem(
         override val id: String,
         override val timestamp: Long,
         override val amount: BigInteger,
-        override val formattedAmount: String,
+        override val formattedAmount: String
     ) : EarnItem(id, timestamp, amount, formattedAmount) {
         override fun getTitle() = null
         override fun getIcon() = null
         override fun getGradientColors() = null
     }
-
 }

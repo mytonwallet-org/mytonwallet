@@ -5,10 +5,7 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.WalletCore
 
 @JsonClass(generateAdapter = true)
-data class NftCollection(
-    val address: String,
-    val name: String
-) {
+data class NftCollection(val address: String, val name: String) {
     companion object {
         const val TELEGRAM_GIFTS_SUPER_COLLECTION = "super:telegram-gifts"
 

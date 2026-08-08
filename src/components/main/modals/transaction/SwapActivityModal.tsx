@@ -11,14 +11,14 @@ import {
   ANIMATION_LEVEL_MIN,
   CEX_WAITING_DEADLINE,
 } from '../../../../config';
-import { Big } from '../../../../lib/big.js';
 import { resolveSwapAsset } from '../../../../global/helpers';
 import {
   selectCurrentAccount,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
 } from '../../../../global/selectors';
-import { getIsActivityPendingForUser, getShouldSkipSwapWaitingStatus, parseTxId } from '../../../../util/activities';
+import { getIsActivityPendingForUser, getShouldSkipSwapWaitingStatus } from '../../../../util/activities';
+import { getTonAggregatedSwapDetailsTraceId } from '../../../../util/activities/tonDetails';
 import buildClassName from '../../../../util/buildClassName';
 import { getChainTitle, getIsSupportedChain } from '../../../../util/chain';
 import { formatFullDay, formatTime } from '../../../../util/dateFormat';
@@ -28,7 +28,7 @@ import { getCexExternalExchangeId } from '../../../../util/swap/cex';
 import getChainNetworkName from '../../../../util/swap/getChainNetworkName';
 import { getIsInternalSwap, getSwapType } from '../../../../util/swap/getSwapType';
 import { getSwapTransactionIdRows } from '../../../../util/swap/transactionIds';
-import { getChainBySlug, getIsNativeToken } from '../../../../util/tokens';
+import { getChainBySlug } from '../../../../util/tokens';
 import { getExplorerTransactionUrl, getViewTransactionUrl } from '../../../../util/url';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
@@ -108,13 +108,13 @@ function SwapActivityModal({
     id,
     timestamp,
     networkFee = '0',
-    ourFee = '0',
-    ourFeeMode,
     shouldLoadDetails,
-    extra,
   } = renderedActivity ?? {};
   const { payinAddress, payoutAddress, payinExtraId } = renderedActivity?.cex || {};
-  const isAggregatedSwap = Boolean(extra?.mtwAggregator);
+  const aggregatedSwapDetailsTraceId = renderedActivity
+    ? getTonAggregatedSwapDetailsTraceId(renderedActivity)
+    : undefined;
+  const isAggregatedSwap = Boolean(aggregatedSwapDetailsTraceId);
 
   let fromAmount = '0';
   let toAmount = '0';
@@ -241,7 +241,7 @@ function SwapActivityModal({
   const handleViewDetails = useLastCallback(() => {
     if (!renderedActivity) return;
 
-    const traceId = parseTxId(renderedActivity.id).hash;
+    const traceId = aggregatedSwapDetailsTraceId;
     const chain = getChainBySlug(renderedActivity.from);
 
     if (!traceId || !chain) {
@@ -410,12 +410,8 @@ function SwapActivityModal({
       return undefined;
     }
 
-    const isOurFeeIncluded = ourFeeMode === 'included';
-    const terms = getIsNativeToken(renderedActivity?.from) ? {
-      native: isOurFeeIncluded ? networkFee : Big(networkFee).add(ourFee).toString(),
-    } : {
+    const terms = {
       native: networkFee,
-      token: isOurFeeIncluded ? undefined : ourFee,
     };
 
     return (

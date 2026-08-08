@@ -8,6 +8,7 @@ import type {
 } from './types';
 import {
   type ApiCheckTransactionDraftResult,
+  ApiCommonError,
   type ApiNetwork,
   type ApiNft,
   type ApiNftMetadata,
@@ -355,14 +356,14 @@ export async function checkNftTransferDraft(options: {
 
 export async function submitNftTransfers(options: {
   accountId: string;
-  password: string | undefined;
+  enclaveToken: string | undefined;
   nfts: ApiNft[];
   toAddress: string;
   comment?: string;
   isNftBurn?: boolean;
 }): Promise<ApiSubmitNftTransferResult> {
   const {
-    accountId, password = '', nfts, toAddress, comment, isNftBurn,
+    accountId, enclaveToken = '', nfts, toAddress, comment, isNftBurn,
   } = options;
 
   const { network } = parseAccountId(accountId);
@@ -371,7 +372,9 @@ export async function submitNftTransfers(options: {
   if (account.type === 'ledger') throw new Error('Not supported by Ledger accounts');
   if (account.type === 'view') throw new Error('Not supported by View accounts');
 
-  const privateKey = (await fetchPrivateKeyString(accountId, password, account))!;
+  const privateKey = await fetchPrivateKeyString(accountId, enclaveToken, account);
+  if (!privateKey) return { error: ApiCommonError.InvalidPassword };
+
   const signer = getSignerFromPrivateKey(network, privateKey);
 
   const client = getSolanaClient(network);

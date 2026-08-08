@@ -2,6 +2,7 @@ import UIKit
 import UIHome
 import UIAssets
 import UIComponents
+import UISettings
 import WalletCore
 import WalletContext
 import UICreateWallet
@@ -15,6 +16,7 @@ protocol RootContainerRouting {
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter)
     func showExplore()
     func showHome(popToRoot: Bool)
+    func showImportWalletVersion()
     func showSettings(path: [UIViewController])
     func showTemporaryViewAccount(accountId: String)
 }
@@ -22,6 +24,10 @@ protocol RootContainerRouting {
 extension RootContainerRouting {
     @MainActor
     func showTab(_ id: AppTabId, popToRoot: Bool = false) {
+        if let topTabsVC = findActiveViewController(of: TopTabsRootViewController.self),
+           topTabsVC.selectTab(id, popToRoot: popToRoot) {
+            return
+        }
         guard AppTabManager.shared.contains(id) else {
             presentTabModally(id, path: [])
             return
@@ -50,8 +56,14 @@ struct TabRootContainerRouter: RootContainerRouting {
     private var tabVC: HomeTabBarController? {
         findActiveViewController()
     }
+    private var topTabsVC: TopTabsRootViewController? {
+        findActiveViewController()
+    }
 
     func isHomeRootSelected() -> Bool {
+        if let topTabsVC {
+            return topTabsVC.isHomeRootSelected
+        }
         guard let nav = tabVC?.selectedViewController as? UINavigationController else {
             return false
         }
@@ -59,6 +71,12 @@ struct TabRootContainerRouter: RootContainerRouting {
     }
 
     func pushOnHome(_ viewController: UIViewController) -> Bool {
+        if let topTabsVC,
+           topTabsVC.currentTabId == .wallet,
+           let navigationController = topTabsVC.homeVC.navigationController {
+            navigationController.pushViewController(viewController, animated: true)
+            return true
+        }
         guard let nav = tabVC?.selectedViewController as? UINavigationController,
               nav.viewControllers.first is HomeVC else {
             return false
@@ -84,10 +102,22 @@ struct TabRootContainerRouter: RootContainerRouting {
     }
 
     func showHome(popToRoot: Bool) {
-        tabVC?.switchToHome(popToRoot: popToRoot)
+        if let topTabsVC {
+            topTabsVC.switchToHome(popToRoot: popToRoot)
+        } else {
+            tabVC?.switchToHome(popToRoot: popToRoot)
+        }
+    }
+
+    func showImportWalletVersion() {
+        showSettings(path: [WalletVersionsVC()])
     }
 
     func showSettings(path: [UIViewController]) {
+        if let topTabsVC {
+            topTabsVC.switchToSettings(path: path)
+            return
+        }
         if AppTabManager.shared.contains(.settings) {
             tabVC?.switchToSettings(path: path)
         } else {
@@ -101,11 +131,25 @@ struct TabRootContainerRouter: RootContainerRouting {
     }
 
     func showTemporaryViewAccount(accountId: String) {
-        if let rootVC = tabVC?.view.window?.rootViewController, rootVC.presentedViewController != nil {
+        let rootContainer = (topTabsVC as UIViewController?) ?? tabVC
+        if let rootVC = rootContainer?.view.window?.rootViewController, rootVC.presentedViewController != nil {
             rootVC.dismiss(animated: true)
         }
         showTab(.wallet)
-        tabVC?.homeVC?.navigationController?.pushViewController(HomeVC(accountSource: .accountId(accountId)), animated: true)
+        if let topTabsVC {
+            topTabsVC.homeVC.navigationController?.pushViewController(
+                HomeVC(
+                    accountSource: .accountId(accountId),
+                    rootNavigationStyle: .topTabsNavigationBar
+                ),
+                animated: true
+            )
+        } else {
+            tabVC?.homeVC?.navigationController?.pushViewController(
+                HomeVC(accountSource: .accountId(accountId)),
+                animated: true
+            )
+        }
     }
 }
 
@@ -156,6 +200,10 @@ struct SplitRootContainerRouter: RootContainerRouting {
         } else {
             showTab(.wallet, popToRoot: popToRoot)
         }
+    }
+
+    func showImportWalletVersion() {
+        showSettings(path: [WalletVersionsVC()])
     }
 
     func showSettings(path: [UIViewController]) {

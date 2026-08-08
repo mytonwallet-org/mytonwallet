@@ -44,7 +44,7 @@
       @include mixins.separator-list-base('bottom', 3.875rem);
 
       @include mixins.is-mobile() {
-        left: 4rem;
+        inset-inline-start: 4rem;
       }
     }
   }

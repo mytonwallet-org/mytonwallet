@@ -10,29 +10,27 @@ class HighlightGradientBackgroundDrawable(
     isHighlighted: Boolean,
     cornerRadius: Float = 8f.dp,
     reversedColors: Boolean = false
-) :
-    GradientDrawable() {
+) : GradientDrawable() {
 
     init {
         shape = RECTANGLE
         this.cornerRadius = cornerRadius
         colors =
-            if (isHighlighted)
+            if (isHighlighted) {
                 intArrayOf(
                     WColor.EarnGradientLeft.color.colorWithAlpha(229),
                     WColor.EarnGradientRight.color.colorWithAlpha(229)
                 ).apply {
-                    if (reversedColors)
-                        reversed()
+                    if (reversedColors) reversed()
                 }
-            else
+            } else {
                 intArrayOf(
                     WColor.EarnGradientLeft.color.colorWithAlpha(38),
                     WColor.EarnGradientRight.color.colorWithAlpha(38)
                 ).apply {
-                    if (reversedColors)
-                        reversed()
+                    if (reversedColors) reversed()
                 }
+            }
         orientation = Orientation.LEFT_RIGHT
     }
 }

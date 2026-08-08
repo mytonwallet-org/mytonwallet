@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
@@ -10,20 +9,22 @@ import android.util.TypedValue
 import android.view.Gravity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.withSave
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.roundToInt
 
-open class SwapSearchEditText @JvmOverloads constructor(
+open class WSearchEditText @JvmOverloads constructor(
     context: Context,
     delegate: Delegate? = null,
-    multilinePaste: Boolean = true,
-) : WFloatingHintEditText(context, delegate, multilinePaste), WThemedView {
+    multilinePaste: Boolean = true
+) : WFloatingHintEditText(context, delegate, multilinePaste),
+    WThemedView {
 
     private var viewPropertiesStateSet: ViewPropertiesStateSet = ViewPropertiesStateSet()
     private val searchDrawable: Drawable? =
@@ -63,6 +64,7 @@ open class SwapSearchEditText @JvmOverloads constructor(
         typeface = WFont.Regular.typeface
         isSingleLine = true
         isHorizontalFadingEdgeEnabled = true
+        textAlignment = TEXT_ALIGNMENT_VIEW_START
 
         floatingHintGravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
 
@@ -90,24 +92,32 @@ open class SwapSearchEditText @JvmOverloads constructor(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        val x = 12.dp
+        val isRtl = layoutDirection == LAYOUT_DIRECTION_RTL
+        val searchX = if (isRtl) measuredWidth - 12.dp - 24.dp else 12.dp
         val y = measuredHeight / 2 - 12.dp
         searchDrawable?.setBounds(
-            x, y,
-            x + 24.dp,
+            searchX,
+            y,
+            searchX + 24.dp,
             y + 24.dp
         )
-        clearButtonTouchBounds.set(measuredWidth - 48f.dp, 0f, measuredWidth.toFloat(), 48f.dp)
+        if (isRtl) {
+            clearButtonTouchBounds.set(0f, 0f, 48f.dp, 48f.dp)
+        } else {
+            clearButtonTouchBounds.set(measuredWidth - 48f.dp, 0f, measuredWidth.toFloat(), 48f.dp)
+        }
         val left = clearButtonTouchBounds.left.roundToInt() + 12.dp
         val top = clearButtonTouchBounds.top.roundToInt() + 12.dp
 
         clearDrawableCircle?.setBounds(
-            left, top,
+            left,
+            top,
             left + 24.dp,
             top + 24.dp
         )
         clearDrawableCross?.setBounds(
-            left, top,
+            left,
+            top,
             left + 24.dp,
             top + 24.dp
         )
@@ -116,8 +126,10 @@ open class SwapSearchEditText @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val viewPropertiesState = viewPropertiesStateSet.current
+        val isRtl = layoutDirection == LAYOUT_DIRECTION_RTL
         canvas.withSave {
-            val tx = -viewPropertiesState.iconTranslationX * (12 + 24).dp
+            val translationMagnitude = viewPropertiesState.iconTranslationX * (12 + 24).dp
+            val tx = if (isRtl) translationMagnitude else -translationMagnitude
             translate(tx + scrollX.toFloat(), 0f)
             searchDrawable?.apply {
                 alpha = (viewPropertiesState.iconAlpha * 255).roundToInt()
@@ -144,11 +156,12 @@ open class SwapSearchEditText @JvmOverloads constructor(
         setTextColor(WColor.PrimaryText.color)
     }
 
-    fun setTextKeepCursor(newText: String) {
+    fun setTextKeepCursor(newText: CharSequence) {
         val currentSelectionStart = selectionStart
         val currentSelectionEnd = selectionEnd
 
-        setText(newText)
+        clearComposingText()
+        text?.replace(0, length(), newText) ?: setText(newText)
 
         if (currentSelectionStart >= 0 && currentSelectionEnd >= 0) {
             val newLength = text?.length ?: 0
@@ -200,8 +213,8 @@ open class SwapSearchEditText @JvmOverloads constructor(
     }
 
     private fun updateHorizontalPaddings() {
-        val leftPadding = if (isSearchIconFixed) 44 else 16
-        setPaddingDp(leftPadding, 0, 48, 0)
+        val startPadding = if (isSearchIconFixed) 44 else 16
+        setPaddingDpLocalized(startPadding, 0, 48, 0)
     }
 
     private data class ViewPropertiesState(

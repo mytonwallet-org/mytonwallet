@@ -5,7 +5,6 @@
 //  Created by Sina on 5/13/24.
 //
 
-import Combine
 import Foundation
 import SwiftUI
 import UIKit
@@ -14,8 +13,6 @@ import WalletCore
 import WalletContext
 import Perception
 import SwiftNavigation
-
-private let log = Log("AddStakeModel")
 
 @MainActor @Perceptible
 final class AddStakeModel: WalletCoreData.EventsObserver {
@@ -143,10 +140,6 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     var canContinue: Bool {
         !insufficientFunds && (amount ?? 0 > 0)
     }
-    
-    @PerceptionIgnored
-    private var observers: Set<AnyCancellable> = []
-    
     
     // MARK: - View callbacks
     

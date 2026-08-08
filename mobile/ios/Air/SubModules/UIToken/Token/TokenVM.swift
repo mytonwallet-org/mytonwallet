@@ -14,6 +14,7 @@ import WReachability
     func dataUpdated(isUpdateEvent: Bool)
     func priceDataUpdated()
     func stateChanged()
+    func tokenDetailsUpdated()
     func accountChanged()
 }
 
@@ -41,11 +42,20 @@ import WReachability
     var historyData: [[Double]]? { allHistoryData.withLock { [selectedPeriod] in $0[selectedPeriod] ?? nil } }
     private var allHistoryData: UnfairLock<[ApiPriceHistoryPeriod: [[Double]]?]> = .init(initialState: [:])
     private var loadHistoryTask: UnfairLock<[ApiPriceHistoryPeriod: Task<Void, Never>]> = .init(initialState: [:])
+    private var loadTokenDetailsTask: Task<Void, Never>?
+    private var lastRequestedTokenInfoPreset: DebugTokenInfoMock.Preset?
+    private(set) var tokenInfoState: TokenInfoState
     
     init(accountId: String, selectedToken: ApiToken, tokenVMDelegate: TokenVMDelegate) {
         self.accountId = accountId
         self.selectedToken = selectedToken
         self.tokenVMDelegate = tokenVMDelegate
+        if DebugTokenInfoMock.preset == .disabled,
+           let cached = TokenStore.cachedTokenDetails(tokenSlug: selectedToken.slug) {
+            self.tokenInfoState = Self.tokenInfoState(details: cached.details)
+        } else {
+            self.tokenInfoState = .loading
+        }
         
         if let cached = TokenStore.historyData(tokenSlug: selectedToken.slug) {
             self.allHistoryData.withLock { $0 = cached.data }
@@ -71,6 +81,7 @@ import WReachability
     }
     
     func stopAllObservers() {
+        loadTokenDetailsTask?.cancel()
         loadHistoryTask.withLock { tasks in
             for task in tasks.values {
                 task.cancel()
@@ -79,10 +90,57 @@ import WReachability
     }
     
     internal func refreshTransactions() {
-        guard selectedToken.type != .lp_token else {
-            return
+        if selectedToken.type != .lp_token {
+            loadPriceHistory(period: selectedPeriod)
         }
-        loadPriceHistory(period: selectedPeriod)
+        refreshTokenDetails()
+    }
+
+    func refreshTokenDetails() {
+        loadTokenDetailsTask?.cancel()
+        let preset = DebugTokenInfoMock.preset
+        let presetDidChange = preset != lastRequestedTokenInfoPreset
+        lastRequestedTokenInfoPreset = preset
+
+        // Config updates can arrive periodically. Keep the current presentation and expansion
+        // state while refreshing the same source; only a genuinely new preset starts loading.
+        if presetDidChange {
+            if preset == .disabled,
+               let cached = TokenStore.cachedTokenDetails(tokenSlug: selectedToken.slug) {
+                setTokenInfoState(Self.tokenInfoState(details: cached.details))
+            } else {
+                setTokenInfoState(.loading)
+            }
+        }
+        let slug = selectedToken.slug
+        let asset = selectedToken.swapIdentifier
+        loadTokenDetailsTask = Task { [weak self] in
+            do {
+                let details = try await Api.fetchTokenDetails(asset: asset, slug: slug)
+                guard let self, !Task.isCancelled else { return }
+                if preset == .disabled {
+                    TokenStore.setCachedTokenDetails(tokenSlug: slug, details: details)
+                }
+                setTokenInfoState(Self.tokenInfoState(details: details))
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                if preset != .disabled || TokenStore.cachedTokenDetails(tokenSlug: slug) == nil {
+                    setTokenInfoState(.error)
+                }
+            }
+        }
+    }
+
+    private static func tokenInfoState(details: ApiTokenDetails?) -> TokenInfoState {
+        .resolved(details: details)
+    }
+
+    private func setTokenInfoState(_ state: TokenInfoState) {
+        guard tokenInfoState != state else { return }
+        tokenInfoState = state
+        tokenVMDelegate?.tokenDetailsUpdated()
     }
     
     func loadPriceHistory(period: ApiPriceHistoryPeriod) {

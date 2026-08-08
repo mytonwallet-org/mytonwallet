@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -9,6 +8,7 @@ import androidx.constraintlayout.helper.widget.Flow
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -26,16 +26,18 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
 @SuppressLint("ViewConstructor")
-class AppearancePaletteView(
-    context: Context,
-    private val showUnlockButton: Boolean
-) : WView(context), WThemedView {
+class AppearancePaletteView(context: Context, private val showUnlockButton: Boolean) :
+    WView(context),
+    WThemedView {
     var onPaletteSelected:
-        ((
-            accountId: String,
-            nftAccentId: Int?,
-            state: AppearancePaletteItemView.State, nft: ApiNft?
-        ) -> Unit)? = null
+        (
+            (
+                accountId: String,
+                nftAccentId: Int?,
+                state: AppearancePaletteItemView.State,
+                nft: ApiNft?
+            ) -> Unit
+        )? = null
 
     var overrideTintColor: Int? = null
 
@@ -63,7 +65,10 @@ class AppearancePaletteView(
     private val palettesView = WView(context).apply {
         val viewIds = IntArray(NftAccentColors.light.size + 1)
         var paletteItemViews = mutableListOf<AppearancePaletteItemView>()
-        (listOf(null) + (0 until NftAccentColors.light.size).toList()).forEachIndexed { index, nftAccentId ->
+        (listOf(null) + (0 until NftAccentColors.light.size).toList()).forEachIndexed {
+                index,
+                nftAccentId
+            ->
             val itemView =
                 AppearancePaletteItemView(context, nftAccentId, onTap = { nftAccentId, state ->
                     val accountId = accountId ?: return@AppearancePaletteItemView
@@ -135,7 +140,8 @@ class AppearancePaletteView(
         val numberOfItems =
             (width + smallWidthOffset - 40.dp + horizontalGap) / (itemWidth + horizontalGap)
         val additionalSpace =
-            width + smallWidthOffset - 40.dp - numberOfItems * (itemWidth + horizontalGap) + horizontalGap
+            width + smallWidthOffset - 40.dp - numberOfItems * (itemWidth + horizontalGap) +
+                horizontalGap
         flowHelper.setMaxElementsWrap(numberOfItems)
         flowHelper.setHorizontalGap(horizontalGap + additionalSpace / numberOfItems)
         palettesView.post {
@@ -197,7 +203,15 @@ class AppearancePaletteView(
                 val itemIndex = item.nftAccentId
                 val isSelected = itemIndex == selectedIndex
                 val isLocked = itemIndex != null
-                item.configure(if (isLocked) AppearancePaletteItemView.State.LOCKED else if (isSelected) AppearancePaletteItemView.State.SELECTED else AppearancePaletteItemView.State.AVAILABLE)
+                item.configure(
+                    if (isLocked) {
+                        AppearancePaletteItemView.State.LOCKED
+                    } else if (isSelected) {
+                        AppearancePaletteItemView.State.SELECTED
+                    } else {
+                        AppearancePaletteItemView.State.AVAILABLE
+                    }
+                )
             }
             return
         }
@@ -206,7 +220,15 @@ class AppearancePaletteView(
             val isSelected = itemIndex == selectedIndex
             val isLocked =
                 if (itemIndex == null) false else nftsByColorIndex[itemIndex].isNullOrEmpty()
-            item.configure(if (isLocked) AppearancePaletteItemView.State.LOCKED else if (isSelected) AppearancePaletteItemView.State.SELECTED else AppearancePaletteItemView.State.AVAILABLE)
+            item.configure(
+                if (isLocked) {
+                    AppearancePaletteItemView.State.LOCKED
+                } else if (isSelected) {
+                    AppearancePaletteItemView.State.SELECTED
+                } else {
+                    AppearancePaletteItemView.State.AVAILABLE
+                }
+            )
         }
     }
 }

@@ -5,7 +5,7 @@ import type { PortfolioPnlChange } from '../../../global/types';
 
 import buildClassName from '../../../util/buildClassName';
 import {
-  formatCurrency, formatCurrencyExtended, formatPercent, getShortCurrencySymbol,
+  formatCurrency, formatCurrencyExtended, formatSignedPercent, getShortCurrencySymbol,
 } from '../../../util/formatNumber';
 
 import useLang from '../../../hooks/useLang';
@@ -38,7 +38,7 @@ function Balance({ totalAmount, baseCurrency, pnlChange, isPnlChangeUpdating }: 
         <div className={buildClassName(styles.value, isPnlChangeUpdating && 'glare-text')}>
           {hasPnlChange ? (
             <>
-              <span>{formatCurrencyExtended(pnlChange.amount, shortSymbol)}</span>
+              <span className={styles.valueChange}>{formatCurrencyExtended(pnlChange.amount, shortSymbol)}</span>
               {pnlChange.percent !== undefined && (
                 <span
                   className={buildClassName(
@@ -62,8 +62,3 @@ function Balance({ totalAmount, baseCurrency, pnlChange, isPnlChangeUpdating }: 
 }
 
 export default memo(Balance);
-
-function formatSignedPercent(percent: number): string {
-  const sign = percent > 0 ? '+' : percent < 0 ? '−' : '';
-  return `${sign}${formatPercent(Math.abs(percent))}`;
-}

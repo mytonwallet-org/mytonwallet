@@ -12,10 +12,7 @@ data class ApiDappPermissions(
 )
 
 @JsonClass(generateAdapter = true)
-data class ApiDappRequestedChain(
-    val chain: String,
-    val network: String
-)
+data class ApiDappRequestedChain(val chain: String, val network: String)
 
 @JsonClass(generateAdapter = true)
 data class ApiDappConnectionRequest(
@@ -27,9 +24,7 @@ data class ApiDappConnectionRequest(
 )
 
 @JsonClass(generateAdapter = true)
-data class ApiDappDisconnectRequest(
-    val requestId: String
-)
+data class ApiDappDisconnectRequest(val requestId: String)
 
 @JsonClass(generateAdapter = true)
 data class ApiDappTransactionRequest(
@@ -39,11 +34,7 @@ data class ApiDappTransactionRequest(
 )
 
 @JsonClass(generateAdapter = true)
-data class ApiDappSignDataRequest(
-    val id: String,
-    val chain: String,
-    val payload: MSignDataPayload
-)
+data class ApiDappSignDataRequest(val id: String, val chain: String, val payload: MSignDataPayload)
 
 @JsonClass(generateAdapter = true)
 data class ApiDappSessionChain(

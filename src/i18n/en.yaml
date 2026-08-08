@@ -150,7 +150,7 @@ $state_init_invalid: Invalid contract initialization data.
 $signature_warning: Signing custom data is very dangerous. Use it only if you trust the source of it.
 Sign: Sign
 Done!: Done!
-Signing was confirmed!: Signing was confirmed!
+Signing Confirmed: Signing Confirmed
 Activity Details: Activity Details
 No activities found: No activities found
 Comment Copied: Comment Copied
@@ -170,6 +170,7 @@ Assets: Assets
 Activity: Activity
 NFT: NFT
 No NFTs yet: No NFTs yet
+No hidden NFTs.: No hidden NFTs.
 $nft_explore_offer: |
   Explore a marketplace to discover
   existing NFT collections.
@@ -203,7 +204,7 @@ Receiving Address: Receiving Address
 Fee: Fee
 Edit: Edit
 Confirm: Confirm
-Data Signed!: Data Signed!
+Data Signed: Data Signed
 Details: Details
 View details: View details
 Change password visibility: Change password visibility
@@ -218,7 +219,7 @@ No suggestions, you're on your own!: No suggestions, you're on your own!
 Play Sounds: Play Sounds
 Focus on asset value rather than current balance: Focus on asset value rather than current balance
 $logout_confirm: Remove **all** wallets
-$tiny_transfers_help: "Hide transfers worth less than $%value%. Keep in mind: small amounts are often sent by spammers and scammers."
+$tiny_transfers_help: "Hide incoming transfers worth less than $%value%. Keep in mind: small amounts are often sent by spammers and scammers."
 Today: Today
 Total: Total
 Zoom Out: All Time
@@ -245,7 +246,6 @@ $safe_staking_description_jetton2: You can withdraw your stake at **any time** a
 $min_value: Min %value%
 Est. balance in a year: Est. balance in a year
 Confirm Staking: Confirm Staking
-Coins have been staked!: Coins have been staked!
 View: View
 Stake More: Stake More
 Staking: Staking
@@ -258,7 +258,6 @@ $total: "Total: %value%"
 $unstake_asset: Unstake %symbol%
 Amount to unstake: Amount to unstake
 Confirm Unstaking: Confirm Unstaking
-Request for unstaking is sent!: Request for unstaking is sent!
 $unstaking_when_receive: You will receive your unstaked deposit in %time%.
 $unstaking_when_receive_with_amount: You will receive your unstaked %amount% in %time%.
 $unstaking_when_receive_with_amount_ethena: You will be able to receive your unstaked %amount% in %time%.
@@ -273,6 +272,10 @@ Unstaking: Unstaking
 $unstake_action: Unstake
 The network fee has slightly changed, try sending again.: The network fee has slightly changed, try sending again.
 Transfer was unsuccessful. Try again later.: Transfer was unsuccessful. Try again later.
+Action Partially Completed: Action Partially Completed
+$action_partially_completed_description: "Completed %completed% of %total% operations. The remaining operations were not completed. Check your activity before trying again."
+Action Status Unknown: Action Status Unknown
+$action_status_unknown_description: "The completion status could not be verified. Check your activity and balance before retrying; retrying now may submit the action twice."
 Invalid amount: Invalid amount
 Invalid address: Invalid address
 Domain is not connected to a wallet: Domain is not connected to a wallet
@@ -345,6 +348,7 @@ Add Token: Add Token
 Delete Token: Delete Token
 Are you sure you want to delete?: Are you sure you want to delete %token%?
 Hide Tokens With No Cost: Hide Tokens With No Cost
+Localized Token Names: Localized Names
 Sort By Cost: Sort By Cost
 Update %app_name%: Update %app_name%
 Connect Ledger: Connect Ledger
@@ -383,7 +387,6 @@ You sell: You sell
 You buy: You buy
 Swap Details: Swap Details
 Blockchain Fee: Blockchain Fee
-Aggregator Fee: Aggregator Fee
 Included: Included
 Price Impact: Price Impact
 Minimum Received: Minimum Received
@@ -398,7 +401,6 @@ $swap_price_impact_tooltip1: This shows how much your trade might change the tok
 $swap_price_impact_tooltip2: Big trades can make the price go up or down more. Lower is usually better.
 $swap_slippage_tooltip1: This sets how much the price is allowed to change before your swap is processed.
 $swap_slippage_tooltip2: If during the processing of your swap, the price changes more than this value, your order will be canceled.
-Coins have been swapped!: Coins have been swapped!
 Slippage not specified: Slippage not specified
 Slippage too high: Slippage too high
 Not Enough %symbol%: Not Enough %symbol%
@@ -446,12 +448,12 @@ $swap_cex_to_wallet_description: Send %value% to this address in %blockchain% bl
 Exchange failed and coins were refunded to your wallet.: Exchange failed and coins were refunded to your wallet.
 Swap Expired: Swap Expired
 Address for %blockchain% transfer: Address for %blockchain% transfer
-Cross-chain exchange provided by %provider%: Cross-chain exchange provided by %provider%
+Cross-chain exchange provided by %provider%: Cross-chain swap by %provider%
 $swap_cex_terms_of_use: terms of use
 $swap_cex_privacy_policy: privacy policy
 $swap_cex_aml_kyc_policy: AML/KYC
-$swap_cex_legal_message: "By continuing, you agree to the %terms% and %policy%."
-$swap_cex_legal_message_with_aml: By continuing, you agree to the %terms% and %policy% and understand that the transfer may trigger verification according to %aml%.
+$swap_cex_legal_message: "By continuing, you agree to %terms% and %policy%."
+$swap_cex_legal_message_with_aml: By continuing, you agree to %terms% and %policy% and understand that the transaction may trigger verification according to %aml%.
 Password must contain %length% digits.: Password must contain %length% digits.
 Deposit Link: Deposit Link
 $swap_cex_from_wallet_description: "Tokens will be sent to your address in %blockchain% blockchain soon:"
@@ -493,6 +495,15 @@ Scan QR: Scan QR
 Account: Account
 Accounts: Accounts
 Networks: Networks
+Blockchains: Blockchains
+All Chains: All Chains
+"You will still be able to receive and send tokens in hidden chains.": "You will still be able to receive and send tokens in hidden chains."
+"Sort by Value": "Sort by Value"
+"Automatically sort and hide chains based on your portfolio.": "Automatically sort and hide chains based on your portfolio."
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "Hidden chains will still be available to receive and send tokens, but won’t appear in the main list."
+"Move Up": "Move Up"
+"Move Down": "Move Down"
+Tokens: Tokens
 Receive Funds: Receive Funds
 Open the receive screen.: Open the receive screen.
 "Receive with ${applicationName}": Receive with ${applicationName}
@@ -518,8 +529,11 @@ Chinese Yuan: Chinese Yuan
 Bitcoin: Bitcoin
 $max_balance: "Max: %balance%"
 $available_balance: "Available: %balance%"
+$send_recipient_invalid: Invalid
+$send_recipient_not_compatible: Not compatible
 $unstake_information_instantly: You will get your deposit instantly
 Select Token: Select Token
+$token_picker_hidden: Hidden
 MY: My
 Popular: Popular
 Not Found: Not Found
@@ -528,7 +542,6 @@ Wallet is imported!: Wallet is imported!
 Create a code to protect it: Create a code to protect it
 Enter your code again: Enter your code again
 Code set successfully: Code set successfully
-Use Biometrics: Use Biometrics
 Use Touch ID: Use Touch ID
 Use Face ID: Use Face ID
 Connect Touch ID: Connect Touch ID
@@ -623,9 +636,9 @@ Send NFT: Send NFT
 Send Collectible: Send Collectible
 Send Collectibles: Send Collectibles
 $nfts_burned:
-  zeroValue: "%1$d NFTs have been burned!"
-  oneValue: "%1$d NFT has been burned!"
-  otherValue: "%1$d NFTs have been burned!"
+  zeroValue: "Burned %count% NFTs"
+  oneValue: "Burned %count% NFT"
+  otherValue: "Burned %count% NFTs"
 No NFT selected: No NFT selected
 Cannot be sent: Cannot be sent
 NFT is for sale: NFT is for sale
@@ -717,6 +730,14 @@ Install on Desktop: Install on Desktop
 Install on Mobile: Install on Mobile
 Install App: Install App
 Hide: Hide
+Hide and Report: Hide and Report
+Hide and Report NFT: Hide and Report NFT
+Report: Report
+Report NFT: Report NFT
+This NFT will remain hidden on this device and be reported.: This NFT will remain hidden on this device and be reported.
+Only Hide: Only Hide
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.
+This NFT will be permanently hidden on this device and reported.: This NFT will be permanently hidden on this device and reported.
 Hidden NFTs: Hidden NFTs
 Hidden By Me: Hidden By Me
 Probably Scam: Probably Scam
@@ -769,16 +790,8 @@ If away for 10 min: If away for 10 min
 Unlock: Unlock
 This address mimics another address that you previously interacted with.: This address mimics another address that you previously interacted with.
 Biometric authentication failed: Biometric authentication failed
+Authentication is already configured: Authentication is already configured
 Reset biometrics in security settings, or use a passcode.: Reset biometrics in security settings, or use a passcode.
-Best Rate: Best Rate
-via %dex_name%: via %dex_name%
-$swap_dex_chooser_rate_title: Analyzed actual rates on **DeDust** and **STON.fi** to use the **best rate**.
-You will receive %amount% **more**.: You will receive %amount% **more**.
-You will spend %amount% **less**.: You will spend %amount% **less**.
-Best: Best
-Use Best Rate: Use Best Rate
-Switch to %dex_name%: Switch to %dex_name%
-Built-in DEX Aggregator: Built-in DEX Aggregator
 Add Tokens: Add Tokens
 No tokens yet: No tokens yet
 $no_tokens_description: Receive tokens from another wallet, or simply enable preferred tokens in the settings for monitoring.
@@ -791,7 +804,6 @@ Notifications & Sounds: Notifications & Sounds
 Sounds: Sounds
 Push Notifications: Push Notifications
 Select up to %count% wallets for notifications: Select up to %count% wallets for notifications
-$swap_aggregator_fee_tooltip: A built-in **DEX aggregator** finds the **best rate** across available DEXes. Service fee is %percent%.
 Accumulated Rewards: Accumulated Rewards
 $swap_reverse_prohibited: Setting the buy amount is impossible for this pair of tokens
 Blockchain Fee Details: Blockchain Fee Details
@@ -806,7 +818,6 @@ Wallet: Wallet
 Trending: Trending
 No Data: No Data
 Toggle fullscreen: Toggle fullscreen
-Request is sent!: Request is sent!
 Transaction ID: Transaction ID
 Outgoing Transaction ID: Outgoing Transaction ID
 Incoming Transaction ID: Incoming Transaction ID
@@ -819,6 +830,7 @@ $dapp_return_details: |
   %fee_amount% will be immediately debited from your wallet to pay the fee.
 
   %received_amount% will be returned to you within a few minutes.
+$dapp_return_disclaimer: The displayed returned amount is not guaranteed and may be manipulated by malicious dapps. Cancel the operation if you are not sure about the reliability of this service.
 Additional Amount Sent: Additional Amount Sent
 Show Sensitive Data: Show Sensitive Data
 Hide Sensitive Data: Hide Sensitive Data
@@ -826,6 +838,7 @@ Copy Address: Copy Address
 Copy Transaction ID: Copy Transaction ID
 Requesting Unstake: Requesting Unstake
 Requested Unstake: Requested Unstake
+Unstake Requested: Unstake Requested
 $request_unstake_action: Request Unstake
 Calling Contract: Calling Contract
 Called Contract: Called Contract
@@ -927,7 +940,6 @@ $safe_staking_ethena_description3: You can **withdraw** your stake with rewards 
 Unstake %amount%: Unstake %amount%
 Request Unstaking: Request Unstaking
 $unstaking_when_receive_ethena: You will be able to receive your unstaked deposit in **7 days**.
-Coins have been unstaked!: Coins have been unstaked!
 Confirm Upgrading: Confirm Upgrading
 How does it work?: How does it work?
 Multisend: Multisend
@@ -959,8 +971,8 @@ Configure DNS: Configure DNS
 Link to Wallet: Link to Wallet
 Change Wallet: Change Wallet
 Change Linked Wallet: Change Linked Wallet
-Domain has been renewed!: Domain has been renewed!
-Domains have been renewed!: Domains have been renewed!
+Domain Renewed: Domain Renewed
+Domains Renewed: Domains Renewed
 Linked Wallet: Linked Wallet
 Domain Linked: Domain Linked
 Link: Link
@@ -1014,6 +1026,21 @@ $storage_cleared_message: |
   Your wallet data has been cleared due to browser-related or disk space issues. Please log out from all wallets and then re-import them manually using your secret words.
 
   If you need assistance, please contact %support_link%.
+$enclave_migration_damaged_title: Wallet Data Damaged
+$enclave_migration_damaged_message: |
+  This is not a password problem. The stored data of one of your wallets cannot be read, so the update stopped and your other wallets stayed on the previous format.
+
+  Do not reinstall the app and do not clear its data: that would erase the wallets that are still intact. Please contact %support_link% and we will help you recover them.
+$enclave_migration_interrupted_title: Update Was Interrupted
+$enclave_migration_interrupted_message: |
+  An earlier attempt to update your wallet data stopped halfway, and it cannot be resumed from this screen. Trying again here will not help.
+
+  Do not reinstall the app and do not clear its data: your wallets are still stored on this device. Please contact %support_link% and we will help you finish the update.
+$enclave_migration_storage_title: Unable to Save Wallet Data
+$enclave_migration_storage_message: |
+  The updated wallet data could not be saved on this device. Freeing up some disk space may help.
+
+  Do not reinstall the app and do not clear its data: your wallets are still stored on it. Please contact %support_link% if this keeps happening.
 Telegram Gifts: Telegram Gifts
 Collectibles: Collectibles
 Bluetooth unavailable: Bluetooth unavailable
@@ -1120,6 +1147,7 @@ $invalid_address_format: Invalid address format
 $no_valid_view_addresses: No valid addresses to view
 Account Saved: Account Saved
 Share Wallet Link: Share Wallet Link
+Address: Address
 Remove: Remove
 $missing_offramp_deposit_address: Missing deposit address for off-ramp.
 Buy: Buy
@@ -1128,6 +1156,7 @@ Sell on Card: Sell on Card
 Sell %symbol%: Sell %symbol%
 $connect_dapp_description: Connected apps can only see your wallet address and will not be able to move your assets without permission.
 $connect_dapp_title: Connect to %name%?
+$connect_dapp_no_compatible_wallets_found: This connection requires a multichain wallet. Your current wallet is TON-only, and you have no other multichain wallets. Use the button below to create a new multichain wallet.
 Choose Wallet: Choose Wallet
 Wallet to use on %host%: Wallet to use on %host%
 Selected Wallet: Selected Wallet
@@ -1135,6 +1164,8 @@ Wallet to use for payment: Wallet to use for payment
 $wallet_connect_pay_no_options: No payment options available for this wallet.
 $wallet_connect_pay_try_another_wallet: Try selecting another wallet.
 Connect Wallet: Connect Wallet
+Create Multichain Wallet: Create Multichain Wallet
+Select multichain wallet: Select multichain wallet
 Connect Anyway: Connect Anyway
 Insufficient Fee: Insufficient Fee
 Waiting for a View deeplink to display a wallet address.: Waiting for a View deeplink to display a wallet address.
@@ -1143,6 +1174,11 @@ $explorer_mode_warning: "Explorer mode: waiting for a View deeplink to open an a
 This command is not supported in explorer mode: This command is not supported in explorer mode
 $saved_addresses_header: Saved
 confirm an action in My Wallet: confirm an action in My Wallet
+Migration was rolled back: Migration was rolled back
+Rollback Enclave Migration: Rollback Enclave Migration
+Unable to migrate wallet data. Please contact support.: Unable to migrate wallet data. Please contact support.
+Failed to retrieve password from biometrics: Failed to retrieve password from biometrics
+Migration failed. Please try again.: Migration failed. Please try again.
 Timed out waiting for account to be ready: Timed out waiting for account to be ready
 $connected_apps:
   otherValue: "%1$d connected"
@@ -1181,7 +1217,6 @@ Transfer Info: Transfer Info
 Transfer not found: Transfer not found
 Failed to fetch transfer: Failed to fetch transfer
 Transfer in progress: Transfer in progress
-Transfer Sent!: Transfer Sent!
 Please confirm transfer on your Ledger: Please confirm transfer on your Ledger
 Please confirm action on your Ledger: Please confirm action on your Ledger
 Not all transfers were sent successfully: Not all transfers were sent successfully
@@ -1233,6 +1268,15 @@ Enabling biometric confirmation will reset the passcode.: Enabling biometric con
 Confirm action with your passcode: Confirm action with your passcode
 No Image: No Image
 Different blockchain. Cannot be selected: Different blockchain. Cannot be selected
+Chains: Chains
+enclave_use_biometrics: Use Biometrics
+Copy Storage Data: Copy Storage Data
+Rollback Migration: Rollback Migration
+Enclave session expired: Enclave session expired
+Failed to setup auth: Failed to setup auth
+Failed to setup biometric auth: Failed to setup biometric auth
+No enclave session token available: No enclave session token available
+Missing authorization: Missing authorization
 $address_suggestion_no_chain: No %chain%
 Subwallets: Subwallets
 Other addresses for this wallet: Other addresses for this wallet
@@ -1263,7 +1307,6 @@ Show All Assets: Show All Assets
 Show All Collectibles: Show All Collectibles
 Show All %collection_name%: Show All %collection_name%
 Scanning for subwallets...: Scanning for subwallets...
-This process may take up to a minute. Please wait.: This process may take up to a minute. Please wait.
 Your assets on other TON contracts: Your assets on other TON contracts
 No existing subwallets found: No existing subwallets found
 You can create a new subwallet if you need another address on the same secret words.: You can create a new subwallet if you need another address on the same secret words.
@@ -1579,6 +1622,11 @@ $web_permission_location: location
 $web_permission_device_features: device features
 $web_permission_this_site: this site
 
+$enclave_use_biometrics: Use Biometrics
+$enclave_enter_passcode_or_use_biometrics: Enter passcode or use fingerprint
+$enclave_use_pin: Use Pin
+$enclave_cancel: Cancel
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Sent %amount% %symbol%
 push_activity_token_received: Received %amount% %symbol%
@@ -1604,23 +1652,31 @@ push_activity_dns_renewed: Renewed DNS
 push_activity_subscription_started: Started subscription
 push_activity_subscription_payment_received: Received subscription payment %amount% %symbol%
 push_activity_subscription_canceled: Canceled subscription
-push_activity_swap_completed: Swapped %from_symbol% -> %to_symbol%
-push_activity_swap_failed: Swap %from_symbol% -> %to_symbol% failed
-push_activity_swap_expired: Swap %from_symbol% -> %to_symbol% expired
-push_activity_swap_pending: Swap %from_symbol% -> %to_symbol% %status%
+push_activity_swap_completed: Swapped %from_symbol% → %to_symbol%
+push_activity_swap_failed: Swap %from_symbol% → %to_symbol% failed
+push_activity_swap_expired: Swap %from_symbol% → %to_symbol% expired
+push_activity_swap_pending: Swap %from_symbol% → %to_symbol% %status%
 push_activity_staking_profit: Staking profit %amount% GRAM
 push_activity_staking_loyalty_profit: Staking loyalty profit %amount% GRAM
 push_domain_title_renew: Renew your domain
 push_domain_expired_yesterday: Your domain %domain% expired yesterday. Please renew it as soon as possible to avoid losing access
 push_domain_expired_days_ago: Your domain %domain% expired %days% days ago. Please renew it as soon as possible to avoid losing access
+push_domain_expired_days_ago_number:
+  zeroValue: Your domain %domain% expired %days% days ago. Please renew it as soon as possible to avoid losing access
+  oneValue: Your domain %domain% expired %days% day ago. Please renew it as soon as possible to avoid losing access
+  otherValue: Your domain %domain% expired %days% days ago. Please renew it as soon as possible to avoid losing access
 push_domain_expires_today: Your domain %domain% will expire today. Please renew it to avoid losing access
 push_domain_expires_tomorrow: Your domain %domain% will expire tomorrow. Please renew it to avoid losing access
 push_domain_expires_in_days: Your domain %domain% will expire in %days% days. Please renew it to avoid losing access
+push_domain_expires_in_days_number:
+  zeroValue: Your domain %domain% will expire in %days% days. Please renew it to avoid losing access
+  oneValue: Your domain %domain% will expire in %days% day. Please renew it to avoid losing access
+  otherValue: Your domain %domain% will expire in %days% days. Please renew it to avoid losing access
 
 $more_nfts:
   zeroValue: No NFTs
   oneValue: "+1 NFT"
-  otherValue: "+%1$d NFTs"
+  otherValue: "+%count% NFTs"
 
 $subwallets_hint: Use subwallets to get additional addresses without creating a new set of secret words.
 $subwallets_created_wallets: If you have previously created subwallets, they will appear in the list below.
@@ -1637,18 +1693,65 @@ P&L Change: P&L Change
 Choose Token: Choose Token
 You don't have any eligible tokens for this payment: You don't have any eligible tokens for this payment
 Buy, swap, or receive a supported token to continue.: Buy, swap, or receive a supported token to continue.
+Copy Wallet Link: Copy Wallet Link
 Are you sure you want to cancel the payment?: Are you sure you want to cancel the payment?
 Cancel Payment: Cancel Payment
-Paid!: Paid!
+Paid: Paid
 Payment: Payment
-Sent!: Sent!
 $chart_months_short: Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec
 $chart_week_days: Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday
 $chart_week_days_short: Sun,Mon,Tue,Wed,Thu,Fri,Sat
-Select multichain wallet: Select multichain wallet
 Unsupported Chain: Unsupported Chain
 Please upgrade to multichain to use this app.: Please upgrade to multichain to use this app.
+Rounded Corners: Rounded Corners
+Enable Blur: Enable Blur
+App Font: App Font
+Rounded Balance Font: Rounded Balance Font
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: Selling to card is not supported in Testnet.
+Selling to card is not supported for this account.: Selling to card is not supported for this account.
 Deprecated Website: Deprecated Website
-This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.: This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.
+This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.: This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.
 download the app: download the app
 Open %new_domain%: Open %new_domain%
+"Why is %tokenName% %direction% %timeframe%?": "Why is %tokenName% %direction% %timeframe%?"
+up: up
+down: down
+today: today
+this week: this week
+this month: this month
+Info: Info
+Market: Market
+Market Cap: Market Cap
+Created: Created
+Expanded: Expanded
+Collapsed: Collapsed
+Circulating / Total Supply: Circulating / Total Supply
+Circulating Supply: Circulating Supply
+Total Supply: Total Supply
+Volume · 24h: Volume · 24h
+Token Info Mock: Token Info Mock
+Design: Design
+Localized Description: Localized Description
+Long / Sparse: Long / Sparse
+Loading: Loading
+Missing Description: Missing Description
+Missing Token Info: Missing Token Info
+Website: Website
+Documentation: Documentation
+Source Code: Source Code
+Translated from English: Translated from English
+Show Original: Show Original
+Show Translation: Show Translation
+Original Text: Original Text
+$token_info_market_cap_hint: The total market value of the token's circulating supply.
+$token_info_supply_hint: The number of tokens currently in circulation compared with the total supply.
+$token_info_volume_hint: The total value traded during the last 24 hours.
+$token_info_expand_hint: Expands token information.
+$token_info_collapse_hint: Collapses token information.
+$token_info_open_in_browser_hint: Opens in browser.
+$token_info_fallback_description: No public information available
+$token_info_no_description: No description available
+$swap_cex_aml_kyc_policy_with_provider: "%provider% AML/KYC"
+Hide Unverified NFTs: Hide Unverified NFTs
+Unverified: Unverified

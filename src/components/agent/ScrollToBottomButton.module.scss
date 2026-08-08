@@ -5,8 +5,8 @@
 
   position: absolute;
   z-index: 2;
-  right: 1rem;
   bottom: calc(4.5rem + var(--bottombar-height));
+  inset-inline-end: 1rem;
 
   display: flex;
   align-items: center;

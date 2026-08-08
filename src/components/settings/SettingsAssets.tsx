@@ -3,19 +3,23 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../api/types';
+import type { ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../api/types';
 import { SettingsState, type UserToken } from '../../global/types';
 
 import { CURRENCIES, TINY_TRANSFER_MAX_COST } from '../../config';
 import {
   selectAccountStakingStates,
+  selectCurrentAccountChainDisplay,
   selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
+  selectHasLocalizedTokenNames,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainTitle } from '../../util/chain';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
+import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -31,6 +35,8 @@ import SettingsTokens from './SettingsTokens';
 
 import styles from './Settings.module.scss';
 
+const MAX_STACKED_CHAINS = 10;
+
 interface OwnProps {
   isActive?: boolean;
   onBackClick: NoneToVoidFunction;
@@ -39,12 +45,17 @@ interface OwnProps {
 interface StateProps {
   isInvestorViewEnabled?: boolean;
   areTinyTransfersHidden?: boolean;
+  areUnverifiedNftsHidden?: boolean;
   areTokensWithNoCostHidden?: boolean;
+  areTokenNamesLocalized?: boolean;
+  hasLocalizedTokenNames?: boolean;
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
   tokens?: UserToken[];
   pinnedSlugs?: string[];
   alwaysHiddenSlugs?: string[];
+  accountChainCount: number;
+  visibleChains: ApiChain[];
   nftsByAddress?: Record<string, ApiNft>;
   blacklistedNftAddresses: string[];
   whitelistedNftAddresses: string[];
@@ -57,11 +68,16 @@ function SettingsAssets({
   isInvestorViewEnabled,
   isSensitiveDataHidden,
   areTinyTransfersHidden,
+  areUnverifiedNftsHidden,
   areTokensWithNoCostHidden,
+  areTokenNamesLocalized,
+  hasLocalizedTokenNames,
   baseCurrency,
   tokens,
   pinnedSlugs,
   alwaysHiddenSlugs = MEMO_EMPTY_ARRAY,
+  accountChainCount,
+  visibleChains,
   nftsByAddress,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
@@ -71,6 +87,8 @@ function SettingsAssets({
 }: OwnProps & StateProps) {
   const {
     toggleTinyTransfersHidden,
+    toggleUnverifiedNftsHidden,
+    toggleLocalizedTokenNames,
     toggleInvestorView,
     toggleTokensWithNoCost,
     changeBaseCurrency,
@@ -106,6 +124,14 @@ function SettingsAssets({
     toggleTinyTransfersHidden({ isEnabled: !areTinyTransfersHidden });
   });
 
+  const handleUnverifiedNftsHiddenToggle = useLastCallback(() => {
+    toggleUnverifiedNftsHidden({ isEnabled: !areUnverifiedNftsHidden });
+  });
+
+  const handleLocalizedTokenNamesToggle = useLastCallback(() => {
+    toggleLocalizedTokenNames({ isEnabled: !areTokenNamesLocalized });
+  });
+
   const handleInvestorViewToggle = useLastCallback(() => {
     toggleInvestorView({ isEnabled: !isInvestorViewEnabled });
   });
@@ -113,6 +139,19 @@ function SettingsAssets({
   const handleOpenHiddenNfts = useLastCallback(() => {
     setSettingsState({ state: SettingsState.HiddenNfts });
   });
+
+  const handleOpenChains = useLastCallback(() => {
+    setSettingsState({ state: SettingsState.Chains });
+  });
+
+  // Collapse into the badge only when it hides at least two chains
+  const { stackedChains, collapsedChainCount } = useMemo(() => {
+    const stacked = visibleChains.length > MAX_STACKED_CHAINS + 1
+      ? visibleChains.slice(0, MAX_STACKED_CHAINS)
+      : visibleChains;
+
+    return { stackedChains: stacked, collapsedChainCount: visibleChains.length - stacked.length };
+  }, [visibleChains]);
 
   const handleTokensWithNoPriceToggle = useLastCallback(() => {
     toggleTokensWithNoCost({ isEnabled: !areTokensWithNoCostHidden });
@@ -132,16 +171,19 @@ function SettingsAssets({
     const nfts = Object.values(nftsByAddress || {});
     const blacklistedAddressesSet = new Set(blacklistedNftAddresses);
     const whitelistedAddressesSet = new Set(whitelistedNftAddresses);
-    const shouldRender = nfts.some((nft) => blacklistedAddressesSet.has(nft.address) || nft.isHidden);
+    const getIsHideable = (nft: ApiNft) => blacklistedAddressesSet.has(nft.address)
+      || nft.isHidden
+      || (areUnverifiedNftsHidden && nft.isUnverified);
+    const shouldRender = nfts.some(getIsHideable);
     const hiddenNfts = nfts.filter(
-      (nft) => !whitelistedAddressesSet.has(nft.address) && (blacklistedAddressesSet.has(nft.address) || nft.isHidden),
+      (nft) => !whitelistedAddressesSet.has(nft.address) && getIsHideable(nft),
     );
 
     return {
       shouldRenderHiddenNftsSection: shouldRender,
       hiddenNftsCount: hiddenNfts.length,
     };
-  }, [nftsByAddress, blacklistedNftAddresses, whitelistedNftAddresses]);
+  }, [nftsByAddress, blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden]);
 
   return (
     <div className={styles.slide}>
@@ -201,6 +243,15 @@ function SettingsAssets({
               checked={areTinyTransfersHidden}
             />
           </div>
+          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleUnverifiedNftsHiddenToggle}>
+            <span className={styles.itemTitle}>{lang('Hide Unverified NFTs')}</span>
+
+            <Switcher
+              className={styles.menuSwitcher}
+              label={lang('Hide Unverified NFTs')}
+              checked={areUnverifiedNftsHidden}
+            />
+          </div>
         </div>
         {
           shouldRenderHiddenNftsSection && (
@@ -215,6 +266,31 @@ function SettingsAssets({
             </div>
           )
         }
+        {accountChainCount > 1 && (
+          <>
+            <p className={styles.blockTitle}>{lang('Blockchains')}</p>
+            <div className={styles.settingsBlock}>
+              <div className={buildClassName(styles.item, styles.item_small)} onClick={handleOpenChains}>
+                <div className={styles.chainIconList}>
+                  {stackedChains.map((chain) => (
+                    <img
+                      key={chain}
+                      src={getChainNetworkIcon(chain)}
+                      alt={getChainTitle(chain)}
+                      className={styles.stackedChainIcon}
+                    />
+                  ))}
+                  {collapsedChainCount > 0 && (
+                    <span className={styles.stackedChainMore}>
+                      +{collapsedChainCount}
+                    </span>
+                  )}
+                </div>
+                <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+              </div>
+            </div>
+          </>
+        )}
         <p className={styles.blockTitle}>{lang('Token Settings')}</p>
         <div className={styles.settingsBlock}>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleTokensWithNoPriceToggle}>
@@ -239,11 +315,23 @@ function SettingsAssets({
               checked={areTokensWithNoCostHidden}
             />
           </div>
+          {hasLocalizedTokenNames && (
+            <div className={buildClassName(styles.item, styles.item_small)} onClick={handleLocalizedTokenNamesToggle}>
+              <span className={styles.itemTitle}>{lang('Localized Token Names')}</span>
+
+              <Switcher
+                className={styles.menuSwitcher}
+                label={lang('Localized Token Names')}
+                checked={areTokenNamesLocalized}
+              />
+            </div>
+          )}
         </div>
 
         <SettingsTokens
           isActive={isActive}
           isSensitiveDataHidden={isSensitiveDataHidden}
+          areTokenNamesLocalized={areTokenNamesLocalized}
           tokens={tokensWithStaking}
           pinnedSlugs={pinnedSlugs}
           baseCurrency={baseCurrency}
@@ -257,12 +345,15 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const {
     isInvestorViewEnabled,
     areTinyTransfersHidden,
+    areUnverifiedNftsHidden,
     areTokensWithNoCostHidden,
+    areTokenNamesLocalized,
     baseCurrency,
     isSensitiveDataHidden,
   } = global.settings;
 
   const { pinnedSlugs, alwaysHiddenSlugs } = selectCurrentAccountSettings(global) ?? {};
+  const { defaultOrder, visibleChains } = selectCurrentAccountChainDisplay(global) ?? {};
 
   const currentAccountId = selectCurrentAccountId(global);
   const {
@@ -276,11 +367,16 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
     isInvestorViewEnabled,
     areTinyTransfersHidden,
+    areUnverifiedNftsHidden,
     areTokensWithNoCostHidden,
+    areTokenNamesLocalized,
+    hasLocalizedTokenNames: selectHasLocalizedTokenNames(global),
     baseCurrency,
     tokens: selectCurrentAccountTokens(global),
     pinnedSlugs,
     alwaysHiddenSlugs,
+    accountChainCount: defaultOrder?.length ?? 0,
+    visibleChains: visibleChains ?? MEMO_EMPTY_ARRAY,
     nftsByAddress,
     blacklistedNftAddresses,
     whitelistedNftAddresses,

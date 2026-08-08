@@ -40,7 +40,6 @@ enum class MHistoryTimePeriod(val value: String) {
             DAY
         )
 
-        fun fromValue(value: String?): MHistoryTimePeriod? =
-            allPeriods.find { it.value == value }
+        fun fromValue(value: String?): MHistoryTimePeriod? = allPeriods.find { it.value == value }
     }
 }

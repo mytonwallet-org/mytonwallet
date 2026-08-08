@@ -7,6 +7,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -14,15 +15,13 @@ import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class ExploreConnectedCell(
     context: Context,
     val dAppPressed: (it: ApiDapp?) -> Unit,
     val configurePressed: () -> Unit
-) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WThemedView {
 
@@ -74,45 +73,36 @@ class ExploreConnectedCell(
             return connectedApps.size > MAX_DAPPS_IN_SMALL_VIEW
         }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 2
+
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        0 -> connectedApps.size
+        else -> 1
     }
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            0 -> connectedApps.size
-            else -> 1
-        }
-    }
-
-    override fun recyclerViewCellType(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): Type {
-        return if (indexPath.section == 0 || showLargeConnectedApps)
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): Type =
+        if (indexPath.section == 0 || showLargeConnectedApps) {
             if (showLargeConnectedApps) LARGE_CONNECTED_CELL else SMALL_CONNECTED_CELL
-        else
+        } else {
             CONFIGURE_CELL
-    }
+        }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: Type): WCell {
-        return when (cellType) {
-            SMALL_CONNECTED_CELL -> {
-                ExploreConnectedItemCell(context) {
-                    dAppPressed(it)
-                }
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: Type): WCell = when (cellType) {
+        SMALL_CONNECTED_CELL -> {
+            ExploreConnectedItemCell(context) {
+                dAppPressed(it)
             }
+        }
 
-            LARGE_CONNECTED_CELL -> {
-                ExploreLargeConnectedItemCell(context, 72.dp) {
-                    dAppPressed(it)
-                }
+        LARGE_CONNECTED_CELL -> {
+            ExploreLargeConnectedItemCell(context, 72.dp) {
+                dAppPressed(it)
             }
+        }
 
-            else -> {
-                ExploreConfigureCell(context) {
-                    configurePressed()
-                }
+        else -> {
+            ExploreConfigureCell(context) {
+                configurePressed()
             }
         }
     }
@@ -124,11 +114,21 @@ class ExploreConnectedCell(
     ) {
         when (cellHolder.cell) {
             is ExploreConnectedItemCell -> {
-                (cellHolder.cell as ExploreConnectedItemCell).configure(connectedApps[indexPath.row])
+                (cellHolder.cell as ExploreConnectedItemCell).configure(
+                    connectedApps[indexPath.row]
+                )
             }
 
             is ExploreLargeConnectedItemCell -> {
-                (cellHolder.cell as ExploreLargeConnectedItemCell).configure(if (indexPath.section == 0) connectedApps[indexPath.row] else null)
+                (cellHolder.cell as ExploreLargeConnectedItemCell).configure(
+                    if (indexPath.section ==
+                        0
+                    ) {
+                        connectedApps[indexPath.row]
+                    } else {
+                        null
+                    }
+                )
             }
 
             is ExploreConfigureCell -> {
@@ -136,5 +136,4 @@ class ExploreConnectedCell(
             }
         }
     }
-
 }

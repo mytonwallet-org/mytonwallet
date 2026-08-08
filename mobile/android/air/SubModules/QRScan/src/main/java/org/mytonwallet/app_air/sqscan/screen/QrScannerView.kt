@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.sqscan.screen
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -33,7 +32,10 @@ import androidx.lifecycle.LifecycleOwner
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.mlkit.vision.common.InputImage
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import kotlin.math.max
+import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.util.ClickHelper
@@ -46,12 +48,9 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setOnClickListener
 import org.mytonwallet.app_air.uicomponents.extensions.setView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 class QrScannerView @JvmOverloads constructor(
     context: Context,
@@ -72,14 +71,11 @@ class QrScannerView @JvmOverloads constructor(
             backgroundColor = QrScannerToggleFlashlight.BACKGROUND_DARK
             rippleColor = 0x10FFFFFF
         }
-
     }
 
     private val previewView = PreviewView(context)
     private val previewClickHelper = ClickHelper(object : ClickHelper.Delegate {
-        override fun needClickAt(view: View?, x: Float, y: Float): Boolean {
-            return true
-        }
+        override fun needClickAt(view: View?, x: Float, y: Float): Boolean = true
 
         override fun onClickAt(view: View?, x: Float, y: Float) {
             previewCamera?.cameraControl?.let {
@@ -128,10 +124,11 @@ class QrScannerView @JvmOverloads constructor(
         }
     private val qrCodeRect = RectF()
 
-
     private var validatedQrCode: String? = null
 
     init {
+        layoutDirection =
+            if (LocaleController.isRTL) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
         previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         previewView.setOnTouchListener(previewClickHelper::onTouchEvent)
 
@@ -146,11 +143,15 @@ class QrScannerView @JvmOverloads constructor(
                 leftMargin = 56.dp
                 topMargin = 20.dp
                 rightMargin = 56.dp
-            })
-        addView(closeButtonView, LayoutParams(30.dp, 30.dp, Gravity.TOP or Gravity.RIGHT).apply {
-            rightMargin = 16.dp
-            topMargin = 16.dp
-        })
+            }
+        )
+        addView(
+            closeButtonView,
+            LayoutParams(30.dp, 30.dp, Gravity.TOP or Gravity.END).apply {
+                marginEnd = 16.dp
+                topMargin = 16.dp
+            }
+        )
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -287,7 +288,6 @@ class QrScannerView @JvmOverloads constructor(
         outlinePath.lineTo(l, b - side)
     }
 
-
     /* Lifecycle */
 
     private val cameraProviderFuture by lazy { ProcessCameraProvider.getInstance(context) }
@@ -314,13 +314,10 @@ class QrScannerView @JvmOverloads constructor(
     }
 
     private fun createScannerBackend(): QrScannerBackend {
-        // mytonwallet ships the bundled MlKit model in-APK, so it works without GMS.
-        // Gram uses the thin-client and needs GMS to download the model — fall back to ZXing
-        // on no-GMS devices (e.g. recent Huawei) until the model is available.
-        if (!ApplicationContextHolder.isGramApp) return MlKitBackend()
         val gmsAvailable = GoogleApiAvailability.getInstance()
             .isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
-        return if (gmsAvailable) MlKitBackend() else ZXingBackend()
+        if (!gmsAvailable) return ZXingBackend()
+        return ChainedBackend(MlKitBackend(), ZXingBackend())
     }
 
     fun init(lifecycleOwner: LifecycleOwner, listener: QrScannerListener) {
@@ -396,7 +393,6 @@ class QrScannerView @JvmOverloads constructor(
         }
     }
 
-
     /* Scan */
 
     @OptIn(ExperimentalGetImage::class)
@@ -411,15 +407,14 @@ class QrScannerView @JvmOverloads constructor(
             image,
             onResult = { processBarcodes(image, it) },
             onError = {},
-            onComplete = { imageProxy.close() },
+            onComplete = { imageProxy.close() }
         )
     }
 
     private fun processBarcodes(image: InputImage, barcodes: List<DecodedBarcode>) {
-        val imageWidth =
-            if (image.rotationDegrees == 0 || image.rotationDegrees == 180) image.width else image.height
-        val imageHeight =
-            if (image.rotationDegrees == 0 || image.rotationDegrees == 180) image.height else image.width
+        val keepsDimensions = image.rotationDegrees == 0 || image.rotationDegrees == 180
+        val imageWidth = if (keepsDimensions) image.width else image.height
+        val imageHeight = if (keepsDimensions) image.height else image.width
 
         for (barcode in barcodes) {
             val qrCode = barcode.displayValue
@@ -467,7 +462,6 @@ class QrScannerView @JvmOverloads constructor(
         val isEnabled = flashlightView.toggle()
         previewCamera?.cameraControl?.enableTorch(isEnabled)
     }
-
 
     companion object {
         private const val TAG = "QRScannerView"

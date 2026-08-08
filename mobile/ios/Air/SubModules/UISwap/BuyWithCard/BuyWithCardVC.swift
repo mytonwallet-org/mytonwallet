@@ -19,8 +19,13 @@ public class BuyWithCardVC: WViewController {
     let model: BuyWithCardModel
     var observer: ObserveToken?
     
-    public init(accountContext: AccountContext, chain: ApiChain) {
-        self.model = BuyWithCardModel(accountContext: accountContext, chain: chain, selectedCurrency: TokenStore.baseCurrency)
+    /// Nil when no currency is offered on this chain, so the caller refuses instead of pushing a screen
+    /// that has nothing to show.
+    public init?(accountContext: AccountContext, chain: ApiChain) {
+        guard let model = BuyWithCardModel(accountContext: accountContext, chain: chain, selectedCurrency: TokenStore.baseCurrency) else {
+            return nil
+        }
+        self.model = model
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -31,6 +36,7 @@ public class BuyWithCardVC: WViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+        WalletCoreData.add(eventObserver: self)
         observer = observe { [weak self] in
             guard let self else { return }
             loadOnramp(currency: model.selectedCurrency)
@@ -51,14 +57,17 @@ public class BuyWithCardVC: WViewController {
         view.addSubview(webView)
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor),
-            webView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            webView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
     
     private func loadOnramp(currency: MBaseCurrency) {
-        
+        // Last checkpoint before a provider URL is built: a currency dropped by the server must
+        // never reach the web view, whichever provider would serve it.
+        guard model.supportedCurrencies.contains(currency) else { return }
+
         if currency == .RUB {
             open(url: model.account.dreamwalkersLink)
         } else {
@@ -88,5 +97,26 @@ public class BuyWithCardVC: WViewController {
             webView.load(URLRequest(url: url))
         }
     }
-    
+
+}
+
+extension BuyWithCardVC: WalletCoreData.EventsObserver {
+    /// An already open screen must follow the server narrowing the allowed currencies: leave
+    /// entirely when nothing is left, otherwise move to a still allowed currency, which reloads
+    /// the web view through the existing observer.
+    public func walletCore(event: WalletCoreData.Event) {
+        guard case .configChanged = event else { return }
+        guard let currency = OnRampCurrencyPolicy.preferredCurrency(
+            for: model.chain,
+            preferences: [model.selectedCurrency]
+        ) else {
+            if navigationController?.topViewController === self {
+                navigationController?.popViewController(animated: true)
+            } else {
+                dismiss(animated: true)
+            }
+            return
+        }
+        model.selectedCurrency = currency
+    }
 }

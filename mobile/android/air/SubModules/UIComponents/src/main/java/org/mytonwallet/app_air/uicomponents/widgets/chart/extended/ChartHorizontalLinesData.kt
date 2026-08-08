@@ -5,7 +5,6 @@ import android.graphics.RectF
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -16,6 +15,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToLong
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 
 class ChartHorizontalLinesData(
     newMaxHeight: Long,
@@ -56,7 +56,11 @@ class ChartHorizontalLinesData(
                 if (k > 0f) {
                     val value2 = values[i] / k
                     valuesStr2!![i] = if (skipFloatValues) {
-                        if (value2 - value2.toLong() < 0.01f || formatter == ChartData.FORMATTER_TON || formatter == ChartData.FORMATTER_XTR) {
+                        if (
+                            value2 - value2.toLong() < 0.01f ||
+                            formatter == ChartData.FORMATTER_TON ||
+                            formatter == ChartData.FORMATTER_XTR
+                        ) {
                             format(1, secondTextPaint, value2.toLong(), formatter)
                         } else {
                             ""
@@ -74,7 +78,11 @@ class ChartHorizontalLinesData(
                 if (k > 0f) {
                     val value2 = values[i] / k
                     valuesStr2!![i] = if (skipFloatValues) {
-                        if (value2 - value2.toLong() < 0.01f || formatter == ChartData.FORMATTER_TON || formatter == ChartData.FORMATTER_XTR) {
+                        if (
+                            value2 - value2.toLong() < 0.01f ||
+                            formatter == ChartData.FORMATTER_TON ||
+                            formatter == ChartData.FORMATTER_XTR
+                        ) {
                             format(1, secondTextPaint, value2.toLong(), formatter)
                         } else {
                             ""
@@ -100,7 +108,13 @@ class ChartHorizontalLinesData(
                 }
             }
             formatterTON!!.maximumFractionDigits = if (v > 1_000_000_000L) 2 else 6
-            return ChannelMonetizationLayout.replaceTON("GRAM " + formatterTON!!.format(v / 1_000_000_000.0), paint, .8f, -0.66f.dp, false)
+            return ChannelMonetizationLayout.replaceTON(
+                "GRAM " + formatterTON!!.format(v / 1_000_000_000.0),
+                paint,
+                .8f,
+                -0.66f.dp,
+                false
+            )
         } else if (formatter == ChartData.FORMATTER_XTR) {
             if (a == 1) return "≈" + ChartFormatters.formatCurrency(v, "USD")
             return "XTR " + ChartFormatters.formatNumber(v)
@@ -119,7 +133,14 @@ class ChartHorizontalLinesData(
         canvas.restore()
     }
 
-    fun getTextBounds(outRect: RectF, a: Int, i: Int, x: Float, y: Float, paint: TextPaint): Boolean {
+    fun getTextBounds(
+        outRect: RectF,
+        a: Int,
+        i: Int,
+        x: Float,
+        y: Float,
+        paint: TextPaint
+    ): Boolean {
         val layout = getLayout(a, i, paint)
         var left = Float.POSITIVE_INFINITY
         var right = Float.NEGATIVE_INFINITY
@@ -156,27 +177,23 @@ class ChartHorizontalLinesData(
     }
 
     companion object {
-        fun lookupHeight(maxValue: Long): Long {
-            return computeAxisTickValues(maxValue, 0L, false).max
-        }
+        fun lookupHeight(maxValue: Long): Long = computeAxisTickValues(maxValue, 0L, false).max
 
         internal data class AxisTickValues(
             val min: Long,
             val max: Long,
             val step: Long,
-            val count: Int,
+            val count: Int
         )
 
         internal fun computeAxisTickValues(
             maxValue: Long,
             minValue: Long,
-            useMinHeight: Boolean,
-        ): AxisTickValues {
-            return if (useMinHeight) {
-                computeRangedAxisTickValues(maxValue, minValue)
-            } else {
-                computeZeroBasedAxisTickValues(maxValue)
-            }
+            useMinHeight: Boolean
+        ): AxisTickValues = if (useMinHeight) {
+            computeRangedAxisTickValues(maxValue, minValue)
+        } else {
+            computeZeroBasedAxisTickValues(maxValue)
         }
 
         private fun computeZeroBasedAxisTickValues(maxValue: Long): AxisTickValues {
@@ -188,7 +205,15 @@ class ChartHorizontalLinesData(
                 }
 
                 adjustedMax / 2L < 6L -> {
-                    val count = (adjustedMax / 2L + 1 + if (adjustedMax % 2L != 0L) 1 else 0).toInt()
+                    val count = (
+                        adjustedMax / 2L + 1 + if (adjustedMax % 2L !=
+                            0L
+                        ) {
+                            1
+                        } else {
+                            0
+                        }
+                        ).toInt()
                     AxisTickValues(0L, (count - 1) * 2L, 2L, count)
                 }
 
@@ -200,10 +225,7 @@ class ChartHorizontalLinesData(
             }
         }
 
-        private fun computeRangedAxisTickValues(
-            maxValue: Long,
-            minValue: Long,
-        ): AxisTickValues {
+        private fun computeRangedAxisTickValues(maxValue: Long, minValue: Long): AxisTickValues {
             var adjustedMinValue = min(maxValue, minValue)
             val diff = maxValue - adjustedMinValue
             return when {

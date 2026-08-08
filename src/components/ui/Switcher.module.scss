@@ -9,6 +9,11 @@
   margin: 0;
 }
 
+.disabled {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
 .input {
   position: absolute;
   z-index: var(--z-below);
@@ -42,7 +47,7 @@
 
     position: absolute;
     top: -0.1875rem;
-    left: 0;
+    left: 0; // Language-agnostic value - correct as-is
 
     width: 1.125rem;
     height: 1.125rem;

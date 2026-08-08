@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -67,8 +66,12 @@ public class ImportWalletVC: CreateWalletBaseVC {
     private var isSubmitting = false
     
     private lazy var wordsModeSegmentedControl: UISegmentedControl = {
-        let control = UISegmentedControl(items: [lang("12 Words"), lang("24 Words")])
+        let control = UISegmentedControl(items: [
+            localizedIntegerDigits(in: lang("12 Words")),
+            localizedIntegerDigits(in: lang("24 Words")),
+        ])
         control.translatesAutoresizingMaskIntoConstraints = false
+        control.semanticContentAttribute = .forceLeftToRight
         control.selectedSegmentIndex = SecretWordsMode.words12.segmentIndex
         control.apportionsSegmentWidthsByContent = false
         control.addTarget(self, action: #selector(wordsModeChanged), for: .valueChanged)
@@ -79,7 +82,10 @@ public class ImportWalletVC: CreateWalletBaseVC {
         animationName: "animation_snitch",
         animationPlaybackMode: .once,
         title: lang("Enter Secret Words"),
-        description: lang("$auth_import_mnemonic_description", arg1: langJoin(["12", "24"], .or)),
+        description: lang(
+            "$auth_import_mnemonic_description",
+            arg1: langJoin([localizedIntegerString(12), localizedIntegerString(24)], .or)
+        ),
         animationSize: 96,
     )
     private lazy var bottomActionsView = BottomActionsView(
@@ -131,8 +137,8 @@ public class ImportWalletVC: CreateWalletBaseVC {
             // scrollView
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            scrollView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            scrollView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             // contentLayout
             scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
         ])
@@ -143,8 +149,8 @@ public class ImportWalletVC: CreateWalletBaseVC {
         scrollView.addSubview(headerView)
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 0),
-            headerView.leftAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leftAnchor, constant: 32),
-            headerView.rightAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.rightAnchor, constant: -32)
+            headerView.leadingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leadingAnchor, constant: 32),
+            headerView.trailingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.trailingAnchor, constant: -32)
         ])
 
         // `can not remember words` button
@@ -155,17 +161,19 @@ public class ImportWalletVC: CreateWalletBaseVC {
         scrollView.addSubview(pasteButton)
         NSLayoutConstraint.activate([
             pasteButton.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 12),
-            pasteButton.leftAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leftAnchor, constant: 48),
-            pasteButton.rightAnchor.constraint(equalTo: scrollView.contentLayoutGuide.rightAnchor, constant: -48)
+            pasteButton.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 48),
+            pasteButton.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -48)
         ])
 
         wordsStackView1.translatesAutoresizingMaskIntoConstraints = false
         wordsStackView1.axis = .vertical
         wordsStackView1.spacing = 16
+        wordsStackView1.semanticContentAttribute = .forceLeftToRight
         
         wordsStackView2.translatesAutoresizingMaskIntoConstraints = false
         wordsStackView2.axis = .vertical
         wordsStackView2.spacing = 16
+        wordsStackView2.semanticContentAttribute = .forceLeftToRight
         
         scrollView.addSubview(wordsModeSegmentedControl)
         scrollView.addSubview(wordsStackView1)
@@ -179,9 +187,9 @@ public class ImportWalletVC: CreateWalletBaseVC {
             wordsStackView1.topAnchor.constraint(equalTo: wordsModeSegmentedControl.bottomAnchor, constant: 24),
             wordsStackView2.topAnchor.constraint(equalTo: wordsStackView1.topAnchor),
             
-            wordsStackView1.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 32),
-            wordsStackView2.leadingAnchor.constraint(equalTo: wordsStackView1.trailingAnchor, constant: 16),
-            wordsStackView2.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -32),
+            wordsStackView1.leftAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leftAnchor, constant: 32),
+            wordsStackView2.leftAnchor.constraint(equalTo: wordsStackView1.rightAnchor, constant: 16),
+            wordsStackView2.rightAnchor.constraint(equalTo: scrollView.contentLayoutGuide.rightAnchor, constant: -32),
             wordsStackView1.widthAnchor.constraint(equalTo: wordsStackView2.widthAnchor),
             wordsStackView2.bottomAnchor.constraint(equalTo: wordsStackView1.bottomAnchor),
         ])
@@ -203,8 +211,8 @@ public class ImportWalletVC: CreateWalletBaseVC {
         NSLayoutConstraint.activate([
             bottomActionsView.topAnchor.constraint(equalTo: wordsStackView1.bottomAnchor, constant: 24),
             bottomActionsView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -8),
-            bottomActionsView.leftAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leftAnchor, constant: 32),
-            bottomActionsView.rightAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.rightAnchor, constant: -32),
+            bottomActionsView.leadingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leadingAnchor, constant: 32),
+            bottomActionsView.trailingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.trailingAnchor, constant: -32),
         ])
 
         textChanged()
@@ -388,12 +396,6 @@ public class ImportWalletVC: CreateWalletBaseVC {
                   button: lang("OK"))
     }
 
-    private func showUnknownErrorAlert(customText: String? = nil) {
-        showAlert(title: lang("Import failed"),
-                  text: customText ?? lang("Please try again"),
-                  button: lang("OK"))
-    }
-
     public var isLoading: Bool = false {
         didSet {
             bottomActionsView.primaryButton.showLoading = isLoading
@@ -562,7 +564,7 @@ extension ImportWalletVC: UIScrollViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let model = IntroModel(network: .mainnet, password: nil)
+    let model = IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup)
     WNavigationController(rootViewController: ImportWalletVC(introModel: model))
 }
 #endif

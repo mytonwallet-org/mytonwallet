@@ -9,12 +9,10 @@ class DiffCallback : DiffUtil.ItemCallback<BaseListItem>() {
         fun create() = DiffCallback()
     }
 
-    override fun areItemsTheSame(oldItem: BaseListItem, newItem: BaseListItem): Boolean {
-        return oldItem.type == newItem.type && oldItem.key == newItem.key
-    }
+    override fun areItemsTheSame(oldItem: BaseListItem, newItem: BaseListItem): Boolean =
+        oldItem.type == newItem.type && oldItem.key == newItem.key
 
     @SuppressLint("DiffUtilEquals")
-    override fun areContentsTheSame(oldItem: BaseListItem, newItem: BaseListItem): Boolean {
-        return newItem == oldItem
-    }
+    override fun areContentsTheSame(oldItem: BaseListItem, newItem: BaseListItem): Boolean =
+        newItem == oldItem
 }

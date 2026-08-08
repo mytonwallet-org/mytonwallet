@@ -70,6 +70,7 @@ public class IconView: UIView {
     private var gradientChainCutoutMask: CAShapeLayer?
     private var chainAccessoryMaskContextIconGeometry: IconAccessoryView.LayoutGeometry? = nil
     private var chainAccessoryMaskContextSize: CGFloat? = nil
+    private var chainAccessoryMaskContextLayoutDirection: UIUserInterfaceLayoutDirection? = nil
     private var chainAccessoryMaskContextCornerRadius: CGFloat? = nil
     private let chainAccessoryView: IconAccessoryView
     
@@ -127,8 +128,8 @@ public class IconView: UIView {
         addSubview(imageView)
         NSLayoutConstraint.activate([
             imageView.topAnchor.constraint(equalTo: topAnchor),
-            imageView.leftAnchor.constraint(equalTo: leftAnchor),
-            imageView.rightAnchor.constraint(equalTo: rightAnchor),
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
             imageView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
@@ -211,6 +212,7 @@ public class IconView: UIView {
         super.layoutSubviews()
         
         gradientLayer.frame = bounds
+        chainAccessoryView.updateLayoutDirection(in: self)
         updateTokenPlaceholderAppearance()
         updateChainAccessoryMask()
     }
@@ -235,6 +237,7 @@ public class IconView: UIView {
         gradientChainCutoutMask = nil
         chainAccessoryMaskContextIconGeometry = nil
         chainAccessoryMaskContextSize = nil
+        chainAccessoryMaskContextLayoutDirection = nil
         chainAccessoryMaskContextCornerRadius = nil
     }
         
@@ -247,16 +250,19 @@ public class IconView: UIView {
         }
         
         let lg = geometry ?? chainAccessoryView.layoutGeometry
+        let layoutDirection = effectiveUserInterfaceLayoutDirection
         let iconCornerRadius = self.iconCornerRadius
-        let shouldUpdateMask = chainAccessoryMaskContextSize != size ||
-            chainAccessoryMaskContextIconGeometry != lg ||
-            chainAccessoryMaskContextCornerRadius != iconCornerRadius
+        let shouldUpdateMask = chainAccessoryMaskContextSize != size
+            || chainAccessoryMaskContextIconGeometry != lg
+            || chainAccessoryMaskContextLayoutDirection != layoutDirection
+            || chainAccessoryMaskContextCornerRadius != iconCornerRadius
         chainAccessoryMaskContextIconGeometry = lg
         chainAccessoryMaskContextSize = size
+        chainAccessoryMaskContextLayoutDirection = layoutDirection
         chainAccessoryMaskContextCornerRadius = iconCornerRadius
         let area = CGRect.square(size)
         let radius = lg.fullSize / 2
-        let centerIn = CGPoint(x: area.width + lg.horizontalOffset - radius, y: area.height + lg.verticalOffset - radius)
+        let centerIn = chainAccessoryCenter(in: area, geometry: lg, layoutDirection: layoutDirection)
 
         func buildPath() -> CGPath {
             let p = UIBezierPath(cgPath: iconShape.maskPath(in: area, cornerRadius: iconCornerRadius))
@@ -313,6 +319,17 @@ public class IconView: UIView {
             gradientChainCutoutMask = applyMask(gradientChainCutoutMask, parent: gradientLayer)
             onComplete?()
         }
+    }
+
+    private func chainAccessoryCenter(in area: CGRect, geometry: IconAccessoryView.LayoutGeometry, layoutDirection: UIUserInterfaceLayoutDirection) -> CGPoint {
+        let radius = geometry.fullSize / 2
+        let x = layoutDirection == .rightToLeft
+            ? area.minX - geometry.horizontalOffset + radius
+            : area.maxX + geometry.horizontalOffset - radius
+        return CGPoint(
+            x: x,
+            y: area.maxY + geometry.verticalOffset - radius
+        )
     }
 
     public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false) {
@@ -384,7 +401,13 @@ public class IconView: UIView {
         })
     }
 
-    public func config(with token: ApiToken?, isStaking: Bool = false, isWalletView: Bool = false, shouldShowChain: Bool) {
+    public func config(
+        with token: ApiToken?,
+        isStaking: Bool = false,
+        isWalletView: Bool = false,
+        stakingAccessory: StakingAccessoryContent? = nil,
+        shouldShowChain: Bool
+    ) {
         defer {
             updateChainAccessoryMask()
         }
@@ -421,20 +444,20 @@ public class IconView: UIView {
         }
         imageView.contentMode = .scaleAspectFill
         guard token.slug != STAKED_TON_SLUG else {
-            configAsStakedToken(inWalletTokensList: isWalletView, token: token, shouldShowChain: shouldShowChain)
+            configAsStakedToken(
+                inWalletTokensList: isWalletView,
+                token: token,
+                stakingAccessory: stakingAccessory,
+                shouldShowChain: shouldShowChain
+            )
             return
         }
         configureTokenImage(token: token, tokenChanged: tokenChanged, imageChanged: imageChanged)
-        if isStaking {
-            chainAccessoryView.configurePercentBadge()
-            chainAccessoryView.isHidden = false
-        } else if shouldShowChain && !token.isNative {
-            let chain = token.chain
-            chainAccessoryView.configureChain(chain)
-            chainAccessoryView.isHidden = false
-        } else {
-            chainAccessoryView.isHidden = true
-        }
+        applyAccessory(
+            stakingAccessory: stakingAccessory,
+            legacyPercentFallback: isStaking && !isWalletView,
+            chain: shouldShowChain && !token.isNative ? token.chain : nil
+        )
     }
     
     public func config(with account: MAccount?, showIcon: Bool = true) {
@@ -523,7 +546,12 @@ public class IconView: UIView {
         chainAccessoryView.isHidden = true
     }
     
-    private func configAsStakedToken(inWalletTokensList: Bool, token: ApiToken, shouldShowChain: Bool) {
+    private func configAsStakedToken(
+        inWalletTokensList: Bool,
+        token: ApiToken,
+        stakingAccessory: StakingAccessoryContent?,
+        shouldShowChain: Bool
+    ) {
         var forceShowPercent = false
         if inWalletTokensList {
             imageView.kf.cancelDownloadTask()
@@ -533,13 +561,30 @@ public class IconView: UIView {
             configureTokenImage(token: token, tokenChanged: false, imageChanged: false)
             forceShowPercent = tokenImageState == .failed
         }
-        if shouldShowChain || inWalletTokensList || forceShowPercent {
-            if inWalletTokensList || forceShowPercent {
-                chainAccessoryView.configurePercentBadge()
-            } else {
-                imageView.kf.cancelDownloadTask()
-                chainAccessoryView.configureChain(.ton)
-            }
+        let accessoryChain: ApiChain? = shouldShowChain && !inWalletTokensList ? .ton : nil
+        if stakingAccessory == nil, !forceShowPercent, accessoryChain != nil {
+            imageView.kf.cancelDownloadTask()
+        }
+        applyAccessory(
+            stakingAccessory: stakingAccessory,
+            legacyPercentFallback: forceShowPercent,
+            chain: accessoryChain
+        )
+    }
+
+    private func applyAccessory(
+        stakingAccessory: StakingAccessoryContent?,
+        legacyPercentFallback: Bool,
+        chain: ApiChain?
+    ) {
+        if let stakingAccessory {
+            chainAccessoryView.configurePercentBadge(isActive: stakingAccessory == .active)
+            chainAccessoryView.isHidden = false
+        } else if legacyPercentFallback {
+            chainAccessoryView.configurePercentBadge()
+            chainAccessoryView.isHidden = false
+        } else if let chain {
+            chainAccessoryView.configureChain(chain)
             chainAccessoryView.isHidden = false
         } else {
             chainAccessoryView.isHidden = true
@@ -783,7 +828,9 @@ public class IconView: UIView {
         imageView.kf.cancelDownloadTask()
         imageView.image = nil
         gradientLayer.isHidden = true
-        tokenPlaceholderLabel.text = Self.tokenInitials(from: token.name.nilIfEmpty ?? token.symbol)
+        tokenPlaceholderLabel.text = Self.tokenInitials(
+            from: token.displayName(strippingLabelWhenShown: false).nilIfEmpty ?? token.symbol
+        )
         tokenPlaceholderLabel.isHidden = false
         tokenPlaceholderBorderLayer.isHidden = false
         updateTokenPlaceholderAppearance()

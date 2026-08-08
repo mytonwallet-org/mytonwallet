@@ -18,12 +18,19 @@ extension Api {
         try await bridge.callApi("checkNftTransferDraft", chain, options, decoding: ApiCheckTransactionDraftResult.self)
     }
 
-    public static func submitNftTransfers(chain: ApiChain, accountId: String, password: String?, nfts: [ApiNft], toAddress: String, comment: String?, totalRealFee: BigInt?, isNftBurn: Bool?) async throws -> ApiSubmitNftTransfersResult {
-        try await bridge.callApi("submitNftTransfers", chain, accountId, password, nfts, toAddress, comment, totalRealFee, isNftBurn, decoding: ApiSubmitNftTransfersResult.self)
+    public static func submitNftTransfers(chain: ApiChain, accountId: String, enclaveToken: EnclaveToken?, nfts: [ApiNft], toAddress: String, comment: String?, totalRealFee: BigInt?, isNftBurn: Bool?) async throws -> ApiSubmitNftTransfersResult {
+        return try await bridge.callApi("submitNftTransfers", chain, accountId, enclaveToken, nfts, toAddress, comment, totalRealFee, isNftBurn, decoding: ApiSubmitNftTransfersResult.self)
     }
     
     public static func checkNftOwnership(chain: ApiChain, accountId: String, nftAddress: String) async throws -> Bool? {
         try await bridge.callApiOptional("checkNftOwnership", chain, accountId, nftAddress, decodingOptional: Bool.self)
+    }
+
+    public static func reportNft(chain: ApiChain, network: ApiNetwork, nftAddress: String) async throws {
+        try await bridge.callApiVoid(
+            "reportNft",
+            ApiReportNftOptions(chain: chain, network: network, nftAddress: nftAddress)
+        )
     }
 }
 
@@ -43,6 +50,18 @@ public struct ApiCheckNftTransferDraftOptions: Encodable, Sendable {
         self.toAddress = toAddress
         self.comment = comment
         self.isNftBurn = isNftBurn
+    }
+}
+
+public struct ApiReportNftOptions: Encodable, Sendable {
+    public let chain: ApiChain
+    public let network: ApiNetwork
+    public let nftAddress: String
+
+    public init(chain: ApiChain, network: ApiNetwork, nftAddress: String) {
+        self.chain = chain
+        self.network = network
+        self.nftAddress = nftAddress
     }
 }
 

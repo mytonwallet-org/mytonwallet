@@ -1,5 +1,5 @@
 import Testing
-import WalletCore
+@testable import WalletCore
 import WalletContext
 
 @Suite("ApiToken Display Name")
@@ -16,6 +16,7 @@ struct ApiTokenDisplayNameTests {
         .init(name: "Shift Robotics", label: "Shift", expected: "Robotics"),
         .init(name: "Robotics Shift", label: "Shift", expected: "Robotics"),
     ]
+    static let missingLocalizedNames: [String?] = [nil, ""]
 
     @Test(arguments: Self.rwaStockLabelCases)
     func `strips shown RWA stock label prefix or suffix`(testCase: DisplayNameCase) {
@@ -45,10 +46,59 @@ struct ApiTokenDisplayNameTests {
         #expect(token.displayName(strippingLabelWhenShown: true) == "Shift")
     }
 
-    private func makeToken(name: String, label: String, isRwaStock: Bool) -> ApiToken {
+    @Test
+    func `uses localized name when enabled`() {
+        let token = makeToken(
+            name: "Tether USD",
+            localizedName: "Тезер",
+            label: "TON",
+            isRwaStock: false
+        )
+
+        #expect(token.displayName(strippingLabelWhenShown: false, useLocalizedName: true) == "Тезер")
+    }
+
+    @Test
+    func `uses original name when localized names are disabled`() {
+        let token = makeToken(
+            name: "Tether USD",
+            localizedName: "Тезер",
+            label: "TON",
+            isRwaStock: false
+        )
+
+        #expect(token.displayName(strippingLabelWhenShown: false, useLocalizedName: false) == "Tether USD")
+    }
+
+    @Test(arguments: Self.missingLocalizedNames)
+    func `falls back to original name when localized name is unavailable`(localizedName: String?) {
+        let token = makeToken(
+            name: "Tether USD",
+            localizedName: localizedName,
+            label: "TON",
+            isRwaStock: false
+        )
+
+        #expect(token.displayName(strippingLabelWhenShown: false, useLocalizedName: true) == "Tether USD")
+    }
+
+    @Test
+    func `strips RWA label from localized name`() {
+        let token = makeToken(
+            name: "Tesla xStock",
+            localizedName: "Tesla xStocks",
+            label: "xStocks",
+            isRwaStock: true
+        )
+
+        #expect(token.displayName(strippingLabelWhenShown: true, useLocalizedName: true) == "Tesla")
+    }
+
+    private func makeToken(name: String, localizedName: String? = nil, label: String, isRwaStock: Bool) -> ApiToken {
         ApiToken(
             slug: "display-name-\(name)-\(label)",
             name: name,
+            localizedName: localizedName,
             symbol: "TEST",
             decimals: 9,
             chain: .ton,

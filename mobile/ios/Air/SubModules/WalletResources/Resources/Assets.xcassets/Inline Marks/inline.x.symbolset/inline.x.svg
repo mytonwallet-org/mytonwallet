@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3300 2200">
+ <style>.defaults {-sfsymbols-variable-value-mode:color;-sfsymbols-draw-reverses-motion-groups:false}
+.monochrome-0 {-sfsymbols-motion-group:0;-sfsymbols-layer-tags:inline-x}
+.multicolor-0:tintColor {-sfsymbols-motion-group:0;-sfsymbols-layer-tags:inline-x}
+.hierarchical-0:primary {-sfsymbols-motion-group:0;-sfsymbols-layer-tags:inline-x}
+.SFSymbolsPreviewWireframe {fill:black;opacity:1.0;stroke:none}
+</style>
+ <g id="Guides">
+  <line id="Baseline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="696" y2="696"/>
+  <line id="Capline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="625.541" y2="625.541"/>
+  <line id="Baseline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1126" y2="1126"/>
+  <line id="Capline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1055.54" y2="1055.54"/>
+  <line id="Baseline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1556" y2="1556"/>
+  <line id="Capline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1485.54" y2="1485.54"/>
+  <line id="right-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2981.4" x2="2981.4" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2887.4" x2="2887.4" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1497.84" x2="1497.84" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1403.84" x2="1403.84" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="607.711" x2="607.711" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="513.711" x2="513.711" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Regular-M" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1497.84" x2="1497.84" y1="1030.79" y2="1150.12"/>
+  <line id="left-margin-Regular-M" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1403.84" x2="1403.84" y1="1030.79" y2="1150.12"/>
+ </g>
+ <g id="Symbols">
+  <g id="Black-S" transform="matrix(1 0 0 1 2888.4 696)"><path transform="matrix(4.742 0 0 4.742 13.8 -67.86)" fill-rule="evenodd" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M8.3319 6.05831L13.5437 0H12.3087L7.78327 5.26035L4.16883 0H0L5.46574 7.95458L0 14.3077H1.2351L6.01406 8.75254L9.83117 14.3077H14L8.3316 6.05831H8.3319ZM6.64026 8.02466L6.08647 7.23256L1.68013 0.929768H3.57717L7.13314 6.01632L7.68693 6.80842L12.3093 13.4202H10.4122L6.64026 8.02496V8.02466Z"/></g>
+  <g id="Regular-S" transform="matrix(1 0 0 1 1404.84 696)"><path transform="matrix(4.742 0 0 4.742 13.8 -67.86)" fill-rule="evenodd" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M8.3319 6.05831L13.5437 0H12.3087L7.78327 5.26035L4.16883 0H0L5.46574 7.95458L0 14.3077H1.2351L6.01406 8.75254L9.83117 14.3077H14L8.3316 6.05831H8.3319ZM6.64026 8.02466L6.08647 7.23256L1.68013 0.929768H3.57717L7.13314 6.01632L7.68693 6.80842L12.3093 13.4202H10.4122L6.64026 8.02496V8.02466Z"/></g>
+  <g id="Ultralight-S" transform="matrix(1 0 0 1 514.711 696)"><path transform="matrix(4.742 0 0 4.742 13.8 -67.86)" fill-rule="evenodd" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M8.3319 6.05831L13.5437 0H12.3087L7.78327 5.26035L4.16883 0H0L5.46574 7.95458L0 14.3077H1.2351L6.01406 8.75254L9.83117 14.3077H14L8.3316 6.05831H8.3319ZM6.64026 8.02466L6.08647 7.23256L1.68013 0.929768H3.57717L7.13314 6.01632L7.68693 6.80842L12.3093 13.4202H10.4122L6.64026 8.02496V8.02466Z"/></g>
+  <g id="Regular-M" transform="matrix(1 0 0 1 1404.84 1126)"><path transform="matrix(4.742 0 0 4.742 13.8 -67.86)" fill-rule="evenodd" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M8.3319 6.05831L13.5437 0H12.3087L7.78327 5.26035L4.16883 0H0L5.46574 7.95458L0 14.3077H1.2351L6.01406 8.75254L9.83117 14.3077H14L8.3316 6.05831H8.3319ZM6.64026 8.02466L6.08647 7.23256L1.68013 0.929768H3.57717L7.13314 6.01632L7.68693 6.80842L12.3093 13.4202H10.4122L6.64026 8.02496V8.02466Z"/></g>
+ </g>
+</svg>

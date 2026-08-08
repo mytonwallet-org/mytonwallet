@@ -12,6 +12,7 @@ import { calcChangeValue } from '../../../../util/calcChangeValue';
 import { DAY, formatFullDay } from '../../../../util/dateFormat';
 import { toDecimal } from '../../../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
+import { toNativeDigits } from '../../../../util/nativeDigits';
 import { round } from '../../../../util/round';
 import { getIsRwaStockToken, getTokenName } from '../../../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
@@ -54,6 +55,7 @@ interface OwnProps {
   withChainIcon?: boolean;
   withContextMenu?: boolean;
   isSensitiveDataHidden?: true;
+  areTokenNamesLocalized?: boolean;
   isSwapDisabled?: boolean;
   isStakingAvailable?: boolean;
   isViewMode?: boolean;
@@ -85,6 +87,7 @@ function Token({
   withChainIcon,
   withContextMenu,
   isSensitiveDataHidden,
+  areTokenNamesLocalized,
   isStakingAvailable,
   isSwapDisabled,
   isViewMode,
@@ -119,7 +122,7 @@ function Token({
   const withLabel = Boolean(!isVesting && label);
   const isRwaStock = getIsRwaStockToken(token);
   const stakingId = stakingState?.id;
-  const name = getTokenName(lang, token);
+  const name = getTokenName(lang, token, areTokenNamesLocalized);
   const withChainIconRendered = withChainIcon && !stakingId;
   if (ref) {
     buttonRef = ref;
@@ -187,7 +190,7 @@ function Token({
 
     return (
       <span ref={yieldRef} className={labelClassName}>
-        {stakingStatus ? '' : `${yieldType} `}{round(annualYield ?? 0, 2)}%
+        {stakingStatus ? '' : `${yieldType} `}{toNativeDigits(`${round(annualYield ?? 0, 2)}%`)}
       </span>
     );
   }
@@ -276,7 +279,7 @@ function Token({
             {shouldRenderYield && renderYield()}
             {withLabel && <TokenLabel label={label!} isRwaStock={isRwaStock} />}
           </div>
-          <div className={styles.subtitle}>
+          <div className={buildClassName(styles.subtitle, lang.isRtl && styles.subtitleRtl)}>
             <SensitiveData
               isActive={isSensitiveDataHidden}
               min={5}
@@ -331,7 +334,7 @@ function Token({
               align="right"
               className={buildClassName(styles.change, changeClassName)}
             >
-              {renderChangeIcon()}<AnimatedCounter text={String(changePercent)} />%
+              {renderChangeIcon()}<AnimatedCounter text={toNativeDigits(String(changePercent))} />%
               <i className={styles.dot} aria-hidden />
               <AnimatedCounter text={formatCurrency(changeValue, shortBaseSymbol, undefined, true)} />
             </SensitiveData>
@@ -387,7 +390,7 @@ function Token({
             {canRenderYield && renderYield()}
             {withLabel && <TokenLabel label={label!} isRwaStock={isRwaStock} />}
           </div>
-          <div className={styles.subtitle}>
+          <div className={buildClassName(styles.subtitle, lang.isRtl && styles.subtitleRtl)}>
             <AnimatedCounter text={formatCurrency(price, shortBaseSymbol, undefined, true)} />
             {!stakingStatus && (
               <>
@@ -400,7 +403,7 @@ function Token({
                   </span>
                 ) : (
                   <span className={changeClassName}>
-                    {renderChangeIcon()}<AnimatedCounter text={String(changePercent)} />%
+                    {renderChangeIcon()}<AnimatedCounter text={toNativeDigits(String(changePercent))} />%
                   </span>
                 )}
               </>

@@ -8,13 +8,14 @@
 import UIKit
 import UIComponents
 import WalletContext
+import WalletCore
 
 public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     func animateSuccess() {
         
     }
     
-    func onAuthenticated(taskDone: Bool, passcode: String) {
+    func onAuthenticated(taskDone: Bool, enclaveToken: EnclaveToken) {
         
     }
     
@@ -73,8 +74,8 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         view.addSubview(topView)
         NSLayoutConstraint.activate([
             topView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            topView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
-            topView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor)
+            topView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            topView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor)
         ])
 
         topView.addSubview(headerView)
@@ -99,8 +100,8 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         view.addSubview(passcodeScreenView)
         passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            passcodeScreenView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            passcodeScreenView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            passcodeScreenView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            passcodeScreenView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         passcodeScreenView.enterPasscodeLabel.label.text = lang("Enter your code again")
@@ -132,29 +133,42 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
         }
         view.isUserInteractionEnabled = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self else {return}
-            view.isUserInteractionEnabled = true
-            
-            // Suggest to enable a biometry protection, if available
-            // Note that all incomplete biometric configurations are ignored.
-            // So user with non-enrolled faceID will not receive a dialog
-            if let biometryType = BiometricHelper.biometryType {
-                navigationController?.pushViewController(
-                    ActivateBiometricVC(biometryType: biometryType) { biometricsEnabled in
-                        try await self.onCompletion(biometricsEnabled, passcode)
-                }, animated: true)
-            } else {
-                completeWithoutBiometrics(passcode: passcode)
+            guard let self else { return }
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    let enclaveToken = try await AuthSupport.setPasscode(passcode)
+                    view.isUserInteractionEnabled = true
+
+                    if let biometryType = BiometricHelper.biometryType {
+                        navigationController?.pushViewController(
+                            ActivateBiometricVC(
+                                biometryType: biometryType,
+                                authorizationToken: enclaveToken
+                            ) { [weak self] finalToken in
+                                try await self?.onCompletion(finalToken)
+                            }, animated: true
+                        )
+                    } else {
+                        try await onCompletion(enclaveToken)
+                    }
+                } catch {
+                    view.isUserInteractionEnabled = true
+                    passcodeScreenView.passcodeInputView.currentPasscode = ""
+                    passcodeScreenView.wrongPassFeedback()
+                    showAlert(title: lang("Error"), text: error.localizedDescription, button: lang("OK"))
+                }
             }
         }
     }
 
-    private func completeWithoutBiometrics(passcode: String) {
+    private func completeWithoutBiometrics(enclaveToken: EnclaveToken) {
         setCompletionLoading(true)
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await onCompletion(false, passcode)
+                try await onCompletion(enclaveToken)
             } catch {
                 setCompletionLoading(false)
                 showAlert(error: error)
@@ -191,10 +205,10 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let setVC = SetPasscodeVC(onCompletion: { _, _ in})
+    let setVC = SetPasscodeVC(onCompletion: { _ in})
     UINavigationController(
         rootViewController: ConfirmPasscodeVC(
-            onCompletion: { _, _ in },
+            onCompletion: { _ in },
             setPasscodeVC: setVC,
             selectedPasscode: "1111")
     )

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Color
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -14,15 +13,18 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.widget.Space
 import androidx.core.view.updateLayoutParams
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
@@ -36,11 +38,11 @@ import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.views.L
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -48,8 +50,6 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TransactionHeaderView(
@@ -155,8 +155,7 @@ class TransactionHeaderView(
 
     fun reloadData() {
         val transaction = transaction
-        if (transaction !is MApiTransaction.Transaction)
-            throw Exception()
+        if (transaction !is MApiTransaction.Transaction) throw Exception()
         val activeAccount = AccountStore.activeAccount ?: return
         val token = TokenStore.getToken(transaction.slug)
         if (token != null) {
@@ -168,7 +167,7 @@ class TransactionHeaderView(
                 currencyDecimals = transaction.amount.smartDecimalsCount(token.decimals),
                 showPositiveSign = true,
                 forceCurrencyToRight = true,
-                roundUp = false,
+                roundUp = false
             )
             amountView.configure(
                 amount.let {
@@ -186,7 +185,8 @@ class TransactionHeaderView(
         }
 
         if (transaction.shouldShowTransactionAddress) {
-            val fullAddress = if (transaction.isIncoming) transaction.fromAddress else transaction.toAddress
+            val fullAddress =
+                if (transaction.isIncoming) transaction.fromAddress else transaction.toAddress
             peerAddress = fullAddress
             peerBlockchain = TokenStore.getToken(transaction.slug)?.mBlockchain
 
@@ -261,7 +261,9 @@ class TransactionHeaderView(
                 builder.append(LocaleController.getString("at"))
                 builder.append(" ")
                 val yieldStart = builder.length
-                builder.append(stakingState.yieldType.toString() + " " + stakingState.annualYield + "%")
+                builder.append(
+                    stakingState.yieldType.toString() + " " + stakingState.annualYield + "%"
+                )
                 builder.setSpan(
                     ForegroundColorSpan(WColor.SecondaryText.color),
                     0,
@@ -291,5 +293,4 @@ class TransactionHeaderView(
         addressLabel.setTextColor(WColor.PrimaryText.color)
         reloadData()
     }
-
 }

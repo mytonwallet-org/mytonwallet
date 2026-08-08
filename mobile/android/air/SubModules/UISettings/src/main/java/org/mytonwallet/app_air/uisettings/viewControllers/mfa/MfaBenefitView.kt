@@ -18,11 +18,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 
 @SuppressLint("ViewConstructor")
-class MfaBenefitView(
-    context: Context,
-    iconResId: Int?,
-    markdownText: String,
-) : WView(context), WThemedView {
+class MfaBenefitView(context: Context, iconResId: Int?, markdownText: String) :
+    WView(context),
+    WThemedView {
 
     private val iconView = AppCompatImageView(context).apply {
         id = generateViewId()

@@ -35,20 +35,26 @@ $variant_config = {
   'mytonwallet' => {
     app_identifier: 'org.mytonwallet.app',
     app_identifier_widget: 'org.mytonwallet.app.AirWidget',
+    app_identifier_notification: 'org.mytonwallet.app.notification-service',
     profile_name: 'MyTonWallet Production profile',
     profile_name_widget: 'MyTonWallet Production profile - Widget',
+    profile_name_notification: 'MyTonWallet Production profile - NSE',
     scheme: 'MyTonWallet',
     scheme_widget: 'AirWidgetExtension',
+    scheme_notification: 'MyTonWalletNotificationServiceExtension',
     plist_path: '../../App/App/Resources/MyTonWallet/Info.plist',
     testflight_group: 'MTW external group',
   },
   'gram' => {
     app_identifier: 'io.gramwallet.app',
     app_identifier_widget: 'io.gramwallet.app.widget',
+    app_identifier_notification: 'io.gramwallet.app.notification-service',
     profile_name: 'Gram Wallet Production profile',
     profile_name_widget: 'Gram Wallet Production profile - Widget',
+    profile_name_notification: 'Gram Wallet Production profile – NSE',
     scheme: 'GramWallet',
     scheme_widget: 'GramWalletWidgetExtension',
+    scheme_notification: 'GramWalletNotificationServiceExtension',
     plist_path: '../../App/App/Resources/GramWallet/Info.plist',
     testflight_group: 'Gram Wallet external group',
   },
@@ -66,6 +72,9 @@ $scheme = env_value('IOS_SCHEME', $config[:scheme])
 $app_identifier_widget = env_value('IOS_APP_IDENTIFIER_WIDGET', $config[:app_identifier_widget])
 $profile_name_widget = env_value('IOS_PROFILE_NAME_WIDGET', $config[:profile_name_widget])
 $scheme_widget = env_value('IOS_WIDGET_SCHEME', $config[:scheme_widget])
+$app_identifier_notification = env_value('IOS_APP_IDENTIFIER_NOTIFICATION', $config[:app_identifier_notification])
+$profile_name_notification = env_value('IOS_PROFILE_NAME_NOTIFICATION', $config[:profile_name_notification])
+$scheme_notification = env_value('IOS_NOTIFICATION_SCHEME', $config[:scheme_notification])
 $testflight_group = env_value('IOS_TESTFLIGHT_GROUP', $config[:testflight_group])
 $external_beta_enabled = env_value('IOS_EXTERNAL_BETA_ENABLED', 'false') == 'true'
 $metadata_path = env_value('IOS_METADATA_PATH')
@@ -80,6 +89,9 @@ puts "$scheme: #{$scheme}"
 puts "$app_identifier_widget: #{$app_identifier_widget}"
 puts "$profile_name_widget: #{$profile_name_widget}"
 puts "$scheme_widget: #{$scheme_widget}"
+puts "$app_identifier_notification: #{$app_identifier_notification}"
+puts "$profile_name_notification: #{$profile_name_notification}"
+puts "$scheme_notification: #{$scheme_notification}"
 puts "$testflight_group: #{$testflight_group}"
 puts "$external_beta_enabled: #{$external_beta_enabled}"
 
@@ -117,6 +129,63 @@ def update_version_and_build_number
   return version, build_number
 end
 
+def ensure_no_app_store_review_in_progress!
+  app = Spaceship::ConnectAPI::App.find($app_identifier)
+  UI.user_error!("Could not find App Store Connect app: #{$app_identifier}") if app.nil?
+
+  blocking_states = [
+    Spaceship::ConnectAPI::AppStoreVersion::AppVersionState::WAITING_FOR_REVIEW,
+    Spaceship::ConnectAPI::AppStoreVersion::AppVersionState::IN_REVIEW,
+  ].join(",")
+  blocked_versions = app.get_app_store_versions(
+    filter: {
+      appVersionState: blocking_states,
+      platform: Spaceship::ConnectAPI::Platform::IOS,
+    }
+  )
+  return if blocked_versions.empty?
+
+  details = blocked_versions.map do |version|
+    state = version.app_version_state || version.app_store_state || "unknown"
+    "#{version.version_string} (#{state})"
+  end.join(", ")
+  UI.user_error!("Cannot start App Store release while another version is in review: #{details}")
+end
+
+def beta_review_in_progress?(version)
+  app = Spaceship::ConnectAPI::App.find($app_identifier)
+  raise "Could not find App Store Connect app: #{$app_identifier}" if app.nil?
+
+  app.get_builds(
+    filter: {
+      "betaAppReviewSubmission.betaReviewState" => "WAITING_FOR_REVIEW,IN_REVIEW",
+      "expired" => false,
+      "preReleaseVersion.version" => version,
+    },
+    includes: "betaAppReviewSubmission,preReleaseVersion",
+    limit: 1,
+  ).any?
+end
+
+def should_distribute_external_beta?(version)
+  return false unless $external_beta_enabled
+
+  if beta_review_in_progress?(version)
+    UI.important("External beta submission skipped: another #{version} build is already in review")
+    return false
+  end
+
+  true
+rescue => exception
+  UI.important("Could not check external beta review status; skipping external submission for this build")
+  UI.verbose("#{exception.class}: #{exception.message}")
+  false
+end
+
+def beta_review_conflict_error?(exception)
+  exception.message.include?("Another build in the same train is already in beta review")
+end
+
 platform :ios do
   desc "Push a new beta build to TestFlight"
 
@@ -150,6 +219,16 @@ platform :ios do
       targets: [$scheme_widget],
       code_sign_identity: "iPhone Distribution"
     )
+
+    update_code_signing_settings(
+      path: "App.xcodeproj",
+      use_automatic_signing: false,
+      profile_name: $profile_name_notification,
+      sdk: "iphoneos*",
+      team_id: $team_id,
+      targets: [$scheme_notification],
+      code_sign_identity: "iPhone Distribution"
+    )
   end
 
   lane :beta do
@@ -163,6 +242,7 @@ platform :ios do
         provisioningProfiles: {
           $app_identifier => $profile_name,
           $app_identifier_widget => $profile_name_widget,
+          $app_identifier_notification => $profile_name_notification,
         }
       },
       xcargs: "-skipMacroValidation",
@@ -170,10 +250,11 @@ platform :ios do
 
     changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
 
+    distribute_external = should_distribute_external_beta?(version)
     upload_params = {
       app_identifier: $app_identifier,
-      distribute_external: $external_beta_enabled,
-      groups: $external_beta_enabled ? $testflight_group : nil,
+      distribute_external: distribute_external,
+      groups: distribute_external ? $testflight_group : nil,
       beta_app_description: "Bug fixes and performance improvements",
     }
 
@@ -183,10 +264,17 @@ platform :ios do
     base_notes = lane_context[SharedValues::FL_CHANGELOG] || ""
     upload_params[:changelog] = "#{build_meta_line(version)}\n\n#{base_notes}"
 
-    upload_to_testflight(upload_params)
+    begin
+      upload_to_testflight(upload_params)
+    rescue Spaceship::UnexpectedResponse => exception
+      raise unless distribute_external && beta_review_conflict_error?(exception)
+
+      UI.important("Internal TestFlight upload succeeded; external beta submission skipped because another #{version} build is in review")
+    end
   end
 
   lane :release do
+    ensure_no_app_store_review_in_progress!
     version, build_number = update_version_and_build_number
 
     changelog_path = "../../../../changelogs/" + version + ".txt"
@@ -204,6 +292,7 @@ platform :ios do
         provisioningProfiles: {
           $app_identifier => $profile_name,
           $app_identifier_widget => $profile_name_widget,
+          $app_identifier_notification => $profile_name_notification,
         }
       },
       xcargs: "-skipMacroValidation",
@@ -225,6 +314,10 @@ platform :ios do
       }
     }
     upload_options[:metadata_path] = $metadata_path if $metadata_path
+
+    # Review state can change while Xcode builds the archive. Check again immediately before
+    # set_changelog can rename the editable App Store version.
+    ensure_no_app_store_review_in_progress!
 
     # App Store Connect can have localizations that are not represented in fastlane/metadata.
     # This updates the edit version's existing localizations before deliver submits for review.

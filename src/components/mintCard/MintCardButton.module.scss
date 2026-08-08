@@ -6,8 +6,8 @@
   cursor: var(--custom-cursor, pointer);
 
   position: absolute;
-  right: 0.75rem;
   bottom: 0.75rem;
+  inset-inline-end: 0.75rem;
 
   width: 1.75rem;
   height: 1.75rem;
@@ -41,16 +41,16 @@
   }
 
   @include mixins.respond-above(xs) {
-    right: 0.625rem;
     bottom: 0.5rem;
+    inset-inline-end: 0.625rem;
     font-size: 1.5rem;
   }
 }
 
 .icon {
   position: absolute;
-  right: -0.125rem;
   bottom: -0.125rem;
+  inset-inline-end: -0.125rem;
   font-size: 1rem;
 
   @include mixins.respond-above(xs) {

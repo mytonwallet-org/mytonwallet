@@ -10,6 +10,8 @@ import android.view.View
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import java.math.BigDecimal
+import java.math.BigInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -57,18 +59,22 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiParsedPayload
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestSendTransaction
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MExplainedTransferFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.toAmountString
-import java.math.BigDecimal
-import java.math.BigInteger
 
 private const val WRAPPED_TON_SLUG = "ton-eqcm3b12qk"
 private const val UNKNOWN_TOKEN_SYMBOL = "[Unknown]"
@@ -77,9 +83,13 @@ class TonConnectRequestSendViewModel private constructor(
     private val update: ApiUpdate.ApiUpdateDappSignRequest
 ) : ViewModel() {
     private val transactionTokenSlugs =
-        if (update is ApiUpdate.ApiUpdateDappSendTransactions) update.transactions.map {
-            it.payload?.payloadTokenSlug
-        } else emptyList()
+        if (update is ApiUpdate.ApiUpdateDappSendTransactions) {
+            update.transactions.map {
+                it.payload?.payloadTokenSlug
+            }
+        } else {
+            emptyList()
+        }
     private val tokensMapFlow = TokenStore.tokensFlow.map { tokens ->
         Tokens(
             currency = WalletCore.baseCurrency,
@@ -93,7 +103,6 @@ class TonConnectRequestSendViewModel private constructor(
                 )
             }
         )
-
     }.distinctUntilChanged()
     val uiItemsFlow = tokensMapFlow.map(this::buildUiItems)
 
@@ -105,8 +114,7 @@ class TonConnectRequestSendViewModel private constructor(
     }.distinctUntilChanged()
 
     private fun insufficientTokens(balances: Map<String, BigInteger>?): String? {
-        if (update !is ApiUpdate.ApiUpdateDappSendTransactions)
-            return null
+        if (update !is ApiUpdate.ApiUpdateDappSendTransactions) return null
         val nativeSlug =
             MBlockchain.valueOfOrNull(update.operationChain)?.nativeSlug ?: return null
 
@@ -124,8 +132,7 @@ class TonConnectRequestSendViewModel private constructor(
             ) {
                 val slug = payload.payloadTokenSlug
                 val amount = payload.payloadTokenAmount
-                if (slug != null && amount != null)
-                    addAmount(slug, amount)
+                if (slug != null && amount != null) addAmount(slug, amount)
             }
         }
 
@@ -133,11 +140,14 @@ class TonConnectRequestSendViewModel private constructor(
             val balanceSlug = if (slug == WRAPPED_TON_SLUG) MBlockchain.ton.nativeSlug else slug
             val availableBalance = balances?.get(balanceSlug) ?: BigInteger.ZERO
             if (availableBalance < requiredAmount) {
-                if (slug == WRAPPED_TON_SLUG)
+                if (slug == WRAPPED_TON_SLUG) {
                     TokenStore.getToken(MBlockchain.ton.nativeSlug)?.symbol ?: "TON"
-                else
+                } else {
                     TokenStore.getToken(slug)?.symbol ?: UNKNOWN_TOKEN_SYMBOL
-            } else null
+                }
+            } else {
+                null
+            }
         }
 
         return if (insufficientSymbols.isEmpty()) null else insufficientSymbols.joinToString(", ")
@@ -152,7 +162,7 @@ class TonConnectRequestSendViewModel private constructor(
     private data class Token(
         val slug: String,
         val token: ApiTokenWithPrice?,
-        val isUnknown: Boolean,
+        val isUnknown: Boolean
     ) {
         val icon by lazy {
             token?.let {
@@ -164,20 +174,15 @@ class TonConnectRequestSendViewModel private constructor(
         }
     }
 
-    data class UiState(
-        val cancelButtonIsLoading: Boolean
-    ) {
+    data class UiState(val cancelButtonIsLoading: Boolean) {
         val isLocked = cancelButtonIsLoading
     }
-
 
     private val _uiStateFlow = MutableStateFlow(UiState(cancelButtonIsLoading = false))
     val uiStateFlow = _uiStateFlow.asStateFlow()
 
-
     fun cancel(promiseId: String, reason: String?, scope: CoroutineScope? = null) {
-        if (isConfirmed)
-            return
+        if (isConfirmed) return
         assert(promiseId)
         if (_uiStateFlow.value.isLocked) {
             return
@@ -203,7 +208,7 @@ class TonConnectRequestSendViewModel private constructor(
         }
     }
 
-    fun accept(promiseId: String, password: String) {
+    fun accept(promiseId: String, enclaveToken: String) {
         assert(promiseId)
         if (_uiStateFlow.value.isLocked) {
             return
@@ -221,7 +226,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 accountId = update.accountId,
                                 transactions = update.transactions,
                                 options = Options(
-                                    password = password,
+                                    enclaveToken = enclaveToken,
                                     validUntil = update.validUntil,
                                     vestingAddress = update.vestingAddress,
                                     isLegacyOutput = update.isLegacyOutput
@@ -266,7 +271,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 accountId = update.accountId,
                                 dappUrl = update.dapp.url!!,
                                 payloadToSign = update.payloadToSign,
-                                password = password
+                                enclaveToken = enclaveToken
                             )
                         )
                         WalletCore.call(
@@ -287,10 +292,8 @@ class TonConnectRequestSendViewModel private constructor(
 
     var isConfirmed = false
     fun notifyDone(success: Boolean, err: MBridgeError?) {
-        if (isConfirmed)
-            return
-        if (success)
-            isConfirmed = true
+        if (isConfirmed) return
+        if (success) isConfirmed = true
         _eventsFlow.tryEmit(Event.Complete(success, err))
     }
 
@@ -303,10 +306,7 @@ class TonConnectRequestSendViewModel private constructor(
 
     sealed class Event {
         data object Close : Event()
-        data class Complete(
-            val success: Boolean,
-            val err: MBridgeError?
-        ) : Event()
+        data class Complete(val success: Boolean, val err: MBridgeError?) : Event()
 
         data class ShowWarningAlert(
             val title: String,
@@ -316,10 +316,7 @@ class TonConnectRequestSendViewModel private constructor(
 
         data class OpenDappInBrowser(val url: String) : Event()
 
-        data class MfaRequested(
-            val requestHash: String,
-            val promiseId: String,
-        ) : Event()
+        data class MfaRequested(val requestHash: String, val promiseId: String) : Event()
     }
 
     private val _eventsFlow =
@@ -337,7 +334,8 @@ class TonConnectRequestSendViewModel private constructor(
                             update.accountId,
                             update.dapp.sse?.appClientId ?: "",
                             update.dapp.url ?: ""
-                        ), callback = { _, _ ->
+                        ),
+                        callback = { _, _ ->
                             WalletCore.notifyEvent(WalletEvent.DappRemoved(update.dapp))
                             WalletCore.requestDAppList()
                         }
@@ -357,16 +355,6 @@ class TonConnectRequestSendViewModel private constructor(
             })
         )
 
-        if (update is ApiUpdate.ApiUpdateDappSendTransactions && update.isDangerous) {
-            uiItems.add(Item.Gap())
-            uiItems.add(
-                Item.Alert(
-                    LocaleController.getString("\$hardware_payload_warning")
-                        .toProcessedSpannableStringBuilder()
-                )
-            )
-        }
-
         uiItems.add(Item.Gap())
 
         when (update) {
@@ -379,15 +367,19 @@ class TonConnectRequestSendViewModel private constructor(
                             Item.Gap()
                         )
                     )
+                } else if (update.isDangerous) {
+                    uiItems.add(dangerousWarningItem())
+                    uiItems.add(Item.Gap())
                 }
 
+                var previewFee: TonConnectItem.PreviewFee? = null
                 update.emulation?.activities?.let { previewActivities ->
                     val isMultichain = WGlobalStorage.isMultichain(update.accountId)
                     val previewTitle = SpannableStringBuilder()
                     previewTitle.append(LocaleController.getString("Preview"))
                     previewTitle.append(" ", WSpacingSpan(6.dp), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     ApplicationContextHolder.applicationContext.getDrawableCompat(
-                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
+                        org.mytonwallet.app_air.icons.R.drawable.ic_warning_14
                     )?.let { drawable ->
                         val width = 12.dp
                         val height = 12.dp
@@ -417,31 +409,67 @@ class TonConnectRequestSendViewModel private constructor(
 
                     val tonToken = MBlockchain.valueOfOrNull(update.operationChain)
                         ?.let { TokenStore.getToken(it.nativeSlug) }
-                    var feeValue: CharSequence? = null
                     tonToken?.let {
+                        val excessFee = previewActivities
+                            .filterIsInstance<MApiTransaction.Transaction>()
+                            .firstOrNull { it.type == ApiTransactionType.EXCESS }
+                            ?.amount
                         val realFee = update.emulation?.realFee
                         realFee?.let {
-                            if (realFee != BigInteger.ZERO)
-                                feeValue = LocaleController.getStringWithKeyValues(
-                                    "\$fee_value_with_colon",
-                                    listOf(
-                                        Pair(
-                                            "%fee%", "**~" + realFee.toString(
-                                                tonToken.decimals,
-                                                tonToken.symbol,
-                                                realFee.smartDecimalsCount(tonToken.decimals),
-                                                false,
-                                                forceCurrencyToRight = true,
-                                                roundUp = true
-                                            ) + "**"
-                                        )
-                                    )
+                            if (realFee != BigInteger.ZERO) {
+                                val realFeeTerms = MFeeTerms(
+                                    token = null,
+                                    native = realFee,
+                                    stars = null
                                 )
+                                previewFee = TonConnectItem.PreviewFee(
+                                    text = LocaleController.getStringWithKeyValues(
+                                        "\$fee_value",
+                                        listOf(
+                                            Pair(
+                                                "%fee%",
+                                                "\u202D**~" + realFee.toString(
+                                                    tonToken.decimals,
+                                                    tonToken.symbol,
+                                                    realFee.smartDecimalsCount(tonToken.decimals),
+                                                    false,
+                                                    forceCurrencyToRight = true,
+                                                    roundUp = true
+                                                ) + "**\u200F"
+                                            )
+                                        )
+                                    ).toProcessedSpannableStringBuilder(),
+                                    token = tonToken,
+                                    feeDetails = excessFee?.let { excess ->
+                                        val fullFee = realFee + excess
+                                        MExplainedTransferFee(
+                                            isGasless = false,
+                                            fullFee = MFee(
+                                                MFeePrecision.APPROXIMATE,
+                                                MFeeTerms(
+                                                    token = null,
+                                                    native = fullFee,
+                                                    stars = null
+                                                ),
+                                                fullFee
+                                            ),
+                                            realFee = MFee(
+                                                MFeePrecision.APPROXIMATE,
+                                                realFeeTerms,
+                                                realFee
+                                            ),
+                                            excessFee = excess,
+                                            canTransferFullBalance = false
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                     uiItems.add(
                         Item.ListTitleValue(
-                            previewTitle, feeValue?.toProcessedSpannableStringBuilder()
+                            previewTitle,
+                            null
                         )
                     )
 
@@ -472,11 +500,18 @@ class TonConnectRequestSendViewModel private constructor(
                         )
                     )
                 }
+
+                previewFee?.let {
+                    uiItems.add(Item.Gap(0))
+                    uiItems.add(it)
+                }
             }
 
             is ApiUpdate.ApiUpdateDappSignData -> {
                 when (update.payloadToSign) {
                     is MSignDataPayload.SignDataPayloadBinary -> {
+                        val payload =
+                            update.payloadToSign as MSignDataPayload.SignDataPayloadBinary
                         uiItems.addAll(
                             listOf(
                                 Item.ListTitle(
@@ -486,17 +521,23 @@ class TonConnectRequestSendViewModel private constructor(
                                     topRounding = HeaderCell.TopRounding.NORMAL
                                 ),
                                 Item.CopyableText(
-                                    ((update.payloadToSign as MSignDataPayload.SignDataPayloadBinary).bytes),
+                                    payload.bytes,
                                     "Binary Data",
                                     LocaleController.getString("Data Copied")
                                 ),
                                 Item.Gap(),
-                                Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
+                                Item.Alert(
+                                    LocaleController.getString(
+                                        "The binary data content is unclear. Sign it only if you trust the service."
+                                    )
+                                )
                             )
                         )
                     }
 
                     is MSignDataPayload.SignDataPayloadCell -> {
+                        val payload =
+                            update.payloadToSign as MSignDataPayload.SignDataPayloadCell
                         uiItems.addAll(
                             listOf(
                                 Item.ListTitle(
@@ -506,7 +547,7 @@ class TonConnectRequestSendViewModel private constructor(
                                     topRounding = HeaderCell.TopRounding.NORMAL
                                 ),
                                 Item.CopyableText(
-                                    (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).schema,
+                                    payload.schema,
                                     "Cell Schema",
                                     LocaleController.getString("Data Copied")
                                 ),
@@ -518,17 +559,23 @@ class TonConnectRequestSendViewModel private constructor(
                                     topRounding = HeaderCell.TopRounding.NORMAL
                                 ),
                                 Item.CopyableText(
-                                    (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).cell,
+                                    payload.cell,
                                     "Cell Data",
                                     LocaleController.getString("Data Copied")
                                 ),
                                 Item.Gap(),
-                                Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
+                                Item.Alert(
+                                    LocaleController.getString(
+                                        "The binary data content is unclear. Sign it only if you trust the service."
+                                    )
+                                )
                             )
                         )
                     }
 
                     is MSignDataPayload.SignDataPayloadText -> {
+                        val payload =
+                            update.payloadToSign as MSignDataPayload.SignDataPayloadText
                         uiItems.addAll(
                             listOf(
                                 Item.ListTitle(
@@ -538,10 +585,10 @@ class TonConnectRequestSendViewModel private constructor(
                                     topRounding = HeaderCell.TopRounding.NORMAL
                                 ),
                                 Item.CopyableText(
-                                    ((update.payloadToSign as MSignDataPayload.SignDataPayloadText).text),
+                                    payload.text,
                                     "Message",
                                     LocaleController.getString("Data Copied")
-                                ),
+                                )
                             )
                         )
                     }
@@ -602,7 +649,6 @@ class TonConnectRequestSendViewModel private constructor(
 
         return uiItems
     }
-
 
     @Suppress("UNCHECKED_CAST")
     class Factory(private val update: ApiUpdate.ApiUpdateDappSignRequest) :
@@ -666,7 +712,9 @@ class TonConnectRequestSendViewModel private constructor(
 
             return when {
                 amountParts.isEmpty() -> SpannableStringBuilder()
+
                 amountParts.size == 1 -> amountParts[0]
+
                 else -> {
                     val result = SpannableStringBuilder()
                     amountParts.forEachIndexed { index, part ->
@@ -683,10 +731,9 @@ class TonConnectRequestSendViewModel private constructor(
         private fun formatTransactionAmountInBaseCurrencyString(
             transaction: ApiDappTransfer,
             token: Token,
-            baseCurrency: MBaseCurrency,
+            baseCurrency: MBaseCurrency
         ): SpannableStringBuilder? {
-            if (token.isUnknown)
-                return null
+            if (token.isUnknown) return null
 
             // Tokens
             val tokenWithPrice = token.token ?: return null
@@ -704,10 +751,11 @@ class TonConnectRequestSendViewModel private constructor(
                     BigDecimal.valueOf(tokenWithPrice.price ?: 0.0)
 
             val feeAmount =
-                if (transaction.payload?.payloadIsToken == true)
+                if (transaction.payload?.payloadIsToken == true) {
                     BigInteger.ZERO
-                else
+                } else {
                     transaction.amount
+                }
             val feeAmountInBaseCurrency =
                 CoinUtils.toBigDecimal(feeAmount, nativeToken.decimals) *
                     BigDecimal.valueOf(nativeToken.price ?: 0.0)
@@ -745,86 +793,63 @@ class TonConnectRequestSendViewModel private constructor(
             }
         }
 
-        private fun formatTokenAmounts(
-            totalPerToken: Map<String, BigInteger>,
-            tokens: Tokens
-        ): String {
-            if (totalPerToken.isEmpty()) return ""
-
-            val sortedEntries = totalPerToken.entries.sortedBy { (slug, _) ->
-                if (TokenStore.getToken(slug)?.isBlockchainNative == true) 0 else 1
-            }
-
-            val tokenDetails = sortedEntries.mapNotNull { (slug, amount) ->
-                val token = tokens.tokens?.get(slug) ?: TokenStore.getToken(slug)
-                token?.let {
-                    amount.toString(
-                        decimals = it.decimals,
-                        currency = it.symbol ?: "",
-                        currencyDecimals = amount.smartDecimalsCount(it.decimals),
-                        showPositiveSign = false,
-                        roundUp = false
-                    )
-                }
-            }.joinToString(" + ")
-
-            return tokenDetails
-        }
-
         private fun formatCurrencyAmount(
             amount: String,
-            details: String
-        ): SpannableStringBuilder {
-            return SpannableStringBuilder().apply {
-                val decimalIndex = amount.indexOf('.')
+            currencySign: String
+        ): SpannableStringBuilder = SpannableStringBuilder(amount).apply {
+            setSpan(
+                AbsoluteSizeSpan(36, true),
+                0,
+                length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
 
-                if (decimalIndex != -1) {
-                    val integerStart = length
-                    append(amount.substring(0, decimalIndex))
-                    setSpan(
-                        AbsoluteSizeSpan(22, true),
-                        integerStart,
-                        length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
+            val decimalStart = amount.indexOf('.')
+            if (decimalStart >= 0) {
+                val decimalEnd = amount.indexOf(' ', decimalStart).takeIf { it >= 0 }
+                    ?: amount.length
+                setSpan(
+                    WForegroundColorSpan(WColor.Decimals),
+                    decimalStart,
+                    decimalEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                setSpan(
+                    AbsoluteSizeSpan(28, true),
+                    decimalStart,
+                    decimalEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
 
-                    val decimalStart = length
-                    append(amount.substring(decimalIndex))
-                    setSpan(
-                        AbsoluteSizeSpan(16, true),
-                        decimalStart,
-                        length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                } else {
-                    val amountStart = length
-                    append(amount)
-                    setSpan(
-                        AbsoluteSizeSpan(22, true),
-                        amountStart,
-                        length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-
-                if (details.isNotEmpty()) {
-                    val detailStart = length
-                    append(details)
-                    setSpan(
-                        WForegroundColorSpan(WColor.SecondaryText),
-                        detailStart,
-                        length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                    setSpan(
-                        AbsoluteSizeSpan(16, true),
-                        detailStart,
-                        length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
+            val currencyStart = amount.indexOf(currencySign)
+            if (currencyStart >= 0) {
+                val spanStart =
+                    if (currencyStart > 0 && amount[currencyStart - 1] == ' ') {
+                        currencyStart - 1
+                    } else {
+                        currencyStart
+                    }
+                val currencyEnd = currencyStart + currencySign.length
+                setSpan(
+                    WForegroundColorSpan(WColor.Decimals),
+                    spanStart,
+                    currencyEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                setSpan(
+                    AbsoluteSizeSpan(32, true),
+                    spanStart,
+                    currencyEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             }
         }
+
+        private fun dangerousWarningItem() = Item.Alert(
+            LocaleController.getString("\$hardware_payload_warning")
+                .toProcessedSpannableStringBuilder()
+        )
 
         private fun buildUiItemsListTransactions(
             update: ApiUpdate.ApiUpdateDappSendTransactions,
@@ -839,7 +864,6 @@ class TonConnectRequestSendViewModel private constructor(
             )
 
             var totalPrice = BigDecimal.ZERO
-            val totalPerToken = emptyMap<String, BigInteger>().toMutableMap()
 
             for (a in 0..<update.transactions.size) {
                 val transaction = update.transactions[a]
@@ -850,22 +874,22 @@ class TonConnectRequestSendViewModel private constructor(
 
                 val amount = if (payload?.payloadIsToken == true && !token.isUnknown) {
                     transaction.payload?.payloadTokenAmount ?: BigInteger.ZERO
-                } else transaction.amount
+                } else {
+                    transaction.amount
+                }
 
                 val totalFee = transaction.networkFee + if (payload?.payloadIsToken == true) {
                     transaction.amount
-                } else BigInteger.ZERO
+                } else {
+                    BigInteger.ZERO
+                }
 
                 token.token?.let { token ->
-                    totalPerToken[token.slug] =
-                        (totalPerToken[token.slug] ?: BigInteger.ZERO) + amount
                     totalPrice += amount.toBigDecimal(token.decimals) * BigDecimal.valueOf(
                         token.price ?: 0.0
                     )
                 }
                 nativeToken?.let { nativeToken ->
-                    totalPerToken[nativeToken.slug] =
-                        (totalPerToken[nativeToken.slug] ?: BigInteger.ZERO) + totalFee
                     totalPrice += totalFee.toBigDecimal(nativeToken.decimals) * BigDecimal.valueOf(
                         nativeToken.price ?: 0.0
                     )
@@ -889,47 +913,33 @@ class TonConnectRequestSendViewModel private constructor(
                                 tokens,
                                 a
                             )
-                        ),
+                        )
                     )
                 )
             }
 
-            // Total amount row
-            val totalCurrencyFmt = SpannableStringBuilder(
-                CoinUtils.fromDecimal(totalPrice, 9)?.let {
-                    it.toString(
-                        currency = "",
-                        decimals = 9,
-                        currencyDecimals = it.smartDecimalsCount(9),
-                        showPositiveSign = false,
-                        roundUp = false
-                    )
-                } ?: "")
-            val tokenAmountText = formatTokenAmounts(totalPerToken, tokens)
-            val priceDetails = if (totalCurrencyFmt.isNotEmpty()) {
-                " (${tokens.currency.sign}${totalCurrencyFmt})"
-            } else {
-                ""
-            }
-
-            if (update.transactions.size > 1) {
-                uiItems.addAll(
-                    0,
-                    listOf(
-                        Item.ListTitle(
-                            LocaleController.getFormattedString(
-                                "Total Amount", listOf(tokens.currency.currencySymbol)
-                            ),
-                            topRounding = HeaderCell.TopRounding.NORMAL
-                        ),
-                        TonConnectItem.CurrencyAmount(
-                            formatCurrencyAmount(tokenAmountText, priceDetails)
-                        ),
-                        Item.Gap(),
+            val summaryItems = mutableListOf<BaseListItem>()
+            CoinUtils.fromDecimal(totalPrice, 9)?.toString(
+                currency = tokens.currency.sign,
+                decimals = 9,
+                currencyDecimals = tokens.currency.decimalsCount,
+                showPositiveSign = false,
+                roundUp = false
+            )?.let { totalCurrencyAmount ->
+                summaryItems.add(
+                    TonConnectItem.CurrencyAmount(
+                        formatCurrencyAmount(totalCurrencyAmount, tokens.currency.sign)
                     )
                 )
+                summaryItems.add(Item.Gap())
             }
 
+            if (update.isDangerous) {
+                summaryItems.add(dangerousWarningItem())
+                summaryItems.add(Item.Gap())
+            }
+
+            uiItems.addAll(0, summaryItems)
             return uiItems
         }
 
@@ -990,7 +1000,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 ),
                                 rounding = Content.Rounding.Radius(8f.dp)
                             )
-                        ),
+                        )
                     )
                 )
             } else {
@@ -1012,8 +1022,8 @@ class TonConnectRequestSendViewModel private constructor(
                                 token,
                                 tokens.currency
                             ),
-                            image = tokenIcon,
-                        ),
+                            image = tokenIcon
+                        )
                     )
                 )
                 uiItems.addAll(
@@ -1037,7 +1047,8 @@ class TonConnectRequestSendViewModel private constructor(
                             subtitle = SpannableStringBuilder(
                                 CoinUtils.fromDecimal(
                                     CoinUtils.toBigDecimal(transaction.networkFee, 9) *
-                                        BigDecimal.valueOf(nativeToken?.price ?: 0.0), 9
+                                        BigDecimal.valueOf(nativeToken?.price ?: 0.0),
+                                    9
                                 )?.toString(
                                     currency = tokens.currency.sign,
                                     decimals = 9,
@@ -1046,8 +1057,8 @@ class TonConnectRequestSendViewModel private constructor(
                                     roundUp = false
                                 )
                             ),
-                            image = null,
-                        ),
+                            image = null
+                        )
                     )
                 )
             }
@@ -1065,7 +1076,7 @@ class TonConnectRequestSendViewModel private constructor(
                             text,
                             "Comment",
                             LocaleController.getString("Comment Copied")
-                        ),
+                        )
                     )
                 )
             }
@@ -1079,7 +1090,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 LocaleController.getString("Payload"),
                                 topRounding = HeaderCell.TopRounding.NORMAL
                             ),
-                            Item.ExpandableText(base64),
+                            Item.ExpandableText(base64)
                         )
                     )
                 }
@@ -1092,7 +1103,7 @@ class TonConnectRequestSendViewModel private constructor(
                         Item.Alert(
                             LocaleController.getString("\$hardware_payload_warning")
                                 .toProcessedSpannableStringBuilder()
-                        ),
+                        )
                     )
                 )
             }

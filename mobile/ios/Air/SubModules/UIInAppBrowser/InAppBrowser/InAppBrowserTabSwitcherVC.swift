@@ -183,7 +183,7 @@ private final class InAppBrowserTabCell: UICollectionViewCell {
         cardView.addSubview(footerView)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleLabel.applyTextStyle(.subheadlineStrong)
         titleLabel.textColor = .label
         titleLabel.numberOfLines = 1
         titleLabel.lineBreakMode = .byTruncatingTail
@@ -191,7 +191,7 @@ private final class InAppBrowserTabCell: UICollectionViewCell {
         footerView.addSubview(titleLabel)
 
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        subtitleLabel.applyTextStyle(.caption, content: .technical)
         subtitleLabel.textColor = .air.secondaryLabel
         subtitleLabel.numberOfLines = 1
         subtitleLabel.lineBreakMode = .byTruncatingTail

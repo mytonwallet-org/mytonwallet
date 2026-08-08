@@ -1,5 +1,4 @@
 import ContextMenuKit
-import UIComponents
 
 struct NftDetailsActionConfig {
     var onTap: (() -> Void)?

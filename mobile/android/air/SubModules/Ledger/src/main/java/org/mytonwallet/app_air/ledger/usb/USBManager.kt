@@ -9,6 +9,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 class USBManager(val applicationContext: Context) {
     var hidDevice: HIDDevice? = null
@@ -64,17 +65,17 @@ class USBManager(val applicationContext: Context) {
         // notifyListeners(event, device)
     }
 
-    fun getDeviceList(): MutableCollection<UsbDevice?> {
-        return usbManager!!.getDeviceList().values
-    }
+    fun getDeviceList(): MutableCollection<UsbDevice?> =
+        usbManager?.deviceList?.values ?: mutableListOf()
 
     var onDeviceConnected: ((device: HIDDevice?) -> Unit)? = null
     fun openDevice(deviceId: Int, onDeviceConnected: (deviceId: HIDDevice?) -> Unit) {
         this.onDeviceConnected = onDeviceConnected
-        val deviceList = usbManager!!.getDeviceList()
+        val manager = usbManager ?: throw IllegalStateException("USB manager is unavailable")
+        val deviceList = manager.deviceList
 
-        if (hidDevice != null) {
-            hidDevice!!.close()
+        hidDevice?.let {
+            it.close()
             hidDevice = null
         }
 
@@ -85,14 +86,15 @@ class USBManager(val applicationContext: Context) {
             }
         }
 
-        if (selectedDevice != null) {
-            if (usbManager!!.hasPermission(selectedDevice)) {
-                openSelectedDevice(selectedDevice!!)
+        val device = selectedDevice
+        if (device != null) {
+            if (manager.hasPermission(device)) {
+                openSelectedDevice(device)
             } else {
-                requestUsbPermission(usbManager!!, selectedDevice)
+                requestUsbPermission(manager, device)
             }
         } else {
-            throw Error("DeviceNotFound")
+            throw IllegalStateException("USB device not found")
         }
     }
 
@@ -107,7 +109,7 @@ class USBManager(val applicationContext: Context) {
             registerBroadcastReceiver()
             manager.requestPermission(device, permIntent)
         } catch (e: Exception) {
-            throw Error(e.message)
+            throw IllegalStateException("USB permission request failed", e)
         }
     }
 
@@ -118,11 +120,13 @@ class USBManager(val applicationContext: Context) {
                 if (ACTION_USB_PERMISSION == intent.action) {
                     synchronized(this) {
                         unregisterReceiver(this)
-                        if (selectedDevice == null || !usbManager!!.hasPermission(selectedDevice)) {
+                        val manager = usbManager
+                        val device = selectedDevice
+                        if (manager == null || device == null || !manager.hasPermission(device)) {
                             onDeviceConnected?.invoke(null)
                             return
                         }
-                        openSelectedDevice(selectedDevice!!)
+                        openSelectedDevice(device)
                     }
                 }
             }
@@ -139,40 +143,49 @@ class USBManager(val applicationContext: Context) {
         try {
             applicationContext.unregisterReceiver(receiver)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Logger.e(
+                Logger.LogTag.LEDGER,
+                "USB receiver unregister failed error=${e.javaClass.simpleName}"
+            )
         }
     }
 
-    private fun openSelectedDevice(device: UsbDevice): Boolean {
-        try {
-            hidDevice = HIDDevice(usbManager!!, device)
-            onDeviceConnected?.invoke(hidDevice!!)
-            return true
+    private fun openSelectedDevice(device: UsbDevice) {
+        val openedDevice = try {
+            val manager = usbManager ?: throw IllegalStateException("USB manager is unavailable")
+            HIDDevice(manager, device)
         } catch (e: Exception) {
-            e.printStackTrace()
-            return false
+            Logger.e(
+                Logger.LogTag.LEDGER,
+                "USB device open failed deviceId=${device.deviceId} " +
+                    "error=${e.javaClass.simpleName}"
+            )
+            onDeviceConnected?.invoke(null)
+            return
         }
+        hidDevice = openedDevice
+        onDeviceConnected?.invoke(openedDevice)
     }
 
     fun closeDevice(deviceId: Int) {
-        if (hidDevice == null || hidDevice!!.deviceId != deviceId) return
+        val device = hidDevice ?: return
+        if (device.deviceId != deviceId) return
 
-        hidDevice!!.close()
+        device.close()
         hidDevice = null
         selectedDevice = null
     }
 
     fun exchange(deviceId: Int, apduHex: String, onCompletion: (String?) -> Unit) {
-        if (hidDevice == null || hidDevice!!.deviceId != deviceId) {
-            throw Error("NotConnected")
-        }
+        val device = hidDevice
+            ?.takeIf { it.deviceId == deviceId }
+            ?: throw IllegalStateException("USB device is not connected")
 
         val apduCommand: ByteArray? = hexToBin(apduHex)
         try {
-            hidDevice!!.exchange(apduCommand, onCompletion = onCompletion)
+            device.exchange(apduCommand, onCompletion = onCompletion)
         } catch (e: Exception) {
-            e.printStackTrace()
-            throw Error(e.message)
+            throw IllegalStateException("USB exchange failed", e)
         }
     }
 

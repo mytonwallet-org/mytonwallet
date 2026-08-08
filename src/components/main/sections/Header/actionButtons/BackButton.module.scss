@@ -16,11 +16,13 @@
   @include mixins.respond-below(xs) {
     position: absolute;
     top: calc(0.5rem + var(--safe-area-top, 0rem));
-    left: calc(1rem + var(--safe-area-left, 0rem));
-    margin-left: -0.875rem;
+    inset-inline-start: calc(1rem + var(--safe-area-inline-start, 0rem));
+    margin-inline-start: -0.875rem;
   }
 }
 
 .backIcon {
   font-size: 1.5rem;
+
+  @include mixins.rtl-mirror();
 }

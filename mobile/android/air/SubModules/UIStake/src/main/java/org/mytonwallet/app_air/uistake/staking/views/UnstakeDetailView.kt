@@ -17,9 +17,9 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 
 @SuppressLint("ViewConstructor")
-class UnstakeDetailView(
-    context: Context,
-) : WLinearLayout(context), WThemedView {
+class UnstakeDetailView(context: Context) :
+    WLinearLayout(context),
+    WThemedView {
 
     private var updateHandler: Handler? = null
     private var updateRunnable: Runnable? = null
@@ -68,7 +68,7 @@ class UnstakeDetailView(
         ssb.setSpan(
             ImageSpan(
                 context,
-                org.mytonwallet.app_air.walletcontext.R.drawable.ic_bolt,
+                org.mytonwallet.app_air.icons.R.drawable.ic_bolt,
                 ImageSpan.ALIGN_BASELINE
             ),
             0,

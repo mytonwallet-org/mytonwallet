@@ -64,9 +64,19 @@ struct ActionsRow: View {
                     AppActions.shareUrl(shareUrl)
                 }
             )
-            ActivityDetailsActionsToolbarRepresentable(model: toolbarModel)
+            GeometryReader { proxy in
+                ActivityDetailsActionsToolbarRepresentable(model: toolbarModel)
+                    .frame(
+                        width: toolbarModel.width(constrainedTo: proxy.size.width),
+                        height: WScalableButton.preferredHeight
+                    )
+                    .frame(
+                        width: proxy.size.width,
+                        height: WScalableButton.preferredHeight,
+                        alignment: .center
+                    )
+            }
                 .frame(height: WScalableButton.preferredHeight)
-                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
                 .padding(.bottom, 16)
@@ -88,6 +98,18 @@ private final class ActivityDetailsActionsToolbar: ButtonsToolbar {
         let onDetailsExpanded: () -> Void
         let onRepeat: () -> Void
         let onShare: () -> Void
+
+        @MainActor var visibleCount: Int {
+            [showDetails, showRepeat, showShare].filter { $0 }.count
+        }
+
+        @MainActor func width(constrainedTo availableWidth: CGFloat) -> CGFloat {
+            guard visibleCount > 0 else { return 0 }
+            let count = CGFloat(visibleCount)
+            let spacing = CGFloat(visibleCount - 1) * ButtonsToolbar.preferredSpacing
+            let preferredWidth = count * ButtonsToolbar.preferredItemWidth + spacing
+            return min(availableWidth, preferredWidth)
+        }
     }
     
     override init(frame: CGRect) {
@@ -129,7 +151,6 @@ private struct ActivityDetailsActionsToolbarRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> ActivityDetailsActionsToolbar {
         let toolbar = ActivityDetailsActionsToolbar()
-        toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbar.configure(model: model)
         return toolbar
     }

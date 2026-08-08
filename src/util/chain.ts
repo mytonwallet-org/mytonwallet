@@ -1,7 +1,4 @@
-import type {
-  ApiChain, ApiNetwork, ApiStakingState, ApiToken, ApiTokenWithPrice,
-} from '../api/types';
-import type { UserToken } from '../global/types';
+import type { ApiChain, ApiDerivationSpec, ApiNetwork, ApiToken, ApiTokenWithPrice } from '../api/types';
 
 import {
   ARBITRUM,
@@ -25,6 +22,7 @@ import {
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
   POLYGON,
+  ROBINHOOD,
   SOLANA,
   SOLANA_USDC_MAINNET,
   SOLANA_USDT_MAINNET,
@@ -39,11 +37,11 @@ import {
 } from '../config';
 import { EVM_DERIVATION_PATHS } from '../api/chains/evm/constants';
 import { SOLANA_DERIVATION_PATHS } from '../api/chains/solana/constants';
+import { SOLANA_DERIVATION_SPEC, SOLANA_DERIVATION_VERSION } from '../api/chains/solana/derivation';
 import { TON_BIP39_PATH } from '../api/chains/ton/constants';
 import { TRON_BIP39_PATH } from '../api/chains/tron/constants';
 import formatTonTransferUrl from './ton/formatTransferUrl';
 import { buildCollectionByKey, compact } from './iteratees';
-import { getFullStakingBalance } from './staking';
 import withCache from './withCache';
 
 export type ExplorerLink = {
@@ -166,6 +164,17 @@ export interface ChainConfig {
   displayColor: string;
   /** Builds a link to transfer assets in this chain. If not set, the chain won't have the Deposit Link modal. */
   formatTransferUrl?(address: string, amount?: bigint, text?: string, jettonAddress?: string): string;
+
+  /**
+   * Declarative derivation spec used by the Enclave to derive a public wallet for this chain
+   * from a stored BIP39 secret. Bumping `version` marks all stored wallets as in need of
+   * re-derivation and triggers the chain-upgrade executor on next authorized entry.
+   * Only chains that use the shared chain-upgrade pipeline set this field.
+   */
+  derivation?: {
+    spec: ApiDerivationSpec;
+    version: number;
+  };
 }
 
 // Address-matching precedence order (NOT the display order — see `CHAIN_DISPLAY_ORDER` below).
@@ -184,6 +193,7 @@ export const CHAIN_ORDER: ApiChain[] = [
   'monad',
   'avalanche',
   'hyperliquid',
+  'robinhood',
 ];
 
 // Display order for chains everywhere in the UI. Independent of `CHAIN_ORDER`,
@@ -195,12 +205,13 @@ export const CHAIN_DISPLAY_ORDER: ApiChain[] = [
   'hyperliquid',
   'ton',
   'tron',
-  'base',
   'bnb',
+  'base',
+  'robinhood',
+  'monad',
+  'arbitrum',
   'polygon',
   'avalanche',
-  'arbitrum',
-  'monad',
 ];
 
 const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
@@ -429,6 +440,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     nftBatchPauseMs: 1000,
     isNetWorthSupported: false,
     doesSupportPushNotifications: false,
+    derivation: {
+      spec: SOLANA_DERIVATION_SPEC,
+      version: SOLANA_DERIVATION_VERSION,
+    },
   },
   ethereum: {
     title: 'Ethereum',
@@ -942,6 +957,68 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesSupportPushNotifications: false,
     isNftSupported: false,
   },
+  robinhood: {
+    title: 'Robinhood',
+    chainStandard: 'ethereum',
+    isDnsSupported: false,
+    canBuyWithCardInRussia: false,
+    isOnRampSupported: true,
+    isOffRampSupported: true,
+    isOnchainSwapSupported: false,
+    isTransferPayloadSupported: false,
+    isEncryptedCommentSupported: false,
+    canTransferFullNativeBalance: false,
+    isLedgerSupported: false,
+    isSubwalletsSupported: true,
+    defaultDerivationPath: EVM_DERIVATION_PATHS.default,
+    addressRegex: /^0x[a-fA-F0-9]{40}$/,
+    addressPrefixRegex: /^0x[a-fA-F0-9]{0,40}$/,
+    nativeToken: ROBINHOOD,
+    displayColor: '#CCFF00',
+    doesBackendSocketSupport: false,
+    canImportTokens: false,
+    shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    buySwap: {
+      tokenInSlug: TON_USDT_MAINNET.slug,
+      amountIn: '50',
+    },
+    usdtSlug: {
+      mainnet: undefined,
+      testnet: undefined,
+    },
+    defaultEnabledSlugs: {
+      mainnet: [ROBINHOOD.slug],
+      testnet: [ROBINHOOD.slug],
+    },
+    crosschainSwapSlugs: [ROBINHOOD.slug],
+    tokenInfo: [ROBINHOOD],
+    explorers: [{
+      id: 'robinscan',
+      name: 'Robinscan',
+      baseUrl: {
+        mainnet: 'https://robinscan.io/',
+        testnet: 'https://robinscan.io/',
+      },
+      address: '{base}address/{address}',
+      token: '{base}token/{address}',
+      nft: '{base}nft/{address}',
+      transaction: '{base}tx/{hash}',
+      doConvertHashFromBase64: false,
+    }],
+    marketplaces: [{
+      id: 'openSea',
+      name: 'OpenSea',
+      baseUrl: {
+        mainnet: 'https://opensea.io/',
+        testnet: '', // No testnet support
+      },
+      nft: '{base}item/{chain}/{address}',
+    }],
+    isNetWorthSupported: false,
+    doesSupportPushNotifications: false,
+    isNftSupported: false,
+  },
 };
 
 export const VIEW_ACCOUNT_EVM_PARAM = 'evm';
@@ -1036,53 +1113,6 @@ export function getOrderedAccountChains(byChain: Partial<Record<ApiChain, unknow
   return getDisplayOrderedChains().filter((chain) => chain in byChain);
 }
 
-/**
- * The chains whose addresses the address rows show (the account card, the wallet lists). While a Gram Wallet
- * account holds funds on TON alone (or none at all), the row collapses to the TON address; once foreign-chain
- * funds appear, only the funded chains show - the release-branch stand-in for the master-side chainDisplay
- * defaults (`getDefaultVisibleChains`). Display-only: the other addresses keep existing and receiving.
- * An undefined `fundedChains` means the token list is not known yet, so nothing is hidden.
- */
-export function getAddressLineChains(
-  chains: ApiChain[],
-  fundedChains?: ReadonlySet<ApiChain>,
-): ApiChain[] {
-  if (!IS_GRAM_WALLET || !fundedChains) {
-    return chains;
-  }
-
-  const hasForeignFunds = [...fundedChains].some((chain) => chain !== TONCOIN.chain);
-  if (!hasForeignFunds) {
-    return chains.includes(TONCOIN.chain) ? [TONCOIN.chain] : chains;
-  }
-
-  const funded = chains.filter((chain) => fundedChains.has(chain));
-  return funded.length ? funded : chains;
-}
-
-/** Chains holding a non-zero amount of any token, staked balances included. Mirrors the master-side helper. */
-export function getChainsWithBalance(tokens?: UserToken[], stakingStates?: ApiStakingState[]) {
-  const result = new Set<ApiChain>();
-  if (!tokens?.length) return result;
-
-  const chainBySlug = new Map(tokens.map((token) => [token.slug, token.chain]));
-
-  for (const token of tokens) {
-    if (token.amount > 0n) {
-      result.add(token.chain);
-    }
-  }
-
-  for (const stakingState of stakingStates ?? []) {
-    const chain = chainBySlug.get(stakingState.tokenSlug);
-    if (chain && getFullStakingBalance(stakingState) > 0n) {
-      result.add(chain);
-    }
-  }
-
-  return result;
-}
-
 export function getChainsSupportingLedger(): ApiChain[] {
   return getSupportedChains()
     .filter((chain) => CHAIN_CONFIG[chain].isLedgerSupported);
@@ -1116,6 +1146,15 @@ export const getDefaultEnabledSlugs = /* #__PURE__ */ withCache((network: ApiNet
   return new Set(
     chainConfigs.flatMap((chainConfig) => chainConfig.defaultEnabledSlugs[network]),
   );
+});
+
+/**
+ * The chains a wallet that holds nothing shows: there are no balances to sort or filter by, so it offers everything
+ * it supports to receive the first funds in. Keyed on the build like `getDefaultEnabledSlugs` - the Gram brand is
+ * TON-forward, so its empty wallets list TON alone.
+ */
+export const getAllSupportedVisibleChains = /* #__PURE__ */ withCache((): ReadonlySet<ApiChain> => {
+  return new Set(IS_GRAM_WALLET ? [TONCOIN.chain] : getSupportedChains());
 });
 
 export const getSlugsSupportingCexSwap = /* #__PURE__ */ withCache((): ReadonlySet<string> => {

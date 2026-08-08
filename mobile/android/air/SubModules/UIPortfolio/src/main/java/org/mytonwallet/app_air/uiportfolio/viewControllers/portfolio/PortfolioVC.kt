@@ -7,6 +7,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.text.TextPaint
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -17,38 +18,43 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
-import android.view.Gravity
 import com.google.android.material.chip.ChipGroup
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.pow
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import org.mytonwallet.app_air.uicomponents.widgets.segmentedControlGroup.WSegmentedControlGroup
-import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.BarChartView
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.BaseChartView
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.ChartData
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.ChartHeaderView
-import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.LinearChartView
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.ChartPickerDelegate
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.ChartStyle
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.ChartValueFormatter
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.FlatCheckBox
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.LegendSignatureView
+import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.LinearChartView
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.PieChartView
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.StackLinearChartData
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.StackLinearChartView
@@ -56,30 +62,26 @@ import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.StackLinearVi
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.TransitionParams
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.uicomponents.widgets.segmentedControlGroup.WSegmentedControlGroup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import java.math.BigInteger
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.pow
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioChartKind
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioOverview
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioUiState
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.views.BreakdownSectionView
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.views.OverviewSectionView
-import java.lang.ref.WeakReference
-import androidx.core.view.isInvisible
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
 class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
+    @Suppress("PropertyName")
     override val TAG = "Portfolio"
 
     override val topBarConfiguration: ReversedCornerView.Config
@@ -94,18 +96,20 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         isVerticalScrollBarEnabled = false
         onScrollStateChange = { state ->
             updateBlurViews(this)
-            if (state == WScrollView.SCROLL_STATE_IDLE)
+            if (state == WScrollView.SCROLL_STATE_IDLE) {
                 periodSelectorBlurView.pauseBlurring()
-            else
+            } else {
                 periodSelectorBlurView.resumeBlurring()
+            }
         }
         setOnScrollChangeListener { _, _, scrollY, _, _ ->
             updateBlurViews(this)
             clearChartSelections()
-            if (scrollY == 0)
+            if (scrollY == 0) {
                 periodSelectorBlurView.pauseBlurring()
-            else
+            } else {
                 periodSelectorBlurView.resumeBlurring()
+            }
         }
     }
     private val contentLayout = LinearLayout(context).apply {
@@ -119,12 +123,12 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private val totalPnlSection = createSimpleSection(
         LocaleController.getString("Total P&L"),
         LinearChartView(context).apply { allowNegativeValues = true },
-        PortfolioChartKind.TOTAL_PNL,
+        PortfolioChartKind.TOTAL_PNL
     )
     private val dailyPnlSection = createSimpleSection(
         LocaleController.getString("Daily P&L"),
         BarChartView(context),
-        PortfolioChartKind.DAILY_PNL,
+        PortfolioChartKind.DAILY_PNL
     )
 
     private val shareValueRow = LinearLayout(context).apply {
@@ -141,7 +145,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             distributionSection.stackChartView,
             distributionSection.pieChartView,
             totalPnlSection.chartView,
-            dailyPnlSection.chartView,
+            dailyPnlSection.chartView
         )
     private val sharedSkeletonView = SkeletonView(context).apply {
         id = ViewGroup.generateViewId()
@@ -206,8 +210,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         )
         updateSectionsArrangement()
         contentLayout.addOnLayoutChangeListener { v, left, _, right, _, oldLeft, _, oldRight, _ ->
-            if (right - left != oldRight - oldLeft)
-                v.post { updateSectionsArrangement() }
+            if (right - left != oldRight - oldLeft) v.post { updateSectionsArrangement() }
         }
 
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
@@ -219,7 +222,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             periodSelectorContainer,
             ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, PERIOD_SELECTOR_SECTION_HEIGHT.dp)
         )
-        periodSelectorShadow = PillShadowView.attachTo(periodSelectorPill, 24f.dp)
+        periodSelectorShadow = PillShadowView.attachTo(periodSelectorPill, 24f.dp).apply {
+            (layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.LEFT or Gravity.TOP
+        }
         periodSelectorPill.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             periodSelectorShadow?.sync()
         }
@@ -308,7 +313,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
 
     private fun startSharedSkeleton(
         animated: Boolean = false,
-        onFadeInComplete: (() -> Unit)? = null,
+        onFadeInComplete: (() -> Unit)? = null
     ) {
         sharedSkeletonView.animate().cancel()
         if (animated) {
@@ -400,7 +405,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartHeaderView.dates,
         chartHeaderView.datesTmp,
         chartFrame,
-        chipGroup,
+        chipGroup
     )
 
     private fun crossFadeContentViews(): List<View> = buildList {
@@ -446,7 +451,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             absoluteSection.stackChartView,
             absoluteSection.pieChartView,
             distributionSection.stackChartView,
-            distributionSection.pieChartView,
+            distributionSection.pieChartView
         ).forEach { it.clearSelection() }
         stopSharedSkeleton()
 
@@ -472,7 +477,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             chainSlices = state.chainBreakdown,
             assetSlices = state.assetBreakdown,
             stakedSlices = state.stakedBreakdown,
-            animated = animateDateAndHeightOnLoad,
+            animated = animateDateAndHeightOnLoad
         )
         breakdownSection.hidePlaceholders()
 
@@ -485,7 +490,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         applyLineEnabledState(distributionSection)
         overviewSection.render(
             if (state.chartData == null) PortfolioOverview.EMPTY else state.overview,
-            state.request.baseCurrency,
+            state.request.baseCurrency
         )
 
         showSimpleLoaded(totalPnlSection, state.totalPnlChartData)
@@ -498,7 +503,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 totalPnlSection.errorView,
                 totalPnlSection.chartView,
                 totalPnlSection.chartFrame,
-                state.totalPnlFailed,
+                state.totalPnlFailed
             )
         }
         if (state.dailyPnlFailed || state.dailyPnlChartData != null) {
@@ -506,7 +511,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 dailyPnlSection.errorView,
                 dailyPnlSection.chartView,
                 dailyPnlSection.chartFrame,
-                state.dailyPnlFailed,
+                state.dailyPnlFailed
             )
         }
         syncSeriesControlsPresentation()
@@ -518,7 +523,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             absoluteSection.chartHeaderView,
             distributionSection.chartHeaderView,
             totalPnlSection.chartHeaderView,
-            dailyPnlSection.chartHeaderView,
+            dailyPnlSection.chartHeaderView
         ).forEach { it.datesSuppressed = suppressed }
     }
 
@@ -528,7 +533,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             absoluteSection.chartHeaderView.dates,
             distributionSection.chartHeaderView.dates,
             totalPnlSection.chartHeaderView.dates,
-            dailyPnlSection.chartHeaderView.dates,
+            dailyPnlSection.chartHeaderView.dates
         ).forEach {
             it.animate().cancel()
             if (animated) {
@@ -636,8 +641,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 distributionSection.lastStackPickerSpan = data.x.lastIndex
             }
             val pieDate =
-                if (defaultToLast) data.x.last()
-                else resolvePieDate(distributionSection, data)
+                if (defaultToLast) data.x.last() else resolvePieDate(distributionSection, data)
             distributionSection.pieChartView.setData(data)
             distributionSection.pieChartView.updateTheme()
             syncLineEnabledState(
@@ -833,7 +837,10 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
 
         val availableWidth =
-            (section.container.width - section.container.paddingLeft - section.container.paddingRight)
+            (
+                section.container.width - section.container.paddingLeft -
+                    section.container.paddingRight
+                )
                 .coerceAtLeast(0)
         chipGroup.measure(
             View.MeasureSpec.makeMeasureSpec(availableWidth, View.MeasureSpec.AT_MOST),
@@ -986,7 +993,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             chartView = section.stackChartView,
             pieChartView = section.pieChartView,
             data = data,
-            preferredSpan = section.lastStackPickerSpan,
+            preferredSpan = section.lastStackPickerSpan
         )
         if (animated && data.x.isNotEmpty()) {
             section.chartHeaderView.zoomOut(
@@ -1069,7 +1076,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartView: BaseChartView<*, *>,
         pieChartView: PieChartView,
         data: StackLinearChartData?,
-        preferredSpan: Int,
+        preferredSpan: Int
     ) {
         val range = calculateRestoredStackRange(chartView, pieChartView, data, preferredSpan)
         chartView.setPickerByIndices(range.startIndex, range.endIndex)
@@ -1079,7 +1086,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartView: BaseChartView<*, *>,
         pieChartView: PieChartView,
         data: StackLinearChartData?,
-        preferredSpan: Int,
+        preferredSpan: Int
     ): RestoredStackRange {
         data ?: return RestoredStackRange(0, 0)
         if (data.x.isEmpty()) return RestoredStackRange(0, 0)
@@ -1108,12 +1115,13 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         return RestoredStackRange(startIndex, endIndex)
     }
 
-    private fun resolvePieDate(section: ChartSection, data: StackLinearChartData): Long {
-        return section.pieChartView.getPickerCenterDate().takeIf { it >= 0 }
+    private fun resolvePieDate(section: ChartSection, data: StackLinearChartData): Long =
+        section.pieChartView.getPickerCenterDate().takeIf {
+            it >= 0
+        }
             ?: section.stackChartView.getSelectedDate().takeIf { it >= 0 }
             ?: section.stackChartView.getPickerCenterDate().takeIf { it >= 0 }
             ?: data.x.last()
-    }
 
     private fun syncLineEnabledState(section: ChartSection, data: StackLinearChartData?) {
         val lineEnabledById = section.lineEnabledById
@@ -1178,7 +1186,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun refreshCheckBoxState(
         checkBoxes: Map<String, FlatCheckBox>,
         lineEnabledById: Map<String, Boolean>,
-        animate: Boolean = true,
+        animate: Boolean = true
     ) {
         checkBoxes.forEach { (id, checkBox) ->
             checkBox.setChecked(lineEnabledById[id] != false, animate)
@@ -1186,17 +1194,18 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     }
 
     private fun applyLineEnabledState(section: ChartSection) {
-        val (active, inactive) = if (section.mode == ChartMode.PIE)
+        val (active, inactive) = if (section.mode == ChartMode.PIE) {
             section.pieChartView to section.stackChartView
-        else
+        } else {
             section.stackChartView to section.pieChartView
+        }
         applyLineEnabledState(active, inactive, section.lineEnabledById)
     }
 
     private fun applyLineEnabledState(
         activeChartView: BaseChartView<*, *>,
         inactiveChartView: BaseChartView<*, *>,
-        lineEnabledById: Map<String, Boolean>,
+        lineEnabledById: Map<String, Boolean>
     ) {
         if (activeChartView.lines.isEmpty()) return
         activeChartView.lines.forEach { lineViewData ->
@@ -1208,14 +1217,16 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
 
     private fun syncLineEnabledState(
         chartView: BaseChartView<*, *>,
-        lineEnabledById: Map<String, Boolean>,
+        lineEnabledById: Map<String, Boolean>
     ) {
         if (chartView.lines.isEmpty()) return
 
         var changed = false
         chartView.lines.forEach { lineViewData ->
             val isEnabled = lineEnabledById[lineViewData.line.id] != false
-            if (lineViewData.enabled != isEnabled || lineViewData.alpha != if (isEnabled) 1f else 0f) {
+            if (lineViewData.enabled != isEnabled ||
+                lineViewData.alpha != if (isEnabled) 1f else 0f
+            ) {
                 changed = true
             }
             lineViewData.animatorIn?.cancel()
@@ -1233,11 +1244,17 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
 
     private fun updateCheckBoxColors(
         chartView: BaseChartView<*, *>,
-        checkBoxes: Map<String, FlatCheckBox>,
+        checkBoxes: Map<String, FlatCheckBox>
     ) {
         chartView.lines.forEach { lineViewData ->
             val lineColor =
-                if (lineViewData.line.color != 0) lineViewData.line.color else lineViewData.lineColor
+                if (lineViewData.line.color !=
+                    0
+                ) {
+                    lineViewData.line.color
+                } else {
+                    lineViewData.lineColor
+                }
             checkBoxes[lineViewData.line.id]?.recolor(lineColor)
         }
     }
@@ -1262,7 +1279,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartView: BaseChartView<*, *>,
         pieChartView: PieChartView,
         isPieActive: Boolean,
-        isTransitioning: Boolean = false,
+        isTransitioning: Boolean = false
     ) {
         val isChartInteractive = !isTransitioning && !isPieActive
         val isPieInteractive = !isTransitioning && isPieActive
@@ -1332,7 +1349,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             chartView = stackChartView,
             pieChartView = pieChartView,
             legendView = stackChartView.legendSignatureView,
-            pieLegendView = pieChartView.legendSignatureView,
+            pieLegendView = pieChartView.legendSignatureView
         )
         val chartSkeletonPlaceholder = createChartSkeletonPlaceholder()
         val chartCoverView = createChartCoverView()
@@ -1342,8 +1359,11 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         return ChartSection(
             container = buildSectionContainer(
                 chartHeaderView,
-                chartFrame, chartCoverView, chartSkeletonPlaceholder, chipGroup,
-                errorView.container,
+                chartFrame,
+                chartCoverView,
+                chartSkeletonPlaceholder,
+                chipGroup,
+                errorView.container
             ),
             chartFrame = chartFrame,
             chartSkeletonPlaceholder = chartSkeletonPlaceholder,
@@ -1352,7 +1372,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             stackChartView = stackChartView,
             pieChartView = pieChartView,
             chipGroup = chipGroup,
-            errorView = errorView,
+            errorView = errorView
         )
     }
 
@@ -1372,9 +1392,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             legendSignatureView.percentageFormatter = { ratio ->
                 val percent = 100f * ratio
                 if (percent < 10f && percent != 0f) {
-                    String.format(Locale.ENGLISH, "%.1f%%", percent)
+                    String.format(Locale.ENGLISH, "%.1f%%", percent).withLocalizedNumbers
                 } else {
-                    "${Math.round(percent)}%"
+                    "${Math.round(percent).toString().withLocalizedNumbers}%"
                 }
             }
         }
@@ -1391,7 +1411,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             chartView = stackChartView,
             pieChartView = pieChartView,
             legendView = stackChartView.legendSignatureView,
-            pieLegendView = pieChartView.legendSignatureView,
+            pieLegendView = pieChartView.legendSignatureView
         )
         val chartSkeletonPlaceholder = createChartSkeletonPlaceholder()
         val chartCoverView = createChartCoverView()
@@ -1405,7 +1425,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 chartCoverView = chartCoverView,
                 chartSkeletonPlaceholder = chartSkeletonPlaceholder,
                 chipGroup = chipGroup,
-                errorView = errorView.container,
+                errorView = errorView.container
             ),
             chartFrame = chartFrame,
             chartSkeletonPlaceholder = chartSkeletonPlaceholder,
@@ -1414,7 +1434,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             stackChartView = stackChartView,
             pieChartView = pieChartView,
             chipGroup = chipGroup,
-            errorView = errorView,
+            errorView = errorView
         )
     }
 
@@ -1438,7 +1458,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             addView(titleLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
             addView(
                 retryButton,
-                LinearLayout.LayoutParams(WRAP_CONTENT, 40.dp).apply { topMargin = 12.dp },
+                LinearLayout.LayoutParams(WRAP_CONTENT, 40.dp).apply { topMargin = 12.dp }
             )
         }
         return SectionErrorView(container, titleLabel, retryButton)
@@ -1487,7 +1507,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         errorView: SectionErrorView,
         chartView: View,
         chartFrame: View,
-        failed: Boolean,
+        failed: Boolean
     ): Boolean {
         if (failed) {
             errorView.titleLabel.text = LocaleController.getString("Error")
@@ -1512,39 +1532,37 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartCoverView: View,
         chartSkeletonPlaceholder: View,
         chipGroup: View,
-        errorView: View,
-    ): WView {
-        return WView(context).apply {
-            addView(
-                chartCoverView,
-                ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
-            )
-            addView(
-                chartSkeletonPlaceholder,
-                ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
-            )
-            addView(chartHeaderView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
-            addView(chartFrame, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
-            addView(chipGroup, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
-            addView(errorView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
-            setConstraints {
-                toTop(chartHeaderView)
-                toCenterX(chartHeaderView)
-                topToBottom(chartFrame, chartHeaderView)
-                toCenterX(chartFrame)
-                topToBottom(chipGroup, chartFrame)
-                toCenterX(chipGroup, ViewConstants.GAP.toFloat())
-                toBottom(chipGroup, ViewConstants.GAP.toFloat())
-                topToTop(chartSkeletonPlaceholder, chartHeaderView, 48f)
-                toCenterX(chartSkeletonPlaceholder, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-                bottomToBottom(chartSkeletonPlaceholder, chipGroup, ViewConstants.GAP.toFloat())
-                topToTop(chartCoverView, chartSkeletonPlaceholder)
-                toCenterX(chartCoverView)
-                toBottom(chartCoverView)
-                topToTop(errorView, chartFrame)
-                toCenterX(errorView)
-                bottomToBottom(errorView, chartFrame)
-            }
+        errorView: View
+    ): WView = WView(context).apply {
+        addView(
+            chartCoverView,
+            ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
+        )
+        addView(
+            chartSkeletonPlaceholder,
+            ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
+        )
+        addView(chartHeaderView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+        addView(chartFrame, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+        addView(chipGroup, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+        addView(errorView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
+        setConstraints {
+            toTop(chartHeaderView)
+            toCenterX(chartHeaderView)
+            topToBottom(chartFrame, chartHeaderView)
+            toCenterX(chartFrame)
+            topToBottom(chipGroup, chartFrame)
+            toCenterX(chipGroup, ViewConstants.GAP.toFloat())
+            toBottom(chipGroup, ViewConstants.GAP.toFloat())
+            topToTop(chartSkeletonPlaceholder, chartHeaderView, 48f)
+            toCenterX(chartSkeletonPlaceholder, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            bottomToBottom(chartSkeletonPlaceholder, chipGroup, ViewConstants.GAP.toFloat())
+            topToTop(chartCoverView, chartSkeletonPlaceholder)
+            toCenterX(chartCoverView)
+            toBottom(chartCoverView)
+            topToTop(errorView, chartFrame)
+            toCenterX(errorView)
+            bottomToBottom(errorView, chartFrame)
         }
     }
 
@@ -1552,54 +1570,54 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartView: View,
         pieChartView: View,
         legendView: LegendSignatureView,
-        pieLegendView: LegendSignatureView,
-    ): FrameLayout {
-        return FrameLayout(context).apply {
-            id = ViewGroup.generateViewId()
-            setPadding(0, ViewConstants.GAP.dp, 0, 0)
-            addView(chartView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(pieChartView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(legendView, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+        pieLegendView: LegendSignatureView
+    ): FrameLayout = FrameLayout(context).apply {
+        id = ViewGroup.generateViewId()
+        setPadding(0, ViewConstants.GAP.dp, 0, 0)
+        addView(chartView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(pieChartView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(
+            legendView,
+            FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.LEFT or Gravity.TOP
                 setMargins(0, 8.dp, 0, 0)
-            })
-            addView(pieLegendView, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            }
+        )
+        addView(
+            pieLegendView,
+            FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.LEFT or Gravity.TOP
                 setMargins(0, 8.dp, 0, 0)
-            })
-        }
+            }
+        )
     }
 
-    private fun createChartSkeletonPlaceholder(): WBaseView {
-        return WBaseView(context).apply {
-            id = ViewGroup.generateViewId()
-            alpha = 0f
-            visibility = View.GONE
-            setBackgroundColor(WColor.SecondaryBackground.color, ViewConstants.BLOCK_RADIUS.dp)
-        }
+    private fun createChartSkeletonPlaceholder(): WBaseView = WBaseView(context).apply {
+        id = ViewGroup.generateViewId()
+        alpha = 0f
+        visibility = View.GONE
+        setBackgroundColor(WColor.SecondaryBackground.color, ViewConstants.BLOCK_RADIUS.dp)
     }
 
-    private fun createChartCoverView(): WBaseView {
-        return WBaseView(context).apply {
-            id = ViewGroup.generateViewId()
-            alpha = 0f
-            visibility = View.GONE
-            setOnClickListener { }
-            setBackgroundColor(WColor.Background.color)
-        }
+    private fun createChartCoverView(): WBaseView = WBaseView(context).apply {
+        id = ViewGroup.generateViewId()
+        alpha = 0f
+        visibility = View.GONE
+        setOnClickListener { }
+        setBackgroundColor(WColor.Background.color)
     }
 
-    private fun createSeriesChipGroup(): ChipGroup {
-        return ChipGroup(context).apply {
-            id = ViewGroup.generateViewId()
-            isSingleLine = false
-            chipSpacingHorizontal = 8.dp
-            chipSpacingVertical = 8.dp
-            alpha = 0f
-            visibility = View.GONE
-        }
+    private fun createSeriesChipGroup(): ChipGroup = ChipGroup(context).apply {
+        id = ViewGroup.generateViewId()
+        isSingleLine = false
+        chipSpacingHorizontal = 8.dp
+        chipSpacingVertical = 8.dp
+        alpha = 0f
+        visibility = View.GONE
     }
 
-    private fun createPeriodSelector(): WSegmentedControlGroup {
-        return WSegmentedControlGroup(context).apply {
+    private fun createPeriodSelector(): WSegmentedControlGroup =
+        WSegmentedControlGroup(context).apply {
             setDividerColor(Color.TRANSPARENT)
             MHistoryTimePeriod.allPeriods.forEach { period ->
                 addView(
@@ -1619,23 +1637,19 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                     .coerceAtLeast(0)
             )
         }
-    }
 
     private fun createChartLayoutParams(
         topMargin: Int = 0,
-        horizontalMargin: Int = ViewConstants.HORIZONTAL_PADDINGS.dp,
-    ): LinearLayout.LayoutParams {
-        return LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-            this.topMargin = topMargin
-            marginStart = horizontalMargin
-            marginEnd = horizontalMargin
-        }
+        horizontalMargin: Int = ViewConstants.HORIZONTAL_PADDINGS.dp
+    ): LinearLayout.LayoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+        this.topMargin = topMargin
+        marginStart = horizontalMargin
+        marginEnd = horizontalMargin
     }
 
     private fun updateSectionsArrangement() {
         val twoColumns = contentLayout.width >= TWO_COLUMN_SECTIONS_MIN_WIDTH_DP.dp
-        if (isTwoColumnSections == twoColumns)
-            return
+        if (isTwoColumnSections == twoColumns) return
         isTwoColumnSections = twoColumns
         listOf(shareValueRow, pnlRow).forEach { row ->
             row.orientation =
@@ -1646,11 +1660,17 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                     LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply {
                         topMargin = ViewConstants.GAP.dp
                         marginStart =
-                            if (i == 0) ViewConstants.HORIZONTAL_PADDINGS.dp
-                            else ViewConstants.GAP.dp / 2
+                            if (i == 0) {
+                                ViewConstants.HORIZONTAL_PADDINGS.dp
+                            } else {
+                                ViewConstants.GAP.dp / 2
+                            }
                         marginEnd =
-                            if (i == 0) ViewConstants.GAP.dp / 2
-                            else ViewConstants.HORIZONTAL_PADDINGS.dp
+                            if (i == 0) {
+                                ViewConstants.GAP.dp / 2
+                            } else {
+                                ViewConstants.HORIZONTAL_PADDINGS.dp
+                            }
                     }
                 } else {
                     createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
@@ -1659,23 +1679,24 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
     }
 
-    private fun createAbsoluteChartValueFormatter(baseCurrency: MBaseCurrency): ChartValueFormatter {
-        return object : ChartValueFormatter {
-            override fun formatAxisValue(value: Long, paint: TextPaint): CharSequence =
-                formatCurrencyAxisValue(value, baseCurrency)
+    private fun createAbsoluteChartValueFormatter(
+        baseCurrency: MBaseCurrency
+    ): ChartValueFormatter = object : ChartValueFormatter {
+        override fun formatAxisValue(value: Long, paint: TextPaint): CharSequence =
+            formatCurrencyAxisValue(value, baseCurrency)
 
-            override fun formatLegendValue(value: Long, paint: TextPaint): CharSequence =
-                formatCurrencyLegendValue(value, baseCurrency)
-        }
+        override fun formatLegendValue(value: Long, paint: TextPaint): CharSequence =
+            formatCurrencyLegendValue(value, baseCurrency)
     }
 
-    private fun createDistributionChartValueFormatter(baseCurrency: MBaseCurrency): ChartValueFormatter {
-        return object : ChartValueFormatter {
-            override fun formatAxisValue(value: Long, paint: TextPaint): CharSequence = "${value}%"
+    private fun createDistributionChartValueFormatter(
+        baseCurrency: MBaseCurrency
+    ): ChartValueFormatter = object : ChartValueFormatter {
+        override fun formatAxisValue(value: Long, paint: TextPaint): CharSequence =
+            "${value.toString().withLocalizedNumbers}%"
 
-            override fun formatLegendValue(value: Long, paint: TextPaint): CharSequence =
-                formatCurrencyLegendValue(value, baseCurrency)
-        }
+        override fun formatLegendValue(value: Long, paint: TextPaint): CharSequence =
+            formatCurrencyLegendValue(value, baseCurrency)
     }
 
     private fun createSignedChartValueFormatter(baseCurrency: MBaseCurrency): ChartValueFormatter {
@@ -1689,7 +1710,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                         1,
                         showPositiveSign = true
                     ),
-                    baseCurrency.sign,
+                    baseCurrency.sign
                 )
             }
 
@@ -1701,14 +1722,14 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun formatCurrencyLegendValue(
         value: Long,
         baseCurrency: MBaseCurrency,
-        showPositiveSign: Boolean = false,
+        showPositiveSign: Boolean = false
     ): String {
         if (WGlobalStorage.getIsSensitiveDataProtectionOn()) return SENSITIVE_VALUE_MASK
         return BigInteger.valueOf(value).toString(
             decimals = baseCurrency.decimalsCount,
             currency = baseCurrency.sign,
             currencyDecimals = baseCurrency.decimalsCount,
-            showPositiveSign = showPositiveSign,
+            showPositiveSign = showPositiveSign
         )
     }
 
@@ -1717,7 +1738,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val formattedNumber = compactScaledNumber(
             value = value,
             decimals = baseCurrency.decimalsCount,
-            maxFractionDigits = 1,
+            maxFractionDigits = 1
         )
         return applyCurrencyPosition(formattedNumber, baseCurrency.sign)
     }
@@ -1726,7 +1747,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         value: Long,
         decimals: Int,
         maxFractionDigits: Int,
-        showPositiveSign: Boolean = false,
+        showPositiveSign: Boolean = false
     ): String {
         val suffixes = arrayOf("", "K", "M", "B", "T")
         var scaledValue = abs(value.toDouble()) / 10.0.pow(decimals.toDouble())
@@ -1752,16 +1773,15 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             showPositiveSign && value > 0 -> "+"
             else -> ""
         }
-        return sign + formattedValue + suffixes[suffixIndex]
+        return sign + formattedValue.withLocalizedNumbers + suffixes[suffixIndex]
     }
 
-    private fun applyCurrencyPosition(value: String, currency: String): String {
-        return if (currency.length > 1 || currency in MBaseCurrency.forcedToRight) {
+    private fun applyCurrencyPosition(value: String, currency: String): String =
+        if (currency.length > 1 || currency in MBaseCurrency.forcedToRight) {
             "$value $currency"
         } else {
             "$currency$value"
         }
-    }
 
     override fun insetsUpdated() {
         super.insetsUpdated()
@@ -1775,11 +1795,13 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         (periodSelectorContainer.layoutParams as? ConstraintLayout.LayoutParams)?.let { lp ->
             if (LocaleController.isRTL) {
                 lp.rightMargin =
-                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding +
+                    systemBarStartInset
                 lp.leftMargin = systemBarEndInset
             } else {
                 lp.leftMargin =
-                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding +
+                    systemBarStartInset
                 lp.rightMargin = systemBarEndInset
             }
             lp.bottomMargin = bottomInset
@@ -1811,7 +1833,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun createSimpleSection(
         title: String,
         chartView: BaseChartView<*, *>,
-        retryKind: PortfolioChartKind,
+        retryKind: PortfolioChartKind
     ): SimpleChartSection {
         val chartHeaderView = ChartHeaderView(context).apply {
             id = ViewGroup.generateViewId()
@@ -1831,8 +1853,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             addView(
                 chartView.legendSignatureView,
                 FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.LEFT or Gravity.TOP
                     setMargins(0, 8.dp, 0, 0)
-                },
+                }
             )
         }
         val chartSkeletonPlaceholder = createChartSkeletonPlaceholder()
@@ -1845,7 +1868,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             )
             addView(
                 chartSkeletonPlaceholder,
-                ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT),
+                ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
             )
             addView(chartHeaderView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(chartFrame, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
@@ -1881,7 +1904,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             chartHeaderView = chartHeaderView,
             chartView = chartView,
             chipGroup = chipGroup,
-            errorView = errorView,
+            errorView = errorView
         )
     }
 
@@ -1891,7 +1914,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.chartHeaderView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            0f,
+            0f
         )
     }
 
@@ -1900,12 +1923,12 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.chartSkeletonPlaceholder.setBackgroundColor(
             WColor.SecondaryBackground.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         section.chartCoverView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         section.chartHeaderView.updateTheme()
         section.chartView.updateTheme()
@@ -2058,13 +2081,13 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val errorView: SectionErrorView,
         val checkBoxes: LinkedHashMap<String, FlatCheckBox> = linkedMapOf(),
         val lineEnabledById: LinkedHashMap<String, Boolean> = linkedMapOf(),
-        var chartData: ChartData? = null,
+        var chartData: ChartData? = null
     )
 
     private class SectionErrorView(
         val container: LinearLayout,
         val titleLabel: WLabel,
-        val retryButton: WButton,
+        val retryButton: WButton
     )
 
     private data class ChartSection(
@@ -2084,13 +2107,10 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         var lastStackPickerSpan: Int = 0,
         var transitionParams: TransitionParams? = null,
         var transitionAnimator: ValueAnimator? = null,
-        var heightAnimator: ValueAnimator? = null,
+        var heightAnimator: ValueAnimator? = null
     )
 
     private enum class ChartMode { STACK, PIE }
 
-    private data class RestoredStackRange(
-        val startIndex: Int,
-        val endIndex: Int,
-    )
+    private data class RestoredStackRange(val startIndex: Int, val endIndex: Int)
 }

@@ -1,5 +1,13 @@
 import { WHOLE_PART_DELIMITER } from '../config';
-import { formatCurrencyExtended, formatNumber, formatPercent } from './formatNumber';
+import {
+  formatCompactCurrency,
+  formatCompactNumber,
+  formatCurrency,
+  formatCurrencyExtended,
+  formatNumber,
+  formatPercent,
+  formatSignedPercent,
+} from './formatNumber';
 
 describe('formatNumber', () => {
   const testCasesTruncate = [
@@ -57,6 +65,56 @@ describe('formatNumber', () => {
       }
     },
   );
+
+  describe('Zero count subscript', () => {
+    const testCases = [
+      [0.0000056, 2, '0.0000056'], // 5 zeros - below the threshold
+      [0.00000056, 2, '0.0₆56'], // 6 zeros - at the threshold
+      [-0.00000056, 2, '-0.0₆56'],
+      [1e-18, 2, '0.0₁₇1'], // Multi-digit zero count
+    ] as const;
+
+    for (const [input, fractionDigits, expected] of testCases) {
+      test(`${input} => ${expected}`, () => {
+        expect(formatNumber(input, fractionDigits)).toBe(expected);
+      });
+    }
+
+    test('noZeroCountSubscript disables the notation', () => {
+      expect(formatNumber(0.00000056, 2, false, true)).toBe('0.00000056');
+    });
+
+    test('formatCurrency forwards noZeroCountSubscript', () => {
+      expect(formatCurrency(0.00000056, 'TON')).toBe('0.0₆56 TON');
+      expect(formatCurrency(0.00000056, 'TON', undefined, undefined, true)).toBe('0.00000056 TON');
+    });
+  });
+});
+
+describe('formatCompactNumber', () => {
+  const testCases = [
+    [0, '0'],
+    [999, '999'],
+    [1000, '1K'],
+    [12_345, '12.34K'],
+    [999_999, '999.99K'],
+    [4_030_000, '4.03M'],
+    [7_580_000_000, '7.58B'],
+    [5_120_000_000, '5.12B'],
+    [-2_440_000, '-2.44M'],
+  ] as const;
+
+  for (const [input, expected] of testCases) {
+    test(`${input} => ${expected}`, () => {
+      expect(formatCompactNumber(input)).toBe(expected);
+    });
+  }
+
+  test('formatCompactCurrency places the symbol as the currency config demands', () => {
+    expect(formatCompactCurrency(7_580_000_000, '$')).toBe('$7.58B');
+    expect(formatCompactCurrency(4_030_000, 'TON')).toBe('4.03M TON');
+    expect(formatCompactCurrency(-1_580_000, '$')).toBe('-$1.58M');
+  });
 });
 
 describe('formatCurrencyExtended', () => {
@@ -80,7 +138,7 @@ describe('formatCurrencyExtended', () => {
 
   test('modulo < 1', () => {
     expect(formatCurrencyExtended(0.99999, 'TON')).toBe('+ 0.99 TON');
-    expect(formatCurrencyExtended(-0.00000012345, 'USDT')).toBe('− 0.00000012 USDT');
+    expect(formatCurrencyExtended(-0.00000012345, 'USDT')).toBe('− 0.0₆12 USDT');
   });
 
   test('string value', () => {
@@ -106,7 +164,7 @@ describe('formatCurrencyExtended', () => {
 
   test('fractionDigits', () => {
     expect(formatCurrencyExtended(99.9999999, 'TON', false, 4)).toBe('+ 99.9999 TON');
-    expect(formatCurrencyExtended(-0.00000012345, 'USDT', false, 3)).toBe('− 0.000000123 USDT');
+    expect(formatCurrencyExtended(-0.00000012345, 'USDT', false, 3)).toBe('− 0.0₆123 USDT');
     expect(formatCurrencyExtended(12.345, 'USDT', false, 10)).toBe('+ 12.345 USDT');
   });
 
@@ -151,5 +209,21 @@ describe('formatPercent', () => {
     expect(formatPercent(-9.95)).toBe('-10%');
     expect(formatPercent(5.55)).toBe('5.6%');
     expect(formatPercent(-5.55)).toBe('-5.6%');
+  });
+});
+
+describe('formatSignedPercent', () => {
+  test('prefixes growth with a plus', () => {
+    expect(formatSignedPercent(0.1)).toBe('+0.1%');
+    expect(formatSignedPercent(15.7)).toBe('+16%');
+  });
+
+  test('prefixes a drop with a minus sign', () => {
+    expect(formatSignedPercent(-0.5)).toBe('−0.5%');
+    expect(formatSignedPercent(-15.7)).toBe('−16%');
+  });
+
+  test('leaves zero unsigned', () => {
+    expect(formatSignedPercent(0)).toBe('0%');
   });
 });

@@ -38,8 +38,7 @@ class ActionsWidget : AppWidgetProvider() {
             NEUTRAL(2);
 
             companion object {
-                fun fromValue(value: Int?): Style =
-                    entries.find { it.value == value } ?: VIVID
+                fun fromValue(value: Int?): Style = entries.find { it.value == value } ?: VIVID
             }
         }
 
@@ -56,16 +55,15 @@ class ActionsWidget : AppWidgetProvider() {
             },
             appWidgetMaxHeight = config?.optInt("appWidgetMaxHeight").let {
                 if ((it ?: 0) > 0) it else null
-            },
+            }
         )
 
-        fun toJson(): JSONObject =
-            JSONObject()
-                .put("style", style.value)
-                .put("appWidgetMinWidth", appWidgetMinWidth)
-                .put("appWidgetMinHeight", appWidgetMinHeight)
-                .put("appWidgetMaxWidth", appWidgetMaxWidth)
-                .put("appWidgetMaxHeight", appWidgetMaxHeight)
+        fun toJson(): JSONObject = JSONObject()
+            .put("style", style.value)
+            .put("appWidgetMinWidth", appWidgetMinWidth)
+            .put("appWidgetMinHeight", appWidgetMinHeight)
+            .put("appWidgetMaxWidth", appWidgetMaxWidth)
+            .put("appWidgetMaxHeight", appWidgetMaxHeight)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -102,18 +100,20 @@ class ActionsWidget : AppWidgetProvider() {
         val minHeight = newOptions.getInt("appWidgetMinHeight")
         val maxWidth = newOptions.getInt("appWidgetMaxWidth")
         val maxHeight = newOptions.getInt("appWidgetMaxHeight")
-        if (minWidth == 0 || minHeight == 0)
-            return
+        if (minWidth == 0 || minHeight == 0) return
         ApplicationContextHolder.update(context.applicationContext)
         WBaseStorage.init(context)
         LocaleController.init(context, WBaseStorage.getActiveLanguage())
         val config = WBaseStorage.getWidgetConfigurations(appWidgetId) ?: JSONObject()
-        WBaseStorage.setWidgetConfigurations(appWidgetId, config.apply {
-            put("appWidgetMinWidth", minWidth)
-            put("appWidgetMinHeight", minHeight)
-            put("appWidgetMaxWidth", maxWidth)
-            put("appWidgetMaxHeight", maxHeight)
-        })
+        WBaseStorage.setWidgetConfigurations(
+            appWidgetId,
+            config.apply {
+                put("appWidgetMinWidth", minWidth)
+                put("appWidgetMinHeight", minHeight)
+                put("appWidgetMaxWidth", maxWidth)
+                put("appWidgetMaxHeight", maxHeight)
+            }
+        )
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             // On older devices, handle size change manually
             appWidgetManager?.let {
@@ -122,11 +122,7 @@ class ActionsWidget : AppWidgetProvider() {
         }
     }
 
-    fun updateAppWidget(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetId: Int
-    ) {
+    fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
         val config = Config(config = WBaseStorage.getWidgetConfigurations(appWidgetId))
         if (config.appWidgetMinWidth == null || config.appWidgetMinHeight == null) {
             val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
@@ -148,9 +144,7 @@ class ActionsWidget : AppWidgetProvider() {
     val set =
         setOf(R.layout.actions_widget, R.layout.actions_widget_tall, R.layout.actions_widget_wide)
 
-    fun layoutHasTexts(layoutId: Int): Boolean {
-        return set.contains(layoutId)
-    }
+    fun layoutHasTexts(layoutId: Int): Boolean = set.contains(layoutId)
 
     fun generateRemoteViews(context: Context, config: Config, isPreview: Boolean): RemoteViews {
         if (isPreview) {
@@ -179,7 +173,7 @@ class ActionsWidget : AppWidgetProvider() {
                 SizeF(100f, 50f) to miniWideView,
                 SizeF(50f, 250f) to tallView,
                 SizeF(200f, 50f) to wideView,
-                SizeF(150f, 150f) to normalView,
+                SizeF(150f, 150f) to normalView
             )
             RemoteViews(viewMapping)
         } else {
@@ -232,20 +226,39 @@ class ActionsWidget : AppWidgetProvider() {
                 remoteViews.setInt(
                     it,
                     "setBackgroundResource",
-                    if (renderTexts) R.drawable.bg_background_ripple else R.drawable.bg_background_0_ripple
+                    if (renderTexts) {
+                        R.drawable.bg_background_ripple
+                    } else {
+                        R.drawable.bg_background_0_ripple
+                    }
                 )
             }
         }
         if (!isPreview) {
-            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_add, "$APP_SCHEME://receive")
+            DeeplinkUtils.setOnClickDeeplink(
+                context,
+                remoteViews,
+                R.id.action_add,
+                "$APP_SCHEME://receive"
+            )
             DeeplinkUtils.setOnClickDeeplink(
                 context,
                 remoteViews,
                 R.id.action_send,
                 "$APP_SCHEME://transfer"
             )
-            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_swap, "$APP_SCHEME://swap")
-            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_earn, "$APP_SCHEME://stake")
+            DeeplinkUtils.setOnClickDeeplink(
+                context,
+                remoteViews,
+                R.id.action_swap,
+                "$APP_SCHEME://swap"
+            )
+            DeeplinkUtils.setOnClickDeeplink(
+                context,
+                remoteViews,
+                R.id.action_earn,
+                "$APP_SCHEME://stake"
+            )
         }
         remoteViews.setContentDescription(R.id.action_add, addString)
         remoteViews.setContentDescription(R.id.action_send, sendString)
@@ -258,7 +271,8 @@ class ActionsWidget : AppWidgetProvider() {
             remoteViews.setImageViewBitmap(
                 R.id.text_add,
                 TextUtils.textToBitmap(
-                    context, TextUtils.DrawableText(
+                    context,
+                    TextUtils.DrawableText(
                         addString,
                         textSize,
                         iconColor,
@@ -269,7 +283,8 @@ class ActionsWidget : AppWidgetProvider() {
             remoteViews.setImageViewBitmap(
                 R.id.text_send,
                 TextUtils.textToBitmap(
-                    context, TextUtils.DrawableText(
+                    context,
+                    TextUtils.DrawableText(
                         sendString,
                         textSize,
                         iconColor,
@@ -280,7 +295,8 @@ class ActionsWidget : AppWidgetProvider() {
             remoteViews.setImageViewBitmap(
                 R.id.text_swap,
                 TextUtils.textToBitmap(
-                    context, TextUtils.DrawableText(
+                    context,
+                    TextUtils.DrawableText(
                         swapString,
                         textSize,
                         iconColor,
@@ -291,7 +307,8 @@ class ActionsWidget : AppWidgetProvider() {
             remoteViews.setImageViewBitmap(
                 R.id.text_earn,
                 TextUtils.textToBitmap(
-                    context, TextUtils.DrawableText(
+                    context,
+                    TextUtils.DrawableText(
                         earnString,
                         textSize,
                         iconColor,

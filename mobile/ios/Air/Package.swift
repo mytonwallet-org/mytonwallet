@@ -88,7 +88,9 @@ let package = Package(
     products: [
         airLibrary("AirAsFramework"),
         airLibrary("Ledger"),
+        airLibrary("NativeEnclave"),
         airLibrary("MyAgent"),
+        airLibrary("ProtectedAction"),
         airLibrary("UIAssets"),
         airLibrary("UIActivityList"),
         airLibrary("UIAgent"),
@@ -101,6 +103,7 @@ let package = Package(
         airLibrary("UIInAppBrowser"),
         airLibrary("UIPortfolio"),
         airLibrary("UIPasscode"),
+        airLibrary("UIProtectedAction"),
         airLibrary("UIQRScan"),
         airLibrary("UIReceive"),
         airLibrary("UISend"),
@@ -113,7 +116,6 @@ let package = Package(
         airLibrary("WalletCoreTypes"),
         airLibrary("WalletCore", type: .dynamic),
         airLibrary("WalletResources"),
-        airLibrary("YUVConversion"),
     ],
     dependencies: [
         .package(path: "../Packages/ContextMenuKit"),
@@ -191,6 +193,11 @@ let package = Package(
             swiftSettings: sharedSwiftSettings
         ),
         .target(
+            name: "NativeEnclave",
+            path: "SubModules/NativeEnclave",
+            swiftSettings: sharedSwiftSettings
+        ),
+        .target(
             name: "WalletResources",
             path: "SubModules/WalletResources",
             exclude: [
@@ -218,6 +225,7 @@ let package = Package(
         .target(
             name: "WalletCore",
             dependencies: [
+                "NativeEnclave",
                 "WalletContext",
                 "WalletCoreTypes",
                 .product(name: "Dependencies", package: "swift-dependencies"),
@@ -226,6 +234,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
+                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
             path: "SubModules/WalletCore",
             swiftSettings: sharedSwiftSettings
@@ -237,18 +246,6 @@ let package = Package(
             ],
             path: "SubModules/WalletCoreTypes",
             swiftSettings: sharedSwiftSettings
-        ),
-        .target(
-            name: "YUVConversion",
-            path: "SubModules/YUVConversion",
-            publicHeadersPath: "PublicHeaders",
-            cSettings: [
-                .headerSearchPath("PublicHeaders"),
-            ],
-            linkerSettings: [
-                .linkedFramework("Accelerate"),
-                .linkedFramework("Foundation"),
-            ]
         ),
         airTarget(
             "UIComponents",
@@ -263,10 +260,8 @@ let package = Package(
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Lottie", package: "lottie-spm"),
-                .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "SwiftSVG", package: "SwiftSVG"),
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
-                "YUVConversion",
             ]
         ),
         airTarget(
@@ -297,9 +292,16 @@ let package = Package(
             ]
         ),
         airTarget(
+            "ProtectedAction",
+            dependencies: [
+                "WalletCore",
+            ]
+        ),
+        airTarget(
             "Ledger",
             dependencies: [
                 .product(name: "BleTransport", package: "hw-transport-ios-ble"),
+                "ProtectedAction",
                 "WalletCore",
                 "WalletContext",
                 "UIComponents",
@@ -313,9 +315,18 @@ let package = Package(
                 "WalletContext",
                 "WalletCore",
                 "UIComponents",
-                "Ledger",
-                .product(name: "Kingfisher", package: "kingfisher"),
                 .product(name: "Perception", package: "swift-perception"),
+            ]
+        ),
+        airTarget(
+            "UIProtectedAction",
+            dependencies: [
+                "ProtectedAction",
+                "WalletContext",
+                "WalletCore",
+                "UIComponents",
+                "UIPasscode",
+                "Ledger",
             ]
         ),
         airTarget(
@@ -327,7 +338,7 @@ let package = Package(
                 "WalletContext",
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
-                "Ledger",
+                "ProtectedAction",
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "Kingfisher", package: "kingfisher"),
             ]
@@ -353,7 +364,7 @@ let package = Package(
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
-                "Ledger",
+                "ProtectedAction",
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ]
         ),
@@ -368,6 +379,7 @@ let package = Package(
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
+                "ProtectedAction",
             ]
         ),
         airTarget(
@@ -408,7 +420,7 @@ let package = Package(
                 .product(name: "GRDB", package: "grdb.swift"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Kingfisher", package: "kingfisher"),
-                .product(name: "LottieKit", package: "LottieKit"),
+                "ProtectedAction",
             ]
         ),
         airTarget(
@@ -419,6 +431,7 @@ let package = Package(
                 "WalletContext",
                 "WalletCore",
                 "WReachability",
+                .product(name: "Flow", package: "swiftui-flow"),
                 .product(name: "Perception", package: "swift-perception"),
             ]
         ),
@@ -429,7 +442,7 @@ let package = Package(
                 "WalletContext",
                 "UIComponents",
                 .product(name: "Perception", package: "swift-perception"),
-                "Ledger",
+                "ProtectedAction",
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ]
@@ -487,6 +500,7 @@ let package = Package(
                 "WalletCore",
                 "WalletContext",
                 "UIPasscode",
+                "ProtectedAction",
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
@@ -494,7 +508,6 @@ let package = Package(
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "Flow", package: "swiftui-flow"),
                 .product(name: "Kingfisher", package: "kingfisher"),
-                .product(name: "Lottie", package: "lottie-spm"),
             ]
         ),
         airTarget(
@@ -503,7 +516,6 @@ let package = Package(
                 contextMenuKitDependency,
                 "UIComponents",
                 "UIActivityList",
-                "UIAgent",
                 "WalletContext",
                 "WalletCore",
                 "WReachability",
@@ -512,7 +524,6 @@ let package = Package(
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 "UIAssets",
                 "UISettings",
-                "UIBrowser",
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "UIKitNavigation", package: "swift-navigation"),
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
@@ -534,6 +545,7 @@ let package = Package(
         airTarget(
             "AirAsFramework",
             dependencies: [
+                contextMenuKitDependency,
                 "UIComponents",
                 "UIActivityList",
                 "WalletCore",
@@ -557,8 +569,9 @@ let package = Package(
                 "UIHome",
                 "UIBrowser",
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
-                "Ledger",
                 "UIPasscode",
+                "ProtectedAction",
+                "UIProtectedAction",
                 "UIDapp",
                 "UICreateWallet",
             ]
@@ -572,9 +585,12 @@ let package = Package(
         airTestTarget(
             "WalletCoreTests",
             dependencies: [
+                "NativeEnclave",
                 "WalletCore",
                 "WalletContext",
+                "WalletCoreTypes",
                 .product(name: "GRDB", package: "grdb.swift"),
+                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ]
         ),
         airTestTarget(
@@ -587,11 +603,58 @@ let package = Package(
             ]
         ),
         airTestTarget(
+            "UISendTests",
+            dependencies: [
+                "UISend",
+                "WalletCore",
+                "WalletContext",
+            ]
+        ),
+        airTestTarget(
             "UIComponentsTests",
             dependencies: [
                 contextMenuKitDependency,
                 "UIComponents",
                 "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "ProtectedActionTests",
+            dependencies: [
+                "ProtectedAction",
+                "WalletCore",
+            ]
+        ),
+        airTestTarget(
+            "UIProtectedActionTests",
+            dependencies: [
+                "ProtectedAction",
+                "UIProtectedAction",
+                "WalletCore",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "UIAssetsTests",
+            dependencies: [
+                "ProtectedAction",
+                "UIAssets",
+                "WalletCore",
+            ]
+        ),
+        airTestTarget(
+            "UITokenTests",
+            dependencies: [
+                "UIToken",
+                "WalletContext",
+                "WalletCore",
+            ]
+        ),
+        airTestTarget(
+            "UIDappTests",
+            dependencies: [
+                "UIDapp",
+                "WalletCore",
             ]
         ),
     ],

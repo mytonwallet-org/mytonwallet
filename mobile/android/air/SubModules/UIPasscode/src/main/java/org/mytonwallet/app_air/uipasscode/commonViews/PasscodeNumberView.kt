@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uipasscode.commonViews
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
@@ -10,17 +11,13 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.uipasscode.R
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")
-class PasscodeNumberView(
-    context: Context,
-    val row: Int,
-    val column: Int,
-    val light: Boolean
-) : WView(context), WThemedView {
+class PasscodeNumberView(context: Context, val row: Int, val column: Int, val light: Boolean) :
+    WView(context),
+    WThemedView {
 
     val num = getNum(row, column)
 
@@ -79,15 +76,17 @@ class PasscodeNumberView(
         if (num == null) {
             if (column == 1) {
                 // Biometric button
-                val biometricDrawable = context.getDrawableCompat(R.drawable.ic_biometric)?.apply {
-                    setTint(color)
-                }
+                val biometricDrawable =
+                    context.getDrawableCompat(R.drawable.ic_biometric)?.apply {
+                        setTint(color)
+                    }
                 imageView.setImageDrawable(biometricDrawable)
             } else {
                 // Backspace button
-                val backspaceDrawable = context.getDrawableCompat(R.drawable.ic_backspace)?.apply {
-                    setTint(color)
-                }
+                val backspaceDrawable =
+                    context.getDrawableCompat(R.drawable.ic_backspace)?.apply {
+                        setTint(color)
+                    }
                 imageView.setImageDrawable(backspaceDrawable)
             }
         }
@@ -108,9 +107,13 @@ class PasscodeNumberView(
     private fun subtitle(forNum: Int): String {
         return when (forNum) {
             0, 1 -> ""
+
             7 -> "PQRS"
+
             8 -> "TUV"
+
             9 -> "WXYZ"
+
             else -> {
                 var txt = ""
                 val startIndex = 'A'.code + forNum * 3 - 6

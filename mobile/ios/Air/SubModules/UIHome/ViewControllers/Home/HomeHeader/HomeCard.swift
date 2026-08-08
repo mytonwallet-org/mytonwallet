@@ -172,10 +172,17 @@ final class HomeCard: UICollectionViewCell {
     private func applyTransform(headerViewModel: HomeHeaderViewModel) {
         let layout = container.layout
         // background
-        let ofs: CGFloat = layout.itemHeight/2 - 17*CARD_RATIO + (IOS_26_MODE_ENABLED ? -124 : -126)
+        let ofs: CGFloat =
+            layout.itemHeight/2 -
+            17*CARD_RATIO +
+            (IOS_26_MODE_ENABLED ? -124 : -126)
         let scale: CGFloat = 34/layout.itemWidth
         // card content
-        let r: CGFloat = homeCardFontSize(for: layout.itemWidth)/homeCollapsedFontSize
+        let collapsedBalanceFontSize: CGFloat =
+            headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs
+            ? 48
+            : homeCollapsedFontSize
+        let r: CGFloat = homeCardFontSize(for: layout.itemWidth)/collapsedBalanceFontSize
         let dx: CGFloat = 8
         let dy: CGFloat = 0.2667*layout.itemHeight + (layout.itemWidth > 400 ? 6 : 0) // TODO: this is not correct for all devices - there must be a fixed factor based on vertical size of content
 

@@ -4,8 +4,6 @@ import WalletCore
 import WalletContext
 import FoundationModels
 
-private let log = Log("AgentStore")
-
 @MainActor
 public final class AgentStore {
 

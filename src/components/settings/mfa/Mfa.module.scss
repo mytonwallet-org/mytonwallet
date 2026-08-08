@@ -83,7 +83,7 @@
   font-size: 1rem;
   font-weight: 500;
   line-height: 1.25rem;
-  text-align: left;
+  text-align: start;
   text-wrap: wrap;
 }
 
@@ -140,7 +140,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  text-align: left;
+  text-align: start;
 }
 
 .accountName {
@@ -154,7 +154,7 @@
   font-weight: 500;
   line-height: 1rem;
   color: var(--color-gray-2);
-  text-align: left;
+  text-align: start;
 }
 
 .avatars {
@@ -172,5 +172,5 @@
 }
 
 .avatar:nth-child(2) {
-  margin-left: -1.6875rem;
+  margin-inline-start: -1.6875rem;
 }

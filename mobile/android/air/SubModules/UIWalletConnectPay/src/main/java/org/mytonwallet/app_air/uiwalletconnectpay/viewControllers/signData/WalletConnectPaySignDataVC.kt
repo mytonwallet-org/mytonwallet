@@ -9,6 +9,9 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
@@ -28,9 +31,6 @@ import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.moshi.WcPayAmount
 import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WalletConnectPaySignDataVC(
@@ -40,8 +40,10 @@ class WalletConnectPaySignDataVC(
     private val paymentOption: WcPayPaymentOption?,
     private val onProceed: () -> Unit,
     private val onCancelled: () -> Unit,
-    private val onShowTransferInfo: () -> Unit,
-) : WViewController(context), WRecyclerViewAdapter.WRecyclerViewDataSource {
+    private val onShowTransferInfo: () -> Unit
+) : WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "WalletConnectPaySignData"
 
     companion object {
@@ -146,8 +148,10 @@ class WalletConnectPaySignDataVC(
         )
         recyclerView.setPaddingRelative(
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
-            (navigationController?.getSystemBars()?.top ?: 0) + (navigationBar?.calculatedMinHeight
-                ?: 0),
+            (navigationController?.getSystemBars()?.top ?: 0) + (
+                navigationBar?.calculatedMinHeight
+                    ?: 0
+                ),
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             20.dp + ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
                 signButton.buttonHeight + bottomInset
@@ -167,24 +171,30 @@ class WalletConnectPaySignDataVC(
         return if (hasToken) 5 else 2
     }
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return if (hasToken) when (indexPath.row) {
-            0 -> HEADER_CELL
-            1 -> TOKEN_TITLE_CELL
-            2 -> TOKEN_CELL
-            3 -> GAP_CELL
-            else -> TRANSFER_INFO_CELL
-        } else when (indexPath.row) {
-            0 -> HEADER_CELL
-            else -> TRANSFER_INFO_CELL
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        if (hasToken) {
+            when (indexPath.row) {
+                0 -> HEADER_CELL
+                1 -> TOKEN_TITLE_CELL
+                2 -> TOKEN_CELL
+                3 -> GAP_CELL
+                else -> TRANSFER_INFO_CELL
+            }
+        } else {
+            when (indexPath.row) {
+                0 -> HEADER_CELL
+                else -> TRANSFER_INFO_CELL
+            }
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> WalletConnectPayHeaderCell(context)
+
             TOKEN_TITLE_CELL -> HeaderCell(context)
+
             TOKEN_CELL -> WalletConnectPayOptionCell(context)
+
             GAP_CELL -> WCell(
                 context,
                 ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp)
@@ -192,7 +202,6 @@ class WalletConnectPaySignDataVC(
 
             else -> WalletConnectPaySignDataTransferInfoCell(context)
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,

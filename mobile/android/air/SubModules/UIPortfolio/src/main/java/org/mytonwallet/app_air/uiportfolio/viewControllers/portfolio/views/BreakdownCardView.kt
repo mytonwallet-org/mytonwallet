@@ -8,6 +8,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -21,7 +22,7 @@ import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.Port
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlin.math.roundToInt
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
 @SuppressLint("ViewConstructor")
 class BreakdownCardView(
@@ -29,8 +30,9 @@ class BreakdownCardView(
     titleText: String,
     private val showLegend: Boolean,
     private val legendRowCount: Int = 10,
-    private val emptyText: String? = null,
-) : WView(context), WThemedView {
+    private val emptyText: String? = null
+) : WView(context),
+    WThemedView {
 
     private val titleLabel = WLabel(context).apply {
         id = generateViewId()
@@ -145,7 +147,7 @@ class BreakdownCardView(
         cylinder.updateTheme()
         cardSkeletonPlaceholder.setBackgroundColor(
             WColor.SecondaryBackground.color,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 
@@ -163,7 +165,7 @@ class BreakdownCardView(
                 setTextColor(slice.color)
             }
             val pct = WLabel(context).apply {
-                text = "${(slice.ratio * 100).roundToInt()}%"
+                text = "${(slice.ratio * 100).roundToInt().withLocalizedNumbers}%"
                 setStyle(14f, WFont.Regular)
                 setTextColor(WColor.SecondaryText)
             }

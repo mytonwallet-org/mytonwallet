@@ -34,6 +34,12 @@
     height: 2.5rem !important;
   }
 
+  &.xx-large {
+    flex-basis: 3.5rem;
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+  }
+
   &.x-small {
     width: 1.0625rem !important;
     height: 1.0625rem !important;
@@ -77,7 +83,7 @@
 .blockchainIcon {
   position: absolute;
   top: 1.4375rem;
-  left: 1.4375rem;
+  inset-inline-start: 1.4375rem;
 
   width: 1rem;
   height: 1rem;
@@ -87,7 +93,7 @@
 
   @include mixins.is-mobile() {
     top: 1.625rem;
-    left: 1.625rem;
+    inset-inline-start: 1.625rem;
     width: 1.125rem;
     height: 1.125rem;
   }
@@ -95,7 +101,7 @@
   &.large {
     @include mixins.is-not-mobile() {
       top: 1.5rem;
-      left: 1.5rem;
+      inset-inline-start: 1.5rem;
       width: 1.125rem;
       height: 1.125rem;
     }
@@ -104,7 +110,7 @@
   &.small,
   &.x-small, {
     top: 0.625rem !important;
-    left: 0.625rem !important;
+    inset-inline-start: 0.625rem !important;
 
     width: 0.6875rem !important;
     height: 0.6875rem !important;
@@ -114,7 +120,7 @@
 
   &.middle {
     top: 0.9375rem !important;
-    left: 0.9375rem !important;
+    inset-inline-start: 0.9375rem !important;
     width: 0.625rem !important;
     height: 0.625rem !important;
   }

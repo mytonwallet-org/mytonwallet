@@ -29,7 +29,7 @@ import { getChainTitle } from '../../../../util/chain';
 import { formatRelativeHumanDateTime } from '../../../../util/dateFormat';
 import { getLocalAddressName } from '../../../../util/getLocalAddressName';
 import { getIsTransactionWithPoisoning } from '../../../../util/poisoningHash';
-import { getStakingStateStatus } from '../../../../util/staking';
+import { getIsNewStakeAllowed, getStakingStateStatus } from '../../../../util/staking';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
@@ -191,7 +191,7 @@ function TransactionInfo({
   const isOurUnstaking = isOurStaking && transaction?.type === 'unstake';
   const isNftTransfer = Boolean(transaction?.nft);
   const isAnyPending = transaction ? getIsActivityPendingForUser(transaction) : undefined;
-  const isTransactionWithPoisoning = isIncoming && transaction && getIsTransactionWithPoisoning(transaction);
+  const isTransactionWithPoisoning = transaction && getIsTransactionWithPoisoning(transaction);
   const isScam = Boolean(transaction) && isScamTransaction(transaction);
   const shouldLoadDetails = transaction?.shouldLoadDetails;
 
@@ -251,7 +251,7 @@ function TransactionInfo({
           text={encryptedComment ? decryptedComment : comment}
           spoiler={spoiler}
           spoilerRevealText={encryptedComment ? (canDecryptComment ? lang('Decrypt') : undefined) : lang('Display')}
-          spoilerCallback={canDecryptComment ? onDecryptComment : undefined}
+          onSpoilerReveal={canDecryptComment ? onDecryptComment : undefined}
           copyNotification={lang('Comment Copied')}
           className={styles.copyButtonWrapper}
           textClassName={styles.comment}
@@ -320,7 +320,7 @@ function TransactionInfo({
         </Button>,
       );
     }
-    if (!IS_FEATURE_LIMITED && isOurStaking && onStartStakingClick) {
+    if (!IS_FEATURE_LIMITED && isOurStaking && onStartStakingClick && getIsNewStakeAllowed(transaction?.slug)) {
       buttons.push(
         <Button
           onClick={onStartStakingClick}

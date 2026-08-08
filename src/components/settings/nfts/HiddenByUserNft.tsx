@@ -49,7 +49,7 @@ function HiddenByUserNft({ nft }: OwnProps) {
       tabIndex={0}
       data-nft-address={nft.address}
     >
-      <img className={styles.nftImage} src={nft.image} alt={nft.name} />
+      <img className={styles.nftImage} src={nft.image ?? nft.thumbnail} alt={nft.name} />
       <div className={styles.nftPrimaryCell}>
         <span className={styles.nftName}>{nft.name || lang('Untitled')}</span>
         {

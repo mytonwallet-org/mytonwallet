@@ -65,9 +65,9 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
 
 .showAll {
   position: absolute;
-  right: 0;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
 
   display: flex;
   flex-shrink: 0;
@@ -80,7 +80,7 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
   font-weight: 600;
   line-height: 1.375rem;
   color: var(--color-accent);
-  text-align: left;
+  text-align: start;
 
   background-color: var(--color-background-first);
 
@@ -142,7 +142,7 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
 
   height: 1.25rem;
   margin-inline-end: auto;
-  padding-left: 1rem;
+  padding-inline-start: 1rem;
 
   font-size: 0.9375rem;
   font-weight: 700;
@@ -201,6 +201,7 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
 .menu {
   --color-interactive-drop-down-menu-active: transparent;
 
+  // Physical `left` to match the container's physical anchor; a logical inset flips it in RTL
   right: auto !important;
   left: var(--offset-x-value, var(--offset-x));
   max-width: 25rem;

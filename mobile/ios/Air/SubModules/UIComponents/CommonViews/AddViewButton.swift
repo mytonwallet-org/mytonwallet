@@ -43,7 +43,7 @@ public struct AddViewButton<S: ShapeStyle>: View {
             Text(lang("$view_mode"))
         }
         .frame(height: 14)
-        .font(.system(size: 14, weight: .semibold))
+        .textStyle(.supportingStrong)
         .padding(.trailing, 1)
     }
     

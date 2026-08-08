@@ -1,7 +1,8 @@
+@file:Suppress("PropertyName")
+
 package org.mytonwallet.app_air.uicomponents.adapter.implementation.holders
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -18,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -28,8 +30,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 class ListExpandableTextCell @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0,
-) : ViewGroup(context, attrs, defStyle), WThemedView {
+    defStyle: Int = 0
+) : ViewGroup(context, attrs, defStyle),
+    WThemedView {
     private val PADDING_HORIZONTAL = 6
 
     private val isExpanded = BoolAnimator(
@@ -83,7 +86,6 @@ class ListExpandableTextCell @JvmOverloads constructor(
         isSingleLine = true
         maxLines = 1
     }
-
 
     init {
         moreButtonView.setOnClickListener { isExpanded.animatedValue = !isExpanded.value }
@@ -141,7 +143,8 @@ class ListExpandableTextCell @JvmOverloads constructor(
             paddingTop + textViewHidden.measuredHeight
         )
         moreButtonView.layout(
-            measuredWidth - paddingRight - moreButtonView.measuredWidth + CopyTextView.PADDING_HORIZONTAL.dp,
+            measuredWidth - paddingRight - moreButtonView.measuredWidth +
+                CopyTextView.PADDING_HORIZONTAL.dp,
             paddingTop + CopyTextView.PADDING_VERTICAL.dp,
             measuredWidth - paddingRight + CopyTextView.PADDING_HORIZONTAL.dp,
             paddingTop + moreButtonView.measuredHeight + CopyTextView.PADDING_VERTICAL.dp

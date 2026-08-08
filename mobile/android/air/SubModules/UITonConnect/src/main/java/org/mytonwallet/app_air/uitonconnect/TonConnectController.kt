@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uitonconnect
 
 import android.content.Intent
 import android.net.Uri
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -11,28 +12,31 @@ import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.Ton
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.helpers.DappDeeplinkReturnTracker
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
-import java.lang.ref.WeakReference
 
 class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObserver {
     companion object {
-        private var loadingConnectRequestViewController: WeakReference<TonConnectRequestConnectVC>? =
+        private var loadingConnectRequestViewController:
+            WeakReference<TonConnectRequestConnectVC>? = null
+        private var loadingSendRequestViewController: WeakReference<TonConnectRequestSendVC>? =
             null
-        private var loadingSendRequestViewController: WeakReference<TonConnectRequestSendVC>? = null
 
         fun setLoadingConnectRequestViewController(vc: TonConnectRequestConnectVC): Boolean {
-            if (loadingConnectRequestViewController?.get()?.isDisappeared == false)
+            if (loadingConnectRequestViewController?.get()?.isDestroyed == false) {
                 return false // A loading screen already shown
+            }
             loadingConnectRequestViewController = WeakReference(vc)
             return true
         }
 
         fun setLoadingSendRequestViewController(vc: TonConnectRequestSendVC): Boolean {
-            if (loadingSendRequestViewController?.get()?.isDisappeared == false)
+            if (loadingSendRequestViewController?.get()?.isDestroyed == false) {
                 return false // A loading screen already shown
+            }
             loadingSendRequestViewController = WeakReference(vc)
             return true
         }
@@ -54,25 +58,44 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
     override fun onBridgeUpdate(update: ApiUpdate) {
         when (update) {
             is ApiUpdate.ApiUpdateDappConnect -> {
+                DappDeeplinkReturnTracker.bindWalletConnectRequest(
+                    update.dapp.wcPairingTopic,
+                    update.promiseId
+                )
+                DappDeeplinkReturnTracker.bindTonConnectRequest(
+                    update.dapp.sse?.appClientId,
+                    update.promiseId
+                )
                 window.doOnWalletReady {
                     WalletCore.recordTonConnectEvent(
                         "wallet-connect-request-ui-displayed",
                         update.promiseId
                     )
-                    // Reuse a connect modal that's already shown (e.g. a connect deeplink tapped twice) so a
-                    // second request replaces the first in place instead of stacking a new sheet.
-                    val existingVC =
-                        loadingConnectRequestViewController?.get()?.takeIf { !it.isDisappeared }
-                            ?: window.navigationControllers
-                                .flatMap { it.viewControllers }
-                                .lastOrNull { it is TonConnectRequestConnectVC && !it.isDisappeared }
-                                as? TonConnectRequestConnectVC
-                    if (existingVC != null) {
-                        existingVC.setDappUpdate(update)
+                    val loadingVC = loadingConnectRequestViewController?.get()
+                        ?.takeIf { !it.isDestroyed }
+                    if (loadingVC != null) {
+                        loadingVC.setDappUpdate(update)
                         loadingConnectRequestViewController = null
                     } else {
+                        if (window.isAnimating) {
+                            WalletCore.call(
+                                ApiMethod.DApp.CancelDappRequest(
+                                    promiseId = update.promiseId,
+                                    reason = LocaleController.getString("Canceled by the user")
+                                )
+                            ) { _, _ ->
+                                if (DappDeeplinkReturnTracker.consumeCompletedRequest(
+                                        update.promiseId
+                                    )
+                                ) {
+                                    window.moveTaskToBack(true)
+                                }
+                            }
+                            return@doOnWalletReady
+                        }
                         val navVC = WNavigationController(
-                            window, WNavigationController.PresentationConfig(
+                            window,
+                            WNavigationController.PresentationConfig(
                                 style = WNavigationController.PresentationStyle.BottomSheet
                             )
                         )
@@ -83,6 +106,14 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
             }
 
             is ApiUpdate.ApiUpdateDappSendTransactions -> {
+                DappDeeplinkReturnTracker.bindWalletConnectSessionRequest(
+                    update.dapp.wcTopic,
+                    update.promiseId
+                )
+                DappDeeplinkReturnTracker.bindTonConnectRequest(
+                    update.dapp.sse?.appClientId,
+                    update.promiseId
+                )
                 WalletCore.ensureAccountActivated(update.accountId) { accountChanged ->
                     window.doOnWalletReady {
                         WalletCore.recordTonConnectEvent(
@@ -90,11 +121,16 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                             update.promiseId
                         )
                         val loadingVC = loadingSendRequestViewController?.get()
+                            ?.takeIf { !it.isDestroyed }
                         if (accountChanged) {
-                            while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)
+                            while (window.navigationControllers.size > 1 &&
+                                window.navigationControllers[1].viewControllers.lastOrNull() !=
+                                loadingVC
+                            ) {
                                 window.dismissNav(1)
+                            }
                         }
-                        if (loadingVC?.isDisappeared == false) {
+                        if (loadingVC != null) {
                             loadingVC.setUpdate(update)
                             loadingSendRequestViewController = null
                         } else {
@@ -116,17 +152,30 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
             }
 
             is ApiUpdate.ApiUpdateDappSignData -> {
+                DappDeeplinkReturnTracker.bindWalletConnectSessionRequest(
+                    update.dapp.wcTopic,
+                    update.promiseId
+                )
+                DappDeeplinkReturnTracker.bindTonConnectRequest(
+                    update.dapp.sse?.appClientId,
+                    update.promiseId
+                )
                 WalletCore.ensureAccountActivated(update.accountId) { accountChanged ->
                     WalletCore.recordTonConnectEvent(
                         "wallet-sign-data-confirmation-ui-displayed",
                         update.promiseId
                     )
                     val loadingVC = loadingSendRequestViewController?.get()
+                        ?.takeIf { !it.isDestroyed }
                     if (accountChanged) {
-                        while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)
+                        while (window.navigationControllers.size > 1 &&
+                            window.navigationControllers[1].viewControllers.lastOrNull() !=
+                            loadingVC
+                        ) {
                             window.dismissNav(1)
+                        }
                     }
-                    if (loadingVC?.isDisappeared == false) {
+                    if (loadingVC != null) {
                         loadingVC.setUpdate(update)
                         loadingSendRequestViewController = null
                     } else {
@@ -150,10 +199,18 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                 val url = update.url
                 window.topViewController?.showAlert(
                     title = LocaleController.getString("Already Connected"),
-                    text = LocaleController.getString("Return to the dapp to proceed, or reconnect."),
+                    text = LocaleController.getString(
+                        "Return to the dapp to proceed, or reconnect."
+                    ),
                     button = LocaleController.getString("OK"),
                     buttonPressed = { url?.let { openExternalUri(Uri.parse(it)) } },
-                    secondaryButton = if (url != null) LocaleController.getString("Cancel") else null
+                    secondaryButton = if (url !=
+                        null
+                    ) {
+                        LocaleController.getString("Cancel")
+                    } else {
+                        null
+                    }
                 )
             }
 
@@ -161,10 +218,18 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                 val url = update.url
                 window.topViewController?.showAlert(
                     title = LocaleController.getString("Dapp Disconnected"),
-                    text = LocaleController.getString("Please reconnect your wallet from the dapp."),
+                    text = LocaleController.getString(
+                        "Please reconnect your wallet from the dapp."
+                    ),
                     button = LocaleController.getString("OK"),
                     buttonPressed = { url?.let { openExternalUri(Uri.parse(it)) } },
-                    secondaryButton = if (url != null) LocaleController.getString("Cancel") else null
+                    secondaryButton = if (url !=
+                        null
+                    ) {
+                        LocaleController.getString("Cancel")
+                    } else {
+                        null
+                    }
                 )
             }
 

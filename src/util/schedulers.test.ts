@@ -1,4 +1,4 @@
-import { createTaskQueue, pause, throttle } from './schedulers';
+import { createTaskQueue, pause, throttle, withTimeout } from './schedulers';
 
 import Deferred from './Deferred';
 
@@ -147,5 +147,38 @@ describe('createTaskQueue', () => {
     }));
 
     expect(results).toEqual(expectedResults);
+  });
+});
+
+describe('withTimeout', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('resolves with the value when the promise settles first', async () => {
+    await expect(withTimeout(Promise.resolve('ok'), 1000, 'fallback')).resolves.toBe('ok');
+  });
+
+  it('resolves with fallback when the promise rejects', async () => {
+    await expect(withTimeout(Promise.reject(new Error('x')), 1000, 'fallback')).resolves.toBe('fallback');
+  });
+
+  it('resolves with fallback when the timer fires first on a pending promise', async () => {
+    const p = withTimeout(new Promise<string>(() => {}), 1000, 'fallback');
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(p).resolves.toBe('fallback');
+  });
+
+  it('calls onTimeout when the timer fires first', async () => {
+    const onTimeout = jest.fn();
+    const p = withTimeout(new Promise<string>(() => {}), 1000, 'fallback', onTimeout);
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(p).resolves.toBe('fallback');
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onTimeout when the promise settles first', async () => {
+    const onTimeout = jest.fn();
+    await expect(withTimeout(Promise.resolve('ok'), 1000, 'fallback', onTimeout)).resolves.toBe('ok');
+    expect(onTimeout).not.toHaveBeenCalled();
   });
 });

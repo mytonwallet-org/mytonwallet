@@ -4,21 +4,18 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.MotionEvent
 import android.widget.LinearLayout
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.commonViews.AnimatedKeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.feeDetailsDialog.FeeDetailsDialog
 import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
-import org.mytonwallet.app_air.uiswap.screens.swap.DEFAULT_OUR_SWAP_FEE
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import java.math.BigInteger
 
 @SuppressLint("ViewConstructor")
 class SwapEstimatedInfo(
     context: Context,
-    private var onDexPopupPressed: (() -> Unit)?,
     private var onSlippageChange: ((Float) -> Unit)?,
     private var onDialogShowListener: ((String, CharSequence) -> Unit)?,
     private var onPresentDialog: (dialog: WDialog?) -> Unit
@@ -37,9 +34,7 @@ class SwapEstimatedInfo(
         orientation = LinearLayout.VERTICAL
     }
 
-    private val estRate = SwapRateRowView(context) {
-        onDexPopupPressed?.invoke()
-    }
+    private val estRate = SwapRateRowView(context)
 
     private val slippageRowView = SwapSlippageRowView(context) {
         onSlippageChange?.invoke(it)
@@ -47,11 +42,6 @@ class SwapEstimatedInfo(
 
     private val estBlockchainFee = AnimatedKeyValueRowView(context).apply {
         title = LocaleController.getString("Blockchain Fee")
-    }
-
-    private val estAggregatorFee = AnimatedKeyValueRowView(context).apply {
-        setTitleDrawable(org.mytonwallet.app_air.icons.R.drawable.ic_info_24, 0.5f)
-        title = LocaleController.getString("Aggregator Fee")
     }
 
     private val estPriceImpact = AnimatedKeyValueRowView(context).apply {
@@ -69,7 +59,6 @@ class SwapEstimatedInfo(
         linearLayout.addView(estRate)
         linearLayout.addView(slippageRowView)
         linearLayout.addView(estBlockchainFee)
-        linearLayout.addView(estAggregatorFee)
         linearLayout.addView(estPriceImpact)
         linearLayout.addView(estMinimumReceived)
 
@@ -88,16 +77,6 @@ class SwapEstimatedInfo(
             }
         }
 
-        estAggregatorFee.setOnClickListener {
-            onDialogShowListener?.invoke(
-                LocaleController.getString("Aggregator Fee"),
-                LocaleController.getString("\$swap_aggregator_fee_tooltip").replace(
-                    "%percent%",
-                    (est?.dex?.ourFeePercent ?: DEFAULT_OUR_SWAP_FEE).toString()
-                )
-                    .toProcessedSpannableStringBuilder()
-            )
-        }
         slippageRowView.setOnClickListener {
             onDialogShowListener?.invoke(
                 LocaleController.getString("Slippage"),
@@ -127,7 +106,6 @@ class SwapEstimatedInfo(
         val visibility = if (isCex) GONE else VISIBLE
         estPriceImpact.visibility = visibility
         estMinimumReceived.visibility = visibility
-        estAggregatorFee.visibility = visibility
         slippageRowView.visibility = visibility
         estBlockchainFee.separator.allowSeparator = false
     }
@@ -147,14 +125,12 @@ class SwapEstimatedInfo(
         }
         estPriceImpact.value = est?.priceImpactFmt
         estMinimumReceived.value = est?.minReceivedFmt
-        estAggregatorFee.value =
-            est?.let { est.aggregatorFee }
         this.est = est
 
         if (est != null && est.rate.sendAmount > java.math.BigDecimal.ZERO) {
             estRate.setTitleAndValue(
                 "${LocaleController.getString("Price per")} ${est.rateReceiveFmt}",
-                est.rateSendFmt,
+                est.rateSendFmt
             )
         } else {
             estRate.clearValue(toToken)

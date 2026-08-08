@@ -9,16 +9,23 @@ import UIKit
 import SwiftUI
 import UIComponents
 import Perception
+import WalletCore
 import WalletContext
 
 public class ActivateBiometricVC: WViewController {
 
     private let viewModel: ActivateBiometricViewModel
+    private let authorizationToken: EnclaveToken
 
-    private var onCompletion: @MainActor (Bool) async throws -> Void
+    private var onCompletion: SetPasscodeCompletion
         
-    public init(biometryType: BiometryType, onCompletion: @escaping @MainActor (Bool) async throws -> Void) {
+    public init(
+        biometryType: BiometryType,
+        authorizationToken: EnclaveToken,
+        onCompletion: @escaping SetPasscodeCompletion
+    ) {
         self.viewModel = ActivateBiometricViewModel(biometryType: biometryType)
+        self.authorizationToken = authorizationToken
         self.onCompletion = onCompletion
         super.init(nibName: nil, bundle: nil)
     }
@@ -54,33 +61,32 @@ public class ActivateBiometricVC: WViewController {
         viewModel.state = .authenticating
         Task { @MainActor [weak self] in
             guard let self else { return }
-            
-            let result = await BiometricHelper.authenticate()
-            switch result {
-            case .success:
-                finalizeFlow(biometricActivated: true)
-            case .canceled:
+
+            do {
+                let finalToken = try await AuthSupport.enableBiometrics(using: authorizationToken)
+                finalizeFlow(enclaveToken: finalToken)
+            } catch AuthSupportBiometricsError.canceled {
                 viewModel.state = .idle
-            case .userDeniedBiometrics:
+            } catch AuthSupportBiometricsError.userDeniedBiometrics {
                 skip()
-            case let .error(localizedDescription, title):
+            } catch {
                 viewModel.state = .idle
-                showAlert(title: title, text: localizedDescription, button: lang("OK"))
+                showAlert(title: lang("Error"), text: error.localizedDescription, button: lang("OK"))
             }
         }
     }
     
     private func skip() {
         viewModel.state = .skipping
-        finalizeFlow(biometricActivated: false)
+        finalizeFlow(enclaveToken: authorizationToken)
     }
     
-    private func finalizeFlow(biometricActivated: Bool) {
+    private func finalizeFlow(enclaveToken: EnclaveToken) {
         view.isUserInteractionEnabled = false
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await onCompletion(biometricActivated)
+                try await onCompletion(enclaveToken)
             } catch {
                 view.isUserInteractionEnabled = true
                 viewModel.state = .idle
@@ -94,6 +100,12 @@ public class ActivateBiometricVC: WViewController {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    UINavigationController(rootViewController: ActivateBiometricVC(biometryType: .face, onCompletion: { _ in }))
+    UINavigationController(
+        rootViewController: ActivateBiometricVC(
+            biometryType: .face,
+            authorizationToken: "token",
+            onCompletion: { _ in }
+        )
+    )
 }
 #endif

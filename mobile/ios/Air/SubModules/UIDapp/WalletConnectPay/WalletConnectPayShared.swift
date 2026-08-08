@@ -1,4 +1,5 @@
 import Foundation
+import ProtectedAction
 import SwiftUI
 import UIComponents
 import WalletCore
@@ -63,15 +64,15 @@ struct WalletConnectPayMerchantHeaderView: View {
     private var leadingSide: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(accountContext.account.displayName)
-                .font(.system(size: 16, weight: .medium))
+                .textStyle(.calloutEmphasized)
                 .frame(minHeight: 22)
             if let customToken, let customTokenBalance {
                 Text(TokenAmount(customTokenBalance, customToken).formatted(.defaultAdaptive))
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting, content: .technical)
                     .opacity(0.75)
             } else if let balance = accountContext.balance {
                 Text(balance.formatted(.baseCurrencyEquivalent))
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting, content: .technical)
                     .opacity(0.75)
             }
         }
@@ -84,11 +85,11 @@ struct WalletConnectPayMerchantHeaderView: View {
         HStack(spacing: 12) {
             VStack(alignment: .trailing, spacing: 0) {
                 Text(merchant?.name ?? lang("Payment"))
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized)
                     .frame(minHeight: 22)
                     .lineLimit(3)
                 Text(chain?.title ?? "WalletConnect Pay")
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting)
                     .foregroundColor(.white.opacity(0.75))
                     .lineLimit(2)
             }
@@ -171,7 +172,7 @@ struct WalletConnectPayPaymentHeaderView: View {
 
                     if let baseCurrencyText {
                         Text(baseCurrencyText)
-                            .font(.system(size: 17, weight: .regular))
+                            .textStyle(.body, content: .technical)
                             .foregroundStyle(Color.air.secondaryLabel)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -206,7 +207,7 @@ struct WalletConnectPayPaymentContext {
     var paymentOption: WcPayPaymentOption?
 }
 
-struct WalletConnectPayAuthHeaderView: View {
+struct WalletConnectPayAuthHeaderView: ConfirmationContent {
     var merchant: WcPayMerchant
     var paymentContext: WalletConnectPayPaymentContext
     var accountContext: AccountContext
@@ -230,6 +231,40 @@ struct WalletConnectPayAuthHeaderView: View {
         .multilineTextAlignment(.center)
         .padding(.horizontal, 16)
         .padding(.vertical, 33)
+    }
+
+    var compactRepresentation: some View {
+        CompactActionSummary {
+            DappIcon(iconUrl: merchant.iconUrl)
+                .background(Color.air.secondaryFill)
+                .clipShape(.rect(cornerRadius: 5))
+        } label: {
+            if let selectedAmount {
+                Text(compactAmount(selectedAmount.amount)).textStyle(.bodyEmphasized, content: .technical)
+                    + Text(" \(lang("to")) ").textStyle(.body)
+                    + Text(merchant.name).textStyle(.bodyEmphasized)
+            } else {
+                Text(lang("Send to") + " ").textStyle(.body)
+                    + Text(merchant.name).textStyle(.bodyEmphasized)
+            }
+        }
+    }
+
+    private var selectedAmount: WalletConnectPaySelectedPaymentAmount? {
+        walletConnectPaySelectedPaymentAmount(
+            paymentContext: paymentContext,
+            accountContext: accountContext
+        )
+    }
+
+    private func compactAmount(_ amount: WalletConnectPayHeaderAmount) -> String {
+        AnyDecimalAmount(
+            abs(amount.value),
+            decimals: amount.decimals,
+            symbol: amount.symbol,
+            forceCurrencyToRight: amount.forceCurrencyToRight
+        )
+        .formatted(.defaultAdaptive)
     }
 }
 
@@ -367,7 +402,9 @@ struct WalletConnectPayMerchantLine: View {
     var body: some View {
         HStack(alignment: .center, spacing: 4) {
             Text(prefix)
-                .font17h22()
+                .textStyle(.body, scaling: .dynamic)
+                .lineSpacing(1)
+                .frame(minHeight: 22)
                 .foregroundStyle(Color.air.primaryLabel)
 
             HStack(alignment: .center, spacing: 4) {
@@ -377,7 +414,9 @@ struct WalletConnectPayMerchantLine: View {
                     .clipShape(.rect(cornerRadius: 4))
 
                 Text(merchant.name)
-                    .font17h22()
+                    .textStyle(.body, scaling: .dynamic)
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -469,7 +508,9 @@ struct WalletConnectPayTransferInfoRow: View {
             InsetButtonCell(action: action) {
                 HStack(spacing: 12) {
                     Text(lang("Transfer Info"))
-                        .font17h22()
+                        .textStyle(.body, scaling: .dynamic)
+                        .lineSpacing(1)
+                        .frame(minHeight: 22)
                         .foregroundStyle(Color.air.primaryLabel)
                         .frame(maxWidth: .infinity, alignment: .leading)
 

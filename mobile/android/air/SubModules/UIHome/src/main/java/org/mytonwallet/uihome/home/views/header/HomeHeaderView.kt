@@ -1,7 +1,6 @@
 package org.mytonwallet.uihome.home.views.header
 
 import android.animation.ValueAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.graphics.Canvas
 import android.os.Handler
@@ -15,10 +14,17 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.Scroller
+import androidx.core.graphics.withClip
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isGone
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,11 +33,13 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -46,31 +54,25 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.uihome.home.views.UpdateStatusView
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.roundToInt
-import androidx.core.graphics.withClip
-import androidx.core.view.doOnPreDraw
 
 @SuppressLint("ViewConstructor")
 open class HomeHeaderView(
@@ -80,10 +82,14 @@ open class HomeHeaderView(
     private var onModeChange: ((animated: Boolean) -> Unit)?,
     private var onExpandPressed: (() -> Unit)?,
     private var onHeaderPressed: (() -> Unit)?,
-    private var onHorizontalScrollListener: ((progress: Float, verticalOffset: Int, actionsFadeOutPercent: Float) -> Unit)? = null,
+    private var onHorizontalScrollListener: (
+        (progress: Float, verticalOffset: Int, actionsFadeOutPercent: Float) -> Unit
+    )? = null,
     private val wideHomeHeaderView: Boolean,
-    private val topInsetOverride: Int? = null,
-) : WFrameLayout(window), WThemedView, WProtectedView {
+    private val topInsetOverride: Int? = null
+) : WFrameLayout(window),
+    WThemedView,
+    WProtectedView {
 
     companion object {
         val DEFAULT_MODE = Mode.Expanded
@@ -92,9 +98,8 @@ open class HomeHeaderView(
         const val CARD_RATIO = 208 / 358f
         private const val COLLAPSE_PROGRESS_THRESHOLD = 0.66f
 
-        fun expandedContentHeight(width: Int): Float {
-            return NAV_SIZE_OFFSET + (width - 32.dp) * CARD_RATIO + 8.dp
-        }
+        fun expandedContentHeight(width: Int): Float =
+            NAV_SIZE_OFFSET + (width - 32.dp) * CARD_RATIO + 8.dp
     }
 
     init {
@@ -135,10 +140,11 @@ open class HomeHeaderView(
             .roundToInt().coerceAtLeast(0).let { if (it > 0) it + 2.dp else 0 }
     var isExpandAllowed = true
         set(value) {
-            field = if (mode == Mode.Expanded)
+            field = if (mode == Mode.Expanded) {
                 true
-            else
+            } else {
                 value
+            }
         }
 
     var availableHeight: Int = 0
@@ -175,7 +181,7 @@ open class HomeHeaderView(
     private val horizontalGestureDetector = GestureDetector(context, HorizontalGestureListener())
     private var horizontalScrollAnimator: ValueAnimator? = null
     private var balanceExpandProgress = 1f
-    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////////////////////////////
 
     // Views ///////////////////////////////////////////////////////////////////////////////////////
     private var prevCardView = WalletCardView(window).apply {
@@ -234,7 +240,7 @@ open class HomeHeaderView(
         visibility = GONE
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////////////////////////////
 
     // Helpers /////////////////////////////////////////////////////////////////////////////////////
     private var topInset = topInsetOverride ?: (window.systemBars?.top ?: 0)
@@ -259,34 +265,54 @@ open class HomeHeaderView(
     private var configured = false
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (configured)
-            return
+        if (configured) return
         configured = true
         setupViews()
     }
 
     private fun setupViews() {
-        addView(balanceLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-        addView(walletNameLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-        addView(balanceSkeletonView, LayoutParams(134.dp, 56.dp).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-        addView(walletNameSkeletonView, LayoutParams(80.dp, 28.dp).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-        addView(prevCardView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        })
-        addView(cardView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        })
-        addView(nextCardView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        })
+        addView(
+            balanceLabel,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            walletNameLabel,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            balanceSkeletonView,
+            LayoutParams(134.dp, 56.dp).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            walletNameSkeletonView,
+            LayoutParams(80.dp, 28.dp).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            prevCardView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            cardView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            nextCardView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+        )
         addView(skeletonView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         render()
         updateTheme()
@@ -349,8 +375,7 @@ open class HomeHeaderView(
             it.updateTheme()
         }
 
-        if (isShowingSkeletons)
-            updateSkeletonViewColors()
+        if (isShowingSkeletons) updateSkeletonViewColors()
     }
 
     override fun updateProtectedView() {}
@@ -364,8 +389,7 @@ open class HomeHeaderView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (window.isWideLayout != wideHomeHeaderView)
-            return
+        if (window.isWideLayout != wideHomeHeaderView) return
         if (abs(w - lastLayoutWidth) > 2) {
             if (lastLayoutWidth == 0) {
                 applyLayoutWidth()
@@ -381,8 +405,7 @@ open class HomeHeaderView(
 
     private fun applyLayoutWidth() {
         val w = width
-        if (w <= 0)
-            return
+        if (w <= 0) return
         lastLayoutWidth = w
         balanceAutoScaleView.maxAllowedWidth = w - 34.dp
         balanceAutoScaleView.updateScale()
@@ -427,7 +450,7 @@ open class HomeHeaderView(
         isUpdateStatusHidden = isHidden
         render()
     }
-    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////////////////////////////
 
     private fun pinExpanded() {
         activeValueAnimator?.cancel()
@@ -459,8 +482,7 @@ open class HomeHeaderView(
 
     // Events //////////////////////////////////////////////////////////////////////////////////////
     fun updateScroll(scrollY: Int, velocity: Float? = null, isGoingBack: Boolean = false) {
-        if (width == 0 || window.isConfiguring)
-            return
+        if (width == 0 || window.isConfiguring) return
 
         if (isHeightLocked) {
             pinExpanded()
@@ -482,10 +504,17 @@ open class HomeHeaderView(
         }
 
         val secondaryPossibleWidth = max(0, -scrollY) / CARD_RATIO
-        minExpandProgress = if (!canExpandForHeight) 0f else
-            (secondaryPossibleWidth / (width - 32.dp - smallCardWidth)).pow(if (isExpandAllowed) 2 else 4)
+        minExpandProgress = if (!canExpandForHeight) {
+            0f
+        } else {
+            (secondaryPossibleWidth / (width - 32.dp - smallCardWidth)).pow(
+                if (isExpandAllowed) 2 else 4
+            )
                 .coerceAtMost(1f)
-        if (isExpandAllowed && canExpandForHeight && mode == Mode.Collapsed && maxExpandProgress > 0.7f) {
+        }
+        if (isExpandAllowed && canExpandForHeight && mode == Mode.Collapsed &&
+            maxExpandProgress > 0.7f
+        ) {
             expand(true, velocity)
         } else if (mode == Mode.Expanded && (maxExpandProgress < COLLAPSE_PROGRESS_THRESHOLD)) {
             collapse(velocity, isGoingBack)
@@ -534,9 +563,14 @@ open class HomeHeaderView(
         }
         activeValueAnimator = ValueAnimator.ofFloat(currentExpandProgress, 0f).apply {
             duration =
-                if (isGoingBack) AnimationConstants.VERY_QUICK_ANIMATION else
-                    (AnimationConstants.SLOW_ANIMATION /
-                        ((abs(velocity ?: 0f).times(2f)).roundToInt()).coerceIn(1, 5))
+                if (isGoingBack) {
+                    AnimationConstants.VERY_QUICK_ANIMATION
+                } else {
+                    (
+                        AnimationConstants.SLOW_ANIMATION /
+                            ((abs(velocity ?: 0f).times(2f)).roundToInt()).coerceIn(1, 5)
+                        )
+                }
             interpolator = CubicBezierInterpolator.EASE_OUT_QUINT
             addUpdateListener {
                 currentExpandProgress = animatedValue as Float
@@ -562,16 +596,17 @@ open class HomeHeaderView(
     fun updateAccountData(activeAccount: MAccount) {
         val accountIds = overrideAccountIds ?: WGlobalStorage.accountIds()
         val activeAccountIndex = accountIds.indexOf(activeAccount.accountId)
-        val prevAccountId = accountIds.getOrNull(activeAccountIndex - 1)
-        val nextAccountId = accountIds.getOrNull(activeAccountIndex + 1)
+        val prevAccountId =
+            accountIds.getOrNull(activeAccountIndex - LocaleController.rtlMultiplier)
+        val nextAccountId =
+            accountIds.getOrNull(activeAccountIndex + LocaleController.rtlMultiplier)
 
         // Recycle the card views to prevent unnecessary `updateAccountData` calls
         val cardViewsCopy = mutableListOf(prevCardView, cardView, nextCardView)
-        fun getViewForAccountId(id: String?): WalletCardView? {
-            return cardViewsCopy.firstOrNull { cardView ->
+        fun getViewForAccountId(id: String?): WalletCardView? =
+            cardViewsCopy.firstOrNull { cardView ->
                 cardView.account?.accountId == id
             }
-        }
 
         val prevView = getViewForAccountId(prevAccountId)
         if (prevView != null) cardViewsCopy.remove(prevView)
@@ -591,13 +626,13 @@ open class HomeHeaderView(
             this@HomeHeaderView.updateStatusView.state?.let {
                 setStatusViewState(it, animated = false)
             }
-            if (this@HomeHeaderView.mode == Mode.Expanded)
-                expand(false)
-            else
-                collapse(false)
+            if (this@HomeHeaderView.mode == Mode.Expanded) expand(false) else collapse(false)
             setRoundingParam(
-                (WalletCardView.COLLAPSED_RADIUS +
-                    expandProgress * (WalletCardView.EXPANDED_RADIUS - WalletCardView.COLLAPSED_RADIUS)).dp
+                (
+                    WalletCardView.COLLAPSED_RADIUS +
+                        expandProgress *
+                        (WalletCardView.EXPANDED_RADIUS - WalletCardView.COLLAPSED_RADIUS)
+                    ).dp
             )
         }
         cardView.isInGoneState = false
@@ -625,8 +660,7 @@ open class HomeHeaderView(
 
     fun updateAddressLabel(accountId: String) {
         cardViews.forEach {
-            if (it.account?.accountId == accountId)
-                it.updateAddressLabel()
+            if (it.account?.accountId == accountId) it.updateAddressLabel()
         }
     }
 
@@ -657,8 +691,7 @@ open class HomeHeaderView(
                     fetchBalances()
                 }
 
-            if (activeAccountId != cardView.account?.accountId)
-                return@launch
+            if (activeAccountId != cardView.account?.accountId) return@launch
 
             applyBalance(activeAccount.name, balance, balance24h, animated)
         }
@@ -675,10 +708,7 @@ open class HomeHeaderView(
         updateBalanceViews(balance, animated)
         updateSideCardBalanceViews(animated)
 
-        if (balance != null)
-            hideSkeletons()
-        else
-            showSkeletons()
+        if (balance != null) hideSkeletons() else showSkeletons()
     }
 
     private fun updateWalletName(shouldShow: Boolean, accountName: String, animated: Boolean) {
@@ -686,8 +716,9 @@ open class HomeHeaderView(
             if (prevBalance == null && animated) {
                 walletNameLabel.alpha = 0f
                 walletNameLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
-            } else
+            } else {
                 walletNameLabel.alpha = 1f
+            }
             walletNameLabel.setTextIfChanged(accountName)
         } else {
             walletNameLabel.setTextIfChanged("")
@@ -703,8 +734,18 @@ open class HomeHeaderView(
             setInstantly = true,
             forceCurrencyToRight = (WalletCore.baseCurrency == MBaseCurrency.RUB)
         )
-        animateBalance(animateConfig.copy(animated = animateConfig.animated && mode == Mode.Collapsed))
-        cardView.animateBalance(animateConfig.copy(animated = animateConfig.animated && mode == Mode.Expanded))
+        animateBalance(
+            animateConfig.copy(
+                animated =
+                    animateConfig.animated && mode == Mode.Collapsed
+            )
+        )
+        cardView.animateBalance(
+            animateConfig.copy(
+                animated =
+                    animateConfig.animated && mode == Mode.Expanded
+            )
+        )
         prevBalance = balance
         layoutBalance()
     }
@@ -723,8 +764,7 @@ open class HomeHeaderView(
                 val (balance, balance24h) =
                     withContext(Dispatchers.IO) { fetchBalances() }
 
-                if (accountId != cardView.account?.accountId)
-                    return@launch
+                if (accountId != cardView.account?.accountId) return@launch
                 cardView.animateBalance(
                     AnimateConfig(
                         amount = balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
@@ -738,7 +778,7 @@ open class HomeHeaderView(
                 cardView.updateBalanceChange(
                     balance,
                     balance24h,
-                    animated = animated && horizontalScrollOffset != 0f,
+                    animated = animated && horizontalScrollOffset != 0f
                 )
             }
         }
@@ -765,8 +805,7 @@ open class HomeHeaderView(
             else -> 56.dp
         }
         val labelMargin = lerp(maxLabelMargin.toFloat(), 20f.dp, balanceExpandProgress).roundToInt()
-        if (walletNameLayoutParams.marginStart == labelMargin)
-            return
+        if (walletNameLayoutParams.marginStart == labelMargin) return
         walletNameLabel.layoutParams = walletNameLayoutParams.apply {
             marginStart = labelMargin
             marginEnd = labelMargin
@@ -797,8 +836,7 @@ open class HomeHeaderView(
     }
 
     private fun showSkeletons() {
-        if (isShowingSkeletons)
-            return
+        if (isShowingSkeletons) return
         isShowingSkeletons = true
 
         balanceSkeletonView.visibility = VISIBLE
@@ -808,8 +846,7 @@ open class HomeHeaderView(
         updateSkeletonViewColors()
 
         post {
-            if (!isShowingSkeletons)
-                return@post
+            if (!isShowingSkeletons) return@post
             updateSkeletonMasks()
             skeletonView.startAnimating()
         }
@@ -838,8 +875,7 @@ open class HomeHeaderView(
     }
 
     private fun hideSkeletons() {
-        if (!isShowingSkeletons)
-            return
+        if (!isShowingSkeletons) return
         isShowingSkeletons = false
         balanceSkeletonView.fadeOut()
         walletNameSkeletonView.fadeOut(onCompletion = {
@@ -853,19 +889,17 @@ open class HomeHeaderView(
 
     private var isHeavyAnimationIsProgress = false
     fun heavyAnimationInProgress() {
-        if (isHeavyAnimationIsProgress)
-            return
+        if (isHeavyAnimationIsProgress) return
         isHeavyAnimationIsProgress = true
         WGlobalStorage.incDoNotSynchronize()
     }
 
     fun heavyAnimationDone() {
-        if (!isHeavyAnimationIsProgress)
-            return
+        if (!isHeavyAnimationIsProgress) return
         isHeavyAnimationIsProgress = false
         WGlobalStorage.decDoNotSynchronize()
     }
-    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////////////////////////////
 
     // Frame renderer //////////////////////////////////////////////////////////////////////////////
     private fun render() {
@@ -875,6 +909,8 @@ open class HomeHeaderView(
         layoutParams?.let { if (it.height != newHeight) it.height = newHeight }
         val isFullyCollapsed = collapsedHeight - scrollY <= 0
         isClickable = isFullyCollapsed
+        walletNameLabel.isClickable = !isFullyCollapsed
+        walletNameLabel.isLongClickable = !isFullyCollapsed
         balanceLabel.visibility = if (expandProgress == 1f) INVISIBLE else VISIBLE
     }
 
@@ -882,23 +918,26 @@ open class HomeHeaderView(
         val expandProgress = this.expandProgress
         val newWidth =
             (smallCardWidth + (width - 26.dp - smallCardWidth) * expandProgress).roundToInt()
-        if (newWidth <= 0)
-            return
-        if (cardView.layoutParams.width != newWidth)
+        if (newWidth <= 0) return
+        if (cardView.layoutParams.width != newWidth) {
             cardView.layoutParams = cardView.layoutParams.apply {
                 width = newWidth
                 height = max(20, (newWidth * CARD_RATIO).toInt())
             }
+        }
         cardView.y =
             topInset +
-                19.dp +
-                (WNavigationBar.DEFAULT_HEIGHT.dp - 27f.dp) * min(1f, expandProgress * 2) -
-                scrollY -
-                expandProgress.pow(2) * (expandedContentHeight - collapsedHeight)
+            19.dp +
+            (WNavigationBar.DEFAULT_HEIGHT.dp - 27f.dp) * min(1f, expandProgress * 2) -
+            scrollY -
+            expandProgress.pow(2) * (expandedContentHeight - collapsedHeight)
         // Roundings
         cardView.setRoundingParam(
-            (WalletCardView.COLLAPSED_RADIUS +
-                expandProgress * (WalletCardView.EXPANDED_RADIUS - WalletCardView.COLLAPSED_RADIUS)).dp
+            (
+                WalletCardView.COLLAPSED_RADIUS +
+                    expandProgress *
+                    (WalletCardView.EXPANDED_RADIUS - WalletCardView.COLLAPSED_RADIUS)
+                ).dp
         )
         // Address Container
         val actionsTransformProgress = if (expandProgress <= 0.9f) {
@@ -912,11 +951,12 @@ open class HomeHeaderView(
         walletNameLabel.isGone = balanceView.isGone
         if (expandProgress > 0.9) {
             setOf(prevCardView, nextCardView).forEach {
-                if (it.layoutParams.width != cardView.layoutParams.width)
+                if (it.layoutParams.width != cardView.layoutParams.width) {
                     it.layoutParams = it.layoutParams.apply {
                         width = cardView.layoutParams.width
                         height = cardView.layoutParams.height
                     }
+                }
                 it.y = cardView.y
                 it.alpha = if (expandProgress > 0.98) 1f else (expandProgress - 0.9f) * 10f
                 it.isInGoneState = false
@@ -943,10 +983,11 @@ open class HomeHeaderView(
 
         val headerBottom = collapsedMinHeight + max(0, collapsedHeight - scrollY)
         val cardHeight = cardView.layoutParams.height
-        val overflowScale = if (cardHeight > 0)
+        val overflowScale = if (cardHeight > 0) {
             ((headerBottom - cardView.y) / cardHeight).coerceIn(0f, 1f)
-        else
+        } else {
             1f
+        }
         cardViews.forEach {
             it.pivotX = it.layoutParams.width / 2f
             it.pivotY = 0f
@@ -961,11 +1002,21 @@ open class HomeHeaderView(
         balanceExpandProgress = if (scrollY > 0) (1 - scrollY / 92f.dp).coerceIn(0f, 1f) else 1f
         balanceLabel.y =
             collapsedMinHeight -
-                74f.dp + (balanceExpandProgress * 84f.dp) -
-                min(scrollY, 0) -
-                (if (isExpandAllowed) (expandedContentHeight - collapsedHeight + 5.5f.dp - expandedBalanceY) * expandProgress.pow(
-                    2
-                ) else 0f)
+            74f.dp + (balanceExpandProgress * 84f.dp) -
+            min(scrollY, 0) -
+            (
+                if (isExpandAllowed) {
+                    (
+                        expandedContentHeight - collapsedHeight + 5.5f.dp -
+                            expandedBalanceY
+                        ) *
+                        expandProgress.pow(
+                            2
+                        )
+                } else {
+                    0f
+                }
+                )
         balanceLabel.visibility = if (expandProgress < 1f) VISIBLE else INVISIBLE
         balanceView.setScale(
             (18 + 18 * balanceExpandProgress + 16f * expandProgress) / 52f,
@@ -1066,8 +1117,7 @@ open class HomeHeaderView(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (onTouchEnd())
-                    return true
+                if (onTouchEnd()) return true
             }
         }
         return false
@@ -1109,10 +1159,11 @@ open class HomeHeaderView(
 
                 if (isHorizontalScrolling) {
                     var scrollCandidate = initialTouchX - event.x
-                    if (prevCardView.account == null && scrollCandidate < 0)
+                    if (prevCardView.account == null && scrollCandidate < 0) {
                         scrollCandidate = 0f
-                    else if (nextCardView.account == null && scrollCandidate > 0)
+                    } else if (nextCardView.account == null && scrollCandidate > 0) {
                         scrollCandidate = 0f
+                    }
                     onScrollOffsetChanged(scrollCandidate)
                     return true
                 }
@@ -1120,8 +1171,7 @@ open class HomeHeaderView(
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 heavyAnimationDone()
-                if (onTouchEnd())
-                    return true
+                if (onTouchEnd()) return true
             }
         }
 
@@ -1186,11 +1236,9 @@ open class HomeHeaderView(
     private var scrollerOffset = 0f
 
     private fun onScrollOffsetChanged(value: Float) {
-        if (horizontalScrollOffset == value)
-            return
+        if (horizontalScrollOffset == value) return
         horizontalScrollOffset = value
-        if (cardView.width == 0)
-            return
+        if (cardView.width == 0) return
         val progress = horizontalScrollOffset / cardView.width
         if (progress > 0.52 || progress < -0.52) {
             val nextAccount =
@@ -1210,6 +1258,13 @@ open class HomeHeaderView(
                         fromHome = true
                     ) { res, err ->
                         if (res == null || err != null) {
+                            if (err?.type == MBridgeError.Type.BRIDGE_INTERRUPTED) {
+                                if (changingAccountTo == nextAccountId) {
+                                    changingAccountTo = null
+                                    AccountStore.activeAccount?.let(::updateAccountData)
+                                }
+                                return@activateAccount
+                            }
                             // Should not happen!
                             Logger.e(
                                 Logger.LogTag.ACCOUNT,
@@ -1253,18 +1308,19 @@ open class HomeHeaderView(
                 progress
             ) - if (cardView.account?.isViewOnly == true) 0f else 94f.dp
         }
-        val actionsFadeOutPercent = if (progress < 0)
+        val actionsFadeOutPercent = if (progress < 0) {
             lerp(
                 if (cardView.account?.isViewOnly != true) 1f else 0f,
                 if (prevCardView.account?.isViewOnly != true) 1f else 0f,
                 -progress * 2
             )
-        else
+        } else {
             lerp(
                 if (cardView.account?.isViewOnly != true) 1f else 0f,
                 if (nextCardView.account?.isViewOnly != true) 1f else 0f,
                 progress * 2
             )
+        }
         onHorizontalScrollListener?.invoke(
             progress,
             verticalOffset.roundToInt(),
@@ -1297,12 +1353,11 @@ open class HomeHeaderView(
 
                 else -> 0f
             }
-            if (flingScrollTarget == 0f)
-                scrollerOffset = 0f
+            if (flingScrollTarget == 0f) scrollerOffset = 0f
             animateToTargetHorizontalOffset(flingScrollTarget, velocityX)
 
             return true
         }
     }
-    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////////////////////////////
 }

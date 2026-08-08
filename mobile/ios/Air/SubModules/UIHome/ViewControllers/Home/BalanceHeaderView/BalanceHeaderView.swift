@@ -9,10 +9,8 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let log = Log("BalanceHeaderView")
-
 private let additionalSpacingToNavigationBar: CGFloat = 6
-private let collapsedHeight: CGFloat = 102.0
+private let standardCollapsedHeight: CGFloat = 102.0
 
 @MainActor protocol BalanceHeaderViewDelegate: AnyObject {
     func headerIsAnimating()
@@ -31,6 +29,10 @@ final class BalanceHeaderView: WTouchPassView, Sendable {
     
     // minimum height to show collapsed mode
     static let minHeight = CGFloat(43.33)
+
+    var minimumHeight: CGFloat {
+        headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs ? 0 : Self.minHeight
+    }
     
     var prevWalletCardViewState: HomeHeaderState = .expanded
     
@@ -40,8 +42,10 @@ final class BalanceHeaderView: WTouchPassView, Sendable {
     var calculatedHeight: CGFloat {
         if headerViewModel.state == .expanded {
             cardLayoutMetrics.itemHeight - expansionInset + additionalSpacingToNavigationBar
+        } else if headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs {
+            headerViewModel.collapsedHeight
         } else {
-            collapsedHeight + (IOS_26_MODE_ENABLED ? 0.0 : 12.0)
+            standardCollapsedHeight + (IOS_26_MODE_ENABLED ? 0.0 : 12.0)
         }
     }
     
@@ -77,7 +81,7 @@ final class BalanceHeaderView: WTouchPassView, Sendable {
         heightConstraint = heightAnchor.constraint(equalToConstant: calculatedHeight)
         constraints.append(contentsOf: [
             heightConstraint,
-            heightAnchor.constraint(greaterThanOrEqualToConstant: BalanceHeaderView.minHeight),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: minimumHeight),
         ])
         
         // background should be clear to let refresh control appear
@@ -87,7 +91,10 @@ final class BalanceHeaderView: WTouchPassView, Sendable {
 
         constraints.append(contentsOf: [
             // to force actions compress on scroll
-            bottomAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 51).withPriority(UILayoutPriority(999)),
+            bottomAnchor.constraint(
+                greaterThanOrEqualTo: topAnchor,
+                constant: headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs ? 0 : 51
+            ).withPriority(UILayoutPriority(999)),
         ])
         
         NSLayoutConstraint.activate(constraints)
@@ -109,8 +116,8 @@ final class BalanceHeaderView: WTouchPassView, Sendable {
             updateStatusViewContainerTopConstraint,
             updateStatusViewContainer.centerXAnchor.constraint(equalTo: centerXAnchor),
 
-            updateStatusView.leftAnchor.constraint(equalTo: updateStatusViewContainer.leftAnchor),
-            updateStatusView.rightAnchor.constraint(equalTo: updateStatusViewContainer.rightAnchor),
+            updateStatusView.leadingAnchor.constraint(equalTo: updateStatusViewContainer.leadingAnchor),
+            updateStatusView.trailingAnchor.constraint(equalTo: updateStatusViewContainer.trailingAnchor),
             updateStatusView.topAnchor.constraint(equalTo: updateStatusViewContainer.topAnchor),
             updateStatusView.bottomAnchor.constraint(equalTo: updateStatusViewContainer.bottomAnchor),
             updateStatusView.centerXAnchor.constraint(equalTo: updateStatusViewContainer.centerXAnchor),

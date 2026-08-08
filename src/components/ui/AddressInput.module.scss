@@ -3,13 +3,17 @@
 .inputButtonWrapper {
   position: absolute;
   z-index: 2;
-  right: 0.1875rem;
   bottom: 0.1875rem;
+  inset-inline-end: 0.1875rem;
 
   display: flex;
 
-  padding: calc(0.5rem - 0.1875rem) 0.5rem calc(0.5rem - 0.1875rem) 0;
-  border-radius: 0 var(--border-radius-default) var(--border-radius-default) 0;
+  padding-block: calc(0.5rem - 0.1875rem);
+  padding-inline: 0 0.5rem;
+  border-start-start-radius: 0;
+  border-start-end-radius: var(--border-radius-default);
+  border-end-start-radius: 0;
+  border-end-end-radius: var(--border-radius-default);
 
   background: var(--color-background-first);
 
@@ -18,14 +22,16 @@
 
     position: absolute;
     top: 0;
-    right: 100%;
     bottom: 0;
+    inset-inline-end: 100%;
 
     width: 1.5rem;
 
     background: var(--color-linear-effect-1);
 
     @include mixins.transition(opacity 150ms);
+
+    @include mixins.rtl-mirror();
   }
 
   &:empty {
@@ -125,5 +131,5 @@
 }
 
 .inputWithIcon {
-  padding-right: 3rem;
+  padding-inline-end: 3rem;
 }

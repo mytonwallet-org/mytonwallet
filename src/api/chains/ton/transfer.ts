@@ -474,7 +474,7 @@ export async function submitGasfullTransfer(
 ): Promise<ApiSubmitGasfullTransferResult | { error: string }> {
   const {
     accountId,
-    password,
+    enclaveToken,
     amount,
     stateInit: stateInitBase64,
     tokenAddress,
@@ -491,7 +491,7 @@ export async function submitGasfullTransfer(
     const account = await fetchStoredChainAccount(accountId, 'ton');
     const { address: fromAddress } = account.byChain.ton;
     const wallet = getTonWallet(account.byChain.ton);
-    const signer = getSigner(accountId, account, password);
+    const signer = getSigner(accountId, account, enclaveToken);
 
     const payloadResult = await convertPayloadToCell(rawPayload, network, toAddress, signer);
     if ('error' in payloadResult) return payloadResult;
@@ -634,7 +634,7 @@ export async function submitGaslessTransfer(
       toAddress,
       amount,
       accountId,
-      password,
+      enclaveToken,
       tokenAddress,
       payload: rawPayload,
       forwardAmount,
@@ -647,7 +647,7 @@ export async function submitGaslessTransfer(
 
     const account = await fetchStoredChainAccount(accountId, 'ton');
     const { address: fromAddress, version } = account.byChain.ton;
-    const signer = getSigner(accountId, account, password);
+    const signer = getSigner(accountId, account, enclaveToken);
 
     const payloadResult = await convertPayloadToCell(rawPayload, network, toAddress, signer);
     if ('error' in payloadResult) return payloadResult;
@@ -683,7 +683,7 @@ export async function submitGaslessTransfer(
 
     const result = await submitMultiTransfer({
       accountId,
-      password,
+      signer,
       messages,
       isGasless: true,
       noFeeCheck,
@@ -967,8 +967,12 @@ export type GaslessType = 'diesel' | 'w5';
 
 interface SubmitMultiTransferOptions {
   accountId: string;
-  /** Required only for mnemonic accounts */
-  password?: string;
+  /**
+   * Built by the caller, not here: constructing a signer reads the secret, and one Enclave session
+   * usage covers one read. Taking the signer instead of the token makes a second read unrepresentable
+   * for a caller that already holds one.
+   */
+  signer: Signer;
   messages: TonTransferParams[];
   expireAt?: number;
   isGasless?: boolean;
@@ -981,7 +985,7 @@ type ApiSubmitMultiTransferWithMfaResult = ApiSubmitMultiTransferResult | {
 
 async function submitMultiTransferInternal(
   {
-    accountId, password, messages, expireAt, isGasless, noFeeCheck,
+    accountId, signer, messages, expireAt, isGasless, noFeeCheck,
   }: SubmitMultiTransferOptions,
   options?: { allowMfaRequest?: boolean },
 ): Promise<ApiSubmitMultiTransferWithMfaResult> {
@@ -1005,7 +1009,6 @@ async function submitMultiTransferInternal(
       try {
         const cachedWalletInfo = consumeCachedWalletInfo(network, fromAddress, true);
         const walletInfo = cachedWalletInfo ?? await getWalletInfo(network, wallet);
-
         const { seqno, balance, isInitialized: walletIsInitialized } = walletInfo;
 
         const mfaExtensionSeqno = await getRequiredMfaExtensionSeqno(
@@ -1018,7 +1021,6 @@ async function submitMultiTransferInternal(
         const gaslessType = isGasless ? version === 'W5' ? 'w5' : 'diesel' : undefined;
         const withW5Gasless = gaslessType === 'w5';
 
-        const signer = getSigner(accountId, account, password);
         const signingResult = await signTransaction({
           account,
           accountId,
@@ -1127,21 +1129,21 @@ async function submitMultiTransferInternal(
 //  2) renew multiple domains in a single function call,
 //  3) simplify the implementation of swapping with Ledger
 export async function submitMultiTransfer({
-  accountId, password, messages, expireAt, isGasless, noFeeCheck,
+  accountId, signer, messages, expireAt, isGasless, noFeeCheck,
 }: SubmitMultiTransferOptions): Promise<ApiSubmitSingleFATransferResult | { error: ApiAnyDisplayError }> {
   const result = await submitMultiTransferInternal({
-    accountId, password, messages, expireAt, isGasless, noFeeCheck,
+    accountId, signer, messages, expireAt, isGasless, noFeeCheck,
   });
 
   return 'mfaRequest' in result ? { error: ApiCommonError.Unexpected } : result as ApiSubmitSingleFATransferResult;
 }
 
 export async function submitMultiTransferWithMfa({
-  accountId, password, messages, expireAt, isGasless, noFeeCheck,
+  accountId, signer, messages, expireAt, isGasless, noFeeCheck,
 }: SubmitMultiTransferOptions): Promise<ApiSubmitMultiTransferWithMfaResult> {
   return submitMultiTransferInternal(
     {
-      accountId, password, messages, expireAt, isGasless, noFeeCheck,
+      accountId, signer, messages, expireAt, isGasless, noFeeCheck,
     },
     { allowMfaRequest: true },
   );
@@ -1150,7 +1152,7 @@ export async function submitMultiTransferWithMfa({
 export async function signTransfers(
   accountId: string,
   messages: TonTransferParams[],
-  password?: string,
+  enclaveToken?: string,
   expireAt?: number,
   /** Used for specific transactions on vesting.ton.org */
   ledgerVestingAddress?: string,
@@ -1183,7 +1185,7 @@ export async function signTransfers(
   const signer = getSigner(
     accountId,
     account,
-    password,
+    enclaveToken,
     false,
     ledgerVestingAddress ? LEDGER_VESTING_SUBWALLET_ID : undefined,
   );

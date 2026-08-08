@@ -20,8 +20,9 @@ class WEmptyIconTitleSubtitleView(
     context: Context,
     val animation: Int,
     val title: String,
-    val subtitle: String,
-) : WView(context), WThemedView {
+    val subtitle: String
+) : WView(context),
+    WThemedView {
 
     private val animationView: WAnimationView by lazy {
         WAnimationView(context)
@@ -86,8 +87,7 @@ class WEmptyIconTitleSubtitleView(
         private set
 
     private fun startedNow() {
-        if (startedAnimation)
-            return
+        if (startedAnimation) return
         startedAnimation = true
         fadeIn()
     }

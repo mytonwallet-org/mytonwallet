@@ -4,7 +4,8 @@ import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 
 class LogMessage {
     enum class MessagePartPrivacy {
-        PUBLIC, REDACTED
+        PUBLIC,
+        REDACTED
     }
 
     class Builder {
@@ -13,9 +14,10 @@ class LogMessage {
         fun append(value: Any?, privacy: MessagePartPrivacy): Builder {
             parts += when (privacy) {
                 MessagePartPrivacy.PUBLIC -> value.toString()
+
                 else -> {
                     if (DEBUG_MODE) {
-                        "<redacted:${value.toString()}>"
+                        "<redacted:$value>"
                     } else {
                         "<redacted>"
                     }
@@ -24,9 +26,7 @@ class LogMessage {
             return this
         }
 
-        fun build(): LogMessage {
-            return LogMessage(parts)
-        }
+        fun build(): LogMessage = LogMessage(parts)
 
         operator fun String.unaryPlus() {
             parts += this

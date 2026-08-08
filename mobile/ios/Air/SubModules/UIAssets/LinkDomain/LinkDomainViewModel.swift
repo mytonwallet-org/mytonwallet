@@ -24,7 +24,7 @@ import SwiftNavigation
 
     var realFee: BigInt?
     var isLoadingDraft = false
-    var isSubmitting = false
+    var isPreparingAction = false
     var isResolvingAddress = false
     var errorMessage: String?
 
@@ -97,7 +97,7 @@ import SwiftNavigation
     var canLink: Bool {
         guard isAddressValid else { return false }
         if let linkedWalletAddress, linkedWalletAddress == normalizedWalletAddress { return false }
-        return !isSubmitting && !isInsufficientBalance
+        return !isPreparingAction && !isLoadingDraft && realFee != nil && !isInsufficientBalance
     }
 
     private var normalizedWalletAddress: String {
@@ -105,7 +105,7 @@ import SwiftNavigation
     }
 
     var isButtonLoading: Bool {
-        isSubmitting || isLoadingDraft || realFee == nil
+        isPreparingAction || isLoadingDraft || realFee == nil
     }
 
     func displayComponents() -> (primary: String?, secondary: String?) {
@@ -154,34 +154,42 @@ import SwiftNavigation
         walletAddress = address
     }
 
-    func submit(password: String?) async throws -> ApiMfaProtectedResult {
-        guard !isSubmitting, let nft else { return ApiMfaProtectedResult() }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        let resolvedAddress = try await resolvedSubmissionAddress(for: nft)
-        let result = try await Api.submitDnsChangeWallet(
-            accountId: account.id,
-            password: password,
-            nft: nft,
-            address: resolvedAddress,
-            realFee: realFee
-        )
-        if let error = result.error {
-            throw SdkError.apiReturnedError(error: error, context: result)
+    func makeConfirmationSnapshot() async throws -> LinkDomainConfirmationSnapshot? {
+        guard !isPreparingAction else { return nil }
+        guard canLink, let nft, let realFee else {
+            throw LinkDomainSubmissionError.invalidConfirmationState
         }
-        return ApiMfaProtectedResult(
-            activityId: result.activityId,
-            mfaRequestHash: result.mfaRequestHash
-        )
-    }
+        isPreparingAction = true
+        defer { isPreparingAction = false }
 
-    func makeLedgerPayload() async throws -> SignData {
-        guard let nft else { throw CancellationError() }
-        let resolvedAddress = try await resolvedSubmissionAddress(for: nft)
-        return .linkDomain(
-            accountId: account.id,
+        let account = account
+        let inputAddress = normalizedWalletAddress
+        let selectedWalletAccount = selectedWalletAccount
+        let info = try await Api.getAddressInfo(
+            chain: nft.chain,
+            network: account.network,
+            address: inputAddress
+        )
+        if let error = info.error?.nilIfEmpty {
+            throw SdkError.apiReturnedError(error: error, context: nil)
+        }
+        let resolvedAddress = info.resolvedAddress?.nilIfEmpty ?? inputAddress
+        let destinationName: String?
+        if let selectedWalletAccount,
+           importedWallet(selectedWalletAccount, matches: inputAddress, chain: nft.chain) {
+            destinationName = selectedWalletAccount.displayName
+        } else if let name = info.addressName?.nilIfEmpty {
+            destinationName = name
+        } else if resolvedAddress != inputAddress {
+            destinationName = inputAddress
+        } else {
+            destinationName = nil
+        }
+        return LinkDomainConfirmationSnapshot(
+            account: account,
             nft: nft,
-            address: resolvedAddress,
+            destinationAddress: resolvedAddress,
+            destinationName: destinationName,
             realFee: realFee
         )
     }
@@ -267,14 +275,12 @@ import SwiftNavigation
         return false
     }
 
-    private func resolvedSubmissionAddress(for nft: ApiNft) async throws -> String {
-        let address = normalizedWalletAddress
-        guard !address.isEmpty else { throw SdkError.message(.invalidAddress) }
-        let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
-        if let error = info.error?.nilIfEmpty {
-            throw SdkError.apiReturnedError(error: error, context: nil)
-        }
-        return info.resolvedAddress?.nilIfEmpty ?? address
-    }
+}
 
+private enum LinkDomainSubmissionError: Error, LocalizedError {
+    case invalidConfirmationState
+
+    var errorDescription: String? {
+        lang("Unexpected error")
+    }
 }

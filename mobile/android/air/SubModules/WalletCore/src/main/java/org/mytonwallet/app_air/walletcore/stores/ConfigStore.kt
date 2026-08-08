@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -10,9 +11,8 @@ object ConfigStore : IStore {
         VALENTINE("valentine");
 
         companion object {
-            fun fromString(value: String?): SeasonalTheme? {
-                return entries.firstOrNull { it.value == value }
-            }
+            fun fromString(value: String?): SeasonalTheme? =
+                entries.firstOrNull { it.value == value }
         }
     }
 
@@ -30,26 +30,33 @@ object ConfigStore : IStore {
         private set
     var seasonalTheme: SeasonalTheme? = null
         private set
+    var allowedOnOffRampCurrencies: List<MBaseCurrency>? = null
+        private set
 
     @Volatile
     var seasonalThemeOverride: SeasonalTheme? = null
 
-    fun getEffectiveSeasonalTheme(): SeasonalTheme? {
-        return seasonalThemeOverride ?: seasonalTheme
-    }
+    fun getEffectiveSeasonalTheme(): SeasonalTheme? = seasonalThemeOverride ?: seasonalTheme
 
     fun init(configMap: Map<String, Any>?) {
         if (configMap == null) return
-        if (configMap["switchToClassic"] as? Boolean == true) {
-            WalletCore.switchingToLegacy()
-            WalletContextManager.delegate?.get()?.switchToLegacy()
-        }
         isCopyStorageEnabled = configMap["isCopyStorageEnabled"] as? Boolean
         supportAccountsCount = configMap["supportAccountsCount"] as? Double
         isLimited = configMap["isLimited"] as? Boolean
         countryCode = configMap["countryCode"] as? String
         isAppUpdateRequired = configMap["isAppUpdateRequired"] as? Boolean
         swapVersion = (configMap["swapVersion"] as? Number)?.toInt()
+        // Resolved to currencies at ingest rather than kept as strings, so no later comparison can
+        // disagree on case or spelling. Shape is validated at runtime: a non-list reads as an absent
+        // field, and anything that is not a known currency code drops out
+        allowedOnOffRampCurrencies =
+            (configMap["allowedOnOffRampCurrencies"] as? List<*>)
+                ?.filterIsInstance<String>()
+                ?.mapNotNull { code ->
+                    val currencyCode = code.uppercase()
+                    MBaseCurrency.entries.firstOrNull { it.currencyCode == currencyCode }
+                }
+                ?.distinct()
 
         // Seasonal Theme
         val oldEffectiveSeasonalTheme = getEffectiveSeasonalTheme()

@@ -12,26 +12,30 @@ import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import com.github.mikephil.charting.listener.ChartTouchListener.ChartGesture
 import com.github.mikephil.charting.listener.OnChartGestureListener
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
+import java.util.Date
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
-class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), WThemedView,
+class WLineChartView(context: Context, labeled: Boolean) :
+    LineChart(context),
+    WThemedView,
     OnChartValueSelectedListener {
 
-    override fun isPinchZoomEnabled(): Boolean {
-        return false
-    }
+    override fun isPinchZoomEnabled(): Boolean = false
 
-    var dateFormat = SimpleDateFormat("MMM dd", Locale(WGlobalStorage.getLangCode()))
+    var dateFormat = WGlobalStorage.getLangCode().let { langCode ->
+        val pattern = if (WDateFormatter.isDayBeforeMonth(langCode)) "dd MMM" else "MMM dd"
+        WDateFormatter.of(pattern, langCode)
+    }
 
     var onHighlightChange: ((h: Highlight?) -> Unit)? = null
 
@@ -54,6 +58,7 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
                 }
             }
             xAxis.textColor = WColor.SecondaryText.color
+            xAxis.typeface = WFont.Regular.typeface
             xAxis.setDrawAxisLine(false)
             xAxis.setDrawGridLines(false)
         } else {
@@ -68,10 +73,7 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
         isDoubleTapToZoomEnabled = false
 
         onChartGestureListener = object : OnChartGestureListener {
-            override fun onChartGestureStart(
-                me: MotionEvent,
-                lastPerformedGesture: ChartGesture
-            ) {
+            override fun onChartGestureStart(me: MotionEvent, lastPerformedGesture: ChartGesture) {
                 lineData.dataSets[0].isHighlightEnabled = false
                 parent.requestDisallowInterceptTouchEvent(true)
                 setDrawMarkers(true)
@@ -82,10 +84,7 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
                 highlightValue(getHighlightByTouchPoint(me.x, me.y))
             }
 
-            override fun onChartGestureEnd(
-                me: MotionEvent,
-                lastPerformedGesture: ChartGesture
-            ) {
+            override fun onChartGestureEnd(me: MotionEvent, lastPerformedGesture: ChartGesture) {
                 setDrawMarkers(false)
                 for (i in 0 until lineData.getDataSetCount()) {
                     val set: ILineDataSet = lineData.getDataSetByIndex(i)
@@ -106,7 +105,9 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
             }
 
             override fun onChartFling(
-                me1: MotionEvent, me2: MotionEvent, velocityX: Float,
+                me1: MotionEvent,
+                me2: MotionEvent,
+                velocityX: Float,
                 velocityY: Float
             ) {
             }
@@ -154,5 +155,4 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
 
     override fun onNothingSelected() {
     }
-
 }

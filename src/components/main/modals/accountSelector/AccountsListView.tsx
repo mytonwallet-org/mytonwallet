@@ -1,7 +1,9 @@
 import React, { memo, useEffect, useRef } from '../../../../lib/teact/teact';
 
+import type { ApiChain } from '../../../../api/types';
 import type { Account, AccountSettings } from '../../../../global/types';
 import type { AccountBalance } from '../../../../hooks/useAccountsBalances';
+import type { SortState } from '../../../../hooks/useSortableList';
 import type { AccountTab } from './constants';
 
 import { IS_FEATURE_LIMITED } from '../../../../config';
@@ -15,12 +17,6 @@ import AccountWalletItem from './AccountWalletItem';
 
 import styles from './AccountSelectorModal.module.scss';
 
-interface SortState {
-  orderedAccountIds?: string[];
-  dragOrderAccountIds?: string[];
-  draggedIndex?: number;
-}
-
 interface OwnProps {
   isActive: boolean;
   isTestnet?: boolean;
@@ -28,6 +24,7 @@ interface OwnProps {
   activeTab: AccountTab;
   balancesByAccountId: Record<string, AccountBalance>;
   settingsByAccountId?: Record<string, AccountSettings>;
+  addressLineChainsByAccountId?: Record<string, ApiChain[]>;
   currentAccountId: string;
   isSensitiveDataHidden?: true;
   onSwitchAccount: (accountId: string) => void;
@@ -38,7 +35,7 @@ interface OwnProps {
   onScrollInitialize: (scrollContainer: HTMLDivElement) => void;
   // Reorder mode
   isReorder?: boolean;
-  sortState?: SortState;
+  sortState?: SortState<string>;
   onDrag?: (translation: { x: number; y: number }, id: string | number) => void;
   onDragEnd?: NoneToVoidFunction;
 }
@@ -52,6 +49,7 @@ function AccountsListView({
   activeTab,
   balancesByAccountId,
   settingsByAccountId,
+  addressLineChainsByAccountId,
   currentAccountId,
   isSensitiveDataHidden,
   onSwitchAccount,
@@ -74,11 +72,11 @@ function AccountsListView({
   }, [isActive, activeTab, onScrollInitialize]);
 
   // Precompute O(1) lookup maps to avoid O(n²) indexOf calls during reordering
-  const orderedIndexMap = isReorder && sortState?.orderedAccountIds
-    ? new Map(sortState.orderedAccountIds.map((id, idx) => [id, idx]))
+  const orderedIndexMap = isReorder && sortState?.orderedIds
+    ? new Map(sortState.orderedIds.map((id, idx) => [id, idx]))
     : undefined;
-  const dragOrderIndexMap = isReorder && sortState?.dragOrderAccountIds
-    ? new Map(sortState.dragOrderAccountIds.map((id, idx) => [id, idx]))
+  const dragOrderIndexMap = isReorder && sortState?.dragOrderIds
+    ? new Map(sortState.dragOrderIds.map((id, idx) => [id, idx]))
     : undefined;
 
   return (
@@ -131,6 +129,7 @@ function AccountsListView({
                 isTestnet={isTestnet}
                 accountId={accountId}
                 byChain={byChain}
+                visibleChains={addressLineChainsByAccountId?.[accountId]}
                 accountType={type}
                 isSelected={isCurrentAccount}
                 title={title}

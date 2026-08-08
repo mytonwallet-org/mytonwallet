@@ -2,25 +2,20 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import java.math.BigInteger
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
-import java.math.BigInteger
 
 @JsonSealed("type")
 sealed class ApiParsedPayload {
 
     @JsonSealedSubtype("comment")
     @JsonClass(generateAdapter = true)
-    data class ApiCommentPayload(
-        val comment: String?,
-        val text: String?
-    ) : ApiParsedPayload()
+    data class ApiCommentPayload(val comment: String?, val text: String?) : ApiParsedPayload()
 
     @JsonSealedSubtype("encrypted-comment")
     @JsonClass(generateAdapter = true)
-    data class ApiEncryptedCommentPayload(
-        val encryptedComment: String
-    ) : ApiParsedPayload()
+    data class ApiEncryptedCommentPayload(val encryptedComment: String) : ApiParsedPayload()
 
     @JsonSealedSubtype("nft:transfer")
     @JsonClass(generateAdapter = true)
@@ -71,9 +66,7 @@ sealed class ApiParsedPayload {
 
     @JsonSealedSubtype("unknown")
     @JsonClass(generateAdapter = true)
-    data class ApiUnknownPayload(
-        val base64: String
-    ) : ApiParsedPayload()
+    data class ApiUnknownPayload(val base64: String) : ApiParsedPayload()
 
     @JsonSealedSubtype("tokens:burn")
     @JsonClass(generateAdapter = true)
@@ -95,52 +88,39 @@ sealed class ApiParsedPayload {
 
     @JsonSealedSubtype("liquid-staking:withdrawal-nft")
     @JsonClass(generateAdapter = true)
-    data class ApiLiquidStakingWithdrawalNftPayload(
-        val queryId: BigInteger
-    ) : ApiParsedPayload()
+    data class ApiLiquidStakingWithdrawalNftPayload(val queryId: BigInteger) : ApiParsedPayload()
 
     @JsonSealedSubtype("liquid-staking:withdrawal")
     @JsonClass(generateAdapter = true)
-    data class ApiLiquidStakingWithdrawalPayload(
-        val queryId: BigInteger
-    ) : ApiParsedPayload()
+    data class ApiLiquidStakingWithdrawalPayload(val queryId: BigInteger) : ApiParsedPayload()
 
     @JsonSealedSubtype("token-bridge:pay-swap")
     @JsonClass(generateAdapter = true)
-    data class ApiTokenBridgePaySwap(
-        val queryId: BigInteger,
-        val swapId: String
-    ) : ApiParsedPayload()
+    data class ApiTokenBridgePaySwap(val queryId: BigInteger, val swapId: String) :
+        ApiParsedPayload()
 
     @JsonSealedSubtype("dns:change-record")
     @JsonClass(generateAdapter = true)
-    data class ApiDnsChangeRecord(
-        val queryId: BigInteger,
-        val record: Record,
-        val domain: String
-    ) : ApiParsedPayload() {
+    data class ApiDnsChangeRecord(val queryId: BigInteger, val record: Record, val domain: String) :
+        ApiParsedPayload() {
         @JsonClass(generateAdapter = true)
         data class Record(
             val type: DnsCategory? = null,
             val flags: Int? = null,
             val value: String? = null,
-            val key: String? = null,
+            val key: String? = null
         )
     }
 
     @JsonSealedSubtype("vesting:add-whitelist")
     @JsonClass(generateAdapter = true)
-    data class ApiVestingAddWhitelistPayload(
-        val queryId: BigInteger,
-        val address: String
-    ) : ApiParsedPayload()
+    data class ApiVestingAddWhitelistPayload(val queryId: BigInteger, val address: String) :
+        ApiParsedPayload()
 
     @JsonSealedSubtype("single-nominator:withdraw")
     @JsonClass(generateAdapter = true)
-    data class ApiSingleNominatorWithdrawPayload(
-        val queryId: BigInteger,
-        val amount: BigInteger
-    ) : ApiParsedPayload()
+    data class ApiSingleNominatorWithdrawPayload(val queryId: BigInteger, val amount: BigInteger) :
+        ApiParsedPayload()
 
     @JsonSealedSubtype("single-nominator:change-validator")
     @JsonClass(generateAdapter = true)
@@ -158,7 +138,6 @@ sealed class ApiParsedPayload {
         val vote: Boolean,
         val needConfirmation: Boolean
     ) : ApiParsedPayload()
-
 
     val payloadIsToken
         get() = when (this) {

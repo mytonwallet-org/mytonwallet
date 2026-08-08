@@ -8,23 +8,24 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WActionBar
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -34,7 +35,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
-import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
@@ -42,7 +42,9 @@ class StickyHeaderView(
     context: Context,
     private val screenMode: MScreenMode,
     private val onActionClick: (HeaderActionsView.Identifier) -> Unit
-) : WFrameLayout(context), WThemedView, WProtectedView {
+) : WFrameLayout(context),
+    WThemedView,
+    WProtectedView {
 
     private enum class ActionMode {
         REORDER,
@@ -63,8 +65,7 @@ class StickyHeaderView(
     private var configured = false
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (configured)
-            return
+        if (configured) return
         configured = true
         setupViews()
     }
@@ -132,7 +133,7 @@ class StickyHeaderView(
                 onActionClick(HeaderActionsView.Identifier.BACK)
             }
             val arrowDrawable = context.getDrawableCompat(
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_nav_back
+                org.mytonwallet.app_air.icons.R.drawable.ic_nav_back
             )
             setImageDrawable(arrowDrawable)
             updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
@@ -155,56 +156,60 @@ class StickyHeaderView(
             updateStatusView,
             LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp).apply {
                 gravity = Gravity.CENTER or Gravity.TOP
-            })
+            }
+        )
         when (screenMode) {
             MScreenMode.Default -> {
-                addView(scanButton, LayoutParams(40.dp, 40.dp).apply {
-                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                    if (LocaleController.isRTL)
-                        rightMargin = 8.dp
-                    else
-                        leftMargin = 8.dp
-                    topMargin = 1.dp
-                })
+                addView(
+                    scanButton,
+                    LayoutParams(40.dp, 40.dp).apply {
+                        gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                        if (LocaleController.isRTL) rightMargin = 8.dp else leftMargin = 8.dp
+                        topMargin = 1.dp
+                    }
+                )
             }
 
             is MScreenMode.SingleWallet -> {
-                addView(backButton, LayoutParams(40.dp, 40.dp).apply {
-                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                    if (LocaleController.isRTL)
-                        rightMargin = 8.dp
-                    else
-                        leftMargin = 8.dp
-                    topMargin = 1.dp
-                })
+                addView(
+                    backButton,
+                    LayoutParams(40.dp, 40.dp).apply {
+                        gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                        if (LocaleController.isRTL) rightMargin = 8.dp else leftMargin = 8.dp
+                        topMargin = 1.dp
+                    }
+                )
             }
         }
-        addView(lockButton, LayoutParams(40.dp, 40.dp).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            if (LocaleController.isRTL)
-                leftMargin = 56.dp
-            else
-                rightMargin = 56.dp
-            topMargin = 1.dp
-        })
-        addView(eyeButton, LayoutParams(40.dp, 40.dp).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            if (LocaleController.isRTL)
-                leftMargin = 8.dp
-            else
-                rightMargin = 8.dp
-            topMargin = 1.dp
-        })
-        addView(editButton, LayoutParams(WRAP_CONTENT, 40.dp).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            if (LocaleController.isRTL)
-                leftMargin = 8.dp
-            else
-                rightMargin = 8.dp
-        })
-        addView(actionBar, LayoutParams(MATCH_PARENT, HomeHeaderView.navDefaultHeight).apply {
-            gravity = Gravity.CENTER or Gravity.TOP
-        })
+        addView(
+            lockButton,
+            LayoutParams(40.dp, 40.dp).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                if (LocaleController.isRTL) leftMargin = 56.dp else rightMargin = 56.dp
+                topMargin = 1.dp
+            }
+        )
+        addView(
+            eyeButton,
+            LayoutParams(40.dp, 40.dp).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                if (LocaleController.isRTL) leftMargin = 8.dp else rightMargin = 8.dp
+                topMargin = 1.dp
+            }
+        )
+        addView(
+            editButton,
+            LayoutParams(WRAP_CONTENT, 40.dp).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                if (LocaleController.isRTL) leftMargin = 8.dp else rightMargin = 8.dp
+            }
+        )
+        addView(
+            actionBar,
+            LayoutParams(MATCH_PARENT, HomeHeaderView.navDefaultHeight).apply {
+                gravity = Gravity.CENTER or Gravity.TOP
+            }
+        )
 
         listOf(scanButton, lockButton, eyeButton).forEach {
             it.updateColors(WColor.Tint, WColor.BackgroundRipple)
@@ -236,10 +241,11 @@ class StickyHeaderView(
 
     fun update(mode: Mode, state: UpdateStatusView.State?, handleAnimation: Boolean) {
         val effectiveMode =
-            if (mode == Mode.WideScreen && screenMode is MScreenMode.SingleWallet)
+            if (mode == Mode.WideScreen && screenMode is MScreenMode.SingleWallet) {
                 Mode.Collapsed
-            else
+            } else {
                 mode
+            }
         val isShowing =
             state is UpdateStatusView.State.Updated && effectiveMode == Mode.Collapsed
         updateStatusView.setAppearance(
@@ -253,8 +259,7 @@ class StickyHeaderView(
     }
 
     private fun applyWideScreenLayout(isWideScreen: Boolean) {
-        if (appliedWideScreen == isWideScreen)
-            return
+        if (appliedWideScreen == isWideScreen) return
         appliedWideScreen = isWideScreen
 
         if (screenMode is MScreenMode.Default) {
@@ -265,20 +270,17 @@ class StickyHeaderView(
         updateButtonPositions()
     }
 
-    private fun applyButtonEdge(
-        button: View,
-        atStart: Boolean,
-        edgeMargin: Int
-    ) {
+    private fun applyButtonEdge(button: View, atStart: Boolean, edgeMargin: Int) {
         (button.layoutParams as? LayoutParams)?.let { lp ->
             lp.gravity =
                 (if (atStart) Gravity.START else Gravity.END) or Gravity.CENTER_VERTICAL
             lp.leftMargin = 0
             lp.rightMargin = 0
-            if (atStart != LocaleController.isRTL)
+            if (atStart != LocaleController.isRTL) {
                 lp.leftMargin = edgeMargin
-            else
+            } else {
                 lp.rightMargin = edgeMargin
+            }
             button.layoutParams = lp
         }
     }
@@ -401,7 +403,11 @@ class StickyHeaderView(
     private fun updateEyeIcon() {
         eyeButton.setImageDrawable(
             context.getDrawableCompat(
-                if (WGlobalStorage.getIsSensitiveDataProtectionOn()) org.mytonwallet.app_air.icons.R.drawable.ic_header_eye else org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden
+                if (WGlobalStorage.getIsSensitiveDataProtectionOn()) {
+                    org.mytonwallet.app_air.icons.R.drawable.ic_header_eye
+                } else {
+                    org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden
+                }
             )
         )
     }
@@ -477,7 +483,5 @@ class StickyHeaderView(
         return views
     }
 
-    private fun defaultStatusViewMargin(): Int {
-        return if (lockButton.isVisible) 96.dp else 56.dp
-    }
+    private fun defaultStatusViewMargin(): Int = if (lockButton.isVisible) 96.dp else 56.dp
 }

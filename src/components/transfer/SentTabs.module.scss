@@ -15,11 +15,6 @@
   color: var(--color-black);
 }
 
-.menu {
-  --offset-x-value: 50%;
-  --translate-x: -50%;
-}
-
 .root {
   margin-top: 1.125rem;
   margin-bottom: 1rem;
@@ -41,7 +36,7 @@
 
 .menuWrapper {
   :global(.menu-bubble) {
-    right: auto !important;
-    left: calc((var(--menu-width) + var(--trigger-width)) / -2) !important;
+    inset-inline-start: calc((var(--menu-width) + var(--trigger-width)) / -2) !important;
+    inset-inline-end: auto !important;
   }
 }

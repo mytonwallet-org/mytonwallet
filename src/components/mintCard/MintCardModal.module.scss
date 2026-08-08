@@ -73,7 +73,7 @@
   position: absolute;
   z-index: 0;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   aspect-ratio: 1;
   width: 100%;
@@ -97,7 +97,7 @@
   position: absolute;
   z-index: 3;
   top: 1rem;
-  right: 1rem;
+  inset-inline-end: 1rem;
 }
 
 .navigation {
@@ -114,14 +114,16 @@
   border: none;
 
   background: none;
+
+  @include mixins.rtl-mirror();
 }
 
 .navigationLeft {
-  left: 1rem;
+  inset-inline-start: 1rem;
 }
 
 .navigationRight {
-  right: 1rem;
+  inset-inline-end: 1rem;
 }
 
 .navigationIcon {
@@ -138,9 +140,9 @@
 
 .availability {
   position: absolute;
-  right: 1rem;
   bottom: 0;
-  left: 1rem;
+  inset-inline-start: 1rem;
+  inset-inline-end: 1rem;
 
   height: 2.25rem;
   border-radius: var(--border-radius-default);
@@ -155,7 +157,7 @@
   position: absolute;
   z-index: 1;
   top: 0.25rem;
-  left: 0.25rem;
+  inset-inline-start: 0.25rem;
 
   overflow: hidden;
 
@@ -191,18 +193,18 @@
 }
 
 .amountLeft {
-  left: 0.625rem;
+  inset-inline-start: 0.625rem;
 
   &.amountInner {
-    left: 0.375rem;
+    inset-inline-start: 0.375rem;
   }
 }
 
 .amountSold {
-  right: 0.625rem;
+  inset-inline-end: 0.625rem;
 
   &.amountInner {
-    right: calc(-100% * var(--multiplier) + 0.375rem);
+    inset-inline-end: calc(-100% * var(--multiplier) + 0.375rem);
 
   }
 }

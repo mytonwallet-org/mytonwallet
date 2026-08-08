@@ -5,10 +5,10 @@ import android.content.Context
 import android.content.Intent
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.core.net.toUri
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import androidx.core.net.toUri
 
 object CustomTabsBrowser {
     fun open(context: Context, url: String) {

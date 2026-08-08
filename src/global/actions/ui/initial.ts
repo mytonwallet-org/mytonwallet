@@ -17,7 +17,6 @@ import {
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { parseAccountId } from '../../../util/account';
 import { clearAgentChat } from '../../../util/agent/agentStorage';
-import authApi from '../../../util/authApi';
 import {
   getDeeplinkFromLocation,
   processDeeplink,
@@ -44,7 +43,9 @@ import {
   setScrollbarWidthProperty,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
+import { enclave } from '../../../enclave';
 import { errorCodeToMessage } from '../../helpers/errors';
+import { resumeDappConnectAfterWalletCreation } from '../../helpers/resumeDappConnectAfterWalletCreation';
 import { isErrorTransferResult } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -111,6 +112,10 @@ addActionHandler('afterInit', (global, actions) => {
     theme, animationLevel, langCode,
   } = global.settings;
 
+  // The unlock form calls `enclave.authorize()` before any sign-in action runs, so the auth
+  // instances must be built from the restored `authTypes` as soon as the app boots
+  void enclave.setAuths(global.authTypes);
+
   switchTheme(theme);
   switchAnimationLevel(animationLevel);
   setStatusBarStyle();
@@ -144,50 +149,14 @@ addActionHandler('afterInit', (global, actions) => {
   })();
 });
 
-async function tryAutoImportTestMnemonic(actions: any) {
-  if (!TEST_MNEMONIC || IS_EXPLORER) return;
-
-  const global = getGlobal();
-  if (selectCurrentAccountId(global)) return;
-
-  const mnemonic = TEST_MNEMONIC.split(/\s+/).map((word) => word.trim().toLowerCase()).filter(Boolean);
-  if (!mnemonic.length) return;
-
-  const mainNetwork = selectCurrentNetwork(global);
-  const accounts = await callApi('importMnemonic', [mainNetwork], mnemonic, TEST_PASSWORD);
-  if (!accounts) {
-    return;
-  }
-
-  if (isErrorTransferResult(accounts)) {
-    actions.showError({ error: accounts.error });
-    return;
-  }
-
-  const firstAccount = accounts[0];
-  if (!firstAccount) {
-    return;
-  }
-
-  let nextGlobal = getGlobal();
-  nextGlobal = updateAuth(nextGlobal, {
-    accounts,
-    mnemonic: undefined,
-    password: undefined,
-    isLoading: false,
-    error: undefined,
-    state: AuthState.ready,
-  });
-  nextGlobal = createAccountsFromGlobal(nextGlobal, true);
-  nextGlobal = updateCurrentAccountId(nextGlobal, firstAccount.accountId);
-  setGlobal(nextGlobal);
-
-  actions.tryAddNotificationAccount({ accountId: firstAccount.accountId });
-  actions.afterSignIn();
-}
-
 addActionHandler('afterSignIn', (global, actions) => {
-  setGlobal({ ...global, appState: AppState.Main });
+  const { global: nextGlobal, switchedAccountId } = resumeDappConnectAfterWalletCreation(global);
+
+  setGlobal({ ...nextGlobal, appState: AppState.Main });
+
+  if (switchedAccountId) {
+    actions.switchAccount({ accountId: switchedAccountId });
+  }
 
   setTimeout(() => {
     actions.resetAuth();
@@ -196,13 +165,9 @@ addActionHandler('afterSignIn', (global, actions) => {
   }, ANIMATION_DELAY_MS);
 });
 
-addActionHandler('afterSignOut', (global, actions, payload) => {
+addActionHandler('afterSignOut', async (global, actions, payload) => {
   if (payload?.shouldReset) {
-    if (global.settings.authConfig?.kind === 'native-biometrics') {
-      void authApi.removeNativeBiometrics();
-    }
-    actions.setInMemoryPassword({ password: undefined, force: true });
-
+    await enclave.reset();
     actions.resetApiSettings({ areAllDisabled: true });
 
     void clearAgentChat();
@@ -270,9 +235,11 @@ addActionHandler('selectToken', (global, actions, { slug } = {}) => {
       actions.setDefaultSwapParams({ tokenInSlug: undefined, tokenOutSlug: undefined, withResetAmount: true });
     }
 
-    const shouldResetTransfer = (global.currentTransfer.tokenSlug === currentActivityToken
-      && global.currentTransfer.tokenSlug !== DEFAULT_TRANSFER_TOKEN_SLUG)
-    && !global.currentTransfer.nfts?.length;
+    const shouldResetTransfer = (
+      global.currentTransfer.tokenSlug === currentActivityToken
+      && global.currentTransfer.tokenSlug !== DEFAULT_TRANSFER_TOKEN_SLUG
+      && !global.currentTransfer.nfts?.length
+    );
 
     if (shouldResetTransfer) {
       actions.changeTransferToken({ tokenSlug: DEFAULT_TRANSFER_TOKEN_SLUG, withResetAmount: true });
@@ -330,7 +297,7 @@ addActionHandler('toggleTonProxy', (global, actions, { isEnabled }) => {
 
 addActionHandler('toggleDeeplinkHook', (global, actions, { isEnabled }) => {
   if (IS_ELECTRON) {
-    void window.electron?.toggleDeeplinkHandler(isEnabled);
+    void window.electron?.toggleDeeplinkHandler?.(isEnabled);
   } else {
     void callApi('doDeeplinkHook', isEnabled);
   }
@@ -430,6 +397,7 @@ addActionHandler('signOut', async (global, actions, payload) => {
       : undefined;
 
     await callApi('removeAccount', removingAccountId, nextAccountId, nextNewestActivityTimestamps);
+    await enclave.removeSecret(removingAccountId);
     actions.deleteNotificationAccount({ accountId: removingAccountId });
 
     global = getGlobal();
@@ -461,3 +429,52 @@ addActionHandler('signOut', async (global, actions, payload) => {
     actions.afterSignOut();
   }
 });
+
+async function tryAutoImportTestMnemonic(actions: any) {
+  if (!TEST_MNEMONIC || IS_EXPLORER) return;
+
+  const global = getGlobal();
+  if (selectCurrentAccountId(global)) return;
+
+  const mnemonic = TEST_MNEMONIC.split(/\s+/).map((word) => word.trim().toLowerCase()).filter(Boolean);
+  if (!mnemonic.length) return;
+
+  const enclaveSession = await enclave.setupAuth('passcode', TEST_PASSWORD);
+  if (!enclaveSession) return;
+
+  const mainNetwork = selectCurrentNetwork(global);
+  const accounts = await callApi('importMnemonic', [mainNetwork], mnemonic);
+  if (!accounts) {
+    return;
+  }
+
+  if (isErrorTransferResult(accounts)) {
+    actions.showError({ error: accounts.error });
+    return;
+  }
+
+  const firstAccount = accounts[0];
+  if (!firstAccount) {
+    return;
+  }
+
+  await enclave.importSecret(firstAccount.accountId, mnemonic.join(' '), enclaveSession.token);
+  for (let i = 1; i < accounts.length; i++) {
+    await enclave.duplicateSecret(firstAccount.accountId, accounts[i].accountId);
+  }
+
+  let nextGlobal = getGlobal();
+  nextGlobal = updateAuth(nextGlobal, {
+    accounts,
+    mnemonic: undefined,
+    isLoading: false,
+    error: undefined,
+    state: AuthState.ready,
+  });
+  nextGlobal = createAccountsFromGlobal(nextGlobal, true);
+  nextGlobal = updateCurrentAccountId(nextGlobal, firstAccount.accountId);
+  setGlobal(nextGlobal);
+
+  actions.tryAddNotificationAccount({ accountId: firstAccount.accountId });
+  actions.afterSignIn();
+}

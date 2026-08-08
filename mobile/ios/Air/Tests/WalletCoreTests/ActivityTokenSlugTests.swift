@@ -34,6 +34,7 @@ struct ActivityTokenSlugTests {
           "fromAmount": "0.00045",
           "to": "\(to)",
           "toAmount": "33.58",
+          "transactionIds": {},
           "status": "completed"
         }
         """

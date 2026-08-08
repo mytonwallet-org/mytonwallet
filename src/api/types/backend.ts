@@ -3,9 +3,61 @@ import type { StakingPoolConfig } from '../chains/ton/contracts/JettonStaking/St
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { ApiChain, ApiCountryCode, ApiLoyaltyType, ApiMtwCardType, ApiTokenWithPrice } from './misc';
 
-export type ApiTokenDetails = Pick<ApiTokenWithPrice, 'slug' | 'type' | 'priceUsd' | 'percentChange24h'>;
+export type ApiTokenPriceDetails = Pick<
+  ApiTokenWithPrice, 'slug' | 'type' | 'priceUsd' | 'percentChange24h' | 'localizedName'
+> & {
+  tokenInfo?: {
+    description?: string;
+    localizedDescription?: string;
+    marketCap?: number;
+    supply?: {
+      circulating?: number;
+      total: number;
+    };
+    createdAt?: string;
+    volume24h?: {
+      sell: number;
+      buy: number;
+      percentChange?: number;
+    };
+    links?: { url: string; type?: 'telegram' | 'x' }[];
+    aggregatorLinks?: { url: string; name: string }[];
+    docsUrl?: string;
+    sourceCodeUrl?: string;
+  };
+};
 
-export type ApiSwapDexLabel = 'dedust' | 'ston' | 'jupiter';
+export interface ApiTokenDetails {
+  description?: string;
+  links?: ApiTokenLink[];
+  /** Market data sites, with the display name supplied by the backend */
+  aggregatorLinks?: { name: string; url: string }[];
+  docsUrl?: string;
+  sourceCodeUrl?: string;
+  marketCap?: number;
+  circulatingSupply?: number;
+  totalSupply?: number;
+  /** Unix seconds */
+  createdAt?: number;
+  volume24h?: ApiTokenVolume;
+}
+
+export interface ApiTokenLink {
+  kind: 'x' | 'telegram' | 'website';
+  url: string;
+}
+
+export interface ApiTokenVolume {
+  total: number;
+  buy: number;
+  sell: number;
+  /** A share, not a percentage: 0.8946 means +89.46%. Absent when the data source has no such stat. */
+  change?: number;
+}
+
+export type ApiSwapDexRouterLabel = 'dedust-router-v2' | 'omniston' | 'jupiter';
+
+export type ApiSwapDexLabel = 'dedust' | 'ston';
 export type ApiSwapCexLabel = 'changelly' | 'near-intents';
 export type ApiSwapFeeMode = 'extra' | 'included';
 
@@ -76,6 +128,7 @@ export type ApiSwapDexEstimateResponse = {
   toMinAmount: string;
   impact: number;
   dexLabel: ApiSwapDexLabel;
+  dexRouterLabel?: ApiSwapDexRouterLabel;
   dieselStatus: DieselStatus;
   other?: ApiSwapEstimateVariant[]; // Only in V2
   routes?: ApiSwapRoute[][]; // Only in V3
@@ -119,6 +172,7 @@ export type ApiSwapBuildTransactionRequest = {
   toMinAmount?: string;
   slippage?: number;
   dexLabel?: ApiSwapDexLabel;
+  dexRouterLabel?: ApiSwapDexRouterLabel;
   swapVersion?: ApiSwapVersion;
   networkFee?: string;
   shouldTryDiesel?: boolean;
@@ -222,6 +276,8 @@ export type ApiSwapHistoryItem = BaseApiSwapHistoryItem & {
    * TODO: Replace the status 'pending' with 'pendingTrusted' on our backend once all clients are updated.
    */
   status: 'pending' | 'pendingTrusted' | 'confirmed' | 'completed' | 'failed' | 'expired';
+  /** Submitted source-chain message/transaction hash echoed by the backend when known. */
+  msgHash?: string;
   hashes: string[];
   transactionIds: ApiSwapTransactionIds;
   isCanceled?: boolean;
@@ -439,4 +495,6 @@ export type ApiBackendConfig = {
   seasonalTheme?: 'newYear' | 'valentine';
   knowledgeBaseVersion?: string;
   preferredAgent?: 'local' | 'online' | 'hybrid';
+  // Lower-case currency codes the on/off-ramp surfaces may offer; the client may only narrow its own baseline with it
+  allowedOnOffRampCurrencies?: string[];
 };

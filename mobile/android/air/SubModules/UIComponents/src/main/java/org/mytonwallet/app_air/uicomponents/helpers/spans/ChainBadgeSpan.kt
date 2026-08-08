@@ -13,7 +13,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 class ChainBadgeSpan(
     private val text: String,
     private val textColorInt: Int,
-    private val backgroundColorInt: Int,
+    private val backgroundColorInt: Int
 ) : ReplacementSpan() {
     private val paddingHorizontalPx = 4.dp
     private val paddingVerticalPx = 1.dp
@@ -39,7 +39,7 @@ class ChainBadgeSpan(
         text: CharSequence?,
         start: Int,
         end: Int,
-        fm: Paint.FontMetricsInt?,
+        fm: Paint.FontMetricsInt?
     ): Int {
         fm?.let {
             it.ascent = -labelHeightPx + paddingVerticalPx
@@ -59,7 +59,7 @@ class ChainBadgeSpan(
         top: Int,
         y: Int,
         bottom: Int,
-        paint: Paint,
+        paint: Paint
     ) {
         val rectTop = (top + bottom - labelHeightPx) / 2f
         val rect = RectF(x, rectTop, x + labelWidthPx, rectTop + labelHeightPx)

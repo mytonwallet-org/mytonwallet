@@ -45,8 +45,8 @@ open class CustomListAdapter : BaseListAdapter() {
         onItemClickListener = listener
     }
 
-    override fun createHolder(parent: ViewGroup, viewType: Int): BaseListHolder<out BaseListItem> {
-        return when (viewType) {
+    override fun createHolder(parent: ViewGroup, viewType: Int): BaseListHolder<out BaseListItem> =
+        when (viewType) {
             Item.Type.LIST_TITLE.value -> HeaderCell.Holder(parent.context)
             Item.Type.LIST_TITLE_VALUE.value -> ListTitleValueCell.Holder(parent)
             Item.Type.ICON_DUAL_LINE.value -> ListIconDualLineCell.Holder(parent)
@@ -58,13 +58,11 @@ open class CustomListAdapter : BaseListAdapter() {
             Item.Type.ALERT.value -> ListAlertCell.Holder(parent)
             else -> throw IllegalArgumentException("Unknown viewType: $viewType")
         }
-    }
 
     override fun onBindViewHolder(holder: BaseListHolder<out BaseListItem>, position: Int) {
         applyClickable(holder, getItem(position), position)
         super.onBindViewHolder(holder, position)
-        if (holder.item?.type == Item.Type.GAP.value)
-            return
+        if (holder.item?.type == Item.Type.GAP.value) return
         val isPreviousViewGap = position > 0 && getItem(position - 1).type == Item.Type.GAP.value
         val isNextViewGap =
             position < itemCount - 1 && getItem(position + 1).type == Item.Type.GAP.value
@@ -78,12 +76,13 @@ open class CustomListAdapter : BaseListAdapter() {
             isLast || isNextViewGap -> ViewConstants.BLOCK_RADIUS.dp
             else -> 0f
         }
-        if (holder !is ListAlertCell.Holder)
+        if (holder !is ListAlertCell.Holder) {
             holder.itemView.setBackgroundColor(
                 WColor.Background.color,
                 topRadius,
                 bottomRadius
             )
+        }
     }
 
     private fun applyClickable(

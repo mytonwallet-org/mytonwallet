@@ -17,21 +17,21 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.toColorInt
+import androidx.core.net.toUri
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVideoCache
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.MTW_CARDS_MINT_BASE_URL
 import org.mytonwallet.app_air.walletcore.models.MCardInfo
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
-import androidx.core.graphics.toColorInt
-import androidx.core.net.toUri
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import kotlin.math.roundToInt
-import androidx.core.graphics.createBitmap
 
 @SuppressLint("ViewConstructor")
 class MintCardPosterView(context: Context) : FrameLayout(context) {
@@ -45,12 +45,10 @@ class MintCardPosterView(context: Context) : FrameLayout(context) {
         private val videoEnabled: Boolean
             get() = WGlobalStorage.getAreAnimationsActive()
 
-        private fun slideBackgroundColor(type: ApiMtwCardType): Int {
-            return when (type) {
-                ApiMtwCardType.STANDARD -> "#1D2033".toColorInt()
-                ApiMtwCardType.BLACK -> "#030303".toColorInt()
-                else -> "#181818".toColorInt()
-            }
+        private fun slideBackgroundColor(type: ApiMtwCardType): Int = when (type) {
+            ApiMtwCardType.STANDARD -> "#1D2033".toColorInt()
+            ApiMtwCardType.BLACK -> "#030303".toColorInt()
+            else -> "#181818".toColorInt()
         }
     }
 
@@ -74,47 +72,55 @@ class MintCardPosterView(context: Context) : FrameLayout(context) {
 
     private var mirrorFrameCounter = 0
 
-    private val textureView: TextureView? = if (blurEnabled) TextureView(context).apply {
-        alpha = 0f
-        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                surface = Surface(st)
-                mediaPlayer?.setSurface(surface)
-                maybePrepareVideo()
-            }
+    private val textureView: TextureView? = if (blurEnabled) {
+        TextureView(context).apply {
+            alpha = 0f
+            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                    surface = Surface(st)
+                    mediaPlayer?.setSurface(surface)
+                    maybePrepareVideo()
+                }
 
-            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
+                override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
 
-            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                surface?.release()
-                surface = null
-                return true
-            }
+                override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                    surface?.release()
+                    surface = null
+                    return true
+                }
 
-            override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
-                mirrorFrameForBlur()
+                override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
+                    mirrorFrameForBlur()
+                }
             }
         }
-    } else null
+    } else {
+        null
+    }
 
-    private val surfaceView: SurfaceView? = if (blurEnabled) null else SurfaceView(context).apply {
-        alpha = 0f
-        // Lift above the window background so the placeholder shows through before playback,
-        // while later siblings (poster overlay, labels) still render on top.
-        setZOrderMediaOverlay(true)
-        holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(h: SurfaceHolder) {
-                surface = h.surface
-                mediaPlayer?.setSurface(surface)
-                maybePrepareVideo()
-            }
+    private val surfaceView: SurfaceView? = if (blurEnabled) {
+        null
+    } else {
+        SurfaceView(context).apply {
+            alpha = 0f
+            // Lift above the window background so the placeholder shows through before playback,
+            // while later siblings (poster overlay, labels) still render on top.
+            setZOrderMediaOverlay(true)
+            holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceCreated(h: SurfaceHolder) {
+                    surface = h.surface
+                    mediaPlayer?.setSurface(surface)
+                    maybePrepareVideo()
+                }
 
-            override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
+                override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {}
 
-            override fun surfaceDestroyed(h: SurfaceHolder) {
-                surface = null
-            }
-        })
+                override fun surfaceDestroyed(h: SurfaceHolder) {
+                    surface = null
+                }
+            })
+        }
     }
 
     private val videoView: View = textureView ?: surfaceView!!

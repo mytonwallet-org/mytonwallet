@@ -68,6 +68,7 @@ private struct AddressInputCell: View {
                     .background(alignment: .topLeading) {
                         if model.addressInputString.isEmpty {
                             Text(lang("Your address on another blockchain"))
+                                .textStyle(.body, scaling: .dynamic)
                                 .foregroundStyle(Color(UIColor.placeholderText))
                                 .lineLimit(1)
                                 .padding(.top, 1)
@@ -81,6 +82,7 @@ private struct AddressInputCell: View {
                             }
                             Button(action: model.pasteAddress) {
                                 Text(lang("Paste"))
+                                    .textStyle(.body, scaling: .dynamic)
                             }
                         }
                         .fixedSize()

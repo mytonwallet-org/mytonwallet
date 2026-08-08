@@ -42,9 +42,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
-    
-    private var selectedTab: AppTabId { viewModel.selectedTab }
-        
+
     private var activateAccountTask: Task<Void, Never>?
     private var setUpdatingAfterDelayTask: Task<Void, Never>?
     
@@ -62,7 +60,6 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         navigationItem.largeTitleDisplayMode = .never
         setupViews()
         WalletCoreData.add(eventObserver: self)
-        NotificationCenter.default.addObserver(self, selector: #selector(handleLanguageDidChange(_:)), name: .languageDidChange, object: nil)
         applySnapshot(animated: false)
         updateStatusViewState(animated: false)
         updateTheme()
@@ -78,10 +75,6 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         updateStatusViewState(animated: false)
     }
     
-    func setSelectedTab(_ tab: AppTabId) {
-        viewModel.onTabTap(tab)
-    }
-
     func applyTabConfiguration(_ orderedIds: [AppTabId]) {
         guard isViewLoaded else { return }
         applySnapshot(animated: true)
@@ -215,7 +208,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
                             .renderingMode(.template)
                             .frame(width: 34, height: 34)
                         Text(title)
-                            .font(.system(size: 17, weight: isSelected ? .semibold : .regular))
+                            .textStyle(isSelected ? .bodyStrong : .body)
                     }
                     .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .leading)
                     .padding(.horizontal, 10)
@@ -379,10 +372,6 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         }
     }
     
-    @objc private func handleLanguageDidChange(_ notification: Notification) {
-        applySnapshot(animated: false)
-    }
-
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return false }
         switch item {
@@ -420,11 +409,11 @@ private struct SplitRootSidebarActionRow: View {
             icon
                 .renderingMode(.template)
                 .frame(width: actionIconSize, height: actionIconSize)
-                .font(.system(size: 18, weight: .regular))
+                .textStyle(.symbol, content: .technical)
                 .frame(width: actionIconContainerWidth)
             
             Text(title)
-                .font(.system(size: 17, weight: .regular))
+                .textStyle(.body)
                 .lineLimit(1)
                 .allowsTightening(true)
         }

@@ -4,8 +4,6 @@ import SwiftUI
 import WalletCore
 import WalletContext
 
-private let log = Log("SaveAddress")
-
 @MainActor public func makeSaveAddressAlertController(accountContext: AccountContext, chain: ApiChain, address: String) -> UIAlertController {
     return SaveAddressAlertController(accountContext: accountContext, chain: chain, address: address)
 }

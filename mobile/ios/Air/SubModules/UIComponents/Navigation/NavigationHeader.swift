@@ -28,13 +28,13 @@ public struct NavigationHeader<Title: View, Subtitle: View>: View {
     
     var _title: some View {
         title
-            .font(.system(size: 17, weight: .semibold))
+            .textStyle(.bodyStrong)
             .lineLimit(1)
     }
     
     var _subtitle: some View {
         subtitle
-            .font(.system(size: 13, weight: .regular))
+            .textStyle(.footnote)
             .foregroundStyle(.secondary)
             .allowsTightening(true)
             .lineLimit(1)
@@ -84,7 +84,7 @@ open class NavigationHeader2: UILabel {
 
     public static func makeTitleLabel(_ title: String, fixedColor: Bool = false) -> UILabel {
         let label: UILabel = fixedColor ? FixedColorLabel() : UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .semibold)
+        label.applyTextStyle(.bodyStrong)
         label.text = title
         label.textColor = .label
         label.numberOfLines = 1

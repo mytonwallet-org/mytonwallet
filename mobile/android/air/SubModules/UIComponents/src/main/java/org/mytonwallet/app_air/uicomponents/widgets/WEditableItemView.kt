@@ -1,13 +1,14 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import android.text.TextPaint
 import android.widget.FrameLayout
 import androidx.core.view.children
+import kotlin.math.max
+import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animator.ListAnimator.Measurable
 import me.vkryl.android.animator.ReplaceAnimator
@@ -17,27 +18,21 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlin.math.max
-import kotlin.math.roundToInt
 
-class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimator.Callback,
+class WEditableItemView(context: Context) :
+    FrameLayout(context),
+    ReplaceAnimator.Callback,
     WThemedView {
-    private class Item(
-        val text: String,
-        val textWidth: Int,
-    ) : Measurable {
-        override fun getWidth(): Int {
-            return textWidth
-        }
+    private class Item(val text: String, val textWidth: Int) : Measurable {
+        override fun getWidth(): Int = textWidth
 
-        override fun getHeight(): Int {
-            return 0
-        }
+        override fun getHeight(): Int = 0
     }
 
     private val baseCurrLeftPadding = 12.dp
@@ -70,16 +65,18 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
         AnimationConstants.VERY_QUICK_ANIMATION
     )
 
-    private val currencyIndicatorAnimatedWidth get() = (currencyIndicatorVisible.floatValue * baseCurrWidth)
+    private val currencyIndicatorAnimatedWidth get() = (
+        currencyIndicatorVisible.floatValue *
+            baseCurrWidth
+        )
     private val currencyIndicatorVisible = BoolAnimator(
         220L,
         AnimatorUtils.DECELERATE_INTERPOLATOR,
-        false,
+        false
     ) { _, _, _, _ ->
         prepare()
         invalidate()
     }
-
 
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Medium.typeface
@@ -105,11 +102,17 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
         if (currencyIndicatorVisible.floatValue > 0f) {
             baseCurrIndicatorPaint.alpha = (currencyIndicatorVisible.floatValue * 255f).roundToInt()
             val xBaseCurr = if (LocaleController.isRTL) {
-                animator.metadata.totalWidth + currencyIndicatorAnimatedWidth + dPaddingLeft + dPaddingRight - baseCurrLeftPadding - baseCurrIndicatorPaint.measureText(
-                    baseCurrIndicatorText
-                )
+                animator.metadata.totalWidth + currencyIndicatorAnimatedWidth + dPaddingLeft +
+                    dPaddingRight -
+                    baseCurrLeftPadding -
+                    baseCurrIndicatorPaint.measureText(
+                        baseCurrIndicatorText
+                    )
             } else {
-                measuredWidth - animator.metadata.totalWidth - currencyIndicatorAnimatedWidth - dPaddingLeft - dPaddingRight + baseCurrLeftPadding
+                measuredWidth - animator.metadata.totalWidth - currencyIndicatorAnimatedWidth -
+                    dPaddingLeft -
+                    dPaddingRight +
+                    baseCurrLeftPadding
             }
             canvas.drawText(baseCurrIndicatorText, xBaseCurr, baseline, baseCurrIndicatorPaint)
         }
@@ -138,8 +141,9 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
         animator.replace(
             Item(
                 text,
-                textPaint.measureText(text).roundToInt(),
-            ), !animator.isEmpty && isAttachedToWindow
+                textPaint.measureText(text).roundToInt()
+            ),
+            !animator.isEmpty && isAttachedToWindow
         )
         updateViewsAttached()
     }
@@ -164,7 +168,9 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
                 width = max(width, entry.item.width)
             }
         }
-        width += dPaddingLeft + dPaddingRight + (if (currencyIndicatorVisible.value) baseCurrWidth else 0)
+        width +=
+            dPaddingLeft + dPaddingRight +
+            (if (currencyIndicatorVisible.value) baseCurrWidth else 0)
         return width
     }
 
@@ -176,7 +182,10 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
     private fun prepare() {
         if (LocaleController.isRTL) {
             val shapeRight =
-                animator.metadata.totalWidth.roundToInt() + currencyIndicatorAnimatedWidth.roundToInt() + dPaddingLeft + dPaddingRight
+                animator.metadata.totalWidth.roundToInt() +
+                    currencyIndicatorAnimatedWidth.roundToInt() +
+                    dPaddingLeft +
+                    dPaddingRight
             shapeDrawable.setBounds(0, 0, shapeRight, measuredHeight)
             drawable?.let {
                 val w = it.minimumWidth
@@ -187,7 +196,10 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
             }
         } else {
             val shapeLeft =
-                measuredWidth - animator.metadata.totalWidth.roundToInt() - currencyIndicatorAnimatedWidth.roundToInt() - dPaddingLeft - dPaddingRight
+                measuredWidth - animator.metadata.totalWidth.roundToInt() -
+                    currencyIndicatorAnimatedWidth.roundToInt() -
+                    dPaddingLeft -
+                    dPaddingRight
             shapeDrawable.setBounds(shapeLeft, 0, measuredWidth, measuredHeight)
             drawable?.let {
                 val w = it.minimumWidth

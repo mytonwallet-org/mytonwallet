@@ -5,6 +5,10 @@ import WalletContext
 extension ApiUpdate {
     public struct DappConnect: Equatable, Hashable, Codable, Sendable {
         public var type = "dappConnect"
+        public enum MultichainResolution: String, Equatable, Hashable, Codable, Sendable {
+            case switchedAccount = "switched-account"
+            case needsNewWallet = "needs-new-wallet"
+        }
         public let identifier: String?
         public let promiseId: String
         public let accountId: String
@@ -15,6 +19,7 @@ extension ApiUpdate {
         }
         public let permissions: Permissions
         public let proof: ApiTonConnectProof?
+        public let multichainResolution: MultichainResolution?
     }
 }
 
@@ -27,6 +32,7 @@ extension  ApiUpdate.DappConnect {
         dapp: .sample,
         permissions: ApiUpdate.DappConnect.Permissions(address: true, proof: true),
         proof: ApiTonConnectProof(timestamp: 1717171717, domain: "domain", payload: "payload"),
+        multichainResolution: nil,
     )
 }
 #endif

@@ -32,8 +32,8 @@ $gapSize: 0.875rem;
 
     position: absolute;
     top: 0;
-    right: 0;
-    left: $hPaddingSize + $iconSize + $gapSize;
+    inset-inline-start: $hPaddingSize + $iconSize + $gapSize;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -41,13 +41,13 @@ $gapSize: 0.875rem;
   }
 
   &:first-child {
-    border-top-left-radius: var(--border-radius-default);
-    border-top-right-radius: var(--border-radius-default);
+    border-start-start-radius: var(--border-radius-default);
+    border-start-end-radius: var(--border-radius-default);
   }
 
   &:last-child {
-    border-bottom-right-radius: var(--border-radius-default);
-    border-bottom-left-radius: var(--border-radius-default);
+    border-end-start-radius: var(--border-radius-default);
+    border-end-end-radius: var(--border-radius-default);
   }
 
   &:not([disabled]):hover {
@@ -67,14 +67,18 @@ $gapSize: 0.875rem;
 }
 
 .rightItem {
-  margin-left: auto;
+  margin-inline-start: auto;
   color: var(--color-gray-3);
+
+  :global(html[dir="rtl"]) &:global(.icon-chevron-right) {
+    transform: scaleX(-1);
+  }
 }
 
 .spinner {
   --spinner-size: 0.875rem;
 
-  margin-right: 0.25rem;
+  margin-inline-end: 0.25rem;
 }
 
 .label {

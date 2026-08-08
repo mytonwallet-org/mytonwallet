@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
 object BnbConfig : MBlockchainConfig {
 
@@ -20,7 +21,7 @@ object BnbConfig : MBlockchainConfig {
     override val displayColor = "#F39D08".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#6A6218".toColorInt(),
-        "#644C1A".toColorInt(),
+        "#644C1A".toColorInt()
     )
 
     override val feeCheckAddress = "0x0000000000000000000000000000000000000000"
@@ -35,22 +36,21 @@ object BnbConfig : MBlockchainConfig {
 
     override val chainStandard = "ethereum"
     override val defaultDerivationPath = "m/44'/60'/0'/0/{index}"
+    override val walletConnectChainIds = mapOf(
+        MBlockchainNetwork.MAINNET to 56,
+        MBlockchainNetwork.TESTNET to 97
+    )
 
     override fun isValidAddress(address: String): Boolean =
         Regex("""^0x[a-fA-F0-9]{40}$""").matches(address)
 
-    override fun idToTxHash(id: String?): String? =
-        id?.substringBefore(":")
+    override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
-    override fun transactionExplorers() =
-        listOf(MBlockchainExplorer.BSCTRACE)
+    override fun transactionExplorers() = listOf(MBlockchainExplorer.BSCTRACE)
 
-    override fun addressExplorers() =
-        listOf(MBlockchainExplorer.BSCTRACE)
+    override fun addressExplorers() = listOf(MBlockchainExplorer.BSCTRACE)
 
-    override fun tokenExplorer() =
-        MBlockchainExplorer.BSCTRACE
+    override fun tokenExplorer() = MBlockchainExplorer.BSCTRACE
 
-    override fun nftExplorer() =
-        MBlockchainExplorer.BSCTRACE
+    override fun nftExplorer() = MBlockchainExplorer.BSCTRACE
 }

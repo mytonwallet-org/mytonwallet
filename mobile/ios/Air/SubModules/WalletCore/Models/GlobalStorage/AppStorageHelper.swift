@@ -6,11 +6,10 @@
 //
 
 import Foundation
+import NativeEnclave
 import UIKit
 import WalletContext
 import WalletCoreTypes
-
-private let log = Log("AppStorageHelper")
 
 public enum AppStorageHelper {
     private static var settingsStore: SettingsStore { SettingsStore.liveValue }
@@ -69,6 +68,17 @@ public enum AppStorageHelper {
         }
     }
 
+    public static var hideUnverifiedNfts: Bool {
+        get {
+            settingsStore.areUnverifiedNftsHidden
+        }
+        set {
+            guard settingsStore.areUnverifiedNftsHidden != newValue else { return }
+            settingsStore.setAreUnverifiedNftsHidden(newValue)
+            WalletCoreData.notify(event: .hideUnverifiedNftsChanged)
+        }
+    }
+
     // Hide tiny transfers or not
     public static var hideNoCostTokens: Bool {
         get {
@@ -80,6 +90,17 @@ public enum AppStorageHelper {
         }
     }
 
+    public static var useLocalizedTokenNames: Bool {
+        get {
+            settingsStore.useLocalizedTokenNames
+        }
+        set {
+            guard settingsStore.useLocalizedTokenNames != newValue else { return }
+            settingsStore.setUseLocalizedTokenNames(newValue)
+            WalletCoreData.notify(event: .tokensChanged)
+        }
+    }
+
     // Is chart view expanded
     public static var isTokenChartExpanded: Bool {
         get {
@@ -87,6 +108,15 @@ public enum AppStorageHelper {
         }
         set {
             settingsStore.setIsTokenChartExpanded(newValue)
+        }
+    }
+
+    public static var isTokenInfoExpanded: Bool {
+        get {
+            settingsStore.isTokenInfoExpanded
+        }
+        set {
+            settingsStore.setIsTokenInfoExpanded(newValue)
         }
     }
 
@@ -130,13 +160,16 @@ public enum AppStorageHelper {
         }
     }
 
-    // MARK: - Is biometric auth enabled
+    // MARK: - Auth types & biometrics
+
+    private static let authTypesKey = "authTypes"
+    private static let legacyBiometricKindKey = "settings.authConfig.kind"
 
     public static func save(isBiometricActivated: Bool) {
         settingsStore.setIsBiometricActivated(isBiometricActivated)
     }
 
-    public static func isBiometricActivated() -> Bool {
+    public static func isLegacyBiometricActivated() -> Bool {
         settingsStore.isBiometricActivated
     }
 
@@ -147,6 +180,26 @@ public enum AppStorageHelper {
         set {
             settingsStore.setAutolockOption(newValue)
         }
+    }
+
+    public static func needsEnclaveMigration() -> Bool {
+        AuthSupportLegacy.needsMigration()
+    }
+
+    public static func isEnclaveBiometricActivated() -> Bool {
+        EnclaveManager.configuredAuthTypes().contains(.biometric)
+    }
+
+    public static func isAnyBiometricActivated() -> Bool {
+        isEnclaveBiometricActivated() || isLegacyBiometricActivated()
+    }
+
+    public static func isBiometricActivated() -> Bool {
+        isAnyBiometricActivated()
+    }
+
+    public static func removeLegacyBiometricActivation() {
+        settingsStore.setIsBiometricActivated(false)
     }
 
     // MARK: - Sensitive data

@@ -5,8 +5,13 @@ import WalletContext
 import UIDapp
 
 public class ExploreTabVC: WViewController {
+    private let showsSearchBar: Bool
+    private let showsLargeTitle: Bool
+    private let usesTopTabsChrome: Bool
+    private let focusesSearchOnAppearance: Bool
+    private let onSearchCancel: (() -> Void)?
     private let exploreVC = ExploreVC()
-    private let searchView = ExploreSearch()
+    private let searchView: ExploreSearch
     private var navBarBlurView: UIView?
     private let navigationHeader = NavigationHeader2()
     private let largeExploreTitleLabel = UILabel()
@@ -32,6 +37,27 @@ public class ExploreTabVC: WViewController {
         }
         return hosts
     }
+
+    public init(
+        showsSearchBar: Bool = true,
+        showsLargeTitle: Bool = true,
+        usesTopTabsChrome: Bool = false,
+        focusesSearchOnAppearance: Bool = false,
+        onSearchCancel: (() -> Void)? = nil
+    ) {
+        self.showsSearchBar = showsSearchBar
+        self.showsLargeTitle = showsLargeTitle
+        self.usesTopTabsChrome = usesTopTabsChrome
+        self.focusesSearchOnAppearance = focusesSearchOnAppearance
+        self.onSearchCancel = onSearchCancel
+        self.searchView = ExploreSearch(focusOnAppear: focusesSearchOnAppearance)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,6 +77,11 @@ public class ExploreTabVC: WViewController {
             state.lastScrollOffset = 0
         }
         syncNavChrome(animated: false)
+        if focusesSearchOnAppearance {
+            DispatchQueue.main.async { [weak self] in
+                self?.searchView.focus()
+            }
+        }
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
@@ -83,15 +114,17 @@ public class ExploreTabVC: WViewController {
             }
         }
 
-        view.addSubview(searchView)
-        if #available(iOS 17.0, *) {
-            view.keyboardLayoutGuide.keyboardDismissPadding = 40
+        if showsSearchBar {
+            view.addSubview(searchView)
+            if #available(iOS 17.0, *) {
+                view.keyboardLayoutGuide.keyboardDismissPadding = 40
+            }
+            NSLayoutConstraint.activate([
+                searchView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+                searchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                searchView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            ])
         }
-        NSLayoutConstraint.activate([
-            searchView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
-            searchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            searchView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        ])
 
         searchView.viewModel.onChange = { [weak self] in self?.onChange($0) }
         searchView.viewModel.onSubmit = { [weak self] text in
@@ -106,6 +139,9 @@ public class ExploreTabVC: WViewController {
             exploreVC.searchActiveDidChange(isActive)
             applySearchModeChange()
             syncNavChrome()
+        }
+        searchView.viewModel.onCancel = { [weak self] in
+            self?.onSearchCancel?()
         }
 
         exploreVC.onSubmitSearch = { [weak self] text in
@@ -123,7 +159,7 @@ public class ExploreTabVC: WViewController {
         updateTheme()
 
         largeExploreTitleLabel.text = lang("Explore")
-        largeExploreTitleLabel.font = .systemFont(ofSize: 34, weight: .bold)
+        largeExploreTitleLabel.applyTextStyle(.largeTitle)
         largeExploreTitleLabel.textColor = .label
         largeExploreTitleLabel.accessibilityTraits = .header
         largeExploreTitleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -156,6 +192,10 @@ public class ExploreTabVC: WViewController {
             isLargeTitleVisible = false
             isNavigationTitleVisible = false
             navBarBlurView?.alpha = 0
+        } else if !showsLargeTitle {
+            isLargeTitleVisible = false
+            isNavigationTitleVisible = true
+            navBarBlurView?.alpha = usesTopTabsChrome ? 1 : 0
         } else {
             let progress = calculateNavigationBarProgressiveBlurProgress(state.lastScrollOffset)
             navBarBlurView?.alpha = progress

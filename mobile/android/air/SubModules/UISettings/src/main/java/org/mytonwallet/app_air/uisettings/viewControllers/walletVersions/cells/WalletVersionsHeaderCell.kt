@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -9,6 +8,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -23,7 +23,8 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class WalletVersionsHeaderCell(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     private val titleLabel = HeaderCell(context).apply {
         configure(
@@ -97,7 +98,7 @@ class WalletVersionsHeaderCell(context: Context) :
         topContainerView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.TOOLBAR_RADIUS.dp,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         bottomContainerView.setBackgroundColor(
             WColor.Background.color,

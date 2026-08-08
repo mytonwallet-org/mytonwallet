@@ -9,7 +9,13 @@ public enum ContextMenuCustomRowInteraction {
     case selectable(
         isEnabled: Bool = true,
         dismissesMenu: Bool = true,
+        allowsContentInteraction: Bool = false,
         handler: (() -> Void)? = nil
+    )
+    case submenu(
+        isEnabled: Bool = true,
+        allowsContentInteraction: Bool = false,
+        makePage: () -> ContextMenuPage
     )
     case contentHandlesTouches
 }
@@ -54,7 +60,7 @@ public struct ContextMenuCustomRow {
 extension ContextMenuCustomRowInteraction {
     var isSelectable: Bool {
         switch self {
-        case .selectable:
+        case .selectable, .submenu:
             return true
         case .contentHandlesTouches:
             return false
@@ -63,7 +69,9 @@ extension ContextMenuCustomRowInteraction {
 
     var isEnabled: Bool {
         switch self {
-        case let .selectable(isEnabled, _, _):
+        case let .selectable(isEnabled, _, _, _):
+            return isEnabled
+        case let .submenu(isEnabled, _, _):
             return isEnabled
         case .contentHandlesTouches:
             return false
@@ -72,8 +80,10 @@ extension ContextMenuCustomRowInteraction {
 
     var dismissesMenu: Bool {
         switch self {
-        case let .selectable(_, dismissesMenu, _):
+        case let .selectable(_, dismissesMenu, _, _):
             return dismissesMenu
+        case .submenu:
+            return false
         case .contentHandlesTouches:
             return false
         }
@@ -81,9 +91,31 @@ extension ContextMenuCustomRowInteraction {
 
     var handler: (() -> Void)? {
         switch self {
-        case let .selectable(_, _, handler):
+        case let .selectable(_, _, _, handler):
             return handler
+        case .submenu:
+            return nil
         case .contentHandlesTouches:
+            return nil
+        }
+    }
+
+    var allowsContentInteraction: Bool {
+        switch self {
+        case let .selectable(_, _, allowsContentInteraction, _):
+            return allowsContentInteraction
+        case let .submenu(_, allowsContentInteraction, _):
+            return allowsContentInteraction
+        case .contentHandlesTouches:
+            return true
+        }
+    }
+
+    var submenuPage: ContextMenuPage? {
+        switch self {
+        case let .submenu(_, _, makePage):
+            return makePage()
+        case .selectable, .contentHandlesTouches:
             return nil
         }
     }

@@ -6,6 +6,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.view.children
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
@@ -38,11 +39,10 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import java.lang.ref.WeakReference
 
-class WAutoCompleteAddressView(
-    context: Context
-) : WView(context), WRecyclerViewAdapter.WRecyclerViewDataSource,
+class WAutoCompleteAddressView(context: Context) :
+    WView(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
     WThemedView {
 
     companion object {
@@ -68,7 +68,9 @@ class WAutoCompleteAddressView(
         WRecyclerView(context).apply {
             adapter = rvAdapter
             layoutManager = LinearLayoutManager(
-                context, LinearLayoutManager.VERTICAL, false
+                context,
+                LinearLayoutManager.VERTICAL,
+                false
             ).apply {
                 isSmoothScrollbarEnabled = true
             }
@@ -100,7 +102,6 @@ class WAutoCompleteAddressView(
         }
     }
 
-
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         cancelSearch()
@@ -129,15 +130,17 @@ class WAutoCompleteAddressView(
                             if (activeChainName != null) {
                                 doesAddressItemFitSearch(
                                     address = account.byChain[activeChainName]?.address,
+                                    domain = account.byChain[activeChainName]?.domain,
                                     name = account.name,
-                                    query = keyword,
+                                    query = keyword
                                 )
                             } else {
                                 account.byChain.values.any { chainInfo ->
                                     doesAddressItemFitSearch(
                                         address = chainInfo.address,
+                                        domain = chainInfo.domain,
                                         name = account.name,
-                                        query = keyword,
+                                        query = keyword
                                     )
                                 }
                             }
@@ -151,10 +154,10 @@ class WAutoCompleteAddressView(
                     (activeChainName == null || savedAddress.chain == activeChainName) &&
                         doesAddressItemFitSearch(
                             address = savedAddress.address,
+                            domain = savedAddress.domain,
                             name = savedAddress.name,
-                            query = keyword,
+                            query = keyword
                         )
-
                 }.sortedBy { it.name }
             }
             val savedAddressKeys = savedAddresses.map { "${it.chain}:${it.address}" }.toHashSet()
@@ -197,7 +200,9 @@ class WAutoCompleteAddressView(
         val accountItems = newSections[1].children
         val prevSavedAddressItems = sections[0].children
         // If keyword the same but saved addresses count is changed -> user remove them
-        if (keyword != lastKeyword || prevSavedAddressItems.isEmpty() || prevSavedAddressItems.size == savedAddressItems.size) {
+        if (keyword != lastKeyword || prevSavedAddressItems.isEmpty() ||
+            prevSavedAddressItems.size == savedAddressItems.size
+        ) {
             return newSections
         }
 
@@ -213,12 +218,19 @@ class WAutoCompleteAddressView(
             )
         }.toMutableList()
         // if we remove last element -> we need to animate rounding
-        if (animatedSavedAddressItems.last().animationState == AutoCompleteAddressItem.AnimationState.DISAPPEARING) {
+        if (animatedSavedAddressItems.last().animationState ==
+            AutoCompleteAddressItem.AnimationState.DISAPPEARING
+        ) {
             val lastIdleIndex =
-                animatedSavedAddressItems.indexOfLast { it.animationState == AutoCompleteAddressItem.AnimationState.IDLE }
+                animatedSavedAddressItems.indexOfLast {
+                    it.animationState ==
+                        AutoCompleteAddressItem.AnimationState.IDLE
+                }
             if (lastIdleIndex != -1) {
                 animatedSavedAddressItems[lastIdleIndex] =
-                    animatedSavedAddressItems[lastIdleIndex].copy(animationState = AutoCompleteAddressItem.AnimationState.CORNER_ROUNDING)
+                    animatedSavedAddressItems[lastIdleIndex].copy(
+                        animationState = AutoCompleteAddressItem.AnimationState.CORNER_ROUNDING
+                    )
             }
         }
         // before commit actual data, need to wait remove animation is finished
@@ -234,6 +246,7 @@ class WAutoCompleteAddressView(
         if (savedAddresses.size == 1) {
             val candidate = savedAddresses.first()
             if (keyword.equals(candidate.address, true) ||
+                keyword.equals(candidate.domain, true) ||
                 keyword.equals(candidate.name, true)
             ) {
                 onSelected?.invoke(null, candidate)
@@ -278,7 +291,8 @@ class WAutoCompleteAddressView(
         }
         if (items.isNotEmpty()) {
             items.add(
-                0, AutoCompleteAddressItem(
+                0,
+                AutoCompleteAddressItem(
                     listId = "savedAddressesHeader",
                     title = LocaleController.getString("Saved Wallets"),
                     network = network
@@ -319,7 +333,8 @@ class WAutoCompleteAddressView(
         }
         if (items.isNotEmpty()) {
             items.add(
-                0, AutoCompleteAddressItem(
+                0,
+                AutoCompleteAddressItem(
                     listId = "walletsHeader",
                     title = LocaleController.getString("My Wallets"),
                     network = network
@@ -348,29 +363,20 @@ class WAutoCompleteAddressView(
         )
     )
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return sections.size
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = sections.size
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return sections[section].children.size
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int =
+        sections[section].children.size
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return if (indexPath.row == 0) {
-            HEADER_CELL
-        } else {
-            ACCOUNT_CELL
-        }
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        if (indexPath.row == 0) HEADER_CELL else ACCOUNT_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> WAutoCompleteAddressHeaderCell(context)
             ACCOUNT_CELL -> WAutoCompleteAddressCell(context)
             else -> throw Error()
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -383,7 +389,6 @@ class WAutoCompleteAddressView(
         val onLongClick =
             if (indexPath.section == 0 && indexPath.row > 0 && item.savedAddress != null) {
                 {
-
                     val contentView = (cellHolder.cell as? WAutoCompleteAddressCell)?.contentView
                     if (contentView != null) {
                         onAddressClicked(
@@ -416,21 +421,15 @@ class WAutoCompleteAddressView(
         }
     }
 
-    private fun hasActiveAnimation(): Boolean {
-        return recyclerView.children
-            .map { recyclerView.getChildViewHolder(it) }
-            .filterIsInstance(WCell.Holder::class.java)
-            .map { it.cell }
-            .filterIsInstance(IAutoCompleteAddressItemCell::class.java)
-            .any { it.hasActiveAnimation() }
-    }
+    private fun hasActiveAnimation(): Boolean = recyclerView.children
+        .map { recyclerView.getChildViewHolder(it) }
+        .filterIsInstance(WCell.Holder::class.java)
+        .map { it.cell }
+        .filterIsInstance(IAutoCompleteAddressItemCell::class.java)
+        .any { it.hasActiveAnimation() }
 
-    override fun recyclerViewCellItemId(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): String {
-        return sections[indexPath.section].children[indexPath.row].listId
-    }
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String =
+        sections[indexPath.section].children[indexPath.row].listId
 
     private fun onAddressClicked(
         view: View,
@@ -471,21 +470,29 @@ class WAutoCompleteAddressView(
             windowBackgroundStyle = windowBackgroundStyle
         )
     }
+}
 
-    private fun doesAddressItemFitSearch(address: String?, name: String, query: String): Boolean {
-        if (query.isBlank()) return true
+internal fun doesAddressItemFitSearch(
+    address: String?,
+    domain: String?,
+    name: String,
+    query: String
+): Boolean {
+    if (query.isBlank()) return true
 
-        val normalizedQuery = query.trim().lowercase()
-        if (normalizedQuery.isEmpty()) return true
+    val normalizedQuery = query.trim().lowercase()
+    if (normalizedQuery.isEmpty()) return true
 
-        val normalizedAddress = address?.lowercase() ?: ""
-        if (normalizedAddress.startsWith(normalizedQuery) ||
-            normalizedAddress.endsWith(normalizedQuery)
-        ) return true
-
-
-        return name.lowercase()
-            .split("\\s+".toRegex())
-            .any { part -> part.startsWith(normalizedQuery) }
+    val normalizedAddress = address?.lowercase() ?: ""
+    if (normalizedAddress.startsWith(normalizedQuery) ||
+        normalizedAddress.endsWith(normalizedQuery)
+    ) {
+        return true
     }
+
+    if (domain?.lowercase()?.contains(normalizedQuery) == true) return true
+
+    return name.lowercase()
+        .split("\\s+".toRegex())
+        .any { part -> part.startsWith(normalizedQuery) }
 }

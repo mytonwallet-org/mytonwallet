@@ -57,18 +57,15 @@ object AirPushNotifications {
     private val mutex = Mutex()
 
     // Helper function to ensure sequential execution
-    private suspend fun <T> withQueue(block: suspend () -> T): T {
-        return mutex.withLock {
-            block()
-        }
+    private suspend fun <T> withQueue(block: suspend () -> T): T = mutex.withLock {
+        block()
     }
 
     private fun updateToken(newToken: String) {
         notificationScope.launch {
             withQueue {
                 val prevToken = WGlobalStorage.getPushNotificationsToken()
-                if (newToken == prevToken)
-                    return@withQueue
+                if (newToken == prevToken) return@withQueue
                 WGlobalStorage.setPushNotificationsToken(newToken)
 
                 val prevAccounts = WGlobalStorage.getPushNotificationsEnabledAccounts()
@@ -115,14 +112,22 @@ object AirPushNotifications {
                             .take(MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT)
 
                     // Make sure we subscribe active account if contains ton address
-                    if (activeAccount.tonAddress != null && newAccounts.find { it.accountId == activeAccountId } == null) {
+                    if (activeAccount.tonAddress != null &&
+                        newAccounts.find { it.accountId == activeAccountId } == null
+                    ) {
                         newAccounts =
-                            newAccounts.take(MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT - 1) + activeAccount
+                            newAccounts.take(MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT - 1) +
+                            activeAccount
                     }
                 } else {
                     // Some accounts already exist, resubscribe those
                     newAccounts =
-                        prevAccounts?.mapNotNull { acc -> allAccounts.find { it.accountId == acc && it.tonAddress != null } }
+                        prevAccounts?.mapNotNull { acc ->
+                            allAccounts.find {
+                                it.accountId == acc &&
+                                    it.tonAddress != null
+                            }
+                        }
                             ?: emptyList()
                 }
                 try {
@@ -144,11 +149,13 @@ object AirPushNotifications {
                         )
                     )
                     val resAddressKeys = res.optJSONObject("addressKeys") ?: return@withQueue
-                    WGlobalStorage.setPushNotificationAccounts(newAccounts.filter {
-                        resAddressKeys.optJSONObject(
-                            it.tonAddress
-                        ) != null
-                    }.map { it.accountId })
+                    WGlobalStorage.setPushNotificationAccounts(
+                        newAccounts.filter {
+                            resAddressKeys.optJSONObject(
+                                it.tonAddress
+                            ) != null
+                        }.map { it.accountId }
+                    )
                 } catch (err: Throwable) {
                     err.printStackTrace()
                 }
@@ -176,11 +183,9 @@ object AirPushNotifications {
                 val tonAddress = account.tonAddress ?: return@withQueue
                 val enabledAccounts =
                     WGlobalStorage.getPushNotificationsEnabledAccounts().orEmpty()
-                if (enabledAccounts.contains(account.accountId))
-                    return@withQueue
+                if (enabledAccounts.contains(account.accountId)) return@withQueue
                 if (enabledAccounts.size >= MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT) {
-                    if (ignoreIfLimitReached)
-                        return@withQueue
+                    if (ignoreIfLimitReached) return@withQueue
                     val removingAccount = enabledAccounts.last()
                     val removingTonAddress =
                         WGlobalStorage.getAccountTonAddress(removingAccount)
@@ -204,8 +209,7 @@ object AirPushNotifications {
                 val token = WGlobalStorage.getPushNotificationsToken() ?: return@withQueue
                 val tonAddress = account.tonAddress ?: return@withQueue
                 val enabledAccounts = WGlobalStorage.getPushNotificationsEnabledAccounts()
-                if (enabledAccounts?.contains(account.accountId) != true)
-                    return@withQueue
+                if (enabledAccounts?.contains(account.accountId) != true) return@withQueue
                 subscribeAsync(token, account.accountId, tonAddress, account.name)
             }
         }
@@ -289,5 +293,4 @@ object AirPushNotifications {
         }
         return false
     }
-
 }

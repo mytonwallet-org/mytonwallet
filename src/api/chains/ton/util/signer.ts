@@ -7,7 +7,6 @@ import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 import type { TonConnectProof } from '../../../dappProtocols/adapters';
 import type {
   ApiAccountWithChain,
-  ApiAccountWithMnemonic,
   ApiAnyDisplayError,
   ApiNetwork,
   ApiTonWallet,
@@ -17,7 +16,6 @@ import { ApiCommonError } from '../../../types';
 
 import { parseAccountId } from '../../../../util/account';
 import { randomBytes } from '../../../../util/random';
-import withCache from '../../../../util/withCache';
 import { getBodyFromRequest, OpCode, prepareBodyWithoutSignature } from '../contracts/MfaExtension';
 import { hexToBytes } from '../../../common/utils';
 import { signDataWithPrivateKey, signTonProofWithPrivateKey } from '../../../dappProtocols/adapters/tonConnect/signing';
@@ -67,11 +65,12 @@ export interface Signer {
   decryptComment(encrypted: Uint8Array, senderAddress: string): MaybePromise<string | ErrorResult>;
 }
 
+/** Building a signer performs no I/O and reads no secret; both happen on the first signature. */
 export function getSigner(
   accountId: string,
   account: ApiAccountWithChain<'ton'>,
   /** Required for mnemonic accounts when the mock signing is off */
-  password?: string,
+  enclaveToken?: string,
   /** Set `true` if you only need to emulate the transaction */
   isMockSigning?: boolean,
   /** Used for specific transactions on vesting.ton.org */
@@ -85,8 +84,12 @@ export function getSigner(
     return new LedgerSigner(parseAccountId(accountId).network, account.byChain.ton, ledgerSubwalletId);
   }
 
-  if (password === undefined) throw new Error('Password not provided');
-  return new MnemonicSigner(accountId, account, password);
+  if (enclaveToken === undefined) throw new Error('Preauthorization ID not provided');
+
+  return new MnemonicSigner(
+    account.byChain.ton,
+    () => fetchPrivateKey(accountId, enclaveToken, account),
+  );
 }
 
 abstract class PrivateKeySigner implements Signer {
@@ -190,19 +193,28 @@ abstract class PrivateKeySigner implements Signer {
 class MnemonicSigner extends PrivateKeySigner {
   public isMock = false;
 
+  private privateKey?: Promise<Uint8Array | ErrorResult>;
+
   constructor(
-    public accountId: string,
-    public account: ApiAccountWithMnemonic & ApiAccountWithChain<'ton'>,
-    public password: string,
+    wallet: ApiTonWallet,
+    private fetchKey: () => Promise<Uint8Array | undefined>,
   ) {
-    super(account.byChain.ton);
+    super(wallet);
   }
 
-  // Obtaining the key pair from the password takes much time, so the result is cached.
-  public getPrivateKey = withCache(async () => {
-    const privateKey = await fetchPrivateKey(this.accountId, this.password, this.account);
-    return privateKey || { error: ApiCommonError.InvalidPassword };
-  });
+  /**
+   * The key is read on the first signature rather than when the signer is built, and the promise is
+   * kept so every later signature reuses that one read. Two properties come out of this: an operation
+   * spends exactly one Enclave session usage no matter how many times it signs, and the raw key is
+   * absent from memory during whatever the caller does between building a signer and signing - which
+   * is where the network round trips live, and where a failure would otherwise have held the key for
+   * nothing. Callers that build a signer and never sign read nothing at all.
+   */
+  public getPrivateKey() {
+    this.privateKey ??= this.fetchKey().then((key) => key ?? { error: ApiCommonError.InvalidPassword });
+
+    return this.privateKey;
+  }
 }
 
 class MockSigner extends PrivateKeySigner {

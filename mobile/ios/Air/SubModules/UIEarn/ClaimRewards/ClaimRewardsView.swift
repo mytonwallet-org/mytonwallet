@@ -112,8 +112,9 @@ struct ClaimRewardsButtonContent: View {
     var labels: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(lang("Accumulated Rewards"))
-                .fontWeight(.medium)
+                .textStyle(.bodyEmphasized)
             Text(amount: viewModel.amount, format: .init())
+                .textStyle(.body, content: .technical)
                 .contentTransition(.numericText())
                 .foregroundStyle(earnGradient)
                 .animation(.default, value: viewModel.amount)
@@ -142,7 +143,7 @@ struct ClaimRewardsConfirmContent: View {
         WithPerceptionTracking {
             VStack {
                 Text(lang("Claim Rewards"))
-                    .fontWeight(.semibold)
+                    .textStyle(.bodyStrong)
                     .padding(.vertical, 12)
                     .padding(.bottom, 6)
                 amountSection
@@ -186,6 +187,7 @@ struct ClaimRewardsConfirmContent: View {
                         amount: convAmount,
                         format: .init()
                     )
+                    .textStyle(.footnote, content: .technical)
                 }
                 Spacer()
                 FeeView(
@@ -201,7 +203,8 @@ struct ClaimRewardsConfirmContent: View {
                         nativeSum: nil
                     ),
                     explainedTransferFee: nil,
-                    includeLabel: true
+                    includeLabel: true,
+                    textStyle: .footnote
                 )
             }
         }

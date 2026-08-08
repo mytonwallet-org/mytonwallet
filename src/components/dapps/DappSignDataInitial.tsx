@@ -3,12 +3,13 @@ import { getActions, withGlobal } from '../../global';
 
 import type { GlobalState } from '../../global/types';
 
+import { selectCurrentAccount, selectCurrentAccountId, selectHasMultipleAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { pick } from '../../util/iteratees';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
 import Button from '../ui/Button';
 import Eip712TypedDataView from '../ui/Eip712TypedDataView';
 import ModalHeader from '../ui/ModalHeader';
@@ -19,7 +20,11 @@ import DappSkeletonWithContent, { type DappSkeletonRow } from './DappSkeletonWit
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Dapp.module.scss';
 
-type StateProps = Pick<GlobalState['currentDappSignData'], 'dapp' | 'isLoading' | 'payloadToSign'>;
+type StateProps = Pick<GlobalState['currentDappSignData'], 'dapp' | 'isLoading' | 'payloadToSign'> & {
+  currentAccountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
+};
 
 const skeletonRows: DappSkeletonRow[] = [
   { isLarge: false, hasFee: false },
@@ -29,6 +34,9 @@ function DappSignDataInitial({
   dapp,
   isLoading,
   payloadToSign,
+  currentAccountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
   const { closeDappSignData, submitDappSignDataConfirm } = getActions();
 
@@ -138,7 +146,16 @@ function DappSignDataInitial({
       activeKey={isDappLoading ? 0 : 1}
       slideClassName={styles.skeletonTransitionWrapper}
     >
-      <ModalHeader title={lang('Sign Data')} onClose={closeDappSignData} />
+      <div className={styles.headerWithPill}>
+        <ModalHeader title={lang('Sign Data')} onClose={closeDappSignData} />
+        {hasMultipleAccounts && currentAccountId && (
+          <AccountSwitcherPill
+            accountId={currentAccountId}
+            title={accountTitle}
+            className={styles.accountPill}
+          />
+        )}
+      </div>
       {isDappLoading
         ? <DappSkeletonWithContent rows={skeletonRows} />
         : renderContent()}
@@ -146,7 +163,15 @@ function DappSignDataInitial({
   );
 }
 
-export default memo(withGlobal((global): StateProps => pick(
-  global.currentDappSignData,
-  ['dapp', 'isLoading', 'payloadToSign'],
-))(DappSignDataInitial));
+export default memo(withGlobal((global): StateProps => {
+  const { dapp, isLoading, payloadToSign } = global.currentDappSignData;
+
+  return {
+    dapp,
+    isLoading,
+    payloadToSign,
+    currentAccountId: selectCurrentAccountId(global),
+    accountTitle: selectCurrentAccount(global)?.title,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
+  };
+})(DappSignDataInitial));

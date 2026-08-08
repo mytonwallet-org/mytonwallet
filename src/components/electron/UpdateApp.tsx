@@ -27,14 +27,14 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
   const [isDisabled, disable] = useFlag(false);
 
   useEffect(() => {
-    const removeUpdateErrorListener = window.electron?.on(ElectronEvent.UPDATE_ERROR, () => {
+    const removeUpdateErrorListener = window.electron?.on?.(ElectronEvent.UPDATE_ERROR, () => {
       setIsElectronUpdateDownloaded(false);
     });
-    const removeUpdateDownloadedListener = window.electron?.on(ElectronEvent.UPDATE_DOWNLOADED, () => {
+    const removeUpdateDownloadedListener = window.electron?.on?.(ElectronEvent.UPDATE_DOWNLOADED, () => {
       setIsElectronUpdateDownloaded(true);
     });
 
-    void window.electron?.getIsAutoUpdateEnabled().then(setIsElectronAutoUpdateEnabled);
+    void window.electron?.getIsAutoUpdateEnabled?.().then(setIsElectronAutoUpdateEnabled);
 
     return () => {
       removeUpdateErrorListener?.();
@@ -54,7 +54,7 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
 
     if (isElectronUpdateDownloaded) {
       disable();
-      await window.electron?.installUpdate();
+      await window.electron?.installUpdate?.();
       return;
     }
 

@@ -48,6 +48,13 @@ struct ExploreSearchResultItem: Equatable, Identifiable {
         }
     }
 
+    var subtitleUsesTechnicalFont: Bool {
+        switch source {
+        case .site: false
+        case .connectedDapp, .history: true
+        }
+    }
+
     var shouldOpenExternally: Bool {
         switch source {
         case .site(let s): s.shouldOpenExternally

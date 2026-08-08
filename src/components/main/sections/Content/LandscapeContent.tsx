@@ -2,6 +2,7 @@ import React, { memo, useRef } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
 import type { ApiNft, ApiNftCollection, ApiStakingState } from '../../../../api/types';
+import type { UserToken } from '../../../../global/types';
 import { type Account, ContentTab } from '../../../../global/types';
 
 import { requestMeasure } from '../../../../lib/fasterdom/fasterdom';
@@ -13,11 +14,11 @@ import {
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectEnabledTokensCountMemoizedFor,
+  selectUserTokenMemoized,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 import { calcVestingAmountByStatus } from '../../helpers/calcVestingAmountByStatus';
-import { getScrollableContainer } from '../../helpers/scrollableContainer';
 
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLang from '../../../../hooks/useLang';
@@ -27,9 +28,11 @@ import useContentSwipe from './hooks/useContentSwipe';
 import useContentTabs from './hooks/useContentTabs';
 
 import BackHeader from '../../../common/BackHeader';
+import TokenHeader from '../../../tokenInfo/Header';
+import TokenSummary from '../../../tokenInfo/Summary';
 import Transition from '../../../ui/Transition';
 import HideNftModal from '../../modals/HideNftModal';
-import LandscapeTopActions from '../Actions/LandscapeTopActions';
+import TopActions from '../Actions/TopActions';
 import ContentSlide from './ContentSlide';
 import LandscapeWalletOverview from './LandscapeWalletOverview';
 import NftCollectionHeader from './NftCollectionHeader';
@@ -38,6 +41,9 @@ import NftSelectionHeader from './NftSelectionHeader';
 import styles from './Content.module.scss';
 
 const LANDSCAPE_OVERVIEW_KEY = 0;
+
+const SCROLL_CONTAINER_CLASS = 'landscape-content-scroll';
+const SCROLL_CONTAINER_SELECTOR = `.${SCROLL_CONTAINER_CLASS}`;
 
 interface OwnProps {
   onStakedTokenClick: NoneToVoidFunction;
@@ -51,8 +57,10 @@ interface StateProps {
   selectedNfts?: ApiNft[];
   activeContentTab?: ContentTab;
   currentTokenSlug?: string;
+  currentToken?: UserToken;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
+  areUnverifiedNftsHidden?: boolean;
   states?: ApiStakingState[];
   hasVesting: boolean;
   alwaysHiddenSlugs?: string[];
@@ -73,6 +81,7 @@ function LandscapeContent({
   selectedNfts,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
+  areUnverifiedNftsHidden,
   selectedNftsToHide,
   states,
   hasVesting,
@@ -82,6 +91,7 @@ function LandscapeContent({
   currentSiteCategoryId,
   collectionTabs,
   currentTokenSlug,
+  currentToken,
   onStakedTokenClick,
 }: OwnProps & StateProps) {
   const lang = useLang();
@@ -105,6 +115,7 @@ function LandscapeContent({
     nfts,
     blacklistedNftAddresses,
     whitelistedNftAddresses,
+    areUnverifiedNftsHidden,
     collectionTabs,
     activeContentTab,
     activityReturnContentTab,
@@ -118,7 +129,7 @@ function LandscapeContent({
     isLandscape: true,
   });
 
-  const { handleScroll: handleContentScroll, update: updateScrolledState } = useScrolledState();
+  const { handleScroll: handleContentScroll, isScrolled, update: updateScrolledState } = useScrolledState();
 
   useContentSwipe({
     transitionRef,
@@ -171,9 +182,12 @@ function LandscapeContent({
     if (activeContentTab === ContentTab.Agent) return;
 
     requestMeasure(() => {
-      const scrollContainer = getScrollableContainer(transitionRef.current, false);
+      // Every slide keeps its own scroll position, so the shown one is addressed by its key
+      const scrollContainer = transitionRef.current?.querySelector<HTMLElement>(
+        `[data-slide-key="${landscapeActiveKey}"]`,
+      );
       if (scrollContainer) {
-        updateScrolledState(scrollContainer as HTMLElement);
+        updateScrolledState(scrollContainer);
       }
     });
   });
@@ -192,6 +206,10 @@ function LandscapeContent({
     if (isNftSelectionVisible) return <NftSelectionHeader />;
     if (currentCollection) {
       return <NftCollectionHeader collection={currentCollection} key={currentCollection.address} />;
+    }
+
+    if (currentToken) {
+      return <TokenHeader token={currentToken} isScrolled={isScrolled} onBackClick={handleHeaderBackClick} />;
     }
 
     return (
@@ -214,25 +232,41 @@ function LandscapeContent({
 
     const isActivitySlide = tabs[currentKey - 1]?.id === ContentTab.Activity;
 
+    const slide = (
+      <ContentSlide
+        isActive={isSlideActive}
+        isPortrait={false}
+        activeTabIndex={activeTabIndex}
+        activeTabId={activeTabId}
+        currentCollection={currentCollection}
+        shouldShowSeparateAssetsPanel={false}
+        totalTokensAmount={totalTokensAmount}
+        activeNftKey={activeNftKey}
+        scrollContainerSelector={SCROLL_CONTAINER_SELECTOR}
+        onClickAsset={handleClickAsset}
+        onStakedTokenClick={onStakedTokenClick}
+        onScroll={handleContentScroll}
+      />
+    );
+
     return (
       <div className={styles.landscapeContentPanel}>
-        {isActivitySlide && <LandscapeTopActions className={styles.topActions} />}
-        {renderHeader()}
-        <div className={styles.slides}>
-          <div className={buildClassName(styles.landscapeSlide, 'custom-scroll', 'landscape-content-scroll')}>
-            <ContentSlide
-              isActive={isSlideActive}
-              isPortrait={false}
-              activeTabIndex={activeTabIndex}
-              activeTabId={activeTabId}
-              currentCollection={currentCollection}
-              shouldShowSeparateAssetsPanel={false}
-              totalTokensAmount={totalTokensAmount}
-              activeNftKey={activeNftKey}
-              onClickAsset={handleClickAsset}
-              onStakedTokenClick={onStakedTokenClick}
-              onScroll={handleContentScroll}
-            />
+        <div
+          className={buildClassName(styles.landscapeSlide, 'custom-scroll', SCROLL_CONTAINER_CLASS)}
+          data-slide-key={currentKey}
+          onScroll={handleContentScroll}
+        >
+          {isActivitySlide && !currentToken && <TopActions className={styles.topActions} />}
+          <div className={buildClassName(styles.landscapeHeader, isScrolled && styles.landscapeHeaderScrolled)}>
+            {renderHeader()}
+          </div>
+          <div className={buildClassName(styles.slides, currentToken && styles.slidesOnTokenScreen)}>
+            {currentToken ? (
+              <>
+                <TokenSummary token={currentToken} />
+                <div className={styles.tokenActivity}>{slide}</div>
+              </>
+            ) : slide}
           </div>
         </div>
       </div>
@@ -314,12 +348,14 @@ export default memo(
         currentTokenSlug,
         blacklistedNftAddresses,
         whitelistedNftAddresses,
+        areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
         selectedNftsToHide,
         states,
         hasVesting,
         alwaysHiddenSlugs,
         currentSiteCategoryId,
         collectionTabs,
+        currentToken: currentTokenSlug ? selectUserTokenMemoized(global, currentTokenSlug) : undefined,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

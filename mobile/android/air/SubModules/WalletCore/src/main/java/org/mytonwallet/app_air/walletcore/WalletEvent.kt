@@ -19,7 +19,7 @@ sealed class WalletEvent {
     data class ReceivedNewActivities(
         val accountId: String? = null,
         val newActivities: List<MApiTransaction>? = null,
-        val eventType: EventType = EventType.UPDATE,
+        val eventType: EventType = EventType.UPDATE
     ) : WalletEvent() {
         enum class EventType {
             ACCOUNT_INITIALIZE,
@@ -30,12 +30,12 @@ sealed class WalletEvent {
 
     data class NewLocalActivities(
         val accountId: String? = null,
-        val localActivities: List<MApiTransaction>? = null,
+        val localActivities: List<MApiTransaction>? = null
     ) : WalletEvent()
 
     data class ReceivedPendingActivities(
         val accountId: String? = null,
-        val pendingActivities: List<MApiTransaction>? = null,
+        val pendingActivities: List<MApiTransaction>? = null
     ) : WalletEvent()
 
     data object NftsUpdated : WalletEvent()
@@ -51,7 +51,7 @@ sealed class WalletEvent {
     data class AccountChanged(
         val accountId: String? = null,
         val fromHome: Boolean = false,
-        val isSavingTemporaryAccount: Boolean = false,
+        val isSavingTemporaryAccount: Boolean = false
     ) : WalletEvent()
 
     data class AccountChangedInApp(val persistedAccountsModified: Boolean) : WalletEvent()
@@ -75,42 +75,31 @@ sealed class WalletEvent {
 
     data object WideLayoutChanged : WalletEvent()
     data object SideGuttersChanged : WalletEvent()
+    data object AppTabsChanged : WalletEvent()
 
-    data class OpenUrl(
-        val url: String,
-        val isExternal: Boolean = false
-    ) : WalletEvent()
+    data class OpenUrl(val url: String, val isExternal: Boolean = false) : WalletEvent()
 
-    data class OpenUrlWithConfig(
-        val config: InAppBrowserConfig? = null
-    ) : WalletEvent()
+    data class OpenUrlWithConfig(val config: InAppBrowserConfig? = null) : WalletEvent()
 
     data class OpenActivity(
         val accountId: String,
-        val activity: MApiTransaction
+        val activity: MApiTransaction,
+        val titleOverride: String? = null
     ) : WalletEvent()
 
-    data class OpenToken(
-        val slug: String
-    ) : WalletEvent()
+    data class OpenToken(val slug: String) : WalletEvent()
 
-    data class OpenNftList(
-        val name: String?,
-        val accountId: String,
-        val nfts: List<ApiNft>
-    ) : WalletEvent()
+    data class OpenNftList(val name: String?, val accountId: String, val nfts: List<ApiNft>) :
+        WalletEvent()
 
     data object NftCardUpdated : WalletEvent()
     data object NftDomainDataUpdated : WalletEvent()
     data class CardMintingStateChanged(val accountId: String) : WalletEvent()
-    data class LedgerDeviceModelRequest(
-        val onResponse: (response: JSONObject?) -> Unit
-    ) : WalletEvent()
+    data class LedgerDeviceModelRequest(val onResponse: (response: JSONObject?) -> Unit) :
+        WalletEvent()
 
-    data class LedgerWriteRequest(
-        val apdu: String,
-        val onResponse: (response: String?) -> Unit
-    ) : WalletEvent()
+    data class LedgerWriteRequest(val apdu: String, val onResponse: (response: String?) -> Unit) :
+        WalletEvent()
 
     data class ShowPromotion(val promotion: ApiPromotion) : WalletEvent()
 

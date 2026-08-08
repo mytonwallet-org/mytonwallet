@@ -1,14 +1,19 @@
 package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.JsonClass
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 interface IApiToken {
     val slug: String
     val decimals: Int
     val name: String?
+    val localizedName: String?
+        get() = null
+    val displayName: String?
+        get() = (if (WGlobalStorage.getUseLocalizedTokenNames()) localizedName else null) ?: name
     val symbol: String?
     val chain: String?
     val tokenAddress: String?
@@ -35,14 +40,13 @@ interface IApiToken {
     val isRwaStock get() = keywords?.contains("rwa") == true
 
     val swapSlug
-        get() = if (isTON) "TON" else {
-            tokenAddress ?: slug
-        }
+        get() = if (isTON) "TON" else tokenAddress ?: slug
 
     fun matchesSearch(search: String): Boolean {
         val keyword = search.trim().lowercase()
         if (keyword.isEmpty()) return true
         if (name?.lowercase()?.contains(keyword) == true) return true
+        if (localizedName?.lowercase()?.contains(keyword) == true) return true
         if (symbol?.lowercase()?.contains(keyword) == true) return true
         if (label?.lowercase()?.contains(keyword) == true) return true
         if (chain?.lowercase()?.contains(keyword) == true) return true
@@ -52,14 +56,14 @@ interface IApiToken {
         return false
     }
 
-    private fun String.toSearchableChainTitle(): String {
-        return replace('_', ' ').replace('-', ' ').lowercase()
-    }
+    private fun String.toSearchableChainTitle(): String =
+        replace('_', ' ').replace('-', ' ').lowercase()
 }
 
 @JsonClass(generateAdapter = true)
 data class ApiTokenWithPrice(
     override val name: String?,
+    override val localizedName: String? = null,
     override val symbol: String?,
     override val slug: String,
     override val decimals: Int,
@@ -88,5 +92,4 @@ data class ApiTokenWithPrice(
                 }
             }
         }
-
 }

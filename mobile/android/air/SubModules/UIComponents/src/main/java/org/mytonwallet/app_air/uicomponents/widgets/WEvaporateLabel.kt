@@ -6,7 +6,9 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.htextview.evaporate.EvaporateTextView
 
-open class WEvaporateLabel(context: Context) : EvaporateTextView(context), WThemedView {
+open class WEvaporateLabel(context: Context) :
+    EvaporateTextView(context),
+    WThemedView {
     init {
         id = generateViewId()
     }

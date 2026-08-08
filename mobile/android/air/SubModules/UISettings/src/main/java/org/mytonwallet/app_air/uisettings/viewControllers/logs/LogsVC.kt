@@ -10,8 +10,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
-import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
-import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +17,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class LogsVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Logs"
 
     override val shouldDisplayBottomBar = true
@@ -89,11 +90,12 @@ class LogsVC(context: Context) : WViewController(context) {
     @SuppressLint("NotifyDataSetChanged")
     override fun updateTheme() {
         super.updateTheme()
-        if (isSplitDetailPanel)
+        if (isSplitDetailPanel) {
             view.background =
                 TabletEdgeFadeDrawable(WColor.Background.color, dimWhenWide = false)
-        else
+        } else {
             view.setBackgroundColor(WColor.Background.color)
+        }
         adapter.notifyDataSetChanged()
     }
 

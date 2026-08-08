@@ -5,7 +5,6 @@
 //  Created by Sina on 5/13/24.
 //
 
-import Combine
 import Foundation
 import SwiftUI
 import UIKit
@@ -125,9 +124,6 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
         !insufficientFunds && (amount ?? 0 > 0)
     }
     
-    @PerceptionIgnored
-    private var observers: Set<AnyCancellable> = []
-        
     // MARK: - View callbacks
     
     @MainActor func onBackgroundTapped() {

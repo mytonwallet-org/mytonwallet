@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.search.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.TextUtils
@@ -12,6 +11,7 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -23,7 +23,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
 class SearchItemCell(context: Context, private val onTap: (keyword: String) -> Unit) :
-    WCell(context, LayoutParams(MATCH_PARENT, 50.dp)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, 50.dp)),
+    WThemedView {
 
     private val searchDrawable: Drawable? =
         AppCompatResources.getDrawable(
@@ -91,5 +92,4 @@ class SearchItemCell(context: Context, private val onTap: (keyword: String) -> U
             if (isLastItem) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
     }
-
 }

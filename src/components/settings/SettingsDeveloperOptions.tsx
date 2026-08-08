@@ -1,13 +1,20 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useEffect, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiNetwork } from '../../api/types';
-import type { Account, DeveloperSettingsOverrides } from '../../global/types';
+import type { Account, AuthType, DeveloperSettingsOverrides } from '../../global/types';
 import type { Log } from '../../util/logs';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import {
-  APP_COMMIT_HASH, APP_ENV, APP_VERSION, IS_EXTENSION, IS_GRAM_WALLET, IS_TELEGRAM_APP, IS_TON_BRAND,
+  APP_COMMIT_HASH,
+  APP_ENV,
+  APP_VERSION,
+  IS_EXTENSION,
+  IS_GRAM_WALLET,
+  IS_TELEGRAM_APP,
+  IS_TON_BRAND,
+  SHOULD_CLEANUP_LEGACY_AUTH,
 } from '../../config';
 import { selectCurrentAccountId, selectIsMultichainAccount, selectSeasonalThemeOverride } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -43,6 +50,7 @@ interface StateProps {
   currentAccountId?: string;
   accountsById?: Record<string, Account>;
   canViewAllWalletVersions: boolean;
+  authTypes?: AuthType[];
   seasonalThemeOverride?: DeveloperSettingsOverrides['seasonalTheme'];
 }
 
@@ -86,6 +94,7 @@ function SettingsDeveloperOptions({
   currentAccountId,
   accountsById,
   canViewAllWalletVersions,
+  authTypes,
   seasonalThemeOverride,
 }: OwnProps & StateProps) {
   const {
@@ -95,9 +104,24 @@ function SettingsDeveloperOptions({
     openAddAccountModal,
     copyStorageData,
     showToast,
+    rollbackEnclaveMigration,
   } = getActions();
+
   const lang = useLang();
+  const [hasLegacyData, setHasLegacyData] = useState(false);
   const currentNetwork = NETWORK_OPTIONS[isTestnet ? 1 : 0].value;
+
+  // Check if legacy data exists
+  useEffect(() => {
+    if (isOpen) {
+      void callApi('hasLegacyData')
+        .then((result) => {
+          setHasLegacyData(Boolean(result));
+        });
+    }
+  }, [isOpen]);
+
+  const canRollbackMigration = hasLegacyData && !SHOULD_CLEANUP_LEGACY_AUTH && Boolean(authTypes?.length);
 
   const handleNetworkChange = useLastCallback((newNetwork: ApiNetwork) => {
     startChangingNetwork({ network: newNetwork });
@@ -129,6 +153,12 @@ function SettingsDeveloperOptions({
       const filename = `${brandPrefix}_logs_${new Date().toISOString()}.json`;
       await shareFile(filename, logsString, 'application/json');
     }
+  });
+
+  const handleRollbackMigration = useLastCallback(() => {
+    rollbackEnclaveMigration();
+
+    onClose();
   });
 
   return (
@@ -197,15 +227,24 @@ function SettingsDeveloperOptions({
         />
       </div>
 
-      {isCopyStorageEnabled && (
+      {(isCopyStorageEnabled || canRollbackMigration) && (
         <>
           <p className={styles.blockTitle}>{lang('Dangerous')}</p>
           <div className={styles.settingsBlock}>
-            <div className={buildClassName(styles.item, styles.item_small)} onClick={() => copyStorageData()}>
-              <span className={styles.itemTitle}>{lang('Copy Storage Data')}</span>
+            {isCopyStorageEnabled && (
+              <div className={buildClassName(styles.item, styles.item_small)} onClick={() => copyStorageData()}>
+                <span className={styles.itemTitle}>{lang('Copy Storage Data')}</span>
 
-              <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
-            </div>
+                <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
+              </div>
+            )}
+            {canRollbackMigration && (
+              <div className={buildClassName(styles.item, styles.item_small)} onClick={handleRollbackMigration}>
+                {lang('Rollback Migration')}
+
+                <i className={buildClassName(styles.iconChevronRight, 'icon-revert')} aria-hidden />
+              </div>
+            )}
           </div>
         </>
       )}
@@ -244,6 +283,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     currentAccountId,
     accountsById,
     canViewAllWalletVersions,
+    authTypes: global.authTypes,
     seasonalThemeOverride: selectSeasonalThemeOverride(global),
   };
 })(SettingsDeveloperOptions));

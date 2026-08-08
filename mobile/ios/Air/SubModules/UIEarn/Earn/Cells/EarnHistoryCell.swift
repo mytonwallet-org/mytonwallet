@@ -43,25 +43,25 @@ class EarnHistoryCell: WHighlightCollectionViewCell {
         // MARK: title / time
         titleLabel = UILabel()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 16, weight: .medium)
+        titleLabel.applyTextStyle(.calloutEmphasized)
         titleLabel.numberOfLines = 0
         contentView.addSubview(titleLabel)
         
         timeLabel = UILabel()
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
-        timeLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        timeLabel.applyTextStyle(.supporting, content: .technical)
         contentView.addSubview(timeLabel)
         
         // MARK: amount labels
         amountLabel = WAmountLabel()
         amountLabel.translatesAutoresizingMaskIntoConstraints = false
-        amountLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        amountLabel.applyTextStyle(.body, content: .technical)
         amountContainer.addContent(amountLabel)
         contentView.addSubview(amountContainer)
         
         amount2Label = WAmountLabel(primaryColor: .air.secondaryLabel, showNegativeSign: true)
         amount2Label.translatesAutoresizingMaskIntoConstraints = false
-        amount2Label.font = .systemFont(ofSize: 14, weight: .regular)
+        amount2Label.applyTextStyle(.supporting, content: .technical)
         amount2Container.addContent(amount2Label)
         contentView.addSubview(amount2Container)
         
@@ -126,15 +126,15 @@ class EarnHistoryCell: WHighlightCollectionViewCell {
     
     func formatDateTime(date: Date) -> String {
         let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US")
-        dateFormatter.dateFormat = "d MMMM · HH:mm"
+        dateFormatter.locale = LocalizationSupport.shared.locale
+        dateFormatter.setLocalizedDateFormatFromTemplate("dMMMMjmm")
         return dateFormatter.string(from: date)
     }
-    
+
     func formatDate(date: Date) -> String {
         let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US")
-        dateFormatter.dateFormat = "d MMMM"
+        dateFormatter.locale = LocalizationSupport.shared.locale
+        dateFormatter.setLocalizedDateFormatFromTemplate("dMMMM")
         return dateFormatter.string(from: date)
     }
 

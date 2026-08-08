@@ -9,19 +9,24 @@ import { SwapState, SwapType } from '../../global/types';
 
 import {
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountState,
+  selectHasMultipleAccounts,
   selectSwapTokens,
   selectSwapType,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { formatCurrencyExtended } from '../../util/formatNumber';
+import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import TokenSelector from '../common/TokenSelector';
 import TransactionBanner from '../common/TransactionBanner';
 import Modal from '../ui/Modal';
@@ -43,6 +48,9 @@ interface StateProps {
   swapTokens?: UserSwapToken[];
   activityById?: Record<string, ApiActivity>;
   accountChains?: Account['byChain'];
+  accountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
 }
 
 function SwapModal({
@@ -66,6 +74,9 @@ function SwapModal({
   swapTokens,
   activityById,
   accountChains,
+  accountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
   const {
     startSwap,
@@ -77,6 +88,7 @@ function SwapModal({
     addSwapToken,
     setSwapTokenIn,
     setSwapTokenOut,
+    switchSwapAccount,
   } = getActions();
   const lang = useLang();
 
@@ -120,7 +132,7 @@ function SwapModal({
     }
   }, [activityById, activityId, isOpen, swapType]);
 
-  const handleTransferSubmit = useLastCallback((password: string) => {
+  const handleTransferSubmit = useLastCallback((enclaveToken: string) => {
     setRenderedTransactionAmountIn(amountIn);
     setRenderedTransactionAmountOut(amountOut);
     setRenderedTransactionTokenIn(tokenIn);
@@ -128,11 +140,11 @@ function SwapModal({
     setRenderedSwapType(swapType);
 
     if (swapType === SwapType.OnChain) {
-      submitSwap({ password });
+      submitSwap({ enclaveToken });
       return;
     }
 
-    submitSwapCex({ password });
+    submitSwapCex({ enclaveToken });
   });
 
   const handleBackClick = useLastCallback(() => {
@@ -185,6 +197,18 @@ function SwapModal({
     });
   });
 
+  const handleOpenAccountSelector = useLastCallback(() => {
+    setSwapScreen({ state: SwapState.SelectAccount });
+  });
+
+  const handleSelectAccount = useLastCallback((nextAccountId: string) => {
+    switchSwapAccount({ accountId: nextAccountId });
+  });
+
+  const handleSelectAccountBack = useLastCallback(() => {
+    setSwapScreen({ state: SwapState.Initial });
+  });
+
   function renderSwapShortInfo(
     bannerTokenIn = tokenIn,
     bannerTokenOut = tokenOut,
@@ -210,12 +234,34 @@ function SwapModal({
       case SwapState.Initial:
         return (
           <>
-            <ModalHeader
-              title={lang('$swap_action')}
-              onClose={cancelSwap}
-            />
-            <SwapInitial isActive={isActive} />
+            <div
+              className={buildClassName(styles.initialHeader, hasMultipleAccounts && styles.initialHeaderWithSwitcher)}
+            >
+              <ModalHeader
+                title={lang('$swap_action')}
+                onClose={cancelSwap}
+              />
+              {hasMultipleAccounts && accountId && (
+                <AccountSwitcherPill
+                  accountId={accountId}
+                  title={accountTitle}
+                  className={styles.accountPill}
+                  onClick={handleOpenAccountSelector}
+                />
+              )}
+            </div>
+            <SwapInitial key={accountId} isActive={isActive} />
           </>
+        );
+      case SwapState.SelectAccount:
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            getIsAccountDisabled={getIsViewAccountDisabled}
+            onAccountSelect={handleSelectAccount}
+            onBack={handleSelectAccountBack}
+            onClose={handleModalCloseWithReset}
+          />
         );
       case SwapState.Blockchain:
         return (
@@ -252,7 +298,7 @@ function SwapModal({
             isActive={isActive}
             isLoading={isLoading}
             error={error}
-            onSubmit={handleTransferSubmit}
+            onAuthorize={handleTransferSubmit}
             onBack={handleBackClick}
           >
             {renderSwapShortInfo()}
@@ -316,7 +362,7 @@ function SwapModal({
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}
@@ -339,5 +385,8 @@ export default memo(withGlobal((global): StateProps => {
     swapTokens: selectSwapTokens(global),
     activityById,
     accountChains: account?.byChain,
+    accountId: selectCurrentAccountId(global),
+    accountTitle: account?.title,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
   };
 })(SwapModal));

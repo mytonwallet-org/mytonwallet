@@ -27,7 +27,6 @@ final class WordCheckModel {
     var tests: [Test]
     var revealCorrect: Bool = false
     var showTryAgain: Bool = false
-    var hideAll: Bool = false    
     var allSelected: Bool { tests.allSatisfy { $0.selection != nil } }
     var allCorrect: Bool { tests.allSatisfy { $0.selection == $0.correctWord.word } }
     

@@ -14,8 +14,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 class WordListView(context: Context) : WView(context) {
 
     fun setupViews(words: List<String>) {
-        if (words.isEmpty())
-            return
+        if (words.isEmpty()) return
 
         val rowsCount = (words.size / 2.0).ceilToInt()
 

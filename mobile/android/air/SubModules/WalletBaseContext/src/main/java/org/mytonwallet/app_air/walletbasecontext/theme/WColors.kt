@@ -35,6 +35,8 @@ enum class WColor {
     Green,
     PositiveBalance,
     Red,
+    Buy,
+    Sell,
     Purple,
     Orange,
     StockBadge,
@@ -60,9 +62,8 @@ enum class WColor {
 }
 
 val WColor.color: Int get() = ThemeManager.getColor(this)
-fun WColor.colorForTheme(isDark: Boolean?): Int {
-    return ThemeManager.getColor(this, isDark ?: ThemeManager.isDark)
-}
+fun WColor.colorForTheme(isDark: Boolean?): Int =
+    ThemeManager.getColor(this, isDark ?: ThemeManager.isDark)
 
 val WColor.colorStateList: ColorStateList
     get() {
@@ -97,7 +98,7 @@ object ThemeManager : ITheme {
         theme: String,
         roundedToolbarsActive: Boolean = true,
         sideGuttersActive: Boolean,
-        roundedCornersActive: Boolean = true,
+        roundedCornersActive: Boolean = true
     ) {
         isInitialized = true
         activeTheme = theme

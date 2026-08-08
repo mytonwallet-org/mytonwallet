@@ -172,6 +172,19 @@ struct DecimalAmountFormattingTests {
     }
 
     @Test
+    func `high precision preset renders token amount with four decimals`() {
+        let amount = AnyDecimalAmount(
+            BigInt(1_197_657_000),
+            decimals: 9,
+            symbol: "XAUt0",
+            forceCurrencyToRight: true
+        )
+
+        #expect(amount.formatted(.baseCurrencyHighPrecision) == "1.1977 XAUt0")
+        #expect(amount.formatted(.baseCurrencyHighPrecision, roundHalfUp: false) == "1.1976 XAUt0")
+    }
+
+    @Test
     func `fee preset uses zero count subscript for tiny values starting at six zeros`() {
         let belowThreshold = AnyDecimalAmount(
             BigInt(5_600),
@@ -203,14 +216,16 @@ struct DecimalAmountFormattingTests {
     }
 
     @Test
-    func `base currency card preset keeps minimum fraction digits`() {
+    func `base currency card preset keeps minimum fraction digits except for zero`() {
         let trailingZero = BaseCurrencyAmount(BigInt(12_345_100_000), .USD)
         let whole = BaseCurrencyAmount(BigInt(12_345_000_000), .USD)
         let small = BaseCurrencyAmount(BigInt(22_222), .USD)
+        let zero = BaseCurrencyAmount(BigInt(0), .USD)
 
         #expect(trailingZero.formatted(.baseCurrencyEquivalentWithMinimumFractionDigits) == "$12 345.10")
         #expect(whole.formatted(.baseCurrencyEquivalentWithMinimumFractionDigits) == "$12 345.00")
         #expect(small.formatted(.baseCurrencyEquivalentWithMinimumFractionDigits) == "$0.022")
+        #expect(zero.formatted(.baseCurrencyEquivalentWithMinimumFractionDigits) == "$0")
     }
 
     @Test

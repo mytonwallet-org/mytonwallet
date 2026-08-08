@@ -33,6 +33,7 @@ type OwnProps = ColsProps & {
   maskClassName?: string;
   contentClassName?: string;
   children: TeactNode;
+  onContentHidden?: NoneToVoidFunction;
 };
 
 function SensitiveData({
@@ -50,6 +51,7 @@ function SensitiveData({
   maskClassName,
   contentClassName,
   children,
+  onContentHidden,
 }: OwnProps) {
   const resolvedCols = cols ?? getDeterministicRandom(min, max, seed);
   const [isShown, setIsShown] = useState(false);
@@ -73,6 +75,7 @@ function SensitiveData({
     isOpen: !isMaskActive,
     noMountTransition: !isMaskActive,
     className: 'slow',
+    onCloseAnimationEnd: onContentHidden,
   });
 
   const {
@@ -112,7 +115,7 @@ function SensitiveData({
     styles.content,
     contentClassName,
     isMaskActive && styles.fixedWidth,
-    isActive && styles.noninteractive,
+    isMaskActive && styles.noninteractive,
   );
 
   return (

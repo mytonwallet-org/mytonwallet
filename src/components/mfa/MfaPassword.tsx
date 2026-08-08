@@ -12,12 +12,12 @@ import PasswordForm from '../ui/PasswordForm';
 interface OwnProps {
   isActive: boolean;
   error?: string;
-  onSubmit: (password: string) => void;
+  onAuthorize: (enclaveToken: string) => void;
   onCancel: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 }
 
-function MfaPassword({ isActive, error, onSubmit, onCancel, onClose }: OwnProps) {
+function MfaPassword({ isActive, error, onAuthorize, onCancel, onClose }: OwnProps) {
   const lang = useLang();
 
   const { clearInstallMfaError } = getActions();
@@ -36,7 +36,7 @@ function MfaPassword({ isActive, error, onSubmit, onCancel, onClose }: OwnProps)
         submitLabel={lang('Connect')}
         cancelLabel={lang('Cancel')}
         noAutoConfirm
-        onSubmit={onSubmit}
+        onAuthorize={onAuthorize}
         onCancel={onCancel}
         onUpdate={clearInstallMfaError}
       />

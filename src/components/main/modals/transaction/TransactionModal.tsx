@@ -146,8 +146,8 @@ function TransactionModal({
     {
       closePasswordSlide: closePasswordSlideBase,
       clearPasswordError,
-      handlePasswordSubmit,
-      openHiddenComment,
+      handleAuthorizeComment,
+      handleCommentReveal,
       resetDecryptedComment,
     },
   ] = useEncryptedComment({
@@ -297,7 +297,7 @@ function TransactionModal({
               encryptedComment={encryptedComment}
               decryptedComment={decryptedComment}
               canDecryptComment={canDecryptComment}
-              onDecryptComment={openHiddenComment}
+              onDecryptComment={handleCommentReveal}
               unstakeDate={unstakeDate}
               shouldRenderUnstakeTimer={shouldRenderUnstakeTimer}
               unstakeTimerRef={unstakeTimerRef}
@@ -318,7 +318,7 @@ function TransactionModal({
           <PasswordSlide
             isActive={isActive}
             error={passwordError}
-            onSubmit={handlePasswordSubmit}
+            onAuthorize={handleAuthorizeComment}
             onCancel={closePasswordSlide}
             onUpdate={clearPasswordError}
             onClose={handleClose}

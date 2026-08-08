@@ -16,9 +16,15 @@ struct BaseCurrencyCell: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(currency.symbol)
-                    .font17h22()
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
+                    .frame(minHeight: 22)
                 Text(currency.name)
-                    .airFont15h18(weight: .regular)
+                    .textStyle(.subheadline)
+                    .frame(minHeight: 18)
                     .foregroundStyle(Color.air.secondaryLabel)
             }
             .offset(y: -1)

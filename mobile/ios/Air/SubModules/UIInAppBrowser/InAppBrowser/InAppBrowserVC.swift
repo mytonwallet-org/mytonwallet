@@ -48,13 +48,14 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         view.addSubview(navigationBar)
         NSLayoutConstraint.activate([
             navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
-            navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-            navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor),
+            navigationBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            navigationBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             navigationBar.titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.leadingAnchor, constant: 30),
             navigationBar.titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.backButton.trailingAnchor, constant: 16),
             navigationBar.titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.leadingButton.view.trailingAnchor, constant: 16),
         ])
         navigationBar.titleLabel.numberOfLines = 1
+        navigationBar.subtitleLabel.applyTextStyle(.footnote, content: .technical)
         navigationBar.titleLabel.alpha = 0
         navigationBar.titleLabel.transform = .identity.scaledBy(x: 0.4, y: 0.4)
 
@@ -123,8 +124,8 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         pageVC.view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             pageVC.view.topAnchor.constraint(equalTo: view.topAnchor),
-            pageVC.view.leftAnchor.constraint(equalTo: view.leftAnchor),
-            pageVC.view.rightAnchor.constraint(equalTo: view.rightAnchor),
+            pageVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            pageVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             pageVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         bringOverlaysToFront()
@@ -277,7 +278,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
             let canGoBack = pageState.canGoBack
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
                 navigationBar.backButton.isHidden = true
-                navigationBar.leadingButton.setImage(UIImage(systemName: canGoBack ? "chevron.left" : "xmark"))
+                navigationBar.leadingButton.setImage(UIImage(systemName: canGoBack ? "chevron.backward" : "xmark"))
                 navigationBar.leadingButton.onPress = canGoBack ? { [weak self] in
                     self?.goBack()
                 } : { [weak self] in
@@ -360,7 +361,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     }
 
     private func makeExplorerTitleText(_ title: String, label: UILabel) -> NSAttributedString {
-        let font = label.font ?? .systemFont(ofSize: 17, weight: .semibold)
+        let font = label.font ?? WTypography.uiFont(.bodyStrong)
         let color = label.textColor ?? UIColor.label
         let attr = NSMutableAttributedString(string: title, attributes: [
             .font: font,

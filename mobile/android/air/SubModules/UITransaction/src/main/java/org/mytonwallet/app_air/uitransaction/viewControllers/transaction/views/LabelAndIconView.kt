@@ -10,7 +10,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 
 class LabelAndIconView(context: Context) : WView(context) {
 
-    val lbl = WLabel(context)
+    val lbl = WLabel(context).apply {
+        includeFontPadding = false
+    }
     val img = WCustomImageView(context).apply {
         chainSize = 10.dp
     }
@@ -18,6 +20,7 @@ class LabelAndIconView(context: Context) : WView(context) {
     override fun setupViews() {
         super.setupViews()
 
+        layoutDirection = LAYOUT_DIRECTION_LTR
         addView(lbl, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(img, LayoutParams(30.dp, 30.dp))
 
@@ -25,7 +28,7 @@ class LabelAndIconView(context: Context) : WView(context) {
             toStart(lbl)
             toCenterY(lbl)
             startToEnd(img, lbl, 8f)
-            toBottom(img, 6f)
+            centerYToCenterY(img, lbl)
             toEnd(img)
         }
     }

@@ -50,25 +50,20 @@ final class NftDetailsCollectionButton: UIView, NftDetailsContentColorConsumer {
         }
         
         let textColor = contentColor.secondaryTextColor
-        let font = UIFont.systemFont(ofSize: 16)
+        let textFont = WTypography.uiFont(.callout)
+        let symbolFont = WTypography.uiFont(.callout, content: .technical)
         let canTap = onTap != nil
         
         let attrString = NSMutableAttributedString()
-        attrString.append(NSAttributedString(string: name, attributes: [.font: font, .foregroundColor: textColor]))
+        attrString.append(NSAttributedString(string: name, attributes: [.font: textFont, .foregroundColor: textColor]))
 
         if canTap {
-            attrString.append(NSAttributedString(string: "\u{2009}", attributes: [.font: font, .foregroundColor: textColor])) // narrow space
-            let symbolConfig = UIImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+            attrString.append(NSAttributedString(string: "\u{2009}", attributes: [.font: textFont, .foregroundColor: textColor])) // narrow space
+            let symbolConfig = UIImage.SymbolConfiguration(font: symbolFont, scale: .small)
             let chevronImage = UIImage(systemName: "chevron.forward", withConfiguration: symbolConfig)?
                 .withTintColor(textColor, renderingMode: .alwaysOriginal)
             let attachment = NSTextAttachment()
             attachment.image = chevronImage
-            attachment.bounds = CGRect(
-                x: 0,
-                y: (font.descender) / 2,
-                width: chevronImage?.size.width ?? 6,
-                height: chevronImage?.size.height ?? 12
-            )
             attrString.append(NSAttributedString(attachment: attachment))
         }
 
@@ -146,7 +141,7 @@ final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
     
     var bodyText: String? {
         didSet {
-            bodyLabel.setText(bodyText, font: UIFont.systemFont(ofSize: 17), lineHeight: 22)
+            bodyLabel.setText(bodyText, style: .body, lineHeight: 22)
         }
     }
         
@@ -165,13 +160,13 @@ final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
         addSubview(backgroundView)
         
         titleLabel.text = titleText
-        titleLabel.font = .systemFont(ofSize: 14)
+        titleLabel.applyTextStyle(.supporting)
         titleLabel.numberOfLines = 0
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
         
         bodyLabel.text = bodyText
-        bodyLabel.font = .systemFont(ofSize: 17)
+        bodyLabel.applyTextStyle(.body)
         bodyLabel.numberOfLines = 0
         
         bodyLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -212,7 +207,7 @@ final class NftDetailsDomainTile: UIView, NftDetailsContentColorConsumer {
     private let renewButton = UIButton(type: .custom)
 
     var text: String? {
-        didSet { textLabel.setText(text, font: .systemFont(ofSize: 17), lineHeight: 22) }
+        didSet { textLabel.setText(text, style: .body, lineHeight: 22) }
     }
 
     var showsRenewButton: Bool = true {
@@ -247,7 +242,7 @@ final class NftDetailsDomainTile: UIView, NftDetailsContentColorConsumer {
         stackView.addArrangedSubview(textLabel)
 
         renewButton.setTitle(lang("Renew"), for: .normal)
-        renewButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        renewButton.titleLabel?.applyTextStyle(.bodyStrong)
         renewButton.addTarget(self, action: #selector(handleRenewTap), for: .touchUpInside)
         renewButton.setContentHuggingPriority(.required, for: .horizontal)
         renewButton.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -418,14 +413,13 @@ final class NftDetailsAttributesGrid: UIView, NftDetailsContentColorConsumer {
             keyColumnSeparatorView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
         ]
         
-        let font = UIFont.systemFont(ofSize: 15)
         let infiniteSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         var maxKeyWidth1: CGFloat = 0
         var maxValueWidth: CGFloat = 0
         for (index, var row) in rows.enumerated() {
             do {
                 let keyLabel = UILabel()
-                keyLabel.setText(row.attribute.traitType, font: font, lineHeight: 22)
+                keyLabel.setText(row.attribute.traitType, style: .subheadline, lineHeight: 22)
                 keyLabel.numberOfLines = 0
                 row.keyLabel = keyLabel
                 let keyWidth = keyLabel.sizeThatFits(infiniteSize).width
@@ -434,7 +428,7 @@ final class NftDetailsAttributesGrid: UIView, NftDetailsContentColorConsumer {
             
             do {
                 let valueLabel = UILabel()
-                valueLabel.setText(row.attribute.value, font: font, lineHeight: 22)
+                valueLabel.setText(row.attribute.value, style: .subheadline, lineHeight: 22)
                 valueLabel.numberOfLines = 0
                 row.valueLabel = valueLabel
                 let valueWidth = valueLabel.sizeThatFits(infiniteSize).width
@@ -500,7 +494,12 @@ final class NftDetailsAttributesGrid: UIView, NftDetailsContentColorConsumer {
 // MARK: - NftDetailsTileBackground
 
 private extension UILabel {
-    func setText(_ text: String?, font: UIFont, lineHeight: CGFloat) {
+    func setText(
+        _ text: String?,
+        style textStyle: WTextStyle,
+        content: WTextContent = .default,
+        lineHeight: CGFloat
+    ) {
         let style = NSMutableParagraphStyle()
         style.minimumLineHeight = lineHeight
         style.maximumLineHeight = lineHeight
@@ -508,7 +507,7 @@ private extension UILabel {
         attributedText = NSAttributedString(
             string: text ?? "",
             attributes: [
-                .font: font,
+                .font: WTypography.uiFont(textStyle, content: content),
                 .paragraphStyle: style
             ]
         )

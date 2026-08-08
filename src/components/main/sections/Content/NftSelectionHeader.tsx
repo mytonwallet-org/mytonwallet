@@ -127,7 +127,9 @@ function NftSelectionHeader({
   const ref = useRef<HTMLButtonElement>();
   const menuRef = useRef<HTMLDivElement>();
   const handleMenuOpen = useLastCallback(() => {
-    const { right: x, bottom: y } = ref.current!.getBoundingClientRect();
+    const { left, right, bottom: y } = ref.current!.getBoundingClientRect();
+    // RTL: mirror the anchor edge
+    const x = lang.isRtl ? left : right;
     setMenuAnchor({ x, y });
   });
   const handleMenuClose = useLastCallback(() => {

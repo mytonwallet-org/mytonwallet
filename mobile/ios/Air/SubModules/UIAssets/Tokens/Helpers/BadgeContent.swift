@@ -21,8 +21,12 @@ public enum BadgeContent {
     }
 }
 
-@MainActor func getBadgeContent(accountContext: AccountContext, slug: String, isStaking: Bool) -> BadgeContent? {
-    if let stakingBadge = accountContext.getStakingBadgeContent(tokenSlug: slug, isStaking: isStaking) {
+@MainActor func getBadgeContent(
+    accountContext: AccountContext,
+    slug: String,
+    stakingBadge: StakingBadgeContent?
+) -> BadgeContent? {
+    if let stakingBadge {
         return .staking(stakingBadge)
     } else if let token = TokenStore.getToken(slug: slug), let label = token.label?.nilIfEmpty {
         return .tokenLabel(text: label, style: token.isRwaStock ? .stock : .regular)

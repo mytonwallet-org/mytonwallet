@@ -15,7 +15,7 @@ interface OwnProps {
   isLoading?: boolean;
   error?: string;
   onClearError: NoneToVoidFunction;
-  onSubmit: (password: string) => void;
+  onAuthorize: (enclaveToken: string) => void;
   onBack: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 }
@@ -25,7 +25,7 @@ function AddAccountPasswordModal({
   isLoading,
   error,
   onClearError,
-  onSubmit,
+  onAuthorize,
   onBack,
   onClose,
 }: OwnProps) {
@@ -54,7 +54,7 @@ function AddAccountPasswordModal({
         submitLabel={lang('Confirm')}
         noAutoConfirm
         isFullWidthButton
-        onSubmit={onSubmit}
+        onAuthorize={onAuthorize}
         onUpdate={onClearError}
       />
     </div>

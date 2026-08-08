@@ -4,15 +4,17 @@ import android.content.Context
 import android.graphics.Rect
 import androidx.core.graphics.Insets
 import androidx.core.view.children
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import java.lang.ref.WeakReference
 
-class WPopupHost(context: Context) : WFrameLayout(context), WThemedView {
+class WPopupHost(context: Context) :
+    WFrameLayout(context),
+    WThemedView {
 
     private val safeAreaBounds: Rect = Rect()
     private var windowRef: WeakReference<WWindow>? = null

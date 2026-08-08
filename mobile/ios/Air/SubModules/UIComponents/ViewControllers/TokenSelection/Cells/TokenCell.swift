@@ -18,10 +18,6 @@ public final class TokenCell: UICollectionViewCell {
     
     private static let horizontalInset: CGFloat = 12
     private static let tokenImageToTextSpacing: CGFloat = 10
-    private static let titleFont = UIFont.systemFont(ofSize: 16, weight: .medium)
-    private static let amountFont = UIFont.systemFont(ofSize: 16, weight: .regular)
-    private static let secondaryFont = UIFont.systemFont(ofSize: 14, weight: .regular)
-
     private let selectionIndicatorView = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
 
     override init(frame: CGRect) {
@@ -62,9 +58,9 @@ public final class TokenCell: UICollectionViewCell {
         stackViewBottom.priority = .defaultHigh
         contentView.addSubview(stackView)
         NSLayoutConstraint.activate([
-            stackView.leftAnchor.constraint(equalTo: contentView.leftAnchor),
+            stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             stackView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            stackView.rightAnchor.constraint(equalTo: contentView.rightAnchor),
+            stackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             stackViewBottom,
         ])
 
@@ -91,7 +87,7 @@ public final class TokenCell: UICollectionViewCell {
         leftLabelsStackView.addArrangedSubview(titleRowStackView)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = TokenCell.titleFont
+        titleLabel.applyTextStyle(.calloutEmphasized)
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleRowStackView.addArrangedSubview(titleLabel)
@@ -102,7 +98,7 @@ public final class TokenCell: UICollectionViewCell {
         badgeView.configureHidden()
 
         descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
-        descriptionLabel.font = TokenCell.secondaryFont
+        descriptionLabel.applyTextStyle(.supporting)
         descriptionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         leftLabelsStackView.addArrangedSubview(descriptionLabel)
 
@@ -122,13 +118,13 @@ public final class TokenCell: UICollectionViewCell {
         contentStackView.addArrangedSubview(trailingLabelsStackView)
 
         amountLabel.translatesAutoresizingMaskIntoConstraints = false
-        amountLabel.font = TokenCell.amountFont
+        amountLabel.applyTextStyle(.callout, content: .technical)
         amountLabel.textAlignment = .right
         amountLabelContainer.addContent(amountLabel)
         trailingLabelsStackView.addArrangedSubview(amountLabelContainer)
 
         secondaryAmountLabel.translatesAutoresizingMaskIntoConstraints = false
-        secondaryAmountLabel.font = TokenCell.secondaryFont
+        secondaryAmountLabel.applyTextStyle(.supporting, content: .technical)
         secondaryAmountLabel.textAlignment = .right
         secondaryAmountLabelContainer.addContent(secondaryAmountLabel)
         trailingLabelsStackView.addArrangedSubview(secondaryAmountLabelContainer)
@@ -192,7 +188,7 @@ public final class TokenCell: UICollectionViewCell {
             isAvailable: isAvailable,
             secondaryAmountMode: secondaryAmountMode,
             isStaking: false,
-            fallbackName: token.name,
+            fallbackName: token.displayName(strippingLabelWhenShown: false),
             isCurrentSelection: isCurrentSelection,
             onSelect: onSelect
         )

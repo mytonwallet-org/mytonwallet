@@ -1,16 +1,16 @@
 import { addCallback } from '../../../lib/teact/teactn';
 
-import type { GlobalState } from '../../types';
+import type { AuthType, GlobalState } from '../../types';
 import { SettingsState } from '../../types';
 
-import { setInMemoryPasswordSignal } from '../../../util/authApi/inMemoryPasswordStore';
 import { getChainsSupportingLedger } from '../../../util/chain';
 import { setLanguage } from '../../../util/langProvider';
 import switchTheme from '../../../util/switchTheme';
 import { callApi } from '../../../api';
-import { addActionHandler, setGlobal } from '../..';
-import { resetHardware, updateAccountSettings, updateSettings } from '../../reducers';
-import { selectCurrentAccountId, selectIsBiometricAuthEnabled } from '../../selectors';
+import { enclave } from '../../../enclave';
+import { addActionHandler, getGlobal, setGlobal } from '../..';
+import { resetHardware, updateAccountSettings, updateAuth, updateSettings } from '../../reducers';
+import { selectCurrentAccountId, selectEnclaveToken } from '../../selectors';
 import { selectNotificationAddressesSlow } from '../../selectors/notifications';
 
 let prevGlobal: GlobalState | undefined;
@@ -67,12 +67,9 @@ addActionHandler('setIsManualLockActive', (global, actions, { isActive, shouldHi
 });
 
 addActionHandler('setIsAutoConfirmEnabled', (global, actions, { isEnabled }) => {
-  if (!isEnabled) {
-    actions.setInMemoryPassword({ password: undefined, force: true });
-  }
-
   return {
     ...global,
+    ...(!isEnabled && { enclaveSession: undefined }),
     settings: {
       ...global.settings,
       isAutoConfirmEnabled: isEnabled || undefined,
@@ -96,25 +93,48 @@ addActionHandler('setIsAllowSuspiciousActions', (global, actions, { isEnabled })
   });
 });
 
-addActionHandler('setInMemoryPassword', (global, actions, { password, force }) => {
-  if (!(global.settings.isAutoConfirmEnabled || force)) {
-    return global;
-  }
-
-  // If biometrics are enabled, we don't need to set the password in memory
-  const isBiometricAuthEnabled = selectIsBiometricAuthEnabled(global);
-  if (isBiometricAuthEnabled) {
-    return global;
-  }
-
-  setInMemoryPasswordSignal(password);
-
-  return global;
-});
-
 addActionHandler('openSettingsHardwareWallet', (global) => {
   global = resetHardware(global, getChainsSupportingLedger()[0], true); // todo: Add a chain selector screen for Ledger auth
   global = updateSettings(global, { state: SettingsState.LedgerConnectHardware });
 
   setGlobal(global);
+});
+
+addActionHandler('changePasscode', async (global, actions, { passcode, onSuccess }) => {
+  // TODO Settings should have nothing to do with "auth"
+  global = updateAuth(global, { isLoading: true });
+  setGlobal(global);
+
+  try {
+    const currentEnclaveToken = selectEnclaveToken(global);
+    if (!currentEnclaveToken) {
+      throw new Error('Enclave session expired');
+    }
+    const newEnclaveSession = await enclave.migrateAuth(currentEnclaveToken, 'passcode', passcode, true);
+    if (!newEnclaveSession) throw new Error('Failed to setup auth');
+
+    global = getGlobal();
+    // Ensure 'passcode' is in authTypes: keep as-is if already present, otherwise append it
+    const authTypes: AuthType[] = global.authTypes?.includes('passcode')
+      ? global.authTypes
+      : [...(global.authTypes || []), 'passcode'];
+    global = { ...global, authTypes, enclaveSession: newEnclaveSession };
+    setGlobal(global);
+
+    // Changing the passcode reads no secret of its own, so the session this minted goes back rather
+    // than sitting there as a read nobody asked for - a counted session would keep it until the lock
+    actions.releaseEnclaveSession({ enclaveToken: newEnclaveSession.token });
+
+    onSuccess();
+  } catch (err: any) {
+    const error = err?.message || 'Failed to setup auth';
+
+    global = getGlobal();
+    global = updateAuth(global, { error });
+    setGlobal(global);
+  } finally {
+    global = getGlobal();
+    global = updateAuth(global, { isLoading: false });
+    setGlobal(global);
+  }
 });

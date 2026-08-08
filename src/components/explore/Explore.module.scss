@@ -76,6 +76,7 @@ $listHorizontalPadding: 1rem;
 .suggestions {
   --offset-y-value: 0.5rem;
 
+  pointer-events: auto;
   z-index: 3;
   margin: 0 0.5rem;
 
@@ -118,7 +119,7 @@ $listHorizontalPadding: 1rem;
 
   position: absolute;
   top: 0;
-  right: 0;
+  inset-inline-end: 0;
 
   display: flex;
   align-items: center;
@@ -236,6 +237,9 @@ $listHorizontalPadding: 1rem;
   }
 
   @include mixins.respond-below(xs) {
+    // The wrapper reaches under the bottom bar to hold the search above it, so only its children take clicks
+    pointer-events: none;
+
     position: absolute !important;
     z-index: 3;
     top: auto;
@@ -278,6 +282,8 @@ $listHorizontalPadding: 1rem;
   @include mixins.adapt-margin-to-scrollbar(1.25rem);
 
   @include mixins.respond-below(xs) {
+    pointer-events: auto;
+
     height: 2.75rem;
     margin: 0 1.25rem;
     border-radius: 6.25rem;
@@ -295,7 +301,7 @@ $listHorizontalPadding: 1rem;
 }
 
 .searchIcon {
-  margin-left: 0.75rem;
+  margin-inline-start: 0.75rem;
 
   @include mixins.respond-below(xs) {
     font-size: 1.25rem;
@@ -357,7 +363,7 @@ $listHorizontalPadding: 1rem;
 
 .featuredList {
   scrollbar-width: none;
-  scroll-padding-left: 1rem;
+  scroll-padding-inline-start: 1rem;
   scroll-snap-type: x mandatory;
 
   overflow-x: auto;

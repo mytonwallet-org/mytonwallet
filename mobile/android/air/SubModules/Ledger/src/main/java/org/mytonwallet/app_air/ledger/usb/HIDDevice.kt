@@ -7,12 +7,12 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.hardware.usb.UsbRequest
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.min
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 class HIDDevice(manager: UsbManager, device: UsbDevice) {
     private val connectedDevice: UsbDevice
@@ -74,10 +74,12 @@ class HIDDevice(manager: UsbManager, device: UsbDevice) {
                     throw Exception("I/O error")
                 }
                 while (offset != command.size) {
-                    val blockSize = (min(
-                        (command.size - offset).toDouble(),
-                        HID_BUFFER_SIZE.toDouble()
-                    )).toInt()
+                    val blockSize = (
+                        min(
+                            (command.size - offset).toDouble(),
+                            HID_BUFFER_SIZE.toDouble()
+                        )
+                        ).toInt()
                     System.arraycopy(command, offset, transferBuffer, 0, blockSize)
                     if (!request.queue(ByteBuffer.wrap(transferBuffer), HID_BUFFER_SIZE)) {
                         request.close()
@@ -93,10 +95,13 @@ class HIDDevice(manager: UsbManager, device: UsbDevice) {
                     throw Exception("I/O error")
                 }
 
-                while ((LedgerUSBHelpers.unwrapResponseAPDU(
-                        LEDGER_DEFAULT_CHANNEL, response.toByteArray(),
-                        HID_BUFFER_SIZE
-                    ).also { responseData = it }) == null
+                while ((
+                        LedgerUSBHelpers.unwrapResponseAPDU(
+                            LEDGER_DEFAULT_CHANNEL,
+                            response.toByteArray(),
+                            HID_BUFFER_SIZE
+                        ).also { responseData = it }
+                        ) == null
                 ) {
                     responseBuffer.clear()
                     if (!request.queue(responseBuffer, HID_BUFFER_SIZE)) {
@@ -109,15 +114,23 @@ class HIDDevice(manager: UsbManager, device: UsbDevice) {
                     response.write(transferBuffer, 0, HID_BUFFER_SIZE)
                 }
 
+                val completedResponse = responseData
+                    ?: throw IllegalStateException("Ledger USB response is incomplete")
                 if (debug) {
-                    Logger.d(Logger.LogTag.SHIDDevice, "exchange: response=" + toHex(responseData!!))
+                    Logger.d(
+                        Logger.LogTag.SHIDDevice,
+                        "exchange: response=" + toHex(completedResponse)
+                    )
                 }
 
                 request.close()
 
-                onCompletion(toHex(responseData!!))
+                onCompletion(toHex(completedResponse))
             } catch (e: Exception) {
-                e.printStackTrace()
+                Logger.e(
+                    Logger.LogTag.LEDGER,
+                    "USB HID exchange failed error=${e.javaClass.simpleName}"
+                )
                 onCompletion(null)
             }
         }
@@ -130,7 +143,10 @@ class HIDDevice(manager: UsbManager, device: UsbDevice) {
             connection.close()
             this.executor.shutdown()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Logger.e(
+                Logger.LogTag.LEDGER,
+                "USB HID close failed deviceId=$deviceId error=${e.javaClass.simpleName}"
+            )
         }
     }
 

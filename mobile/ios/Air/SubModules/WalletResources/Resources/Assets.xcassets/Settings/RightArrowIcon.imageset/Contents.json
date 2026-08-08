@@ -2,6 +2,7 @@
   "images" : [
     {
       "idiom" : "universal",
+      "language-direction" : "left-to-right",
       "scale" : "1x"
     },
     {
@@ -12,10 +13,12 @@
         }
       ],
       "idiom" : "universal",
+      "language-direction" : "left-to-right",
       "scale" : "1x"
     },
     {
       "idiom" : "universal",
+      "language-direction" : "left-to-right",
       "scale" : "2x"
     },
     {
@@ -26,11 +29,13 @@
         }
       ],
       "idiom" : "universal",
+      "language-direction" : "left-to-right",
       "scale" : "2x"
     },
     {
       "filename" : "Drill-in.png",
       "idiom" : "universal",
+      "language-direction" : "left-to-right",
       "scale" : "3x"
     },
     {
@@ -42,6 +47,7 @@
       ],
       "filename" : "Drill-in-dark.png",
       "idiom" : "universal",
+      "language-direction" : "left-to-right",
       "scale" : "3x"
     }
   ],

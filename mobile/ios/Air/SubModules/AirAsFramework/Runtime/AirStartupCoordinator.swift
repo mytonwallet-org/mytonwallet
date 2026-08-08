@@ -90,7 +90,7 @@ final class AirStartupCoordinator {
                 let account = try await AccountStore.activateAccount(accountId: activeAccountId)
                 self.activationFinished(account: account)
             } catch {
-                log.fault("failed to activate account: \(error, .public) id=\(activeAccountId, .public)")
+                log.error("failed to activate account: \(error, .public) id=\(activeAccountId, .public)")
                 StartupTrace.mark("splashVM.activateAccount.failed", details: "tryingFallback=true")
                 for accountId in fallbackStartupAccountIds(excluding: activeAccountId) {
                     do {
@@ -99,7 +99,7 @@ final class AirStartupCoordinator {
                         self.activationFinished(account: account)
                         return
                     } catch {
-                        log.fault("failed to activate fallback account: \(error, .public) id=\(accountId, .public)")
+                        log.error("failed to activate fallback account: \(error, .public) id=\(accountId, .public)")
                         continue
                     }
                 }

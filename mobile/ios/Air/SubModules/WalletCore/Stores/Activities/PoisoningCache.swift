@@ -15,6 +15,9 @@ struct PoisoningCache {
     init() {}
 
     func isTransactionWithPoisoning(transaction: ApiTransactionActivity) -> Bool {
+        // The sender of an outgoing transaction is the wallet itself, so matching it against the cache can only
+        // ever produce a false positive that hides the user's own transfer.
+        guard transaction.isIncoming else { return false }
         guard let fromAddress = transaction.fromAddress else { return false }
         let key = makeKey(address: fromAddress)
         guard let cached = cache[key] else { return false }

@@ -14,16 +14,16 @@ extension Api {
         try await bridge.callApi("checkDnsRenewalDraft", accountId, nfts, decoding: ApiDnsRenewalDraft.self)
     }
     
-    public static func submitDnsRenewal(accountId: String, password: String?, nfts: [ApiNft], realFee: BigInt?) async throws -> [ApiMfaProtectedResult] {
-        try await bridge.callApi("submitDnsRenewal", accountId, password, nfts, realFee, decoding: [ApiMfaProtectedResult].self)
+    public static func submitDnsRenewal(accountId: String, enclaveToken: EnclaveToken?, nfts: [ApiNft], realFee: BigInt?) async throws -> [ApiMfaProtectedResult] {
+        try await bridge.callApi("submitDnsRenewal", accountId, enclaveToken, nfts, realFee, decoding: [ApiMfaProtectedResult].self)
     }
     
     public static func checkDnsChangeWalletDraft(accountId: String, nft: ApiNft, address: String) async throws -> ApiDnsChangeWalletDraft {
         try await bridge.callApi("checkDnsChangeWalletDraft", accountId, nft, address, decoding: ApiDnsChangeWalletDraft.self)
     }
     
-    public static func submitDnsChangeWallet(accountId: String, password: String?, nft: ApiNft, address: String, realFee: BigInt?) async throws -> ApiDnsChangeWalletResult {
-        try await bridge.callApi("submitDnsChangeWallet", accountId, password, nft, address, realFee, decoding: ApiDnsChangeWalletResult.self)
+    public static func submitDnsChangeWallet(accountId: String, enclaveToken: EnclaveToken?, nft: ApiNft, address: String, realFee: BigInt?) async throws -> ApiDnsChangeWalletResult {
+        return try await bridge.callApi("submitDnsChangeWallet", accountId, enclaveToken, nft, address, realFee, decoding: ApiDnsChangeWalletResult.self)
     }
 }
 

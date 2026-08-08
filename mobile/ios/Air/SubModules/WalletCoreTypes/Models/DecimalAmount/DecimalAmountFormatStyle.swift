@@ -58,7 +58,11 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     
     public func format(_ value: FormatInput) -> String {
         let prefix = precision?.prefix ?? ""
-        let minDecimals = minDecimals ?? adaptivePreset?.minDecimals
+        let minDecimals: Int? = if value.amount == 0 {
+            nil
+        } else {
+            minDecimals ?? adaptivePreset?.minDecimals
+        }
         let resolvedMaxDecimals = adaptivePreset?.resolve(value) ?? maxDecimals
         let maxDecimals: Int? = if let resolvedMaxDecimals, let minDecimals {
             max(resolvedMaxDecimals, minDecimals)

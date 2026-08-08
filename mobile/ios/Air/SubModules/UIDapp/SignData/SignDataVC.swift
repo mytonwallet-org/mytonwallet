@@ -1,6 +1,7 @@
 
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import WalletCore
 import WalletContext
@@ -85,27 +86,17 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
 
     func _onConfirm() {
         guard let update else { return }
-        Task {
-            do {
-                _ = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: account,
-                    title: lang("Sign Data"),
-                    headerView: DappHeaderView(dapp: update.dapp, accountContext: _account),
-                    passwordAction: { password in
-                        try await TonConnect.shared.submitSignData(
-                            update: update,
-                            password: password
-                        )
-                    },
-                    mfaTitle: lang("Sign Data")
-                )
-                self.onCancel = nil
-                self.dismiss(animated: true)
-            } catch is CancellationError {
-            } catch {
-                showAlert(error: error)
+        let protectedAction = ProtectedAction.signData(
+            account: account,
+            accountContext: _account,
+            update: update,
+            onCommitted: { [weak self] in
+                self?.onCancel = nil
+                self?.dismiss(animated: true)
             }
+        )
+        Task {
+            _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
 

@@ -10,10 +10,12 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WWindow
-import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
@@ -49,15 +51,14 @@ import org.mytonwallet.app_air.walletsdk.methods.SDKApiMethod
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget.Config
 import org.mytonwallet.app_air.widgets.utils.ImageUtils
-import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 class PriceWidgetConfigurationVC(
     context: Context,
     override val appWidgetId: Int,
     override val onResult: (ok: Boolean) -> Unit
-) :
-    WidgetConfigurationVC(context), WalletCore.EventObserver {
+) : WidgetConfigurationVC(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "PriceWidgetConfiguration"
 
     private val periodViewRowRipple =
@@ -85,7 +86,7 @@ class PriceWidgetConfigurationVC(
             LocaleController.getString("Token"),
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = false,
+            isLast = false
         ).apply {
             setValueView(tokenView)
             setOnClickListener {
@@ -105,12 +106,13 @@ class PriceWidgetConfigurationVC(
             LocaleController.getString("Chart Period"),
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = true,
+            isLast = true
         ).apply {
             setValueView(periodView)
             setOnClickListener {
-                if (continueButton.isLoading)
+                if (continueButton.isLoading) {
                     return@setOnClickListener
+                }
                 WMenuPopup.present(
                     periodView,
                     MHistoryTimePeriod.allPeriods.map {
@@ -139,10 +141,14 @@ class PriceWidgetConfigurationVC(
         setOnClickListener {
             lockView()
             isLoading = true
-            val config = Config(selectedToken?.toDictionary()?.apply {
-                if (selectedToken?.slug == TRON_SLUG)
-                    put("color", "#FF3B30")
-            }, selectedPeriod)
+            val config = Config(
+                selectedToken?.toDictionary()?.apply {
+                    if (selectedToken?.slug == TRON_SLUG) {
+                        put("color", "#FF3B30")
+                    }
+                },
+                selectedPeriod
+            )
             val baseCurrency = (WBaseStorage.getBaseCurrency() ?: MBaseCurrency.USD).currencyCode
             SDKApiMethod.Token.PriceChart(
                 config.assetId ?: PriceWidget.DEFAULT_TOKEN_ASSET_ID,
@@ -162,7 +168,9 @@ class PriceWidgetConfigurationVC(
                         )
                         val appWidgetManager = AppWidgetManager.getInstance(context)
                         PriceWidget().onUpdate(
-                            context, appWidgetManager, intArrayOf(appWidgetId)
+                            context,
+                            appWidgetManager,
+                            intArrayOf(appWidgetId)
                         )
                         onResult(true)
                     }
@@ -170,7 +178,7 @@ class PriceWidgetConfigurationVC(
                     override fun onError(error: Throwable) {
                         unlockView()
                         isLoading = false
-                        showError(MBridgeError.UNKNOWN)
+                        showError(MBridgeError.Type.UNKNOWN)
                     }
                 })
         }
@@ -203,8 +211,9 @@ class PriceWidgetConfigurationVC(
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown by lazy {
         ReversedCornerViewUpsideDown(context, scrollView).apply {
-            if (ignoreSideGuttering)
+            if (ignoreSideGuttering) {
                 setHorizontalPadding(0f)
+            }
         }
     }
 
@@ -217,16 +226,22 @@ class PriceWidgetConfigurationVC(
         navigationBar?.setTitleGravity(Gravity.CENTER)
 
         view.apply {
-            addView(scrollView, ConstraintLayout.LayoutParams(0, 0).apply {
-                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
-            })
+            addView(
+                scrollView,
+                ConstraintLayout.LayoutParams(0, 0).apply {
+                    matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+                }
+            )
             addView(
                 bottomReversedCornerViewUpsideDown,
                 ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_CONSTRAINT)
             )
-            addView(continueButton, ConstraintLayout.LayoutParams(0, WRAP_CONTENT).apply {
-                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
-            })
+            addView(
+                continueButton,
+                ConstraintLayout.LayoutParams(0, WRAP_CONTENT).apply {
+                    matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+                }
+            )
 
             setConstraints {
                 toTop(scrollView)
@@ -297,8 +312,9 @@ class PriceWidgetConfigurationVC(
 
     var openSelectorsOnTokenReceive = false
     private fun openTokenSelector() {
-        if (continueButton.isLoading || isDisappeared)
+        if (continueButton.isLoading || isDisappeared) {
             return
+        }
         if (TokenStore.tokens.isEmpty()) {
             openSelectorsOnTokenReceive = true
             return
@@ -317,14 +333,16 @@ class PriceWidgetConfigurationVC(
                     tokenView.setAsset(asset)
                     updateWidgetPreview()
                 }
-            })
+            }
+        )
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             WalletEvent.TokensChanged -> {
-                if (openSelectorsOnTokenReceive)
+                if (openSelectorsOnTokenReceive) {
                     openTokenSelector()
+                }
                 if (selectedToken == null) {
                     selectedToken = TokenStore.getToken(TONCOIN_SLUG)
                     tokenView.setAsset(selectedToken)
@@ -340,8 +358,9 @@ class PriceWidgetConfigurationVC(
         val token = selectedToken?.slug
         val config = Config(
             selectedToken?.toDictionary()?.apply {
-                if (selectedToken?.slug == TRON_SLUG)
+                if (selectedToken?.slug == TRON_SLUG) {
                     put("color", "#FF3B30")
+                }
             },
             selectedPeriod,
             appWidgetMinWidth = WidgetPreviewView.WIDTH,
@@ -362,8 +381,11 @@ class PriceWidgetConfigurationVC(
                         config.token?.optString("image", ""),
                         onBitmapReady = { image ->
                             Handler(Looper.getMainLooper()).post {
-                                if (config.period != selectedPeriod || token != selectedToken?.slug)
+                                if (config.period != selectedPeriod ||
+                                    token != selectedToken?.slug
+                                ) {
                                     return@post
+                                }
                                 config.apply {
                                     cachedChart = result.toList()
                                     cachedChartDt = System.currentTimeMillis()
@@ -380,7 +402,8 @@ class PriceWidgetConfigurationVC(
                                     )
                                 )
                             }
-                        })
+                        }
+                    )
                 }
 
                 override fun onError(error: Throwable) {

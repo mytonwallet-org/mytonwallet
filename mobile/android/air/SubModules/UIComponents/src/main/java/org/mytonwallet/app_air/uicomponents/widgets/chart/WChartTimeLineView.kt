@@ -15,7 +15,10 @@ import androidx.appcompat.widget.AppCompatImageView
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
-import org.mytonwallet.app_air.uicomponents.R
+import java.util.Collections
+import kotlin.math.max
+import kotlin.math.min
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -25,16 +28,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import java.util.Collections
-import kotlin.math.max
-import kotlin.math.min
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class WChartTimeLineView(
     context: Context,
     val startPercentageChanged: (value: Float) -> Unit,
-    val endPercentageChanged: (value: Float) -> Unit,
-) : FrameLayout(context), WThemedView {
+    val endPercentageChanged: (value: Float) -> Unit
+) : FrameLayout(context),
+    WThemedView {
 
     private val chartView = WLineChartView(context, false).apply {
         setTouchEnabled(false)
@@ -71,25 +72,37 @@ class WChartTimeLineView(
         id = generateViewId()
         layoutDirection = LAYOUT_DIRECTION_LTR
 
-        addView(chartView, LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
-            leftMargin = 21.dp
-            rightMargin = 21.dp
-            topMargin = 2.dp
-            bottomMargin = 2.dp
-        })
-        addView(leftOverlay, LayoutParams(0.dp, MATCH_PARENT).apply {
-            leftMargin = 20.dp
-            gravity = Gravity.LEFT
-        })
-        addView(rightOverlay, LayoutParams(0.dp, MATCH_PARENT).apply {
-            rightMargin = 20.dp
-            gravity = Gravity.RIGHT
-        })
+        addView(
+            chartView,
+            LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
+                leftMargin = 21.dp
+                rightMargin = 21.dp
+                topMargin = 2.dp
+                bottomMargin = 2.dp
+            }
+        )
+        addView(
+            leftOverlay,
+            LayoutParams(0.dp, MATCH_PARENT).apply {
+                leftMargin = 20.dp
+                gravity = Gravity.LEFT
+            }
+        )
+        addView(
+            rightOverlay,
+            LayoutParams(0.dp, MATCH_PARENT).apply {
+                rightMargin = 20.dp
+                gravity = Gravity.RIGHT
+            }
+        )
         addView(thumbTouchView, LayoutParams(0.dp, MATCH_PARENT))
         addView(imgLeft, LayoutParams(30.dp, MATCH_PARENT))
-        addView(imgRight, LayoutParams(30.dp, MATCH_PARENT).apply {
-            gravity = Gravity.RIGHT
-        })
+        addView(
+            imgRight,
+            LayoutParams(30.dp, MATCH_PARENT).apply {
+                gravity = Gravity.RIGHT
+            }
+        )
 
         imgLeft.setOnTouchListener { _, event ->
             parent.requestDisallowInterceptTouchEvent(true)
@@ -107,8 +120,7 @@ class WChartTimeLineView(
                         val deltaX = event.rawX - initialX
                         val newX = initialPosition + deltaX
                         var newStartPercentage = newX / (width - 40.dp)
-                        if (newStartPercentage < 0f)
-                            newStartPercentage = 0f
+                        if (newStartPercentage < 0f) newStartPercentage = 0f
                         if (isRangeAcceptable(newStartPercentage, endPercentage)) {
                             startPercentage = newStartPercentage
                             imgLeft.x =
@@ -146,8 +158,7 @@ class WChartTimeLineView(
                         val deltaX = event.rawX - initialX
                         val newX = initialPosition + deltaX
                         var newEndPercentage = (newX - 10.dp) / (width - 40.dp)
-                        if (newEndPercentage > 1f)
-                            newEndPercentage = 1f
+                        if (newEndPercentage > 1f) newEndPercentage = 1f
                         if (isRangeAcceptable(startPercentage, newEndPercentage)) {
                             imgRight.x = max(
                                 imgLeft.x + 30.dp,
@@ -246,24 +257,28 @@ class WChartTimeLineView(
         val overlayAlpha = if (ThemeManager.isDark) 50 else 10
         leftOverlay.setBackgroundColor(
             Color.BLACK.colorWithAlpha(overlayAlpha),
-            topLeft = 8f.dp, 0f, 0f, bottomLeft = 8f.dp
+            topLeft = 8f.dp,
+            0f,
+            0f,
+            bottomLeft = 8f.dp
         )
         rightOverlay.setBackgroundColor(
             Color.BLACK.colorWithAlpha(overlayAlpha),
-            0f, 12f.dp, 12f.dp, 0f
+            0f,
+            12f.dp,
+            12f.dp,
+            0f
         )
         thumbCenterDrawable.setStroke(1.dp, WColor.Thumb.color)
         val thumbDrawable = context.getDrawableCompat(
-            if (ThemeManager.isDark)
-                R.drawable.ic_chart_thumb_dark
-            else
-                R.drawable.ic_chart_thumb
+            if (ThemeManager.isDark) R.drawable.ic_chart_thumb_dark else R.drawable.ic_chart_thumb
         )
         val thumbRightDrawable = context.getDrawableCompat(
-            if (ThemeManager.isDark)
+            if (ThemeManager.isDark) {
                 R.drawable.ic_chart_thumb_right_dark
-            else
+            } else {
                 R.drawable.ic_chart_thumb_right
+            }
         )
         imgLeft.setImageDrawable(thumbDrawable)
         imgRight.setImageDrawable(thumbRightDrawable)
@@ -304,8 +319,7 @@ class WChartTimeLineView(
 
     private fun setFilledDataset() {
         val dataSize = historyData?.size ?: return
-        if (dataSize < 2)
-            return
+        if (dataSize < 2) return
         val startIndex = (startPercentage * dataSize).toInt().coerceIn(0, dataSize - 1)
         val endIndex = (endPercentage * dataSize).toInt().coerceIn(0, dataSize - 1)
         val filledEntries = mutableListOf<Entry>()
@@ -342,8 +356,9 @@ class WChartTimeLineView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             setSystemGestureExclusionRects(Collections.singletonList(Rect(0, 0, width, height)))
+        }
         post {
             val baseLeft = (width - 40.dp) * startPercentage
             val baseRight = (width - 40.dp) * endPercentage + 10.dp
@@ -358,8 +373,9 @@ class WChartTimeLineView(
         if (data.isEmpty()) return false
         if (startPercentage < 0 || endPercentage < 0 ||
             startPercentage > 1 || endPercentage > 1
-        )
+        ) {
             return false
+        }
 
         val dataSize = data.size
         val startIndex = (startPercentage * dataSize).toInt().coerceIn(0, dataSize - 1)

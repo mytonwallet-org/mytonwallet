@@ -2,11 +2,11 @@ package org.mytonwallet.app_air.walletcore.stores
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
+import java.util.concurrent.Executors
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.sqlStorage.WSQLStorage
-import java.util.concurrent.Executors
 
 object AgentMessageStore : IStore {
 
@@ -61,35 +61,33 @@ object AgentMessageStore : IStore {
         clearMessages()
     }
 
-    private fun toContentValues(msg: StoredAgentMessage): ContentValues {
-        return ContentValues().apply {
-            put(WSQLStorage.COL_ID, msg.id)
-            put(WSQLStorage.COL_ROLE, msg.role)
-            put(WSQLStorage.COL_TEXT, msg.text)
-            put(WSQLStorage.COL_DATE, msg.dateMs)
-            put(WSQLStorage.COL_DEEPLINKS, encodeDeeplinks(msg.deeplinks))
-        }
+    private fun toContentValues(msg: StoredAgentMessage): ContentValues = ContentValues().apply {
+        put(WSQLStorage.COL_ID, msg.id)
+        put(WSQLStorage.COL_ROLE, msg.role)
+        put(WSQLStorage.COL_TEXT, msg.text)
+        put(WSQLStorage.COL_DATE, msg.dateMs)
+        put(WSQLStorage.COL_DEEPLINKS, encodeDeeplinks(msg.deeplinks))
     }
 
-    private fun readRow(cursor: android.database.Cursor): StoredAgentMessage {
-        return StoredAgentMessage(
-            id = cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_ID)),
-            role = cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_ROLE)),
-            text = cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_TEXT)),
-            dateMs = cursor.getLong(cursor.getColumnIndexOrThrow(WSQLStorage.COL_DATE)),
-            deeplinks = decodeDeeplinks(
-                cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_DEEPLINKS))
-            )
+    private fun readRow(cursor: android.database.Cursor): StoredAgentMessage = StoredAgentMessage(
+        id = cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_ID)),
+        role = cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_ROLE)),
+        text = cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_TEXT)),
+        dateMs = cursor.getLong(cursor.getColumnIndexOrThrow(WSQLStorage.COL_DATE)),
+        deeplinks = decodeDeeplinks(
+            cursor.getString(cursor.getColumnIndexOrThrow(WSQLStorage.COL_DEEPLINKS))
         )
-    }
+    )
 
     private fun encodeDeeplinks(deeplinks: List<StoredDeeplink>): String {
         val arr = JSONArray()
         for (dl in deeplinks) {
-            arr.put(JSONObject().apply {
-                put("title", dl.title)
-                put("url", dl.url)
-            })
+            arr.put(
+                JSONObject().apply {
+                    put("title", dl.title)
+                    put("url", dl.url)
+                }
+            )
         }
         return arr.toString()
     }
@@ -113,7 +111,4 @@ data class StoredAgentMessage(
     val deeplinks: List<StoredDeeplink> = emptyList()
 )
 
-data class StoredDeeplink(
-    val title: String,
-    val url: String
-)
+data class StoredDeeplink(val title: String, val url: String)

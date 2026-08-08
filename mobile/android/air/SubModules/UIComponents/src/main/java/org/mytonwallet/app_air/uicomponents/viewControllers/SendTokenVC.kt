@@ -10,6 +10,9 @@ import androidx.core.view.isVisible
 import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -18,10 +21,10 @@ import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconTitleSubtitleV
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.TokenSelectorCell
-import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -31,21 +34,19 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
-class SendTokenVC(
-    context: Context,
-    private val selectedChain: MBlockchain? = null
-) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource,
+class SendTokenVC(context: Context, private val selectedChain: MBlockchain? = null) :
+    WViewController(context),
+    WThemedView,
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
     WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "SendToken"
 
     companion object {
@@ -57,10 +58,7 @@ class SendTokenVC(
         const val TOTAL_SECTIONS = 2
     }
 
-    private data class SectionData(
-        val title: String,
-        val tokens: List<MTokenBalance>
-    )
+    private data class SectionData(val title: String, val tokens: List<MTokenBalance>)
 
     private var sections: Map<Int, SectionData> = emptyMap()
 
@@ -79,14 +77,14 @@ class SendTokenVC(
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
-                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE)
+                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
                     updateBlurViews(recyclerView)
+                }
             }
 
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
         })
@@ -98,14 +96,14 @@ class SendTokenVC(
             context,
             animation = R.raw.animation_empty,
             title = LocaleController.getString("No tokens yet"),
-            subtitle = "",
+            subtitle = ""
         ).apply {
             isGone = true
         }
     }
 
     private val searchContainer = WFrameLayout(context)
-    private val searchEditText = SwapSearchEditText(context)
+    private val searchEditText = WSearchEditText(context)
     private var query: String? = null
 
     override fun setupViews() {
@@ -182,16 +180,11 @@ class SendTokenVC(
         return if (sectionData.tokens.isEmpty()) 0 else sectionData.tokens.size + 1 // +1 for header
     }
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return if (indexPath.row == 0) {
-            HEADER_CELL
-        } else {
-            TOKEN_CELL
-        }
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        if (indexPath.row == 0) HEADER_CELL else TOKEN_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             TOKEN_CELL -> {
                 val cell = TokenSelectorCell(context)
                 cell.onTap = { tokenBalance ->
@@ -208,7 +201,6 @@ class SendTokenVC(
 
             else -> throw IllegalArgumentException("Unknown cell type: $cellType")
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -230,7 +222,7 @@ class SendTokenVC(
                     cell.configure(
                         tokenBalance = token,
                         showChain = AccountStore.activeAccount?.isMultichain == true,
-                        isLast = isLastOverall,
+                        isLast = isLastOverall
                     )
                 }
             }
@@ -238,7 +230,11 @@ class SendTokenVC(
             is HeaderCell -> {
                 val isFirstHeader = rvAdapter.indexPathToPosition(indexPath) == 0
                 val topRounding =
-                    if (isFirstHeader) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.ZERO
+                    if (isFirstHeader) {
+                        HeaderCell.TopRounding.FIRST_ITEM
+                    } else {
+                        HeaderCell.TopRounding.ZERO
+                    }
 
                 cell.configure(
                     sectionData.title,
@@ -249,7 +245,6 @@ class SendTokenVC(
         }
     }
 
-
     private fun buildTokenItems() {
         val balances = AccountStore.assetsAndActivityData.getAllTokens()
         val search = query?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
@@ -259,7 +254,8 @@ class SendTokenVC(
             if (selectedChain != null && token.chain != selectedChain.name) return@filter false
             if (token.isLpToken && balance.amountValue <= BigInteger.ZERO) return@filter false
             if (search != null) {
-                val isName = token.name?.lowercase()?.contains(search) == true
+                val isName = token.name?.lowercase()?.contains(search) == true ||
+                    token.localizedName?.lowercase()?.contains(search) == true
                 val isSymbol = token.symbol?.lowercase()?.contains(search) == true
                 val isAddress = token.tokenAddress?.lowercase()?.contains(search) == true
                 val isKeyword = token.keywords?.any { it.lowercase().contains(search) } == true

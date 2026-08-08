@@ -17,7 +17,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class CylinderStackView(context: Context) : View(context), WThemedView {
+class CylinderStackView(context: Context) :
+    View(context),
+    WThemedView {
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -90,11 +92,13 @@ class CylinderStackView(context: Context) : View(context), WThemedView {
             // body height to 0% at 94.5%
             val bodyHeight = (topY + rY) - segTopY
             highlightPaint.shader = LinearGradient(
-                0f, segTopY + 0.168f * bodyHeight,
-                0f, segTopY + 0.945f * bodyHeight,
+                0f,
+                segTopY + 0.168f * bodyHeight,
+                0f,
+                segTopY + 0.945f * bodyHeight,
                 Color.argb((255 * 0.24f).toInt(), 255, 255, 255),
                 Color.argb(0, 255, 255, 255),
-                Shader.TileMode.CLAMP,
+                Shader.TileMode.CLAMP
             )
             canvas.drawPath(bodyPath, highlightPaint)
 

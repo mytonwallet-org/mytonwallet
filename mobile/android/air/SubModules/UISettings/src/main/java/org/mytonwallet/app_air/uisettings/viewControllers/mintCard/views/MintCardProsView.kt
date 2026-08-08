@@ -9,7 +9,9 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
-import org.mytonwallet.app_air.icons.R as IconsR
+import androidx.core.graphics.toColorInt
+import androidx.core.view.isNotEmpty
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -18,8 +20,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.lerpColor
-import androidx.core.graphics.toColorInt
-import androidx.core.view.isNotEmpty
 
 @SuppressLint("ViewConstructor")
 class MintCardProsView(context: Context) : LinearLayout(context) {
@@ -37,17 +37,19 @@ class MintCardProsView(context: Context) : LinearLayout(context) {
         orientation = VERTICAL
 
         addProsRow(
-            IconsR.drawable.ic_diamond_30,
+            R.drawable.ic_diamond_30,
             LocaleController.getString("Unique"),
-            LocaleController.getString("Get a card with unique background and personalized palette for wallet interface.")
+            LocaleController.getString(
+                "Get a card with unique background and personalized palette for wallet interface."
+            )
         )
         addProsRow(
-            IconsR.drawable.ic_swap_30,
+            R.drawable.ic_swap_30,
             LocaleController.getString("Transferable"),
             LocaleController.getString("Easily send your upgraded card to any of your friends.")
         )
         addProsRow(
-            IconsR.drawable.ic_auction_30,
+            R.drawable.ic_auction_30,
             LocaleController.getString("Tradable"),
             LocaleController.getString("Sell or auction your card on third-party NFT marketplaces.")
         )
@@ -79,16 +81,25 @@ class MintCardProsView(context: Context) : LinearLayout(context) {
         titleLabels.add(titleLabel)
         descLabels.add(descLabel)
         textColumn.addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        textColumn.addView(descLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-            topMargin = 2.dp
-        })
+        textColumn.addView(
+            descLabel,
+            LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                topMargin = 2.dp
+            }
+        )
         row.addView(iconView, LayoutParams(36.dp, 36.dp))
-        row.addView(textColumn, LayoutParams(0, WRAP_CONTENT, 1f).apply {
-            marginStart = 16.dp
-        })
-        addView(row, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-            if (isNotEmpty()) topMargin = 16.dp
-        })
+        row.addView(
+            textColumn,
+            LayoutParams(0, WRAP_CONTENT, 1f).apply {
+                marginStart = 16.dp
+            }
+        )
+        addView(
+            row,
+            LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                if (isNotEmpty()) topMargin = 16.dp
+            }
+        )
     }
 
     fun setAccentColor(color: Int) {

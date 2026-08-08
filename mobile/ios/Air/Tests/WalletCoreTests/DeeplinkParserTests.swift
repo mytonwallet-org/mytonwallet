@@ -94,4 +94,15 @@ struct DeeplinkParserTests {
         let nonWalletConnectUriUrl = try #require(URL(string: "mw://wc?uri=ton://transfer"))
         #expect(Deeplink(url: nonWalletConnectUriUrl) == nil)
     }
+
+    @Test
+    func parsesSellOnCardDeeplink() throws {
+        let url = try #require(URL(string: "mtw://sell-on-card"))
+        let deeplink = try #require(Deeplink(url: url))
+
+        guard case .sellOnCard = deeplink else {
+            Issue.record("Expected sellOnCard deeplink")
+            return
+        }
+    }
 }

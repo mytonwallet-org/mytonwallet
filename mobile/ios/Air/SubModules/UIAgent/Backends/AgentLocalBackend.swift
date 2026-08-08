@@ -8,19 +8,16 @@ import WalletCore
 private let log = Log("AgentLocalBackend")
 
 extension ApiToken: AgentAsset {}
+
 extension AgentAddressInfo: AgentUserAddress {}
-extension AgentBackendConversationMessage {
+
+private extension AgentBackendConversationMessage {
     var chatMessage: ChatMessage {
         ChatMessage(
             role: role == .user ? .user : .assistant,
             content: text
         )
     }
-}
-
-private enum AgentLocalBackendCopy {
-    static let emptyResponseMessage = "The Agent returned an empty response."
-    static let fallbackErrorMessage = "Something went wrong. Please try again."
 }
 
 @available(iOS 26.0, *)
@@ -50,9 +47,9 @@ final class AgentLocalBackend: AgentBackend {
         reset()
         context = nil
     }
-
-    func loadInitialTimeline(animated: Bool) {
-        context?.replaceTimeline(with: [], animated: animated)
+    
+    func loadHints(animated: Bool) {
+        
     }
 
     func prepareForEditing(_ editContext: AgentBackendEditContext) {
@@ -142,7 +139,7 @@ final class AgentLocalBackend: AgentBackend {
                 with: .message(
                     AgentMessage(
                         role: .system,
-                        text: (error as? LocalizedError)?.errorDescription ?? AgentLocalBackendCopy.fallbackErrorMessage,
+                        text: (error as? LocalizedError)?.errorDescription ?? AgentBackendMessages.fallbackErrorMessage,
                         isStreaming: false
                     )
                 ),
@@ -166,7 +163,7 @@ final class AgentLocalBackend: AgentBackend {
         }
 
         let text = textParts.joined(separator: "\n\n")
-        return (text.isEmpty ? AgentLocalBackendCopy.emptyResponseMessage : text, action)
+        return (text.isEmpty ? AgentBackendMessages.emptyResponseMessage : text, action)
     }
 }
 

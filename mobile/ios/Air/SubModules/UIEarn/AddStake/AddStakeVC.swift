@@ -6,13 +6,14 @@
 //
 
 import Foundation
+import ProtectedAction
 import SwiftUI
 import UIComponents
 import UIKit
 import WalletContext
 import WalletCore
 
-public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
+public class AddStakeVC: WViewController {
 
     let model: AddStakeModel
     @AccountContext private var account: MAccount
@@ -22,17 +23,11 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
 
     var fakeTextField = UITextField(frame: .zero)
     private var continueButton: WButton?
-    private var taskError: SdkError?
-    private var awaitingActivity = false
-    private var pendingActivityId: String?
-
     public init(config: StakingConfig, stakingState: ApiStakingState, accountContext: AccountContext) {
         _account = accountContext
         model = AddStakeModel(config: config, stakingState: stakingState, accountContext: accountContext)
 
         super.init(nibName: nil, bundle: nil)
-        WalletCoreData.add(eventObserver: self)
-
         model.onAmountChanged = { [weak self] amount in
             self?.amountChanged(amount: amount)
         }
@@ -45,27 +40,6 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    public func walletCore(event: WalletCoreData.Event) {
-        switch event {
-        case .newLocalActivity(let update):
-            handleNewActivities(accountId: update.accountId, activities: update.activities)
-        case .newActivities(let update):
-            handleNewActivities(accountId: update.accountId, activities: update.activities)
-        default:
-            break
-        }
-    }
-
-    private func handleNewActivities(accountId: String, activities: [ApiActivity]) {
-        guard awaitingActivity, accountId == account.id else { return }
-        let activity = activities.first(where: { $0.id == pendingActivityId }) ??
-            activities.first(where: { $0.isStakingTransaction })
-        guard let activity else { return }
-        awaitingActivity = false
-        pendingActivityId = nil
-        AppActions.showActivityDetails(accountId: accountId, activity: activity, context: .stakeConfirmation)
     }
 
     public override func viewDidLoad() {
@@ -158,58 +132,12 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     func confirmAction(account: MAccount) async throws {
-        let headerView = StakingConfirmHeaderView(mode: .stake,
-                                                  tokenAmount: TokenAmount(model.amount ?? 0, model.baseToken))
-        let headerVC = UIHostingController(rootView: headerView)
-        headerVC.view.backgroundColor = .clear
-
-        let amount = try model.amount.orThrow("invalid amount")
-        let realFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).real
-        let stakingState = model.stakingState
-
-        do {
-            awaitingActivity = true
-            pendingActivityId = nil
-            let result = try await AppActions.authorizeProtectedAction(
-                on: self,
-                account: account,
-                title: lang("Confirm Staking"),
-                headerView: headerView,
-                passwordAction: { [weak self] password in
-                    let result = try await Api.submitStakeProtected(
-                        accountId: account.id,
-                        password: password,
-                        amount: amount,
-                        state: stakingState,
-                        realFee: realFee
-                    )
-                    await MainActor.run {
-                        self?.pendingActivityId = result.activityId
-                    }
-                    return result
-                },
-                ledgerSignData: {
-                    .staking(
-                        isStaking: true,
-                        accountId: account.id,
-                        amount: amount,
-                        stakingState: self.model.stakingState,
-                        realFee: realFee
-                    )
-                },
-                mfaTitle: lang("Confirm Staking")
-            )
-            pendingActivityId = result?.activityId
-            // from user perspective staked token is automatically pinned to be shown in UI at top of tokens list
-            AssetsAndActivityDataStore.update(accountId: account.id, update: { [slug = model.baseToken.slug] settings in
-                settings.saveTokenPinning(slug: slug, isStaking: true, isPinned: true)
-            })
-        } catch {
-            awaitingActivity = false
-            pendingActivityId = nil
-            showAlert(error: error) { [weak self] in
-                self?.navigationController?.popViewController(animated: true)
-            }
-        }
+        let protectedAction = try ProtectedAction.stake(model: model, account: account)
+        let outcome = await ProtectedActionExecutor.execute(protectedAction, on: self)
+        guard case .completed = outcome else { return }
+        // from user perspective staked token is automatically pinned to be shown in UI at top of tokens list
+        AssetsAndActivityDataStore.update(accountId: account.id, update: { [slug = model.baseToken.slug] settings in
+            settings.saveTokenPinning(slug: slug, isStaking: true, isPinned: true)
+        })
     }
 }

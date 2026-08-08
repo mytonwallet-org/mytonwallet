@@ -33,7 +33,8 @@ struct LedgerSelectWalletsView: View {
                                     .padding(.horizontal, 20)
                                     .transition(.scale.combined(with: .opacity))
                             }
-                            Text(lang("Load 5 More Wallets"))
+                            Text(localizedIntegerDigits(in: lang("Load 5 More Wallets")))
+                                .textStyle(.body)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(height: 48)
@@ -105,11 +106,15 @@ private struct WalletRow: View {
                     formatStartEndAddress(discoveredWallet.address)
                 }
                 Text(title)
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(
+                        .calloutEmphasized,
+                        content: discoveredWallet.displayName == nil ? .technical : .default
+                    )
                 if discoveredWallet.displayName != nil {
                     Text("\(formatStartEndAddress(discoveredWallet.address))")
                         .foregroundStyle(.secondary)
                         .font14h18()
+                        .textStyle(.supporting, content: .technical)
                         .fixedSize()
                 }
             }
@@ -117,7 +122,7 @@ private struct WalletRow: View {
             Spacer()
             Text(discoveredWallet.balance.formatted(.defaultAdaptive))
                 .foregroundStyle(.secondary)
-                .font(.system(size: 16, weight: .regular))
+                .textStyle(.callout, content: .technical)
                 .fixedSize()
                 .padding(.trailing, 12)
         }

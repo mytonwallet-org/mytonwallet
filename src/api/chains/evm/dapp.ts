@@ -9,14 +9,14 @@ export async function signDappData(
   accountId: string,
   dappUrl: string,
   payloadToSign: UnifiedSignDataPayload,
-  password?: string,
+  enclaveToken?: string,
 ) {
   const timestamp = Math.floor(Date.now() / 1000);
   const domain = new URL(dappUrl).host;
 
   const account = await fetchStoredChainAccount(accountId, chain);
 
-  const signature = await signPayload(chain, accountId, payloadToSign, password);
+  const signature = await signPayload(chain, accountId, payloadToSign, enclaveToken);
 
   if ('error' in signature) return signature;
 
@@ -38,20 +38,20 @@ export async function signDappTransfers(
   accountId: string,
   messages: ApiDappTransfer[],
   options: {
-    password?: string;
+    enclaveToken?: string;
     vestingAddress?: string;
     /** Unix seconds */
     validUntil?: number;
     // Deal with solana b58/b64 issues based on requested method
     isLegacyOutput?: boolean;
   } = {}) {
-  const { password, isLegacyOutput } = options;
+  const { enclaveToken, isLegacyOutput } = options;
 
   return await signTransfer(
     chain,
     accountId,
     messages[0].rawPayload!,
-    password,
+    enclaveToken,
     isLegacyOutput,
   );
 }

@@ -11,9 +11,9 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class SubwalletLoadingCell(
-    context: Context,
-) : WCell(context), WThemedView {
+class SubwalletLoadingCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     private val progressBar = ProgressBar(context).apply {
         id = generateViewId()

@@ -18,12 +18,14 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
 @SuppressLint("ViewConstructor")
 class NotificationSettingsHeaderCell(
     context: Context,
     onPushNotificationsCheckChanged: (isChecked: Boolean) -> Unit
-) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     var pushNotificationsChecked: Boolean? = null
     private val pushNotificationsRow = SwitchCell(
@@ -37,12 +39,14 @@ class NotificationSettingsHeaderCell(
                 onPushNotificationsCheckChanged(isChecked)
                 pushNotificationsChecked = isChecked
             }
-        })
+        }
+    )
 
     private val hintLabel = WLabel(context).apply {
         text = LocaleController.getStringWithKeyValues(
-            "Select up to %count% wallets for notifications", listOf(
-                Pair("%count%", "3")
+            "Select up to %count% wallets for notifications",
+            listOf(
+                Pair("%count%", "3".withLocalizedNumbers)
             )
         )
         setSingleLine()
@@ -76,5 +80,4 @@ class NotificationSettingsHeaderCell(
         hintLabel.isGone = !showHint
         updateTheme()
     }
-
 }

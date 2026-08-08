@@ -1,8 +1,9 @@
 import UIKit
+import UIComponents
 
 private enum AgentMessageTextRendererMetrics {
-    static let font = UIFont.systemFont(ofSize: 17, weight: .regular)
     static let lineHeight: CGFloat = 20
+    static let emptyLineHeight: CGFloat = 12
     static let paragraphSpacing: CGFloat = 8
     static let markdownSeparator = "⸻"
     static let markdownOptions = AttributedString.MarkdownParsingOptions(
@@ -12,9 +13,10 @@ private enum AgentMessageTextRendererMetrics {
     static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 }
 
+@MainActor
 enum AgentMessageTextRenderer {
     static var baseFont: UIFont {
-        AgentMessageTextRendererMetrics.font
+        WTypography.uiFont(.body)
     }
 
     static func makeAttributedText(
@@ -48,6 +50,7 @@ enum AgentMessageTextRenderer {
             let paragraphStyle = normalizedParagraphStyle(from: value as? NSParagraphStyle)
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
         }
+        applyEmptyLineHeights(to: attributedText)
         if detectsLinks {
             applyDetectedLinks(to: attributedText)
         }
@@ -85,7 +88,7 @@ enum AgentMessageTextRenderer {
         let attributedText = NSMutableAttributedString(
             string: text,
             attributes: [
-                .font: AgentMessageTextRendererMetrics.font,
+                .font: baseFont,
                 .foregroundColor: color
             ]
         )
@@ -113,25 +116,26 @@ enum AgentMessageTextRenderer {
     }
 
     private static func normalizedMarkdownFont(from font: UIFont?) -> UIFont {
-        guard let font else { return AgentMessageTextRendererMetrics.font }
+        guard let font else { return baseFont }
 
         let traits = font.fontDescriptor.symbolicTraits
         let isMonospaced = traits.contains(.traitMonoSpace)
-        let weight: UIFont.Weight = traits.contains(.traitBold) ? .semibold : .regular
+        let style: WTextStyle = traits.contains(.traitBold) ? .bodyStrong : .body
 
         if isMonospaced {
-            return .monospacedSystemFont(ofSize: AgentMessageTextRendererMetrics.font.pointSize, weight: weight)
+            let weight: UIFont.Weight = traits.contains(.traitBold) ? .semibold : .regular
+            return .monospacedSystemFont(ofSize: baseFont.pointSize, weight: weight)
         }
 
+        let resolvedFont = WTypography.uiFont(style)
         if traits.contains(.traitItalic) {
-            let baseFont = UIFont.systemFont(ofSize: AgentMessageTextRendererMetrics.font.pointSize, weight: weight)
-            guard let descriptor = baseFont.fontDescriptor.withSymbolicTraits(.traitItalic) else {
-                return baseFont
+            guard let descriptor = resolvedFont.fontDescriptor.withSymbolicTraits(.traitItalic) else {
+                return resolvedFont
             }
-            return UIFont(descriptor: descriptor, size: AgentMessageTextRendererMetrics.font.pointSize)
+            return UIFont(descriptor: descriptor, size: resolvedFont.pointSize)
         }
 
-        return .systemFont(ofSize: AgentMessageTextRendererMetrics.font.pointSize, weight: weight)
+        return resolvedFont
     }
 
     private static func normalizedParagraphStyle(from style: NSParagraphStyle?) -> NSParagraphStyle {
@@ -141,6 +145,34 @@ enum AgentMessageTextRenderer {
         paragraphStyle.paragraphSpacing = AgentMessageTextRendererMetrics.paragraphSpacing
         paragraphStyle.lineBreakMode = .byWordWrapping
         return paragraphStyle
+    }
+
+    private static func emptyLineParagraphStyle() -> NSParagraphStyle {
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.minimumLineHeight = AgentMessageTextRendererMetrics.emptyLineHeight
+        paragraphStyle.maximumLineHeight = AgentMessageTextRendererMetrics.emptyLineHeight
+        paragraphStyle.paragraphSpacing = 0
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        return paragraphStyle
+    }
+
+    private static func applyEmptyLineHeights(to attributedText: NSMutableAttributedString) {
+        let string = attributedText.string as NSString
+        let fullRange = NSRange(location: 0, length: string.length)
+        guard fullRange.length > 0 else { return }
+
+        let emptyStyle = emptyLineParagraphStyle()
+        string.enumerateSubstrings(in: fullRange, options: [.byParagraphs, .substringNotRequired]) { _, substringRange, enclosingRange, _ in
+            let paragraphContent: String
+            if substringRange.length > 0 {
+                paragraphContent = string.substring(with: substringRange)
+            } else {
+                paragraphContent = ""
+            }
+            guard paragraphContent.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            guard enclosingRange.length > 0 else { return }
+            attributedText.addAttribute(.paragraphStyle, value: emptyStyle, range: enclosingRange)
+        }
     }
 
     private static func isHorizontalRuleLine(_ line: String) -> Bool {

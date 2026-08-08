@@ -9,6 +9,7 @@ import defaultLangPackJson from '../i18n/en.json';
 import * as cacheApi from './cacheApi';
 import { createCallbackManager } from './callbacks';
 import { formatNumber } from './formatNumber';
+import { setNativeDigitsLang } from './nativeDigits';
 import { escapeStringRegexp } from './regex';
 import { DEFAULT_LANG_CODE, IS_ELECTRON } from './windowEnvironment';
 
@@ -35,9 +36,11 @@ export { addCallback, removeCallback };
 const SUBSTITUTION_REGEX = /%\d?\$?[sdf@]/g;
 const PLURAL_OPTIONS = ['value', 'zeroValue', 'oneValue', 'twoValue', 'fewValue', 'manyValue', 'otherValue'] as const;
 // Some rules edited from https://github.com/eemeli/make-plural/blob/master/packages/plurals/cardinals.js
+// ar - zeroValue, oneValue, twoValue, fewValue, manyValue, otherValue
 // de - zeroValue, oneValue, otherValue
 // en - zeroValue, oneValue, otherValue
 // es - zeroValue, oneValue, otherValue
+// fa - zeroValue, oneValue, otherValue
 // pl - zeroValue, oneValue, fewValue, manyValue
 // ru - zeroValue, oneValue, fewValue, manyValue
 // th - zeroValue, otherValue
@@ -47,9 +50,11 @@ const PLURAL_OPTIONS = ['value', 'zeroValue', 'oneValue', 'twoValue', 'fewValue'
 // zh-Hant - zeroValue, otherValue
 const PLURAL_RULES = {
   /* eslint-disable @stylistic/max-len */
+  ar: (n: number) => (n === 0 ? 1 : (n === 1 ? 2 : (n === 2 ? 3 : (n % 100 >= 3 && n % 100 <= 10 ? 4 : (n % 100 >= 11 && n % 100 <= 99 ? 5 : 6))))),
   de: (n: number) => (n === 0 ? 1 : (n !== 1 ? 6 : 2)),
   en: (n: number) => (n === 0 ? 1 : (n !== 1 ? 6 : 2)),
   es: (n: number) => (n === 0 ? 1 : (n !== 1 ? 6 : 2)),
+  fa: (n: number) => (n === 0 ? 1 : (n === 1 ? 2 : 6)),
   pl: (n: number) => (n === 0 ? 1 : (n === 1 ? 2 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 4 : 5)),
   ru: (n: number) => (n === 0 ? 1 : (n % 10 === 1 && n % 100 !== 11 ? 2 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 4 : 5)),
   th: (n: number) => (n === 0 ? 1 : 6),
@@ -86,6 +91,15 @@ function createLangFn() {
 export let getTranslation: LangFn = createLangFn();
 
 export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunction) {
+  const langInfo = LANG_LIST?.find((l) => l.langCode === langCode);
+
+  // Apply direction synchronously (the `rtl` flag comes from LANG_LIST, not the langpack) so the
+  // first render is already RTL/LTR-correct and does not flash the opposite direction
+  document.documentElement.lang = langCode;
+  document.documentElement.dir = langInfo?.rtl ? 'rtl' : 'ltr';
+  getTranslation.isRtl = Boolean(langInfo?.rtl);
+  setNativeDigitsLang(langCode.replace('-raw', ''));
+
   if (langPack && langCode === currentLangCode) {
     if (callback) {
       callback();
@@ -107,9 +121,7 @@ export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunct
 
   currentLangCode = langCode;
   langPack = newLangPack;
-  document.documentElement.lang = langCode;
 
-  const langInfo = LANG_LIST?.find((l) => l.langCode === langCode);
   getTranslation = createLangFn();
   getTranslation.isRtl = Boolean(langInfo?.rtl);
   getTranslation.code = langCode.replace('-raw', '') as LangCode;

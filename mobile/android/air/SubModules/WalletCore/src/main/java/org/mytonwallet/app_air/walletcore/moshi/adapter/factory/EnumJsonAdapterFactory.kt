@@ -3,9 +3,9 @@ package org.mytonwallet.app_air.walletcore.moshi.adapter.factory
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import com.squareup.moshi.Moshi
-import org.mytonwallet.app_air.walletcore.moshi.adapter.EnumJsonAdapter
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
+import org.mytonwallet.app_air.walletcore.moshi.adapter.EnumJsonAdapter
 
 class EnumJsonAdapterFactory : Factory {
     override fun create(

@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.base
 
 import android.annotation.SuppressLint
@@ -6,10 +8,10 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.NO_POSITION
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
-import java.lang.ref.WeakReference
 
 /*
     WRecyclerViewAdapter is used to map WRecyclerViewDataSource to RecyclerView.Adapter class.
@@ -18,8 +20,7 @@ import java.lang.ref.WeakReference
 class WRecyclerViewAdapter(
     private val datasource: WeakReference<WRecyclerViewDataSource>,
     registeredCellTypes: Array<WCell.Type>
-) :
-    RecyclerView.Adapter<WCell.Holder>() {
+) : RecyclerView.Adapter<WCell.Holder>() {
 
     companion object {
         private const val DEFAULT_MAX_SCRAP = 5
@@ -35,7 +36,7 @@ class WRecyclerViewAdapter(
             registeredCellTypesHashmap[cellType.value] = cellType
         }
         // TODO:: Use stable ids to increase performance
-        //setHasStableIds(true)
+        // setHasStableIds(true)
     }
 
     // DataSource that provides recycler-view data
@@ -44,9 +45,7 @@ class WRecyclerViewAdapter(
         fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int
         fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type
         fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell
-        fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-            return null
-        }
+        fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? = null
 
         fun recyclerViewConfigureCell(
             rv: RecyclerView,
@@ -98,22 +97,22 @@ class WRecyclerViewAdapter(
 
         override fun onInserted(position: Int, count: Int) {
             adapter.apply {
-                if (_cachedTotalCount != null)
-                    _cachedTotalCount = _cachedTotalCount!! + count
-                if (_cachedSectionItemCount.containsKey(section))
+                if (_cachedTotalCount != null) _cachedTotalCount = _cachedTotalCount!! + count
+                if (_cachedSectionItemCount.containsKey(section)) {
                     _cachedSectionItemCount[section] =
                         _cachedSectionItemCount[section]!! + count
+                }
                 notifyItemRangeInserted(position + itemsAbove, count)
             }
         }
 
         override fun onRemoved(position: Int, count: Int) {
             adapter.apply {
-                if (_cachedTotalCount != null)
-                    _cachedTotalCount = _cachedTotalCount!! - count
-                if (_cachedSectionItemCount.containsKey(section))
+                if (_cachedTotalCount != null) _cachedTotalCount = _cachedTotalCount!! - count
+                if (_cachedSectionItemCount.containsKey(section)) {
                     _cachedSectionItemCount[section] =
                         _cachedSectionItemCount[section]!! - count
+                }
                 notifyItemRangeRemoved(position + itemsAbove, count)
             }
         }
@@ -138,13 +137,13 @@ class WRecyclerViewAdapter(
             override fun getOldListSize(): Int = oldList.size
             override fun getNewListSize(): Int = newList.size
 
-            override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
-                return oldList[oldPos].isSame(newList[newPos])
-            }
+            override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean =
+                oldList[oldPos].isSame(newList[newPos])
 
             override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
-                if (forceReloadFirstAndLast && (oldPos == 0 || oldPos == oldList.size - 1))
+                if (forceReloadFirstAndLast && (oldPos == 0 || oldPos == oldList.size - 1)) {
                     return false
+                }
                 return !oldList[oldPos].isChanged(newList[newPos])
             }
         }
@@ -158,8 +157,7 @@ class WRecyclerViewAdapter(
         for (i in 0 until recyclerView.childCount) {
             val child = recyclerView.getChildAt(i)
             val viewHolder = recyclerView.getChildViewHolder(child)
-            if (viewHolder.itemViewType == cellType.value)
-                viewHolder.setIsRecyclable(false)
+            if (viewHolder.itemViewType == cellType.value) viewHolder.setIsRecyclable(false)
         }
         val pool = recyclerView.recycledViewPool
         pool.setMaxRecycledViews(cellType.value, 0)
@@ -192,8 +190,9 @@ class WRecyclerViewAdapter(
 
     // Function to map position into index path
     fun positionToIndexPath(position: Int): IndexPath {
-        if (_cachedNumberOfSections == null)
+        if (_cachedNumberOfSections == null) {
             _cachedNumberOfSections = datasource.get()?.recyclerViewNumberOfSections(recyclerView!!)
+        }
         var section = 0
         var offset = 0
         for (i in 0.._cachedNumberOfSections!!) {
@@ -212,8 +211,9 @@ class WRecyclerViewAdapter(
     }
 
     fun indexPathToPosition(indexPath: IndexPath): Int {
-        if (_cachedNumberOfSections == null)
+        if (_cachedNumberOfSections == null) {
             _cachedNumberOfSections = datasource.get()?.recyclerViewNumberOfSections(recyclerView!!)
+        }
         var position = 0
         for (section in 0 until indexPath.section) {
             if (!_cachedSectionItemCount.containsKey(section)) {
@@ -260,13 +260,13 @@ class WRecyclerViewAdapter(
 
     override fun getItemCount(): Int {
         // Check if cached total count, because we do NOT expect it be calculated every time.
-        if (_cachedTotalCount != null)
-            return _cachedTotalCount!!
+        if (_cachedTotalCount != null) return _cachedTotalCount!!
         // Not cached, so count the items for all sections
         val ds = datasource.get() ?: return 0
         val rv = recyclerView ?: return 0
-        if (_cachedNumberOfSections == null)
+        if (_cachedNumberOfSections == null) {
             _cachedNumberOfSections = ds.recyclerViewNumberOfSections(rv)
+        }
         val sections = _cachedNumberOfSections ?: return 0
         var totalCount = 0
         for (i in 0..<sections) {
@@ -284,5 +284,4 @@ class WRecyclerViewAdapter(
         val rv = recyclerView ?: return
         ds.recyclerViewConfigureCell(rv, holder, positionToIndexPath(position))
     }
-
 }

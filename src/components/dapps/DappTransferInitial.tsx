@@ -23,6 +23,7 @@ import {
   selectCurrentAccountState,
   selectCurrentDappTransferTotals,
   selectDappTransferInsufficientTokens,
+  selectHasMultipleAccounts,
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -38,6 +39,7 @@ import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
 import useTimeout from '../../hooks/useTimeout';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
 import ActivityPreview from '../common/ActivityPreview';
 import Button from '../ui/Button';
 import ModalHeader from '../ui/ModalHeader';
@@ -80,6 +82,7 @@ interface StateProps {
   shouldHideTransfers: boolean;
   isWaitingForRequest?: boolean;
   returnUrl?: string;
+  hasMultipleAccounts?: boolean;
 }
 
 interface SortedDappTransfer extends ApiDappTransfer {
@@ -121,6 +124,7 @@ function DappTransferInitial({
   shouldHideTransfers,
   isWaitingForRequest,
   returnUrl,
+  hasMultipleAccounts,
 }: OwnProps & StateProps) {
   const {
     closeDappTransfer, showDappTransferTransaction, submitDappTransferConfirm, showDialog,
@@ -285,16 +289,25 @@ function DappTransferInitial({
 
   return (
     <Transition name="semiFade" activeKey={isDappLoading ? 0 : 1} slideClassName={styles.skeletonTransitionWrapper}>
-      <ModalHeader
-        title={lang(
-          isNftTransferPayload(renderingTransactions?.[0]?.payload)
-            ? 'Send NFT'
-            : (renderingTransactions?.length ?? 0) > 1
-              ? '$classic_confirm_actions'
-              : 'Confirm Action',
+      <div className={styles.headerWithPill}>
+        <ModalHeader
+          title={lang(
+            isNftTransferPayload(renderingTransactions?.[0]?.payload)
+              ? 'Send NFT'
+              : (renderingTransactions?.length ?? 0) > 1
+                ? '$classic_confirm_actions'
+                : 'Confirm Action',
+          )}
+          onClose={closeDappTransfer}
+        />
+        {hasMultipleAccounts && (
+          <AccountSwitcherPill
+            accountId={currentAccountId}
+            title={accounts?.[currentAccountId]?.title}
+            className={styles.accountPill}
+          />
         )}
-        onClose={closeDappTransfer}
-      />
+      </div>
       {isDappLoading ? <DappSkeletonWithContent rows={skeletonRows} /> : renderContent()}
     </Transition>
   );
@@ -341,6 +354,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     shouldHideTransfers: !!shouldHideTransfers,
     isWaitingForRequest,
     returnUrl,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
   };
 })(DappTransferInitial));
 

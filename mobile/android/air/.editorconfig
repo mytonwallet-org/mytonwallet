@@ -10,3 +10,19 @@ trim_trailing_whitespace = true
 charset = utf-8
 indent_style = space
 indent_size = 4
+
+[*.{kt,kts}]
+ktlint_code_style = android_studio
+ktlint_standard_package-name = disabled
+
+# Vendored Leptonica MMCQ port; keep its upstream formatting intact.
+[SubModules/UIComponents/src/main/java/org/mytonwallet/app_air/uicomponents/helpers/palette/MMCQ.kt]
+ktlint_standard = disabled
+
+# BIP-39 English word list; keep the source data byte-for-byte.
+[SubModules/WalletCore/src/main/java/org/mytonwallet/app_air/walletcore/constants/PossibleWords.kt]
+ktlint_standard_final-newline = disabled
+
+# Vendored Ledger Live BLE transport; keep its upstream formatting intact.
+[SubModules/Ledger/src/main/java/com/ledger/live/ble/**]
+ktlint_standard = disabled

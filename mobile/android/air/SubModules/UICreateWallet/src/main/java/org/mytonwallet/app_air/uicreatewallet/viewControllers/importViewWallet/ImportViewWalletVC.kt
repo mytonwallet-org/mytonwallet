@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -46,14 +47,13 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
-import java.lang.ref.WeakReference
 
 class ImportViewWalletVC(
     context: Context,
     private val network: MBlockchainNetwork,
     private val isOnIntro: Boolean
-) :
-    WViewController(context) {
+) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "ImportViewWallet"
 
     override val shouldDisplayTopBar = false
@@ -69,10 +69,12 @@ class ImportViewWalletVC(
 
     val animationView = WAnimationView(context).apply {
         play(
-            org.mytonwallet.app_air.uicomponents.R.raw.animation_bill, true,
+            org.mytonwallet.app_air.uicomponents.R.raw.animation_bill,
+            true,
             onStart = {
                 fadeIn()
-            })
+            }
+        )
     }
 
     val titleLabel = WLabel(context).apply {
@@ -98,7 +100,8 @@ class ImportViewWalletVC(
             autoCompleteConfig = AddressInputLayout.AutoCompleteConfig(accountAddresses = false),
             onTextEntered = {
                 view.hideKeyboard()
-            }).apply {
+            }
+        ).apply {
             id = View.generateViewId()
             setMaxLines(2)
             setHint(LocaleController.getString("Address or Domain"))
@@ -161,8 +164,7 @@ class ImportViewWalletVC(
     private var isWideLayoutMode: Boolean? = null
     private fun applyLayoutForMode() {
         val isWide = navigationController?.isBottomSheet != true
-        if (isWideLayoutMode == isWide)
-            return
+        if (isWideLayoutMode == isWide) return
         isWideLayoutMode = isWide
 
         (continueButton.parent as? ViewGroup)?.removeView(continueButton)
@@ -224,8 +226,7 @@ class ImportViewWalletVC(
     }
 
     private fun applyContinueBottomInset() {
-        if (isWideLayoutMode != true)
-            return
+        if (isWideLayoutMode != true) return
         val systemBarBottom = navigationController?.getSystemBars()?.bottom ?: 0
         val keyboardHeight = navigationController?.imeInsetBottom ?: 0
         val bottomInset = maxOf(systemBarBottom, keyboardHeight)
@@ -364,7 +365,8 @@ class ImportViewWalletVC(
                         window!!.dismissLastNav()
                     }
                 }
-            })
+            }
+        )
     }
 
     override fun insetsUpdated() {

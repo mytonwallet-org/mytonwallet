@@ -152,7 +152,7 @@ $state_init_invalid: Geçersiz sözleşme başlatma verileri.
 $signature_warning: Özelleştirilmiş verilerin imzalanması çok tehlikelidir. Yalnızca kaynağına güveniyorsanız kullanın.
 Sign: İmzala
 Done!: Tamamlandı!
-Signing was confirmed!: İmza onaylandı!
+Signing Confirmed: İmza onaylandı
 Activity Details: Aktivite Detayları
 No activities found: Aktivite bulunamadı
 Comment Copied: Açıklama kopyalandı
@@ -172,6 +172,7 @@ Assets: Varlıklar
 Activity: Etkinlik
 NFT: NFT
 No NFTs yet: Henüz NFT'niz yok
+No hidden NFTs.: Gizli NFT yok.
 $nft_explore_offer: |
   Mevcut NFT koleksiyonlarını görmek
   için NFT pazaryerini inceleyin.
@@ -208,7 +209,7 @@ Receiving Address: Alıcı adresi
 Fee: Ücret
 Edit: Düzenle
 Confirm: Onayla
-Data Signed!: Veri imzalandı!
+Data Signed: Veri imzalandı
 Details: Detaylar
 View details: Detayları görüntüle
 Change password visibility: Parola görünürlüğünü değiştir
@@ -251,7 +252,6 @@ $safe_staking_description_jetton2: Stake'inizi **herhangi bir zamanda** çekebil
 $min_value: Min. %value%
 Est. balance in a year: Bir yıl içindeki tahmini bakiye
 Confirm Staking: Staking işlemini onayla
-Coins have been staked!: Coin'ler stake edildi!
 View: Görüntüle
 Stake More: Daha fazla stake edin
 Staking: Staking
@@ -264,7 +264,6 @@ $total: "Toplam: %value%"
 $unstake_asset: "%symbol% Unstake et"
 Amount to unstake: Unstake edilecek tutar
 Confirm Unstaking: Unstaking işlemini onayla
-Request for unstaking is sent!: Unstake işlemi için talep gönderildi!
 $unstaking_when_receive: Stake'e yatırılmamış bakiyenizi %time% içinde alacaksınız.
 $unstaking_when_receive_with_amount: Stake'i kaldırılan %amount%, %time% içinde hesabınıza geçecektir.
 $unstaking_when_receive_with_amount_ethena: "%amount% %time% sonra çekim için kullanılabilir olacak."
@@ -277,6 +276,10 @@ Unstaking: Unstaking gerçekleşiyor
 $unstake_action: Unstake işlemi
 The network fee has slightly changed, try sending again.: Ağ ücreti bir miktar değişti, tekrar göndermeyi deneyin.
 Transfer was unsuccessful. Try again later.: Transfer başarısız oldu. Daha sonra tekrar deneyin.
+Action Partially Completed: İşlem Kısmen Tamamlandı
+$action_partially_completed_description: "%completed% / %total% işlem tamamlandı. Kalan işlemler tamamlanmadı. Tekrar denemeden önce etkinliklerinizi kontrol edin."
+Action Status Unknown: İşlem Durumu Bilinmiyor
+$action_status_unknown_description: "Tamamlanma durumu doğrulanamadı. Yeniden denemeden önce etkinliklerinizi ve bakiyenizi kontrol edin; şimdi yeniden denemek işlemin iki kez gönderilmesine neden olabilir."
 Invalid amount: Geçersiz tutar
 Invalid address: Geçersiz adres
 Domain is not connected to a wallet: Alan adı bir cüzdana bağlı değil
@@ -352,6 +355,7 @@ Add Token: Token ekle
 Delete Token: Token sil
 Are you sure you want to delete?: "%token%'ı silmek istediğinizden emin misiniz?"
 Hide Tokens With No Cost: Tokenleri ücretsiz olarak saklayın
+Localized Token Names: Yerelleştirilmiş Adlar
 Sort By Cost: Maliyete göre sıralayın
 Update %app_name%: "%app_name%'ı güncelle"
 Connect Ledger: Ledger'i bağla
@@ -390,7 +394,6 @@ You sell: Satıyorsunuz
 You buy: Alıyorsunuz
 Swap Details: Takas bilgileri
 Blockchain fee: Blockchain ücreti
-Aggregator Fee: Toplayıcı ücreti
 Included: Dahil edildi
 Price Impact: Fiyat etkisi
 Minimum Received: Minimum alınan
@@ -405,7 +408,6 @@ $swap_price_impact_tooltip1: Bu, işleminizin token fiyatını ne kadar değişt
 $swap_price_impact_tooltip2: Yüksek hacimli alım satımlar fiyatın daha fazla yükselmesine veya düşmesine neden olabilir. Daha düşük tutarlar genellikle daha iyidir.
 $swap_slippage_tooltip1: Bu, takas talebinizin işleme alınmadan önce fiyatın ne kadar değişmesine izin verileceğini belirler.
 $swap_slippage_tooltip2: Takas işleminiz sırasında fiyat bu değerden daha fazla değişirse, emriniz iptal edilecektir.
-Coins have been swapped!: Coin'ler takas edildi!
 Slippage not specified: Kayma toleransı belirtilmemiş
 Slippage too high: Kayma toleransı çok yüksek
 Not Enough %symbol%: Yeterli miktarda %symbol% bulunmuyor
@@ -500,6 +502,15 @@ Scan QR: QR tara
 Account: Hesap
 Accounts: Hesaplar
 Networks: Ağlar
+Blockchains: Blockchain'ler
+All Chains: Tüm blockchain'ler
+"You will still be able to receive and send tokens in hidden chains.": "Gizli blockchain'lerde token almaya ve göndermeye devam edebilirsiniz."
+"Sort by Value": "Değere Göre Sırala"
+"Automatically sort and hide chains based on your portfolio.": "Portföyünüze göre blockchain'leri otomatik olarak sıralayın ve gizleyin."
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "Gizli blockchain'ler token alıp göndermek için kullanılabilir olmaya devam eder, ancak ana listede görünmez."
+"Move Up": "Yukarı taşı"
+"Move Down": "Aşağı taşı"
+Tokens: Tokenler
 Receive Funds: Para al
 Open the receive screen.: Alma ekranını aç.
 "Receive with ${applicationName}": ${applicationName} ile al
@@ -525,8 +536,11 @@ Chinese Yuan: Çin Yuanı
 Bitcoin: Bitcoin
 $max_balance: "Maks.: %balance%"
 $available_balance: "Kullanılabilir: %balance%"
+$send_recipient_invalid: Geçersiz
+$send_recipient_not_compatible: Uyumsuz
 $unstake_information_instantly: Yatırdığınız tutarı anında alacaksınız
 Select Token: Token seçin
+$token_picker_hidden: Gizli
 MY: Cüzdanımdakiler
 Popular: Popüler
 Not Found: Bulunamadı
@@ -535,7 +549,6 @@ Wallet is imported!: Cüzdan içeri aktarıldı!
 Create a code to protect it: Korumak için bir kod oluşturun
 Enter your code again: Kodunuzu tekrar girin
 Code set successfully: Kod başarıyla ayarlandı
-Use Biometrics: Biyometrik koruma kullanın
 Use Touch ID: Touch ID kullanın
 Use Face ID: Face ID kullanın
 Connect Touch ID: Touch ID'yi Bağlayın
@@ -629,9 +642,9 @@ Send NFT: NFT gönder
 Send Collectible: Koleksiyon öğesi gönder
 Send Collectibles: Koleksiyon öğelerini gönder
 $nfts_burned:
-  zeroValue: "%1$d NFT yakıldı!"
-  oneValue: "%1$d NFT yakıldı!"
-  otherValue: "%1$d NFT yakıldı!"
+  zeroValue: "%count% NFT yakıldı"
+  oneValue: "%count% NFT yakıldı"
+  otherValue: "%count% NFT yakıldı"
 No NFT selected: NFT seçilmedi
 Cannot be sent: Gönderilemiyor
 NFT is for sale: NFT satılık
@@ -716,6 +729,14 @@ Install on Desktop: Masaüstüne Kur
 Install on Mobile: Mobile Kur
 Install App: Uygulamayı Yükle
 Hide: Gizle
+Hide and Report: Gizle ve Bildir
+Hide and Report NFT: NFT'yi Gizle ve Bildir
+Report: Bildir
+Report NFT: NFT'yi Bildir
+This NFT will remain hidden on this device and be reported.: Bu NFT bu cihazda gizli kalacak ve bildirilecek.
+Only Hide: Yalnızca Gizle
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: Bu NFT'yi uygunsuz olarak da bildirmek istiyor musunuz? Ardından bu cihazdan kalıcı olarak kaldırılacaktır.
+This NFT will be permanently hidden on this device and reported.: Bu NFT bu cihazda kalıcı olarak gizlenecek ve bildirilecek.
 Hidden NFTs: Gizli NFT'ler
 Hidden By Me: Benim Tarafımdan Gizlendi
 Probably Scam: Muhtemelen Dolandırıcılık
@@ -768,16 +789,8 @@ If away for 10 min: 10 dk. hareketsizse
 Unlock: Kilidi aç
 This address mimics another address that you previously interacted with.: Bu adres, daha önce etkileşimde bulunduğunuz başka bir adresi taklit ediyor.
 Biometric authentication failed: Biyometrik kimlik doğrulama başarısız oldu
+Authentication is already configured: Kimlik doğrulama zaten ayarlanmış
 Reset biometrics in security settings, or use a passcode.: Güvenlik ayarlarında biyometrik kimlik doğrulamayı sıfırlayın veya bir şifre kullanın.
-Best Rate: En İyi Kur
-via %dex_name%: "%dex_name% aracılığıyla"
-$swap_dex_chooser_rate_title: "**DeDust** ve **STON.fi** üzerindeki analiz edilen gerçek oranlar, **en iyi kuru** kullanmak için."
-You will receive %amount% **more**.: "%amount% **daha fazla** alacaksınız."
-You will spend %amount% **less**.: "%amount% **daha az** harcayacaksınız."
-Best: En İyi
-Use Best Rate: En İyi Oranı Kullan
-Switch to %dex_name%: "%dex_name%'e Geç"
-Built-in DEX Aggregator: Dahili DEX Toplayıcı
 Add Tokens: Jeton Ekle
 No tokens yet: Henüz jeton yok
 $no_tokens_description: Başka bir cüzdandan jeton alın veya izleme için tercih edilen jetonları ayarlardan etkinleştirin.
@@ -790,7 +803,6 @@ Notifications & Sounds: Bildirimler ve sesler
 Sounds: Sesler
 Push Notifications: Anlık Bildirimler
 Select up to %count% wallets for notifications: Bildirimler için en fazla %count% cüzdan seçin
-$swap_aggregator_fee_tooltip: Dahili bir **DEX toplayıcı**, mevcut DEX'ler arasında **en iyi oranı** bulur. Hizmet ücreti %percent%.
 Accumulated Rewards: Birikmiş ödüller
 $swap_reverse_prohibited: Bu token çifti için satın alma miktarını ayarlamak imkansız
 Blockchain Fee Details: Blockchain Ücret Detayları
@@ -805,7 +817,6 @@ Wallet: Cüzdan
 Trending: Trendler
 No Data: Veri Yok
 Toggle fullscreen: Tam ekranı aç/kapat
-Request is sent!: İstek gönderildi!
 Transaction ID: İşlem Kimliği
 Outgoing Transaction ID: Giden İşlem Kimliği
 Incoming Transaction ID: Gelen İşlem Kimliği
@@ -818,6 +829,7 @@ $dapp_return_details: |
   %fee_amount%, ücreti ödemek için cüzdanınızdan anında tahsil edilecektir.
 
   %received_amount% birkaç dakika içinde size geri gönderilecektir.
+$dapp_return_disclaimer: Görüntülenen iade edilen tutar garanti edilmez ve kötü niyetli dapp'ler tarafından manipüle edilebilir. Bu hizmetin güvenilirliğinden emin değilseniz işlemi iptal edin.
 Additional Amount Sent: Ekstra Gönderilecek
 Show Sensitive Data: Hassas Verileri Göster
 Hide Sensitive Data: Hassas Verileri Gizle
@@ -825,6 +837,7 @@ Copy Address: Adresi Kopyala
 Copy Transaction ID: İşlem Kimliğini Kopyala
 Requesting Unstake: Unstake talep ediliyor
 Requested Unstake: Unstake talep edildi
+Unstake Requested: Unstake talep edildi
 $request_unstake_action: Unstake talebi
 Calling Contract: Sözleşme çağrılıyor
 Called Contract: Kontrat çağrıldı
@@ -926,7 +939,6 @@ $safe_staking_ethena_description3: "**Yatırılan tutarı** tahakkuk eden faizle
 Unstake %amount%: "%amount% unstake et"
 Request Unstaking: Stake Çekme Talebi
 $unstaking_when_receive_ethena: Stake'ten çıkan bakiyenizi **7 gün** içinde alabileceksiniz.
-Coins have been unstaked!: Coin’ler çıkarıldı!
 Confirm Upgrading: Yükseltmeyi Onayla
 How does it work?: Nasıl çalışır?
 Multisend: Çoklu Gönder
@@ -960,8 +972,8 @@ Configure DNS: DNS yapılandır
 Link to Wallet: Cüzdana bağla
 Change Wallet: Cüzdanı değiştir
 Change Linked Wallet: Bağlı cüzdanı değiştir
-Domain has been renewed!: Alan adı yenilendi!
-Domains have been renewed!: Alan adları yenilendi!
+Domain Renewed: Alan adı yenilendi
+Domains Renewed: Alan adları yenilendi
 Linked Wallet: Bağlı cüzdan
 Domain Linked: Alan adı bağlandı
 Link: Bağla
@@ -1118,6 +1130,8 @@ $invalid_address_format: Geçersiz adres formatı
 $no_valid_view_addresses: Görüntülenecek geçerli adres yok
 Account Saved: Hesap başarıyla kaydedildi
 Share Wallet Link: Cüzdan bağlantısını paylaş
+Address: Adres
+Domain: Alan Adı
 Remove: Kaldır
 $missing_offramp_deposit_address: Off-ramp için para yatırma adresi eksik.
 Buy: Satın al
@@ -1126,6 +1140,7 @@ Sell on Card: Karta sat
 Sell %symbol%: "%symbol% sat"
 $connect_dapp_description: Bağlı uygulamalar yalnızca cüzdan adresinizi görebilir ve izniniz olmadan varlıklarınızı taşıyamaz.
 $connect_dapp_title: '%name% ile bağlanılsın mı?'
+$connect_dapp_no_compatible_wallets_found: Bu bağlantı için çok zincirli (multichain) bir cüzdan gerekir. Mevcut cüzdanız yalnızca TON destekler ve başka çok zincirli cüzdanınız yok. Yeni bir multichain cüzdan oluşturmak için aşağıdaki düğmeye basın.
 Choose Wallet: Cüzdan seç
 Wallet to use on %host%: '%host% için cüzdan'
 Selected Wallet: Seçili cüzdan
@@ -1133,6 +1148,8 @@ Wallet to use for payment: Ödeme için cüzdan
 $wallet_connect_pay_no_options: Bu cüzdan için ödeme seçeneği yok.
 $wallet_connect_pay_try_another_wallet: Başka bir cüzdan seçmeyi deneyin.
 Connect Wallet: Cüzdanı bağla
+Create Multichain Wallet: Çok zincirli cüzdan oluştur
+Select multichain wallet: Çok zincirli cüzdan seç
 Connect Anyway: Yine de bağlan
 Insufficient Fee: Yetersiz ücret
 Waiting for a View deeplink to display a wallet address.: Bir cüzdan adresi görüntülemek için bir View deeplink'i bekleniyor.
@@ -1141,6 +1158,11 @@ $explorer_mode_warning: "Kaşif modu: bir adres açmak için View deeplink'i bek
 This command is not supported in explorer mode: Bu komut kaşif modunda desteklenmiyor
 $saved_addresses_header: Kaydedildi
 confirm an action in My Wallet: My Wallet'da bir işlemi onaylayın
+Migration was rolled back: Geçiş geri alındı
+Rollback Enclave Migration: Enclave Geçişini Geri Al
+Unable to migrate wallet data. Please contact support.: Cüzdan verileri taşınamadı. Lütfen destek ile iletişime geçin.
+Failed to retrieve password from biometrics: Parola biyometriden alınamadı
+Migration failed. Please try again.: Geçiş başarısız oldu. Lütfen tekrar deneyin.
 Timed out waiting for account to be ready: Hesabın hazır olması beklenirken zaman aşımı
 $connected_apps:
   otherValue: "%1$d bağlı"
@@ -1179,7 +1201,6 @@ Transfer Info: Transfer Bilgisi
 Transfer not found: Transfer bulunamadı
 Failed to fetch transfer: Transfer alınamadı
 Transfer in progress: Transfer devam ediyor
-Transfer Sent!: Transfer Gönderildi!
 Please confirm transfer on your Ledger: Lütfen Ledger'ınızda transferi onaylayın
 Please confirm action on your Ledger: Lütfen Ledger'ınızda işlemi onaylayın
 Not all transfers were sent successfully: Tüm transferler başarıyla gönderilmedi
@@ -1231,6 +1252,15 @@ Enabling biometric confirmation will reset the passcode.: Biyometrik doğrulama 
 Confirm action with your passcode: ยืนยันการดำเนินการด้วยรหัสผ่านของคุณ
 No Image: Resim Yok
 Different blockchain. Cannot be selected: Farklı blockchain. Seçilemez
+Chains: Ağlar
+enclave_use_biometrics: Biyometri Kullan
+Copy Storage Data: Depolama Verilerini Kopyala
+Rollback Migration: Geçişi Geri Al
+Enclave session expired: Enclave oturumu süresi doldu
+Failed to setup auth: Kimlik doğrulama kurulamadı
+Failed to setup biometric auth: Biyometrik kimlik doğrulama kurulamadı
+No enclave session token available: Enclave oturum jetonu yok
+Missing authorization: Yetkilendirme eksik
 $address_suggestion_no_chain: "%chain% yok"
 Subwallets: Alt cüzdanlar
 Other addresses for this wallet: Bu cüzdan için diğer adresler
@@ -1259,7 +1289,6 @@ Deposit: Yatır
 Trade: Ticaret
 Show All %collection_name%: Tümünü göster %collection_name%
 Scanning for subwallets...: Alt cüzdanlar aranıyor...
-This process may take up to a minute. Please wait.: Bu işlem bir dakikaya kadar sürebilir. Lütfen bekleyin.
 Your assets on other TON contracts: Diğer TON sözleşmelerindeki varlıklarınız
 No existing subwallets found: Mevcut alt cüzdan bulunamadı
 You can create a new subwallet if you need another address on the same secret words.: Aynı gizli kelimelerde başka bir adrese ihtiyacınız varsa yeni bir alt cüzdan oluşturabilirsiniz.
@@ -1413,7 +1442,6 @@ Swap is not supported on this account.: Bu hesapta takas desteklenmiyor.
 Connecting your wallet: Cüzdanınız bağlanıyor
 Action is not possible on a view-only wallet.: Salt okunur cüzdanda bu işlem yapılamaz.
 No matching chains: Uyumlu ağ yok
-Select multichain wallet: Çoklu zincir cüzdanı seç
 Logged in with My Wallet: My Wallet ile giriş yapıldı
 You have no apps connected to this wallet.: Bu cüzdana bağlı uygulama yok.
 Asset: Varlık
@@ -1577,6 +1605,11 @@ $web_permission_location: konum
 $web_permission_device_features: cihaz özellikleri
 $web_permission_this_site: bu site
 
+$enclave_use_biometrics: Biyometrik koruma kullanın
+$enclave_enter_passcode_or_use_biometrics: Parola girin veya parmak izi kullanın
+$enclave_use_pin: PIN kullan
+$enclave_cancel: İptal
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Gönderildi %amount% %symbol%
 push_activity_token_received: Alındı %amount% %symbol%
@@ -1602,23 +1635,31 @@ push_activity_dns_renewed: DNS yenilendi
 push_activity_subscription_started: Abonelik başlatıldı
 push_activity_subscription_payment_received: "%amount% %symbol% abonelik ödemesi alındı"
 push_activity_subscription_canceled: Abonelik iptal edildi
-push_activity_swap_completed: Takas %from_symbol% -> %to_symbol% tamamlandı
-push_activity_swap_failed: Takas %from_symbol% -> %to_symbol% başarısız oldu
-push_activity_swap_expired: Takas %from_symbol% -> %to_symbol% süresi doldu
-push_activity_swap_pending: Takas %from_symbol% -> %to_symbol% %status%
+push_activity_swap_completed: Takas %from_symbol% → %to_symbol% tamamlandı
+push_activity_swap_failed: Takas %from_symbol% → %to_symbol% başarısız oldu
+push_activity_swap_expired: Takas %from_symbol% → %to_symbol% süresi doldu
+push_activity_swap_pending: Takas %from_symbol% → %to_symbol% %status%
 push_activity_staking_profit: Staking karı %amount% GRAM
 push_activity_staking_loyalty_profit: Staking sadakat karı %amount% GRAM
 push_domain_title_renew: Alan adınızı yenileyin
 push_domain_expired_yesterday: Alan adınız %domain% dün süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
 push_domain_expired_days_ago: Alan adınız %domain% %days% gün önce süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
+push_domain_expired_days_ago_number:
+  zeroValue: Alan adınız %domain% %days% gün önce süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
+  oneValue: Alan adınız %domain% %days% gün önce süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
+  otherValue: Alan adınız %domain% %days% gün önce süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
 push_domain_expires_today: Alan adınız %domain% bugün süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
 push_domain_expires_tomorrow: Alan adınız %domain% yarın süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
 push_domain_expires_in_days: Alan adınız %domain% %days% gün içinde süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
+push_domain_expires_in_days_number:
+  zeroValue: Alan adınız %domain% %days% gün içinde süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
+  oneValue: Alan adınız %domain% %days% gün içinde süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
+  otherValue: Alan adınız %domain% %days% gün içinde süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
 
 $more_nfts:
   zeroValue: NFT yok
   oneValue: "+1 NFT"
-  otherValue: "+%1$d NFT"
+  otherValue: "+%count% NFT"
 
 $subwallets_hint: Yeni gizli kelimeler oluşturmadan ek adresler almak için alt cüzdanlar kullanın.
 $subwallets_created_wallets: Daha önce alt cüzdan oluşturduysanız, aşağıdaki listede görünecektir.
@@ -1640,13 +1681,76 @@ Email: E-posta
 Choose Token: Token seçin
 You don't have any eligible tokens for this payment: Bu ödeme için uygun token'ınız yok
 Buy, swap, or receive a supported token to continue.: Devam etmek için desteklenen bir token satın alın, takas edin veya alın.
+Copy Wallet Link: Bağlantıyı kopyala
 Are you sure you want to cancel the payment?: Ödemeyi iptal etmek istediğinizden emin misiniz?
 Cancel Payment: Ödemeyi iptal et
-Paid!: Ödendi!
+Paid: Ödendi
 Payment: Ödeme
-Sent!: Gönderildi!
 $chart_months_short: Oca,Şub,Mar,Nis,May,Haz,Tem,Ağu,Eyl,Eki,Kas,Ara
 $chart_week_days: Pazar,Pazartesi,Salı,Çarşamba,Perşembe,Cuma,Cumartesi
 $chart_week_days_short: Paz,Pzt,Sal,Çar,Per,Cum,Cmt
 Unsupported Chain: Desteklenmeyen ağ
 Please upgrade to multichain to use this app.: Bu uygulamayı kullanmak için çoklu zincir cüzdanına yükseltin.
+Rounded Corners: Yuvarlatılmış Köşeler
+Enable Blur: Bulanıklığı Etkinleştir
+App Font: Uygulama Yazı Tipi
+Rounded Balance Font: Yuvarlak Bakiye Yazı Tipi
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: Testnet'te karta satış desteklenmemektedir.
+Selling to card is not supported for this account.: Bu hesap karta satışı desteklemiyor.
+"Why is %tokenName% %direction% %timeframe%?": "%tokenName% fiyatı %timeframe% neden %direction%?"
+up: yükseldi
+down: düştü
+today: bugün
+this week: bu hafta
+this month: bu ay
+Info: Bilgi
+Market: Pazar
+Market Cap: Piyasa Değeri
+Created: Oluşturuldu
+Expanded: Genişletildi
+Collapsed: Daraltıldı
+Circulating / Total Supply: Dolaşımdaki / Toplam Arz
+Circulating Supply: Dolaşımdaki Arz
+Total Supply: Toplam Arz
+Volume · 24h: Hacim · 24 sa.
+Token Info Mock: Token Bilgisi Örneği
+Design: Tasarım
+Localized Description: Yerelleştirilmiş Açıklama
+Long / Sparse: Uzun / Eksik
+Loading: Yükleniyor
+Missing Description: Açıklama Eksik
+Missing Token Info: Token Bilgisi Eksik
+Website: Web sitesi
+Documentation: Dokümantasyon
+Source Code: Kaynak Kodu
+Translated from English: İngilizceden çevrildi
+Show Original: Orijinali Göster
+Show Translation: Çeviriyi Göster
+Original Text: Orijinal Metin
+$token_info_market_cap_hint: Tokenın dolaşımdaki arzının toplam piyasa değeri.
+$token_info_supply_hint: Şu anda dolaşımda olan token sayısının toplam arza oranı.
+$token_info_volume_hint: Son 24 saatte yapılan işlemlerin toplam değeri.
+$token_info_expand_hint: Token bilgilerini genişletir.
+$token_info_collapse_hint: Token bilgilerini daraltır.
+$token_info_open_in_browser_hint: Tarayıcıda açar.
+$token_info_fallback_description: Kamuya açık bilgi mevcut değil
+$token_info_no_description: Açıklama mevcut değil
+$swap_cex_aml_kyc_policy_with_provider: "%provider% AML/KYC"
+$enclave_migration_damaged_title: Cüzdan Verileri Bozuk
+$enclave_migration_damaged_message: |
+  Sorun parolada değil. Cüzdanlarınızdan birinin kayıtlı verileri okunamıyor, bu yüzden güncelleme durduruldu ve diğer cüzdanlarınız önceki biçiminde kaldı.
+
+  Uygulamayı yeniden yüklemeyin ve verilerini temizlemeyin: bu, hâlâ sağlam olan cüzdanları siler. Lütfen %support_link% ile iletişime geçin, onları kurtarmanıza yardımcı olacağız.
+$enclave_migration_interrupted_title: Güncelleme Yarıda Kesildi
+$enclave_migration_interrupted_message: |
+  Cüzdan verilerinizi güncellemeye yönelik önceki bir deneme yarıda kaldı ve bu ekrandan sürdürülemiyor. Burada tekrar denemek yardımcı olmaz.
+
+  Uygulamayı yeniden yüklemeyin ve verilerini temizlemeyin: cüzdanlarınız hâlâ bu cihazda saklanıyor. Lütfen %support_link% ile iletişime geçin, güncellemeyi tamamlamanıza yardımcı olacağız.
+$enclave_migration_storage_title: Cüzdan Verileri Kaydedilemedi
+$enclave_migration_storage_message: |
+  Güncellenen cüzdan verileri bu cihaza kaydedilemedi. Biraz disk alanı boşaltmak yardımcı olabilir.
+
+  Uygulamayı yeniden yüklemeyin ve verilerini temizlemeyin: cüzdanlarınız hâlâ cihazda saklanıyor. Bu durum tekrarlanıyorsa lütfen %support_link% ile iletişime geçin.
+Hide Unverified NFTs: Doğrulanmamış NFT'leri Gizle
+Unverified: Doğrulanmamış

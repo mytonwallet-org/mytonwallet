@@ -400,7 +400,7 @@ private final class AgentConsentView: UIView {
         let font = UIFont.preferredFont(forTextStyle: .subheadline)
         var configuration = UIButton.Configuration.plain()
         configuration.contentInsets = .zero
-        configuration.image = UIImage(systemName: "chevron.right")
+        configuration.image = UIImage(systemName: "chevron.forward")
         configuration.imagePlacement = .trailing
         configuration.imagePadding = 4
         configuration.title = AgentConsentCopy.learnMore

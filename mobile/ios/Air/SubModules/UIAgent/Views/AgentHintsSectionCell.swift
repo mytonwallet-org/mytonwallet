@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UIComponents
 import WalletContext
 
 private enum AgentHintsSectionMetrics {
@@ -12,12 +13,12 @@ private enum AgentHintsSectionMetrics {
     static let cardHeight: CGFloat = 66
     static let cardCornerRadius: CGFloat = 16
     static let cardBorderWidth: CGFloat = 1.5
-    static let titleFont = UIFont.systemFont(ofSize: 15, weight: .bold)
-    static let subtitleFont = UIFont.systemFont(ofSize: 15, weight: .regular)
+    @MainActor static var titleFont: UIFont { WTypography.uiFont(.subheadlineBold) }
+    @MainActor static var subtitleFont: UIFont { WTypography.uiFont(.subheadline) }
     static let titleSubtitleSpacing: CGFloat = 0
     static let cardContentInsets = NSDirectionalEdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
 
-    static func cardSize(for hint: AgentHint) -> CGSize {
+    @MainActor static func cardSize(for hint: AgentHint) -> CGSize {
         let titleWidth = hint.title.size(withAttributes: [.font: titleFont]).width
         let subtitleWidth = hint.subtitle.size(withAttributes: [.font: subtitleFont]).width
         let horizontalInsets = cardContentInsets.leading + cardContentInsets.trailing
@@ -158,13 +159,13 @@ private struct AgentHintCardContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AgentHintsSectionMetrics.titleSubtitleSpacing) {
             Text(hint.title)
-                .font(Font(AgentHintsSectionMetrics.titleFont))
+                .textStyle(.subheadlineBold)
                 .foregroundStyle(Color(uiColor: .label))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
             Text(hint.subtitle)
-                .font(Font(AgentHintsSectionMetrics.subtitleFont))
+                .textStyle(.subheadline)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
                 .truncationMode(.tail)

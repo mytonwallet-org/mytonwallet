@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisend.send
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -18,6 +17,9 @@ import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.view.isGone
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -27,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
@@ -55,9 +58,6 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class SendConfirmVC(
@@ -70,6 +70,7 @@ class SendConfirmVC(
     private val isSell: Boolean = false,
     private val shouldRequireFreshAuth: Boolean = false
 ) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "SendConfirm"
 
     override val displayedAccount =
@@ -100,7 +101,8 @@ class SendConfirmVC(
                 amount = amount,
                 currency = config.request.amountEquivalent.getFmt(true),
                 fee = LocaleController.getString("\$fee_value_with_colon").replace(
-                    "%fee%", config.showingFee?.toString(
+                    "%fee%",
+                    config.showingFee?.toString(
                         config.request.token,
                         appendNonNative = true
                     ) ?: ""
@@ -294,8 +296,7 @@ class SendConfirmVC(
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
         ReversedCornerViewUpsideDown(context, scrollView).apply {
-            if (ignoreSideGuttering)
-                setHorizontalPadding(0f)
+            if (ignoreSideGuttering) setHorizontalPadding(0f)
         }
 
     private val confirmButton by lazy {
@@ -322,7 +323,15 @@ class SendConfirmVC(
 
     override fun setupViews() {
         super.setupViews()
-        setNavTitle(if (isSell) LocaleController.getString("Sell") else LocaleController.getString("Is it all ok?"))
+        setNavTitle(
+            if (isSell) {
+                LocaleController.getString(
+                    "Sell"
+                )
+            } else {
+                LocaleController.getString("Is it all ok?")
+            }
+        )
         setupNavBar(true)
         navigationBar?.addCloseButton()
 
@@ -381,12 +390,15 @@ class SendConfirmVC(
                 setMargin(confirmButton.id, ConstraintSet.START, 8.dp)
                 setMargin(confirmButton.id, ConstraintSet.END, 20.dp + systemBarEndInset)
                 createHorizontalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                    if (LocaleController.isRTL)
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.LEFT,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.RIGHT,
+                    if (LocaleController.isRTL) {
                         intArrayOf(confirmButton.id, cancelButton.id)
-                    else
-                        intArrayOf(cancelButton.id, confirmButton.id),
+                    } else {
+                        intArrayOf(cancelButton.id, confirmButton.id)
+                    },
                     null,
                     ConstraintSet.CHAIN_SPREAD
                 )
@@ -401,13 +413,24 @@ class SendConfirmVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
 
         val topRoundedItems = listOf(
-            title1, title2, title3, binaryMessageTitle, initDataTitle
+            title1,
+            title2,
+            title3,
+            binaryMessageTitle,
+            initDataTitle
         )
         val bottomRoundedItems = listOf(
-            addressInputView, amountInfoView, commentInputView, binaryMessageView, initDataView
+            addressInputView,
+            amountInfoView,
+            commentInputView,
+            binaryMessageView,
+            initDataView
         )
         val primaryTextColored = listOf(
-            addressInputView, commentInputView, binaryMessageView, initDataView
+            addressInputView,
+            commentInputView,
+            binaryMessageView,
+            initDataView
         )
 
         topRoundedItems.forEach {
@@ -460,20 +483,14 @@ class SendConfirmVC(
         }
     }
 
-    private fun getButtonsBottomMargin(): Int {
-        return 20.dp + max(
-            (navigationController?.getSystemBars()?.bottom ?: 0),
-            (navigationController?.imeInsetBottom ?: 0)
-        )
-    }
+    private fun getButtonsBottomMargin(): Int = 20.dp + max(
+        (navigationController?.getSystemBars()?.bottom ?: 0),
+        (navigationController?.imeInsetBottom ?: 0)
+    )
 
-    private fun resolvedAddress(destination: String): String {
-        return config.resolvedAddress ?: destination
-    }
+    private fun resolvedAddress(destination: String): String = config.resolvedAddress ?: destination
 
-    private fun resolvedName(): String? {
-        return name ?: config.addressName
-    }
+    private fun resolvedName(): String? = name ?: config.addressName
 
     private fun buildRecipientPreview(address: String): CharSequence {
         val name = resolvedName()?.takeIf { it.isNotBlank() }
@@ -536,7 +553,8 @@ class SendConfirmVC(
                 ),
                 onDone = {
                     task?.invoke(null)
-                }),
+                }
+            ),
             headerView = PasscodeHeaderSendView(
                 WeakReference(this),
                 (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
@@ -578,6 +596,7 @@ class SendConfirmVC(
                 ),
                 task = { passcode -> task?.invoke(passcode) },
                 ignoreBiometry = shouldRequireFreshAuth
-            ))
+            )
+        )
     }
 }

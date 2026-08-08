@@ -397,13 +397,6 @@ public func generateGradientTintedImage(image: UIImage?, colors: [UIColor]) -> U
     }, opaque: opaque, scale: scale)
 }
 
-@MainActor private func generateSingleColorImage(size: CGSize, color: UIColor) -> UIImage? {
-    return generateImage(size, contextGenerator: { size, context in
-        context.setFillColor(color.cgColor)
-        context.fill(CGRect(origin: CGPoint(), size: size))
-    })
-}
-
 public enum DrawingContextBltMode {
     case Alpha
 }

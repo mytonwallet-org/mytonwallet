@@ -44,7 +44,10 @@ function BackButton({ isIconOnly, accountId }: OwnProps & StateProps) {
 
   return (
     <Button {...props}>
-      <i className={buildClassName(styles.backIcon, 'icon-chevron-left')} aria-hidden />
+      <i
+        className={buildClassName(styles.backIcon, 'icon-chevron-left')}
+        aria-hidden
+      />
       {isIconOnly ? undefined : lang('Back')}
     </Button>
   );

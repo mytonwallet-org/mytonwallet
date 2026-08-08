@@ -2,12 +2,12 @@ package org.mytonwallet.uihome.home.status
 
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
+import java.util.concurrent.CopyOnWriteArrayList
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.uihome.home.views.UpdateStatusView
-import java.lang.ref.WeakReference
-import java.util.concurrent.CopyOnWriteArrayList
 
 object HomeStatusController : WalletCore.EventObserver {
 
@@ -27,16 +27,22 @@ object HomeStatusController : WalletCore.EventObserver {
 
     fun addListener(listener: Listener) {
         ensureRegistered()
-        listeners.removeIf {
-            val existing = it.get()
-            existing == null || existing == listener
+        listeners.forEach { reference ->
+            val existing = reference.get()
+            if (existing == null || existing == listener) {
+                listeners.remove(reference)
+            }
         }
         listeners.add(WeakReference(listener))
         listener.onStatus(state, animated = false)
     }
 
     fun removeListener(listener: Listener) {
-        listeners.removeIf { it.get() == listener }
+        listeners.forEach { reference ->
+            if (reference.get() == listener) {
+                listeners.remove(reference)
+            }
+        }
     }
 
     @Synchronized
@@ -88,6 +94,7 @@ object HomeStatusController : WalletCore.EventObserver {
     private fun emit(animated: Boolean) {
         val newState = when {
             waitingForNetwork -> UpdateStatusView.State.WaitingForNetwork
+
             AccountStore.updatingActivities || AccountStore.updatingBalance ->
                 UpdateStatusView.State.Updating
 
@@ -109,10 +116,11 @@ object HomeStatusController : WalletCore.EventObserver {
 
     private fun currentName(): String {
         val nextAccountId = WalletCore.nextAccountId
-        val account = if (nextAccountId != null)
+        val account = if (nextAccountId != null) {
             AccountStore.accountById(nextAccountId) ?: AccountStore.activeAccount
-        else
+        } else {
             AccountStore.activeAccount
+        }
         return account?.name ?: ""
     }
 }

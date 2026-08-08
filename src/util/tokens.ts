@@ -48,24 +48,35 @@ export function getIsRwaStockToken(token?: ApiToken | UserToken | UserSwapToken 
   return token?.keywords?.includes(RWA_STOCK_KEYWORD) ?? false;
 }
 
-export function getTokenName(lang: LangFn, token: UserSwapToken | ApiSwapAsset | ApiToken): string;
-export function getTokenName(lang: LangFn, token?: UserSwapToken | ApiSwapAsset | ApiToken): string | undefined;
-export function getTokenName(lang: LangFn, token?: UserSwapToken | ApiSwapAsset | ApiToken) {
+export function getTokenName(
+  lang: LangFn, token: UserSwapToken | ApiSwapAsset | ApiToken, areTokenNamesLocalized?: boolean,
+): string;
+export function getTokenName(
+  lang: LangFn, token?: UserSwapToken | ApiSwapAsset | ApiToken, areTokenNamesLocalized?: boolean,
+): string | undefined;
+export function getTokenName(
+  lang: LangFn, token?: UserSwapToken | ApiSwapAsset | ApiToken, areTokenNamesLocalized?: boolean,
+) {
   if (!token) return undefined;
+
+  let tokenName = token?.name;
+  if (areTokenNamesLocalized && 'localizedName' in token && Boolean(token.localizedName)) {
+    tokenName = token.localizedName;
+  }
 
   if (!('isStaking' in token) || !token.isStaking) {
     if (getIsRwaStockToken(token)) {
-      return token.name.replace(XSTOCKS_NAME_REGEX, '').replace(SHIFT_NAME_REGEX, '');
+      return tokenName.replace(XSTOCKS_NAME_REGEX, '').replace(SHIFT_NAME_REGEX, '');
     }
 
-    return token.name;
+    return tokenName;
   }
 
   switch (token.slug) {
     case ETHENA_STAKING_SLUG:
       return lang('%token% Staking', { token: 'Ethena' })[0] as string;
     default:
-      return lang('%token% Staking', { token: token.name })[0] as string;
+      return lang('%token% Staking', { token: tokenName })[0] as string;
   }
 }
 
@@ -128,6 +139,7 @@ export function buildUserToken(token: ApiTokenWithPrice | ApiToken): UserToken {
       'symbol',
       'slug',
       'name',
+      'localizedName',
       'image',
       'decimals',
       'keywords',

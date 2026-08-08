@@ -1,0 +1,46 @@
+.container,
+.text,
+.markdownSegment {
+  display: block;
+}
+
+.container {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.containerHidden {
+  display: none;
+}
+
+.text {
+  unicode-bidi: plaintext;
+}
+
+.markdownSegment + .markdownSegment {
+  margin-top: 1rem;
+}
+
+.revealEdgeText {
+  transform-origin: bottom;
+  display: block;
+  width: max-content;
+  white-space: pre;
+}
+
+.revealEdgeLayer {
+  pointer-events: none;
+  user-select: none;
+
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.revealEdgeFragment {
+  position: absolute;
+  unicode-bidi: plaintext;
+  display: block;
+  white-space: pre;
+}

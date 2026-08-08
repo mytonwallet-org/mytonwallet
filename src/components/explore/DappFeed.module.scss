@@ -47,7 +47,7 @@
   color: var(--color-black);
 
   &:first-child {
-    margin-left: 0.5rem;
+    margin-inline-start: 0.5rem;
   }
 
   @media (hover: hover) {
@@ -168,7 +168,7 @@
   align-items: center;
 
   .tiles > & {
-    margin-left: calc(0.5rem - 0.125rem);
+    margin-inline-start: calc(0.5rem - 0.125rem);
   }
 
   &:hover {

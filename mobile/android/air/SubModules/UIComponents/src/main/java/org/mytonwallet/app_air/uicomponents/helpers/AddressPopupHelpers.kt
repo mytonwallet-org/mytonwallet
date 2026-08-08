@@ -13,6 +13,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.core.widget.addTextChangedListener
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountItemView
@@ -39,8 +41,6 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 class AddressPopupHelpers {
     companion object {
@@ -56,7 +56,7 @@ class AddressPopupHelpers {
             popupXOffset: Int,
             centerHorizontally: Boolean,
             color: Int? = null,
-            showTemporaryViewOption: Boolean,
+            showTemporaryViewOption: Boolean
         ) {
             val context = viewController.get()!!.view.context
             context.getDrawableCompat(
@@ -64,11 +64,15 @@ class AddressPopupHelpers {
             )?.let { drawable ->
                 drawable.mutate()
                 drawable.setTint(color ?: WColor.SecondaryText.color)
-                val left = 4.5f.dp.roundToInt()
                 val width = 7.dp
                 val height = 14.dp
-                drawable.setBounds(left, 0, left + width, height)
-                val imageSpan = VerticalImageSpan(drawable)
+                drawable.setBounds(0, 0, width, height)
+                val imageSpan = VerticalImageSpan(
+                    drawable,
+                    startPadding = 4.5f.dp.roundToInt(),
+                    verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm,
+                    isRTL = LocaleController.isRTL
+                )
                 spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             spannedString.setSpan(
@@ -131,14 +135,14 @@ class AddressPopupHelpers {
             centerHorizontally: Boolean,
             showTemporaryViewOption: Boolean,
             windowBackgroundStyle: BackgroundStyle,
-            displayProgressListener: ((progress: Float) -> Unit)? = null,
+            displayProgressListener: ((progress: Float) -> Unit)? = null
         ) {
             val context = viewController.get()?.view?.context ?: return
             val addressSaved = AddressStore.getSavedAddress(address) != null
             WMenuPopup.present(
                 view,
                 listOfNotNull(
-                    if (showTemporaryViewOption)
+                    if (showTemporaryViewOption) {
                         WMenuPopup.Item(
                             config = WMenuPopup.Item.Config.CustomView(
                                 AccountItemView(
@@ -152,7 +156,7 @@ class AddressPopupHelpers {
                                                 address = address
                                             )
                                         ),
-                                        accountType = null,
+                                        accountType = null
                                     ),
                                     showArrow = true,
                                     isTrusted = false,
@@ -168,19 +172,21 @@ class AddressPopupHelpers {
                             ),
                             hasSeparator = true
                         ) {
-
-                        } else null,
+                        }
+                    } else {
+                        null
+                    },
                     WMenuPopup.Item(
                         org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
-                        LocaleController.getString("Copy Address"),
+                        LocaleController.getString("Copy Address")
                     ) {
                         copyAddress(context, address, blockchain)
                     },
                     WMenuPopup.Item(
                         if (addressSaved) {
-                            org.mytonwallet.app_air.uicomponents.R.drawable.ic_star_cross_30
+                            org.mytonwallet.app_air.icons.R.drawable.ic_star_cross_30
                         } else {
-                            org.mytonwallet.app_air.uicomponents.R.drawable.ic_star_30
+                            org.mytonwallet.app_air.icons.R.drawable.ic_star_30
                         },
                         LocaleController.getString(
                             if (addressSaved) {
@@ -188,7 +194,7 @@ class AddressPopupHelpers {
                             } else {
                                 "Save Address"
                             }
-                        ),
+                        )
                     ) {
                         if (AddressStore.getSavedAddress(address) == null) {
                             saveAddressPressed(
@@ -203,20 +209,23 @@ class AddressPopupHelpers {
                     },
                     WMenuPopup.Item(
                         org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
-                        LocaleController.getString("View on Explorer"),
+                        LocaleController.getString("View on Explorer")
                     ) {
                         val config = ExplorerHelpers.createAddressExplorerConfig(
-                            blockchain, network, address
+                            blockchain,
+                            network,
+                            address
                         ) ?: return@Item
                         WalletCore.notifyEvent(WalletEvent.OpenUrlWithConfig(config))
-                    }),
+                    }
+                ),
                 popupWidth = WRAP_CONTENT,
                 xOffset = xOffset,
                 yOffset = yOffset,
                 positioning = positioning,
                 centerHorizontally = centerHorizontally,
                 windowBackgroundStyle = windowBackgroundStyle,
-                displayProgressListener = displayProgressListener,
+                displayProgressListener = displayProgressListener
             )
         }
 
@@ -250,7 +259,9 @@ class AddressPopupHelpers {
                 container,
                 WDialog.Config(
                     title = LocaleController.getString("Save Address"),
-                    subtitle = LocaleController.getString("You can save this address for quick access while sending."),
+                    subtitle = LocaleController.getString(
+                        "You can save this address for quick access while sending."
+                    ),
                     actionButton = WDialogButton.Config(
                         title = LocaleController.getString("Save"),
                         onTap = {
@@ -286,7 +297,9 @@ class AddressPopupHelpers {
         ) {
             viewController.get()?.showAlert(
                 LocaleController.getString("Remove from Saved"),
-                LocaleController.getString("Are you sure you want to remove this address from your saved ones?"),
+                LocaleController.getString(
+                    "Are you sure you want to remove this address from your saved ones?"
+                ),
                 LocaleController.getString("Delete"),
                 {
                     AddressStore.removeAddress(address)

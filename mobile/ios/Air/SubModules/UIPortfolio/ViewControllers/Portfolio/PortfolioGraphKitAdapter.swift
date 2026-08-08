@@ -1,5 +1,6 @@
 import Foundation
 import GraphKit
+import UIComponents
 import WalletCore
 import WalletContext
 
@@ -8,6 +9,21 @@ enum PortfolioGraphKitAdapterError: Error {
 }
 
 enum PortfolioGraphKitAdapter {
+    @MainActor
+    static func configureTypography() {
+        GraphTypography.configure(fonts: .init(
+            supporting: WTypography.uiFont(.supporting),
+            supportingEmphasized: WTypography.uiFont(.supportingEmphasized),
+            supportingBold: WTypography.uiFont(.supportingBold),
+            caption: WTypography.uiFont(.caption),
+            technicalSupportingBold: WTypography.uiFont(.supportingBold, content: .technical),
+            technicalCaptionBold: WTypography.uiFont(.captionBold, content: .technical),
+            technicalAxis: WTypography.uiFont(.caption2, content: .technical),
+            technicalFallback: WTypography.uiFont(.supporting, content: .technical),
+            technicalSymbol: WTypography.uiFont(.supportingEmphasized, content: .technical)
+        ))
+    }
+
     struct ChartPresentation: Sendable {
         let json: String
         let limitedHistoryFraction: Double?

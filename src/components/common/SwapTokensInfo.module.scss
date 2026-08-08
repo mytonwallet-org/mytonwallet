@@ -77,15 +77,16 @@
 }
 
 .infoRowAmount {
+  unicode-bidi: plaintext;
   grid-area: amount;
   align-self: end;
 
-  margin-left: auto;
+  margin-inline-start: auto;
 
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-gray-1);
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
 
   .noCurrency & {
@@ -102,15 +103,16 @@
 }
 
 .infoRowCurrency {
+  unicode-bidi: plaintext;
   grid-area: currency;
   align-self: start;
 
-  margin-left: auto;
+  margin-inline-start: auto;
 
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-gray-3);
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
 }
 

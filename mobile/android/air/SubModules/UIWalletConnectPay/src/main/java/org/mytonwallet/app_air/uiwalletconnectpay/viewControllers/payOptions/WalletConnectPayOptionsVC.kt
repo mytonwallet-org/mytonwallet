@@ -2,17 +2,20 @@ package org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.payOptions
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.view.Gravity
-import android.view.ViewGroup
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -25,10 +28,10 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
+import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
-import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -46,16 +49,15 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.min
 
 @SuppressLint("ViewConstructor")
 class WalletConnectPayOptionsVC(
     context: Context,
     private var update: ApiUpdate.ApiUpdateWalletConnectPayOptionSelection? = null
-) : WViewController(context), WRecyclerViewAdapter.WRecyclerViewDataSource,
+) : WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
     WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "WalletConnectPayOptions"
 
     override val topBarConfiguration
@@ -102,19 +104,19 @@ class WalletConnectPayOptionsVC(
             addView(
                 accountIconView,
                 LayoutParams(40.dp, 40.dp, Gravity.START or Gravity.CENTER_VERTICAL).apply {
-                    leftMargin = 4.dp
+                    marginStart = 4.dp
                 }
             )
             addView(
                 accountLoadingView,
                 LayoutParams(40.dp, 40.dp, Gravity.START or Gravity.CENTER_VERTICAL).apply {
-                    leftMargin = 4.dp
+                    marginStart = 4.dp
                 }
             )
             addView(
                 expandIcon,
                 LayoutParams(18.dp, 18.dp, Gravity.END or Gravity.CENTER_VERTICAL).apply {
-                    rightMargin = 14.dp
+                    marginEnd = 14.dp
                 }
             )
             setOnClickListener { presentAccountSwitcher() }
@@ -126,7 +128,7 @@ class WalletConnectPayOptionsVC(
             accountLoadingDrawable.color = WColor.White.color
             expandIcon.setImageDrawable(
                 context.getDrawableCompat(
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_expand
+                    org.mytonwallet.app_air.icons.R.drawable.ic_expand
                 )?.apply {
                     setTint(WColor.SecondaryText.color)
                 }
@@ -267,7 +269,7 @@ class WalletConnectPayOptionsVC(
                             title = account.name,
                             network = account.network,
                             byChain = account.byChain,
-                            accountType = account.accountType,
+                            accountType = account.accountType
                         ),
                         showArrow = false,
                         isTrusted = true,
@@ -329,34 +331,28 @@ class WalletConnectPayOptionsVC(
 
     private fun options() = update?.options.orEmpty()
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 3
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 3
+
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        0 -> 1
+        1 -> if (options().isEmpty()) 0 else 1
+        else -> if (options().isEmpty()) 1 else options().size
     }
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            0 -> 1
-            1 -> if (options().isEmpty()) 0 else 1
-            else -> if (options().isEmpty()) 1 else options().size
-        }
-    }
-
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             0 -> HEADER_CELL
             1 -> TITLE_CELL
             else -> if (options().isEmpty()) EMPTY_CELL else OPTION_CELL
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> WalletConnectPayHeaderCell(context)
             EMPTY_CELL -> WalletConnectPayEmptyCell(context)
             TITLE_CELL -> HeaderCell(context)
             else -> WalletConnectPayOptionCell(context)
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -383,7 +379,9 @@ class WalletConnectPayOptionsVC(
             else -> {
                 val options = options()
                 if (options.isEmpty()) {
-                    (cellHolder.cell as WalletConnectPayEmptyCell).configure(update.shouldSwitchWallet == true)
+                    (cellHolder.cell as WalletConnectPayEmptyCell).configure(
+                        update.shouldSwitchWallet == true
+                    )
                 } else {
                     val option = options[indexPath.row]
                     (cellHolder.cell as WalletConnectPayOptionCell).apply {
@@ -449,8 +447,7 @@ class WalletConnectPayOptionsVC(
     override fun onDestroy() {
         super.onDestroy()
         WalletCore.unregisterObserver(this)
-        if (!isConfirmed)
-            cancel()
+        if (!isConfirmed) cancel()
     }
 
     private var loadingAccountId: String? = null
@@ -461,7 +458,9 @@ class WalletConnectPayOptionsVC(
                 val activeAccountId = AccountStore.activeAccountId ?: return
                 if (update?.accountId == activeAccountId ||
                     loadingAccountId == activeAccountId
-                ) return
+                ) {
+                    return
+                }
                 setAccountLoading(true)
                 view.lockView()
                 view.isEnabled = true

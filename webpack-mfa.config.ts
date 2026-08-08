@@ -218,6 +218,7 @@ export default function createConfig(
       new EnvironmentPlugin({
         APP_ENV: 'production',
         IS_TELEGRAM_APP: 'false',
+        IS_HEADLESS: '',
         MFA_APP_URL: '',
         MFA_API_URL: '',
         TONCENTER_MAINNET_URL: 'https://toncenter.mytonwallet.org',

@@ -1,13 +1,13 @@
 import UIKit
 
-private enum AgentBubbleBackgroundMetrics {
-    static let cornerRadius: CGFloat = 20
-    static let tailSize = CGSize(width: 22.153, height: 26.9084)
-    static let tailAttachmentHeight: CGFloat = 20
-    static let tailBottomOverflow = tailSize.height - tailAttachmentHeight
-}
-
 final class AgentBubbleBackgroundView: UIView {
+
+    private enum Metrics {
+        static let tailSize = CGSize(width: 22.153, height: 26.9084)
+        static let tailAttachmentHeight: CGFloat = 20
+        static let tailBottomOverflow = tailSize.height - tailAttachmentHeight
+    }
+
     enum Direction {
         case incoming
         case outgoing
@@ -22,10 +22,26 @@ final class AgentBubbleBackgroundView: UIView {
         static func uniform(_ radius: CGFloat) -> CornerRadii {
             CornerRadii(topLeft: radius, topRight: radius, bottomRight: radius, bottomLeft: radius)
         }
+        
+        static let standAlone = CornerRadii.uniform(20)
+
+        static let bottomAction = CornerRadii(
+                topLeft: 8,
+                topRight: 8,
+                bottomRight: 16,
+                bottomLeft: 16
+            )
+        
+        static let topActioned = CornerRadii(
+                topLeft: 20,
+                topRight: 20,
+                bottomRight: 8,
+                bottomLeft: 8
+            )
     }
 
     let contentView = UIView()
-    nonisolated static let tailBottomOverflow = AgentBubbleBackgroundMetrics.tailBottomOverflow
+    nonisolated static let tailBottomOverflow = Metrics.tailBottomOverflow
 
     private let bodyView = UIView()
     private let bodyMaskLayer = CAShapeLayer()
@@ -34,14 +50,14 @@ final class AgentBubbleBackgroundView: UIView {
 
     private lazy var incomingTailLeadingConstraint = tailView.leadingAnchor.constraint(equalTo: bodyView.leadingAnchor)
     private lazy var outgoingTailTrailingConstraint = tailView.trailingAnchor.constraint(equalTo: bodyView.trailingAnchor)
-    private lazy var tailTopConstraint = tailView.topAnchor.constraint(equalTo: bodyView.bottomAnchor, constant: -AgentBubbleBackgroundMetrics.tailAttachmentHeight)
-    private lazy var bodyBottomConstraint = bodyView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -AgentBubbleBackgroundMetrics.tailBottomOverflow)
-    private lazy var tailHeightConstraint = tailView.heightAnchor.constraint(equalToConstant: AgentBubbleBackgroundMetrics.tailSize.height)
+    private lazy var tailTopConstraint = tailView.topAnchor.constraint(equalTo: bodyView.bottomAnchor, constant: -Metrics.tailAttachmentHeight)
+    private lazy var bodyBottomConstraint = bodyView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.tailBottomOverflow)
+    private lazy var tailHeightConstraint = tailView.heightAnchor.constraint(equalToConstant: Metrics.tailSize.height)
 
     private var direction: Direction = .incoming
     private var fillColor: UIColor = .clear
     private var usesTintColor = false
-    private var cornerRadii = CornerRadii.uniform(AgentBubbleBackgroundMetrics.cornerRadius)
+    private var cornerRadii = CornerRadii.standAlone
     private var showsTail = true
 
     override init(frame: CGRect) {
@@ -53,13 +69,13 @@ final class AgentBubbleBackgroundView: UIView {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
+    
     func configure(
         direction: Direction,
         fillColor: UIColor,
         usesTintColor: Bool = false,
         showsTail: Bool = true,
-        cornerRadii: CornerRadii = .uniform(AgentBubbleBackgroundMetrics.cornerRadius)
+        cornerRadii: CornerRadii = .standAlone
     ) {
         self.direction = direction
         self.fillColor = fillColor
@@ -69,12 +85,17 @@ final class AgentBubbleBackgroundView: UIView {
 
         applyCurrentFillColor()
 
-        incomingTailLeadingConstraint.isActive = direction == .incoming
-        outgoingTailTrailingConstraint.isActive = direction == .outgoing
+        if direction == .incoming {
+            outgoingTailTrailingConstraint.isActive = false
+            incomingTailLeadingConstraint.isActive = true
+        } else {
+            incomingTailLeadingConstraint.isActive = false
+            outgoingTailTrailingConstraint.isActive = true
+        }
         tailView.isHidden = !showsTail
-        bodyBottomConstraint.constant = showsTail ? -AgentBubbleBackgroundMetrics.tailBottomOverflow : 0
-        tailTopConstraint.constant = showsTail ? -AgentBubbleBackgroundMetrics.tailAttachmentHeight : 0
-        tailHeightConstraint.constant = showsTail ? AgentBubbleBackgroundMetrics.tailSize.height : 0
+        bodyBottomConstraint.constant = showsTail ? -Metrics.tailBottomOverflow : 0
+        tailTopConstraint.constant = showsTail ? -Metrics.tailAttachmentHeight : 0
+        tailHeightConstraint.constant = showsTail ? Metrics.tailSize.height : 0
 
         setNeedsLayout()
     }
@@ -87,7 +108,7 @@ final class AgentBubbleBackgroundView: UIView {
 
         guard showsTail else { return path }
 
-        let tailPath = Self.previewTailPath(in: tailView.bounds, mirrored: direction == .incoming)
+        let tailPath = Self.previewTailPath(in: tailView.bounds, mirrored: tailPathIsMirrored)
         tailPath.apply(
             CGAffineTransform(
                 translationX: tailView.frame.minX,
@@ -101,11 +122,12 @@ final class AgentBubbleBackgroundView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        
         performWithoutImplicitAnimations {
             bodyMaskLayer.frame = bodyView.bounds
             bodyMaskLayer.path = Self.roundedPath(in: bodyView.bounds, radii: cornerRadii).cgPath
             tailLayer.frame = tailView.bounds
-            tailLayer.path = showsTail ? Self.tailPath(in: tailView.bounds, mirrored: direction == .incoming) : nil
+            tailLayer.path = showsTail ? Self.tailPath(in: tailView.bounds, mirrored: tailPathIsMirrored) : nil
         }
     }
 
@@ -123,8 +145,17 @@ final class AgentBubbleBackgroundView: UIView {
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
         tintAdjustmentMode = .normal
+        clipsToBounds = false
+        layer.masksToBounds = false
 
         bodyView.translatesAutoresizingMaskIntoConstraints = false
+        let noImplicitGeometry: [String: CAAction] = [
+            "path": NSNull(),
+            "frame": NSNull(),
+            "bounds": NSNull(),
+            "position": NSNull(),
+        ]
+        bodyMaskLayer.actions = noImplicitGeometry
         bodyView.layer.mask = bodyMaskLayer
         addSubview(bodyView)
 
@@ -134,6 +165,8 @@ final class AgentBubbleBackgroundView: UIView {
         tailView.translatesAutoresizingMaskIntoConstraints = false
         tailView.backgroundColor = .clear
         tailView.isUserInteractionEnabled = false
+        tailView.clipsToBounds = false
+        tailLayer.actions = noImplicitGeometry
         tailView.layer.addSublayer(tailLayer)
         addSubview(tailView)
 
@@ -149,7 +182,7 @@ final class AgentBubbleBackgroundView: UIView {
             contentView.bottomAnchor.constraint(equalTo: bodyView.bottomAnchor),
 
             tailTopConstraint,
-            tailView.widthAnchor.constraint(equalToConstant: AgentBubbleBackgroundMetrics.tailSize.width),
+            tailView.widthAnchor.constraint(equalToConstant: Metrics.tailSize.width),
             tailHeightConstraint,
             tailView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
@@ -165,6 +198,16 @@ final class AgentBubbleBackgroundView: UIView {
         performWithoutImplicitAnimations {
             bodyView.backgroundColor = appliedFillColor
             tailLayer.fillColor = appliedFillColor.cgColor
+        }
+    }
+
+    private var tailPathIsMirrored: Bool {
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        switch direction {
+        case .incoming:
+            return !isRightToLeft
+        case .outgoing:
+            return isRightToLeft
         }
     }
 
@@ -245,8 +288,8 @@ final class AgentBubbleBackgroundView: UIView {
 
     private static func outgoingTailPath(in bounds: CGRect) -> UIBezierPath {
         let path = UIBezierPath()
-        let scaleX = bounds.width / AgentBubbleBackgroundMetrics.tailSize.width
-        let scaleY = bounds.height / AgentBubbleBackgroundMetrics.tailSize.height
+        let scaleX = bounds.width / Metrics.tailSize.width
+        let scaleY = bounds.height / Metrics.tailSize.height
 
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
             CGPoint(x: x * scaleX, y: y * scaleY)

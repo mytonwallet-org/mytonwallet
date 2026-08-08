@@ -20,7 +20,8 @@ class ConfirmAmountView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0
-) : ConstraintLayout(context, attrs, defStyle), WThemedView {
+) : ConstraintLayout(context, attrs, defStyle),
+    WThemedView {
 
     private val tokenIconView = WCustomImageView(context).apply {
         layoutParams = LayoutParams(32.dp, 32.dp)
@@ -91,12 +92,7 @@ class ConfirmAmountView @JvmOverloads constructor(
         updateTheme()
     }
 
-    fun set(
-        token: Content,
-        amount: CharSequence?,
-        currency: CharSequence?,
-        fee: CharSequence?
-    ) {
+    fun set(token: Content, amount: CharSequence?, currency: CharSequence?, fee: CharSequence?) {
         tokenIconView.set(token)
         tokenAmountTextView.text = amount
         tokenFiatAmountTextView.text = currency

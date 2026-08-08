@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.intro
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.text.Spannable
@@ -21,11 +20,14 @@ import android.widget.FrameLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.min
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -34,10 +36,11 @@ import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
-import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
+import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -64,15 +67,12 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.min
 
 @SuppressLint("ViewConstructor")
-class IntroVC(
-    context: Context,
-    private val network: MBlockchainNetwork,
-) : WViewController(context), IntroVM.Delegate {
+class IntroVC(context: Context, private val network: MBlockchainNetwork) :
+    WViewController(context),
+    IntroVM.Delegate {
+    @Suppress("PropertyName")
     override val TAG = "Intro"
 
     private val introVM by lazy {
@@ -85,18 +85,22 @@ class IntroVC(
 
     // Normal particle configuration
     private val particleParams =
-        if (isGramApp) ParticleConfig(
-            particleCount = 35,
-            centerShift = floatArrayOf(0f, -36f),
-            distanceLimit = 0.45f,
-            colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
-            useStarShape = true
-        ) else ParticleConfig(
-            particleCount = 35,
-            centerShift = floatArrayOf(0f, 32f),
-            distanceLimit = 0.45f,
-            color = ParticleConfig.Companion.PARTICLE_COLORS.TON
-        )
+        if (isGramApp) {
+            ParticleConfig(
+                particleCount = 35,
+                centerShift = floatArrayOf(0f, -36f),
+                distanceLimit = 0.45f,
+                colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
+                useStarShape = true
+            )
+        } else {
+            ParticleConfig(
+                particleCount = 35,
+                centerShift = floatArrayOf(0f, 32f),
+                distanceLimit = 0.45f,
+                color = ParticleConfig.Companion.PARTICLE_COLORS.TON
+            )
+        }
 
     var particlesCleaner: (() -> Unit)? = null
     val tonParticlesView = ParticleView(context).apply {
@@ -109,7 +113,9 @@ class IntroVC(
             id = View.generateViewId()
             bindParticleHost(tonParticlesView, centerShift = floatArrayOf(0f, -36f))
         }
-    } else null
+    } else {
+        null
+    }
 
     val logoImageView = AppCompatImageView(view.context).apply {
         id = View.generateViewId()
@@ -240,8 +246,10 @@ class IntroVC(
         contentView.setConstraints {
             toTopPx(
                 tonParticlesView,
-                (navigationController?.getSystemBars()?.top
-                    ?: 0) + (if (screenHeight < desiredHeight) -23 else 17).dp
+                (
+                    navigationController?.getSystemBars()?.top
+                        ?: 0
+                    ) + (if (screenHeight < desiredHeight) -23 else 17).dp
             )
             toCenterX(tonParticlesView)
             toTopPx(
@@ -358,16 +366,18 @@ class IntroVC(
                 Pair("%app_name%", context.getString(BaseR.string.app_locale_name_key))
             )
         )
-        attr.append(SpannableString("$str ").apply {
-            setSpan(
-                WFont.Regular,
-                0,
-                length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        })
+        attr.append(
+            SpannableString("$str ").apply {
+                setSpan(
+                    WFont.Regular,
+                    0,
+                    length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        )
         val drawable = context.requireDrawableCompat(
-            org.mytonwallet.app_air.walletcontext.R.drawable.ic_relate_right
+            org.mytonwallet.app_air.icons.R.drawable.ic_relate_right
         )
         drawable.mutate()
         drawable.setTint(WColor.SecondaryText.color)
@@ -451,7 +461,8 @@ class IntroVC(
                     val off = layout.getOffsetForHorizontal(line, x.toFloat())
 
                     val clickableSpans = attr.getSpans(
-                        off, off,
+                        off,
+                        off,
                         ClickableSpan::class.java
                     )
 
@@ -490,7 +501,8 @@ class IntroVC(
                         BackupVC(context, network = network, words = words, false, passcode),
                         onCompletion = {
                             navigationController?.removePrevViewControllerOnly()
-                        })
+                        }
+                    )
                 }
             )
             push(passcodeConfirmVC, onCompletion = {

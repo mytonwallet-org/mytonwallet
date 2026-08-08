@@ -4,9 +4,10 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
-abstract class BaseListAdapter : ListAdapter<BaseListItem, BaseListHolder<out BaseListItem>>(
-    DiffCallback.create()
-) {
+abstract class BaseListAdapter :
+    ListAdapter<BaseListItem, BaseListHolder<out BaseListItem>>(
+        DiffCallback.create()
+    ) {
 
     private var recyclerViewRef: RecyclerView? = null
 
@@ -23,22 +24,16 @@ abstract class BaseListAdapter : ListAdapter<BaseListItem, BaseListHolder<out Ba
     override fun onCreateViewHolder(
         parent: ViewGroup,
         viewType: Int
-    ): BaseListHolder<out BaseListItem> {
-        return createHolder(parent, viewType)
-    }
+    ): BaseListHolder<out BaseListItem> = createHolder(parent, viewType)
 
     override fun onBindViewHolder(holder: BaseListHolder<out BaseListItem>, position: Int) {
         val item = getItem(position)
         holder.bind(item)
     }
 
-    override fun getItemViewType(position: Int): Int {
-        return getItem(position).type
-    }
+    override fun getItemViewType(position: Int): Int = getItem(position).type
 
-    public override fun getItem(position: Int): BaseListItem {
-        return currentList[position]
-    }
+    public override fun getItem(position: Int): BaseListItem = currentList[position]
 
     override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
         super.onDetachedFromRecyclerView(recyclerView)

@@ -1,7 +1,6 @@
 package org.mytonwallet.uihome.home.promotion
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Outline
@@ -21,10 +20,13 @@ import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -38,14 +40,11 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
-import kotlin.math.min
-import kotlin.math.roundToInt
 
-class PromotionVC(
-    context: Context,
-    private val promotion: ApiPromotion
-) : WViewController(context) {
+class PromotionVC(context: Context, private val promotion: ApiPromotion) :
+    WViewController(context) {
 
+    @Suppress("PropertyName")
     override val TAG = "Promotion"
     override val shouldDisplayTopBar = false
     override val isExpandable = false
@@ -54,9 +53,8 @@ class PromotionVC(
 
     private var calculatedHeight: Int? = null
 
-    override fun getModalHalfExpandedHeight(): Int? {
-        return calculatedHeight ?: super.getModalHalfExpandedHeight()
-    }
+    override fun getModalHalfExpandedHeight(): Int? =
+        calculatedHeight ?: super.getModalHalfExpandedHeight()
 
     private val contentLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -224,7 +222,7 @@ class PromotionVC(
         val closeButton = WImageButton(context).apply {
             setImageDrawable(
                 context.getDrawableCompat(
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_close
+                    org.mytonwallet.app_air.icons.R.drawable.ic_close
                 )
             )
             updateColors(WColor.White, WColor.BackgroundRipple)
@@ -326,8 +324,10 @@ class PromotionVC(
                         val cx = width / 2f
                         val cy = height / 2f
                         return LinearGradient(
-                            cx - sin * cx, cy + cos * cy,
-                            cx + sin * cx, cy - cos * cy,
+                            cx - sin * cx,
+                            cy + cos * cy,
+                            cx + sin * cx,
+                            cy - cos * cy,
                             colors.toIntArray(),
                             positions.toFloatArray(),
                             Shader.TileMode.CLAMP
@@ -344,11 +344,13 @@ class PromotionVC(
             for (c in input) {
                 when {
                     c == '(' -> {
-                        depth++; current.append(c)
+                        depth++
+                        current.append(c)
                     }
 
                     c == ')' -> {
-                        depth--; current.append(c)
+                        depth--
+                        current.append(c)
                     }
 
                     c == ',' && depth == 0 -> {
@@ -377,7 +379,8 @@ class PromotionVC(
                 sb.append(boldText)
                 sb.setSpan(
                     StyleSpan(android.graphics.Typeface.BOLD),
-                    start, sb.length,
+                    start,
+                    sb.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
                 lastEnd = match.range.last + 1

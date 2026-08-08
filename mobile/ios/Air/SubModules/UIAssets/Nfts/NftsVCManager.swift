@@ -249,7 +249,7 @@ public class NftsVCManager {
             assertionFailure()
             return
         }
-        NftStore.setHiddenByUser(accountId: vc.$account.account.id, nftIds: nfts.map { $0.id }, isHidden: true)
+        NftStore.setHiddenByUser(accountId: vc.$account.account.id, nfts: nfts, isHidden: true)
     }
 }
 

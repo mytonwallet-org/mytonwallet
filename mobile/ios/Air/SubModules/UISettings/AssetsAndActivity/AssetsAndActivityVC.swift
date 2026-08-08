@@ -20,19 +20,37 @@ public class AssetsAndActivityVC: WViewController {
         AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
     }
     private var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
+    private var hasLocalizedTokenNames: Bool {
+        TokenStore.tokens.values.contains { $0.localizedName?.nilIfEmpty != nil }
+    }
     
     private enum Section: Sendable {
-        case baseCurrency
+        case general
+        case blockchains
         case hiddenNfts
         case hideNoCost
         case tokens
+
+        var headerTitle: String? {
+            switch self {
+            case .blockchains:
+                lang("Blockchains")
+            case .hideNoCost:
+                lang("Tokens")
+            case .general, .hiddenNfts, .tokens:
+                nil
+            }
+        }
     }
 
     private enum Item: Equatable, Hashable, Sendable {
         case baseCurrency
+        case blockchains
         case hideTinyTransfers
+        case hideUnverifiedNfts
         case hiddenNfts
         case hideNoCost
+        case localizedTokenNames
         case addToken
         case token(tokenID: TokenID, token: HashableExcluded<ApiToken>)
     }
@@ -41,8 +59,6 @@ public class AssetsAndActivityVC: WViewController {
     private lazy var dataSource: UICollectionViewDiffableDataSource<Section, Item> = makeDataSource()
 
     private lazy var isModal = navigationController?.viewControllers.count ?? 1 == 1
-    private let queue = DispatchQueue(label: "org.mytonwallet.app.assetsAndActivity_vc_background")
-    private let processorQueue = DispatchQueue(label: "org.mytonwallet.app.assetsAndActivity_vc_background_processor")
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -77,19 +93,31 @@ public class AssetsAndActivityVC: WViewController {
         }
 
         let tokenStoreTokens = TokenStore.tokens
-        var apiTokens = tokenIDs.compactMap { tokenID -> (TokenID, ApiToken)? in
+        let apiTokensByID = tokenIDs.reduce(into: [TokenID: ApiToken]()) { result, tokenID in
             if let apiToken = tokenStoreTokens[tokenID.slug] {
-                return account.supports(chain: apiToken.chain) ? (tokenID, apiToken) : nil
+                if account.supports(chain: apiToken.chain) {
+                    result[tokenID] = apiToken
+                }
             } else {
                 Log.shared.fault("Token with id \(tokenID) not found in TokenStore")
-                return nil
             }
         }
 
-        MTokenBalance.sortForUI(apiTokens: &apiTokens,
-                                balances: balances,
-                                defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network, account: account),
-                                importedTokenSlugs: assetsAndActivityData.importedSlugs)
+        let sharedOrder = $account.walletTokensData?.allTokenBalances.map(\.tokenID) ?? []
+        let sharedTokenIDs = Set(sharedOrder)
+        var apiTokens = sharedOrder.compactMap { tokenID in
+            apiTokensByID[tokenID].map { (tokenID, $0) }
+        }
+        var remainingTokens = apiTokensByID.compactMap { tokenID, token in
+            sharedTokenIDs.contains(tokenID) ? nil : (tokenID, token)
+        }
+        MTokenBalance.sortForUI(
+            apiTokens: &remainingTokens,
+            balances: balances,
+            defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network, account: account),
+            importedTokenSlugs: assetsAndActivityData.importedSlugs
+        )
+        apiTokens.append(contentsOf: remainingTokens)
         let dict = OrderedDictionary<TokenID, ApiToken>(uniqueKeysWithValues: apiTokens)
         return dict
     }
@@ -118,12 +146,13 @@ public class AssetsAndActivityVC: WViewController {
             var listConfig = sectionId == .tokens
                 ? tokensListConfig
                 : UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-            if sectionId == .baseCurrency || sectionId == .hideNoCost {
+            if sectionId?.headerTitle != nil {
+                listConfig.headerMode = .supplementary
+            }
+            if sectionId == .general || sectionId == .hideNoCost {
                 listConfig.footerMode = .supplementary
             }
-            let section = NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
-            section.contentInsets.top = 16
-            return section
+            return NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
         }
     }
 
@@ -160,6 +189,19 @@ public class AssetsAndActivityVC: WViewController {
             }
         }
 
+        let hideUnverifiedNftsReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
+            cell.title = lang("Hide Unverified NFTs")
+            cell.isSelectable = false
+            cell.configureSwitchAccessory(isOn: AppStorageHelper.hideUnverifiedNfts) { isOn in
+                AppStorageHelper.hideUnverifiedNfts = isOn
+            }
+        }
+
+        let blockchainsReg = UICollectionView.CellRegistration<ChainDisplaySettingsRowCell, Item> { [weak self] cell, _, _ in
+            guard let self else { return }
+            cell.configure(chains: _account.displayedChains.map(\.0))
+        }
+
         let hideNoCostReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
             cell.title = lang("Hide Tokens With No Cost")
             cell.isSelectable = false
@@ -168,12 +210,20 @@ public class AssetsAndActivityVC: WViewController {
             }
         }
 
+        let localizedTokenNamesReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
+            cell.title = lang("Localized Token Names")
+            cell.isSelectable = false
+            cell.configureSwitchAccessory(isOn: AppStorageHelper.useLocalizedTokenNames) { isOn in
+                AppStorageHelper.useLocalizedTokenNames = isOn
+            }
+        }
+
         let hiddenNftsReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { [weak self] cell, _, _ in
             guard let self else { return }
             let accountId = account.id
             let count = NftStore.getAccountHiddenNftsCount(accountId: accountId)
             cell.title = lang("Hidden NFTs")
-            cell.accessoryView = SimpleGroupCell.TitledDisclosureAccessory(text: count > 0 ? "\(count)" : nil)
+            cell.accessoryView = SimpleGroupCell.TitledDisclosureAccessory(text: count > 0 ? localizedIntegerString(count) : nil)
         }
 
         let tokenReg = UICollectionView.CellRegistration<AssetsAndActivityTokenCell, Item> { [weak self] cell, _, item in
@@ -205,6 +255,7 @@ public class AssetsAndActivityVC: WViewController {
                                 .padding(.leading, 12)
                                 .padding(.trailing, 10)
                             Text(lang("Add Token"))
+                                .textStyle(.body, scaling: .dynamic)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .foregroundStyle(.tint)
@@ -226,14 +277,20 @@ public class AssetsAndActivityVC: WViewController {
             switch item {
             case .baseCurrency:
                 return collectionView.dequeueConfiguredReusableCell(using: baseCurrencyReg, for: indexPath, item: item)
+            case .blockchains:
+                return collectionView.dequeueConfiguredReusableCell(using: blockchainsReg, for: indexPath, item: item)
             case .hideTinyTransfers:
                 return collectionView.dequeueConfiguredReusableCell(using: hideTinyTransfersReg, for: indexPath, item: item)
+            case .hideUnverifiedNfts:
+                return collectionView.dequeueConfiguredReusableCell(using: hideUnverifiedNftsReg, for: indexPath, item: item)
             case .hiddenNfts:
                 return collectionView.dequeueConfiguredReusableCell(using: hiddenNftsReg, for: indexPath, item: item)
             case .addToken:
                 return collectionView.dequeueConfiguredReusableCell(using: listCellReg, for: indexPath, item: item)
             case .hideNoCost:
                 return collectionView.dequeueConfiguredReusableCell(using: hideNoCostReg, for: indexPath, item: item)
+            case .localizedTokenNames:
+                return collectionView.dequeueConfiguredReusableCell(using: localizedTokenNamesReg, for: indexPath, item: item)
             case .token:
                 return collectionView.dequeueConfiguredReusableCell(using: tokenReg, for: indexPath, item: item)
             }
@@ -242,18 +299,34 @@ public class AssetsAndActivityVC: WViewController {
         let baseCurrencyFooterReg = UICollectionView.SupplementaryRegistration<SimpleGroupSectionFooter>(elementKind: UICollectionView.elementKindSectionFooter) { view, _, _ in
             view.text = lang("Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.")
         }
+
+        let headerReg = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
+            elementKind: UICollectionView.elementKindSectionHeader
+        ) { [weak self] view, _, indexPath in
+            guard let section = self?.dataSource.sectionIdentifier(for: indexPath.section) else { return }
+            var content = UIListContentConfiguration.groupedHeader()
+            content.text = section.headerTitle
+            content.applyTextStyle(.sectionHeader, scaling: .dynamic)
+            view.contentConfiguration = content
+        }
         
         let hideNoCostFooterReg = UICollectionView.SupplementaryRegistration<SimpleGroupSectionFooter>(elementKind: UICollectionView.elementKindSectionFooter) { view, _, _ in
             view.text = lang("Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.")
         }
         
         ds.supplementaryViewProvider = { [weak self] collectionView, kind, indexPath in
-            guard kind == UICollectionView.elementKindSectionFooter else { return nil }
-            switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
-            case .baseCurrency:
-                return collectionView.dequeueConfiguredReusableSupplementary(using: baseCurrencyFooterReg, for: indexPath)
-            case .hideNoCost:
-                return collectionView.dequeueConfiguredReusableSupplementary(using: hideNoCostFooterReg, for: indexPath)
+            switch kind {
+            case UICollectionView.elementKindSectionHeader:
+                return collectionView.dequeueConfiguredReusableSupplementary(using: headerReg, for: indexPath)
+            case UICollectionView.elementKindSectionFooter:
+                switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
+                case .general:
+                    return collectionView.dequeueConfiguredReusableSupplementary(using: baseCurrencyFooterReg, for: indexPath)
+                case .hideNoCost:
+                    return collectionView.dequeueConfiguredReusableSupplementary(using: hideNoCostFooterReg, for: indexPath)
+                default:
+                    return nil
+                }
             default:
                 return nil
             }
@@ -263,15 +336,18 @@ public class AssetsAndActivityVC: WViewController {
 
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        snapshot.appendSections([.baseCurrency])
+        snapshot.appendSections([.general])
         snapshot.appendItems([.baseCurrency, .hideTinyTransfers])
-        if NftStore.getAccountHasHiddenNfts(accountId: account.id) {
-            snapshot.appendSections([.hiddenNfts])
-            snapshot.appendItems([.hiddenNfts])
-            snapshot.reconfigureItems([.hiddenNfts])
+        snapshot.appendSections([.hiddenNfts])
+        snapshot.appendItems([.hideUnverifiedNfts, .hiddenNfts])
+        snapshot.reconfigureItems([.hiddenNfts])
+        if account.orderedChains.count > 1 {
+            snapshot.appendSections([.blockchains])
+            snapshot.appendItems([.blockchains])
+            snapshot.reconfigureItems([.blockchains])
         }
         snapshot.appendSections([.hideNoCost])
-        snapshot.appendItems([.hideNoCost])
+        snapshot.appendItems(hasLocalizedTokenNames ? [.localizedTokenNames, .hideNoCost] : [.hideNoCost])
         snapshot.appendSections([.tokens])
         snapshot.appendItems([.addToken])
         let tokens = tokensToDisplay.map { Item.token(tokenID: $0, token: HashableExcluded($1)) }
@@ -321,25 +397,30 @@ public class AssetsAndActivityVC: WViewController {
 extension AssetsAndActivityVC: UICollectionViewDelegate {
     public func collectionView(_: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .hideNoCost, .hideTinyTransfers: return false
-        case .baseCurrency, .addToken, .hiddenNfts, .token, nil: return true
+        case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames: return false
+        case .baseCurrency, .blockchains, .addToken, .hiddenNfts, .token, nil: return true
         }
     }
 
     public func collectionView(_: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .baseCurrency, .addToken, .hiddenNfts: return true
-        case .hideNoCost, .hideTinyTransfers, .token, nil: return false
+        case .baseCurrency, .blockchains, .addToken, .hiddenNfts: return true
+        case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .token, nil: return false
         }
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         if let identifier = dataSource.itemIdentifier(for: indexPath) {
             switch identifier {
-            case .hideNoCost, .hideTinyTransfers, .token:
+            case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .token:
                 break
             case .baseCurrency:
                 navigationController?.pushViewController(BaseCurrencyVC(isModal: isModal), animated: true)
+            case .blockchains:
+                navigationController?.pushViewController(
+                    ChainDisplaySettingsVC(accountContext: _account, isModal: isModal),
+                    animated: true
+                )
             case .hiddenNfts:
                 AppActions.showHiddenNfts(accountSource: .current)
             case .addToken:
@@ -363,7 +444,13 @@ extension AssetsAndActivityVC: WalletCoreData.EventsObserver {
             if accountId == account.id {
                 applySnapshot(makeSnapshot(), animated: true)
             }
+        case .hideUnverifiedNftsChanged:
+            var snapshot = dataSource.snapshot()
+            snapshot.reconfigureItems([.hideUnverifiedNfts, .hiddenNfts])
+            applySnapshot(snapshot, animated: true)
         case .assetsAndActivityDataUpdated:
+            applySnapshot(makeSnapshot(), animated: true)
+        case .tokensChanged:
             applySnapshot(makeSnapshot(), animated: true)
         default:
             break

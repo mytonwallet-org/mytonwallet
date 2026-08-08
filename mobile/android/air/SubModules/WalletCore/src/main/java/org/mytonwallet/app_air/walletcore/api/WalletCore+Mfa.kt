@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.walletcore.api
 
 import android.util.Log
@@ -12,10 +14,7 @@ suspend fun WalletCore.refreshStoredMfa(accountId: String, password: String? = n
     AccountStore.updateMfa(accountId, result.mfa)
 }
 
-fun WalletCore.refreshStoredMfaIfPossible(
-    accountIds: Iterable<String>,
-    password: String?,
-) {
+fun WalletCore.refreshStoredMfaIfPossible(accountIds: Iterable<String>, password: String?) {
     scope.launch {
         for (accountId in accountIds) {
             try {
@@ -23,7 +22,7 @@ fun WalletCore.refreshStoredMfaIfPossible(
             } catch (t: Throwable) {
                 Logger.e(
                     Logger.LogTag.WALLET_CORE,
-                    "refreshStoredMfa failed for imported account $accountId: $t",
+                    "refreshStoredMfa failed for imported account $accountId: $t"
                 )
             }
         }

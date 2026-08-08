@@ -20,6 +20,9 @@ import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.graphics.toColorInt
 import androidx.core.view.doOnPreDraw
+import androidx.core.view.isVisible
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.sp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -32,7 +35,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Positioning
-import org.mytonwallet.app_air.walletbasecontext.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -43,15 +45,15 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
-import androidx.core.view.isVisible
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TabletHeaderActionsView(
     context: Context,
     var tabs: List<Item>,
-    var onClick: ((HeaderActionsView.Identifier) -> Unit)?,
-) : WCell(context), WThemedView, IHeaderActionsView {
+    var onClick: ((HeaderActionsView.Identifier) -> Unit)?
+) : WCell(context),
+    WThemedView,
+    IHeaderActionsView {
 
     var onHorizontalScroll: (() -> Unit)? = null
 
@@ -129,7 +131,8 @@ class TabletHeaderActionsView(
                     if (index != 0) {
                         leftMargin = MAX_ITEM_MARGIN.dp
                     }
-                })
+                }
+            )
             val identifier = tabsLocalized[index].identifier
             itemView.setOnClickListener {
                 if (alpha > 0) {
@@ -162,11 +165,9 @@ class TabletHeaderActionsView(
     }
 
     private fun applyItemSizing(availableWidth: Int) {
-        if (availableWidth <= 0)
-            return
+        if (availableWidth <= 0) return
         val visibleCount = itemViews.count { it.isVisible }
-        if (visibleCount == 0)
-            return
+        if (visibleCount == 0) return
         val marginsCount = visibleCount - 1
         val minRequiredWidth =
             visibleCount * MIN_ITEM_SIZE.dp + marginsCount * MIN_ITEM_MARGIN.dp
@@ -176,8 +177,7 @@ class TabletHeaderActionsView(
             ((availableWidth - minRequiredWidth).toFloat() / growRange).coerceIn(0f, 1f)
         val itemSize =
             lerp(MIN_ITEM_SIZE.toFloat(), MAX_ITEM_SIZE.toFloat(), fraction).toInt().dp
-        if (itemSize == appliedItemSize)
-            return
+        if (itemSize == appliedItemSize) return
         appliedItemSize = itemSize
         val itemMargin =
             lerp(MIN_ITEM_MARGIN.toFloat(), MAX_ITEM_MARGIN.toFloat(), fraction).toInt().dp
@@ -195,7 +195,7 @@ class TabletHeaderActionsView(
     }
 
     private fun isSellAllowed(): Boolean {
-        return account?.supportsBuyWithCard == true// && ConfigStore.isLimited != true
+        return account?.supportsBuyWithCard == true // && ConfigStore.isLimited != true
     }
 
     private fun presentSendSellMenu(anchorView: View) {
@@ -203,7 +203,7 @@ class TabletHeaderActionsView(
         items.add(
             WMenuPopup.Item(
                 R.drawable.ic_header_popup_menu_send_outline,
-                LocaleController.getString("Send"),
+                LocaleController.getString("Send")
             ) {
                 onClick?.invoke(HeaderActionsView.Identifier.SEND)
             }
@@ -211,7 +211,7 @@ class TabletHeaderActionsView(
         items.add(
             WMenuPopup.Item(
                 R.drawable.ic_header_popup_menu_multisend_outline,
-                LocaleController.getString("Multisend"),
+                LocaleController.getString("Multisend")
             ) {
                 onClick?.invoke(HeaderActionsView.Identifier.MULTISEND)
             }
@@ -220,7 +220,7 @@ class TabletHeaderActionsView(
             items.add(
                 WMenuPopup.Item(
                     R.drawable.ic_header_popup_menu_sell_outline,
-                    LocaleController.getString("Sell"),
+                    LocaleController.getString("Sell")
                 ) {
                     onClick?.invoke(HeaderActionsView.Identifier.SELL)
                 }
@@ -361,8 +361,7 @@ class TabletHeaderActionsView(
 
     override var fadeInPercent: Float = 1f
         set(value) {
-            if (field == value)
-                return
+            if (field == value) return
             field = value
             val alphaValue = ((value - 0.4f) * 5 / 3).coerceAtLeast(0f)
             alpha = alphaValue
@@ -433,10 +432,7 @@ class TabletHeaderActionsView(
         actionViews[HeaderActionsView.Identifier.EARN]?.visibility = if (visible) VISIBLE else GONE
     }
 
-    private class TabletHeaderActionItem(
-        context: Context,
-        item: Item
-    ) : WView(context) {
+    private class TabletHeaderActionItem(context: Context, item: Item) : WView(context) {
         val iconView: AppCompatImageView = AppCompatImageView(context).apply {
             id = generateViewId()
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -493,8 +489,8 @@ class TabletHeaderActionsView(
         private const val MIN_ICON_INNER_SIZE = 24
         private const val MAX_ICON_INNER_SIZE = 32
 
-        fun headerTabs(context: Context, showEarn: Boolean): List<Item> {
-            return mutableListOf<Item>().apply {
+        fun headerTabs(context: Context, showEarn: Boolean): List<Item> =
+            mutableListOf<Item>().apply {
                 add(
                     Item(
                         HeaderActionsView.Identifier.BUY,
@@ -542,11 +538,10 @@ class TabletHeaderActionsView(
                 add(
                     Item(
                         HeaderActionsView.Identifier.SCAN_QR,
-                        context.requireDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_qr_code_scan_18_24),
+                        context.requireDrawableCompat(R.drawable.ic_qr_code_scan_18_24),
                         LocaleController.getString("Scan QR")
                     )
                 )
             }
-        }
     }
 }

@@ -14,7 +14,7 @@
   font-weight: 600;
   line-height: 1.25rem;
   color: var(--color-black);
-  text-align: left;
+  text-align: start;
   word-break: break-all;
 
   background: var(--color-background-first);
@@ -22,7 +22,7 @@
 }
 
 .suffix {
-  margin-left: 0.25rem;
+  margin-inline-start: 0.25rem;
   color: var(--color-gray-3);
 }
 
@@ -40,11 +40,11 @@
 .feeLabel {
   position: absolute;
   top: -1.375rem;
-  right: 0.3125rem;
+  inset-inline-end: 0.3125rem;
 }
 
 .feeConfirm {
-  margin-left: auto;
-  padding-left: 1rem;
+  margin-inline-start: auto;
+  padding-inline-start: 1rem;
   color: var(--color-gray-3);
 }

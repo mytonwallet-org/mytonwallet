@@ -228,13 +228,13 @@ private final class ToastContentView: UIView {
         let labelVerticalPadding: CGFloat = 16
         switch style {
         case .standard:
-            font = .systemFont(ofSize: 13)
-            actionFont = .systemFont(ofSize: 13)
+            font = WTypography.uiFont(.footnote)
+            actionFont = WTypography.uiFont(.footnote)
             symbolConfiguration = .init(pointSize: 15)
             iconSize = 35
         case .large:
-            font = .systemFont(ofSize: 14, weight: .semibold)
-            actionFont = .systemFont(ofSize: 16)
+            font = WTypography.uiFont(.supportingStrong)
+            actionFont = WTypography.uiFont(.callout)
             symbolConfiguration = .init(pointSize: 22)
             iconSize = 40
             standAloneLabelInsets = 12
@@ -272,7 +272,7 @@ private final class ToastContentView: UIView {
                 iconSticker = animatedSticker
                 constraints += [
                     animatedSticker.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
-                    animatedSticker.leftAnchor.constraint(equalTo: iconView.leftAnchor),
+                    animatedSticker.leadingAnchor.constraint(equalTo: iconView.leadingAnchor),
                     animatedSticker.widthAnchor.constraint(equalToConstant: iconSize),
                     animatedSticker.heightAnchor.constraint(equalToConstant: iconSize),
                 ]

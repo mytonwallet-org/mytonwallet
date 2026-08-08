@@ -15,8 +15,12 @@ import androidx.core.view.isGone
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.pow
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
-import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -41,28 +45,25 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.utils.lerpColor
 import org.mytonwallet.app_air.walletcore.MINT_CARD_ADDRESS
 import org.mytonwallet.app_air.walletcore.MINT_CARD_COMMENT
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcontext.utils.lerpColor
 import org.mytonwallet.app_air.walletcore.models.MCardInfo
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferPayload
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.pow
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class MintCardVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "MintCard"
 
     override val displayedAccount =
@@ -80,9 +81,11 @@ class MintCardVC(context: Context) : WViewController(context) {
         if (pagerHost.parent == null || contentContainer.parent == null) {
             return calculatedHeight ?: super.getModalHalfExpandedHeight()
         }
-        val width = (scrollView.width.takeIf { it > 0 }
-            ?: view.width.takeIf { it > 0 }
-            ?: window?.windowView?.width?.takeIf { it > 0 })
+        val width = (
+            scrollView.width.takeIf { it > 0 }
+                ?: view.width.takeIf { it > 0 }
+                ?: window?.windowView?.width?.takeIf { it > 0 }
+            )
             ?: return calculatedHeight ?: super.getModalHalfExpandedHeight()
 
         contentContainer.measure(
@@ -212,8 +215,10 @@ class MintCardVC(context: Context) : WViewController(context) {
         override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
             when (ev.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    downX = ev.x; downY = ev.y
-                    forwarding = false; decided = false
+                    downX = ev.x
+                    downY = ev.y
+                    forwarding = false
+                    decided = false
                 }
 
                 android.view.MotionEvent.ACTION_MOVE -> {
@@ -244,7 +249,8 @@ class MintCardVC(context: Context) : WViewController(context) {
                 android.view.MotionEvent.ACTION_CANCEL -> {
                     if (forwarding) {
                         forwardToPager(ev, ev.actionMasked)
-                        forwarding = false; decided = false
+                        forwarding = false
+                        decided = false
                         return true
                     }
                     decided = false
@@ -416,13 +422,11 @@ class MintCardVC(context: Context) : WViewController(context) {
         }
     }
 
-    private fun bottomSectionBaseColor(type: ApiMtwCardType): Int {
-        return if (type == ApiMtwCardType.BLACK) Color.BLACK else WColor.Background.color
-    }
+    private fun bottomSectionBaseColor(type: ApiMtwCardType): Int =
+        if (type == ApiMtwCardType.BLACK) Color.BLACK else WColor.Background.color
 
-    private fun buttonTextColor(type: ApiMtwCardType): Int {
-        return if (type == ApiMtwCardType.BLACK) Color.BLACK else WColor.TextOnTint.color
-    }
+    private fun buttonTextColor(type: ApiMtwCardType): Int =
+        if (type == ApiMtwCardType.BLACK) Color.BLACK else WColor.TextOnTint.color
 
     private fun applyBaseColor(color: Int) {
         view.setBackgroundColor(color)
@@ -430,9 +434,8 @@ class MintCardVC(context: Context) : WViewController(context) {
         bottomReversedCorner.setBlurOverlayColor(color)
     }
 
-    private fun blackProgress(type: ApiMtwCardType): Float {
-        return if (type == ApiMtwCardType.BLACK) 1f else 0f
-    }
+    private fun blackProgress(type: ApiMtwCardType): Float =
+        if (type == ApiMtwCardType.BLACK) 1f else 0f
 
     private fun lerpFloat(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
@@ -507,8 +510,7 @@ class MintCardVC(context: Context) : WViewController(context) {
         applyScrollProgress(currentIndex, 0f)
     }
 
-    private inner class SlideAdapter :
-        RecyclerView.Adapter<SlideAdapter.SlideHolder>() {
+    private inner class SlideAdapter : RecyclerView.Adapter<SlideAdapter.SlideHolder>() {
 
         inner class SlideHolder(val poster: MintCardPosterView) :
             RecyclerView.ViewHolder(poster)
@@ -585,8 +587,6 @@ class MintCardVC(context: Context) : WViewController(context) {
         val missingWithReserve = missing * BigInteger.valueOf(105) / BigInteger.valueOf(100)
         val amountOut = missingWithReserve.toDouble() / 10.0.pow(mycoin.decimals.toDouble())
 
-        val tonToken = TokenStore.getToken(TONCOIN_SLUG)
-        val sendingAsset = tonToken?.let { MApiSwapAsset.from(it) }
         val receivingAsset = MApiSwapAsset.from(mycoin)
 
         val win = window ?: return
@@ -595,7 +595,6 @@ class MintCardVC(context: Context) : WViewController(context) {
             nav.setRoot(
                 SwapVC(
                     context,
-                    defaultSendingToken = sendingAsset,
                     defaultReceivingToken = receivingAsset,
                     amountIn = if (amountOut > 0) amountOut else null
                 )
@@ -607,9 +606,12 @@ class MintCardVC(context: Context) : WViewController(context) {
     private val headerView: View
         get() {
             val info = orderedTypes[currentIndex]
+            val maximumHeight =
+                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO)
+                    .roundToInt()
             return PasscodeHeaderSendView(
                 WeakReference(this),
-                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
+                maximumHeight
             ).apply {
                 config(
                     Content(image = Content.Image.Empty),
@@ -622,7 +624,7 @@ class MintCardVC(context: Context) : WViewController(context) {
 
     private fun buildTransferOptions(
         cardInfo: MCardInfo,
-        passcode: String
+        enclaveToken: String
     ): MApiSubmitTransferOptions? {
         val accountId = displayedAccount.accountId ?: return null
         val mycoin = MintCardHelpers.mycoin ?: return null
@@ -632,7 +634,7 @@ class MintCardVC(context: Context) : WViewController(context) {
             toAddress = MINT_CARD_ADDRESS,
             payload = ApiTransferPayload.Comment(MINT_CARD_COMMENT),
             tokenAddress = mycoin.tokenAddress,
-            password = passcode,
+            enclaveToken = enclaveToken,
             amount = amount
         )
     }
@@ -663,8 +665,8 @@ class MintCardVC(context: Context) : WViewController(context) {
                 LocaleController.getString("Confirm Upgrading"),
                 showNavbarTitle = false
             ),
-            task = { passcode ->
-                val options = buildTransferOptions(cardInfo, passcode)
+            task = { enclaveToken ->
+                val options = buildTransferOptions(cardInfo, enclaveToken)
                 if (options == null) {
                     showError(null)
                     return@PasscodeConfirmVC
@@ -693,7 +695,8 @@ class MintCardVC(context: Context) : WViewController(context) {
                 ),
                 onDone = {
                     onMintSucceeded()
-                }),
+                }
+            ),
             headerView = headerView
         )
         presentFlow(ledgerConnectVC)
@@ -703,8 +706,7 @@ class MintCardVC(context: Context) : WViewController(context) {
         WalletCore.call(
             ApiMethod.Transfer.SubmitTransfer(MBlockchain.ton, options)
         ) { res, err ->
-            if (isDestroyed)
-                return@call
+            if (isDestroyed) return@call
             if (err != null) {
                 showError(err.parsed)
                 return@call

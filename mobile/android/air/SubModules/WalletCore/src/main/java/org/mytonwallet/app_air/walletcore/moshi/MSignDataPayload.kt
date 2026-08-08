@@ -9,22 +9,15 @@ sealed class MSignDataPayload {
 
     @JsonSealedSubtype("text")
     @JsonClass(generateAdapter = true)
-    data class SignDataPayloadText(
-        val text: String
-    ) : MSignDataPayload()
+    data class SignDataPayloadText(val text: String) : MSignDataPayload()
 
     @JsonSealedSubtype("binary")
     @JsonClass(generateAdapter = true)
-    data class SignDataPayloadBinary(
-        val bytes: String
-    ) : MSignDataPayload()
+    data class SignDataPayloadBinary(val bytes: String) : MSignDataPayload()
 
     @JsonSealedSubtype("cell")
     @JsonClass(generateAdapter = true)
-    data class SignDataPayloadCell(
-        val schema: String,
-        val cell: String
-    ) : MSignDataPayload()
+    data class SignDataPayloadCell(val schema: String, val cell: String) : MSignDataPayload()
 
     @JsonSealedSubtype("eip712")
     @JsonClass(generateAdapter = true)
@@ -32,12 +25,9 @@ sealed class MSignDataPayload {
         val domain: Map<String, Any?>,
         val types: Map<String, List<TypeField>>,
         val primaryType: String,
-        val message: Map<String, Any?>,
+        val message: Map<String, Any?>
     ) : MSignDataPayload() {
         @JsonClass(generateAdapter = true)
-        data class TypeField(
-            val name: String,
-            val type: String,
-        )
+        data class TypeField(val name: String, val type: String)
     }
 }

@@ -15,6 +15,10 @@ public var TokenStore: _TokenStore { _TokenStore.shared }
 private let HISTORY_DATA_STALENESS = 120.0
 private let log = Log("TokenStore")
 
+public struct TokenDetailsCacheEntry: Equatable, Sendable {
+    public let details: ApiTokenDetails?
+}
+
 @Perceptible
 public final class _TokenStore: Sendable {
 
@@ -25,6 +29,7 @@ public final class _TokenStore: Sendable {
     private let _swapAssets: UnfairLock<[ApiToken]?> = .init(initialState: nil)
     private let _swapPairs: UnfairLock<[String: [MPair]]> = .init(initialState: [:])
     private let _currencyRates: UnfairLock<[String: MDouble]> = .init(initialState: [:])
+    private let _tokenDetails: UnfairLock<[String: TokenDetailsCacheEntry]> = .init(initialState: [:])
 
     private let sharedCache = SharedCache()
 
@@ -85,7 +90,11 @@ public final class _TokenStore: Sendable {
             self.tokens = Self.defaultTokens
             // do not notify
         }
-        scheduleSharedCacheUpdate(tokens: self.tokens, baseCurrency: self.baseCurrency, rates: self.currencyRates)
+        scheduleSharedCacheUpdate(
+            tokens: self.tokens,
+            baseCurrency: self.baseCurrency,
+            rates: self.currencyRates
+        )
     }
     
     private func loadSwapAssetsFromCache() {
@@ -151,7 +160,7 @@ public final class _TokenStore: Sendable {
         scheduleSharedCacheUpdate(tokens: tokens, baseCurrency: self.baseCurrency, rates: self.currencyRates)
     }
     
-    private func _merge(cached: ApiToken?, incoming: ApiToken) -> ApiToken {
+    func _merge(cached: ApiToken?, incoming: ApiToken) -> ApiToken {
         guard let cached else { return incoming }
         
         let priceIsInvalid: Bool = (incoming.priceUsd == 0 && Self.invalidPriceSlugs.contains(incoming.slug))
@@ -160,6 +169,8 @@ public final class _TokenStore: Sendable {
         let merged = ApiToken(
             slug: incoming.slug,
             name: incoming.name.nilIfEmpty ?? cached.name,
+            // A missing localized name clears any value cached for the previous language.
+            localizedName: incoming.localizedName?.nilIfEmpty,
             symbol: incoming.symbol.nilIfEmpty ?? cached.symbol,
             decimals: incoming.decimals.nilIfZero ?? cached.decimals,
             chain: incoming.chain,
@@ -230,7 +241,9 @@ public final class _TokenStore: Sendable {
     private func process(swapAssetsArray: [[String: Any]]) {
         do {
             let assets = try JSONSerialization.decode([ApiToken].self, from: swapAssetsArray)
-            TokenStore.swapAssets = assets.sorted { $0.name < $1.name }
+            TokenStore.swapAssets = assets.sorted {
+                $0.displayName(strippingLabelWhenShown: false) < $1.displayName(strippingLabelWhenShown: false)
+            }
             DispatchQueue.main.async {
                 WalletCoreData.notify(event: .swapTokensChanged)
             }
@@ -283,6 +296,7 @@ public final class _TokenStore: Sendable {
         AVALANCHE_USDT_MAINNET_SLUG: .AVALANCHE_USDT_MAINNET,
         HYPERLIQUID_SLUG: .HYPERLIQUID,
         HYPERLIQUID_USDC_MAINNET_SLUG: .HYPERLIQUID_USDC_MAINNET,
+        ROBINHOOD_SLUG: .ROBINHOOD,
     ]
 
     private static let invalidPriceSlugs: Set<String> = [
@@ -310,6 +324,7 @@ public final class _TokenStore: Sendable {
         AVALANCHE_USDT_MAINNET_SLUG,
         HYPERLIQUID_SLUG,
         HYPERLIQUID_USDC_MAINNET_SLUG,
+        ROBINHOOD_SLUG,
     ]
     
     
@@ -337,12 +352,36 @@ public final class _TokenStore: Sendable {
         _historyData.withLock { $0 = [:] }
     }
 
+    // MARK: - Cached token details
+
+    public func cachedTokenDetails(tokenSlug: String) -> TokenDetailsCacheEntry? {
+        _tokenDetails.withLock { $0[tokenDetailsCacheKey(tokenSlug)] }
+    }
+
+    public func setCachedTokenDetails(tokenSlug: String, details: ApiTokenDetails?) {
+        _tokenDetails.withLock {
+            $0[tokenDetailsCacheKey(tokenSlug)] = TokenDetailsCacheEntry(details: details)
+        }
+    }
+
+    private func tokenDetailsCacheKey(_ tokenSlug: String) -> String {
+        "\(LocalizationSupport.shared.langCode):\(tokenSlug)"
+    }
+
     // MARK: - Shared Cache
 
-    private func scheduleSharedCacheUpdate(tokens: [String: ApiToken]? = nil, baseCurrency: MBaseCurrency? = nil, rates: [String: MDouble]? = nil) {
+    private func scheduleSharedCacheUpdate(
+        tokens: [String: ApiToken]? = nil,
+        baseCurrency: MBaseCurrency? = nil,
+        rates: [String: MDouble]? = nil
+    ) {
         guard tokens != nil || baseCurrency != nil || rates != nil else { return }
         Task.detached(priority: .background) { [sharedCache] in
-            await sharedCache.update(tokens: tokens, baseCurrency: baseCurrency, rates: rates)
+            await sharedCache.update(
+                tokens: tokens,
+                baseCurrency: baseCurrency,
+                rates: rates
+            )
         }
     }
 }
@@ -392,7 +431,9 @@ extension _TokenStore: WalletCoreData.EventsObserver {
 
         case .updateSwapTokens(let update):
             Task.detached(priority: .background) {
-                let tokens: [ApiToken] = update.tokens.values.sorted { $0.name < $1.name }
+                let tokens: [ApiToken] = update.tokens.values.sorted {
+                    $0.displayName(strippingLabelWhenShown: false) < $1.displayName(strippingLabelWhenShown: false)
+                }
                 AppStorageHelper.save(swapAssetsArray: tokens)
                 TokenStore.swapAssets = tokens
                 WalletCoreData.notify(event: .swapTokensChanged)

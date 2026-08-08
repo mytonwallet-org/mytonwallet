@@ -17,6 +17,9 @@ import androidx.core.view.isGone
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.NestedScrollView
+import java.lang.ref.WeakReference
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.json.JSONArray
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -52,12 +55,11 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.uihome.wallets.WalletsVC
-import java.lang.ref.WeakReference
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) :
-    WViewController(context), WalletCore.EventObserver {
+    WViewController(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "WalletsTabs"
 
     override val isSwipeBackAllowed = false
@@ -110,9 +112,16 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     val walletsViewControllers = mutableListOf<WalletsVC>()
 
-    val titleLabel: WScaleLabel by lazy {
-        WScaleLabel(context).apply {
-            setStyle(20F, WFont.Medium)
+    private val isRtlTitle = LocaleController.isRTL
+
+    val titleLabel: View by lazy {
+        if (isRtlTitle) {
+            // WScaleLabel doesn't support RTL language
+            WReplaceableLabel(context)
+        } else {
+            WScaleLabel(context).apply {
+                setStyle(20F, WFont.Medium)
+            }
         }
     }
 
@@ -134,7 +143,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             clipToPadding = false
             orientation = LinearLayout.VERTICAL
             addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-            addView(totalBalanceContainerView, LayoutParams(WRAP_CONTENT, 16.dp))
+            val subtitleHeight = if (LocaleController.isRTL) WRAP_CONTENT else 16.dp
+            addView(totalBalanceContainerView, LayoutParams(WRAP_CONTENT, subtitleHeight))
             gravity = Gravity.CENTER
             z = 1f
         }
@@ -156,7 +166,10 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     updateRemoveWalletButton()
                 }
                 onToggleReorderTapped = {
-                    toggleReorder(reorder = true, switchToAll = true)
+                    toggleReorder(true)
+                }
+                onDragReorderStarted = {
+                    if (!isReordering) toggleReorder(true, fromDrag = true)
                 }
                 onSwitchAccountInProgress = {
                     WalletCore.unregisterObserver(this@WalletsTabsVC)
@@ -181,8 +194,9 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 val nearestIndex = currentOffset.roundToInt()
                 if (segmentedController.targetIndex == null ||
                     segmentedController.targetIndex == nearestIndex
-                )
+                ) {
                     onTabChanged(nearestIndex)
+                }
             },
             onItemsReordered = { saveTabOrder() },
             onReorderingStarted = {
@@ -243,12 +257,13 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     } as? WViewController ?: return@setOnClickListener
                     val nav = WNavigationController(
                         window!!,
-                        if (walletCategory == WalletCategory.LEDGER)
+                        if (walletCategory == WalletCategory.LEDGER) {
                             WNavigationController.PresentationConfig()
-                        else
+                        } else {
                             WNavigationController.PresentationConfig(
                                 style = WNavigationController.PresentationStyle.BottomSheet
                             )
+                        }
                     ).apply {
                         setRoot(vc)
                     }
@@ -262,15 +277,15 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     private val listButton: WImageButton by lazy {
         WImageButton(context).apply {
-            val closeDrawable = context.getDrawableCompat(org.mytonwallet.uihome.R.drawable.ic_list)
+            val closeDrawable = context.getDrawableCompat(
+                org.mytonwallet.app_air.icons.R.drawable.ic_list
+            )
             setImageDrawable(closeDrawable)
             updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
             setPadding(8.dp)
             setOnClickListener {
                 if (isReordering) {
                     toggleReorder(false)
-                    switchViewMode(MWalletSettingsViewMode.LIST)
-                    WGlobalStorage.setAccountSelectorViewMode(MWalletSettingsViewMode.LIST)
                 } else {
                     showMenuPressed(this)
                 }
@@ -311,8 +326,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
         super.onSizeChanged(w, h, oldW, oldH)
-        if (w != oldW)
-            walletsViewControllers.forEach { it.setLayoutWidth(w) }
+        if (w != oldW) walletsViewControllers.forEach { it.setLayoutWidth(w) }
     }
 
     override fun didSetupViews() {
@@ -330,7 +344,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     override fun updateTheme() {
         super.updateTheme()
         updateBackground()
-        titleLabel.setTextColor(WColor.PrimaryText.color)
+        (titleLabel as? WScaleLabel)?.setTextColor(WColor.PrimaryText.color)
+        (titleLabel as? WReplaceableLabel)?.updateTheme()
         segmentedController.updateTheme()
         segmentedController.items.forEach {
             it.viewController.updateTheme()
@@ -366,7 +381,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         walletsViewControllers.forEach { it.insetsUpdated() }
         bottomReversedCornerView?.let { corner ->
             corner.updateLayoutParams { height = bottomCornerHeight() }
-            corner.isGone = walletsViewControllers.firstOrNull()?.viewMode == MWalletSettingsViewMode.LIST
+            corner.isGone =
+                walletsViewControllers.firstOrNull()?.viewMode == MWalletSettingsViewMode.LIST
             walletsViewControllers.forEach {
                 it.parentBottomReversedCornerView = WeakReference(corner)
             }
@@ -377,50 +393,53 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         if (!isInCenteredWindow) {
             view.setConstraints {
                 toBottomPx(
-                    addNewWalletButton, 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                    addNewWalletButton,
+                    16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
                 )
             }
         }
     }
 
-    private fun bottomCornerHeight(): Int =
-        ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
-            ViewConstants.GAP.dp +
-            50.dp +
-            16.dp +
-            (navigationController?.getSystemBars()?.bottom ?: 0)
+    private fun bottomCornerHeight(): Int = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
+        ViewConstants.GAP.dp +
+        50.dp +
+        16.dp +
+        (navigationController?.getSystemBars()?.bottom ?: 0)
 
     override fun onDestroy() {
         super.onDestroy()
         WalletCore.unregisterObserver(this)
+        segmentedController.onDestroy()
     }
 
     fun updateAccounts(excludeTabs: List<WalletCategory> = emptyList()) {
         walletsViewControllers.filter { !excludeTabs.contains(it.walletCategory) }
             .forEach { walletViewController ->
-                walletViewController.setAccounts(allAccounts.filter { account ->
-                    return@filter when (walletViewController.walletCategory) {
-                        WalletCategory.MY -> {
-                            !account.isViewOnly
-                        }
+                walletViewController.setAccounts(
+                    allAccounts.filter { account ->
+                        return@filter when (walletViewController.walletCategory) {
+                            WalletCategory.MY -> {
+                                !account.isViewOnly
+                            }
 
-                        WalletCategory.ALL -> {
-                            true
-                        }
+                            WalletCategory.ALL -> {
+                                true
+                            }
 
-                        WalletCategory.LEDGER -> {
-                            account.isHardware
-                        }
+                            WalletCategory.LEDGER -> {
+                                account.isHardware
+                            }
 
-                        WalletCategory.VIEW -> {
-                            account.isViewOnly
-                        }
+                            WalletCategory.VIEW -> {
+                                account.isViewOnly
+                            }
 
-                        else -> {
-                            false
+                            else -> {
+                                false
+                            }
                         }
                     }
-                })
+                )
             }
     }
 
@@ -444,15 +463,14 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             }
 
             is WalletEvent.AccountChangedInApp -> {
-                if (walletEvent.persistedAccountsModified)
-                    allAccounts = WalletCore.getAllAccounts()
+                if (walletEvent.persistedAccountsModified) allAccounts = WalletCore.getAllAccounts()
                 updateAccounts()
                 walletsViewControllers.forEach {
                     it.reloadData()
                 }
                 if (walletEvent.persistedAccountsModified) {
                     updateTitleBar()
-                    if (isReordering) {
+                    if (isListReordering) {
                         updateRemoveWalletButton()
                     } else {
                         updateAddNewWalletButton()
@@ -460,7 +478,9 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 }
             }
 
-            is WalletEvent.AccountNameChanged, WalletEvent.NftCardUpdated, is WalletEvent.ByChainUpdated -> {
+            is WalletEvent.AccountNameChanged,
+            WalletEvent.NftCardUpdated,
+            is WalletEvent.ByChainUpdated -> {
                 updateAccounts()
                 walletsViewControllers.forEach {
                     it.reloadData()
@@ -485,14 +505,22 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     private val titleText: String?
         get() {
             val tabAccounts =
-                (segmentedController.items.getOrNull(selectedTabIndex)?.viewController as? WalletsVC)?.accounts
+                (
+                    segmentedController.items.getOrNull(
+                        selectedTabIndex
+                    )?.viewController as? WalletsVC
+                    )?.accounts
                     ?: allAccounts
             return LocaleController.getPlural(tabAccounts.size, "\$wallets_amount")
         }
     private val subtitleText: String?
         get() {
             val tabAccounts =
-                (segmentedController.items.getOrNull(selectedTabIndex)?.viewController as? WalletsVC)?.accounts
+                (
+                    segmentedController.items.getOrNull(
+                        selectedTabIndex
+                    )?.viewController as? WalletsVC
+                    )?.accounts
                     ?: allAccounts
             val baseCurrency = WalletCore.baseCurrency
             val amount = tabAccounts.sumOf {
@@ -511,7 +539,21 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         }
 
     private fun updateTitleBar(animated: Boolean = true) {
-        titleLabel.animateText(titleText, animated)
+        when (val label = titleLabel) {
+            is WScaleLabel -> label.animateText(titleText, animated)
+
+            is WReplaceableLabel -> label.setText(
+                WReplaceableLabel.Config(
+                    text = titleText ?: "",
+                    isLoading = false,
+                    isExpandable = false,
+                    textColor = WColor.PrimaryText,
+                    textSize = 20f,
+                    font = WFont.Medium
+                ),
+                animated = animated
+            )
+        }
         subtitleLabel.setText(
             WReplaceableLabel.Config(
                 text = subtitleText ?: "",
@@ -525,9 +567,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         )
     }
 
-    override fun getModalHalfExpandedHeight(): Int? {
-        return DEFAULT_HEIGHT.dp
-    }
+    override fun getModalHalfExpandedHeight(): Int? = DEFAULT_HEIGHT.dp
 
     private var prevExpandProgress = 0f
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {
@@ -541,12 +581,12 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 0f,
                 true
             )
-            if (prevExpandProgress == 1f)
+            if (prevExpandProgress == 1f) {
                 walletsViewControllers.forEach {
-                    if (it != segmentedController.currentItem)
-                        it.scrollToTop()
+                    if (it != segmentedController.currentItem) it.scrollToTop()
                     it.isModalExpanded = false
                 }
+            }
         } else {
             walletsViewControllers.forEach {
                 it.isModalExpanded = true
@@ -562,14 +602,18 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             normalizedExpandProgress * (navigationController?.getSystemBars()?.top ?: 0)
         navigationBar?.translationY =
             -(navigationController?.getSystemBars()?.top?.toFloat() ?: 0f) +
-                normalizedExpandProgress * (navigationController?.getSystemBars()?.top ?: 0)
+            normalizedExpandProgress * (navigationController?.getSystemBars()?.top ?: 0)
         bottomReversedCornerView?.translationY = DEFAULT_HEIGHT.toFloat().dp -
             (window?.windowView?.height ?: 0) +
             (navigationController?.getSystemBars()?.bottom ?: 0) +
             expandOffset
         addNewWalletButton.translationY = bottomReversedCornerView?.translationY ?: 0f
-        val newTopPadding = (normalizedExpandProgress * (navigationController?.getSystemBars()?.top
-            ?: 0)).roundToInt()
+        val newTopPadding = (
+            normalizedExpandProgress * (
+                navigationController?.getSystemBars()?.top
+                    ?: 0
+                )
+            ).roundToInt()
         if (scrollView.paddingTop != newTopPadding) {
             scrollView.setPadding(0, newTopPadding, 0, 0)
         }
@@ -584,35 +628,39 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            if (isShowingList)
-                                org.mytonwallet.uihome.R.drawable.ic_card
-                            else
-                                org.mytonwallet.uihome.R.drawable.ic_bullets
+                            if (isShowingList) {
+                                org.mytonwallet.app_air.icons.R.drawable.ic_card
+                            } else {
+                                org.mytonwallet.app_air.icons.R.drawable.ic_bullets
+                            }
                         ),
                         title = LocaleController.getString(
-                            if (isShowingList)
-                                "View as Cards"
-                            else
-                                "View as List"
-                        ),
+                            if (isShowingList) "View as Cards" else "View as List"
+                        )
                     ),
                     onTap = {
                         val viewMode =
-                            if (walletsViewControllers.first().viewMode == MWalletSettingsViewMode.LIST)
-                                MWalletSettingsViewMode.GRID
-                            else
+                            if (walletsViewControllers.first().viewMode ==
                                 MWalletSettingsViewMode.LIST
+                            ) {
+                                MWalletSettingsViewMode.GRID
+                            } else {
+                                MWalletSettingsViewMode.LIST
+                            }
                         switchViewMode(viewMode)
                         WGlobalStorage.setAccountSelectorViewMode(viewMode)
                     }
                 ),
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
-                        icon = WMenuPopup.Item.Config.Icon(org.mytonwallet.uihome.R.drawable.ic_reorder),
-                        title = LocaleController.getString("Reorder Tabs"),
+                        icon = WMenuPopup.Item.Config.Icon(
+                            org.mytonwallet.app_air.icons.R.drawable.ic_reorder,
+                            tintColor = WColor.SecondaryText
+                        ),
+                        title = LocaleController.getString("Reorder")
                     ),
                     onTap = {
-                        toggleReorder(reorder = true, switchToAll = true)
+                        toggleReorder(true)
                     }
                 )
             ),
@@ -635,12 +683,12 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     private var isListReordering = false
 
-    private fun toggleReorder(reorder: Boolean, switchToAll: Boolean = false) {
+    private fun toggleReorder(reorder: Boolean, fromDrag: Boolean = false) {
         isReordering = reorder
         val allVC = walletsViewControllers[tabs.indexOf(WalletCategory.ALL)]
         val wasListReordering = isListReordering
         if (reorder) {
-            if (switchToAll && selectedCategory != WalletCategory.ALL) {
+            if (selectedCategory != WalletCategory.ALL) {
                 val allSegmentIndex = segmentedController.items.indexOfFirst {
                     it.identifier == WalletCategory.ALL.value
                 }
@@ -652,37 +700,34 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                             segmentedController.post {
                                 segmentedController.startSorting()
                             }
-                        })
+                        }
+                    )
                     selectedTabIndex = allSegmentIndex
                     updateTitleBar()
                 }
             } else {
                 segmentedController.startSorting()
             }
-            if (selectedCategory == WalletCategory.ALL) {
-                isListReordering = true
-                allVC.viewMode = MWalletSettingsViewMode.LIST
-            }
+            isListReordering = allVC.viewMode == MWalletSettingsViewMode.LIST
         } else {
             segmentedController.endSorting()
             saveTabOrder()
-            if (isListReordering) {
-                isListReordering = false
-                updateAccounts(listOf(WalletCategory.ALL))
-            }
+            isListReordering = false
+            updateAccounts(listOf(WalletCategory.ALL))
         }
         view.post {
-            if (reorder && isListReordering) {
+            if (reorder && !fromDrag) {
                 allVC.toggleReorder(reordering = true, animated = true)
             } else if (!reorder) {
                 allVC.toggleReorder(reordering = false, animated = true)
             }
             listButton.setImageDrawable(
                 context.getDrawableCompat(
-                    if (isReordering)
-                        org.mytonwallet.uihome.R.drawable.ic_check
-                    else
-                        org.mytonwallet.uihome.R.drawable.ic_list
+                    if (isReordering) {
+                        org.mytonwallet.app_air.icons.R.drawable.ic_check
+                    } else {
+                        org.mytonwallet.app_air.icons.R.drawable.ic_list
+                    }
                 )
             )
             listButton.updateColors(
@@ -702,7 +747,9 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     private fun updateAddNewWalletButton(animated: Boolean = true) {
         val text = LocaleController.getString(
-            if (isReordering) "Remove Wallet" else {
+            if (isListReordering) {
+                "Remove Wallet"
+            } else {
                 when (selectedCategory) {
                     WalletCategory.MY, WalletCategory.ALL -> {
                         "Add Wallet"
@@ -719,11 +766,11 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             }
         )
 
-        if (isReordering) {
+        if (isListReordering) {
             addNewWalletButton.setText(text, animated)
         } else {
             val drawable = context.getDrawableCompat(
-                org.mytonwallet.app_air.uisettings.R.drawable.ic_plus
+                org.mytonwallet.app_air.icons.R.drawable.ic_plus
             )?.apply {
                 setTint(WColor.TextOnTint.color)
                 val size = 20.dp
@@ -737,8 +784,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             addNewWalletButton.setText(spannable, animated)
         }
 
-        addNewWalletButton.isError = isReordering
-        addNewWalletButton.isEnabled = !isReordering
+        addNewWalletButton.isError = isListReordering
+        addNewWalletButton.isEnabled = !isListReordering
     }
 
     private fun updateRemoveWalletButton() {

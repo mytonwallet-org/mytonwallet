@@ -1,4 +1,4 @@
-import type { ApiStakingState } from '../api/types';
+import type { ApiChain, ApiStakingState } from '../api/types';
 import type { UserToken } from '../global/types';
 
 import { STAKED_TOKEN_SLUGS } from '../config';
@@ -53,4 +53,19 @@ export function calculateFullBalance(
     changePercent,
     changeValue,
   };
+}
+
+/** Sorts chains by their full USD balance (staking included) descending, keeping the default order for ties */
+export function sortChainsByBalance(chains: ApiChain[], tokens?: UserToken[], stakingStates?: ApiStakingState[]) {
+  if (chains.length <= 1 || !tokens?.length) {
+    return chains;
+  }
+
+  const balanceByChain: Partial<Record<ApiChain, Big>> = {};
+  for (const chain of chains) {
+    const chainTokens = tokens.filter((token) => token.chain === chain);
+    balanceByChain[chain] = Big(calculateFullBalance(chainTokens, stakingStates).primaryValueUsd);
+  }
+
+  return chains.slice().sort((a, b) => (balanceByChain[b] ?? Big(0)).cmp(balanceByChain[a] ?? Big(0)));
 }

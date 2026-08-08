@@ -64,6 +64,10 @@
 		<string>AirModules_WalletResources.bundle/CalSans-Regular.ttf</string>
 		<string>AirModules_WalletResources.bundle/SFCompactDisplayMedium.otf</string>
 		<string>AirModules_WalletResources.bundle/SFCompactRoundedBold.otf</string>
+		<string>AirModules_WalletResources.bundle/Vazirmatn-Regular.ttf</string>
+		<string>AirModules_WalletResources.bundle/Vazirmatn-Medium.ttf</string>
+		<string>AirModules_WalletResources.bundle/Vazirmatn-SemiBold.ttf</string>
+		<string>AirModules_WalletResources.bundle/Vazirmatn-Bold.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

@@ -78,8 +78,6 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     
     var inSelectionMode: Bool { selectedIds != nil }
     private var selectedIds: Set<String>?
-    private var selectionToolbar: NftMultiSelectToolbar?
-    private var selectionToolbarBottomConstraint: NSLayoutConstraint?
         
     public init(accountSource: AccountSource, manager: NftsVCManager?, layoutMode: LayoutMode, canOpenCollection: Bool = true, filter: NftCollectionFilter) {
         self._account = AccountContext(source: accountSource)
@@ -702,15 +700,26 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
             }
             if displayNft.isHiddenByUser {
                 items += UIAction(title: lang("Unhide"), image: UIImage(systemName: "eye")) { _ in
-                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: false)
+                    NftStore.setHiddenByUser(accountId: accountId, nft: nft, isHidden: false)
                 }
             } else if nft.isScam == true, !displayNft.isUnhiddenByUser {
                 items += UIAction(title: lang("Not Scam"), image: UIImage(systemName: "checkmark.shield")) { _ in
-                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: false)
+                    NftStore.setHiddenByUser(accountId: accountId, nft: nft, isHidden: false)
                 }
             } else {
                 items += UIAction(title: lang("Hide"), image: .airBundle("MenuHide26")) { _ in
-                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+                    AppActions.hideNft(accountId: accountId, nft: nft, onHidden: nil)
+                }
+            }
+            items += UIAction(
+                title: lang(displayNft.shouldHide ? "Report" : "Hide and Report"),
+                image: UIImage(systemName: "flag"),
+                attributes: .destructive
+            ) { _ in
+                if displayNft.shouldHide {
+                    AppActions.reportNft(accountId: accountId, nft: nft, onConfirmed: nil)
+                } else {
+                    AppActions.hideAndReportNft(accountId: accountId, nft: nft, onConfirmed: nil)
                 }
             }
             if account.supportsBurn, nft.chain.isNftBurnSupported, !nft.isOnSale {

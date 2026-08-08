@@ -73,7 +73,7 @@ public final class GlobalStorage {
             update { $0[""] = json }
             log.info("load completed")
         } catch {
-            log.fault("failed to load global dict from webview \(error, .public)")
+            log.error("failed to load global dict from webview \(error, .public)")
             LogStore.shared.syncronize()
             throw error
         }
@@ -97,7 +97,7 @@ public final class GlobalStorage {
                 return .present
             }
         } catch {
-            log.fault("failed to load global dict from webview \(error, .public)")
+            log.error("failed to load global dict from webview \(error, .public)")
             LogStore.shared.syncronize()
             throw error
         }

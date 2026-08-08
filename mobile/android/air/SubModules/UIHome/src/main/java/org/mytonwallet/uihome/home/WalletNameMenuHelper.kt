@@ -16,37 +16,42 @@ object WalletNameMenuHelper {
         viewController: WViewController,
         anchor: View,
         account: MAccount,
-        onManageWallets: () -> Unit,
+        onManageWallets: () -> Unit
     ) {
         WMenuPopup.present(
             anchor,
             listOf(
                 WMenuPopup.Item(
-                    icon = org.mytonwallet.uihome.R.drawable.ic_pen,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_pen,
                     title = LocaleController.getString("Rename"),
                     onTap = {
                         AccountDialogHelpers.presentRename(viewController, account)
-                    }),
+                    }
+                ),
                 WMenuPopup.Item(
-                    icon = org.mytonwallet.uihome.R.drawable.ic_customize,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_customize,
                     title = LocaleController.getString("Customize"),
                     onTap = {
                         val window = viewController.window ?: return@Item
+                        val customizationVC = WalletCustomizationVC.create(
+                            viewController.context,
+                            account.accountId
+                        ) ?: return@Item
                         val navVC = WNavigationController(
                             window,
                             WNavigationController.PresentationConfig.PreferredFullScreen
                         )
-                        navVC.setRoot(
-                            WalletCustomizationVC(viewController.context, account.accountId)
-                        )
+                        navVC.setRoot(customizationVC)
                         window.present(navVC)
-                    }),
+                    }
+                ),
                 WMenuPopup.Item(
                     icon = org.mytonwallet.app_air.icons.R.drawable.ic_manage_30,
                     title = LocaleController.getString("Manage Wallets"),
                     onTap = {
                         onManageWallets()
-                    }),
+                    }
+                )
             ),
             popupWidth = 220.dp,
             yOffset = (-20).dp,
@@ -61,7 +66,7 @@ object WalletNameMenuHelper {
                     bottomOffset = (-20f).dp
                 )
             ),
-            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed
         )
     }
 }

@@ -43,6 +43,7 @@ public class WWordInput: UIView {
 
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
+        semanticContentAttribute = .forceLeftToRight
 
         // corner radius
         layer.cornerRadius = 10
@@ -54,19 +55,20 @@ public class WWordInput: UIView {
         let stackView = UIStackView()
         stackView.axis = .horizontal
         stackView.spacing = 6
+        stackView.semanticContentAttribute = .forceLeftToRight
         stackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
         NSLayoutConstraint.activate([
-            stackView.leftAnchor.constraint(equalTo: leftAnchor),
+            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.rightAnchor.constraint(equalTo: rightAnchor),
+            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
             stackView.heightAnchor.constraint(equalToConstant: 50)
         ])
 
         // add word number label
         numberLabel.translatesAutoresizingMaskIntoConstraints = false
-        numberLabel.text = "\(wordNumber)"
+        numberLabel.text = localizedIntegerString(wordNumber)
         numberLabel.textAlignment = .right
         numberLabel.isAccessibilityElement = false
         stackView.addArrangedSubview(numberLabel)
@@ -78,11 +80,14 @@ public class WWordInput: UIView {
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.autocorrectionType = .no
         textField.spellCheckingType = .no
+        textField.keyboardType = .asciiCapable
+        textField.semanticContentAttribute = .forceLeftToRight
+        textField.textAlignment = .left
         textField.backgroundColor = .clear
         textField.delegate = self
         textField.clearButtonMode = .whileEditing
         textField.inputAccessoryView = suggestionsView
-        textField.accessibilityLabel = "\(wordNumber)"
+        textField.accessibilityLabel = localizedIntegerString(wordNumber)
         stackView.addArrangedSubview(textField)
 
         updateTheme()

@@ -179,7 +179,7 @@ class PieChartRenderer: BaseChartRenderer {
                 let fraction = crop(0, segmentSize / centerOffsetStartAngle, 1)
                 let fontSize = (minimumFontSize + (maximumFontSize - minimumFontSize) * fraction).rounded(.up)
                 let labelPotisionOffset = diagramRadius / 2 + diagramRadius / 2 * (1 - fraction)
-                let font = NSFont.systemFont(ofSize: fontSize, weight: .bold)
+                let font = GraphTypography.technicalPieValueFont(pointSize: fontSize)
                 let labelsEaseInColor = crop(0, chartAlpha * chartAlpha * 2 - 1, 1)
                 let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: GColor.white.withAlphaComponent(labelsEaseInColor),
                                                                  .font: font]

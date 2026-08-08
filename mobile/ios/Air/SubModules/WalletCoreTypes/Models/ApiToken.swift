@@ -13,6 +13,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     public let slug: String
     
     public var name: String
+    public var localizedName: String?
     public var symbol: String
     public var decimals: Int
     public var chain: ApiChain = .ton
@@ -38,9 +39,10 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     public var priceUsd: Double?
     public var percentChange24h: Double?
 
-    public init(slug: String, name: String, symbol: String, decimals: Int, chain: ApiChain, type: ApiTokenType? = nil, tokenAddress: String? = nil, tokenWalletAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, label: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
+    public init(slug: String, name: String, localizedName: String? = nil, symbol: String, decimals: Int, chain: ApiChain, type: ApiTokenType? = nil, tokenAddress: String? = nil, tokenWalletAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, label: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
         self.slug = slug
         self.name = name
+        self.localizedName = localizedName
         self.symbol = symbol
         self.decimals = decimals
         self.chain = chain
@@ -66,6 +68,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     enum CodingKeys: CodingKey {
         case slug
         case name
+        case localizedName
         case symbol
         case decimals
         case chain
@@ -99,6 +102,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.slug, forKey: .slug)
         try container.encode(self.name, forKey: .name)
+        try container.encodeIfPresent(self.localizedName, forKey: .localizedName)
         try container.encode(self.symbol, forKey: .symbol)
         try container.encode(self.decimals, forKey: .decimals)
         try container.encode(self.chain, forKey: .chain)
@@ -125,6 +129,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.slug = try container.decode(String.self, forKey: .slug)
         self.name = try container.decode(String.self, forKey: .name)
+        self.localizedName = try container.decodeIfPresent(String.self, forKey: .localizedName)
         self.symbol = try container.decode(String.self, forKey: .symbol)
         self.decimals = try container.decode(Int.self, forKey: .decimals)
         
@@ -174,6 +179,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         let dict = try (any as? [String: Any]).orThrow()
         self.slug = try (dict["slug"] as? String).orThrow()
         self.name = try (dict["name"] as? String).orThrow()
+        self.localizedName = dict["localizedName"] as? String
         self.symbol = try (dict["symbol"] as? String).orThrow()
         self.decimals = try (dict["decimals"] as? Int).orThrow()
         if let chainRaw = dict["chain"] as? String, let chain = ApiChain(rawValue: chainRaw) {
@@ -257,6 +263,7 @@ extension ApiToken {
     public func matchesSearch(_ keyword: String) -> Bool {
         if keyword.isEmpty { return true }
         if name.lowercased().contains(keyword) { return true }
+        if localizedName?.lowercased().contains(keyword) == true { return true }
         if symbol.lowercased().contains(keyword) { return true }
         if label?.lowercased().contains(keyword) == true { return true }
         if chain.title.lowercased().contains(keyword) { return true }
@@ -378,6 +385,15 @@ extension ApiToken {
         symbol: "HYPE",
         decimals: 18,
         chain: .hyperliquid
+    )
+
+    public static let ROBINHOOD = ApiToken(
+        slug: ROBINHOOD_SLUG,
+        name: "Robinhood",
+        symbol: "ETH",
+        decimals: 18,
+        chain: .robinhood,
+        label: "Robinhood"
     )
 
     public static let MYCOIN = ApiToken(
@@ -580,6 +596,7 @@ extension ApiToken {
         TONCOIN_SLUG: .TONCOIN,
         TRX_SLUG: .TRX,
         SOLANA_SLUG: .SOLANA,
+        ROBINHOOD_SLUG: .ROBINHOOD,
         MYCOIN_SLUG: .MYCOIN,
         TON_USDE_SLUG: .TON_USDE,
         STAKED_TON_SLUG: .STAKED_TON,

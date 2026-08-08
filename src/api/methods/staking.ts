@@ -34,7 +34,7 @@ export function checkUnstakeDraft(accountId: string, amount: bigint, state: ApiS
 
 export async function submitStake(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   amount: bigint,
   state: ApiStakingState,
   realFee?: bigint,
@@ -42,7 +42,7 @@ export async function submitStake(
   const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const result = await ton.submitStake(
-    accountId, password, amount, state,
+    accountId, enclaveToken, amount, state,
   );
 
   if ('error' in result) {
@@ -74,14 +74,14 @@ export async function submitStake(
 
 export async function submitUnstake(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   tokenAmount: bigint,
   state: ApiStakingState,
   realFee?: bigint,
 ) {
   const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
-  const result = await ton.submitUnstake(accountId, password, tokenAmount, state);
+  const result = await ton.submitUnstake(accountId, enclaveToken, tokenAmount, state);
   if ('error' in result) {
     return result;
   }
@@ -150,15 +150,15 @@ export async function tryUpdateStakingCommonData() {
 
 export async function submitStakingClaimOrUnlock(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   state: ApiJettonStakingState | ApiEthenaStakingState,
   realFee?: bigint,
 ) {
   const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const result = state.type === 'ethena'
-    ? await ton.submitUnstakeEthenaLocked(accountId, password, state)
-    : await ton.submitTokenStakingClaim(accountId, password, state);
+    ? await ton.submitUnstakeEthenaLocked(accountId, enclaveToken, state)
+    : await ton.submitTokenStakingClaim(accountId, enclaveToken, state);
 
   if ('error' in result) {
     return result;

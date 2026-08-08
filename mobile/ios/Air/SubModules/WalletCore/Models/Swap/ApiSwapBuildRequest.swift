@@ -8,6 +8,7 @@ public struct ApiSwapBuildRequest: Codable, Sendable {
     public let fromAddress: String
     public let historyAddress: String?
     public let dexLabel: ApiSwapDexLabel?
+    public let dexRouterLabel: String?
     public let fromAmount: MDouble
     public let toAmount: MDouble?
     public let toMinAmount: MDouble?
@@ -24,12 +25,13 @@ public struct ApiSwapBuildRequest: Codable, Sendable {
     public let ourFee: MDouble?
     public let dieselFee: MDouble?
     
-    public init(from: String, to: String, fromAddress: String, historyAddress: String? = nil, dexLabel: ApiSwapDexLabel?, fromAmount: MDouble, toAmount: MDouble?, toMinAmount: MDouble?, slippage: Double?, shouldTryDiesel: Bool?, swapVersion: Int?, walletVersion: String?, routes: [[ApiSwapRoute]]?, toAddress: String? = nil, payoutExtraId: String? = nil, networkFee: MDouble?, swapFee: MDouble?, ourFee: MDouble?, dieselFee: MDouble?) {
+    public init(from: String, to: String, fromAddress: String, historyAddress: String? = nil, dexLabel: ApiSwapDexLabel?, dexRouterLabel: String? = nil, fromAmount: MDouble, toAmount: MDouble?, toMinAmount: MDouble?, slippage: Double?, shouldTryDiesel: Bool?, swapVersion: Int?, walletVersion: String?, routes: [[ApiSwapRoute]]?, toAddress: String? = nil, payoutExtraId: String? = nil, networkFee: MDouble?, swapFee: MDouble?, ourFee: MDouble?, dieselFee: MDouble?) {
         self.from = from
         self.to = to
         self.fromAddress = fromAddress
         self.historyAddress = historyAddress
         self.dexLabel = dexLabel
+        self.dexRouterLabel = dexRouterLabel
         self.fromAmount = fromAmount
         self.toAmount = toAmount
         self.toMinAmount = toMinAmount

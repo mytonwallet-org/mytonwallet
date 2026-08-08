@@ -4,7 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import androidx.core.view.children
 import androidx.core.view.isGone
-import org.mytonwallet.app_air.uicomponents.R
+import kotlin.math.min
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -21,7 +22,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
-import kotlin.math.min
 
 @SuppressLint("ViewConstructor")
 class PasscodeKeyboardView(
@@ -29,7 +29,8 @@ class PasscodeKeyboardView(
     val light: Boolean?,
     showMotionBackgroundDrawable: Boolean,
     ignoreBiometry: Boolean
-) : WFrameLayout(context), WThemedView {
+) : WFrameLayout(context),
+    WThemedView {
     companion object {
         private const val GAP = 8
         private const val HEIGHT = 80
@@ -72,8 +73,8 @@ class PasscodeKeyboardView(
                                 listener?.onBiometricsCheck()
                             }
                             isGone =
-                                ignoreBiometry || !WGlobalStorage.isBiometricActivated() ||
-                                    !BiometricHelpers.canAuthenticate(context)
+                                ignoreBiometry || !WGlobalStorage.isAnyBiometricActivated() ||
+                                !BiometricHelpers.canAuthenticate(context)
                         }
 
                         else -> {
@@ -83,7 +84,8 @@ class PasscodeKeyboardView(
                             }
                         }
                     }
-                }, LayoutParams(80.dp, 80.dp)
+                },
+                LayoutParams(80.dp, 80.dp)
             )
         }
     }
@@ -144,14 +146,14 @@ class PasscodeKeyboardView(
         deleteButton.drawableTint = if (isEmpty && showSignOut) WColor.Error.color else null
         val prevDrawable = deleteButton.customDrawable
         deleteButton.customDrawable =
-            if (isEmpty && showSignOut)
+            if (isEmpty && showSignOut) {
                 exitDrawable
-            else if (!isEmpty)
+            } else if (!isEmpty) {
                 backspaceDrawable
-            else
+            } else {
                 null
-        if (prevDrawable != deleteButton.customDrawable)
-            deleteButton.updateImage(true)
+            }
+        if (prevDrawable != deleteButton.customDrawable) deleteButton.updateImage(true)
     }
 
     fun lockKeypad() {
@@ -159,8 +161,7 @@ class PasscodeKeyboardView(
             if (it != deleteButton) {
                 it.lockView()
                 it.apply {
-                    if (isGone)
-                        return@apply
+                    if (isGone) return@apply
                     if (!isAttachedToWindow) {
                         alpha = 0.5f
                     } else {
@@ -175,8 +176,7 @@ class PasscodeKeyboardView(
         children.forEach {
             it.unlockView()
             it.apply {
-                if (alpha == 1f)
-                    return@apply
+                if (alpha == 1f) return@apply
                 fadeInObjectAnimator()?.start()
             }
         }

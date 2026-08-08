@@ -7,8 +7,8 @@ import android.text.style.ForegroundColorSpan
 import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 
-fun AppCompatTextView.getSpan(text: String? = null, textSize: Int? = null): SpannableString {
-    return SpannableString(text ?: this@getSpan.text ?: "").apply {
+fun AppCompatTextView.getSpan(text: String? = null, textSize: Int? = null): SpannableString =
+    SpannableString(text ?: this@getSpan.text ?: "").apply {
         setSpan(
             ForegroundColorSpan(currentTextColor),
             0,
@@ -28,4 +28,3 @@ fun AppCompatTextView.getSpan(text: String? = null, textSize: Int? = null): Span
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
     }
-}

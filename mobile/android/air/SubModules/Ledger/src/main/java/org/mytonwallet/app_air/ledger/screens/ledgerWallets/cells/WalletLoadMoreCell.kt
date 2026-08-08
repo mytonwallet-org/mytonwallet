@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells
 
 import android.content.Context
@@ -5,13 +7,13 @@ import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -23,9 +25,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
-class LedgerLoadMoreCell(
-    context: Context,
-) : WCell(context), WThemedView {
+class LedgerLoadMoreCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     var onTap: (() -> Unit)? = null
 
@@ -136,5 +138,4 @@ class LedgerLoadMoreCell(
             progressView.fadeOut()
         }
     }
-
 }

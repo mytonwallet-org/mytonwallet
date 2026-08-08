@@ -11,19 +11,28 @@ extension ApiToken {
         AccountStore.account?.supports(chain: chain) ?? false
     }
     
-    public var earnAvailable: Bool {
-        return AccountStore.activeNetwork == .mainnet && EARN_AVAILABLE_SLUGS.contains(slug)
+    public func displayName(strippingLabelWhenShown: Bool) -> String {
+        displayName(
+            strippingLabelWhenShown: strippingLabelWhenShown,
+            useLocalizedName: AppStorageHelper.useLocalizedTokenNames
+        )
     }
 
-    public func displayName(strippingLabelWhenShown: Bool) -> String {
+    public func displayName(strippingLabelWhenShown: Bool, useLocalizedName: Bool) -> String {
+        let displayName = if useLocalizedName {
+            localizedName?.nilIfEmpty ?? name
+        } else {
+            name
+        }
+
         guard strippingLabelWhenShown,
               isRwaStock,
               let label = label?.trimmingCharacters(in: .whitespacesAndNewlines),
               !label.isEmpty else {
-            return name
+            return displayName
         }
 
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let candidates = [label, label.removingSuffix("s"), label.removingSuffix("S")]
             .filter { !$0.isEmpty }
             .uniqued()
@@ -31,11 +40,11 @@ extension ApiToken {
         for candidate in candidates {
             let strippedName = trimmedName.strippingPrefixOrSuffix(candidate).trimmingCharacters(in: .whitespacesAndNewlines)
             if strippedName != trimmedName {
-                return strippedName.isEmpty ? name : strippedName
+                return strippedName.isEmpty ? displayName : strippedName
             }
         }
 
-        return name
+        return displayName
     }
 }
 

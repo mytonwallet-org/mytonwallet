@@ -3,11 +3,9 @@ import React, { memo, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiSwapAsset } from '../../api/types';
-import type { DieselStatus, GlobalState } from '../../global/types';
+import type { DieselStatus } from '../../global/types';
 import { SwapType } from '../../global/types';
 
-import { DEFAULT_OUR_SWAP_FEE } from '../../config';
-import renderText from '../../global/helpers/renderText';
 import {
   selectCurrentAccountTokenBalance,
   selectCurrentSwapTokenIn,
@@ -50,9 +48,6 @@ interface StateProps {
   slippage: number;
   priceImpact?: number;
   amountOutMin?: string;
-  ourFee?: string;
-  ourFeePercent?: number;
-  ourFeeMode?: GlobalState['currentSwap']['ourFeeMode'];
   dieselStatus?: DieselStatus;
   dieselFee?: string;
   nativeTokenInBalance?: bigint;
@@ -75,9 +70,6 @@ function SwapSettingsContent({
   networkFee,
   realNetworkFee,
   amountOutMin,
-  ourFee,
-  ourFeePercent = DEFAULT_OUR_SWAP_FEE,
-  ourFeeMode,
   dieselStatus,
   dieselFee,
   nativeTokenInBalance,
@@ -115,14 +107,11 @@ function SwapSettingsContent({
       tokenInSlug: tokenIn?.slug,
       networkFee,
       realNetworkFee,
-      ourFee,
-      ourFeeMode,
       dieselStatus,
       dieselFee,
       nativeTokenInBalance,
     }),
-    [swapType, tokenIn, networkFee, realNetworkFee, ourFee, ourFeeMode, dieselStatus, dieselFee,
-      nativeTokenInBalance],
+    [swapType, tokenIn, networkFee, realNetworkFee, dieselStatus, dieselFee, nativeTokenInBalance],
   );
 
   function renderSlippageValues() {
@@ -197,7 +186,7 @@ function SwapSettingsContent({
           className={styles.advancedLink}
           onClick={() => onNetworkFeeClick()}
         >
-          <span>{feeElement}</span>
+          <span className={styles.feeElement}>{feeElement}</span>
           <i className={buildClassName('icon-chevron-right', styles.advancedLinkIcon)} aria-hidden />
         </span>
       );
@@ -249,21 +238,6 @@ function SwapSettingsContent({
         {renderRate()}
         {renderNetworkFee()}
 
-        {explainedFee.shouldShowOurFee && (
-          <div className={styles.advancedRow}>
-            <span className={styles.advancedDescription}>
-              {lang('Aggregator Fee')}
-              <Tooltip>
-                <span>{renderText(lang('$swap_aggregator_fee_tooltip', { percent: `${ourFeePercent}%` }))}</span>
-              </Tooltip>
-            </span>
-            <span className={styles.advancedValue}>
-              {ourFee !== undefined
-                ? formatCurrency(ourFee, tokenIn?.symbol ?? '', undefined, true)
-                : <ValuePlaceholder />}
-            </span>
-          </div>
-        )}
         {swapType === SwapType.OnChain && (
           <>
             <div className={styles.advancedRow}>
@@ -328,9 +302,6 @@ const SwapSettings = memo(
       slippage,
       priceImpact,
       amountOutMin,
-      ourFee,
-      ourFeePercent,
-      ourFeeMode,
       dieselStatus,
       dieselFee,
     } = global.currentSwap;
@@ -349,9 +320,6 @@ const SwapSettings = memo(
       slippage,
       priceImpact,
       amountOutMin,
-      ourFee,
-      ourFeePercent,
-      ourFeeMode,
       dieselStatus,
       dieselFee,
       nativeTokenInBalance,

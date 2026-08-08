@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiswap.screens.cex
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
@@ -21,12 +20,15 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.setPadding
+import java.lang.ref.WeakReference
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
@@ -45,8 +47,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.app_air.walletcontext.helpers.SpanHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import java.lang.ref.WeakReference
-import java.math.BigInteger
 
 @SuppressLint("ViewConstructor")
 class SwapSendAddressOutputVC(
@@ -62,6 +62,7 @@ class SwapSendAddressOutputVC(
     supportUrl: String? = null,
     supportEmail: String? = null
 ) : WViewControllerWithModelStore(context) {
+    @Suppress("PropertyName")
     override val TAG = "SwapSendAddressOutput"
 
     override val shouldDisplayTopBar = true
@@ -188,7 +189,9 @@ class SwapSendAddressOutputVC(
         includeFontPadding = false
 
         val hint =
-            LocaleController.getString("Please note that it may take up to a few hours for tokens to appear in your wallet.")
+            LocaleController.getString(
+                "Please note that it may take up to a few hours for tokens to appear in your wallet."
+            )
         text = SpannableStringBuilder()
             .append(hint)
             .apply {
@@ -285,7 +288,7 @@ class SwapSendAddressOutputVC(
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT_THIN.dp,
             0,
-            navigationController?.bottomInset ?: 0,
+            navigationController?.bottomInset ?: 0
         )
         linearLayout.clipToPadding = false
 
@@ -309,7 +312,7 @@ class SwapSendAddressOutputVC(
         bottomDetails.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         qrCodeView.setPadding(if (ThemeManager.isDark) 16.dp else 0)
         if (ThemeManager.isDark) {
@@ -341,7 +344,7 @@ class SwapSendAddressOutputVC(
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT_THIN.dp,
             0,
-            navigationController?.bottomInset ?: 0,
+            navigationController?.bottomInset ?: 0
         )
     }
 

@@ -9,7 +9,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class EarnSpaceCell(context: Context, val isTransparent: Boolean = false) : WCell(context),
+class EarnSpaceCell(context: Context, val isTransparent: Boolean = false) :
+    WCell(context),
     WThemedView {
 
     override fun updateTheme() {
@@ -17,5 +18,4 @@ class EarnSpaceCell(context: Context, val isTransparent: Boolean = false) : WCel
             if (isTransparent) Color.TRANSPARENT else WColor.SecondaryBackground.color
         )
     }
-
 }

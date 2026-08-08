@@ -65,6 +65,7 @@ public struct WalletCoreData {
         case rawBalancesChanged(accountId: String)
         case assetsAndActivityDataUpdated
         case hideTinyTransfersChanged
+        case hideUnverifiedNftsChanged
         case hideNoCostTokensChanged
         case homeWalletVisibleTokensLimitChanged
         case cardBackgroundChanged(_ accountId: String, _ nft: ApiNft?)
@@ -144,8 +145,11 @@ public struct WalletCoreData {
     @MainActor private(set) static var eventObservers = [WeakEventsObserver]()
     public static func add(eventObserver: EventsObserver & Sendable) {
         Task { @MainActor in
-            WalletCoreData.eventObservers.append(WeakEventsObserver(value: eventObserver))
+            addImmediately(eventObserver: eventObserver)
         }
+    }
+    @MainActor public static func addImmediately(eventObserver: EventsObserver & Sendable) {
+        WalletCoreData.eventObservers.append(WeakEventsObserver(value: eventObserver))
     }
     @MainActor public static func remove(observer: EventsObserver) {
         WalletCoreData.eventObservers.removeAll { $0.value === nil || $0.value === observer }
@@ -260,7 +264,7 @@ public struct WalletCoreData {
             await BalanceDataStore.use()
         }
         await runDeferredStartupStep("nftStore") {
-            NftStore.loadFromCache(accountIds: accountIds)
+            await NftStore.use(db: db, accountIds: accountIds)
         }
         await runDeferredStartupStep("domains") {
             await DomainsStore.liveValue.use(db: db)

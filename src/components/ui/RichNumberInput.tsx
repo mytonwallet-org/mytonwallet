@@ -148,6 +148,7 @@ function RichNumberInput({
 
   const inputWrapperFullClass = buildClassName(
     styles.input__wrapper,
+    size === 'large' && styles.input__wrapper_large,
     isStatic && styles.inputWrapperStatic,
     hasError && styles.error,
     hasFocus && styles.input__wrapper_hasFocus,

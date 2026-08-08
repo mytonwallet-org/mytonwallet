@@ -2,7 +2,12 @@ import { VirtualType } from '../lib/teact/teact';
 
 import type { Account } from '../global/types';
 
+import { getOrderedAccountChains } from './chain';
 import { formatAccountAddresses } from './formatAccountAddress';
+
+function formatAllAccountAddresses(byChain: Account['byChain'], variant?: 'x-small' | 'small' | 'medium') {
+  return formatAccountAddresses(byChain, getOrderedAccountChains(byChain), variant);
+}
 
 const singleChainTonAccount: Account['byChain'] = {
   ton: {
@@ -67,16 +72,25 @@ describe('formatAccountAddresses', () => {
   describe('empty or invalid input', () => {
     test('empty byChain object', () => {
       const byChain: Account['byChain'] = {};
-      const result = formatAccountAddresses(byChain);
+      const result = formatAllAccountAddresses(byChain);
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('explicit chain list', () => {
+    test('renders the given chains only, in the given order', () => {
+      const result = formatAccountAddresses(fourChainAccount, ['solana', 'ton']);
+
+      const icons = findElementsByTag(result, 'i');
+      expect(icons.map((icon) => icon.props.className)).toEqual(['icon-chain-solana', 'icon-chain-ton']);
     });
   });
 
   describe('medium variant (default)', () => {
     describe('single-chain account', () => {
       test('TON chain with address', () => {
-        const result = formatAccountAddresses(singleChainTonAccount);
+        const result = formatAllAccountAddresses(singleChainTonAccount);
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
@@ -89,7 +103,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('TON chain with domain', () => {
-        const result = formatAccountAddresses(singleChainTonDomainAccount);
+        const result = formatAllAccountAddresses(singleChainTonDomainAccount);
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
@@ -103,7 +117,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('TRON chain with address', () => {
-        const result = formatAccountAddresses(singleChainTronAccount);
+        const result = formatAllAccountAddresses(singleChainTronAccount);
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
@@ -118,7 +132,7 @@ describe('formatAccountAddresses', () => {
 
     describe('multi-chain account', () => {
       test('TON and TRON with addresses only', () => {
-        const result = formatAccountAddresses(multiChainAccount);
+        const result = formatAllAccountAddresses(multiChainAccount);
 
         // Check both icons
         const icons = findElementsByTag(result, 'i');
@@ -136,7 +150,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('mixed: one with domain, one with address', () => {
-        const result = formatAccountAddresses(multiChainDomainAccount);
+        const result = formatAllAccountAddresses(multiChainDomainAccount);
 
         // Check domain format for TON (maxLength=12)
         const text = getTextContent(result);
@@ -152,7 +166,7 @@ describe('formatAccountAddresses', () => {
 
     describe('short addresses/domains', () => {
       test('short address that should not be truncated', () => {
-        const result = formatAccountAddresses(shortSingleChainTonAccount);
+        const result = formatAllAccountAddresses(shortSingleChainTonAccount);
 
         // Short address should be displayed as is (no truncation)
         const text = getTextContent(result);
@@ -161,7 +175,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('short domain in single-chain', () => {
-        const result = formatAccountAddresses(shortSingleChainTonDomainAccount);
+        const result = formatAllAccountAddresses(shortSingleChainTonDomainAccount);
 
         // Short domain should be displayed as is
         const text = getTextContent(result);
@@ -174,7 +188,7 @@ describe('formatAccountAddresses', () => {
   describe('x-small variant', () => {
     describe('single-chain account', () => {
       test('TON chain with address', () => {
-        const result = formatAccountAddresses(singleChainTonAccount, 'x-small');
+        const result = formatAllAccountAddresses(singleChainTonAccount, 'x-small');
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
@@ -187,7 +201,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('TON chain with domain', () => {
-        const result = formatAccountAddresses(singleChainTonDomainAccount, 'x-small');
+        const result = formatAllAccountAddresses(singleChainTonDomainAccount, 'x-small');
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
@@ -201,7 +215,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('TRON chain with address', () => {
-        const result = formatAccountAddresses(singleChainTronAccount, 'x-small');
+        const result = formatAllAccountAddresses(singleChainTronAccount, 'x-small');
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
@@ -216,7 +230,7 @@ describe('formatAccountAddresses', () => {
 
     describe('multi-chain account', () => {
       test('TON and TRON with addresses only', () => {
-        const result = formatAccountAddresses(multiChainAccount, 'x-small');
+        const result = formatAllAccountAddresses(multiChainAccount, 'x-small');
 
         // Check both icons are present
         const icons = findElementsByTag(result, 'i');
@@ -235,7 +249,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('mixed: one with domain, one with address', () => {
-        const result = formatAccountAddresses(multiChainDomainAccount, 'x-small');
+        const result = formatAllAccountAddresses(multiChainDomainAccount, 'x-small');
 
         // Only the first chain (TON) shows domain text; TRON is icon-only
         const text = getTextContent(result);
@@ -244,7 +258,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('account with 4 chains shows only first 3', () => {
-        const result = formatAccountAddresses(fourChainAccount, 'x-small');
+        const result = formatAllAccountAddresses(fourChainAccount, 'x-small');
 
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(3);
@@ -257,7 +271,7 @@ describe('formatAccountAddresses', () => {
 
     describe('short addresses/domains', () => {
       test('short address that should not be truncated', () => {
-        const result = formatAccountAddresses(shortSingleChainTonAccount, 'x-small');
+        const result = formatAllAccountAddresses(shortSingleChainTonAccount, 'x-small');
 
         // Short address should be displayed as is (no truncation)
         const text = getTextContent(result);
@@ -266,7 +280,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('short domain in single-chain', () => {
-        const result = formatAccountAddresses(shortSingleChainTonDomainAccount, 'x-small');
+        const result = formatAllAccountAddresses(shortSingleChainTonDomainAccount, 'x-small');
 
         // Short domain should be displayed as is
         const text = getTextContent(result);
@@ -279,7 +293,7 @@ describe('formatAccountAddresses', () => {
   describe('small variant', () => {
     describe('single-chain account', () => {
       test('TON chain with address uses small sizing', () => {
-        const result = formatAccountAddresses(singleChainTonAccount, 'small');
+        const result = formatAllAccountAddresses(singleChainTonAccount, 'small');
 
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(1);
@@ -291,7 +305,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('TON chain with domain uses small sizing', () => {
-        const result = formatAccountAddresses(singleChainTonDomainAccount, 'small');
+        const result = formatAllAccountAddresses(singleChainTonDomainAccount, 'small');
 
         // Small domain sizing: maxLength=6
         const text = getTextContent(result);
@@ -301,7 +315,7 @@ describe('formatAccountAddresses', () => {
 
     describe('multi-chain account', () => {
       test('two chains both show address with comma separator', () => {
-        const result = formatAccountAddresses(multiChainAccount, 'small');
+        const result = formatAllAccountAddresses(multiChainAccount, 'small');
 
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(2);
@@ -316,7 +330,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('four chains: first 3 icons, only first 2 with address', () => {
-        const result = formatAccountAddresses(fourChainAccount, 'small');
+        const result = formatAllAccountAddresses(fourChainAccount, 'small');
 
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(3);

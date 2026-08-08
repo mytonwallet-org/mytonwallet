@@ -35,16 +35,38 @@ public struct KeychainHelper {
     public static func removeStorage(key: String) {
         _ = KeychainStorageProvider.remove(key: key)
     }
+    public static func clearStorage() {
+        KeychainStorageProvider.keys().forEach { key in
+            _ = KeychainStorageProvider.remove(key: key)
+        }
+    }
     // only a shortcut to make accounts available to swift without fetching accounts one by one :)
     public static func getAccounts() -> [String: [String: Any]]? {
-        guard let accountsData = KeychainStorageProvider.get(key: "accounts").1?.data(using: .utf8) else {
+        try? loadAccounts()
+    }
+
+    public static func loadAccounts() throws -> [String: [String: Any]]? {
+        guard let accounts = try KeychainStorageProvider.load(key: "accounts") else {
             return nil
         }
-        guard let jsonDictionary = try? JSONSerialization.jsonObject(with: accountsData, options: []) as? [String: [String: Any]] else {
-            return nil
+        guard let accountsData = accounts.data(using: .utf8),
+              let jsonDictionary = try JSONSerialization.jsonObject(
+                with: accountsData,
+                options: []
+              ) as? [String: [String: Any]] else {
+            throw KeychainStorageProviderError.invalidValue
         }
         return jsonDictionary
     }
+
+    public static func saveAccounts(_ accounts: [String: [String: Any]]) throws {
+        let data = try JSONSerialization.data(withJSONObject: accounts)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw KeychainStorageProviderError.invalidUTF8
+        }
+        try KeychainStorageProvider.store(key: "accounts", value: json)
+    }
+
     // MARK: - Biometric passcode
     public static func save(biometricPasscode: String?) {
         guard let biometricPasscode else {
@@ -55,6 +77,14 @@ public struct KeychainHelper {
     }
     public static func biometricPasscode() -> String {
         return CapacitorCredentialsStorage.getCredentials()?.password ?? ""
+    }
+
+    public static func loadBiometricPasscode() throws -> String? {
+        try CapacitorCredentialsStorage.loadCredentials()?.password
+    }
+
+    public static func deleteBiometricPasscode() throws {
+        try CapacitorCredentialsStorage.deleteCredentialsOrThrow()
     }
     
     // MARK: - Keys

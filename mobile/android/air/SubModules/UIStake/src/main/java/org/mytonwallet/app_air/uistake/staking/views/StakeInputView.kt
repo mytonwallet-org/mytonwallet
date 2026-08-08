@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uistake.staking.views
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.InputType
 import android.text.TextUtils
@@ -9,11 +8,13 @@ import android.text.method.DigitsKeyListener
 import android.view.Gravity
 import android.widget.LinearLayout
 import androidx.core.widget.doOnTextChanged
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WAmountEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -28,7 +29,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MToken
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class StakeInputView(
@@ -38,8 +38,9 @@ class StakeInputView(
         LayoutParams.WRAP_CONTENT
     ),
     onClickEquivalentLabel: (() -> Unit)? = null,
-    onClickMaxBalanceButton: (() -> Unit)? = null,
-) : WView(context), WThemedView {
+    onClickMaxBalanceButton: (() -> Unit)? = null
+) : WView(context),
+    WThemedView {
 
     private val amountTitleLabel = WLabel(context).apply {
         isSingleLine = true
@@ -110,14 +111,13 @@ class StakeInputView(
 
         addView(amountTitleLabel, LayoutParams(0, LayoutParams.WRAP_CONTENT))
         addView(maxBalanceButton, LayoutParams(LayoutParams.WRAP_CONTENT, 20.dp))
-        addView(amountEditText, LayoutParams(0, 28.dp))
+        addView(amountEditText, LayoutParams(0, LayoutParams.WRAP_CONTENT))
         addView(tokenSymbolView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         addView(equivalentAmountLabel, LayoutParams(LayoutParams.WRAP_CONTENT, 20.dp))
         addView(switchCurrencyIcon, LayoutParams(16.dp, 16.dp))
         addView(feeLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
 
         setConstraints {
-
             toStart(amountTitleLabel, 20f)
             toTop(amountTitleLabel, 16.5f)
             endToStart(amountTitleLabel, maxBalanceButton, 10f)
@@ -171,9 +171,11 @@ class StakeInputView(
 
         currentAsset = asset
         asset?.let {
-            if (asset.slug == TONCOIN_SLUG || asset.slug == STAKE_SLUG)
+            if (asset.slug == TONCOIN_SLUG || asset.slug == STAKE_SLUG) {
                 tokenSymbolView.setTonAsset(false)
-            else tokenSymbolView.setAsset(asset, false)
+            } else {
+                tokenSymbolView.setAsset(asset, false)
+            }
             amountEditText.amountTextWatcher.decimals = it.decimals
             amountEditText.amountTextWatcher.afterTextChanged(amountEditText.text)
         } ?: run {
@@ -204,5 +206,4 @@ class StakeInputView(
             }
         )
     }
-
 }

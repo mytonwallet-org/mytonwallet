@@ -61,6 +61,53 @@ struct WButtonTests {
     }
 
     @Test
+    func `custom primary tint is applied`() throws {
+        let button = WButton(style: .primary)
+        let tint = UIColor.systemGreen
+
+        button.customTintColor = tint
+
+        if isGlassButtonStylingEnabled {
+            let configuration = try #require(button.configuration)
+            #expect(configuration.baseBackgroundColor?.isEqual(tint) == true)
+            let transformer = try #require(configuration.titleTextAttributesTransformer)
+            let attributes = transformer(AttributeContainer())
+            #expect(attributes.foregroundColor?.isEqual(UIColor.white) == true)
+        } else {
+            #expect(button.backgroundColor?.isEqual(tint) == true)
+        }
+    }
+
+    @Test
+    func `custom title font is applied through button configuration`() throws {
+        let button = WButton(style: .primary)
+        let font = UIFont.systemFont(ofSize: 17, weight: .medium)
+
+        button.customTitleFont = font
+
+        let configuration = try #require(button.configuration)
+        let transformer = try #require(configuration.titleTextAttributesTransformer)
+        let attributes = transformer(AttributeContainer())
+        #expect(attributes.font?.isEqual(font) == true)
+        #expect(button.titleLabel?.font.isEqual(font) == true)
+    }
+
+    @Test
+    func `primary uses modern glass height`() {
+        let expectedHeight = isGlassButtonStylingEnabled
+            ? WButton.glassHeight
+            : WButton.defaultHeight
+
+        #expect(WButton.height(for: .primary) == expectedHeight)
+
+        let button = WButton(style: .primary)
+        let heightConstraint = button.constraints.first {
+            $0.firstAttribute == .height && $0.secondAttribute == .notAnAttribute
+        }
+        #expect(heightConstraint?.constant == expectedHeight)
+    }
+
+    @Test
     func `compact capsule uses self sizing metrics`() throws {
         let button = WButton(style: .compactCapsule)
         let configuration = try #require(button.configuration)

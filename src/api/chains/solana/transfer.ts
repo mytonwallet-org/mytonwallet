@@ -325,7 +325,7 @@ export async function submitGasfullTransfer(
   options: ApiSubmitGasfullTransferOptions,
 ): Promise<ApiSubmitGasfullTransferResult | { error: string }> {
   const {
-    accountId, password = '', toAddress, amount, fee = 0n, tokenAddress, payload, noFeeCheck,
+    accountId, enclaveToken = '', toAddress, amount, fee = 0n, tokenAddress, payload, noFeeCheck,
   } = options;
   const { network } = parseAccountId(accountId);
 
@@ -352,7 +352,9 @@ export async function submitGasfullTransfer(
       }
     }
 
-    const privateKey = (await fetchPrivateKeyString(accountId, password, account))!;
+    const privateKey = await fetchPrivateKeyString(accountId, enclaveToken, account);
+    if (!privateKey) return { error: ApiCommonError.InvalidPassword };
+
     const signer = getSignerFromPrivateKey(network, privateKey);
 
     let serializedTransaction: string | undefined = undefined;
@@ -368,7 +370,7 @@ export async function submitGasfullTransfer(
 
     const result = await sendSignedTransaction(serializedTransaction as Base58EncodedBytes, network);
 
-    return { txId: result };
+    return { txId: result, msgHashForCexSwap: result };
   } catch (err: any) {
     logDebugError('submitTransfer', err);
     return { error: ApiTransactionError.UnsuccesfulTransfer };
@@ -392,14 +394,14 @@ export async function submitGaslessTransfer(
     const {
       accountId,
       gaslessTransaction,
-      password,
+      enclaveToken,
     } = options;
 
     if (!gaslessTransaction) {
       return { error: ApiTransactionError.UnsuccesfulTransfer };
     }
 
-    const signedTransaction = await signTransfer(accountId, gaslessTransaction, password);
+    const signedTransaction = await signTransfer(accountId, gaslessTransaction, enclaveToken);
 
     if ('error' in signedTransaction) {
       return { error: ApiTransactionError.UnsuccesfulTransfer };

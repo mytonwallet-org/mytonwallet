@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 
 const { convertI18nYamlToJson } = require('./convertI18nYamlToJson');
 
@@ -7,8 +8,21 @@ const ROOT_DIR = path.resolve(__dirname, '../..');
 const I18N_DIR = path.resolve(ROOT_DIR, 'src/i18n');
 const APP_RES_SHARED_DIR = path.resolve(ROOT_DIR, 'mobile/android/app/src/main/res-shared');
 const APP_I18N_ASSETS_DIR = path.resolve(ROOT_DIR, 'mobile/android/app/src/main/assets/public/i18n');
+const NATIVE_ENCLAVE_RES_DIR = path.resolve(ROOT_DIR, 'mobile/android/air/SubModules/NativeEnclave/src/main/res');
 
 const DEFAULT_LOCALE = 'en';
+const ENCLAVE_STRING_KEYS = [
+  '$enclave_use_biometrics',
+  '$enclave_enter_passcode_or_use_biometrics',
+  '$enclave_use_pin',
+  '$enclave_cancel',
+];
+
+const SPECIAL_LOCALE_QUALIFIERS = {
+  en: 'values',
+  'zh-Hans': 'values-zh-rCN',
+  'zh-Hant': 'values-zh-rTW',
+};
 
 function sortLocales(locales) {
   return locales.slice().sort((left, right) => {
@@ -25,6 +39,18 @@ function sortLocales(locales) {
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
+
+function resolveQualifier(locale) {
+  if (SPECIAL_LOCALE_QUALIFIERS[locale]) {
+    return SPECIAL_LOCALE_QUALIFIERS[locale];
+  }
+
+  const [language, region] = locale.split('-');
+  if (!region) return `values-${language}`;
+  if (region.length === 2) return `values-${language}-r${region.toUpperCase()}`;
+  return `values-${language}`;
+}
+
 
 function renderLocalesConfig(locales) {
   const lines = [
@@ -65,25 +91,74 @@ function writeI18nJsonAssets(locales) {
   }
 }
 
-function loadLocales() {
-  const locales = fs.readdirSync(I18N_DIR)
-    .filter((fileName) => fileName.endsWith('.yaml') || fileName.endsWith('.yml'))
-    .map((fileName) => fileName.replace(/\.(yaml|yml)$/i, ''));
+function escapeXml(value) {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, "\\'");
+}
 
-  if (!locales.length) {
+function renderStringsXml(locale, localeMap, fallbackMap) {
+  const lines = ['<?xml version="1.0" encoding="utf-8"?>', '<resources>'];
+
+  for (const key of ENCLAVE_STRING_KEYS) {
+    const resourceName = key.replace(/^\$/, '');
+    const rawValue = localeMap[key] ?? fallbackMap[key];
+    if (typeof rawValue !== 'string') {
+      throw new Error(`Missing key "${key}" for locale "${locale}" with no fallback in "${DEFAULT_LOCALE}"`);
+    }
+    lines.push(`    <string name="${resourceName}">${escapeXml(String(rawValue))}</string>`);
+  }
+
+  lines.push('</resources>', '');
+  return lines.join('\n');
+}
+
+function loadLocales() {
+  const localeFiles = fs.readdirSync(I18N_DIR)
+    .filter((fileName) => fileName.endsWith('.yaml') || fileName.endsWith('.yml'))
+    .map((fileName) => ({
+      locale: fileName.replace(/\.(yaml|yml)$/i, ''),
+      filePath: path.resolve(I18N_DIR, fileName),
+    }));
+
+  if (!localeFiles.length) {
     throw new Error(`No locale files found in ${I18N_DIR}`);
   }
 
-  return sortLocales(locales);
+  const perLocale = {};
+  for (const { locale, filePath } of localeFiles) {
+    perLocale[locale] = yaml.load(fs.readFileSync(filePath, 'utf8')) || {};
+  }
+
+  return {
+    locales: sortLocales(localeFiles.map(({ locale }) => locale)),
+    perLocale,
+  };
+}
+
+function writeEnclaveStrings(locales, perLocale) {
+  const fallbackMap = perLocale[DEFAULT_LOCALE];
+  if (!fallbackMap) {
+    throw new Error(`Missing required default locale "${DEFAULT_LOCALE}"`);
+  }
+
+  for (const locale of locales) {
+    const localeDir = path.resolve(NATIVE_ENCLAVE_RES_DIR, resolveQualifier(locale));
+    ensureDir(localeDir);
+    fs.writeFileSync(
+      path.resolve(localeDir, 'enclave_strings.xml'),
+      renderStringsXml(locale, perLocale[locale], fallbackMap),
+      'utf8',
+    );
+  }
 }
 
 function main() {
-  const locales = loadLocales();
+  const { locales, perLocale } = loadLocales();
 
   writeLocalesConfig(locales);
   writeI18nJsonAssets(locales);
+  writeEnclaveStrings(locales, perLocale);
 
-  console.log(`Generated Android locales_config.xml and i18n JSON assets for ${locales.length} locales.`);
+  console.log(`Generated Android locales_config.xml, i18n JSON assets and Enclave strings for ${locales.length} locales.`);
 }
 
 main();

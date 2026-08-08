@@ -12,7 +12,7 @@ $addon-size: 2.25rem;
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   display: flex;
   align-items: center;
@@ -29,7 +29,7 @@ $addon-size: 2.25rem;
 .input {
   width: 100%;
   padding: 0.625rem;
-  padding-left: $addon-size;
+  padding-inline-start: $addon-size;
   border: none;
 
   font-size: max(16px, 1rem);

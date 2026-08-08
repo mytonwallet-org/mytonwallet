@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import WalletCore
 import WalletContext
@@ -8,12 +9,6 @@ import SwiftNavigation
 private let swapLog = Log("SwapVC")
 
 public final class SwapVC: WViewController, WSensitiveDataProtocol {
-
-    private struct ActivityCompletionState {
-        var sdkCallsCompleted = false
-        var activity: ApiActivity?
-    }
-
     private var swapModel: SwapModel!
     @AccountContext private var account: MAccount
     private let isAccountSwitchingAllowed: Bool
@@ -38,8 +33,6 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     }
 
     private var currentTokenSelectionSide: SwapSide?
-    private var activityCompletionState: ActivityCompletionState?
-
     public init(
         accountContext: AccountContext,
         defaultSellingToken: String? = nil,
@@ -83,7 +76,6 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        guard activityCompletionState == nil else { return }
         swapModel.setStage(.editing)
     }
 
@@ -196,11 +188,12 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
                 buyingToken: confirmation.buying,
                 cexLabel: confirmation.cexLabel,
                 accountContext: _account,
-                onContinue: { [weak self] payoutAddress, _ in
+                onContinue: { [weak self] payoutAddress, authorizationPresenter in
                     self?.startSwapFlow(
                         presentCrosschain: false,
                         payoutAddress: payoutAddress,
-                        failureStage: .externalAddress
+                        failureStage: .externalAddress,
+                        authorizationPresenter: authorizationPresenter
                     )
                 }
             )
@@ -210,109 +203,36 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private func startSwapFlow(
         presentCrosschain: Bool,
         payoutAddress: String? = nil,
-        failureStage: SwapStage = .editing
+        failureStage: SwapStage = .editing,
+        authorizationPresenter: UIViewController? = nil
     ) {
-        guard let confirmationAmounts = swapModel.confirmationAmounts() else {
+        guard let protectedAction = ProtectedAction.swap(
+            model: swapModel,
+            presentCrosschainResult: presentCrosschain,
+            payoutAddress: payoutAddress
+        ) else {
+            swapLog.fault("Missing confirmation state while starting protected swap")
+            assertionFailure("Missing confirmation state while starting protected swap")
             return
         }
-
-        let headerVC = UIHostingController(rootView: SwapConfirmHeaderView(
-            fromAmount: confirmationAmounts.selling,
-            toAmount: confirmationAmounts.buying
-        ))
-        headerVC.view.backgroundColor = .clear
-
         swapModel.setStage(.confirming)
-        resetActivityCompletion()
-        if !presentCrosschain {
-            activityCompletionState = ActivityCompletionState()
-        }
         Task {
-            do {
-                let result: SwapExecutionResult? = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: account,
-                    title: lang("Confirm Swap"),
-                    headerView: headerVC.rootView,
-                    passwordAction: { [weak self] passcode in
-                        guard let self else { throw CancellationError() }
-                        return try await swapModel.swapNow(
-                            confirmation: confirmationAmounts,
-                            passcode: passcode,
-                            payoutAddress: payoutAddress
-                        )
-                    },
-                    completionBehavior: .keepAuthForReplacement,
-                    mfaTitle: lang("Confirm Swap")
-                )
-                swapLog.info("[temp] sdk flow finished presentCrosschain=\(presentCrosschain, .public) hasResult=\((result != nil), .public) hasActivity=\((result?.activity != nil), .public) hasMfaRequestHash=\((result?.mfaRequestHash != nil), .public)")
-                guard let result else {
-                    resetActivityCompletion()
-                    return
-                }
-                handleSwapSuccess(result, presentCrosschain: presentCrosschain)
-            } catch is CancellationError {
-                resetActivityCompletion()
+            let context = ExecutionContext(
+                authorizationPresenter: authorizationPresenter ?? self,
+                flowOrigin: self
+            )
+            let outcome = await ProtectedActionExecutor.execute(protectedAction, in: context)
+            switch outcome {
+            case .completed, .partiallyCommitted, .indeterminate:
+                swapModel.setStage(.complete)
+            case .cancelled, .failed:
                 swapModel.setStage(failureStage)
-            } catch {
-                handleSwapFailure(error, failureStage: failureStage)
             }
         }
-    }
-
-    private func handleSwapSuccess(_ result: SwapExecutionResult, presentCrosschain: Bool) {
-        if presentCrosschain {
-            resetActivityCompletion()
-            swapModel.setStage(.complete)
-            if let swap = result.activity?.swap {
-                let crosschainSwapVC = CrosschainToWalletVC(swap: swap, accountId: nil)
-                if let navigationController {
-                    let coordinator = ContentReplaceAnimationCoordinator()
-                    coordinator.replaceNavigationTop(with: crosschainSwapVC, in: navigationController) {}
-                }
-            }
-            return
-        }
-
-        recordSwapActivities(result.activity.map { [$0] } ?? [], source: "sdkResult")
-        activityCompletionState?.sdkCallsCompleted = true
-        showSwapActivityIfReady()
-    }
-
-    private func handleSwapFailure(_ error: any Error, failureStage: SwapStage = .editing) {
-        resetActivityCompletion()
-        swapModel.setStage(failureStage)
-        showAlert(error: error) { [weak self] in
-            guard let self else { return }
-            dismiss(animated: true)
-        }
-    }
-
-    private func recordSwapActivities(_ activities: [ApiActivity], source: String) {
-        guard let activity = activities.first(where: { $0.swap != nil }) else { return }
-        swapLog.info("[temp] captured swap activity source=\(source, .public) id=\(activity.id, .public)")
-        activityCompletionState?.activity = activity
-    }
-
-    private func showSwapActivityIfReady() {
-        guard
-            let activityCompletionState,
-            activityCompletionState.sdkCallsCompleted,
-            let activity = activityCompletionState.activity
-        else {
-            return
-        }
-        resetActivityCompletion()
-        swapModel.setStage(.complete)
-        AppActions.showActivityDetails(accountId: account.id, activity: activity, context: .swapConfirmation)
-    }
-
-    private func resetActivityCompletion() {
-        activityCompletionState = nil
     }
 
     private func updateLeftNavigationItem() {
-        guard IS_DEBUG_OR_TESTFLIGHT, isAccountSwitchingAllowed else {
+        guard isAccountSwitchingAllowed else {
             navigationItem.setLeftBarButtonItems(nil, animated: true)
             return
         }
@@ -370,10 +290,6 @@ extension SwapVC: WKeyboardObserverDelegate {
 extension SwapVC: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .newLocalActivity(let update):
-            handleNewActivities(accountId: update.accountId, activities: update.activities, source: "newLocalActivity")
-        case .newActivities(let update):
-            handleNewActivities(accountId: update.accountId, activities: (update.pendingActivities ?? []) + update.activities, source: "newActivities")
         case .balanceChanged(let accountId):
             if accountId == account.id {
                 swapModel.refreshBalances()
@@ -381,12 +297,6 @@ extension SwapVC: WalletCoreData.EventsObserver {
         default:
             break
         }
-    }
-
-    private func handleNewActivities(accountId: String, activities: [ApiActivity], source: String) {
-        guard accountId == account.id, activityCompletionState != nil else { return }
-        recordSwapActivities(activities, source: source)
-        showSwapActivityIfReady()
     }
 }
 

@@ -8,9 +8,7 @@ import androidx.core.graphics.ColorUtils
 import kotlin.math.max
 import kotlin.math.round
 
-class BarChartView(
-    context: Context
-) : BaseChartView<SignedBarChartData, BarViewData>(context) {
+class BarChartView(context: Context) : BaseChartView<SignedBarChartData, BarViewData>(context) {
     init {
         superDraw = true
         useAlphaSignature = true
@@ -276,7 +274,9 @@ class BarChartView(
             if (pos > maxValue) maxValue = pos
             if (neg < minValue) minValue = neg
         }
-        if (maxValue.toFloat() != animatedToPickerMaxHeight || minValue.toFloat() != animatedToPickerMinHeight) {
+        if (maxValue.toFloat() != animatedToPickerMaxHeight ||
+            minValue.toFloat() != animatedToPickerMinHeight
+        ) {
             animatedToPickerMaxHeight = maxValue.toFloat()
             animatedToPickerMinHeight = minValue.toFloat()
             pickerAnimator?.cancel()
@@ -289,7 +289,8 @@ class BarChartView(
                         pickerMaxHeight = animation.animatedValue as Float
                         invalidatePickerChart = true
                         invalidate()
-                    })
+                    }
+                )
             )
             animators += createAnimator(
                 pickerMinHeight,
@@ -298,7 +299,8 @@ class BarChartView(
                     pickerMinHeight = animation.animatedValue as Float
                     invalidatePickerChart = true
                     invalidate()
-                })
+                }
+            )
             animatorSet.playTogether(animators)
             pickerAnimator = animatorSet
             pickerAnimator?.start()

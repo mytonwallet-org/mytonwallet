@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uireceive
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -20,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -36,11 +36,9 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 @SuppressLint("ViewConstructor")
-class QRCodeVC(
-    context: Context,
-    val chain: MBlockchain,
-    private val onQrLoaded: (() -> Unit)?
-) : WViewController(context) {
+class QRCodeVC(context: Context, val chain: MBlockchain, private val onQrLoaded: (() -> Unit)?) :
+    WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "QRCode"
 
     override val displayedAccount =
@@ -64,10 +62,11 @@ class QRCodeVC(
 
     private val qrCodeSize = 252.dp
     internal val qrCodeView: WQRCodeView by lazy {
-        val qrContent = if (chain == MBlockchain.ton)
+        val qrContent = if (chain == MBlockchain.ton) {
             AddressHelpers.walletInvoiceUrl(walletAddress)
-        else
+        } else {
             walletAddress
+        }
         val v = WQRCodeView(
             context,
             qrContent,
@@ -77,7 +76,10 @@ class QRCodeVC(
             56.dp,
             chain.qrGradientColors?.let {
                 LinearGradient(
-                    0f, 0f, qrCodeSize.toFloat(), qrCodeSize.toFloat(),
+                    0f,
+                    0f,
+                    qrCodeSize.toFloat(),
+                    qrCodeSize.toFloat(),
                     it,
                     null,
                     Shader.TileMode.CLAMP
@@ -133,18 +135,20 @@ class QRCodeVC(
     private val warningLabel = WLabel(context).apply {
         setStyle(14f, WFont.Regular)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 20f)
-        text = if (chain == MBlockchain.ton)
+        text = if (chain == MBlockchain.ton) {
             LocaleController.getString("\$send_only_ton")
-        else
+        } else {
             LocaleController.getStringWithKeyValues(
-                "\$send_only_chain", listOf(
+                "\$send_only_chain",
+                listOf(
                     Pair("%chain%", chain.name.replaceFirstChar { it.uppercaseChar() }),
                     Pair(
                         "%symbol%",
                         TokenStore.getToken(chain.nativeSlug)?.symbol ?: ""
-                    ),
+                    )
                 )
             )
+        }
     }
 
     val addressView = WView(context).apply {
@@ -225,7 +229,8 @@ class QRCodeVC(
         super.insetsUpdated()
         view.setConstraints {
             toTopPx(
-                qrCodeView, (navigationController?.getSystemBars()?.top ?: 0) +
+                qrCodeView,
+                (navigationController?.getSystemBars()?.top ?: 0) +
                     WNavigationBar.DEFAULT_HEIGHT.dp + 16.dp
             )
             toStartPx(addressView, systemBarStartInset)
@@ -233,12 +238,7 @@ class QRCodeVC(
         }
     }
 
-    fun getHeight(): Int {
-        return (addressView.y + addressView.height).toInt()
-    }
+    fun getHeight(): Int = (addressView.y + addressView.height).toInt()
 
-    fun getTransparentHeight(): Int {
-        return HEIGHT.dp
-    }
-
+    fun getTransparentHeight(): Int = HEIGHT.dp
 }

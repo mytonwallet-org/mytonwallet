@@ -36,14 +36,14 @@ class SettingsItemCell: UICollectionViewCell {
     private var titleLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 17)
+        lbl.applyTextStyle(.body)
         return lbl
     }()
     
     private var subtitleLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 14)
+        lbl.applyTextStyle(.supporting)
         lbl.textColor = .air.secondaryLabel
         return lbl
     }()
@@ -65,7 +65,7 @@ class SettingsItemCell: UICollectionViewCell {
     private var valueLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 17)
+        lbl.applyTextStyle(.body)
         return lbl
     }()
     
@@ -174,7 +174,7 @@ class SettingsItemCell: UICollectionViewCell {
         iconImageView.setSize(30)
         iconImageView.config(with: item.icon, tintColor: .tintColor)
         valueContainer.isDisabled = true
-        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        titleLabel.applyTextStyle(.body)
         titleLabel.text = item.title
         subtitleLabel.text = item.subtitle
         subtitleLabel.isHidden = item.subtitle?.nilIfEmpty == nil

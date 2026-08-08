@@ -81,6 +81,10 @@ struct DappSendTransactionDetailView: View {
 private struct DappSendNftPreviewRow: View {
     let payload: ApiNftTransferPayload
 
+    private var hasDisplayName: Bool {
+        payload.nft?.displayName != nil || payload.nftName?.nilIfEmpty != nil
+    }
+
     private var title: String {
         payload.nft?.displayName
             ?? payload.nftName?.nilIfEmpty
@@ -109,10 +113,18 @@ private struct DappSendNftPreviewRow: View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text(title)
-                            .font17h22()
+                            .textStyle(
+                                .body,
+                                content: hasDisplayName ? .default : .technical,
+                                scaling: .dynamic
+                            )
+                            .lineSpacing(1)
+                            .frame(minHeight: 22)
                             .lineLimit(1)
                         Text(subtitle)
-                            .font13()
+                            .textStyle(.footnote, scaling: .dynamic)
+                            .lineSpacing(2)
+                            .padding(.top, 2)
                             .padding(.bottom, 2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)

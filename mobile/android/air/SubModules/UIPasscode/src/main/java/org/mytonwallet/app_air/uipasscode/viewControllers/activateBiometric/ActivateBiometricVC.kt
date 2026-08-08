@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.core.view.isGone
+import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.native_enclave.auth.AuthType
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -19,17 +21,21 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleConfig
 import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
 import org.mytonwallet.app_air.uicomponents.widgets.pulseView
-import org.mytonwallet.app_air.uipasscode.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
-import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.api.enclaveMigrateAuth
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 
 @SuppressLint("ViewConstructor")
-class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -> Unit) :
-    WViewController(context) {
+class ActivateBiometricVC(
+    context: Context,
+    private val enclaveToken: String,
+    onCompletion: (activatedToken: String?) -> Unit
+) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "ActivateBiometric"
 
     override val shouldDisplayTopBar = false
@@ -51,7 +57,7 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
         val v = HeaderAndActionsView(
             context,
             HeaderAndActionsView.Media.Image(
-                image = R.drawable.ic_fingerprint,
+                image = R.drawable.ic_fingerprint_green,
                 tintedImage = false,
                 onClick = {
                     headerView.pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
@@ -62,9 +68,9 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
                     )
                 }
             ),
-            title = LocaleController.getString("Use Biometrics"),
+            title = LocaleController.getString("enclave_use_biometrics"),
             subtitle = LocaleController.getString("\$auth_biometric_info")
-                .toProcessedSpannableStringBuilder(),
+                .toProcessedSpannableStringBuilder()
         )
         v
     }
@@ -72,19 +78,19 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
     private val connectButton = WButton(context, WButton.Type.PRIMARY).apply {
         text = LocaleController.getString("Connect Biometrics")
         setOnClickListener {
-            BiometricHelpers.authenticate(
+            WalletCore.enclaveMigrateAuth(
                 window!!,
-                LocaleController.getString("Use Biometrics"),
-                subtitle = null,
-                description = null,
-                cancel = null,
-                onSuccess = {
+                enclaveToken,
+                AuthType.BIOMETRIC,
+                null,
+                false
+            ) { token, err ->
+                if (err == null) {
                     isLoading = true
                     view.lockView()
-                    onCompletion(true)
-                },
-                onCanceled = {}
-            )
+                    onCompletion(token)
+                }
+            }
         }
     }
 
@@ -93,7 +99,7 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
         setOnClickListener {
             isLoading = true
             view.lockView()
-            onCompletion(false)
+            onCompletion(null)
         }
     }
 

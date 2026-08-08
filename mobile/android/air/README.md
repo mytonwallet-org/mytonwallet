@@ -1,4 +1,4 @@
-# :gem: MyTonWallet Air :gem:
+# :gem: My Wallet Air :gem:
 
 **The most feature-rich web wallet and browser extension for the [TON Network](https://ton.org)** –
 with support of jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic. **Now on the Air!**
@@ -13,7 +13,7 @@ After cloning the Air repository, follow the build instructions and run:
 npm run mobile:build:dev
 ```
 
-Then open this directory in Android Studio and run the app.
+Then open `mobile/android` in Android Studio and run the app.
 
 If you've modified SDK files (src/api/*), please run the SDK file generator command:
 
@@ -45,8 +45,7 @@ To learn more about this bridge, read [this doc](docs/js-bridge.md).
 
   Global storage stores all the non-critical data, including cached activities, settings and so on.
 
-  It stores data in the web-view local-storage on both Legacy(Capacitor) app and the new Air(Native)
-  app.
+  It stores data in the web-view local storage used by the native Android app and JavaScript SDK.
 
 * SecureStorage
 

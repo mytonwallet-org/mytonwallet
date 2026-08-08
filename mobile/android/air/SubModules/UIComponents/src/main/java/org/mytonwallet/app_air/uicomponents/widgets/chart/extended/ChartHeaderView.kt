@@ -25,7 +25,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
-class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
+class ChartHeaderView(context: Context) :
+    FrameLayout(context),
+    WThemedView {
     private enum class LeadingContentMode {
         TITLE,
         ZOOM_OUT
@@ -155,12 +157,16 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
                 measureChildWithMargins(trailing, widthMeasureSpec, 0, heightMeasureSpec, 0)
                 val lp = trailing.layoutParams as MarginLayoutParams
                 trailing.measuredWidth + lp.leftMargin + lp.rightMargin
-            } else 0
+            } else {
+                0
+            }
             val titleLp = title.layoutParams as MarginLayoutParams
             val maxTitleWidth =
                 (total - paddingLeft - paddingRight - titleLp.leftMargin - trailingWidth)
                     .coerceAtLeast(0)
-            if (maxTitleWidth != title.maxWidth && (screenSizeChanged || maxTitleWidth < title.maxWidth)) {
+            if (maxTitleWidth != title.maxWidth &&
+                (screenSizeChanged || maxTitleWidth < title.maxWidth)
+            ) {
                 title.maxWidth = maxTitleWidth
             }
         }
@@ -204,10 +210,9 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         start: Long,
         end: Long,
         animated: Boolean,
-        direction: DatesAnimationDirection,
+        direction: DatesAnimationDirection
     ) {
-        if (datesSuppressed || start <= 0)
-            return
+        if (datesSuppressed || start <= 0) return
 
         val newText = if (end - start >= 86400000L) {
             ChartFormatters.formatDate("d MMM yyyy", start) +
@@ -301,12 +306,11 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         switchLeadingContent(LeadingContentMode.TITLE, animated)
     }
 
-    private fun datesLayoutParams(): LayoutParams {
-        return LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+    private fun datesLayoutParams(): LayoutParams =
+        LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.END
             setMarginsDp(16, 14, 20, 0)
         }
-    }
 
     private fun switchLeadingContent(mode: LeadingContentMode, animated: Boolean) {
         val (incoming, outgoing, incomingOffset, outgoingOffset) = when (mode) {
@@ -344,7 +348,7 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         outgoingOffset: Float,
         animated: Boolean,
         finishOutgoingVisibility: Int = INVISIBLE,
-        onEnd: (() -> Unit)? = null,
+        onEnd: (() -> Unit)? = null
     ) {
         if (!shouldAnimate(animated)) {
             incoming.showImmediately()
@@ -403,9 +407,8 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         datesAnimationTarget = null
     }
 
-    private fun shouldAnimate(animated: Boolean): Boolean {
-        return animated && WGlobalStorage.getAreAnimationsActive()
-    }
+    private fun shouldAnimate(animated: Boolean): Boolean =
+        animated && WGlobalStorage.getAreAnimationsActive()
 
     private companion object {
         const val HEADER_TRANSITION_OFFSET = 8f
@@ -415,6 +418,6 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         val incoming: View,
         val outgoing: View,
         val incomingOffset: Float,
-        val outgoingOffset: Float,
+        val outgoingOffset: Float
     )
 }

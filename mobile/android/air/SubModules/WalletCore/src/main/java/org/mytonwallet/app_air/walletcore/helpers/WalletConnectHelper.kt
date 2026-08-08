@@ -1,13 +1,15 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 
 object WalletConnectHelper {
 
     private val appName: String
-        get() = ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key)
+        get() = ApplicationContextHolder.applicationContext.getString(
+            BaseR.string.app_locale_name_key
+        )
 
     private fun jsonString(value: String): String = JSONObject.quote(value)
 

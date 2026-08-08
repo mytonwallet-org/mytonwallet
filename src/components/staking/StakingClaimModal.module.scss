@@ -7,10 +7,10 @@
 }
 
 .passwordModalDialog {
-  height: 35.5rem;
+  height: 40rem;
 
   @supports (height: var(--safe-area-bottom)) {
-    height: calc(35.5rem + var(--safe-area-bottom));
+    height: calc(40rem + var(--safe-area-bottom));
   }
 
 }

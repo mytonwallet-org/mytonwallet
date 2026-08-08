@@ -80,9 +80,7 @@ struct PaletteAndCardIcon: View {
 struct _CardMiniature: View {
     
     let accountContext: AccountContext
-    
-    private let cardPreviewSize = CGSize(width: 22, height: 14)
-    
+
     var body: some View {
         WithPerceptionTracking {
             MtwCardBackground(nft: accountContext.nft, hideBorder: true)

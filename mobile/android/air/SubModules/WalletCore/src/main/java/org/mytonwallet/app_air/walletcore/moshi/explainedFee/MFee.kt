@@ -1,10 +1,10 @@
 package org.mytonwallet.app_air.walletcore.moshi.explainedFee
 
 import com.squareup.moshi.JsonClass
+import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import java.math.BigInteger
 
 @JsonClass(generateAdapter = true)
 class MFee(
@@ -22,8 +22,8 @@ class MFee(
     }
 
     val isNativeOnly: Boolean
-        get() = (terms.token ?: BigInteger.ZERO) == BigInteger.ZERO
-            && (terms.stars ?: BigInteger.ZERO) == BigInteger.ZERO
+        get() = (terms.token ?: BigInteger.ZERO) == BigInteger.ZERO &&
+            (terms.stars ?: BigInteger.ZERO) == BigInteger.ZERO
 
     fun toString(token: IApiToken, appendNonNative: Boolean): String {
         var result = ""

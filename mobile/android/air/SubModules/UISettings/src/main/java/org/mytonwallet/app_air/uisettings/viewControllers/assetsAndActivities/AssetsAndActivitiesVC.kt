@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,10 +36,12 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
 
-class AssetsAndActivitiesVC(context: Context) : WViewController(context),
-    WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+class AssetsAndActivitiesVC(context: Context) :
+    WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "AssetsAndActivities"
 
     companion object {
@@ -46,21 +49,14 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
         val TOKEN_CELL = WCell.Type(2)
     }
 
-    private data class TokenRow(
-        val token: MToken,
-        val balance: MTokenBalance
-    ) : WEquatable<MTokenBalance> {
+    private data class TokenRow(val token: MToken, val balance: MTokenBalance) :
+        WEquatable<MTokenBalance> {
 
-        override fun isSame(comparing: WEquatable<*>): Boolean {
-            return comparing is TokenRow
-                && balance.virtualStakingToken != null
-                && balance.virtualStakingToken == comparing.balance.virtualStakingToken
-        }
+        override fun isSame(comparing: WEquatable<*>): Boolean = comparing is TokenRow &&
+            balance.virtualStakingToken != null &&
+            balance.virtualStakingToken == comparing.balance.virtualStakingToken
 
-        override fun isChanged(comparing: WEquatable<*>): Boolean {
-            return true
-        }
-
+        override fun isChanged(comparing: WEquatable<*>): Boolean = true
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -101,8 +97,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
-                    if (dx == 0 && dy == 0)
-                        return
+                    if (dx == 0 && dy == 0) return
                     updateBlurViews(recyclerView)
                 }
 
@@ -149,7 +144,8 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     override fun insetsUpdated() {
         super.insetsUpdated()
         recyclerView.setPaddingLocalized(
-            ViewConstants.HORIZONTAL_PADDINGS.dp + ViewConstants.ADDITIONAL_TABLET_PADDING + systemBarStartInset,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + ViewConstants.ADDITIONAL_TABLET_PADDING +
+                systemBarStartInset,
             navigationBar?.calculatedMinHeight ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             0
@@ -184,39 +180,31 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
         }
     }
 
-    private fun isTokenHidden(
-        row: TokenRow,
-        data: MAssetsAndActivityData
-    ): Boolean {
-        return if (row.balance.isVirtualStakingRow) {
+    private fun isTokenHidden(row: TokenRow, data: MAssetsAndActivityData): Boolean =
+        if (row.balance.isVirtualStakingRow) {
             row.balance.virtualStakingToken?.let { data.hiddenTokens.contains(it) } == true
         } else {
             row.token.isHidden(AccountStore.activeAccount, data)
         }
-    }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 2
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            0 -> 1
-            else -> {
-                allTokens.size
-            }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        0 -> 1
+
+        else -> {
+            allTokens.size
         }
     }
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             0 -> HEADER_CELL
             else -> TOKEN_CELL
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
                 AssetsAndActivitiesHeaderCell(navigationController!!, recyclerView)
             }
@@ -225,7 +213,6 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                 AssetsAndActivitiesTokenCell(recyclerView)
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -256,8 +243,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                                 } as ArrayList<Boolean>
                             allTokens.forEachIndexed { index, row ->
                                 val isHidden = isTokenHidden(row, data)
-                                if (isHidden != oldHiddenTokens[index])
-                                    indexes.add(index)
+                                if (isHidden != oldHiddenTokens[index]) indexes.add(index)
                             }
                             withContext(Dispatchers.Main) {
                                 val aboveItemsCount = recyclerViewNumberOfItems(recyclerView, 0)
@@ -317,7 +303,9 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                             )
                             checkAndUpdateHeader(prevAllTokens)
                         }
-                    } else null
+                    } else {
+                        null
+                    }
                 )
             }
         }
@@ -349,6 +337,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
             }
 
             WalletEvent.AssetsAndActivityDataUpdated -> {
+                rvAdapter.notifyItemChanged(0)
                 val prevAllTokens = allTokens
                 reloadTokens()
                 rvAdapter.applyChanges(
@@ -376,5 +365,4 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
         }
         return super.recyclerViewCellItemId(rv, indexPath)
     }
-
 }

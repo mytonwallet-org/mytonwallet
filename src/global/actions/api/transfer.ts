@@ -19,6 +19,7 @@ import { split } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
 import { shouldShowDomainScamWarning, shouldShowSeedPhraseScamWarning } from '../../../util/scamDetection';
 import { callApi } from '../../../api';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -39,6 +40,44 @@ import {
   selectIsHardwareAccount,
   selectToken,
 } from '../../selectors';
+import { switchAccount } from './auth';
+
+addActionHandler('switchTransferAccount', async (global, actions, { accountId }) => {
+  if (accountId === selectCurrentAccountId(global)) {
+    return;
+  }
+
+  // `switchAccount` clears `currentTransfer`, so snapshot the user-entered draft and re-apply it afterwards
+  const {
+    toAddress,
+    resolvedAddress,
+    toAddressName,
+    amount,
+    comment,
+    shouldEncrypt,
+    tokenSlug,
+    binPayload,
+    stateInit,
+    isMemoRequired,
+  } = global.currentTransfer;
+
+  await switchAccount(global, accountId);
+
+  global = getGlobal();
+  setGlobal(updateCurrentTransfer(global, {
+    state: TransferState.Initial,
+    toAddress,
+    resolvedAddress,
+    toAddressName,
+    amount,
+    comment,
+    shouldEncrypt,
+    tokenSlug,
+    binPayload,
+    stateInit,
+    isMemoRequired,
+  }));
+});
 
 addActionHandler('submitTransferInitial', async (global, actions, payload) => {
   const {
@@ -224,7 +263,8 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
   }
 });
 
-addActionHandler('submitTransfer', async (global, actions, { password } = {}) => {
+addActionHandler('submitTransfer', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const enclaveToken = payload?.enclaveToken;
   const {
     resolvedAddress,
     comment,
@@ -241,13 +281,13 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
     isNftBurn,
   } = global.currentTransfer;
 
-  if (!await prepareTransfer(TransferState.ConfirmHardware, updateCurrentTransfer, password)) {
+  if (!prepareTransfer(TransferState.ConfirmHardware, updateCurrentTransfer)) {
     return;
   }
 
   // This is a part of the legacy dapp transaction mechanism. See `promiseId` in `src/global/types.ts` for more details.
   if (promiseId) {
-    await callApi('confirmDappRequest', promiseId, password);
+    await callApi('confirmDappRequest', promiseId, enclaveToken);
     return;
   }
 
@@ -269,7 +309,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
         'submitNftTransfers',
         chain,
         selectCurrentAccountId(global)!,
-        password,
+        enclaveToken,
         chunk,
         resolvedAddress!,
         getNftTransferComment(chain, comment),
@@ -296,7 +336,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
 
     const options: ApiSubmitTransferOptions = {
       accountId: selectCurrentAccountId(global)!,
-      password,
+      enclaveToken,
       toAddress: resolvedAddress!,
       amount: amount!,
       payload: getTransferPayload(chain, binPayload, comment, shouldEncrypt),
@@ -327,7 +367,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
   }));
 
   actions.fetchTransferDieselState({ tokenSlug });
-});
+}));
 
 addActionHandler('cancelTransfer', (global, actions, { shouldReset } = {}) => {
   const { promiseId, tokenSlug } = global.currentTransfer;

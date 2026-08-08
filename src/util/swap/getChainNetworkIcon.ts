@@ -20,6 +20,7 @@ import moneroBlockchainIcon from '../../assets/blockchain/chain_monero.svg';
 import polkadotBlockchainIcon from '../../assets/blockchain/chain_polkadot.svg';
 import polygonBlockchainIcon from '../../assets/blockchain/chain_polygon.svg';
 import rippleBlockchainIcon from '../../assets/blockchain/chain_ripple.svg';
+import robinhoodBlockchainIcon from '../../assets/blockchain/chain_robinhood.svg';
 import solanaBlockchainIcon from '../../assets/blockchain/chain_solana.svg';
 import stellarBlockchainIcon from '../../assets/blockchain/chain_stellar.svg';
 import tonBlockchainIcon from '../../assets/blockchain/chain_ton.svg';
@@ -56,6 +57,7 @@ const CHAIN_ICON_MAP: Record<string, string> = {
   arbitrum: arbitrumBlockchainIcon,
   monad: monadBlockchainIcon,
   hyperliquid: hyperliquidBlockchainIcon,
+  robinhood: robinhoodBlockchainIcon,
 };
 
 export default function getChainNetworkIcon(networkName?: string) {

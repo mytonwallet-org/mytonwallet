@@ -11,7 +11,9 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class WSwitch(context: Context) : SwitchCompat(context), WThemedView {
+class WSwitch(context: Context) :
+    SwitchCompat(context),
+    WThemedView {
 
     init {
         id = generateViewId()
@@ -41,7 +43,8 @@ class WSwitch(context: Context) : SwitchCompat(context), WThemedView {
         }
 
         DrawableCompat.setTintList(
-            this.trackDrawable, ColorStateList(
+            this.trackDrawable,
+            ColorStateList(
                 arrayOf(
                     intArrayOf(R.attr.state_checked),
                     intArrayOf()
@@ -54,5 +57,4 @@ class WSwitch(context: Context) : SwitchCompat(context), WThemedView {
         )
         refreshDrawableState()
     }
-
 }

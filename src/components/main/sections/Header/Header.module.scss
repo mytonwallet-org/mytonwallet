@@ -11,7 +11,7 @@ $landscapeActionsButtonWidth: 1.375rem;
   @include mixins.respond-below(xs) {
     position: fixed;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
     width: 100%;
 
     &::before {
@@ -20,7 +20,7 @@ $landscapeActionsButtonWidth: 1.375rem;
       position: absolute;
       top: 0;
       bottom: 0;
-      left: 0;
+      inset-inline-start: 0;
 
       width: 100%;
 
@@ -87,66 +87,6 @@ $landscapeActionsButtonWidth: 1.375rem;
   }
 }
 
-.chartCardHeader {
-  position: relative;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  box-sizing: border-box;
-  height: 100%;
-  padding: calc(0.625rem + var(--safe-area-top, 0px)) 2.75rem 0.625rem;
-
-  @include mixins.respond-above(xs) {
-    padding-top: 0.625rem;
-  }
-}
-
-.chartCardBackButton {
-  cursor: var(--custom-cursor, pointer);
-
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(calc(var(--safe-area-top, 0px) / 2 - 50%));
-
-  display: inline-flex;
-  align-items: center;
-
-  padding: 0 0.5rem;
-
-  font-size: 1.0625rem;
-  line-height: 1.25rem;
-  color: var(--color-accent);
-}
-
-.chartCardBackIcon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.tokenModeTabsWrapper {
-  display: flex;
-  flex: 1 1 auto;
-  justify-content: center;
-  min-width: 0;
-}
-
-.tokenModeTabs {
-  --tab-gap-size: 0.5rem;
-
-  width: fit-content;
-}
-
-.tokenModeTitle {
-  font-size: 1.0625rem;
-  font-weight: 700;
-  line-height: 1.5rem;
-  color: var(--color-black);
-  text-align: center;
-}
-
 .landscapeActions {
   display: flex;
   flex-shrink: 0;
@@ -187,11 +127,11 @@ $landscapeActionsButtonWidth: 1.375rem;
 }
 
 .portraitActionsRight {
-  right: calc(1rem + var(--safe-area-right, 0px));
+  inset-inline-end: calc(1rem + var(--safe-area-inline-end, 0px));
 }
 
 .portraitActionsLeft {
-  left: calc(1rem + var(--safe-area-left, 0px));
+  inset-inline-start: calc(1rem + var(--safe-area-inline-start, 0px));
 }
 
 .openLink {
@@ -200,7 +140,8 @@ $landscapeActionsButtonWidth: 1.375rem;
   align-items: center;
 
   height: 2rem;
-  padding: 0 0.75rem 0 0.5rem;
+  padding-block: 0;
+  padding-inline: 0.5rem 0.75rem;
   border-radius: var(--border-radius-default);
 
   font-size: 1rem;

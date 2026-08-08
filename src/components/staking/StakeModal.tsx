@@ -7,19 +7,25 @@ import { StakingState } from '../../global/types';
 
 import {
   selectAccountStakingState,
+  selectCurrentAccount,
   selectCurrentAccountId,
+  selectHasMultipleAccounts,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
+import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
+import { getIsNewStakeAllowed } from '../../util/staking';
 
 import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import MfaConfirm from '../common/MfaConfirm';
 import TransactionBanner from '../common/TransactionBanner';
 import TransferResult from '../common/TransferResult';
@@ -38,6 +44,9 @@ import styles from './Staking.module.scss';
 type StateProps = GlobalState['currentStaking'] & {
   stakingState?: ApiStakingState;
   tokenBySlug?: Record<string, ApiTokenWithPrice>;
+  accountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
 };
 
 const IS_OPEN_STATES = new Set([
@@ -47,6 +56,7 @@ const IS_OPEN_STATES = new Set([
   StakingState.StakeConfirmHardware,
   StakingState.StakeConfirmMfa,
   StakingState.StakeComplete,
+  StakingState.StakeSelectAccount,
 ]);
 
 function StakeModal({
@@ -57,6 +67,9 @@ function StakeModal({
   error,
   tokenBySlug,
   mfaRequestHash,
+  accountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
   const {
     startStaking,
@@ -66,6 +79,7 @@ function StakeModal({
     submitStaking,
     openStakingInfo,
     updateStakingMfaRequestStatus,
+    switchStakingAccount,
   } = getActions();
 
   const { tokenSlug } = stakingState ?? {};
@@ -96,14 +110,26 @@ function StakeModal({
     submitStaking();
   });
 
-  const handleTransferSubmit = useLastCallback((password: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     setRenderedStakingAmount(amount);
-    submitStaking({ password });
+    submitStaking({ enclaveToken });
   });
 
   const handleViewStakingInfoClick = useLastCallback(() => {
     cancelStaking();
     openStakingInfo();
+  });
+
+  const handleOpenAccountSelector = useLastCallback(() => {
+    setStakingScreen({ state: StakingState.StakeSelectAccount });
+  });
+
+  const handleSelectAccount = useLastCallback((nextAccountId: string) => {
+    switchStakingAccount({ accountId: nextAccountId, mode: 'stake' });
+  });
+
+  const handleSelectAccountBack = useLastCallback(() => {
+    setStakingScreen({ state: StakingState.StakeInitial });
   });
 
   function renderTransactionBanner() {
@@ -138,7 +164,7 @@ function StakeModal({
           placeholder={lang(placeholder)}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
-          onSubmit={handleTransferSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={handleBackClick}
           onUpdate={clearStakingError}
         >
@@ -151,7 +177,7 @@ function StakeModal({
   function renderComplete(isActive: boolean) {
     return (
       <>
-        <ModalHeader title={lang('Coins have been staked!')} onClose={cancelStaking} />
+        <ModalHeader title={lang('Staked')} onClose={cancelStaking} />
 
         <div className={modalStyles.transitionContent}>
           <TransferResult
@@ -162,7 +188,7 @@ function StakeModal({
             tokenSymbol={token?.symbol}
             noSign
             firstButtonText={lang('View')}
-            secondButtonText={lang('Stake More')}
+            secondButtonText={getIsNewStakeAllowed(tokenSlug) ? lang('Stake More') : undefined}
             onFirstButtonClick={handleViewStakingInfoClick}
             onSecondButtonClick={startStaking}
           />
@@ -180,13 +206,36 @@ function StakeModal({
       case StakingState.StakeInitial:
         return (
           <>
-            <ModalHeader
-              title={lang('Add Stake')}
-              titleClassName={styles.modalTitle}
-              onClose={cancelStaking}
-            />
+            <div
+              className={buildClassName(styles.initialHeader, hasMultipleAccounts && styles.initialHeaderWithSwitcher)}
+            >
+              <ModalHeader
+                title={lang('Add Stake')}
+                titleClassName={styles.modalTitle}
+                onClose={cancelStaking}
+              />
+              {hasMultipleAccounts && accountId && (
+                <AccountSwitcherPill
+                  accountId={accountId}
+                  title={accountTitle}
+                  className={styles.accountPill}
+                  onClick={handleOpenAccountSelector}
+                />
+              )}
+            </div>
             <StakingInitial />
           </>
+        );
+
+      case StakingState.StakeSelectAccount:
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            getIsAccountDisabled={getIsViewAccountDisabled}
+            onAccountSelect={handleSelectAccount}
+            onBack={handleSelectAccountBack}
+            onClose={cancelStaking}
+          />
         );
 
       case StakingState.StakePassword:
@@ -238,7 +287,7 @@ function StakeModal({
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}
@@ -259,5 +308,8 @@ export default memo(withGlobal((global): StateProps => {
     ...global.currentStaking,
     stakingState,
     tokenBySlug,
+    accountId,
+    accountTitle: selectCurrentAccount(global)?.title,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
   };
 })(StakeModal));

@@ -51,7 +51,7 @@ export interface ApiSubmitTransferOptions extends ApiSubmitGasfullTransferOption
 
 export interface ApiSubmitGasfullTransferOptions extends ApiTransactionCommonOptions {
   /** Required only for mnemonic accounts */
-  password?: string;
+  enclaveToken?: string;
   amount: bigint;
   /** To cap the fee in TRON transfers */
   fee?: bigint;

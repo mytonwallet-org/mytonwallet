@@ -3,15 +3,14 @@ import type { GlobalState } from '../../global/types';
 import type { FeePrecision, FeeTerms } from './types';
 import { SwapType } from '../../global/types';
 
-import { DEFAULT_OUR_SWAP_FEE } from '../../config';
 import { Big } from '../../lib/big.js';
-import { bigintDivideToNumber, bigintMax } from '../bigint';
+import { bigintMax } from '../bigint';
 import { bigMax, bigMin } from '../bigNumber';
 import { fromDecimal, toBig } from '../decimals';
 import { findNativeToken, getChainBySlug, getIsNativeToken } from '../tokens';
 
 type ExplainSwapFeeInput = Pick<GlobalState['currentSwap'],
-'tokenInSlug' | 'networkFee' | 'realNetworkFee' | 'ourFee' | 'ourFeeMode' | 'dieselStatus' | 'dieselFee'
+'tokenInSlug' | 'networkFee' | 'realNetworkFee' | 'dieselStatus' | 'dieselFee'
 > & {
   swapType: SwapType;
   /** The balance of the "in" token blockchain's native token. Undefined means that it's unknown. */
@@ -44,10 +43,9 @@ export type ExplainedSwapFee = {
   };
   /** The excess fee. Measured in the native token. It's always approximate. Undefined means that it's unknown. */
   excessFee?: string;
-  shouldShowOurFee: boolean;
 };
 
-type MaxSwapAmountInput = Pick<GlobalState['currentSwap'], 'ourFeePercent' | 'ourFeeMode'> & {
+type MaxSwapAmountInput = {
   swapType: SwapType;
   /** The balance of the "in" token. Undefined means that it's unknown. */
   tokenInBalance: bigint | undefined;
@@ -94,8 +92,6 @@ export function getMaxSwapAmount({
   tokenInBalance,
   tokenIn,
   fullNetworkFee,
-  ourFeePercent,
-  ourFeeMode,
   maxAmountFromBackend,
 }: MaxSwapAmountInput): bigint | undefined {
   if (maxAmountFromBackend) {
@@ -114,17 +110,14 @@ export function getMaxSwapAmount({
       return undefined;
     }
 
-    maxAmount -= fromDecimal(fullNetworkFee.token ?? '0', tokenIn.decimals);
+    if (swapType !== SwapType.OnChain) {
+      maxAmount -= fromDecimal(fullNetworkFee.token ?? '0', tokenIn.decimals);
+    }
 
     if (getIsNativeToken(tokenIn.slug)) {
       // When the "in" token is native, both `token` and `native` refer to the same currency, so we consider them both
       maxAmount -= fromDecimal(fullNetworkFee.native ?? '0', tokenIn.decimals);
     }
-  }
-
-  ourFeePercent ??= swapType === SwapType.OnChain ? DEFAULT_OUR_SWAP_FEE : 0;
-  if (ourFeeMode !== 'included') {
-    maxAmount = bigintDivideToNumber(maxAmount, 1 + (ourFeePercent / 100));
   }
 
   return bigintMax(maxAmount, 0n);
@@ -231,17 +224,15 @@ function explainGasfullSwapFee(input: ExplainSwapFeeInput) {
   const result: ExplainedSwapFee = {
     isGasless: false,
     excessFee: getExcessFee(input),
-    shouldShowOurFee: shouldShowOurFee(input),
   };
 
-  const isNativeIn = getIsNativeToken(input.tokenInSlug);
   const isExact = result.excessFee === '0';
 
   if (input.networkFee !== undefined) {
     const networkTerms = { native: input.networkFee };
     result.fullFee = {
       precision: isExact ? 'exact' : 'lessThan',
-      terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', isNativeIn, input.ourFeeMode),
+      terms: networkTerms,
       networkTerms,
     };
     result.realFee = result.fullFee;
@@ -251,7 +242,7 @@ function explainGasfullSwapFee(input: ExplainSwapFeeInput) {
     const networkTerms = { native: input.realNetworkFee };
     result.realFee = {
       precision: isExact ? 'exact' : 'approximate',
-      terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', isNativeIn, input.ourFeeMode),
+      terms: networkTerms,
       networkTerms,
     };
   }
@@ -267,7 +258,6 @@ function explainGaslessSwapFee(input: ExplainSwapFeeInput): ExplainedSwapFee {
   const result: ExplainedSwapFee = {
     isGasless: true,
     excessFee: getExcessFee(input),
-    shouldShowOurFee: shouldShowOurFee(input),
   };
 
   if (input.networkFee === undefined || input.dieselFee === undefined || nativeTokenBalance === undefined) {
@@ -284,7 +274,7 @@ function explainGaslessSwapFee(input: ExplainSwapFeeInput): ExplainedSwapFee {
   };
   result.fullFee = {
     precision: isExact ? 'exact' : 'lessThan',
-    terms: addOurFeeToTerms(networkTerms, input.ourFee ?? '0', false, input.ourFeeMode),
+    terms: networkTerms,
     networkTerms,
   };
   result.realFee = result.fullFee;
@@ -305,7 +295,7 @@ function explainGaslessSwapFee(input: ExplainSwapFeeInput): ExplainedSwapFee {
     };
     result.realFee = {
       precision: isExact ? 'exact' : 'approximate',
-      terms: addOurFeeToTerms(realNetworkTerms, input.ourFee ?? '0', false, input.ourFeeMode),
+      terms: realNetworkTerms,
       networkTerms: realNetworkTerms,
     };
   }
@@ -326,25 +316,4 @@ function getExcessFee({ networkFee, realNetworkFee }: Pick<ExplainSwapFeeInput, 
   return networkFee !== undefined && realNetworkFee !== undefined
     ? Big(networkFee).sub(realNetworkFee).toString()
     : undefined;
-}
-
-function addOurFeeToTerms(
-  terms: FeeTerms<string>,
-  ourFee: string,
-  isOurFeeNative: boolean,
-  ourFeeMode?: GlobalState['currentSwap']['ourFeeMode'],
-) {
-  if (ourFeeMode === 'included') {
-    return terms;
-  }
-
-  return {
-    ...terms,
-    native: isOurFeeNative ? Big(terms.native ?? '0').add(ourFee).toString() : terms.native,
-    token: isOurFeeNative ? terms.token : Big(terms.token ?? '0').add(ourFee).toString(),
-  };
-}
-
-function shouldShowOurFee(input: Pick<ExplainSwapFeeInput, 'swapType' | 'ourFee'>) {
-  return input.swapType === SwapType.OnChain || Boolean(input.ourFee && input.ourFee !== '0');
 }

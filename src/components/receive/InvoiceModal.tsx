@@ -1,4 +1,6 @@
-import React, { memo, useMemo, useState } from '../../lib/teact/teact';
+import React, {
+  memo, useEffect, useMemo, useState,
+} from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiTokenWithPrice } from '../../api/types';
@@ -6,7 +8,12 @@ import type { Account, UserSwapToken, UserToken } from '../../global/types';
 
 import { DEFAULT_CHAIN } from '../../config';
 import renderText from '../../global/helpers/renderText';
-import { selectCurrentAccount, selectCurrentAccountState } from '../../global/selectors';
+import {
+  selectCurrentAccount,
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+  selectHasMultipleAccounts,
+} from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 import { fromDecimal } from '../../util/decimals';
@@ -17,6 +24,8 @@ import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import SelectTokenButton from '../common/SelectTokenButton';
 import TokenSelector from '../common/TokenSelector';
 import Input from '../ui/Input';
@@ -34,11 +43,15 @@ interface StateProps {
   tokenSlug?: string;
   tokensBySlug?: Record<string, ApiTokenWithPrice>;
   byChain?: Account['byChain'];
+  currentAccountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
 }
 
 const enum SLIDES {
   Initial,
-  Selector,
+  TokenSelector,
+  AccountSelector,
 }
 
 function InvoiceModal({
@@ -46,8 +59,11 @@ function InvoiceModal({
   tokenSlug,
   tokensBySlug,
   isOpen,
+  currentAccountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
-  const { changeInvoiceToken, closeInvoiceModal } = getActions();
+  const { changeInvoiceToken, closeInvoiceModal, switchAccount } = getActions();
 
   const selectedChain = tokenSlug ? getChainBySlug(tokenSlug) : DEFAULT_CHAIN;
   const { isTransferPayloadSupported, nativeToken, formatTransferUrl } = getChainConfig(selectedChain);
@@ -56,8 +72,16 @@ function InvoiceModal({
 
   const lang = useLang();
   const [isTokenSelectorOpen, openTokenSelector, closeTokenSelector] = useFlag(false);
+  const [isAccountSelectorOpen, openAccountSelector, closeAccountSelector] = useFlag(false);
   const [amountValue, setAmountValue] = useState<string | undefined>(undefined);
   const [comment, setComment] = useState<string>('');
+
+  useEffect(() => {
+    if (!isOpen) closeAccountSelector();
+  }, [isOpen, closeAccountSelector]);
+
+  // Leave the selector only after the account actually changes and the main slide remounts with it
+  useEffect(closeAccountSelector, [closeAccountSelector, currentAccountId]);
 
   const avalableChains = useMemo(
     () => byChain
@@ -74,15 +98,34 @@ function InvoiceModal({
     changeInvoiceToken({ tokenSlug: token.slug });
   });
 
+  const handleSelectAccount = useLastCallback((accountId: string) => {
+    switchAccount({ accountId });
+  });
+
+  const activeKey = isAccountSelectorOpen
+    ? SLIDES.AccountSelector
+    : (isTokenSelectorOpen ? SLIDES.TokenSelector : SLIDES.Initial);
+  const nextKey = activeKey === SLIDES.Initial ? SLIDES.TokenSelector : SLIDES.Initial;
+
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: SLIDES) {
     switch (currentKey) {
       case SLIDES.Initial:
         return (
           <>
-            <ModalHeader
-              title={lang('Deposit Link')}
-              onClose={closeInvoiceModal}
-            />
+            <div className={styles.headerWithSwitcher}>
+              <ModalHeader
+                title={lang('Deposit Link')}
+                onClose={closeInvoiceModal}
+              />
+              {hasMultipleAccounts && currentAccountId && (
+                <AccountSwitcherPill
+                  accountId={currentAccountId}
+                  title={accountTitle}
+                  className={styles.accountPill}
+                  onClick={openAccountSelector}
+                />
+              )}
+            </div>
             <div className={styles.content}>
               <div className={styles.contentTitle}>
                 {renderText(lang('$receive_invoice_description'))}
@@ -97,7 +140,6 @@ function InvoiceModal({
                 <SelectTokenButton
                   noChainIcon={avalableChains.length <= 1}
                   token={selectedToken}
-                  className={styles.tokenButton}
                   onClick={openTokenSelector}
                 />
               </RichNumberInput>
@@ -124,7 +166,7 @@ function InvoiceModal({
           </>
         );
 
-      case SLIDES.Selector:
+      case SLIDES.TokenSelector:
         return (
           <TokenSelector
             isActive={isActive}
@@ -132,6 +174,16 @@ function InvoiceModal({
             selectedChain={avalableChains}
             onTokenSelect={handleTokenSelect}
             onBack={closeTokenSelector}
+            onClose={closeInvoiceModal}
+          />
+        );
+
+      case SLIDES.AccountSelector:
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            onAccountSelect={handleSelectAccount}
+            onBack={closeAccountSelector}
             onClose={closeInvoiceModal}
           />
         );
@@ -149,8 +201,8 @@ function InvoiceModal({
         name={resolveSlideTransitionName()}
         className={buildClassName(modalStyles.transition, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
-        activeKey={isTokenSelectorOpen ? SLIDES.Selector : SLIDES.Initial}
-        nextKey={isTokenSelectorOpen ? SLIDES.Initial : SLIDES.Selector}
+        activeKey={activeKey}
+        nextKey={nextKey}
       >
         {renderContent}
       </Transition>
@@ -168,6 +220,9 @@ export default memo(
       tokenSlug: invoiceTokenSlug,
       tokensBySlug: global.tokenInfo?.bySlug,
       byChain: account?.byChain,
+      currentAccountId: selectCurrentAccountId(global),
+      accountTitle: account?.title,
+      hasMultipleAccounts: selectHasMultipleAccounts(global),
     };
   })(InvoiceModal),
 );

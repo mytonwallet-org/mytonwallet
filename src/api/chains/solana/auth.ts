@@ -29,8 +29,10 @@ import { fetchStoredAccount } from '../../common/accounts';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { getMnemonic } from '../../common/mnemonic';
 import { bytesToHex } from '../../common/utils';
+import { isWalletDiscoveryRecoverableTransportError } from '../../errors';
 import { isValidAddress } from './address';
 import { SOLANA_DERIVATION_PATHS } from './constants';
+import { buildWalletFromPublicKey } from './derivation';
 import { getWalletBalance, getWalletLastTransaction } from './wallet';
 
 const MULTIWALLET_BY_PATH_DEFAULT_COUNT = 2;
@@ -63,10 +65,10 @@ function createNaclKeyPairSigner(privateKeyBytes: Uint8Array): SolanaKeyPairSign
   });
 }
 
-export async function fetchPrivateKeyString(accountId: string, password: string, account?: ApiAccountWithMnemonic) {
+export async function fetchPrivateKeyString(accountId: string, enclaveToken: string, account?: ApiAccountWithMnemonic) {
   try {
     account = account ?? (await fetchStoredAccount<ApiAccountWithMnemonic>(accountId));
-    const mnemonic = await getMnemonic(accountId, password, account);
+    const mnemonic = await getMnemonic(accountId, enclaveToken);
     if (!mnemonic) {
       return undefined;
     }
@@ -94,15 +96,14 @@ export async function getWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
   derivation?: ApiDerivation,
-  isMigration?: boolean,
+  shouldSkipDiscovery?: boolean,
 ): Promise<ApiSolanaWallet[]> {
-  const rawWallets = await getRawWalletFromBip39Mnemonic(network, mnemonic, derivation, isMigration);
+  const rawWallets = await getRawWalletFromBip39Mnemonic(network, mnemonic, derivation, shouldSkipDiscovery);
 
-  return rawWallets.map((raw) => ({
-    address: raw.wallet.address,
-    publicKey: bytesToHex(raw.wallet.publicKeyBytes),
-    index: 0,
-    derivation: { path: raw.path, index: raw.index, label: raw.label },
+  return rawWallets.map((raw) => buildWalletFromPublicKey(raw.wallet.publicKeyBytes, {
+    path: raw.path,
+    index: raw.index,
+    label: raw.label,
   }));
 }
 
@@ -144,7 +145,7 @@ async function getRawWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
   derivation?: ApiDerivation,
-  isMigration?: boolean,
+  shouldSkipDiscovery?: boolean,
 ) {
   const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
 
@@ -152,7 +153,7 @@ async function getRawWalletFromBip39Mnemonic(
     const wallet = getWalletVariantByIndex(seed.toString('hex'), derivation.path, derivation.index);
     return [{ ...wallet, label: derivation.label }];
   } else {
-    const bestWallets = await pickBestWallets(network, seed.toString('hex'), isMigration);
+    const bestWallets = await pickBestWallets(network, seed.toString('hex'), shouldSkipDiscovery);
     return bestWallets;
   }
 }
@@ -214,13 +215,13 @@ function getWalletVariantsByPath(
 export async function pickBestWallets(
   network: ApiNetwork,
   seed: string,
-  isMigration?: boolean,
+  shouldSkipDiscovery?: boolean,
 ) {
   const addresses = getWalletVariantsByPath(seed);
 
   const defaultAddress = addresses.find((e) => e.path === SOLANA_DERIVATION_PATHS.phantom)!;
 
-  if (isMigration) {
+  if (shouldSkipDiscovery) {
     return [defaultAddress];
   }
 
@@ -241,7 +242,7 @@ export async function pickBestWallets(
     }
 
     // TODO: rm after API plan upgrade from 10rps, but now wait to avoid 429 error
-    await pause(500);
+    await pause(600);
 
     const addressLastTxs = await Promise.all(addresses.map(async (e) => ({
       wallet: e.wallet,
@@ -260,6 +261,8 @@ export async function pickBestWallets(
 
     return [defaultAddress];
   } catch (err) {
+    if (!isWalletDiscoveryRecoverableTransportError(err)) throw err;
+
     logDebugError('solana:pickBestWallets', err);
     return [defaultAddress];
   }

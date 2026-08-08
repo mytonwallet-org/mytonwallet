@@ -1,4 +1,5 @@
 import UIKit
+import ProtectedAction
 import SwiftUI
 import UIComponents
 import WalletContext
@@ -41,50 +42,60 @@ public final class RenewDomainVC: WViewController {
     }
 
     private func renewPressed() {
-        guard viewModel.canRenew, !viewModel.nfts.isEmpty else { return }
-        Task {
-            do {
-                _ = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: viewModel.account,
-                    title: lang("Confirm Renewing"),
-                    headerView: RenewDomainAuthHeader(viewModel: viewModel),
-                    passwordAction: { [weak self] passcode in
-                        guard let self else { return ApiMfaProtectedResult() }
-                        return try await self.viewModel.submit(password: passcode)
-                    },
-                    ledgerSignData: { [weak self] in
-                        guard let self else { throw CancellationError() }
-                        return try await self.viewModel.makeLedgerPayload()
-                    },
-                    ledgerFromAddress: viewModel.account.getAddress(chain: .ton),
-                    mfaTitle: lang("Confirm Renewing")
-                )
-                let message = viewModel.nfts.count > 1
-                    ? lang("Domains have been renewed!")
-                    : lang("Domain has been renewed!")
-                dismiss(animated: true) {
+        guard let snapshot = viewModel.makeConfirmationSnapshot() else { return }
+        let message = snapshot.nfts.count > 1
+            ? lang("Domains Renewed")
+            : lang("Domain Renewed")
+        let protectedAction = ProtectedAction.renewDomains(
+            snapshot: snapshot,
+            onCommitted: { [weak self] in
+                self?.dismiss(animated: true) {
                     AppActions.showToast(message: message)
                 }
-            } catch is CancellationError {
-            } catch {
-                showAlert(error: error)
             }
+        )
+        Task {
+            _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
 }
 
-private struct RenewDomainAuthHeader: View {
-    var viewModel: RenewDomainViewModel
+struct RenewDomainAuthHeader: ConfirmationContent {
+    let snapshot: RenewDomainConfirmationSnapshot
     
     var body: some View {
-        WithPerceptionTracking {
-            VStack(spacing: 8) {
-                ForEach(viewModel.nfts, id: \.id) { nft in
-                    NftPreviewRow(nft: nft, horizontalPadding: 12, verticalPadding: 8)
-                }
+        NftPreviewSection(nfts: snapshot.nfts, maxItems: 3, maxRows: 3)
+    }
+
+    @ViewBuilder
+    var compactRepresentation: some View {
+        if snapshot.nfts.count > 1 {
+            CompactActionSummary {
+                compactLabel
             }
-            .padding(.horizontal, 32)
+        } else {
+            CompactActionSummary {
+                if let nft = snapshot.nfts.first {
+                    NftImage(nft: nft, animateIfPossible: false)
+                        .clipShape(.rect(cornerRadius: 5))
+                } else {
+                    Image(systemName: "calendar.badge.clock")
+                }
+            } label: {
+                compactLabel
+            }
         }
+    }
+
+    private var compactLabel: Text {
+        Text(lang("Renew") + " ").textStyle(.body)
+            + Text(compactSubject).textStyle(.bodyEmphasized)
+    }
+
+    private var compactSubject: String {
+        guard snapshot.nfts.count == 1 else {
+            return lang("%amount% NFTs", arg1: snapshot.nfts.count)
+        }
+        return snapshot.nfts[0].name?.nilIfEmpty ?? lang("%amount% NFTs", arg1: 1)
     }
 }

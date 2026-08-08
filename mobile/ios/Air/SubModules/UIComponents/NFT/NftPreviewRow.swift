@@ -28,10 +28,14 @@ public struct NftPreviewRow: View {
                 image
                 VStack(alignment: .leading, spacing: 0) {
                     Text(nft.displayName)
-                        .font17h22()
+                        .textStyle(.body, scaling: .dynamic)
+                        .lineSpacing(1)
+                        .frame(minHeight: 22)
                         .lineLimit(1)
                     Text(nft.collectionName ?? lang("Standalone NFT"))
-                        .font13()
+                        .textStyle(.footnote, scaling: .dynamic)
+                        .lineSpacing(2)
+                        .padding(.top, 2)
                         .padding(.bottom, 2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

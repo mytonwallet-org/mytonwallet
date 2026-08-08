@@ -17,7 +17,7 @@ struct ImportExistingPickerView: View {
                 WalletPickerOptionRow(
                     icon: "KeyIcon30",
                     title: lang("$secret_words"),
-                    subtitle: lang("Restore wallet from 12 or 24 words"),
+                    subtitle: localizedIntegerDigits(in: lang("Restore wallet from 12 or 24 words")),
                     showsDivider: true,
                     onTap: onImport
                 )

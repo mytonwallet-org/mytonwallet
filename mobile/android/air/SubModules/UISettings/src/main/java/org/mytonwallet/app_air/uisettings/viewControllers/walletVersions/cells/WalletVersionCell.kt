@@ -1,12 +1,12 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -23,9 +23,9 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
-class WalletVersionCell(
-    context: Context,
-) : WCell(context), WThemedView {
+class WalletVersionCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     private var identifier: String = ""
     var onTap: ((identifier: String) -> Unit)? = null
@@ -85,10 +85,7 @@ class WalletVersionCell(
     }
 
     private var isLast = false
-    fun configure(
-        walletVersion: ApiUpdate.ApiUpdateWalletVersions.Version,
-        isLast: Boolean
-    ) {
+    fun configure(walletVersion: ApiUpdate.ApiUpdateWalletVersions.Version, isLast: Boolean) {
         this.isLast = isLast
         identifier = walletVersion.version
         topLeftLabel.text = walletVersion.version
@@ -108,5 +105,4 @@ class WalletVersionCell(
         }
         updateTheme()
     }
-
 }

@@ -16,13 +16,14 @@ interface OwnProps {
   isBurning?: boolean;
   error?: string;
   children?: TeactNode;
-  onSubmit: (password: string) => void;
+  extraAuthUsages?: number;
+  onAuthorize: (enclaveToken: string) => void;
   onCancel: NoneToVoidFunction;
   isGaslessWithStars?: boolean;
 }
 
 function TransferPassword({
-  isActive, isLoading, isBurning, error, children, onSubmit, onCancel, isGaslessWithStars,
+  isActive, isLoading, isBurning, error, children, extraAuthUsages, onAuthorize, onCancel, isGaslessWithStars,
 }: OwnProps) {
   const {
     cancelTransfer,
@@ -53,7 +54,8 @@ function TransferPassword({
         submitLabel={submitLabel}
         cancelLabel={lang('Back')}
         noAutoConfirm
-        onSubmit={onSubmit}
+        extraAuthUsages={extraAuthUsages}
+        onAuthorize={onAuthorize}
         onCancel={onCancel}
         onUpdate={clearTransferError}
       >

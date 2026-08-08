@@ -4,7 +4,13 @@ import android.annotation.SuppressLint
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.setPadding
+import java.math.BigInteger
+import java.net.URI
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -30,30 +36,31 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.moshi.MApiTokenDetails
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TokenHeaderView(
     val navigationController: WNavigationController,
     private val navigationBar: WNavigationBar,
     private val accountId: String,
-    var token: MToken
-) :
-    WView(navigationController.context), WThemedView {
+    var token: MToken,
+    private val tokenInfoProvider: () -> MApiTokenDetails.TokenInfo? = { null }
+) : WView(navigationController.context),
+    WThemedView {
 
     companion object {
         private const val NAV_SIZE_OFFSET_DP = 8
         const val NAV_DEFAULT_HEIGHT_DP = WNavigationBar.DEFAULT_HEIGHT - NAV_SIZE_OFFSET_DP
         val navDefaultHeight = NAV_DEFAULT_HEIGHT_DP.dp
+        private const val FULL_BALANCE_MORPH_DURATION = AnimationConstants.SUPER_QUICK_ANIMATION
     }
 
     val contentHeight = 244.dp
@@ -68,53 +75,78 @@ class TokenHeaderView(
         val btn = WImageButton(context)
         btn.setPadding(8.dp)
         btn.setOnClickListener {
+            val items = buildMoreMenuItems()
+            if (items.isEmpty()) {
+                return@setOnClickListener
+            }
             WMenuPopup.present(
                 btn,
-                listOfNotNull(
-                    if (token.tokenAddress?.isNotEmpty() == true || token.cmcSlug != null)
-                        WMenuPopup.Item(
-                            R.drawable.ic_world,
-                            LocaleController.getString("View on Explorer"),
-                            true,
-                        ) {
-                            token.explorerUrl(MBlockchainNetwork.ofAccountId(accountId))?.let {
-                                open(it)
-                            }
-                        } else null,
-                    token.cmcSlug?.let {
-                        WMenuPopup.Item(
-                            null,
-                            "CoinMarketCap",
-                            false,
-                        ) {
-                            open("https://coinmarketcap.com/currencies/${token.cmcSlug}")
-                        }
-                    },
-                    WMenuPopup.Item(
-                        null,
-                        "CoinGecko",
-                        false,
-                    ) {
-                        open("https://www.coingecko.com/coins/${token.name.lowercase()}")
-                    },
-                    WMenuPopup.Item(
-                        null,
-                        "GeckoTerminal",
-                        false,
-                    ) {
-                        open("https://www.geckoterminal.com/?q=${token.symbol.lowercase()}")
-                    },
-                    WMenuPopup.Item(
-                        null,
-                        "DEX Screener",
-                        false,
-                    ) {
-                        open("https://dexscreener.com/search?q=${token.name.lowercase()}")
-                    }),
+                items,
                 positioning = WMenuPopup.Positioning.ALIGNED
             )
         }
         btn
+    }
+
+    private fun buildMoreMenuItems(): List<WMenuPopup.Item> {
+        val tokenInfo = tokenInfoProvider()
+        val groups = mutableListOf<List<WMenuPopup.Item>>()
+        val aggregatorItems = tokenInfo?.aggregatorLinks
+            ?.mapNotNull { link ->
+                link.url.validTokenMenuUrlOrNull()?.let { url ->
+                    WMenuPopup.Item(null, link.name) { open(url) }
+                }
+            }
+            .orEmpty()
+        if (aggregatorItems.isNotEmpty()) {
+            groups.add(aggregatorItems)
+        }
+
+        val tokenInfoItems = mutableListOf<WMenuPopup.Item>()
+        tokenInfo?.docsUrl.validTokenMenuUrlOrNull()?.let { url ->
+            tokenInfoItems.add(
+                WMenuPopup.Item(null, LocaleController.getString("Documentation")) { open(url) }
+            )
+        }
+        tokenInfo?.sourceCodeUrl.validTokenMenuUrlOrNull()?.let { url ->
+            tokenInfoItems.add(
+                WMenuPopup.Item(null, LocaleController.getString("Source Code")) { open(url) }
+            )
+        }
+        if (tokenInfoItems.isNotEmpty()) {
+            groups.add(tokenInfoItems)
+        }
+
+        token.explorerUrl(MBlockchainNetwork.ofAccountId(accountId))
+            .validTokenMenuUrlOrNull()
+            ?.let { url ->
+                groups.add(
+                    listOf(
+                        WMenuPopup.Item(
+                            R.drawable.ic_world,
+                            LocaleController.getString("Open in Explorer")
+                        ) {
+                            open(url)
+                        }
+                    )
+                )
+            }
+
+        return groups.flatMapIndexed { index, group ->
+            if (index < groups.lastIndex) {
+                group.last().hasSeparator = true
+            }
+            group
+        }
+    }
+
+    private fun String?.validTokenMenuUrlOrNull(): String? {
+        val value = this?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val uri = runCatching { URI(value) }.getOrNull() ?: return null
+        val scheme = uri.scheme?.lowercase()
+        return value.takeIf {
+            (scheme == "http" || scheme == "https") && !uri.host.isNullOrBlank()
+        }
     }
 
     private val iconView = WCustomImageView(context).apply {
@@ -129,6 +161,10 @@ class TokenHeaderView(
         clipChildren = false
         clipToPadding = false
         smartDecimalsColor = true
+        setOnClickListener {
+            showsFullBalance = !showsFullBalance
+            reloadData(fastBalanceMorph = true)
+        }
     }
     private val balanceView = WSensitiveDataContainer(
         AutoScaleContainerView(balanceContentView).apply {
@@ -147,10 +183,15 @@ class TokenHeaderView(
         clipToPadding = false
     }
 
-    private val equivalentLabel = WSensitiveDataContainer(WLabel(context).apply {
-        layoutDirection = LAYOUT_DIRECTION_LTR
-        setStyle(22f, WFont.Medium)
-    }, WSensitiveDataContainer.MaskConfig(8, 3, Gravity.CENTER, protectContentLayoutSize = false))
+    private var showsFullBalance = false
+
+    private val equivalentLabel = WSensitiveDataContainer(
+        WLabel(context).apply {
+            layoutDirection = LAYOUT_DIRECTION_LTR
+            setStyle(22f, WFont.Medium)
+        },
+        WSensitiveDataContainer.MaskConfig(8, 3, Gravity.CENTER, protectContentLayoutSize = false)
+    )
 
     override fun setupViews() {
         super.setupViews()
@@ -170,7 +211,16 @@ class TokenHeaderView(
             topToBottom(equivalentLabel, balanceView)
             toCenterX(equivalentLabel)
         }
-        navigationBar.setTitle(token.name, false)
+        navigationBar.setTitle(token.displayName ?: token.name, false)
+        if (token.localizedName != null) {
+            navigationBar.titleLabel.setOnClickListener {
+                WGlobalStorage.setUseLocalizedTokenNames(
+                    !WGlobalStorage.getUseLocalizedTokenNames()
+                )
+                navigationBar.setTitle(token.displayName ?: token.name, true)
+                WalletCore.notifyEvent(WalletEvent.TokensChanged)
+            }
+        }
         navigationBar.addTrailingView(moreButton, LayoutParams(40.dp, 40.dp))
 
         updateTheme()
@@ -209,8 +259,11 @@ class TokenHeaderView(
             min(0f, -dy.toFloat())
         val balanceLayoutParams = balanceView.layoutParams as LayoutParams
         balanceLayoutParams.topMargin = calculatedMinHeight +
-            if (dy < 0) 124.dp - dy else
+            if (dy < 0) {
+                124.dp - dy
+            } else {
                 ((-70.5f).dp + (1 - collapseProgress) * 194.5f.dp).roundToInt()
+            }
         balanceView.layoutParams = balanceLayoutParams
         balanceContentView.setScale(
             (18 + 18 * (1 - collapseProgress)) / 36f,
@@ -229,7 +282,7 @@ class TokenHeaderView(
     }
 
     private var prevBalance: BigInteger? = null
-    fun reloadData() {
+    fun reloadData(fastBalanceMorph: Boolean = false) {
         token = TokenStore.getToken(token.slug) ?: token
         val balance =
             BalanceStore.getBalances(accountId)?.get(token.slug)
@@ -241,25 +294,30 @@ class TokenHeaderView(
                 token.symbol,
                 prevBalance != null,
                 setInstantly = false,
-                forceCurrencyToRight = true
+                forceCurrencyToRight = true,
+                decimalsCount = if (showsFullBalance) token.decimals else null,
+                morphingDurationOverride =
+                    if (fastBalanceMorph) FULL_BALANCE_MORPH_DURATION.toInt() else null
             )
         )
         prevBalance = balance
         val fallbackToUsd = token.symbol == WalletCore.baseCurrency.currencyCode
-        val tokenPrice = if (fallbackToUsd)
+        val tokenPrice = if (fallbackToUsd) {
             token.priceUsd
-        else
+        } else {
             token.price
+        }
         val balanceInBaseCurrency =
             balance?.let { balance ->
                 tokenPrice?.let { tokenPrice ->
                     balance.doubleAbsRepresentation(token.decimals) * tokenPrice
                 }
             }
-        val equivalentCurrency = if (fallbackToUsd)
+        val equivalentCurrency = if (fallbackToUsd) {
             MBaseCurrency.USD
-        else
+        } else {
             WalletCore.baseCurrency
+        }
         equivalentLabel.contentView.text = balanceInBaseCurrency?.toString(
             9,
             equivalentCurrency.sign,

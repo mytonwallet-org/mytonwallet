@@ -44,6 +44,7 @@ import { getDnsDomainZone } from '../../../../util/dns';
 import { formatBaseCurrencyAmount, formatCurrencyExtended } from '../../../../util/formatNumber';
 import { getLocalAddressName } from '../../../../util/getLocalAddressName';
 import { vibrate } from '../../../../util/haptics';
+import { toNativeDigits } from '../../../../util/nativeDigits';
 import { shortenAddress } from '../../../../util/shortenAddress';
 
 import useContextMenuHandlers from '../../../../hooks/useContextMenuHandlers';
@@ -368,6 +369,7 @@ function Transaction({
         rows={2}
         cellSize={8}
         align="right"
+        contentClassName={styles.baseCurrencyAmount}
       >
         {formatBaseCurrencyAmount(amount, baseCurrency, token, currencyRates)}
       </SensitiveData>
@@ -406,7 +408,11 @@ function Transaction({
 
     if (shouldRenderAnnualYield) {
       children.push(delimiter, lang('at %annual_yield%', {
-        annual_yield: <span className={styles.subheaderHighlight}>{yieldType} {annualYield}%</span>,
+        annual_yield: (
+          <span className={styles.subheaderHighlight}>
+            {yieldType} {toNativeDigits(`${annualYield}%`)}
+          </span>
+        ),
       }));
     }
 

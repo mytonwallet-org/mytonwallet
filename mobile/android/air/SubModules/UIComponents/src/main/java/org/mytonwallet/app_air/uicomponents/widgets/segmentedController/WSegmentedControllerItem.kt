@@ -8,5 +8,5 @@ data class WSegmentedControllerItem(
     val identifier: String?,
     val color: Int? = null,
     var onRemovePressed: ((v: View) -> Unit)? = null,
-    var onMenuPressed: ((v: View) -> Unit)? = null,
+    var onMenuPressed: ((v: View) -> Unit)? = null
 )

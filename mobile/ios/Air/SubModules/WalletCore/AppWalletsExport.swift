@@ -146,7 +146,7 @@ public enum AppWalletsExport {
         }) ?? false
     }
 
-    public static func export(passcode: String?) async throws -> ExportResult {
+    public static func export(enclaveToken: EnclaveToken?) async throws -> ExportResult {
         guard isRunningOnSimulator else {
             throw ExportError.notRunningOnSimulator
         }
@@ -157,10 +157,8 @@ public enum AppWalletsExport {
         }
 
         let hasMnemonicWallets = native.accounts.contains { $0.type == .mnemonic }
-        if hasMnemonicWallets {
-            guard let passcode, !passcode.isEmpty else {
-                throw ExportError.passcodeRequired
-            }
+        if hasMnemonicWallets, enclaveToken == nil {
+            throw ExportError.passcodeRequired
         }
 
         let orderedAccounts = orderedAccounts(from: native)
@@ -168,7 +166,7 @@ public enum AppWalletsExport {
         wallets.reserveCapacity(orderedAccounts.count)
 
         for account in orderedAccounts {
-            wallets.append(try await buildWalletExportEntry(account: account, passcode: passcode))
+            wallets.append(try await buildWalletExportEntry(account: account, enclaveToken: enclaveToken))
         }
 
         let payload = WalletDumpPayload(
@@ -240,18 +238,18 @@ public enum AppWalletsExport {
         return native.accounts
     }
 
-    private static func buildWalletExportEntry(account: MAccount, passcode: String?) async throws -> WalletDumpWallet {
+    private static func buildWalletExportEntry(account: MAccount, enclaveToken: EnclaveToken?) async throws -> WalletDumpWallet {
         let name = account.title?.nilIfEmpty ?? account.id
 
         switch account.type {
         case .mnemonic:
-            guard let passcode, !passcode.isEmpty else {
+            guard let enclaveToken else {
                 throw ExportError.passcodeRequired
             }
             return WalletDumpWallet(
                 name: name,
                 type: .mnemonic,
-                mnemonic: try await Api.fetchMnemonic(accountId: account.id, password: passcode),
+                mnemonic: try await Api.fetchMnemonic(accountId: account.id, enclaveToken: enclaveToken),
                 addressByChain: nil
             )
         case .view, .hardware:
@@ -266,10 +264,10 @@ public enum AppWalletsExport {
     }
 
     private static func importWalletDump(_ wallets: [WalletDumpWallet]) async throws {
-        let needsPasscode = wallets.contains { $0.type == .mnemonic }
-        let passcode = needsPasscode ? resolveImportPasscode() : nil
+        let needsAuthorization = wallets.contains { $0.type == .mnemonic }
+        let enclaveToken = needsAuthorization ? try await resolveImportEnclaveToken() : nil
 
-        let walletsToImport = await filterNewWallets(wallets, passcode: passcode)
+        let walletsToImport = await filterNewWallets(wallets, enclaveToken: enclaveToken)
         guard !walletsToImport.isEmpty else {
             log.info("import skipped: all wallets already exist")
             return
@@ -279,14 +277,13 @@ public enum AppWalletsExport {
             do {
                 switch wallet.type {
                 case .mnemonic:
-                    guard let passcode, !passcode.isEmpty else {
-                        throw ImportError.invalidDump("passcode is required to import mnemonic wallets")
+                    guard let enclaveToken else {
+                        throw ImportError.invalidDump("authorization is required to import mnemonic wallets")
                     }
                     let imported = try await AccountStore.importMnemonic(
                         network: .mainnet,
                         words: wallet.mnemonic ?? [],
-                        passcode: passcode,
-                        version: nil
+                        enclaveToken: enclaveToken
                     )
                     if let accountId = imported.first?.id {
                         try await AccountStore.updateAccountTitle(accountId: accountId, newTitle: wallet.name)
@@ -310,6 +307,18 @@ public enum AppWalletsExport {
         log.info("wallet dump imported wallets=\(walletsToImport.count, .public) skipped=\(wallets.count - walletsToImport.count, .public)")
     }
 
+    @MainActor
+    private static func resolveImportEnclaveToken() async throws -> EnclaveToken {
+        let passcode = resolveImportPasscode()
+        if AuthSupport.status.configuredMethods.isEmpty {
+            return try await AuthSupport.setPasscode(passcode)
+        }
+        guard let enclaveToken = try await AuthSupport.authorizeWithPasscode(passcode, sessionKind: .reusable) else {
+            throw ImportError.invalidDump("failed to authorize with the import passcode")
+        }
+        return enclaveToken
+    }
+
     private static func resolveImportPasscode() -> String {
         let savedPasscode = KeychainHelper.biometricPasscode()
         if !savedPasscode.isEmpty {
@@ -324,21 +333,21 @@ public enum AppWalletsExport {
         return passcode
     }
 
-    private static func filterNewWallets(_ wallets: [WalletDumpWallet], passcode: String?) async -> [WalletDumpWallet] {
+    private static func filterNewWallets(_ wallets: [WalletDumpWallet], enclaveToken: EnclaveToken?) async -> [WalletDumpWallet] {
         let existingAccounts = AccountStore.orderedAccounts
-        let mnemonicByAccountId = await existingMnemonicSets(passcode: passcode, accounts: existingAccounts)
+        let mnemonicByAccountId = await existingMnemonicSets(enclaveToken: enclaveToken, accounts: existingAccounts)
 
         return wallets.filter { wallet in
             !isExistingWallet(wallet, among: existingAccounts, mnemonicByAccountId: mnemonicByAccountId)
         }
     }
 
-    private static func existingMnemonicSets(passcode: String?, accounts: [MAccount]) async -> [String: Set<String>] {
-        guard let passcode else { return [:] }
+    private static func existingMnemonicSets(enclaveToken: EnclaveToken?, accounts: [MAccount]) async -> [String: Set<String>] {
+        guard let enclaveToken else { return [:] }
 
         var mnemonicByAccountId: [String: Set<String>] = [:]
         for account in accounts where account.type == .mnemonic {
-            if let words = try? await Api.fetchMnemonic(accountId: account.id, password: passcode) {
+            if let words = try? await Api.fetchMnemonic(accountId: account.id, enclaveToken: enclaveToken) {
                 mnemonicByAccountId[account.id] = Set(words)
             }
         }

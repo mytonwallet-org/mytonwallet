@@ -13,10 +13,6 @@ import org.mytonwallet.app_air.airasframework.WidgetConfigurationWindow;
 import org.mytonwallet.app_air.airasframework.splash.SplashVC;
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations;
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder;
-import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider;
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage;
-import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig;
-import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage;
 import org.mytonwallet.app_air.walletcore.deeplink.Deeplink;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkNavigator;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser;
@@ -26,14 +22,7 @@ abstract class PendingTask {
     }
 
     public static final class ToAir extends PendingTask {
-        private final boolean fromLegacy;
-
-        public ToAir(boolean fromLegacy) {
-            this.fromLegacy = fromLegacy;
-        }
-
-        public boolean isFromLegacy() {
-            return fromLegacy;
+        public ToAir() {
         }
     }
 
@@ -58,7 +47,6 @@ abstract class PendingTask {
 
 public class AirLauncher {
     private static AirLauncher airLauncher;
-    private static String GLOBAL_STORAGE_HAS_OPENED_AIR = "settings.hasOpenedAir";
     private final Context applicationContext;
     PendingTask pendingAirTask;
     private boolean isOnTheAir = false;
@@ -101,8 +89,7 @@ public class AirLauncher {
             );
             if (pendingAirTask != null) {
                 if (pendingAirTask instanceof PendingTask.ToAir) {
-                    PendingTask.ToAir task = (PendingTask.ToAir) pendingAirTask;
-                    soarIntoAir(currentActivity, task.isFromLegacy());
+                    soarIntoAir(currentActivity);
                 } else if (pendingAirTask instanceof PendingTask.ToWidgetConfigurations) {
                     PendingTask.ToWidgetConfigurations task = (PendingTask.ToWidgetConfigurations) pendingAirTask;
                     presentWidgetConfiguration(currentActivity, task.getRequestCode(), task.getAppWidgetId());
@@ -116,28 +103,17 @@ public class AirLauncher {
         return isOnTheAir;
     }
 
-    public void soarIntoAir(Activity currentActivity, Boolean fromLegacy) {
+    public void soarIntoAir(Activity currentActivity) {
         if (isOnTheAir)
             return;
 
         if (!storageProviderReady) {
-            pendingAirTask = new PendingTask.ToAir(fromLegacy);
+            pendingAirTask = new PendingTask.ToAir();
             return;
         }
         pendingAirTask = null;
 
         isOnTheAir = true;
-
-        if (!Boolean.TRUE.equals(capacitorGlobalStorageProvider.getBool(GLOBAL_STORAGE_HAS_OPENED_AIR))) {
-            capacitorGlobalStorageProvider.set(GLOBAL_STORAGE_HAS_OPENED_AIR, true, IGlobalStorageProvider.PERSIST_NORMAL);
-        }
-        if (fromLegacy) {
-            capacitorGlobalStorageProvider.setEmptyObject("tokenPriceHistory.bySlug", IGlobalStorageProvider.PERSIST_NO);
-            LaunchConfig.setShouldStartOnAir(currentActivity, true);
-            // Just-in-case. These might contain outdated data after adding widget when using Classic app!
-            WSecureStorage.INSTANCE.clearCache();
-            WGlobalStorage.INSTANCE.clearCachedData();
-        }
 
         Log.i("MTWAirApplication", "CapacitorGlobalStorageProvider Ready — Opening Air");
         openAir(currentActivity);

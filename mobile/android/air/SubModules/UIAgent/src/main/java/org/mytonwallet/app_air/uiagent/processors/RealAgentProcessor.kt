@@ -1,6 +1,11 @@
 package org.mytonwallet.app_air.uiagent.processors
 
 import android.util.Log
+import java.io.BufferedInputStream
+import java.math.BigDecimal
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -12,11 +17,6 @@ import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.io.BufferedInputStream
-import java.math.BigDecimal
-import java.net.HttpURLConnection
-import java.net.URL
-import java.util.UUID
 
 class RealAgentProcessor : AgentProcessor {
 
@@ -29,7 +29,9 @@ class RealAgentProcessor : AgentProcessor {
         private const val MYTONWALLET_SCHEME = "mytonwallet"
         private const val MTW_SCHEME = "mtw"
         private val DEEPLINK_REGEX by lazy {
-            Regex("""\[([^\]]+)]\(((?:$APP_SCHEME|$MYTONWALLET_SCHEME|$MTW_SCHEME)://[^)\s]+)\)\s*$""")
+            Regex(
+                """\[([^\]]+)]\(((?:$APP_SCHEME|$MYTONWALLET_SCHEME|$MTW_SCHEME)://[^)\s]+)\)\s*$"""
+            )
         }
         private const val TAG = "RealAgentProcessor"
     }
@@ -128,14 +130,16 @@ class RealAgentProcessor : AgentProcessor {
     private fun buildAddressesArray(addresses: List<AgentUserAddress>): JSONArray {
         val array = JSONArray()
         for (wallet in addresses) {
-            array.put(JSONObject().apply {
-                put("name", wallet.name)
-                val addrsArray = JSONArray()
-                wallet.addresses.forEach { addrsArray.put(it) }
-                put("addresses", addrsArray)
-                wallet.accountType?.let { put("accountType", it) }
-                if (wallet.isActive) put("isActive", true)
-            })
+            array.put(
+                JSONObject().apply {
+                    put("name", wallet.name)
+                    val addrsArray = JSONArray()
+                    wallet.addresses.forEach { addrsArray.put(it) }
+                    put("addresses", addrsArray)
+                    wallet.accountType?.let { put("accountType", it) }
+                    if (wallet.isActive) put("isActive", true)
+                }
+            )
         }
         return array
     }
@@ -169,13 +173,15 @@ class RealAgentProcessor : AgentProcessor {
                     val token = TokenStore.getToken(slug) ?: continue
                     val balance = tokenBalance.amountValue
                     if (balance.signum() <= 0) continue
-                    tokensArray.put(JSONArray().apply {
-                        put(token.slug)
-                        put(token.symbol)
-                        put(token.name)
-                        put(token.decimals.toString())
-                        put(formatDouble(token.priceUsd))
-                    })
+                    tokensArray.put(
+                        JSONArray().apply {
+                            put(token.slug)
+                            put(token.symbol)
+                            put(token.name)
+                            put(token.decimals.toString())
+                            put(formatDouble(token.priceUsd))
+                        }
+                    )
                     balancesArray.put("$slug:$balance:${formatDouble(tokenBalance.toBaseCurrency)}")
                 }
                 put("walletTokens", tokensArray)
@@ -220,13 +226,16 @@ class RealAgentProcessor : AgentProcessor {
                     val title = obj.optString("title", "").trim()
                     val subtitle = obj.optString("subtitle", "").trim()
                     val prompt = obj.optString("prompt", "").trim()
-                    if (title.isEmpty() || subtitle.isEmpty() || prompt.isEmpty()) null
-                    else AgentHint(
-                        id = obj.optString("id", i.toString()),
-                        title = title,
-                        subtitle = subtitle,
-                        prompt = prompt
-                    )
+                    if (title.isEmpty() || subtitle.isEmpty() || prompt.isEmpty()) {
+                        null
+                    } else {
+                        AgentHint(
+                            id = obj.optString("id", i.toString()),
+                            title = title,
+                            subtitle = subtitle,
+                            prompt = prompt
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "loadHints failed", e)

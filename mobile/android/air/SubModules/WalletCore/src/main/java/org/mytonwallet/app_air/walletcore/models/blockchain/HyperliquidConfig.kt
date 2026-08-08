@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
 object HyperliquidConfig : MBlockchainConfig {
 
@@ -20,7 +21,7 @@ object HyperliquidConfig : MBlockchainConfig {
     override val displayColor = "#00AF98".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#4B6563".toColorInt(),
-        "#24534B".toColorInt(),
+        "#24534B".toColorInt()
     )
 
     override val feeCheckAddress = "0x0000000000000000000000000000000000000000"
@@ -35,21 +36,21 @@ object HyperliquidConfig : MBlockchainConfig {
 
     override val chainStandard = "ethereum"
     override val defaultDerivationPath = "m/44'/60'/0'/0/{index}"
+    override val walletConnectChainIds = mapOf(
+        MBlockchainNetwork.MAINNET to 999,
+        MBlockchainNetwork.TESTNET to 998
+    )
 
     override fun isValidAddress(address: String): Boolean =
         Regex("""^0x[a-fA-F0-9]{40}$""").matches(address)
 
-    override fun idToTxHash(id: String?): String? =
-        id?.substringBefore(":")
+    override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
-    override fun transactionExplorers() =
-        listOf(MBlockchainExplorer.HYPEREVMSCAN)
+    override fun transactionExplorers() = listOf(MBlockchainExplorer.HYPEREVMSCAN)
 
-    override fun addressExplorers() =
-        listOf(MBlockchainExplorer.HYPEREVMSCAN)
+    override fun addressExplorers() = listOf(MBlockchainExplorer.HYPEREVMSCAN)
 
-    override fun tokenExplorer() =
-        MBlockchainExplorer.HYPEREVMSCAN
+    override fun tokenExplorer() = MBlockchainExplorer.HYPEREVMSCAN
 
     override fun nftExplorer() = null
 }

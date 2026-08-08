@@ -22,7 +22,7 @@ object SolanaConfig : MBlockchainConfig {
     override val displayColor = "#864BFF".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#5E58BA".toColorInt(),
-        "#106E73".toColorInt(),
+        "#106E73".toColorInt()
     )
 
     override val feeCheckAddress = "35YT7tt9edJbroEKaC3T3XY4cLNWKtVzmyTEfW8LHPEA"
@@ -38,21 +38,15 @@ object SolanaConfig : MBlockchainConfig {
     override fun isValidAddress(address: String): Boolean =
         Regex("""^[1-9A-HJ-NP-Za-km-z]{32,44}$""").matches(address)
 
-    override fun isValidDNS(address: String): Boolean {
-        return false
-    }
+    override fun isValidDNS(address: String): Boolean = false
 
-    override fun idToTxHash(id: String?): String? =
-        id?.substringBefore(":")
+    override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
-    override fun transactionExplorers() =
-        listOf(MBlockchainExplorer.SOLSCAN)
+    override fun transactionExplorers() = listOf(MBlockchainExplorer.SOLSCAN)
 
-    override fun addressExplorers() =
-        listOf(MBlockchainExplorer.SOLSCAN)
+    override fun addressExplorers() = listOf(MBlockchainExplorer.SOLSCAN)
 
-    override fun tokenExplorer() =
-        MBlockchainExplorer.SOLSCAN
+    override fun tokenExplorer() = MBlockchainExplorer.SOLSCAN
 
     override fun nftExplorer() = null
 }

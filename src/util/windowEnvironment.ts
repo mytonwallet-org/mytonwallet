@@ -58,6 +58,7 @@ export const IS_LEDGER_EXTENSION_TAB = global.location.hash.startsWith(DETACHED_
 export const IS_BIOMETRIC_AUTH_SUPPORTED = Boolean(
   !IS_TELEGRAM_APP && window.navigator.credentials && (!IS_ELECTRON || IS_MAC_OS),
 );
+export const CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY = IS_BIOMETRIC_AUTH_SUPPORTED;
 export const IS_DAPP_SUPPORTED = IS_EXTENSION || IS_ELECTRON;
 export const IS_VIEW_TRANSITION_SUPPORTED = typeof document.startViewTransition === 'function';
 

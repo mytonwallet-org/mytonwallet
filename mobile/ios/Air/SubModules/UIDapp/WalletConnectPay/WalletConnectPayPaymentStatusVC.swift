@@ -228,7 +228,7 @@ private struct WalletConnectPayStatusNavigationHeader: View {
 
     var body: some View {
         NavigationHeader {
-            Text(model.isComplete ? lang("Paid!") : lang("Processing Payment"))
+            Text(model.isComplete ? lang("Paid") : lang("Processing Payment"))
         } subtitle: {
             if !model.isComplete {
                 Text(lang("It may take a few seconds"))

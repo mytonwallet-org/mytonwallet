@@ -78,7 +78,7 @@ class NftDetailsPageView: UIView {
         // Title
         do {
             let titleLabel = NftDetailsLabel()
-            titleLabel.font = .systemFont(ofSize: 24, weight: .semibold)
+            titleLabel.applyTextStyle(.prominentTitle)
             titleLabel.text = item.name
             titleLabel.numberOfLines = 0
             titleLabel.textAlignment = .center
@@ -191,7 +191,7 @@ class NftDetailsPageView: UIView {
 
             let label = NftDetailsLabel()
             label.text = lang("Attributes")
-            label.font = .systemFont(ofSize: 17, weight: .semibold)
+            label.applyTextStyle(.bodyStrong)
             label.numberOfLines = 0
             label.contentPadding = .init(top: 0, left: grid.contentInsets.left, bottom: 0, right: grid.contentInsets.right)
             stackView.addArrangedSubview(label)

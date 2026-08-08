@@ -102,7 +102,7 @@ export interface ChainSdk<T extends ApiChain> {
    *
    * When `derivation` is provided, the result is limited to that derivation. When it is omitted, chain
    * implementations may inspect known derivation variants and on-chain activity to find import candidates.
-   * `isNewMnemonic` is only for freshly generated words: implementations should skip discovery/network
+   * `shouldSkipDiscovery` is only for freshly generated words: implementations should skip discovery/network
    * lookups that exist to restore old wallets, including version/balance selection such as TON's
    * `pickBestWalletVersion`, and return the deterministic offline wallet for the supplied derivation.
    * Results are ordered by chain preference/discovery result and never return display errors;
@@ -112,7 +112,7 @@ export interface ChainSdk<T extends ApiChain> {
     network: ApiNetwork,
     mnemonic: string[],
     derivation?: ApiDerivation,
-    isNewMnemonic?: boolean,
+    shouldSkipDiscovery?: boolean,
   ): MaybePromise<ApiWalletByChain[T][]>;
 
   getWalletFromPrivateKey(network: ApiNetwork, privateKey: string): MaybePromise<ApiWalletByChain[T]>;
@@ -239,7 +239,7 @@ export interface ChainSdk<T extends ApiChain> {
    * Returns the private key of the given account in the format used by `getWalletFromPrivateKey`, even if it's a
    * mnemonic account. Returns `undefined` if the account doesn't exist.
    */
-  fetchPrivateKeyString(accountId: string, password: string): Promise<string | undefined>;
+  fetchPrivateKeyString(accountId: string, enclaveToken: string): Promise<string | undefined>;
 
   //
   // Other
@@ -303,7 +303,7 @@ export interface ChainSdk<T extends ApiChain> {
 
   submitNftTransfers: (options: {
     accountId: string;
-    password: string | undefined;
+    enclaveToken: string | undefined;
     nfts: ApiNft[];
     toAddress: string;
     comment?: string;

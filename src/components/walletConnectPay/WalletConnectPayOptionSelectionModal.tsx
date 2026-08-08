@@ -11,16 +11,14 @@ import type {
   ApiBaseCurrency,
   ApiCurrencyRates,
   ApiNetwork,
-  ApiStakingState,
   ApiTokenWithPrice,
 } from '../../api/types';
-import type { Account, AccountSettings, GlobalState } from '../../global/types';
+import type { Account, GlobalState } from '../../global/types';
 
 import { Big } from '../../lib/big.js';
 import {
   selectCurrentAccountId,
   selectCurrentNetwork,
-  selectOrderedAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { calculateTokenPrice } from '../../util/calculatePrice';
@@ -33,15 +31,13 @@ import { doesAccountSupportWalletConnectPay } from '../../util/walletConnectPay'
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
-import { useMultipleAccountsBalances } from '../../hooks/useMultipleAccountsBalances';
 
-import AccountRowContent from '../common/AccountRowContent';
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import TokenIcon from '../common/TokenIcon';
 import Modal from '../ui/Modal';
-import ModalHeader from '../ui/ModalHeader';
 import Spinner from '../ui/Spinner';
 import Transition from '../ui/Transition';
-import WalletConnectPayAccountPill from './WalletConnectPayAccountPill';
 import WalletConnectPayAmount from './WalletConnectPayAmount';
 import WalletConnectPayHeader from './WalletConnectPayHeader';
 import WalletConnectPayMerchantLogo from './WalletConnectPayMerchantLogo';
@@ -64,15 +60,11 @@ interface StateProps {
   isLoading?: boolean;
   shouldSwitchWallet?: boolean;
   currentAccountId: string;
-  orderedAccounts?: Array<[string, Account]>;
   accounts?: Record<string, Account>;
-  settingsByAccountId?: Record<string, AccountSettings>;
   baseCurrency?: ApiBaseCurrency;
   currencyRates?: ApiCurrencyRates;
   byAccountId?: GlobalState['byAccountId'];
   tokenInfo?: GlobalState['tokenInfo'];
-  stakingDefault?: ApiStakingState;
-  areTokensWithNoCostHidden?: boolean;
   network?: ApiNetwork;
 }
 
@@ -85,15 +77,11 @@ function WalletConnectPayOptionSelectionModal({
   isLoading,
   shouldSwitchWallet,
   currentAccountId,
-  orderedAccounts,
   accounts,
-  settingsByAccountId,
   baseCurrency,
   currencyRates,
   byAccountId,
   tokenInfo,
-  stakingDefault,
-  areTokensWithNoCostHidden,
   network,
 }: StateProps) {
   const {
@@ -110,22 +98,6 @@ function WalletConnectPayOptionSelectionModal({
 
   const selectedAccountId = accountId || currentAccountId;
   const shouldRenderAccountSelector = accounts && isKeyCountGreater(accounts, 1);
-
-  // Per-account balances are only shown in the account selector slide, so skip the "Slow"
-  // selectors entirely when it can't appear (single account or closed modal)
-  const needsAccountBalances = isOpen && Boolean(shouldRenderAccountSelector);
-
-  const { balancesByAccountId } = useMultipleAccountsBalances({
-    filteredAccounts: needsAccountBalances ? orderedAccounts : undefined,
-    sourceAccounts: needsAccountBalances ? accounts : undefined,
-    byAccountId: needsAccountBalances ? byAccountId : undefined,
-    tokenInfo,
-    settingsByAccountId,
-    areTokensWithNoCostHidden,
-    baseCurrency,
-    currencyRates,
-    stakingDefault,
-  });
 
   useEffect(() => {
     if (!isOpen) {
@@ -170,6 +142,10 @@ function WalletConnectPayOptionSelectionModal({
     }
   });
 
+  const getIsAccountDisabled = useLastCallback((account: Account) => {
+    return !network || !doesAccountSupportWalletConnectPay(account, network);
+  });
+
   function renderAccountSelector() {
     const account = accounts?.[selectedAccountId];
     if (!account || !shouldRenderAccountSelector) {
@@ -177,53 +153,26 @@ function WalletConnectPayOptionSelectionModal({
     }
 
     return (
-      <WalletConnectPayAccountPill
+      <AccountSwitcherPill
         accountId={selectedAccountId}
         title={account.title}
+        className={styles.accountSwitcherPill}
         onClick={!isConfirmingOptionSelection ? handleOpenAccountSelector : undefined}
       />
     );
   }
 
-  function renderSelectAccountSlide() {
+  function renderSelectAccountSlide(isActive: boolean) {
     return (
-      <>
-        <ModalHeader
-          title={lang('Choose Wallet')}
-          onBackButtonClick={handleAccountSelectorBack}
-          onClose={closeWalletConnectPayOptionSelection}
-        />
-        <div className={modalStyles.transitionContent}>
-          <span className={buildClassName(styles.accountSelectorTitle, styles.accountSelectorTitle_2)}>
-            {lang('Wallet to use for payment')}
-          </span>
-          <div className={styles.accountList}>
-            {(orderedAccounts ?? []).map(([nextAccountId, account]) => {
-              const { title, byChain, type } = account;
-              const isDisabled = !network || !doesAccountSupportWalletConnectPay(account, network);
-              const isSelected = nextAccountId === selectedAccountId;
-              const { cardBackgroundNft } = settingsByAccountId?.[nextAccountId] || {};
-              const balanceData = balancesByAccountId?.[nextAccountId];
-
-              return (
-                <AccountRowContent
-                  key={nextAccountId}
-                  accountId={nextAccountId}
-                  byChain={byChain}
-                  accountType={type}
-                  title={title}
-                  cardBackgroundNft={cardBackgroundNft}
-                  balanceData={balanceData}
-                  isSelected={isSelected}
-                  isDisabled={isDisabled}
-                  className={styles.accountListItem}
-                  onClick={handleSelectAccount}
-                />
-              );
-            })}
-          </div>
-        </div>
-      </>
+      <AccountSwitcherSlide
+        isActive={isActive}
+        selectedAccountId={selectedAccountId}
+        subtitle={lang('Wallet to use for payment')}
+        getIsAccountDisabled={getIsAccountDisabled}
+        onAccountSelect={handleSelectAccount}
+        onBack={handleAccountSelectorBack}
+        onClose={closeWalletConnectPayOptionSelection}
+      />
     );
   }
 
@@ -415,7 +364,7 @@ function WalletConnectPayOptionSelectionModal({
       case OptionSelectionState.NoOptions:
         return renderNoOptionsSlide(isActive);
       case OptionSelectionState.SelectAccount:
-        return isActive ? renderSelectAccountSlide() : undefined;
+        return renderSelectAccountSlide(isActive);
     }
   }
 
@@ -507,14 +456,11 @@ export default memo(withGlobal((global): StateProps => {
   const selection = global.walletConnectPayOptionSelection;
   const {
     settings: {
-      byAccountId: settingsByAccountId,
       baseCurrency,
-      areTokensWithNoCostHidden,
     },
     currencyRates,
     byAccountId,
     tokenInfo,
-    stakingDefault,
   } = global;
 
   return {
@@ -526,15 +472,11 @@ export default memo(withGlobal((global): StateProps => {
     isLoading: selection?.isLoading,
     shouldSwitchWallet: selection?.shouldSwitchWallet,
     currentAccountId: selectCurrentAccountId(global)!,
-    orderedAccounts: selectOrderedAccounts(global),
     accounts: global.accounts?.byId,
-    settingsByAccountId,
     baseCurrency,
     currencyRates,
     byAccountId,
     tokenInfo,
-    stakingDefault,
-    areTokensWithNoCostHidden,
     network: selectCurrentNetwork(global),
   };
 })(WalletConnectPayOptionSelectionModal));

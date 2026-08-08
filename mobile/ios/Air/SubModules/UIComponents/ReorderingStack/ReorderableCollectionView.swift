@@ -361,7 +361,7 @@ public final class ReorderableCollectionViewController: NSObject {
 
     private func isControlOrInsideControl(_ view: UIView) -> Bool {
         var current: UIView? = view
-        while let v = current {
+        while let v = current, v !== collectionView {
             if v is UIControl { return true }
             current = v.superview
         }
@@ -710,7 +710,10 @@ extension ReorderableCollectionViewController: UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, contextMenuConfiguration configuration: UIContextMenuConfiguration,
                                highlightPreviewForItemAt indexPath: IndexPath) -> UITargetedPreview? {
         guard let cell = collectionView.cellForItem(at: indexPath) else { return nil }
-        let preview = preview(ofCell: cell, mode: .fastSnapshot)
+        let mode: PreviewMode = collectionView.effectiveUserInterfaceLayoutDirection == .rightToLeft
+            ? .requiredFastSnapshot
+            : .fastSnapshot
+        let preview = preview(ofCell: cell, mode: mode)
         let view = preview.view
         
         let params = UIPreviewParameters(bounds: view.bounds, cornerRadius: preview.cornerRadius)

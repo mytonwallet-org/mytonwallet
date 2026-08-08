@@ -277,7 +277,9 @@ private final class SplitHomeActionsViewModel: WalletCoreData.EventsObserver {
     
     private func updateItems() {
         _ = ConfigStore.shared.config
+        // The button carries no chain of its own, so it is gated on the very chain its tap will open
         let shouldShowBuy = !ConfigStore.shared.shouldRestrictSwapsAndOnRamp
+            && OnRampCurrencyPolicy.defaultChain(for: account) != nil
         let shouldShowSell = !ConfigStore.shared.shouldRestrictSell
         
         var updatedItems: [SplitHomeActionItem]

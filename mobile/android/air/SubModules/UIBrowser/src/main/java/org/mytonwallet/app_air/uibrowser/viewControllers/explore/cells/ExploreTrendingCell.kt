@@ -22,9 +22,9 @@ import org.mytonwallet.app_air.walletcore.models.MExploreSite
 class ExploreTrendingCell(
     context: Context,
     private val cellWidth: Int,
-    private val onSiteTap: (site: MExploreSite) -> Unit,
-) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    private val onSiteTap: (site: MExploreSite) -> Unit
+) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     companion object {
         private const val AUTO_SCROLL_INTERVAL = 5000L
@@ -64,7 +64,13 @@ class ExploreTrendingCell(
                 parent: RecyclerView,
                 state: RecyclerView.State
             ) {
-                if (parent.getChildAdapterPosition(view) > 0) outRect.left = (-10).dp
+                if (parent.getChildAdapterPosition(view) > 0) {
+                    if (parent.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                        outRect.right = (-10).dp
+                    } else {
+                        outRect.left = (-10).dp
+                    }
+                }
             }
         })
     }
@@ -114,8 +120,7 @@ class ExploreTrendingCell(
     }
 
     fun configure(sites: List<MExploreSite>?) {
-        if (sites == trendingAdapter.sites)
-            return
+        if (sites == trendingAdapter.sites) return
 
         stopAutoScroll()
 

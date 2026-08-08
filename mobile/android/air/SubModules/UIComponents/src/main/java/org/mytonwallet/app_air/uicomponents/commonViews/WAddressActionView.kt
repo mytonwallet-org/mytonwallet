@@ -1,22 +1,26 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.ViewGroup
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setSizeBounds
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.WORD_JOIN
@@ -28,14 +32,9 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.lerpColor
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import kotlin.math.roundToInt
 
 class WAddressActionView(context: Context) : WLabel(context) {
-    data class Data(
-        val address: String,
-        val chain: String,
-        val addressName: String? = null,
-    )
+    data class Data(val address: String, val chain: String, val addressName: String? = null)
 
     private val addressRippleDrawable = WRippleDrawable.create(12f.dp)
 
@@ -50,6 +49,7 @@ class WAddressActionView(context: Context) : WLabel(context) {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
+        gravity = Gravity.LEFT
         setStyle(adaptiveFontSize(), WFont.Regular)
         setTextColor(WColor.SecondaryText)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
@@ -106,7 +106,8 @@ class WAddressActionView(context: Context) : WLabel(context) {
                     VerticalImageSpan(
                         chainIconDrawable,
                         endPadding = 2.dp,
-                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM,
+                        isRTL = LocaleController.isRTL
                     )
                 ) { append(" ") }
                 append(WORD_JOIN)
@@ -136,7 +137,9 @@ class WAddressActionView(context: Context) : WLabel(context) {
                     VerticalImageSpan(
                         expandDrawable,
                         startPadding = 4.5f.dp.roundToInt(),
-                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM,
+                        verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm,
+                        isRTL = false
                     )
                 ) { append(" ") }
             }

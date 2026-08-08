@@ -16,6 +16,11 @@ buildscript {
   }
 }
 
+plugins {
+  alias(libs.plugins.jetbrains.kotlin.android) apply false
+  alias(libs.plugins.ktlint) apply false
+}
+
 apply from: "variables.gradle"
 
 // Enable strict dependency locking at root level
@@ -34,6 +39,18 @@ allprojects {
   // Enable dependency locking for all configurations
   configurations.configureEach {
     resolutionStrategy.activateDependencyLocking()
+  }
+}
+
+subprojects {
+  apply plugin: 'org.jlleitschuh.gradle.ktlint'
+
+  ktlint {
+    version = libs.versions.ktlint.get()
+    filter {
+      exclude('**/build/**')
+      exclude('**/generated/**')
+    }
   }
 }
 

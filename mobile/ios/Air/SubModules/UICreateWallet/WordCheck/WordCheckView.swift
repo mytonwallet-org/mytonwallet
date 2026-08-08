@@ -23,12 +23,12 @@ struct WordCheckView: View {
     @State private var interactionDisabled = false
     @State private var checkTask: Task<Void, Never>?
     @State private var scrollToBottom = 0
+    @State private var gridResetID = 0
 
     var body: some View {
         WithPerceptionTracking {
             let tests = model.tests
             let revealCorrect = model.revealCorrect
-            let hideAll = model.hideAll
             let showTryAgain = model.showTryAgain
             let allSelected = model.allSelected
 
@@ -45,7 +45,8 @@ struct WordCheckView: View {
                             }
                         }
                         grid(tests: tests, revealCorrect: revealCorrect, isChecking: isChecking, isEnabled: !interactionDisabled)
-                            .opacity(hideAll ? 0 : 1)
+                            .transition(.opacity)
+                            .id(gridResetID)
 
                         ZStack {
                             Button("Just-a-placeholder", action: {})
@@ -59,8 +60,7 @@ struct WordCheckView: View {
                                     .buttonStyle(.airClearBackground)
                             } else if showTryAgain {
                                 error()
-                                    .opacity(hideAll ? 0 : 1)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.8)).animation(.default))
+                                    .transition(.opacity.animation(.smooth(duration: 0.2)))
                             }
                         }
                         .id(bottomAnchorID)
@@ -89,38 +89,46 @@ struct WordCheckView: View {
     }
     
     private func onAllWordsSelected() {
-        
         checkTask = Task { @MainActor in
             interactionDisabled = true
-            withAnimation(.default) { isChecking = true }
-
-            try? await Task.sleep(for: .seconds(0.5))
-            guard !Task.isCancelled else { return }
-
-            withAnimation(.default) { isChecking = false }
-            model.revealCorrect = true
 
             if model.allCorrect {
+                withAnimation(.default) { isChecking = true }
+
+                try? await Task.sleep(for: .seconds(0.5))
+                guard !Task.isCancelled else { return }
+
+                withAnimation(.default) { isChecking = false }
+                model.revealCorrect = true
                 await completeWalletCreation()
             } else {
+                withAnimation(.smooth(duration: 0.5)) {
+                    model.revealCorrect = true
+                    model.showTryAgain = true
+                }
+                withAnimation(.smooth(duration: 0.4)) {
+                    isChecking = true
+                }
+
+                try? await Task.sleep(for: .seconds(0.8))
+                guard !Task.isCancelled else { return }
+
                 await resetKeepingIncorrect()
             }
         }
     }
 
     private func resetKeepingIncorrect() async {
-        withAnimation(.smooth(duration: 0.2)) {
-            model.hideAll = true
+        isChecking = false
+        withAnimation(.smooth(duration: 0.4)) {
+            model.resetKeepingIncorrect()
+            gridResetID += 1
         }
+        scrollToBottom += 1
 
-        try? await Task.sleep(for: .seconds(0.25))
+        try? await Task.sleep(for: .seconds(0.5))
         guard !Task.isCancelled else { return }
 
-        model.resetKeepingIncorrect()
-        scrollToBottom += 1
-        withAnimation(.smooth(duration: 1.50)) {
-            model.hideAll = false
-        }
         interactionDisabled = false
     }
 
@@ -155,32 +163,32 @@ struct WordCheckView: View {
     private var title: some View {
         Text(langMd("Let's Check"))
             .multilineTextAlignment(.center)
-            .font(.system(size: 32, weight: .semibold))
+            .textStyle(.onboardingTitle)
             .accessibilityAddTraits(.isHeader)
     }
     
     @ViewBuilder
     private func description(tests: [Test]) -> some View {
-        let ids = tests.map { String($0.id + 1) }
+        let ids = tests.map { localizedIntegerString($0.id + 1) }
         let line1 = lang("$check_words_description").replacingOccurrences(of: "\n", with: " ")
         let line2 = lang("$mnemonic_check_words_list", arg1: ids.joined(separator: ", "))
         Text(LocalizedStringKey(line1 + "\n\n" + line2))
             .multilineTextAlignment(.center)
-            .font(.system(size: 17, weight: .regular))
+            .textStyle(.body)
             .contentTransition(.numericText())
             .animation(.default, value: tests.map(\.id))
     }
 
     private func grid(tests: [Test], revealCorrect: Bool, isChecking: Bool, isEnabled: Bool) -> some View {
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 24) {
-            ForEach(tests) { test in
+            ForEach(Array(tests.enumerated()), id: \.element.id) { testIndex, test in
                 GridRow {
-                    Text("\(test.id + 1).")
-                        .font(.system(size: 17))
+                    Text(verbatim: "\(localizedIntegerString(test.id + 1)).")
+                        .textStyle(.body, content: .technical)
                         .foregroundColor(.air.secondaryLabel)
                         .accessibilityHidden(true)
                     HFlow(spacing: 8) {
-                        ForEach(test.words, id: \.self) { word in
+                        ForEach(Array(test.words.enumerated()), id: \.offset) { _, word in
                             let state: Item.State = {
                                 if test.selection != word { return .none }
                                 if !revealCorrect { return .selected }
@@ -192,22 +200,26 @@ struct WordCheckView: View {
                                 state: state,
                                 isEnabled: isEnabled,
                                 onTap: {
-                                    if let i = model.tests.firstIndex(where: { $0.id == test.id }) {
-                                        model.tests[i].selection = word
+                                    if model.showTryAgain {
+                                        withAnimation(.smooth(duration: 0.25)) {
+                                            model.showTryAgain = false
+                                        }
                                     }
+                                    model.tests[testIndex].selection = word
                                 }
                             )
+                            .id(word)
                             .opacity(isChecking ? 0.5 : 1)
                             .animation(.smooth(duration: 0.2), value: isChecking)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized, content: .technical)
                 }
             }
         }
-        .animation(.spring, value: revealCorrect)
-        .id(tests.map(\.words))
+        .environment(\.layoutDirection, .leftToRight)
+        .animation(.smooth(duration: 0.25), value: revealCorrect)
     }
 
     @ViewBuilder
@@ -215,7 +227,7 @@ struct WordCheckView: View {
         Text(lang("$mnemonic_check_error"))
             .multilineTextAlignment(.center)
             .foregroundStyle(.red)
-            .font(.system(size: 16, weight: .medium))
+            .textStyle(.calloutEmphasized)
     }
 }
 
@@ -263,6 +275,7 @@ private struct Item: View {
     
     var body: some View {
         Text(verbatim: word)
+            .textStyle(.calloutEmphasized, content: .technical)
             .foregroundStyle(textColor)
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -286,7 +299,7 @@ private struct Item: View {
             .accessibilityRemoveTraits(.isStaticText)
             .accessibilityAddTraits(isEnabled ? .isButton : [])
             .accessibilityAddTraits(state != .none ? .isSelected : [])
-            .accessibilityLabel(Text(verbatim: "\(questionNumber). \(word)"))
+            .accessibilityLabel(Text(verbatim: "\(localizedIntegerString(questionNumber)). \(word)"))
             .accessibilityAction {
                 guard isEnabled else { return }
                 withAnimation(.spring(duration: 0.2, bounce: 0)) {

@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.walletbasecontext.theme
 
 object NftAccentColors {
@@ -17,13 +19,13 @@ object NftAccentColors {
         "#FFFFFF"
     )
 
-    const val ACCENT_RADIOACTIVE_INDEX = 13;
-    const val ACCENT_SILVER_INDEX = 14;
-    const val ACCENT_GOLD_INDEX = 15;
-    const val ACCENT_BNW_INDEX = 16;
+    const val ACCENT_RADIOACTIVE_INDEX = 13
+    const val ACCENT_SILVER_INDEX = 14
+    const val ACCENT_GOLD_INDEX = 15
+    const val ACCENT_BNW_INDEX = 16
 
     val veryBrightColors = setOf(
         0xFFC3C5C6.toInt(), // Silver color in Dark theme = Light Gray
-        0xFFFFFFFF.toInt()  // BNW color in Dark theme = White
+        0xFFFFFFFF.toInt() // BNW color in Dark theme = White
     )
 }

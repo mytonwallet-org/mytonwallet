@@ -9,6 +9,6 @@ struct SendDappWarningView: View {
     
     var body: some View {
         WarningView(text: lang("$hardware_payload_warning"), kind: .warning)
-            .fontWeight(.medium)
+            .textStyle(.footnoteEmphasized, scaling: .dynamic)
     }
 }

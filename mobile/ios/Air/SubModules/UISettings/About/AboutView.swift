@@ -37,9 +37,9 @@ struct AboutView: View {
             headerIcon
             VStack(spacing: 4) {
                 Text("\(APP_NAME) \(appVersion)")
-                    .font(.system(size: 17, weight: .semibold))
+                    .textStyle(.bodyStrong, content: .technical)
                 Link(websiteTitle, destination: websiteUrl)
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting, content: .technical)
             }
         }
     }

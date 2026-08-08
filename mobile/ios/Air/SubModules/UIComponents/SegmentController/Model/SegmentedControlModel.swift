@@ -4,6 +4,32 @@ import UIKit
 import WalletContext
 import Perception
 
+public enum SegmentedControlStyle {
+    case regular
+    case colorHeader
+    case header
+    case rootHeader
+    case compactRootHeader
+}
+
+struct SegmentedControlConstants {
+    var spacing: CGFloat = 8
+    var height: CGFloat = 24
+    var topInset: CGFloat = 9
+    var innerPadding: CGFloat = 10
+    let accessoryWidth: CGFloat = 9.333
+    var backgroundPadding: CGFloat = 0
+    var fullHeight: CGFloat { height + topInset }
+    var fullHeightWithBackground: CGFloat { fullHeight + backgroundPadding * 2 }
+}
+
+struct SegmentedControlItemLayout: Equatable {
+    let id: SegmentedControlItem.ID
+    let labelFrame: CGRect
+    let interactionFrame: CGRect
+    let accessoryVisibility: CGFloat
+}
+
 @Perceptible @MainActor
 public final class SegmentedControlModel {
     
@@ -15,7 +41,7 @@ public final class SegmentedControlModel {
     @PerceptionIgnored
     let constants: SegmentedControlConstants
     @PerceptionIgnored
-    let backgroundStyle: SegmentedControlBackgroundStyle
+    let style: SegmentedControlStyle
     @PerceptionIgnored
     let font: UIFont
     @PerceptionIgnored
@@ -47,23 +73,28 @@ public final class SegmentedControlModel {
         self.capsuleColor = capsuleColor
         
         var constants = SegmentedControlConstants()
-        var backgroundStyle = SegmentedControlBackgroundStyle.none
         let font: UIFont
         switch style {
         case .regular:
-            font = .systemFont(ofSize: 14, weight: .medium)
+            font = WTypography.uiFont(.supportingEmphasized)
         case .colorHeader, .header:
-            font = .systemFont(ofSize: 15, weight: .medium)
+            font = WTypography.uiFont(.subheadlineEmphasized)
             constants.spacing = 0
             constants.height = 34
             constants.topInset = 0
             constants.innerPadding = 16
             constants.backgroundPadding = 3
-            backgroundStyle = style == .colorHeader ? .colorHeader : .header
+        case .rootHeader, .compactRootHeader:
+            font = WTypography.uiFont(.subheadlineEmphasized)
+            constants.spacing = 0
+            constants.height = 36
+            constants.topInset = 0
+            constants.innerPadding = style == .compactRootHeader ? 13 : 24
+            constants.backgroundPadding = 4
         }
         self.constants = constants
+        self.style = style
         self.font = font
-        self.backgroundStyle = backgroundStyle
     }
     
     public func setRawProgress(_ rawProgress: CGFloat) {
@@ -143,15 +174,11 @@ public final class SegmentedControlModel {
     func calculateContentWidth(includeBackground: Bool) -> CGFloat {
         guard items.count > 0 else { return 0 }
         let attrs: [NSAttributedString.Key: Any] = [.font: font]
-        var canAccessory = false
-        var width: CGFloat = 0
-        for item in items {
-            var itemWidth = (item.title as NSString).size(withAttributes: attrs).width
-            if item.canHaveAccessoryView, !canAccessory {
-                canAccessory = true
-                itemWidth += constants.accessoryWidth
-            }
-            width += itemWidth
+        var width = items.reduce(CGFloat.zero) { width, item in
+            width + (item.title as NSString).size(withAttributes: attrs).width
+        }
+        if items.contains(where: \.canHaveAccessoryView) {
+            width += constants.accessoryWidth
         }
         width += CGFloat(items.count) * 2 * constants.innerPadding
         width += CGFloat(items.count - 1) * constants.spacing
@@ -160,6 +187,36 @@ public final class SegmentedControlModel {
             width += 2 * constants.backgroundPadding
         }
         return ceil(width)
+    }
+
+    func itemLayouts() -> [SegmentedControlItemLayout]? {
+        var x: CGFloat = 0
+        var layouts: [SegmentedControlItemLayout] = []
+        layouts.reserveCapacity(items.count)
+
+        for item in items {
+            guard let size = elementSizes[item.id] else { return nil }
+            let accessoryVisibility = item.canHaveAccessoryView
+                ? 1 - distanceToItem(itemId: item.id)
+                : 0
+            let labelFrame = CGRect(x: x, y: 0, width: size.width, height: constants.height)
+            let interactionFrame = CGRect(
+                x: x,
+                y: 0,
+                width: size.width + constants.accessoryWidth * accessoryVisibility,
+                height: constants.height
+            )
+            layouts.append(
+                SegmentedControlItemLayout(
+                    id: item.id,
+                    labelFrame: labelFrame,
+                    interactionFrame: interactionFrame,
+                    accessoryVisibility: accessoryVisibility
+                )
+            )
+            x = interactionFrame.maxX + constants.spacing
+        }
+        return layouts
     }
     
     func getItemById(itemId: String) -> SegmentedControlItem? {

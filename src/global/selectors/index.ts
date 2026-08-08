@@ -1,4 +1,5 @@
 export * from './accounts';
+export * from './chains';
 export * from './dapp';
 export * from './tokens';
 export * from './activities';
@@ -6,5 +7,6 @@ export * from './swap';
 export * from './transfer';
 export * from './staking';
 export * from './domains';
+export * from './enclave';
 export * from './settings';
 export * from './portfolio';

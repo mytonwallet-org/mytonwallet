@@ -1,5 +1,9 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.assets
 
+import java.lang.ref.WeakReference
+import java.util.concurrent.Executors
+import kotlin.math.ceil
+import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -15,10 +19,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
-import java.lang.ref.WeakReference
-import java.util.concurrent.Executors
-import kotlin.math.ceil
-import kotlin.time.Duration.Companion.days
 
 class AssetsVM(
     private val viewMode: AssetsVC.ViewMode,
@@ -46,14 +46,14 @@ class AssetsVM(
         Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + queueDispatcher)
 
-    internal var nfts: MutableList<ApiNft>? = null
+    private var nfts: MutableList<ApiNft>? = null
     var assetRows: List<AssetRow> = emptyList()
         private set
     var expiringDomainsData: ExpiringDomainsData? = null
         private set
     var interactionMode: InteractionMode = InteractionMode.NORMAL
         private set
-    var cachedNftsToSave: MutableList<ApiNft>? = null
+    private var cachedNftsToSave: MutableList<ApiNft>? = null
     var nftsShown = false
         private set
     var isViewOnlyAccount = AccountStore.accountById(showingAccountId)?.isViewOnly == true
@@ -81,6 +81,7 @@ class AssetsVM(
     val thereAreMoreToShow: Boolean
         get() = nftsCount > 6
 
+    @Synchronized
     fun configure(accountId: String) {
         if (hasReadOnlyNfts) {
             return
@@ -118,9 +119,9 @@ class AssetsVM(
         queueDispatcher.close()
     }
 
+    @Synchronized
     private fun updateNfts(forceLoadNewAccount: Boolean) {
-        if (!forceLoadNewAccount && AccountStore.activeAccountId != showingAccountId)
-            return
+        if (!forceLoadNewAccount && AccountStore.activeAccountId != showingAccountId) return
 
         val oldAddresses = nfts?.map { it.address }
 
@@ -132,28 +133,36 @@ class AssetsVM(
         }
     }
 
-    fun loadCachedNftsAsync(
-        keepOrder: Boolean,
-        onFinished: ((Boolean) -> Unit)? = null
-    ) {
+    fun loadCachedNftsAsync(keepOrder: Boolean, onFinished: ((Boolean) -> Unit)? = null) {
         if (hasReadOnlyNfts) {
             val isChanged = applyReadOnlyNfts()
             onFinished?.invoke(isChanged)
             return
         }
+        val accountId = synchronized(this) { showingAccountId }
         scope.launch {
             val nftData = NftStore.nftData
             val cachedNfts =
-                if (nftData?.accountId == showingAccountId && nftData.cachedNfts != null)
+                if (nftData?.accountId == accountId && nftData.cachedNfts != null) {
                     nftData.cachedNfts
-                else
-                    NftStore.fetchCachedNfts(showingAccountId)
-            val isChanged = applyCachedNfts(cachedNfts, keepOrder)
+                } else {
+                    NftStore.fetchCachedNfts(accountId)
+                }
+            val isChanged = applyCachedNfts(accountId, cachedNfts, keepOrder)
 
             withContext(Dispatchers.Main) {
+                val shouldNotifyNftsShown = synchronized(this@AssetsVM) {
+                    if (accountId != showingAccountId) {
+                        null
+                    } else if (!nftsShown) {
+                        nftsShown = true
+                        true
+                    } else {
+                        false
+                    }
+                } ?: return@withContext
                 onFinished?.invoke(isChanged)
-                if (!nftsShown) {
-                    nftsShown = true
+                if (shouldNotifyNftsShown) {
                     delegate.get()?.nftsShown()
                 }
             }
@@ -174,10 +183,14 @@ class AssetsVM(
         return isChanged
     }
 
+    @Synchronized
     private fun applyCachedNfts(
+        accountId: String,
         cachedNfts: List<ApiNft>?,
         keepOrder: Boolean
     ): Boolean {
+        if (accountId != showingAccountId) return false
+
         val oldNfts = nfts?.toList()
 
         if (keepOrder && interactionMode == InteractionMode.DRAG && cachedNftsToSave != null) {
@@ -241,7 +254,9 @@ class AssetsVM(
             val expMs = expirationByAddress?.get(nft.address)
             val daysUntilExpiration = if (expMs != null && expMs <= expiryThresholdMs) {
                 ceil((expMs - nowMs).toDouble() / dayMs).toInt()
-            } else null
+            } else {
+                null
+            }
             AssetRow(
                 nft = nft,
                 interactionMode = interactionMode,
@@ -281,6 +296,7 @@ class AssetsVM(
         }
     }
 
+    @Synchronized
     private fun refreshExpiringDomainsData() {
         rebuildExpiringDomainsData(NftStore.nftData?.expirationByAddress)
     }
@@ -322,13 +338,14 @@ class AssetsVM(
         }
     }
 
+    @Synchronized
     fun moveItem(fromPosition: Int, toPosition: Int, shouldSave: Boolean) {
         nfts?.let { nftList ->
             if (fromPosition < nftList.size && toPosition < nftList.size) {
-
-                if (cachedNftsToSave == null)
+                if (cachedNftsToSave == null) {
                     cachedNftsToSave =
                         NftStore.nftData?.cachedNfts?.toMutableList() ?: return
+                }
 
                 val mainFromPos =
                     cachedNftsToSave!!
@@ -350,21 +367,30 @@ class AssetsVM(
         }
     }
 
+    @Synchronized
     fun saveList() {
-        if (AccountStore.activeAccountId != showingAccountId) return
+        val accountId = AccountStore.activeAccountId ?: return
+        if (accountId != showingAccountId) return
 
-        cachedNftsToSave?.let {
-            NftStore.setNfts(
-                chain = null,
-                nfts = it,
-                accountId = AccountStore.activeAccountId!!,
-                notifyObservers = true,
-                isReorder = true
-            )
-            cachedNftsToSave = null
-        }
+        val nftsToSave = cachedNftsToSave?.toList() ?: return
+        val savedOrder = nftsToSave.map { it.address }
+        NftStore.setNfts(
+            chain = null,
+            nfts = nftsToSave,
+            accountId = accountId,
+            notifyObservers = true,
+            isReorder = true,
+            onComplete = {
+                synchronized(this) {
+                    if (cachedNftsToSave?.map { it.address } == savedOrder) {
+                        cachedNftsToSave = null
+                    }
+                }
+            }
+        )
     }
 
+    @Synchronized
     fun setAnimationsPaused(paused: Boolean): Boolean {
         if (animationsPaused == paused) {
             return false
@@ -374,34 +400,40 @@ class AssetsVM(
         return true
     }
 
+    @Synchronized
     fun startSorting() {
         if (interactionMode == InteractionMode.DRAG) return
         interactionMode = InteractionMode.DRAG
         rebuildAssetRows()
     }
 
+    @Synchronized
     fun endSorting() {
         if (interactionMode != InteractionMode.DRAG) return
         interactionMode = InteractionMode.NORMAL
         rebuildAssetRows()
     }
 
+    @Synchronized
     fun enterSelectionMode() {
         if (interactionMode == InteractionMode.SELECTION) return
         interactionMode = InteractionMode.SELECTION
         rebuildAssetRows()
     }
 
+    @Synchronized
     fun exitSelectionMode() {
         interactionMode = InteractionMode.NORMAL
         clearSelection()
     }
 
+    @Synchronized
     fun clearSelection() {
         selectedAssets.clear()
         rebuildAssetRows()
     }
 
+    @Synchronized
     fun toggleSelection(address: String): Boolean {
         val isSelected = if (selectedAssets.contains(address)) {
             selectedAssets.remove(address)
@@ -414,27 +446,27 @@ class AssetsVM(
         return isSelected
     }
 
+    @Synchronized
     fun selectAllVisible() {
         selectedAssets.addAll(assetRows.map { it.nft.address })
         rebuildAssetRows()
     }
 
-    fun hasSelectedAssets(): Boolean {
-        return selectedAssets.isNotEmpty()
+    @Synchronized
+    fun hasSelectedAssets(): Boolean = selectedAssets.isNotEmpty()
+
+    @Synchronized
+    fun selectedCount(): Int = selectedAssets.size
+
+    @Synchronized
+    fun getSelectedNfts(): List<ApiNft> = nfts.orEmpty().filter {
+        selectedAssets.contains(it.address)
     }
 
-    fun selectedCount(): Int {
-        return selectedAssets.size
-    }
+    @Synchronized
+    fun getSelectedAddresses(): Set<String> = LinkedHashSet(selectedAssets)
 
-    fun getSelectedNfts(): List<ApiNft> {
-        return nfts.orEmpty().filter { selectedAssets.contains(it.address) }
-    }
-
-    fun getSelectedAddresses(): Set<String> {
-        return LinkedHashSet(selectedAssets)
-    }
-
+    @Synchronized
     fun setSelectedAddresses(addresses: Collection<String>) {
         selectedAssets.clear()
         selectedAssets.addAll(addresses)
@@ -442,15 +474,12 @@ class AssetsVM(
         rebuildAssetRows()
     }
 
-    fun getAllNfts(): MutableList<ApiNft>? {
-        return nfts
-    }
+    @Synchronized
+    fun getAllNfts(): List<ApiNft>? = nfts?.toList()
 
-    fun firstExpiringDomain(): ApiNft? {
-        return expiringDomains.firstOrNull()
-    }
+    @Synchronized
+    fun firstExpiringDomain(): ApiNft? = expiringDomains.firstOrNull()
 
-    fun ignoredExpiringDomainAddresses(): List<String> {
-        return expiringDomains.map { it.address }
-    }
+    @Synchronized
+    fun ignoredExpiringDomainAddresses(): List<String> = expiringDomains.map { it.address }
 }

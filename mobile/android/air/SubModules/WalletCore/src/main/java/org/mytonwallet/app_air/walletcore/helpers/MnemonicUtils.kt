@@ -1,10 +1,8 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
-fun String.toMnemonicRegex(): Regex {
-    return map { Regex.escape(it.toString()) }
-        .joinToString(".*", prefix = "^", postfix = ".*$")
-        .toRegex()
-}
+fun String.toMnemonicRegex(): Regex = map { Regex.escape(it.toString()) }
+    .joinToString(".*", prefix = "^", postfix = ".*$")
+    .toRegex()
 
 fun Array<String>.findMnemonicMatches(query: String): List<String> {
     if (query.isEmpty()) {

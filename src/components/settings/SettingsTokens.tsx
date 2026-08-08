@@ -40,6 +40,7 @@ interface OwnProps {
   pinnedSlugs?: string[];
   baseCurrency: ApiBaseCurrency;
   isSensitiveDataHidden?: true;
+  areTokenNamesLocalized?: boolean;
 }
 
 function SettingsTokens({
@@ -47,6 +48,7 @@ function SettingsTokens({
   tokens,
   baseCurrency,
   isSensitiveDataHidden,
+  areTokenNamesLocalized,
   pinnedSlugs,
 }: OwnProps) {
   const {
@@ -127,7 +129,7 @@ function SettingsTokens({
 
     const totalAmount = bigintMultiplyToNumber(amount, price);
     const isPinned = pinnedSlugs?.includes(slug);
-    const tokenName = getTokenName(lang, token);
+    const tokenName = getTokenName(lang, token, areTokenNamesLocalized);
 
     const isDeleteButtonVisible = amount === 0n;
 

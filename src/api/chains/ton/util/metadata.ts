@@ -29,15 +29,18 @@ import {
   MW_CARDS_COLLECTION,
   NFT_FRAGMENT_COLLECTIONS,
   NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX,
+  NOTCOIN_VOUCHERS_ADDRESS,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
+  TON_DNS_ZONES,
 } from '../../../../config';
-import { fetchJsonWithProxy, fixIpfsUrl, getProxiedLottieUrl } from '../../../../util/fetch';
+import { fetchJsonWithProxy, getProxiedLottieUrl } from '../../../../util/fetch';
 import isEmptyObject from '../../../../util/isEmptyObject';
 import { omitUndefined, pick, range } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
 import {
   checkHasScamLink,
   checkIsTrustedCollection,
+  getHasTrustedCollections,
   getNftSuperCollectionsByCollectionAddress,
 } from '../../../common/addresses';
 import { buildTokenSlug } from '../../../common/tokens';
@@ -65,6 +68,12 @@ type OpCodes = OpCode | JettonOpCode | NftOpCode | LiquidStakingOpCode | Vesting
 
 const OFFCHAIN_CONTENT_PREFIX = 0x01;
 const SNAKE_PREFIX = 0x00;
+
+const VERIFIED_TON_COLLECTIONS = new Set<string>([
+  MW_CARDS_COLLECTION,
+  NOTCOIN_VOUCHERS_ADDRESS,
+  ...TON_DNS_ZONES.map(({ resolver }) => resolver),
+]);
 
 export function fixBase64ImageData(data: string) {
   const decodedData = base64ToString(data);
@@ -411,9 +420,9 @@ export async function parsePayloadSlice(
         const category = Object.entries(DNS_CATEGORY_HASH_MAP)
           .find(([, value]) => hash === value)?.[0] as DnsCategory ?? 'unknown';
         const toAddress = slice.loadAddress();
-        const domain = shouldLoadItems
+        const domain = (shouldLoadItems
           ? await getDnsItemDomain(network, toAddress)
-          : '';
+          : undefined) ?? '';
 
         if (category === DnsCategory.Wallet) {
           if (slice.remainingRefs > 0) {
@@ -681,8 +690,8 @@ export function parseTonapiioNft(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
     const isScam = hasScamLink || description === 'SCAM' || trust === 'blacklist';
     const isHidden = renderType === 'hidden' || isScam;
-    const imageFromPreview = previews!.find((x) => x.resolution === '1500x1500')!.url;
     const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
+    const isOnFragment = isFragmentGift || (!!collection && NFT_FRAGMENT_COLLECTIONS.includes(collection.address));
 
     const metadata = {
       ...(Array.isArray(attributes) && {
@@ -701,16 +710,17 @@ export function parseTonapiioNft(
       name,
       ownerAddress: owner ? toBase64Address(owner.address, false, network) : undefined,
       address: toBase64Address(address, true, network),
-      image: fixIpfsUrl(imageFromPreview || image || ''),
-      thumbnail: previews!.find((x) => x.resolution === '500x500')!.url,
+      image: previews?.find((x) => x.resolution === '1500x1500')?.url,
+      thumbnail: previews?.find((x) => x.resolution === '500x500')?.url,
       isOnSale: Boolean(sale),
       isHidden,
       isScam,
+      isUnverified: getIsNftUnverified({ collectionAddress, isOnFragment }),
       description,
       ...(collection && {
         collectionAddress,
         collectionName: collection.name,
-        isOnFragment: isFragmentGift || NFT_FRAGMENT_COLLECTIONS.includes(collection.address),
+        isOnFragment,
         isTelegramGift: isFragmentGift,
       }),
       metadata,
@@ -728,4 +738,28 @@ export function getIsFragmentGift(
   return collectionAddress
     ? nftSuperCollectionsByCollectionAddress[collectionAddress]?.id === TELEGRAM_GIFTS_SUPER_COLLECTION
     : false;
+}
+
+/**
+ * Returns `true` when the collection matched no trust signal, and `undefined` otherwise, so that `omitUndefined`
+ * leaves verified NFTs unchanged. Both TON parsers must pass the same inputs here: an NFT built from an activity
+ * replaces the one loaded by polling, so different answers would make it appear and disappear.
+ */
+export function getIsNftUnverified(options: {
+  collectionAddress?: string;
+  isOnFragment?: boolean;
+}): true | undefined {
+  const { collectionAddress, isOnFragment } = options;
+
+  // Until the backend list arrives every collection looks unverified, so the filter stays off
+  if (!getHasTrustedCollections()) return undefined;
+
+  if (isOnFragment) return undefined;
+
+  if (collectionAddress
+    && (VERIFIED_TON_COLLECTIONS.has(collectionAddress) || checkIsTrustedCollection(collectionAddress))) {
+    return undefined;
+  }
+
+  return true;
 }

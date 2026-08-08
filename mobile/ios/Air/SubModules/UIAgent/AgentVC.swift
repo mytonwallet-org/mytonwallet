@@ -6,11 +6,8 @@ import WalletCore
 private let log = Log("AgentVC")
 
 private enum AgentVCLayout {
-    static let screenBackgroundColor = UIColor.air.background
     static let maxContentWidth = AgentContentLayout.maxContentWidth
-    static let sectionInsets = NSDirectionalEdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0)
     static let bottomMessageSpacing: CGFloat = 16
-    static let interGroupSpacing: CGFloat = 6
     static let hintsSpacingToMessages: CGFloat = 17
     static let hintsSpacingToComposer: CGFloat = 26
     static let hintsRowHeight: CGFloat = 66
@@ -18,20 +15,10 @@ private enum AgentVCLayout {
     static let nearBottomThreshold: CGFloat = 60
     static let composerResizeAnimationDuration: TimeInterval = 0.2
     static let bottomAlignmentAnimationDuration: TimeInterval = 0.25
-
-}
-
-private struct AgentBottomAlignmentAnimation {
-    let duration: TimeInterval
-    let options: UIView.AnimationOptions
-}
-
-private struct AgentBottomLayoutState {
-    let contentInset: UIEdgeInsets
-    let verticalScrollIndicatorInsets: UIEdgeInsets
-    let contentOffset: CGPoint
-    let contentHeight: CGFloat
-    let visibleHeight: CGFloat
+    static let arrivalUserMessageTailInset: CGFloat = 100
+    static let sentUserMessageRevealDuration: TimeInterval = 0.25
+    static let sentUserMessageFlyUpDuration: TimeInterval = 0.3
+    static let typingIndicatorRevealGap: TimeInterval = 0.18
 }
 
 private final class AgentPassthroughContainerView: UIView {
@@ -48,13 +35,61 @@ private final class AgentPassthroughContainerView: UIView {
     }
 }
 
-public final class AgentVC: WViewController, UICollectionViewDelegate, UIGestureRecognizerDelegate {
+@MainActor
+extension AgentBackendKind {
+    var isAvailable: Bool {
+        switch self {
+        case .testing:
+            #if DEBUG
+            true
+            #else
+            false
+            #endif
+        case .real:
+            true
+        case .local, .hybrid:
+            AgentStore.shared.isLocalBackendAvailable
+        }
+    }
+    
+    static var preferredKind: AgentBackendKind {
+        switch ConfigStore.shared.preferredAgent {
+        case .local:
+            return AgentStore.shared.isLocalBackendAvailable ? .local : .real
+        case .hybrid:
+            return AgentStore.shared.isLocalBackendAvailable ? .hybrid : .real
+        case .online:
+            return .real
+        }
+    }
+}
+
+public final class AgentVC: WViewController {
     private enum Section: Hashable {
         case main
     }
 
+    private enum ListItemID: Hashable {
+        case message(AgentItemID)
+        case bottomSpacer
+    }
+
     private let model: AgentModel
-    private let collectionView = UICollectionView(frame: .zero, collectionViewLayout: AgentVC.makeLayout())
+    private let collectionView: UICollectionView = {
+        let itemSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1),
+            heightDimension: .estimated(76)
+        )
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: itemSize, subitems: [item])
+        let section = NSCollectionLayoutSection(group: group)
+        section.interGroupSpacing = 6
+        section.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0)
+        let layout = UICollectionViewCompositionalLayout(section: section)
+
+        return UICollectionView(frame: .zero, collectionViewLayout: layout)
+    }()
+    
     private lazy var dataSource = makeDataSource()
 
     private let contentLayoutGuide = UILayoutGuide()
@@ -73,21 +108,24 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     private lazy var scrollToBottomButtonBottomToHintsConstraint = scrollToBottomButton.bottomAnchor.constraint(equalTo: hintsContainerView.topAnchor, constant: -16)
 
     private var hasPerformedInitialScroll = false
-    private var hasCompletedInitialBottomAlignment = false
     private var lastKnownNearBottom = true
-    private var keepsBottomPinnedWhileKeyboardIsActive = false
-    private var shouldScrollToBottomAfterNextLayout = false
-    private var pendingBottomAlignmentAnimation: AgentBottomAlignmentAnimation?
     private var editingMessageID: AgentItemID?
+    private var isArrivalScrollInFlight = false
+    private var isRevealingSentUserMessage = false
+    private var isResizingStreamingRow = false
+    private var reserveSpacerHeight: CGFloat = 0
+    private var arrivalAnchorUserMessageID: AgentItemID?
+    private var pendingArrivalSpacerTrim = false
 
-    public init(backendKind: AgentBackendKind) {
-        self.model = AgentModel(backendKind: backendKind)
+    private init(backend: AgentBackend) {
+        self.model = AgentModel(backend: backend)
         super.init(nibName: nil, bundle: nil)
         title = lang("Agent")
     }
 
     public convenience init() {
-        self.init(backendKind: AgentModel.preferredBackendKind())
+        let backend = AgentModel.makeBackend(kind: AgentBackendKind.preferredKind)
+        self.init(backend: backend)
     }
 
     init(model: AgentModel) {
@@ -118,58 +156,60 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
 
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
-        model.setActive(true)
+        model.isActive = true
         model.checkAccountChanged(animated: false)
-        guard !hasPerformedInitialScroll else { return }
-        hasPerformedInitialScroll = true
-        requestBottomAlignmentAfterNextLayout()
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        model.setActive(false)
+        model.isActive = false
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
-        updateTheme()
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            updateTheme()
+        }
     }
 
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        if shouldScrollToBottomAfterNextLayout {
-            guard canResolveBottomLayoutState else { return }
-            let animation = pendingBottomAlignmentAnimation
-            shouldScrollToBottomAfterNextLayout = false
-            pendingBottomAlignmentAnimation = nil
-            performPendingBottomAlignment(animation: animation)
-        } else if canResolveBottomLayoutState {
-            if hasCompletedInitialBottomAlignment && lastKnownNearBottom {
-                let state = makeBottomLayoutState()
-                applyBottomLayoutState(state, alignLastItem: true)
-            } else {
-                updateBottomPinnedInsets()
-            }
+        
+        guard canResolveBottomLayoutState else { return }
+        let keepBottomVisible = lastKnownNearBottom && !isArrivalScrollInFlight && !hasActiveStreamingMessage && !isRevealingSentUserMessage
+        updateOcclusionInsets()
+        if keepBottomVisible {
+            revealLastItemIfNeeded(animated: false)
         }
         lastKnownNearBottom = isNearBottom()
         updateScrollToBottomButtonVisibility(animated: false)
     }
 
     private func updateTheme() {
-        view.backgroundColor = AgentVCLayout.screenBackgroundColor
-        collectionView.backgroundColor = .clear
+        view.backgroundColor = .air.background
         composerView.applyTheme()
         scrollToBottomButton.applyTheme()
         updateSendButtonState()
+        reconfigureItemsForTheme()
+    }
+
+    private func reconfigureItemsForTheme() {
+        var snapshot = dataSource.snapshot()
+        let items = snapshot.itemIdentifiers
+        guard !items.isEmpty else { return }
+        snapshot.reconfigureItems(items)
+        dataSource.apply(snapshot, animatingDifferences: false)
     }
 
     public override func scrollToTop(animated: Bool) {
-        scrollToBottom(animated: animated)
+        guard let indexPath = lastItemIndexPath else { return }
+        collectionView.scrollToItem(at: indexPath, at: .bottom, animated: animated)
     }
 
     public func switchBackend(to backendKind: AgentBackendKind, animated: Bool = true) {
-        model.switchBackend(to: backendKind, animated: animated)
+        let backend = AgentModel.makeBackend(kind: backendKind)
+        model.switchBackend(to: backend, animated: animated)
         refreshNavigationItemMenu()
     }
 
@@ -200,13 +240,10 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         }
         composerView.onBeginEditing = { [weak self] in
             guard let self else { return }
-            let isNearBottom = self.isNearBottom()
-            self.lastKnownNearBottom = isNearBottom
-            self.keepsBottomPinnedWhileKeyboardIsActive = isNearBottom
+            self.lastKnownNearBottom = self.isNearBottom()
         }
         composerView.onEndEditing = { [weak self] in
             guard let self else { return }
-            self.keepsBottomPinnedWhileKeyboardIsActive = false
             if self.composerView.draftText?.isEmpty != false {
                 self.editingMessageID = nil
             }
@@ -218,11 +255,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             self?.toggleHintsVisibility()
         }
         composerView.onLayoutHeightChanged = { [weak self] in
-            guard let self, self.composerView.isTextInputActive else { return }
-            self.requestBottomAlignmentAfterNextLayout(
-                animation: Self.composerResizeBottomAlignmentAnimation,
-                onlyIfNearBottom: true
-            )
+            self?.view.setNeedsLayout()
         }
 
         scrollToBottomButton.translatesAutoresizingMaskIntoConstraints = false
@@ -285,13 +318,17 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             fallbackConstraint
         ])
 
-        addCustomNavigationBarBackground(color: AgentVCLayout.screenBackgroundColor)
+        view.backgroundColor = .air.background
+        addCustomNavigationBarBackground(color: .air.background)
         setupNavigationItem()
 
         updateTheme()
     }
 
     private func setupNavigationItem() {
+        let header = NavigationHeader2()
+        header.setTitle(lang("Agent"))
+        navigationItem.titleView = header
         navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: makeOverflowMenu())
     }
 
@@ -339,12 +376,6 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         WalletCoreData.add(eventObserver: self)
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleKeyboardWillChangeFrame(_:)),
-            name: UIResponder.keyboardWillChangeFrameNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(handleSignificantTimeChange),
             name: UIApplication.significantTimeChangeNotification,
             object: nil
@@ -357,11 +388,18 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         )
     }
 
-    private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, AgentItemID> {
+    private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, ListItemID> {
         let messageRegistration = UICollectionView.CellRegistration<AgentMessageCell, AgentItemID> { [weak self] cell, _, itemID in
             guard let self,
                   let item = self.model.item(for: itemID),
                   case .message(let message) = item else { return }
+            
+            cell.onPreferredHeightChanged = { [weak self] _ in
+                self?.handleStreamingCellHeightChanged(itemID: itemID)
+            }
+            cell.onStreamingRevealCompleted = { [weak self] in
+                self?.handleStreamingRevealCompleted(itemID: itemID)
+            }
             cell.configure(
                 with: message,
                 onActionTap: { [weak self] in
@@ -384,55 +422,432 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             cell.configure()
         }
 
-        return UICollectionViewDiffableDataSource<Section, AgentItemID>(collectionView: collectionView) { [weak self] collectionView, indexPath, itemID in
-            guard let self, let item = self.model.item(for: itemID) else {
-                return UICollectionViewCell()
-            }
+        let spacerRegistration = UICollectionView.CellRegistration<AgentSpacerCell, ListItemID> { [weak self] cell, _, _ in
+            cell.heightProvider = { [weak self] in self?.reserveSpacerHeight ?? 0 }
+        }
 
-            switch item {
-            case .message(let message):
-                switch message.role {
-                case .system:
-                    return collectionView.dequeueConfiguredReusableCell(using: systemRegistration, for: indexPath, item: itemID)
-                case .assistant, .user:
-                    return collectionView.dequeueConfiguredReusableCell(using: messageRegistration, for: indexPath, item: itemID)
+        return UICollectionViewDiffableDataSource<Section, ListItemID>(collectionView: collectionView) { [weak self] collectionView, indexPath, listItemID in
+            switch listItemID {
+            case .bottomSpacer:
+                return collectionView.dequeueConfiguredReusableCell(using: spacerRegistration, for: indexPath, item: listItemID)
+            case .message(let itemID):
+                guard let self, let item = self.model.item(for: itemID) else {
+                    return UICollectionViewCell()
                 }
-            case .typingIndicator:
-                return collectionView.dequeueConfiguredReusableCell(using: typingRegistration, for: indexPath, item: itemID)
+                switch item {
+                case .message(let message):
+                    switch message.role {
+                    case .system:
+                        return collectionView.dequeueConfiguredReusableCell(using: systemRegistration, for: indexPath, item: itemID)
+                    case .assistant, .user:
+                        return collectionView.dequeueConfiguredReusableCell(using: messageRegistration, for: indexPath, item: itemID)
+                    }
+                case .typingIndicator:
+                    return collectionView.dequeueConfiguredReusableCell(using: typingRegistration, for: indexPath, item: itemID)
+                }
             }
         }
     }
 
-    private func applySnapshot(animated: Bool, reconfigureItemIDs: [AgentItemID] = []) {
-        let currentItemIDs = Set(dataSource.snapshot().itemIdentifiers)
+    private func snapshotMessageIDs() -> [AgentItemID] {
+        dataSource.snapshot().itemIdentifiers.compactMap { listItemID in
+            if case .message(let id) = listItemID { return id }
+            return nil
+        }
+    }
+
+    private func messageIndexPath(for id: AgentItemID) -> IndexPath? {
+        dataSource.indexPath(for: .message(id))
+    }
+
+    private func messageItemID(at indexPath: IndexPath) -> AgentItemID? {
+        if case .message(let id)? = dataSource.itemIdentifier(for: indexPath) { return id }
+        return nil
+    }
+
+    private static let replyCrossfadeDuration: TimeInterval = 0.2
+
+    private func applySnapshot(
+        animated: Bool,
+        reconfigureItemIDs: [AgentItemID] = [],
+        crossfade: Bool = false,
+        completion: (() -> Void)? = nil
+    ) {
+        let currentItemIDs = Set(snapshotMessageIDs())
         let nextItemIDs = Set(model.itemIDs)
-        var snapshot = NSDiffableDataSourceSnapshot<Section, AgentItemID>()
+        var snapshot = NSDiffableDataSourceSnapshot<Section, ListItemID>()
         snapshot.appendSections([.main])
-        snapshot.appendItems(model.itemIDs, toSection: .main)
+        snapshot.appendItems(model.itemIDs.map { .message($0) }, toSection: .main)
+        snapshot.appendItems([.bottomSpacer], toSection: .main)
         let changedExistingItemIDs = reconfigureItemIDs.filter {
             currentItemIDs.contains($0) && nextItemIDs.contains($0)
         }
         if !changedExistingItemIDs.isEmpty {
-            snapshot.reconfigureItems(changedExistingItemIDs)
+            snapshot.reconfigureItems(changedExistingItemIDs.map { .message($0) })
         }
-        dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
-            guard let self else { return }
-            self.collectionView.collectionViewLayout.invalidateLayout()
-            if self.hasCompletedInitialBottomAlignment {
-                self.scrollToBottom(animated: animated)
-            } else {
-                self.requestBottomAlignmentAfterNextLayout()
+
+        guard crossfade else {
+            dataSource.apply(snapshot, animatingDifferences: animated) { completion?() }
+            return
+        }
+        UIView.transition(
+            with: collectionView,
+            duration: Self.replyCrossfadeDuration,
+            options: [.transitionCrossDissolve, .allowUserInteraction]
+        ) {
+            self.dataSource.apply(snapshot, animatingDifferences: false)
+        } completion: { _ in
+            completion?()
+        }
+    }
+
+    private var hasActiveStreamingMessage: Bool {
+        model.itemIDs.contains { itemID in
+            guard let item = model.item(for: itemID), case .message(let message) = item else { return false }
+            return message.isStreaming
+        }
+    }
+
+    private var totalOcclusionBottomInset: CGFloat {
+        let composerInputFrame = collectionView.convert(composerView.inputBackgroundFrame, from: composerView)
+        let overlayTop = coveredBottomOverlayTop(using: composerInputFrame)
+        return max(0, collectionView.bounds.maxY - overlayTop) + AgentVCLayout.bottomMessageSpacing
+    }
+
+    private func updateOcclusionInsets() {
+        guard canResolveBottomLayoutState else { return }
+        let total = totalOcclusionBottomInset
+        let baselineBottom = collectionView.adjustedContentInset.bottom - collectionView.contentInset.bottom
+        let additional = max(0, total - baselineBottom)
+        if abs(collectionView.contentInset.bottom - additional) > 0.5 {
+            collectionView.contentInset.bottom = additional
+        }
+        if abs(collectionView.verticalScrollIndicatorInsets.bottom - total) > 0.5 {
+            collectionView.verticalScrollIndicatorInsets.bottom = total
+        }
+    }
+
+    private func applyMinimalArrivalReserveSpacerHeight(for userMessageID: AgentItemID) {
+        guard let indexPath = messageIndexPath(for: userMessageID),
+              let attributes = collectionView.layoutAttributesForItem(at: indexPath) else { return }
+        let top = collectionView.adjustedContentInset.top
+        let bottom = collectionView.adjustedContentInset.bottom
+        let targetOffsetY = attributes.frame.maxY - top - AgentVCLayout.arrivalUserMessageTailInset
+        let contentHeightWithoutSpacer = max(
+            0,
+            collectionView.collectionViewLayout.collectionViewContentSize.height - reserveSpacerHeight
+        )
+        let minSpacer = max(
+            reserveSpacerHeight,
+            max(0, targetOffsetY + collectionView.bounds.height - bottom - contentHeightWithoutSpacer)
+        )
+        applyReserveSpacerHeight(minSpacer, preservingOffset: true)
+    }
+
+    private func applyReserveSpacerHeight(_ height: CGFloat, preservingOffset: Bool = false) {
+        let clamped = max(0, height)
+        guard abs(reserveSpacerHeight - clamped) > 0.5 else { return }
+
+        let invalidate = {
+            self.reserveSpacerHeight = clamped
+            let context = UICollectionViewLayoutInvalidationContext()
+            if let spacerIndexPath = self.dataSource.indexPath(for: .bottomSpacer) {
+                context.invalidateItems(at: [spacerIndexPath])
+            }
+            self.collectionView.collectionViewLayout.invalidateLayout(with: context)
+            if preservingOffset {
+                self.collectionView.layoutIfNeeded()
             }
         }
+
+        if preservingOffset {
+            preservingTopVisibleRow(invalidate)
+        } else {
+            invalidate()
+        }
     }
 
-    private func updateBottomPinnedInsets() {
+    private func preservingTopVisibleRow(_ body: () -> Void) {
+        let anchor = topVisibleRowAnchor()
+        body()
+        guard let anchor,
+              let frameAfter = collectionView.layoutAttributesForItem(at: anchor.indexPath)?.frame else {
+            return
+        }
+        let corrected = clampedContentOffsetY(anchor.offsetY + (frameAfter.minY - anchor.minY))
+        if abs(collectionView.contentOffset.y - corrected) > 0.5 {
+            collectionView.contentOffset.y = corrected
+        }
+    }
+
+    private func topVisibleRowAnchor() -> (indexPath: IndexPath, minY: CGFloat, offsetY: CGFloat)? {
+        guard let indexPath = collectionView.indexPathsForVisibleItems
+            .filter({ dataSource.itemIdentifier(for: $0) != .bottomSpacer })
+            .min(),
+              let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else {
+            return nil
+        }
+        return (indexPath, frame.minY, collectionView.contentOffset.y)
+    }
+
+    private func clampedContentOffsetY(_ rawY: CGFloat) -> CGFloat {
+        let top = collectionView.adjustedContentInset.top
+        let bottom = collectionView.adjustedContentInset.bottom
+        let minY = -top
+        let contentHeight = collectionView.collectionViewLayout.collectionViewContentSize.height
+        let maxY = max(minY, contentHeight - collectionView.bounds.height + bottom)
+        return min(max(rawY, minY), maxY)
+    }
+
+    private func trimReserveSpacerPreservingOffset() {
         collectionView.layoutIfNeeded()
-        applyInsets(from: makeBottomLayoutState())
+        let contentHeight = collectionView.collectionViewLayout.collectionViewContentSize.height
+        let heightWithoutSpacer = max(0, contentHeight - reserveSpacerHeight)
+        let top = collectionView.adjustedContentInset.top
+        let bottom = collectionView.adjustedContentInset.bottom
+        let minY = -top
+        let offsetY = collectionView.contentOffset.y
+        let maxYWithZero = max(minY, heightWithoutSpacer - collectionView.bounds.height + bottom)
+        if offsetY <= maxYWithZero + 0.5 {
+            applyReserveSpacerHeight(0, preservingOffset: true)
+            return
+        }
+        let spacerNeeded = offsetY - heightWithoutSpacer + collectionView.bounds.height - bottom
+        applyReserveSpacerHeight(max(0, spacerNeeded), preservingOffset: true)
     }
 
-    private func scrollToBottom(animated: Bool) {
-        performBottomAlignment(animation: animated ? Self.timelineBottomAlignmentAnimation : nil)
+    private var lastTypingIndicatorID: AgentItemID? {
+        for itemID in model.itemIDs.reversed() {
+            guard let item = model.item(for: itemID), case .typingIndicator = item else { continue }
+            return itemID
+        }
+        return nil
+    }
+
+    private var lastStreamingAssistantID: AgentItemID? {
+        for itemID in model.itemIDs.reversed() {
+            guard let item = model.item(for: itemID),
+                  case .message(let message) = item,
+                  message.role == .assistant,
+                  message.isStreaming else {
+                continue
+            }
+            return itemID
+        }
+        return nil
+    }
+
+    private var lastAssistantReplyID: AgentItemID? {
+        for itemID in model.itemIDs.reversed() {
+            guard let item = model.item(for: itemID),
+                  case .message(let message) = item,
+                  message.role == .assistant else {
+                continue
+            }
+            return itemID
+        }
+        return nil
+    }
+
+    private var arrivalUserMessageID: AgentItemID? {
+        guard let assistantID = lastStreamingAssistantID,
+              let assistantIndex = model.itemIDs.firstIndex(of: assistantID) else {
+            return nil
+        }
+        for itemID in model.itemIDs[..<assistantIndex].reversed() {
+            guard let item = model.item(for: itemID),
+                  case .message(let message) = item,
+                  message.role == .user else {
+                continue
+            }
+            return itemID
+        }
+        return nil
+    }
+
+    private func visibleContentRect() -> CGRect {
+        let insets = collectionView.adjustedContentInset
+        return CGRect(
+            x: collectionView.contentOffset.x + insets.left,
+            y: collectionView.contentOffset.y + insets.top,
+            width: collectionView.bounds.width - insets.left - insets.right,
+            height: collectionView.bounds.height - insets.top - insets.bottom
+        )
+    }
+
+    private func revealTypingIndicatorIfNeeded() {
+        guard let typingID = lastTypingIndicatorID,
+              let indexPath = messageIndexPath(for: typingID) else {
+            return
+        }
+        collectionView.layoutIfNeeded()
+        guard let attributes = collectionView.layoutAttributesForItem(at: indexPath) else { return }
+
+        let visible = visibleContentRect()
+        let frame = attributes.frame
+        if frame.minY >= visible.minY - 0.5, frame.maxY <= visible.maxY + 0.5 {
+            return
+        }
+        if visible.intersects(frame.insetBy(dx: 0, dy: 1)) {
+            return
+        }
+
+        var targetOffsetY = collectionView.contentOffset.y
+        if frame.maxY > visible.maxY {
+            targetOffsetY += frame.maxY - visible.maxY
+        } else if frame.minY < visible.minY {
+            targetOffsetY += frame.minY - visible.minY
+        }
+        targetOffsetY = clampedContentOffsetY(targetOffsetY)
+        guard abs(targetOffsetY - collectionView.contentOffset.y) > 0.5 else { return }
+        collectionView.setContentOffset(
+            CGPoint(x: collectionView.contentOffset.x, y: targetOffsetY),
+            animated: true
+        )
+    }
+
+    @discardableResult
+    private func performArrivalScroll(for userMessageID: AgentItemID) -> Bool {
+        guard let indexPath = messageIndexPath(for: userMessageID) else { return false }
+        collectionView.layoutIfNeeded()
+        guard let attributes = collectionView.layoutAttributesForItem(at: indexPath) else { return false }
+
+        let top = collectionView.adjustedContentInset.top
+        let distanceBelowTop = attributes.frame.maxY - (collectionView.contentOffset.y + top)
+        guard distanceBelowTop > AgentVCLayout.arrivalUserMessageTailInset + 0.5 else { return false }
+
+        let targetOffsetY = attributes.frame.maxY - top - AgentVCLayout.arrivalUserMessageTailInset
+        let clampedOffsetY = clampedContentOffsetY(targetOffsetY)
+        guard abs(clampedOffsetY - collectionView.contentOffset.y) > 0.5 else { return false }
+
+        collectionView.setContentOffset(
+            CGPoint(x: collectionView.contentOffset.x, y: clampedOffsetY),
+            animated: true
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            self?.endArrivalScroll()
+        }
+        return true
+    }
+
+    private func endArrivalScroll() {
+        guard isArrivalScrollInFlight else { return }
+        isArrivalScrollInFlight = false
+        renderDeferredReply()
+        if pendingArrivalSpacerTrim {
+            pendingArrivalSpacerTrim = false
+            trimArrivalSpacerIfNeeded()
+        }
+        updateScrollToBottomButtonVisibility(animated: false)
+    }
+
+    private func renderDeferredReply() {
+        let anchorUserMessageID = arrivalAnchorUserMessageID
+        arrivalAnchorUserMessageID = nil
+
+        if let assistantID = lastAssistantReplyID, !updateVisibleCell(itemID: assistantID) {
+            let listID = ListItemID.message(assistantID)
+            var snapshot = dataSource.snapshot()
+            if snapshot.itemIdentifiers.contains(listID) {
+                snapshot.reconfigureItems([listID])
+                dataSource.apply(snapshot, animatingDifferences: false)
+            }
+        }
+        resizeStreamingRow()
+        repinArrivalOffset(to: anchorUserMessageID)
+    }
+
+    private func repinArrivalOffset(to userMessageID: AgentItemID?) {
+        guard let userMessageID,
+              let indexPath = messageIndexPath(for: userMessageID),
+              let attributes = collectionView.layoutAttributesForItem(at: indexPath) else { return }
+        let top = collectionView.adjustedContentInset.top
+        let desiredOffsetY = clampedContentOffsetY(
+            attributes.frame.maxY - top - AgentVCLayout.arrivalUserMessageTailInset
+        )
+        guard abs(desiredOffsetY - collectionView.contentOffset.y) > 0.5 else { return }
+        collectionView.setContentOffset(
+            CGPoint(x: collectionView.contentOffset.x, y: desiredOffsetY),
+            animated: false
+        )
+    }
+
+    @discardableResult
+    private func updateVisibleCell(itemID: AgentItemID) -> Bool {
+        guard let item = model.item(for: itemID),
+              case .message(let message) = item,
+              message.role == .assistant,
+              let indexPath = messageIndexPath(for: itemID),
+              let cell = collectionView.cellForItem(at: indexPath) as? AgentMessageCell else {
+            return false
+        }
+        cell.onPreferredHeightChanged = { [weak self] _ in
+            self?.handleStreamingCellHeightChanged(itemID: itemID)
+        }
+        cell.onStreamingRevealCompleted = { [weak self] in
+            self?.handleStreamingRevealCompleted(itemID: itemID)
+        }
+        if message.isStreaming {
+            cell.updateStreamingMessage(message)
+        } else {
+            cell.configure(
+                with: message,
+                onActionTap: { [weak self] in self?.openAction(for: message) },
+                onURLTap: { [weak self] url in self?.openURL(url) }
+            )
+        }
+        return true
+    }
+
+    private func resizeStreamingRow() {
+        guard !isResizingStreamingRow else { return }
+        isResizingStreamingRow = true
+        defer { isResizingStreamingRow = false }
+
+        let batchUpdate = {
+            UIView.performWithoutAnimation {
+                self.collectionView.performBatchUpdates(nil)
+            }
+        }
+        if reserveSpacerHeight > 0 {
+            preservingTopVisibleRow(batchUpdate)
+        } else {
+            batchUpdate()
+        }
+    }
+
+    private func handleStreamingCellHeightChanged(itemID: AgentItemID) {
+        guard model.item(for: itemID) != nil else { return }
+        guard snapshotMessageIDs().contains(itemID) else { return }
+        resizeStreamingRow()
+    }
+
+    private func handleStreamingRevealCompleted(itemID: AgentItemID) {
+        guard model.item(for: itemID) != nil else { return }
+        guard reserveSpacerHeight > 0 else { return }
+        if isArrivalScrollInFlight {
+            pendingArrivalSpacerTrim = true
+            return
+        }
+        trimArrivalSpacerIfNeeded()
+    }
+
+    private func trimArrivalSpacerIfNeeded() {
+        guard reserveSpacerHeight > 0 else { return }
+        resizeStreamingRow()
+        trimReserveSpacerPreservingOffset()
+        updateScrollToBottomButtonVisibility(animated: false)
+    }
+
+    private func revealLastItemIfNeeded(animated: Bool) {
+        guard let indexPath = lastItemIndexPath else { return }
+        collectionView.layoutIfNeeded()
+        guard let attributes = collectionView.layoutAttributesForItem(at: indexPath) else { return }
+        let visibleBottom = collectionView.contentOffset.y
+            + collectionView.bounds.height
+            - collectionView.adjustedContentInset.bottom
+        guard attributes.frame.maxY > visibleBottom + 0.5 else { return }
+        collectionView.scrollToItem(at: indexPath, at: .bottom, animated: animated)
     }
 
     private var canResolveBottomLayoutState: Bool {
@@ -444,18 +859,15 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private func isNearBottom() -> Bool {
-        guard collectionView.bounds.height > 0 else { return true }
-
-        let adjustedInsets = collectionView.adjustedContentInset
-        let visibleHeight = collectionView.bounds.height - adjustedInsets.top - adjustedInsets.bottom
-        guard visibleHeight > 0 else { return true }
-
-        let contentHeight = collectionView.collectionViewLayout.collectionViewContentSize.height
-        guard contentHeight > visibleHeight + 1 else { return true }
-
-        let offsetFromTop = collectionView.contentOffset.y + adjustedInsets.top
-        let distanceFromBottom = contentHeight - visibleHeight - offsetFromTop
-        return distanceFromBottom <= AgentVCLayout.nearBottomThreshold
+        guard collectionView.bounds.height > 0,
+              let indexPath = lastItemIndexPath,
+              let attributes = collectionView.layoutAttributesForItem(at: indexPath) else {
+            return true
+        }
+        let visibleBottom = collectionView.contentOffset.y
+            + collectionView.bounds.height
+            - collectionView.adjustedContentInset.bottom
+        return attributes.frame.maxY <= visibleBottom + AgentVCLayout.nearBottomThreshold
     }
 
     private func updateScrollToBottomButtonVisibility(animated: Bool) {
@@ -528,15 +940,12 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
 
     private func sendMessage(text: String?, clearsComposerDraft: Bool, editingMessageID: AgentItemID?) {
         guard model.canSendMessage(draftText: text) else { return }
-
+        
         self.editingMessageID = nil
         model.send(text: text, editingMessageID: editingMessageID)
         if clearsComposerDraft {
             composerView.clearDraft()
             updateSendButtonState()
-        }
-        if composerView.isTextInputActive {
-            requestBottomAlignmentAfterNextLayout()
         }
     }
 
@@ -550,6 +959,10 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     private func clearChat() {
         view.endEditing(true)
         editingMessageID = nil
+        isArrivalScrollInFlight = false
+        arrivalAnchorUserMessageID = nil
+        pendingArrivalSpacerTrim = false
+        applyReserveSpacerHeight(0)
         model.clearChat()
     }
 
@@ -558,7 +971,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private func copyText(for itemID: AgentItemID) -> String? {
-        if let indexPath = dataSource.indexPath(for: itemID),
+        if let indexPath = messageIndexPath(for: itemID),
            let cell = collectionView.cellForItem(at: indexPath) as? AgentContextMenuPresentingCell,
            let text = cell.contextMenuCopyText {
             return text
@@ -573,7 +986,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private func contextMenuPreview(for itemID: AgentItemID) -> UITargetedPreview? {
-        guard let indexPath = dataSource.indexPath(for: itemID),
+        guard let indexPath = messageIndexPath(for: itemID),
               let cell = collectionView.cellForItem(at: indexPath) as? AgentContextMenuPresentingCell else {
             return nil
         }
@@ -581,23 +994,13 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private var lastItemIndexPath: IndexPath? {
-        guard let lastItemID = dataSource.snapshot().itemIdentifiers.last else { return nil }
-        return dataSource.indexPath(for: lastItemID)
+        guard let lastMessageID = snapshotMessageIDs().last else { return nil }
+        return messageIndexPath(for: lastMessageID)
     }
 
     private func itemID(from configuration: UIContextMenuConfiguration) -> AgentItemID? {
         guard let identifier = configuration.identifier as? NSUUID else { return nil }
         return UUID(uuidString: identifier.uuidString)
-    }
-
-    private func requestBottomAlignmentAfterNextLayout(
-        animation: AgentBottomAlignmentAnimation? = nil,
-        onlyIfNearBottom: Bool = false
-    ) {
-        guard !onlyIfNearBottom || lastKnownNearBottom else { return }
-        shouldScrollToBottomAfterNextLayout = true
-        pendingBottomAlignmentAnimation = animation
-        view.setNeedsLayout()
     }
 
     @objc private func handleCollectionViewTap() {
@@ -615,15 +1018,6 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         return false
     }
 
-    @objc private func handleKeyboardWillChangeFrame(_ notification: Notification) {
-        guard composerView.isTextInputActive,
-              keepsBottomPinnedWhileKeyboardIsActive,
-              let animation = keyboardBottomAlignmentAnimation(for: notification) else {
-            return
-        }
-        requestBottomAlignmentAfterNextLayout(animation: animation)
-    }
-
     @objc private func handleSignificantTimeChange() {
         model.refreshDerivedSystemMessages(animated: false)
     }
@@ -633,55 +1027,11 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     @objc private func scrollToBottomButtonPressed() {
-        scrollToBottom(animated: true)
+        guard let indexPath = lastItemIndexPath else { return }
+        collectionView.scrollToItem(at: indexPath, at: .bottom, animated: true)
     }
 
-    private static func makeLayout() -> UICollectionViewCompositionalLayout {
-        let itemSize = NSCollectionLayoutSize(
-            widthDimension: .fractionalWidth(1),
-            heightDimension: .estimated(76)
-        )
-        let item = NSCollectionLayoutItem(layoutSize: itemSize)
-        let group = NSCollectionLayoutGroup.horizontal(layoutSize: itemSize, subitems: [item])
-        let section = NSCollectionLayoutSection(group: group)
-        section.interGroupSpacing = AgentVCLayout.interGroupSpacing
-        section.contentInsets = AgentVCLayout.sectionInsets
-        return UICollectionViewCompositionalLayout(section: section)
-    }
-
-    private func performPendingBottomAlignment(animation: AgentBottomAlignmentAnimation?) {
-        let resolvedAnimation: AgentBottomAlignmentAnimation?
-        if hasCompletedInitialBottomAlignment {
-            resolvedAnimation = animation ?? Self.timelineBottomAlignmentAnimation
-        } else {
-            resolvedAnimation = animation
-        }
-        performBottomAlignment(animation: resolvedAnimation)
-    }
-
-    private func keyboardBottomAlignmentAnimation(for notification: Notification) -> AgentBottomAlignmentAnimation? {
-        guard let userInfo = notification.userInfo,
-              let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval,
-              let curveRawValue = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int else {
-            return nil
-        }
-
-        let curve = UIView.AnimationOptions(rawValue: UInt(curveRawValue << 16))
-        return AgentBottomAlignmentAnimation(
-            duration: duration,
-            options: [curve, .beginFromCurrentState, .allowUserInteraction]
-        )
-    }
-
-    private static let composerResizeBottomAlignmentAnimation = AgentBottomAlignmentAnimation(
-        duration: AgentVCLayout.composerResizeAnimationDuration,
-        options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction]
-    )
-
-    private static let timelineBottomAlignmentAnimation = AgentBottomAlignmentAnimation(
-        duration: AgentVCLayout.bottomAlignmentAnimationDuration,
-        options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction]
-    )
+    private static let hintsAnimationDuration = AgentVCLayout.bottomAlignmentAnimationDuration
 
     private var hintsHiddenTransform: CGAffineTransform {
         CGAffineTransform(translationX: 0, y: AgentVCLayout.hintsSpacingToComposer)
@@ -696,9 +1046,6 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private func animateHintsVisibilityChange(to shouldShow: Bool) {
-        let shouldKeepBottomPinned = isNearBottom()
-        let animation = Self.timelineBottomAlignmentAnimation
-
         view.layoutIfNeeded()
 
         if shouldShow {
@@ -710,107 +1057,18 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         scrollToBottomButtonBottomToHintsConstraint.isActive = shouldShow
         scrollToBottomButtonBottomToComposerConstraint.isActive = !shouldShow
 
-        UIView.animate(withDuration: animation.duration, delay: 0, options: animation.options) {
+        UIView.animate(
+            withDuration: Self.hintsAnimationDuration,
+            delay: 0,
+            options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction]
+        ) {
             self.view.layoutIfNeeded()
-            if shouldKeepBottomPinned {
-                let state = self.makeBottomLayoutState()
-                self.applyBottomLayoutState(state)
-                self.lastKnownNearBottom = true
-                if self.composerView.isTextInputActive {
-                    self.keepsBottomPinnedWhileKeyboardIsActive = true
-                }
-            }
             self.hintsSectionView.alpha = shouldShow ? 1 : 0
             self.hintsSectionView.transform = shouldShow ? .identity : self.hintsHiddenTransform
         } completion: { _ in
             self.hintsSectionView.isUserInteractionEnabled = shouldShow
             self.updateScrollToBottomButtonVisibility(animated: false)
         }
-    }
-
-    private func makeBottomLayoutState() -> AgentBottomLayoutState {
-        let currentContentInset = collectionView.contentInset
-        let currentIndicatorInsets = collectionView.verticalScrollIndicatorInsets
-        let baselineTopInset = collectionView.adjustedContentInset.top - currentContentInset.top
-        let baselineBottomInset = collectionView.adjustedContentInset.bottom - currentContentInset.bottom
-        let composerInputFrame = collectionView.convert(composerView.inputBackgroundFrame, from: composerView)
-        let overlayTop = coveredBottomOverlayTop(using: composerInputFrame)
-        let totalCoveredBottomInset = max(0, collectionView.bounds.maxY - overlayTop) + AgentVCLayout.bottomMessageSpacing
-        let additionalBottomInset = max(0, totalCoveredBottomInset - baselineBottomInset)
-        let availableHeight = collectionView.bounds.height - baselineTopInset - baselineBottomInset - additionalBottomInset
-        let contentHeight = collectionView.collectionViewLayout.collectionViewContentSize.height
-        let topInset = max(0, availableHeight - contentHeight)
-        let adjustedTopInset = baselineTopInset + topInset
-        let adjustedBottomInset = baselineBottomInset + additionalBottomInset
-        let visibleHeight = max(0, collectionView.bounds.height - adjustedTopInset - adjustedBottomInset)
-        let maxOffsetFromTop = max(0, contentHeight - visibleHeight)
-
-        return AgentBottomLayoutState(
-            contentInset: UIEdgeInsets(
-                top: topInset,
-                left: currentContentInset.left,
-                bottom: additionalBottomInset,
-                right: currentContentInset.right
-            ),
-            verticalScrollIndicatorInsets: UIEdgeInsets(
-                top: topInset,
-                left: currentIndicatorInsets.left,
-                bottom: totalCoveredBottomInset,
-                right: currentIndicatorInsets.right
-            ),
-            contentOffset: CGPoint(
-                x: collectionView.contentOffset.x,
-                y: maxOffsetFromTop - adjustedTopInset
-            ),
-            contentHeight: contentHeight,
-            visibleHeight: visibleHeight
-        )
-    }
-
-    private func applyInsets(from state: AgentBottomLayoutState) {
-        let needsTopUpdate = abs(collectionView.contentInset.top - state.contentInset.top) > 0.5
-        let needsBottomUpdate = abs(collectionView.contentInset.bottom - state.contentInset.bottom) > 0.5
-        let needsIndicatorTopUpdate = abs(collectionView.verticalScrollIndicatorInsets.top - state.verticalScrollIndicatorInsets.top) > 0.5
-        let needsIndicatorBottomUpdate = abs(collectionView.verticalScrollIndicatorInsets.bottom - state.verticalScrollIndicatorInsets.bottom) > 0.5
-        guard needsTopUpdate || needsBottomUpdate || needsIndicatorTopUpdate || needsIndicatorBottomUpdate else { return }
-
-        collectionView.contentInset.top = state.contentInset.top
-        collectionView.contentInset.bottom = state.contentInset.bottom
-        collectionView.verticalScrollIndicatorInsets.top = state.verticalScrollIndicatorInsets.top
-        collectionView.verticalScrollIndicatorInsets.bottom = state.verticalScrollIndicatorInsets.bottom
-    }
-
-    private func applyBottomLayoutState(_ state: AgentBottomLayoutState, alignLastItem: Bool = false) {
-        applyInsets(from: state)
-        guard alignLastItem,
-              state.contentHeight > state.visibleHeight + 1,
-              let indexPath = lastItemIndexPath else {
-            collectionView.contentOffset = state.contentOffset
-            return
-        }
-        collectionView.scrollToItem(at: indexPath, at: .bottom, animated: false)
-    }
-
-    private func performBottomAlignment(animation: AgentBottomAlignmentAnimation?) {
-        guard canResolveBottomLayoutState else { return }
-        collectionView.layoutIfNeeded()
-        let state = makeBottomLayoutState()
-        hasCompletedInitialBottomAlignment = true
-        lastKnownNearBottom = true
-        if composerView.isTextInputActive {
-            keepsBottomPinnedWhileKeyboardIsActive = true
-        }
-
-        guard let animation else {
-            applyBottomLayoutState(state, alignLastItem: true)
-            updateScrollToBottomButtonVisibility(animated: false)
-            return
-        }
-
-        UIView.animate(withDuration: animation.duration, delay: 0, options: animation.options) {
-            self.applyBottomLayoutState(state)
-        }
-        updateScrollToBottomButtonVisibility(animated: true)
     }
 
     private func coveredBottomOverlayTop(using composerFrame: CGRect) -> CGFloat {
@@ -839,33 +1097,97 @@ extension AgentVC: AgentModelDelegate {
     func agentModelDidReloadTimeline(animated: Bool, reconfigureItemIDs: [AgentItemID]) {
         updateHintsView(animated: false)
         updateHintsToggleState()
-        applySnapshot(animated: animated, reconfigureItemIDs: reconfigureItemIDs)
+
+        let hasStreaming = lastStreamingAssistantID != nil
+        let crossfade = hasStreaming
+        let arrivalUserMessageID = hasStreaming ? self.arrivalUserMessageID : nil
+        if arrivalUserMessageID != nil {
+            isArrivalScrollInFlight = true
+            arrivalAnchorUserMessageID = arrivalUserMessageID
+        }
+
+        applySnapshot(animated: false, reconfigureItemIDs: reconfigureItemIDs, crossfade: crossfade) { [weak self] in
+            guard let self else { return }
+            self.collectionView.layoutIfNeeded()
+
+            if let arrivalUserMessageID {
+                self.applyMinimalArrivalReserveSpacerHeight(for: arrivalUserMessageID)
+                if !self.performArrivalScroll(for: arrivalUserMessageID) {
+                    self.arrivalAnchorUserMessageID = nil
+                    self.endArrivalScroll()
+                }
+                return
+            }
+
+            if hasStreaming {
+                self.resizeStreamingRow()
+                return
+            }
+            
+            if self.lastTypingIndicatorID != nil {
+                self.revealTypingIndicatorIfNeeded()
+            } else {
+                if !self.hasPerformedInitialScroll {
+                    self.revealLastItemIfNeeded(animated: false)
+                }
+                self.trimReserveSpacerPreservingOffset()
+            }
+            self.hasPerformedInitialScroll = true
+            self.lastKnownNearBottom = self.isNearBottom()
+            self.updateScrollToBottomButtonVisibility(animated: false)
+        }
     }
 
     func agentModelDidUpdateItems(_ ids: [AgentItemID], animated: Bool, scrollToBottom: Bool) {
         updateHintsToggleState()
-        let existingIDs = Set(dataSource.snapshot().itemIdentifiers)
+
+        let isStreamingUpdate = ids.contains { itemID in
+            guard let item = model.item(for: itemID),
+                  case .message(let message) = item else {
+                return false
+            }
+            return message.isStreaming
+        }
+        let isStreamingFinalize = ids.contains { itemID in
+            guard let item = model.item(for: itemID),
+                  case .message(let message) = item else {
+                return false
+            }
+            return message.role == .assistant && !message.isStreaming
+        }
+
+        if isArrivalScrollInFlight {
+            if ids.count == 1, let itemID = ids.first {
+                _ = updateVisibleCell(itemID: itemID)
+                resizeStreamingRow()
+            }
+            return
+        }
+
+        if (isStreamingUpdate || isStreamingFinalize),
+           ids.count == 1,
+           let itemID = ids.first,
+           updateVisibleCell(itemID: itemID) {
+            resizeStreamingRow()
+            updateScrollToBottomButtonVisibility(animated: false)
+            return
+        }
+
+        let existingIDs = Set(snapshotMessageIDs())
         let idsToReload = ids.filter { existingIDs.contains($0) }
         guard !idsToReload.isEmpty else { return }
 
         var snapshot = dataSource.snapshot()
-        if #available(iOS 15.0, *) {
-            snapshot.reconfigureItems(idsToReload)
-        } else {
-            snapshot.reloadItems(idsToReload)
-        }
+        snapshot.reconfigureItems(idsToReload.map { .message($0) })
         dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
             guard let self else { return }
-            self.collectionView.collectionViewLayout.invalidateLayout()
-            if scrollToBottom {
-                if self.hasCompletedInitialBottomAlignment {
-                    self.scrollToBottom(animated: true)
-                } else {
-                    self.requestBottomAlignmentAfterNextLayout()
-                }
-            } else if self.canResolveBottomLayoutState {
-                self.updateBottomPinnedInsets()
+            if isStreamingUpdate || self.hasActiveStreamingMessage || isStreamingFinalize {
+                self.resizeStreamingRow()
             }
+            if !isStreamingUpdate && !isStreamingFinalize && !self.hasActiveStreamingMessage {
+                self.trimReserveSpacerPreservingOffset()
+            }
+            self.updateScrollToBottomButtonVisibility(animated: false)
         }
     }
 
@@ -873,9 +1195,79 @@ extension AgentVC: AgentModelDelegate {
         updateHintsView(animated: animated)
         updateHintsToggleState()
     }
+
+    func agentModelWillRevealSentUserMessage(_ userMessageID: AgentItemID, then completion: @escaping () -> Void) {
+        isRevealingSentUserMessage = true
+        let finish: () -> Void = { [weak self] in
+            self?.isRevealingSentUserMessage = false
+            completion()
+        }
+
+        collectionView.layoutIfNeeded()
+        guard let indexPath = messageIndexPath(for: userMessageID),
+              let attributes = collectionView.layoutAttributesForItem(at: indexPath) else {
+            staggerTypingIndicatorReveal(then: finish)
+            return
+        }
+
+        let top = collectionView.adjustedContentInset.top
+        let targetOffsetY = attributes.frame.maxY - top - AgentVCLayout.arrivalUserMessageTailInset
+        applyMinimalArrivalReserveSpacerHeight(for: userMessageID)
+        collectionView.layoutIfNeeded()
+        let clampedOffsetY = clampedContentOffsetY(targetOffsetY)
+
+        guard abs(clampedOffsetY - collectionView.contentOffset.y) > 0.5 else {
+            animateSentUserMessageFlyUp(at: indexPath, then: finish)
+            return
+        }
+
+        UIView.animate(
+            withDuration: AgentVCLayout.sentUserMessageRevealDuration,
+            delay: 0,
+            options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction]
+        ) {
+            self.collectionView.contentOffset.y = clampedOffsetY
+        } completion: { _ in
+            finish()
+        }
+    }
+
+    private func animateSentUserMessageFlyUp(at indexPath: IndexPath, then completion: @escaping () -> Void) {
+        guard let cell = collectionView.cellForItem(at: indexPath),
+              let attributes = collectionView.layoutAttributesForItem(at: indexPath) else {
+            staggerTypingIndicatorReveal(then: completion)
+            return
+        }
+        let visible = visibleContentRect()
+        let startTranslation = max(0, visible.maxY - attributes.frame.minY)
+        guard startTranslation > 1 else {
+            staggerTypingIndicatorReveal(then: completion)
+            return
+        }
+        cell.transform = CGAffineTransform(translationX: 0, y: startTranslation)
+        cell.alpha = 0
+        UIView.animate(
+            withDuration: AgentVCLayout.sentUserMessageFlyUpDuration,
+            delay: 0,
+            options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction]
+        ) {
+            cell.transform = .identity
+            cell.alpha = 1
+        } completion: { _ in
+            cell.transform = .identity
+            cell.alpha = 1
+            completion()
+        }
+    }
+
+    private func staggerTypingIndicatorReveal(then completion: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + AgentVCLayout.typingIndicatorRevealGap) {
+            completion()
+        }
+    }
 }
 
-extension AgentVC {
+extension AgentVC: UICollectionViewDelegate, UIGestureRecognizerDelegate {
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         !isTouchInsideControl(touch.view)
     }
@@ -886,7 +1278,7 @@ extension AgentVC {
         point: CGPoint
     ) -> UIContextMenuConfiguration? {
         guard collectionView === self.collectionView,
-              let itemID = dataSource.itemIdentifier(for: indexPath),
+              let itemID = messageItemID(at: indexPath),
               let item = model.item(for: itemID),
               case .message = item else {
             return nil
@@ -945,12 +1337,7 @@ extension AgentVC {
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard scrollView === collectionView else { return }
-        let isNearBottom = isNearBottom()
-        lastKnownNearBottom = isNearBottom
-        if composerView.isTextInputActive,
-           scrollView.isTracking || scrollView.isDragging || scrollView.isDecelerating {
-            keepsBottomPinnedWhileKeyboardIsActive = isNearBottom
-        }
+        lastKnownNearBottom = isNearBottom()
         updateScrollToBottomButtonVisibility(animated: true)
     }
 
@@ -966,6 +1353,7 @@ extension AgentVC {
 
     public func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
         guard scrollView === collectionView else { return }
+        endArrivalScroll()
         updateScrollToBottomButtonVisibility(animated: true)
     }
 }

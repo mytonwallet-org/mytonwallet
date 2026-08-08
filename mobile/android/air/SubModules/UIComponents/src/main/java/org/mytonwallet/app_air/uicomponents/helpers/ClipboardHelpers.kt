@@ -23,9 +23,8 @@ object ClipboardHelpers {
         }
     }
 
-    fun copyToClipboard(context: Context, label: CharSequence, text: CharSequence?): Boolean {
-        return copyToClipboard(context, ClipData.newPlainText(label, text))
-    }
+    fun copyToClipboard(context: Context, label: CharSequence, text: CharSequence?): Boolean =
+        copyToClipboard(context, ClipData.newPlainText(label, text))
 
     private fun showErrorToast(context: Context) {
         Toast.makeText(context, LocaleController.getString("Error"), Toast.LENGTH_SHORT).show()

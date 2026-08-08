@@ -8,6 +8,12 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.Guideline
+import java.math.BigInteger
+import java.util.Date
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -24,17 +30,14 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import java.math.BigInteger
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.pow
-import kotlin.math.roundToInt
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
 @SuppressLint("ViewConstructor")
-class OverviewSectionView(context: Context) : WView(context), WThemedView {
+class OverviewSectionView(context: Context) :
+    WView(context),
+    WThemedView {
 
     private val titleLabel = WLabel(context).apply {
         id = generateViewId()
@@ -49,15 +52,17 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     }
     private val totalValueLabel = WLabel(context).apply {
         setStyle(16f, WFont.Medium)
-        setPadding(0, 0, 16.dp, 0)
+        setPaddingRelative(0, 0, 16.dp, 0)
     }
     private val totalValueContainer = WSensitiveDataContainer(
         totalValueLabel,
         WSensitiveDataContainer.MaskConfig(
-            8, 2, Gravity.START or Gravity.CENTER_VERTICAL,
+            8,
+            2,
+            Gravity.START or Gravity.CENTER_VERTICAL,
             cellSize = 6.dp,
             cornerRadius = 6.dp,
-            protectContentLayoutSize = false,
+            protectContentLayoutSize = false
         )
     ).apply { id = generateViewId() }
     private val totalCaptionLabel = WLabel(context).apply {
@@ -65,20 +70,23 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         text = LocaleController.getString("Total Balance")
         setStyle(13f)
         setTextColor(WColor.SecondaryText)
-        setPadding(0, 0, 16.dp, 0)
+        setPaddingRelative(0, 0, 16.dp, 0)
     }
     private val netChangeLabel = WLabel(context).apply {
         id = generateViewId()
         setStyle(16f, WFont.Medium)
         setTextColor(WColor.PrimaryText)
+        layoutDirection = LAYOUT_DIRECTION_LTR
     }
     private val netChangeContainer = WSensitiveDataContainer(
         netChangeLabel,
         WSensitiveDataContainer.MaskConfig(
-            8, 2, Gravity.START or Gravity.CENTER_VERTICAL,
+            8,
+            2,
+            Gravity.START or Gravity.CENTER_VERTICAL,
             cellSize = 6.dp,
             cornerRadius = 6.dp,
-            protectContentLayoutSize = false,
+            protectContentLayoutSize = false
         )
     ).apply { id = generateViewId() }
     private val netPctLabel = WLabel(context).apply {
@@ -138,7 +146,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     }
 
     init {
-        setPadding(16.dp, 16.dp, 20.dp, 10.dp)
+        setPaddingRelative(16.dp, 16.dp, 20.dp, 10.dp)
 
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(dateRangeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -178,7 +186,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
 
     fun maskTargets(): List<Pair<View, Float>> = listOf(
         totalValuePlaceholder to 4f.dp,
-        netChangePlaceholder to 4f.dp,
+        netChangePlaceholder to 4f.dp
     )
 
     fun crossFadeTargets(): List<View> =
@@ -193,8 +201,11 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             return
         }
         dateRangeLabel.text =
-            if (overview.startTimestampMs <= 0L || overview.endTimestampMs <= 0L) ""
-            else formatDateRange(overview.startTimestampMs, overview.endTimestampMs)
+            if (overview.startTimestampMs <= 0L || overview.endTimestampMs <= 0L) {
+                ""
+            } else {
+                formatDateRange(overview.startTimestampMs, overview.endTimestampMs)
+            }
         totalValueLabel.text =
             formatOverviewCurrency(overview.totalValue, baseCurrency, showSign = false)
         netChangeLabel.text =
@@ -263,14 +274,14 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     }
 
     private fun formatDateRange(startMs: Long, endMs: Long): String {
-        val fmt = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+        val fmt = WDateFormatter.ofActiveLanguage("d MMM yyyy")
         return "${fmt.format(Date(startMs))} – ${fmt.format(Date(endMs))}"
     }
 
     private fun formatOverviewCurrency(
         value: Double,
         baseCurrency: MBaseCurrency,
-        showSign: Boolean,
+        showSign: Boolean
     ): String {
         val scale = 10.0.pow(baseCurrency.decimalsCount.toDouble())
         val scaled = (abs(value) * scale).toLong()
@@ -279,7 +290,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             decimals = baseCurrency.decimalsCount,
             currency = baseCurrency.sign,
             currencyDecimals = baseCurrency.decimalsCount,
-            showPositiveSign = showSign,
+            showPositiveSign = showSign
         )
     }
 
@@ -287,9 +298,9 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         val pct = ratio * 100.0
         val abs = abs(pct)
         return if (abs < 10.0 && abs != 0.0) {
-            String.format(Locale.ENGLISH, "%.1f%%", abs)
+            String.format(Locale.ENGLISH, "%.1f%%", abs).withLocalizedNumbers
         } else {
-            "${abs.roundToInt()}%"
+            "${abs.roundToInt().withLocalizedNumbers}%"
         }
     }
 }

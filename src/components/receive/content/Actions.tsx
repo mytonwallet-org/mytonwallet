@@ -3,7 +3,7 @@ import { getActions, withGlobal } from '../../../global';
 
 import type { ApiChain, ApiCountryCode } from '../../../api/types';
 
-import { selectIsCurrentAccountViewMode } from '../../../global/selectors';
+import { selectIsCurrentAccountViewMode, selectIsOnRampAllowed } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { getChainConfig } from '../../../util/chain';
 import { getNativeToken } from '../../../util/tokens';
@@ -48,8 +48,10 @@ function Actions({
 
   const lang = useLang();
 
-  const { canBuyWithCardInRussia, isOnRampSupported, formatTransferUrl, buySwap } = getChainConfig(chain);
-  const canBuyWithCard = isOnRampSupported && (canBuyWithCardInRussia || countryCode !== 'RU');
+  const { canBuyWithCardInRussia, formatTransferUrl, buySwap } = getChainConfig(chain);
+  // Whether the chain supports the ramp at all is answered by `isOnRampDisabled`, which reads the same
+  // chain config; asking it a second time here is how the two answers used to drift apart
+  const canBuyWithCard = canBuyWithCardInRussia || countryCode !== 'RU';
   const isSwapAllowed = !isViewMode && !isTestnet && !isLedger && !isSwapDisabled && !!buySwap;
   const isOnRampAllowed = !isViewMode && !isTestnet && !isOnRampDisabled && canBuyWithCard;
   const isDepositLinkSupported = !!formatTransferUrl;
@@ -114,17 +116,16 @@ function Actions({
   );
 }
 
-export default memo(withGlobal<OwnProps>((global): StateProps => {
+export default memo(withGlobal<OwnProps>((global, { chain }): StateProps => {
   const {
     isSwapDisabled,
-    isOnRampDisabled,
     countryCode,
   } = global.restrictions;
 
   return {
     isTestnet: global.settings.isTestnet,
     isSwapDisabled,
-    isOnRampDisabled,
+    isOnRampDisabled: !selectIsOnRampAllowed(global, chain),
     isViewMode: selectIsCurrentAccountViewMode(global),
     countryCode,
   };

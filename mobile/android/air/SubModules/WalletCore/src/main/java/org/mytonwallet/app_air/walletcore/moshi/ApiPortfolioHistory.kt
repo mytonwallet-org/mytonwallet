@@ -12,7 +12,7 @@ data class ApiPortfolioHistoryResponse(
     val base: String,
     val density: String,
     val historyScanCursor: Double?,
-    val isAssetLimitExceeded: Boolean?,
+    val isAssetLimitExceeded: Boolean?
 )
 
 @JsonClass(generateAdapter = true)
@@ -22,28 +22,24 @@ data class ApiPortfolioHistoryDataset(
     val contractAddress: String,
     val color: String?,
     val points: ApiHistoryList,
-    val impact: Double?,
+    val impact: Double?
 )
 
 fun ApiPortfolioHistoryResponse.normalizedForPortfolioDisplay(
-    minimumValue: Double = 0.01,
-): ApiPortfolioHistoryResponse {
-    return copy(
-        datasets = datasets?.map { it.normalizedForPortfolioDisplay(minimumValue) }
-    )
-}
+    minimumValue: Double = 0.01
+): ApiPortfolioHistoryResponse = copy(
+    datasets = datasets?.map { it.normalizedForPortfolioDisplay(minimumValue) }
+)
 
 private fun ApiPortfolioHistoryDataset.normalizedForPortfolioDisplay(
-    minimumValue: Double,
-): ApiPortfolioHistoryDataset {
-    return copy(
-        points = points.map { point ->
-            val value = point.getOrNull(1)
-            if (point.size < 2 || value == null || value >= minimumValue) {
-                point
-            } else {
-                point.toMutableList().apply { this[1] = 0.0 }
-            }
+    minimumValue: Double
+): ApiPortfolioHistoryDataset = copy(
+    points = points.map { point ->
+        val value = point.getOrNull(1)
+        if (point.size < 2 || value == null || value >= minimumValue) {
+            point
+        } else {
+            point.toMutableList().apply { this[1] = 0.0 }
         }
-    )
-}
+    }
+)

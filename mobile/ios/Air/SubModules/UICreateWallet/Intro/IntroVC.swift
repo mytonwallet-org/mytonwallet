@@ -59,7 +59,6 @@ public class IntroVC: CreateWalletBaseVC {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    LocalizationSupport.shared.setLanguageCode("ru")
-    return UINavigationController(rootViewController: IntroVC(introModel: IntroModel(network: .mainnet, password: nil)))
+    UINavigationController(rootViewController: IntroVC(introModel: IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup)))
 }
 #endif

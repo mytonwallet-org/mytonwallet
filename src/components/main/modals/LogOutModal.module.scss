@@ -1,5 +1,6 @@
 .checkbox {
-  margin: 0 0 1rem 0.25rem;
+  margin-block: 0 1rem;
+  margin-inline: 0.25rem 0;
   line-height: 1.75rem;
 }
 
@@ -21,7 +22,8 @@
 
 .accountLink::after {
   content: ', ';
-  margin: 0 0.25rem 0 0;
+  margin-block: 0;
+  margin-inline: 0 0.25rem;
   font-weight: 400;
 }
 

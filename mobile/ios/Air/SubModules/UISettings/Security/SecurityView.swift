@@ -10,12 +10,16 @@ import Perception
 
 struct SecurityView: View {
 
-    var password: String
-
     private let accountContext = AccountContext(source: .current)
 
-    @State private var biometrics: Bool = AppStorageHelper.isBiometricActivated()
+    @State private var biometrics: Bool
+    @State private var isUpdatingBiometrics = false
     @State private var autolockOption: MAutolockOption = AutolockStore.shared.autolockOption
+
+    @MainActor
+    init() {
+        _biometrics = State(initialValue: AuthSupport.status.configuredMethods.contains(.biometrics))
+    }
     
     var body: some View {
         WithPerceptionTracking {
@@ -58,9 +62,17 @@ struct SecurityView: View {
             return
         }
         Task { @MainActor in
-            if let accountId = AccountStore.accountId,
-               let mnemonic = try? await Api.fetchMnemonic(accountId: accountId, password: password) {
+            guard let enclaveToken = await requestEnclaveToken(on: vc) else {
+                return
+            }
+            guard let accountId = AccountStore.accountId else {
+                return
+            }
+            do {
+                let mnemonic = try await Api.fetchMnemonic(accountId: accountId, enclaveToken: enclaveToken)
                 vc.navigationController?.pushViewController(RecoveryPhraseVC(wordList: mnemonic), animated: true)
+            } catch {
+                vc.showAlert(error: error)
             }
         }
     }
@@ -95,10 +107,46 @@ struct SecurityView: View {
             Toggle(biometricName, isOn: $biometrics)
                 .toggleStyle(.switch)
                 .labelsHidden()
+                .disabled(isUpdatingBiometrics)
         }
         .onChange(of: biometrics) { isOn in
-            AppStorageHelper.save(isBiometricActivated: isOn)
+            guard !isUpdatingBiometrics else { return }
+
+            isUpdatingBiometrics = true
+            Task { @MainActor in
+                defer { isUpdatingBiometrics = false }
+
+                guard let enclaveToken = await requestEnclaveToken(on: topWViewController()) else {
+                    biometrics.toggle()
+                    return
+                }
+                do {
+                    if isOn {
+                        _ = try await AuthSupport.enableBiometrics(using: enclaveToken)
+                    } else {
+                        try await AuthSupport.disableBiometrics(using: enclaveToken)
+                    }
+                } catch AuthSupportBiometricsError.canceled {
+                    biometrics.toggle()
+                } catch AuthSupportBiometricsError.userDeniedBiometrics {
+                    biometrics.toggle()
+                } catch {
+                    biometrics.toggle()
+                    topWViewController()?.showAlert(error: error)
+                }
+            }
         }
+    }
+
+    @MainActor
+    private func requestEnclaveToken(on viewController: UIViewController?) async -> EnclaveToken? {
+        guard let viewController else {
+            return nil
+        }
+        return await UnlockVC.presentAuthAsync(
+            on: viewController,
+            title: lang("Enter your Wallet Passcode")
+        )
     }
     
     @ViewBuilder
@@ -110,9 +158,9 @@ struct SecurityView: View {
     
     func onChangePasscode() {
         guard let vc = topWViewController() else { return }
-        UnlockVC.presentAuth(on: vc, onDone: { passcode in
-            if let passcode {
-                vc.navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevPasscode: passcode)), animated: true)
+        UnlockVC.presentAuth(on: vc, onDone: { enclaveToken in
+            if let enclaveToken {
+                vc.navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevToken: enclaveToken)), animated: true)
             }
         }, cancellable: true)
     }
@@ -131,7 +179,7 @@ struct SecurityView: View {
                             Text(lang("2FA with Telegram"))
 
                             Text("TON")
-                                .font(.system(size: 10, weight: .semibold))
+                                .textStyle(.badge, content: .technical)
                                 .foregroundStyle(Color.air.secondaryLabel)
                                 .padding(.horizontal, 3)
                                 .padding(.bottom, 1)
@@ -235,8 +283,14 @@ struct AutolockPicker: View {
             }
         } label: {
             let arrow: Text = Text(Image(systemName: "arrow.up.and.down"))
-                .font(.system(size: 13))
-            Text("\(autolockOption.displayName) \(arrow)")
+                .textStyle(.footnote, content: .technical)
+            (
+                Text(autolockOption.displayName)
+                    .textStyle(.body) +
+                Text(" ")
+                    .textStyle(.body) +
+                arrow
+            )
                 .imageScale(.small)
                 .padding(5)
                 .contentShape(.rect)

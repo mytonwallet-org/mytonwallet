@@ -7,23 +7,22 @@ import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 open class WalletCustomizationCardsView(
     context: Context,
     private val accounts: List<MAccount>,
-    private var selectedAccountId: String,
-) :
-    WRecyclerView(context),
+    private var selectedAccountId: String
+) : WRecyclerView(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
 
     companion object {
@@ -142,9 +141,8 @@ open class WalletCustomizationCardsView(
         rvAdapter.reloadData()
     }
 
-    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        return accounts[indexPath.row].accountId
-    }
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
+        accounts[indexPath.row].accountId
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView) = 1
 

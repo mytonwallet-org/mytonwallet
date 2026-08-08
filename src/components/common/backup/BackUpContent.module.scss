@@ -31,12 +31,12 @@
 
 .checkbox {
   position: relative;
-  padding-left: 2.25rem;
+  padding-inline-start: 2.25rem;
 
   &::before,
   &::after {
     top: 50%;
-    left: 0;
+    inset-inline-start: 0;
     transform: translateY(-50%);
   }
 }
@@ -138,7 +138,7 @@
   position: relative;
 
   margin-bottom: 0.25rem;
-  margin-left: 1.75rem;
+  margin-inline-start: 1.75rem;
 
   font-weight: 600;
   color: var(--color-accent);
@@ -147,9 +147,9 @@
     content: counter(li) ".";
 
     position: absolute;
-    right: 100%;
+    inset-inline-end: 100%;
 
-    margin-right: 0.25rem;
+    margin-inline-end: 0.25rem;
 
     font-weight: 400;
     color: var(--color-gray-2);

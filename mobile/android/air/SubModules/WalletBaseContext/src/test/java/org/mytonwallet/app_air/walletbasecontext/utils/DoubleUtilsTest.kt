@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.math.BigInteger
 
 class DoubleUtilsTest {
 

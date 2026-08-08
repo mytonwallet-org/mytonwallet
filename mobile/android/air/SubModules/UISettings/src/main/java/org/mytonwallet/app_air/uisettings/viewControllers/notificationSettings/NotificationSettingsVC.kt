@@ -11,11 +11,11 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
-import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -30,13 +30,11 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
 
-class NotificationSettingsVC(
-    context: Context,
-) :
+class NotificationSettingsVC(context: Context) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "NotificationSettings"
 
     val isPermissionGranted: Boolean
@@ -85,15 +83,15 @@ class NotificationSettingsVC(
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
 
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
-                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE)
+                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
                     updateBlurViews(recyclerView)
+                }
             }
         })
         rv
@@ -128,7 +126,8 @@ class NotificationSettingsVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         recyclerView.setPaddingLocalized(
-            ViewConstants.HORIZONTAL_PADDINGS.dp + ViewConstants.ADDITIONAL_TABLET_PADDING + systemBarStartInset,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + ViewConstants.ADDITIONAL_TABLET_PADDING +
+                systemBarStartInset,
             navigationBar?.calculatedMinHeight ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             (navigationController?.bottomInset ?: 0)
@@ -140,34 +139,21 @@ class NotificationSettingsVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 3
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 3
 
-    override fun recyclerViewNumberOfItems(
-        rv: RecyclerView,
-        section: Int
-    ): Int {
-        if (section == SECTION_ACCOUNTS)
-            return accounts.size
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
+        if (section == SECTION_ACCOUNTS) return accounts.size
         return 1
     }
 
-    override fun recyclerViewCellType(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             SECTION_HEADER -> HEADER_CELL
             SECTION_FOOTER -> FOOTER_CELL
             else -> ITEM_CELL
         }
-    }
 
-    override fun recyclerViewCellView(
-        rv: RecyclerView,
-        cellType: WCell.Type
-    ): WCell {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
         return when (cellType) {
             HEADER_CELL -> {
                 NotificationSettingsHeaderCell(
@@ -208,7 +194,8 @@ class NotificationSettingsVC(
                                 )
                             )
                         }
-                    })
+                    }
+                )
             }
 
             FOOTER_CELL -> {
@@ -220,10 +207,10 @@ class NotificationSettingsVC(
                     onTap = { account, isChecked ->
                         if (isChecked) {
                             AirPushNotifications.subscribe(account, ignoreIfLimitReached = false)
-                            if (enabledAccounts == null)
-                                enabledAccounts = mutableListOf()
-                            if (enabledAccounts?.contains(account.accountId) != true)
+                            if (enabledAccounts == null) enabledAccounts = mutableListOf()
+                            if (enabledAccounts?.contains(account.accountId) != true) {
                                 enabledAccounts?.add(account.accountId)
+                            }
                         } else {
                             AirPushNotifications.unsubscribe(account)
                             enabledAccounts?.remove(account.accountId)
@@ -281,8 +268,12 @@ class NotificationSettingsVC(
                 (cellHolder.cell as NotificationSettingsAccountCell).configure(
                     item,
                     isChecked = isChecked,
-                    isLocked = !isPermissionGranted || ((enabledAccounts?.size
-                        ?: 0) >= 3 && !isChecked),
+                    isLocked = !isPermissionGranted || (
+                        (
+                            enabledAccounts?.size
+                                ?: 0
+                            ) >= 3 && !isChecked
+                        ),
                     isLast = indexPath.row == accounts.size - 1,
                     animated = !isFirstAppearance
                 )
@@ -299,7 +290,9 @@ class NotificationSettingsVC(
             window?.requestPermissions(
                 arrayOf(Manifest.permission.POST_NOTIFICATIONS)
             ) { _, grantResults ->
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
+                ) {
                     pushNotificationsChecked = true
                     if (enabledAccounts.isNullOrEmpty()) {
                         val defaultEnabledAccounts = accounts.take(3)

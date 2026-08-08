@@ -131,6 +131,7 @@ final class InAppBrowserPageVC: WViewController {
         let webViewConfiguration = initialWebViewConfiguration ?? WKWebViewConfiguration()
         configure(webViewConfiguration)
         webViewConfiguration.allowsInlineMediaPlayback = true
+        applyUserAgentMarker(webViewConfiguration)
 
         // create web view
         let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 100, height: 100),
@@ -157,8 +158,8 @@ final class InAppBrowserPageVC: WViewController {
         view.addSubview(webView)
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor, constant: 60), // see comment above
-            webView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            webView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -30)
         ])
         webView.clipsToBounds = false
@@ -204,6 +205,17 @@ final class InAppBrowserPageVC: WViewController {
             forMainFrameOnly: true
         )
         userContentController.addUserScript(walletConnectScript)
+    }
+
+    /// Appends an app marker to the WebView user agent so the backend can attribute in-app
+    /// browsing to the iOS binary. Appending, not replacing: the default WebKit tokens must stay
+    /// intact for sites that sniff the browser engine. The guard covers WebKit-supplied popup
+    /// configurations that already inherited the marker from the opener page.
+    private func applyUserAgentMarker(_ configuration: WKWebViewConfiguration) {
+        let marker = "MyTonWalletAirIOS"
+        let applicationName = configuration.applicationNameForUserAgent ?? ""
+        guard !applicationName.contains(marker) else { return }
+        configuration.applicationNameForUserAgent = applicationName.isEmpty ? marker : "\(applicationName) \(marker)"
     }
 
     private func setupObservers() {

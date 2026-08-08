@@ -9,8 +9,10 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 
 @SuppressLint("ViewConstructor")
-abstract class WViewControllerWithModelStore(context: Context) : WViewController(context),
-    ViewModelStoreOwner, LifecycleOwner {
+abstract class WViewControllerWithModelStore(context: Context) :
+    WViewController(context),
+    ViewModelStoreOwner,
+    LifecycleOwner {
 
     private val lifecycleRegistry = LifecycleRegistry(this)
 

@@ -72,6 +72,7 @@ struct IntroView: View {
     
     var shortDescription: some View {
         Text(langMd("$auth_intro"))
+            .textStyle(.body)
             .multilineTextAlignment(.center)
     }
     
@@ -80,7 +81,7 @@ struct IntroView: View {
             let text = lang("More about %app_name%", arg1: APP_NAME)
             Text("\(text) ›")
                 .foregroundStyle(Color.air.secondaryLabel)
-                .fontWeight(.regular)
+                .textStyle(.body)
         }
         .padding(16)
         .contentShape(.capsule)
@@ -100,7 +101,7 @@ struct IntroView: View {
                 .accessibilityHidden(true)
             Text(text)
                 .foregroundStyle(Color.air.secondaryLabel)
-                .font(.system(size: 14, weight: .medium))
+                .textStyle(.supportingEmphasized)
                 .padding(.vertical, 16)
                 .contentShape(.rect(cornerRadius: 12))
         }

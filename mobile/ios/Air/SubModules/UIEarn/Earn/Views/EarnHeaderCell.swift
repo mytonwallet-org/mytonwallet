@@ -47,7 +47,7 @@ class EarnHeaderCell: UICollectionViewCell {
     
     private lazy var currentlyStakedLabel = {
         let lbl = UILabel()
-        lbl.font = .systemFont(ofSize: 15)
+        lbl.applyTextStyle(.subheadline)
         lbl.textAlignment = .center
         lbl.text = lang("Currently Staked")
         return lbl
@@ -55,7 +55,7 @@ class EarnHeaderCell: UICollectionViewCell {
     
     private lazy var yourBalanceHintLabel = {
         let lbl = UILabel()
-        lbl.font = .systemFont(ofSize: 16)
+        lbl.applyTextStyle(.callout)
         lbl.numberOfLines = 0
         lbl.textAlignment = .center
         lbl.text = "\n"
@@ -135,8 +135,8 @@ class EarnHeaderCell: UICollectionViewCell {
         bottomCornersViewContainer.addSubview(bottomCornersView)
         contentView.addSubview(bottomCornersViewContainer)
         NSLayoutConstraint.activate([
-            bottomCornersView.leftAnchor.constraint(equalTo: bottomCornersViewContainer.leftAnchor),
-            bottomCornersView.rightAnchor.constraint(equalTo: bottomCornersViewContainer.rightAnchor),
+            bottomCornersView.leadingAnchor.constraint(equalTo: bottomCornersViewContainer.leadingAnchor),
+            bottomCornersView.trailingAnchor.constraint(equalTo: bottomCornersViewContainer.trailingAnchor),
             bottomCornersView.topAnchor.constraint(equalTo: bottomCornersViewContainer.topAnchor),
             bottomCornersView.bottomAnchor.constraint(equalTo: bottomCornersViewContainer.bottomAnchor),
             bottomCornersViewContainer.widthAnchor.constraint(equalTo: contentView.widthAnchor),
@@ -189,7 +189,9 @@ class EarnHeaderCell: UICollectionViewCell {
     
     func configure(config: StakingConfig, stakingData: MStakingData?, supportsEarn: Bool, delegate: EarnVC) {
         let token = config.baseToken
-        addStakeButton.isEnabled = supportsEarn
+        let canAddStake = supportsEarn && config.canAddStake
+        addStakeButton.isEnabled = canAddStake
+        addStakeButton.isUserInteractionEnabled = canAddStake
         unstakeButton.isEnabled = supportsEarn
         if let stakingState = config.stakingState(stakingData: stakingData) {
             let stakingBalance = config.fullStakingBalance(stakingData: stakingData) ?? 0

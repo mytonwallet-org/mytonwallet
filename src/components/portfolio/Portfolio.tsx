@@ -32,11 +32,11 @@ import useScrolledState from '../../hooks/useScrolledState';
 
 import BackHeader from '../common/BackHeader';
 import EdgeScrollButton from '../common/EdgeScrollButton';
+import TimeRangeSelector from '../common/TimeRangeSelector';
 import Balance from './sections/Balance';
 import Charts from './sections/Charts';
 import InsightCard from './sections/InsightCard';
 import SectionHeader from './sections/SectionHeader';
-import TimeRangeSelector from './sections/TimeRangeSelector';
 
 import './sections/chartOverrides.scss';
 import styles from './Portfolio.module.scss';

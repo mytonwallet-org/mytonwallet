@@ -4,6 +4,7 @@ $rotate: 30deg;
 $animation-time: 200ms;
 
 .root {
+  unicode-bidi: inherit;
   display: inline-flex;
   white-space: pre;
 
@@ -48,13 +49,13 @@ $animation-time: 200ms;
 .character-old {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   animation: $animation-time ease-out character-disappear forwards;
 }
 
 .character-new {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   animation: $animation-time ease-out character-appear forwards;
 }

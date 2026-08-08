@@ -1,8 +1,8 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
-import type { ApiToken } from '../../api/types';
-import type { ActionPayloads, AssetPairs, GlobalState, UserSwapToken } from '../../global/types';
+import type { ApiSwapCexLabel, ApiToken } from '../../api/types';
+import type { ActionPayloads, AppTheme, AssetPairs, GlobalState, Theme, UserSwapToken } from '../../global/types';
 import type { LangFn } from '../../hooks/useLang';
 import type { ExplainedSwapFee } from '../../util/fee/swapFee';
 import type { FeePrecision, FeeTerms } from '../../util/fee/types';
@@ -23,6 +23,7 @@ import { vibrate } from '../../util/haptics';
 import { findNativeToken, getChainBySlug } from '../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
+import useAppTheme from '../../hooks/useAppTheme';
 import { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
 import useDebouncedCallback from '../../hooks/useDebouncedCallback';
 import useFlag from '../../hooks/useFlag';
@@ -36,11 +37,15 @@ import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import FeeLine from '../ui/FeeLine';
 import RichNumberInput from '../ui/RichNumberInput';
 import SwapSubmitButton from './components/SwapSubmitButton';
-import SwapDexChooser from './SwapDexChooser';
 import SwapSettingsModal, { MAX_PRICE_IMPACT_VALUE } from './SwapSettingsModal';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Swap.module.scss';
+
+import changellyLogoDark from '../../assets/swap_provider_changelly_dark.svg';
+import changellyLogoLight from '../../assets/swap_provider_changelly_light.svg';
+import nearIntentsLogoDark from '../../assets/swap_provider_near_dark.svg';
+import nearIntentsLogoLight from '../../assets/swap_provider_near_light.svg';
 
 interface OwnProps {
   isStatic?: boolean;
@@ -54,10 +59,20 @@ interface StateProps {
   isSensitiveDataHidden?: true;
   pairsBySlug?: Record<string, AssetPairs>;
   isComplete?: boolean;
+  theme: Theme;
 }
 
 const ESTIMATE_REQUEST_INTERVAL = 1_000;
 const SET_AMOUNT_DEBOUNCE_TIME = 500;
+
+const CEX_PROVIDER_LOGOS: Record<ApiSwapCexLabel, Record<AppTheme, string> & { width: number; height: number }> = {
+  changelly: {
+    light: changellyLogoLight, dark: changellyLogoDark, width: 87, height: 18,
+  },
+  'near-intents': {
+    light: nearIntentsLogoLight, dark: nearIntentsLogoDark, width: 81, height: 11,
+  },
+};
 
 function SwapInitial({
   currentSwap: {
@@ -74,9 +89,6 @@ function SwapInitial({
     limits,
     isLoading,
     dieselStatus,
-    ourFee,
-    ourFeePercent,
-    ourFeeMode,
     currentCexLabel,
     currentCexProviderName,
     currentCexTermsOfUseUrl,
@@ -92,6 +104,7 @@ function SwapInitial({
   swapType,
   isSensitiveDataHidden,
   pairsBySlug,
+  theme,
 }: OwnProps & StateProps) {
   const {
     setDefaultSwapParams,
@@ -105,6 +118,7 @@ function SwapInitial({
     showToast,
   } = getActions();
   const lang = useLang();
+  const appTheme = useAppTheme(theme);
 
   const inputInRef = useRef<HTMLDivElement>();
   const inputOutRef = useRef<HTMLDivElement>();
@@ -141,14 +155,11 @@ function SwapInitial({
       tokenInSlug,
       networkFee,
       realNetworkFee,
-      ourFee,
-      ourFeeMode,
       dieselStatus,
       dieselFee,
       nativeTokenInBalance,
     }),
-    [swapType, tokenInSlug, networkFee, realNetworkFee, ourFee, ourFeeMode, dieselStatus, dieselFee,
-      nativeTokenInBalance],
+    [swapType, tokenInSlug, networkFee, realNetworkFee, dieselStatus, dieselFee, nativeTokenInBalance],
   );
 
   const maxAmountFromBackendBigint = maxAmountFromBackend && tokenIn
@@ -160,8 +171,6 @@ function SwapInitial({
     tokenInBalance: balanceIn,
     tokenIn,
     fullNetworkFee: explainedFee.fullFee?.networkTerms,
-    ourFeePercent,
-    ourFeeMode,
     maxAmountFromBackend: maxAmountFromBackendBigint,
   });
 
@@ -322,7 +331,7 @@ function SwapInitial({
   }
 
   function renderFee() {
-    const shouldShow = (amountIn && amountOut) // We aim to synchronize the disappearing of the fee with the DEX chooser disappearing
+    const shouldShow = (amountIn && amountOut)
       || ((amountIn || amountOut) && errorType); // Without this sub-condition the fee wouldn't be shown when the amount is outside the CEX limits
 
     let terms: FeeTerms | undefined;
@@ -390,19 +399,30 @@ function SwapInitial({
       return undefined;
     }
 
-    const legalDescription = renderCexProviderLegalDescription();
+    const legalDescription = renderCexProviderLegalDescription(providerName);
+    // `cexLabel` comes from the backend, so it can name a provider this app version has no logo for
+    const logo = CEX_PROVIDER_LOGOS[currentCexLabel];
+    const provider = logo ? (
+      <img
+        src={logo[appTheme]}
+        alt={providerName}
+        width={logo.width}
+        height={logo.height}
+        className={styles.providerLogo}
+      />
+    ) : providerName;
 
     return (
       <div className={buildClassName(styles.providerInfo, isStatic && styles.providerInfoStatic)}>
         <span className={styles.providerInfoTitle}>
-          {lang('Cross-chain exchange provided by %provider%', { provider: providerName })}
+          {lang('Cross-chain exchange provided by %provider%', { provider })}
         </span>
         {legalDescription}
       </div>
     );
   }
 
-  function renderCexProviderLegalDescription() {
+  function renderCexProviderLegalDescription(providerName: string) {
     if (!currentCexTermsOfUseUrl || !currentCexPrivacyPolicyUrl) {
       return undefined;
     }
@@ -419,7 +439,7 @@ function SwapInitial({
     );
     const aml = currentCexAmlKycPolicyUrl ? (
       <a href={currentCexAmlKycPolicyUrl} target="_blank" rel="noreferrer">
-        {lang('$swap_cex_aml_kyc_policy')}
+        {lang('$swap_cex_aml_kyc_policy_with_provider', { provider: providerName })}
       </a>
     ) : undefined;
 
@@ -449,7 +469,6 @@ function SwapInitial({
               onPressEnter={handleSubmit}
               decimals={tokenIn?.decimals}
               labelClassName={styles.inputLabel}
-              inputClassName={styles.amountInputInner}
               cornerClassName={buildClassName(styles.swapCornerTop, isStatic && styles.swapCornerStaticTop)}
               isStatic={isStatic}
             >
@@ -474,7 +493,6 @@ function SwapInitial({
               onInputClick={handleBuyAmountInputClick}
               decimals={tokenOut?.decimals}
               labelClassName={styles.inputLabel}
-              inputClassName={styles.amountInputInner}
               cornerClassName={buildClassName(styles.swapCornerBottom, isStatic && styles.swapCornerStaticBottom)}
               isStatic={isStatic}
             >
@@ -482,8 +500,6 @@ function SwapInitial({
             </RichNumberInput>
           </div>
         </div>
-        <SwapDexChooser tokenIn={tokenIn} tokenOut={tokenOut} isStatic={isStatic} />
-
         <div className={buildClassName(styles.footerBlock, isStatic && styles.footerBlockStatic)}>
           {renderFee()}
           {renderPriceImpactWarning()}
@@ -537,6 +553,7 @@ export default memo(
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         pairsBySlug: global.swapPairs?.bySlug,
         isComplete: global.currentSwap.state === SwapState.Complete,
+        theme: global.settings.theme,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

@@ -97,6 +97,7 @@ function RichNumberField({
 
   const inputWrapperFullClass = buildClassName(
     styles.input__wrapper,
+    styles.input__wrapper_large,
     isStatic && styles.inputWrapperStatic,
     inputClassName,
   );
@@ -133,13 +134,12 @@ function RichNumberField({
           <SensitiveData
             isActive={isSensitiveDataHidden}
             cols={8}
-            rows={3}
+            rows={2}
             cellSize={16}
             maskSkin={sensitiveDataMaskSkin}
             // Adding `.large` to remove the excessive bottom padding created by SensitiveData (the `height` property does the job)
             className={buildClassName(styles.rich, styles.large)}
             contentClassName={styles.richContent}
-            maskClassName={styles.mask}
           >
             <div ref={contentRef} id={id} className={inputFullClass} />
           </SensitiveData>

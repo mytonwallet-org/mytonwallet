@@ -29,8 +29,9 @@ class WNftImageView(
     context: Context,
     private var noImageSize: Int,
     private var noImageLabelSpacing: Int,
-    private var cornerRadius: Float = 12f.dp,
-) : WFrameLayout(context), WThemedView {
+    private var cornerRadius: Float = 12f.dp
+) : WFrameLayout(context),
+    WThemedView {
 
     val imageView = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(cornerRadius)
@@ -124,8 +125,11 @@ class WNftImageView(
     private fun applyPlaceholderTheme() {
         placeholderView.setBackgroundColor(WColor.SecondaryBackground.color)
         placeholderIconView.setImageResource(
-            if (ThemeManager.isDark) org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_dark
-            else org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_light
+            if (ThemeManager.isDark) {
+                org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_dark
+            } else {
+                org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_light
+            }
         )
         placeholderLabelView.setTextColor(WColor.SecondaryText.color)
     }
@@ -147,4 +151,3 @@ class WNftImageView(
         applyPlaceholderTheme()
     }
 }
-

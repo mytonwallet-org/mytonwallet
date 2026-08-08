@@ -4,22 +4,36 @@ import React, {
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiBaseCurrency, ApiChain, ApiCountryCode, ApiToken } from '../../../api/types';
-import type { Theme } from '../../../global/types';
+import type { Account, Theme } from '../../../global/types';
 
 import { CURRENCIES } from '../../../config';
-import { selectAccount, selectCurrentAccountTokenBalance } from '../../../global/selectors';
+import {
+  selectAccount,
+  selectAllowedOnOffRampCurrencies,
+  selectCurrentAccountTokenBalance,
+  selectHasMultipleAccounts,
+} from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
+import isViewAccount from '../../../util/isViewAccount';
+import {
+  getDefaultRampCurrency, getEffectiveRampCurrencies, getOffRampBaselineCurrencies,
+} from '../../../util/ramp-currencies';
+import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
 import { getNativeToken } from '../../../util/tokens';
 
+import useAccountSwitcherScreen, { AccountSwitcherScreen } from '../../../hooks/useAccountSwitcherScreen';
 import useAppTheme from '../../../hooks/useAppTheme';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useOffRampUrl from '../hooks/useOffRampUrl';
 
+import AccountSwitcherPill from '../../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../../common/AccountSwitcherSlide';
 import Button from '../../ui/Button';
 import Dropdown, { type DropdownItem } from '../../ui/Dropdown';
 import Modal from '../../ui/Modal';
 import Spinner from '../../ui/Spinner';
+import Transition from '../../ui/Transition';
 
 import modalStyles from '../../ui/Modal.module.scss';
 import styles from './OffRampWidgetModal.module.scss';
@@ -31,19 +45,23 @@ interface StateProps {
   balance?: bigint;
   theme: Theme;
   accountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
   baseCurrency: ApiBaseCurrency;
   countryCode?: ApiCountryCode;
+  allowedCurrencies?: ApiBaseCurrency[];
 }
 
 const ANIMATION_TIMEOUT = 200;
-const SUPPORTED_CURRENCIES = new Set<ApiBaseCurrency>(['EUR', 'RUB']);
 
 function OffRampWidgetModal({
-  chain, address, token, balance, theme, accountId, baseCurrency, countryCode,
+  chain, address, token, balance, theme, accountId, accountTitle, hasMultipleAccounts, baseCurrency, countryCode,
+  allowedCurrencies,
 }: StateProps) {
   const {
     closeOffRampWidgetModal,
     showError,
+    switchAccount,
   } = getActions();
 
   const lang = useLang();
@@ -51,15 +69,22 @@ function OffRampWidgetModal({
   const animationTimeoutRef = useRef<number>();
   const [isAnimationInProgress, setIsAnimationInProgress] = useState(true);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
-  // Avanchange (RUB) sells GRAM, so it is only offered when selling on the TON chain
-  const isAvanchangeAllowed = chain === 'ton';
-  const [selectedCurrency, setSelectedCurrency] = useState<ApiBaseCurrency>(
-    getDefaultOffRampCurrency(baseCurrency, countryCode, isAvanchangeAllowed),
+  const supportedCurrencies = useMemo(
+    () => new Set(getEffectiveRampCurrencies(getOffRampBaselineCurrencies(chain), allowedCurrencies)),
+    [chain, allowedCurrencies],
+  );
+  const [selectedCurrency, setSelectedCurrency] = useState<ApiBaseCurrency | undefined>(
+    getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode),
   );
   const isOpen = Boolean(chain) && Boolean(address);
 
+  const {
+    renderingKey, nextKey, updateNextKey, openSelector, closeSelector,
+  } = useAccountSwitcherScreen(isOpen, accountId);
+
   const { url, error, isLoading: isUrlLoading } = useOffRampUrl({
-    isOpen,
+    // Re-checked at build time, not only at dropdown render: the allowed set can shrink while the modal is open
+    isOpen: isOpen && Boolean(selectedCurrency && supportedCurrencies.has(selectedCurrency)),
     currency: selectedCurrency,
     chain,
     address,
@@ -71,25 +96,47 @@ function OffRampWidgetModal({
 
   const currencyItems = useMemo<DropdownItem<ApiBaseCurrency>[]>(
     () => Object.entries(CURRENCIES)
-      .filter(([currency]) => {
-        return SUPPORTED_CURRENCIES.has(currency as ApiBaseCurrency)
-          && (isAvanchangeAllowed || currency !== 'RUB');
-      })
+      .filter(([currency]) => supportedCurrencies.has(currency as ApiBaseCurrency))
       .map(([currency, { name }]) => ({ value: currency as ApiBaseCurrency, name })),
-    [isAvanchangeAllowed],
+    [supportedCurrencies],
   );
 
   useEffect(() => {
     if (isOpen) {
       // Recompute the default once the modal opens with the actual chain (e.g. RUB for RU users on TON)
-      setSelectedCurrency(getDefaultOffRampCurrency(baseCurrency, countryCode, isAvanchangeAllowed));
+      setSelectedCurrency(getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode));
     } else {
       setIsAnimationInProgress(true);
       setIsIframeLoading(true);
     }
 
     return () => window.clearTimeout(animationTimeoutRef.current);
-  }, [isOpen, baseCurrency, countryCode, isAvanchangeAllowed]);
+    // Keyed on the open transition alone. The currency inputs are read here but deliberately left out
+    // of the dependencies: a country code that resolves after the modal opened would otherwise replace
+    // a currency the user had already picked, and a selection gone invalid is repaired below instead
+    // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
+  }, [isOpen]);
+
+  // The allowed set can shrink while the modal is open, stranding it on a currency that is no longer offered
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (supportedCurrencies.size === 0) {
+      closeOffRampWidgetModal();
+      return;
+    }
+
+    if (!selectedCurrency || !supportedCurrencies.has(selectedCurrency)) {
+      setSelectedCurrency(getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode));
+    }
+  }, [isOpen, supportedCurrencies, selectedCurrency, baseCurrency, countryCode]);
+
+  // The widget URL is derived from the account address, so a fresh loading cycle is needed after switching
+  useEffect(() => {
+    window.clearTimeout(animationTimeoutRef.current);
+    setIsAnimationInProgress(true);
+    setIsIframeLoading(true);
+  }, [accountId]);
 
   useEffect(() => {
     if (error) {
@@ -101,6 +148,7 @@ function OffRampWidgetModal({
   const isLoading = isUrlLoading || isIframeLoading;
 
   const handleCurrencyChange = useLastCallback((value: ApiBaseCurrency) => {
+    window.clearTimeout(animationTimeoutRef.current);
     setIsIframeLoading(true);
     setIsAnimationInProgress(true);
     setSelectedCurrency(value);
@@ -113,6 +161,14 @@ function OffRampWidgetModal({
       setIsAnimationInProgress(false);
     }, ANIMATION_TIMEOUT);
   }
+
+  const handleSelectAccount = useLastCallback((nextAccountId: string) => {
+    switchAccount({ accountId: nextAccountId });
+  });
+
+  const getIsAccountDisabled = useLastCallback((account: Account) => {
+    return isViewAccount(account.type) || !chain || !account.byChain[chain]?.address;
+  });
 
   function renderIframe() {
     if (!url) return undefined;
@@ -150,6 +206,14 @@ function OffRampWidgetModal({
       <div
         className={buildClassName(modalStyles.header, modalStyles.header_wideContent, styles.header)}
       >
+        {hasMultipleAccounts && accountId && (
+          <AccountSwitcherPill
+            accountId={accountId}
+            title={accountTitle}
+            className={styles.accountPill}
+            onClick={openSelector}
+          />
+        )}
         <div className={buildClassName(modalStyles.title, styles.title)}>
           {lang('Sell on Card')}
           <Dropdown<ApiBaseCurrency>
@@ -176,17 +240,48 @@ function OffRampWidgetModal({
     );
   }
 
+  function renderContent(isActive: boolean, isFrom: boolean, currentKey: AccountSwitcherScreen) {
+    switch (currentKey) {
+      case AccountSwitcherScreen.Main:
+        return (
+          <>
+            {renderHeader()}
+            <div className={styles.content}>
+              {renderLoader()}
+              {renderIframe()}
+            </div>
+          </>
+        );
+      case AccountSwitcherScreen.Selector:
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            getIsAccountDisabled={getIsAccountDisabled}
+            onAccountSelect={handleSelectAccount}
+            onBack={closeSelector}
+            onClose={closeOffRampWidgetModal}
+          />
+        );
+    }
+  }
+
   return (
     <Modal
       isOpen={isOpen}
-      header={renderHeader()}
       dialogClassName={styles.modalDialog}
       onClose={closeOffRampWidgetModal}
+      onCloseAnimationEnd={updateNextKey}
     >
-      <div className={styles.content}>
-        {renderLoader()}
-        {renderIframe()}
-      </div>
+      <Transition
+        name={resolveSlideTransitionName()}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
+        slideClassName={modalStyles.transitionSlide}
+        activeKey={renderingKey}
+        nextKey={nextKey}
+        onStop={updateNextKey}
+      >
+        {renderContent}
+      </Transition>
     </Modal>
   );
 }
@@ -210,21 +305,10 @@ export default memo(withGlobal((global): StateProps => {
     balance,
     theme,
     accountId,
+    accountTitle: account?.title,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
     baseCurrency,
     countryCode,
+    allowedCurrencies: selectAllowedOnOffRampCurrencies(global),
   };
 })(OffRampWidgetModal));
-
-function getDefaultOffRampCurrency(
-  baseCurrency: ApiBaseCurrency | undefined,
-  countryCode: ApiCountryCode | undefined,
-  isAvanchangeAllowed: boolean,
-): ApiBaseCurrency {
-  const fallbackCurrency: ApiBaseCurrency = countryCode === 'RU' && isAvanchangeAllowed ? 'RUB' : 'EUR';
-
-  const preferred = baseCurrency && SUPPORTED_CURRENCIES.has(baseCurrency)
-    ? baseCurrency
-    : fallbackCurrency;
-
-  return preferred === 'RUB' && !isAvanchangeAllowed ? 'EUR' : preferred;
-}

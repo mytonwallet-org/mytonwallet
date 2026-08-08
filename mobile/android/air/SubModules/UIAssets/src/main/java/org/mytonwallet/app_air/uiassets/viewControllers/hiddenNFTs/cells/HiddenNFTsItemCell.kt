@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.view.ViewGroup
@@ -11,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -30,6 +30,7 @@ import org.mytonwallet.app_air.walletcore.stores.NftStore
 @SuppressLint("ViewConstructor")
 class HiddenNFTsItemCell(
     recyclerView: RecyclerView,
+    private val accountId: String,
     private val onSelect: ((nft: ApiNft) -> Unit)
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 60.dp)),
     WThemedView {
@@ -59,16 +60,14 @@ class HiddenNFTsItemCell(
     }
 
     private val switchView: WSwitch by lazy {
-        val sw = WSwitch(context)
-        sw.setOnCheckedChangeListener { _, isChecked ->
-            setNftVisibility(isChecked)
-        }
-        sw
+        WSwitch(context)
     }
     private val hideButton: WButton by lazy {
         val btn = WButton(context, WButton.Type.SECONDARY)
         btn.setOnClickListener {
-            setNftVisibility(NftStore.nftData?.blacklistedNftAddresses?.contains(nft.address) == true)
+            setNftVisibility(
+                NftStore.isHiddenByUser(accountId, nft)
+            )
             updateHideButtonText()
         }
         btn
@@ -108,7 +107,7 @@ class HiddenNFTsItemCell(
             0f,
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
-        if (nft.isHidden == true) {
+        if (nft.isHidden == true || nft.isUnverified == true) {
             addRippleEffect(
                 WColor.SecondaryBackground.color,
                 0f,
@@ -121,11 +120,7 @@ class HiddenNFTsItemCell(
     }
 
     private var isLast = false
-    fun configure(
-        nft: ApiNft,
-        isLast: Boolean,
-        showSeparator: Boolean,
-    ) {
+    fun configure(nft: ApiNft, isLast: Boolean, showSeparator: Boolean) {
         this.nft = nft
         this.isLast = isLast
         imageView.setNftImage(nft.thumbnail)
@@ -138,13 +133,23 @@ class HiddenNFTsItemCell(
                 }
         }
         subtitleLabel.text =
-            if (nft.isStandalone()) LocaleController.getString("Standalone NFT") else nft.collectionName
-        if (nft.isHidden == true) {
+            if (nft.isStandalone()) {
+                LocaleController.getString(
+                    "Standalone NFT"
+                )
+            } else {
+                nft.collectionName
+            }
+        if (nft.isHidden == true || nft.isUnverified == true) {
             if (switchView.parent == null) {
                 rightView.removeView(hideButton)
                 rightView.addView(switchView)
             }
-            switchView.isChecked = !nft.shouldHide()
+            switchView.setOnCheckedChangeListener(null)
+            switchView.isChecked = !NftStore.shouldHide(accountId, nft)
+            switchView.setOnCheckedChangeListener { _, isChecked ->
+                setNftVisibility(isChecked)
+            }
         } else {
             if (hideButton.parent == null) {
                 rightView.removeView(switchView)
@@ -158,19 +163,20 @@ class HiddenNFTsItemCell(
 
     private fun setNftVisibility(visible: Boolean) {
         if (visible) {
-            NftStore.showNft(nft)
+            NftStore.showNft(accountId, nft)
         } else {
-            NftStore.hideNft(nft)
+            NftStore.hideNft(accountId, nft)
         }
     }
 
     private fun updateHideButtonText() {
         hideButton.setText(
             LocaleController.getString(
-                if (NftStore.nftData?.blacklistedNftAddresses?.contains(nft.address) == true)
+                if (NftStore.isHiddenByUser(accountId, nft)) {
                     "Show"
-                else
+                } else {
                     "Hide"
+                }
             )
         )
     }

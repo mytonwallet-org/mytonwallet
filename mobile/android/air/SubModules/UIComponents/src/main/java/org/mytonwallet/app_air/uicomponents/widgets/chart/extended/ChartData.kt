@@ -2,6 +2,8 @@ package org.mytonwallet.app_air.uicomponents.widgets.chart.extended
 
 import android.graphics.Color
 import java.util.ArrayList
+import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
+import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
 
 open class ChartData() {
     var x: LongArray = longArrayOf()
@@ -39,7 +41,7 @@ open class ChartData() {
                 id = modelLine.id,
                 name = modelLine.name,
                 color = modelLine.color,
-                colorDark = modelLine.colorDark,
+                colorDark = modelLine.colorDark
             )
             line.maxValue = line.y.maxOrNull() ?: 0L
             line.minValue = line.y.minOrNull() ?: Long.MAX_VALUE
@@ -88,18 +90,23 @@ open class ChartData() {
             daysLookup[index] = if (timeStep == 1L) {
                 String.format(java.util.Locale.ENGLISH, "%02d:00", index)
             } else {
+                val dayMonthPattern =
+                    if (WDateFormatter.isDayBeforeMonth(WBaseStorage.getActiveLanguage())) {
+                        "d MMM"
+                    } else {
+                        "MMM d"
+                    }
                 ChartFormatters.formatDate(
-                    if (timeStep < 86_400_000L) "HH:mm" else "MMM d",
+                    if (timeStep < 86_400_000L) "HH:mm" else dayMonthPattern,
                     start + index * timeStep
                 )
             }
         }
-        oneDayPercentage = if (x.last() == x.first()) 0f else timeStep / (x.last() - x.first()).toFloat()
+        oneDayPercentage =
+            if (x.last() == x.first()) 0f else timeStep / (x.last() - x.first()).toFloat()
     }
 
-    fun getDayString(index: Int): String {
-        return daysLookup[((x[index] - x[0]) / timeStep).toInt()]
-    }
+    fun getDayString(index: Int): String = daysLookup[((x[index] - x[0]) / timeStep).toInt()]
 
     fun findStartIndex(v: Float): Int {
         if (v == 0f) return 0
@@ -108,7 +115,11 @@ open class ChartData() {
         var right = xPercentage.lastIndex
         while (left <= right) {
             val middle = (right + left) shr 1
-            if (v < xPercentage[middle] && (middle == 0 || v > xPercentage[middle - 1])) return middle
+            if (v < xPercentage[middle] &&
+                (middle == 0 || v > xPercentage[middle - 1])
+            ) {
+                return middle
+            }
             if (v == xPercentage[middle]) return middle
             if (v < xPercentage[middle]) right = middle - 1 else left = middle + 1
         }
@@ -121,7 +132,11 @@ open class ChartData() {
         var right = xPercentage.lastIndex
         while (left <= right) {
             val middle = (right + left) shr 1
-            if (v > xPercentage[middle] && (middle == xPercentage.lastIndex || v < xPercentage[middle + 1])) return middle
+            if (v > xPercentage[middle] &&
+                (middle == xPercentage.lastIndex || v < xPercentage[middle + 1])
+            ) {
+                return middle
+            }
             if (v == xPercentage[middle]) return middle
             if (v < xPercentage[middle]) right = middle - 1 else left = middle + 1
         }
@@ -135,7 +150,11 @@ open class ChartData() {
         var right = rightStart
         while (left <= right) {
             val middle = (right + left) shr 1
-            if (v > xPercentage[middle] && (middle == xPercentage.lastIndex || v < xPercentage[middle + 1])) return middle
+            if (v > xPercentage[middle] &&
+                (middle == xPercentage.lastIndex || v < xPercentage[middle + 1])
+            ) {
+                return middle
+            }
             if (v == xPercentage[middle]) return middle
             if (v < xPercentage[middle]) right = middle - 1 else left = middle + 1
         }
@@ -150,7 +169,7 @@ open class ChartData() {
         var maxValue: Long = 0L,
         var minValue: Long = Long.MAX_VALUE,
         var color: Int = Color.BLACK,
-        var colorDark: Int = Color.WHITE,
+        var colorDark: Int = Color.WHITE
     )
 
     companion object {

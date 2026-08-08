@@ -16,6 +16,7 @@ public struct TokenAmountEntrySection: View {
     public var balance: BigInt?
     public var showMaxAmount: Bool
     public var insufficientFunds: Bool
+    public var isFeeError: Bool
     @Binding public var amountInBaseCurrency: BigInt?
     @Binding public var switchedToBaseCurrencyInput: Bool
     public var allowSwitchingToBaseCurrency: Bool
@@ -31,6 +32,7 @@ public struct TokenAmountEntrySection: View {
         balance: BigInt?,
         showMaxAmount: Bool = true,
         insufficientFunds: Bool,
+        isFeeError: Bool = false,
         amountInBaseCurrency: Binding<BigInt?>,
         switchedToBaseCurrencyInput: Binding<Bool>,
         allowSwitchingToBaseCurrency: Bool = true,
@@ -45,6 +47,7 @@ public struct TokenAmountEntrySection: View {
         self.balance = balance
         self.showMaxAmount = showMaxAmount
         self.insufficientFunds = insufficientFunds
+        self.isFeeError = isFeeError
         self._amountInBaseCurrency = amountInBaseCurrency
         self._switchedToBaseCurrencyInput = switchedToBaseCurrencyInput
         self.allowSwitchingToBaseCurrency = allowSwitchingToBaseCurrency
@@ -53,6 +56,68 @@ public struct TokenAmountEntrySection: View {
         self._isFocused = isFocused
         self.onTokenSelect = onTokenSelect
         self.onUseAll = onUseAll
+    }
+
+    public init(
+        amount: BigInt?,
+        onAmountChange:
+            @escaping @MainActor @Sendable (BigInt?) -> Void,
+        token: ApiToken,
+        balance: BigInt?,
+        showMaxAmount: Bool = true,
+        insufficientFunds: Bool,
+        isFeeError: Bool = false,
+        amountInBaseCurrency: BigInt?,
+        onBaseCurrencyAmountChange:
+            @escaping @MainActor @Sendable (BigInt?) -> Void,
+        switchedToBaseCurrencyInput: Bool,
+        onInputCurrencyChange:
+            @escaping @MainActor @Sendable (Bool) -> Void,
+        allowSwitchingToBaseCurrency: Bool = true,
+        fee: MFee?,
+        explainedFee: ExplainedTransferFee?,
+        isFocused: Binding<Bool>,
+        onTokenSelect: (() -> Void)?,
+        onUseAll: @escaping () -> Void
+    ) {
+        self.init(
+            amount: Binding(
+                get: { amount },
+                set: { amount in
+                    MainActor.assumeIsolated {
+                        onAmountChange(amount)
+                    }
+                }
+            ),
+            token: token,
+            balance: balance,
+            showMaxAmount: showMaxAmount,
+            insufficientFunds: insufficientFunds,
+            isFeeError: isFeeError,
+            amountInBaseCurrency: Binding(
+                get: { amountInBaseCurrency },
+                set: { amount in
+                    MainActor.assumeIsolated {
+                        onBaseCurrencyAmountChange(amount)
+                    }
+                }
+            ),
+            switchedToBaseCurrencyInput: Binding(
+                get: { switchedToBaseCurrencyInput },
+                set: { switched in
+                    MainActor.assumeIsolated {
+                        onInputCurrencyChange(switched)
+                    }
+                }
+            ),
+            allowSwitchingToBaseCurrency:
+                allowSwitchingToBaseCurrency,
+            fee: fee,
+            explainedFee: explainedFee,
+            isFocused: isFocused,
+            onTokenSelect: onTokenSelect,
+            onUseAll: onUseAll
+        )
     }
     
     public var body: some View {
@@ -93,45 +158,40 @@ public struct TokenAmountEntrySection: View {
         } footer: {
             HStack {
                 switchToCurrency
+                    .layoutPriority(1)
                 Spacer()
                 feeView
+                    .layoutPriority(1)
             }
             .animation(.snappy, value: fee)
             .animation(.snappy, value: explainedFee)
         }
     }
     
-    private var decimals: Int {
-        if switchedToBaseCurrencyInput {
-            TokenStore.baseCurrency.decimalsCount
-        } else {
-            token.decimals
-        }
-    }
-
     @ViewBuilder
     var switchToCurrency: some View {
-        HStack(spacing: 1) {
-            if switchedToBaseCurrencyInput {
-                let amount = amount ?? 0
+        ZStack(alignment: .leading) {
+            HStack(spacing: 1) {
                 Text(
-                    amount: DecimalAmount(amount, token),
+                    amount: DecimalAmount(amount ?? 0, token),
                     format: .init()
                 )
                 Image("SendInCurrency", bundle: AirBundle)
-                
-            } else {
-                let amount = amountInBaseCurrency ?? 0
-                let baseCurrency = TokenStore.baseCurrency
+            }
+            .opacity(switchedToBaseCurrencyInput ? 1 : 0)
+            
+            HStack(spacing: 1) {
                 Text(
-                    amount: BaseCurrencyAmount(amount, baseCurrency),
+                    amount: BaseCurrencyAmount(amountInBaseCurrency ?? 0, TokenStore.baseCurrency),
                     format: .init(preset: .baseCurrencyEquivalent)
                 )
                 if allowSwitchingToBaseCurrency {
                     Image("SendInCurrency", bundle: AirBundle)
                 }
             }
+            .opacity(switchedToBaseCurrencyInput ? 0 : 1)
         }
+        .animation(.smooth(), value: switchedToBaseCurrencyInput)
         .padding(2)
         .contentShape(.rect)
         .onTapGesture {
@@ -148,7 +208,15 @@ public struct TokenAmountEntrySection: View {
     var feeView: some View {
         let chain = token.chain
         if chain.isSupported, let nativeToken = TokenStore.tokens[chain.nativeToken.slug] {
-            FeeView(token: token, nativeToken: nativeToken, fee: fee, explainedTransferFee: explainedFee, includeLabel: true)
+            FeeView(
+                token: token,
+                nativeToken: nativeToken,
+                fee: fee,
+                explainedTransferFee: explainedFee,
+                includeLabel: true,
+                isError: isFeeError,
+                textStyle: .footnote
+            )
                 .transition(.opacity)
         }
     }
@@ -232,7 +300,7 @@ public struct TokenAmountEntry: View {
             let sign = TokenStore.baseCurrency.sign
             Text(verbatim: sign)
                 .foregroundStyle(Color((amount ?? 0) == 0 ? UIColor.placeholderText : insufficientFunds ? .air.error : isValueStale ? .air.secondaryLabel : UIColor.label))
-                .font(.system(size: 24, weight: .medium))
+                .textStyle(.amountSymbol, content: .technical)
         }
     }
     
@@ -242,8 +310,8 @@ public struct TokenAmountEntry: View {
             WUIAmountInput(
                 amount: $amount,
                 maximumFractionDigits: decimals,
-                font: .systemFont(ofSize: 24, weight: .semibold),
-                fractionFont: .systemFont(ofSize: 20, weight: .semibold),
+                font: WTypography.uiFont(.amount, content: .technical),
+                fractionFont: WTypography.uiFont(.amountSecondary, content: .technical),
                 isFocused: $triggerFocused,
                 error: insufficientFunds,
                 muted: isValueStale,
@@ -253,7 +321,7 @@ public struct TokenAmountEntry: View {
             .allowsHitTesting(isInputEnabled)
         } else {
             Text(" ")
-                .font(.system(size: 24, weight: .semibold))
+                .textStyle(.amount, content: .technical)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

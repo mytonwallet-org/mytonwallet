@@ -13,12 +13,12 @@ private let apiSwapLog = Log("Api+Swap")
 
 extension Api {
 
-    public static func swapBuildTransfer(accountId: String, password: String, request: ApiSwapBuildRequest) async throws -> ApiSwapBuildResponse {
-        try await bridge.callApi("swapBuildTransfer", accountId, password, request, decoding: ApiSwapBuildResponse.self)
+    public static func swapBuildTransfer(accountId: String, enclaveToken: EnclaveToken, request: ApiSwapBuildRequest) async throws -> ApiSwapBuildResponse {
+        return try await bridge.callApi("swapBuildTransfer", accountId, enclaveToken, request, decoding: ApiSwapBuildResponse.self)
     }
     
-    public static func swapSubmit(chain: ApiChain, accountId: String, password: String, transfers: [ApiSwapTransfer]?, historyItem: ApiSwapHistoryItem, isGasless: Bool?, transaction: String?) async throws -> ApiSwapSubmitResult {
-        try await bridge.callApi("swapSubmit", chain, accountId, password, transfers, historyItem, isGasless, transaction, decoding: ApiSwapSubmitResult.self)
+    public static func swapSubmit(chain: ApiChain, accountId: String, enclaveToken: EnclaveToken, transfers: [ApiSwapTransfer]?, historyItem: ApiSwapHistoryItem, isGasless: Bool?, transaction: String?) async throws -> ApiSwapSubmitResult {
+        try await bridge.callApi("swapSubmit", chain, accountId, enclaveToken, transfers, historyItem, isGasless, transaction, decoding: ApiSwapSubmitResult.self)
     }
     
     public static func swapEstimate(accountId: String, request: ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse {
@@ -70,8 +70,8 @@ extension Api {
         try await bridge.callApi("swapCexValidateAddress", params, decoding: ApiSwapCexValidateAddressResult.self)
     }
 
-    public static func swapCexCreateTransaction(accountId: String, password: String, params: ApiSwapCexCreateTransactionParams) async throws -> ApiSwapCexCreateTransactionResult {
-        try await bridge.callApi("swapCexCreateTransaction", accountId, password, params, decoding: ApiSwapCexCreateTransactionResult.self)
+    public static func swapCexCreateTransaction(accountId: String, enclaveToken: EnclaveToken, params: ApiSwapCexCreateTransactionParams) async throws -> ApiSwapCexCreateTransactionResult {
+        return try await bridge.callApi("swapCexCreateTransaction", accountId, enclaveToken, params, decoding: ApiSwapCexCreateTransactionResult.self)
     }
 
     public static func swapCexSubmit(chain: ApiChain, options: ApiSubmitTransferOptions, swapId: String) async throws -> ApiSwapSubmitResult {
@@ -87,8 +87,18 @@ extension Api {
         }
     }
 
-    public static func fetchSwaps(accountId: String, items: [ApiFetchSwapItem]) async throws -> ApiFetchSwapsResult {
-        try await bridge.callApi("fetchSwaps", accountId, items, decoding: ApiFetchSwapsResult.self)
+    public static func fetchSwaps(
+        accountId: String,
+        items: [ApiFetchSwapItem],
+        existingActivities: [ApiActivity] = []
+    ) async throws -> ApiFetchSwapsResult {
+        try await bridge.callApi(
+            "fetchSwaps",
+            accountId,
+            items,
+            existingActivities,
+            decoding: ApiFetchSwapsResult.self
+        )
     }
 }
 
@@ -140,6 +150,7 @@ public struct ApiSwapCexCreateTransactionResult: Decodable, Sendable {
 public struct ApiFetchSwapsResult: Decodable, Sendable {
     public var nonExistentIds: [String]
     public var swaps: [ApiSwapActivity]
+    public var patch: ApiActivitiesPatch?
 }
 
 public struct ApiFetchSwapItem: Encodable, Hashable, Sendable {

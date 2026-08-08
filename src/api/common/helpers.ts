@@ -5,15 +5,12 @@ import type { StorageKey } from '../storages/types';
 import type {
   ApiActivity,
   ApiLocalTransactionParams,
-  ApiTonAccount,
   ApiTonWallet,
   ApiTransactionActivity,
   OnApiUpdate,
 } from '../types';
 
-import {
-  IS_AIR_APP, IS_CORE_WALLET, IS_EXTENSION, IS_FEATURE_LIMITED, MAIN_ACCOUNT_ID,
-} from '../../config';
+import { IS_AIR_APP, IS_EXTENSION, MAIN_ACCOUNT_ID } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { areDeepEqual } from '../../util/areDeepEqual';
@@ -25,7 +22,6 @@ import * as migrations from '../migrations';
 import { storage } from '../storages';
 import airStorage from '../storages/airStorage';
 import idbStorage from '../storages/idb';
-import localStorage from '../storages/localStorage';
 import {
   checkHasScamLink,
   checkHasTelegramBotMention,
@@ -35,7 +31,7 @@ import {
 import { purgeCoreTwins } from './coreTwins';
 import { hexToBytes } from './utils';
 
-const actualStateVersion = 22;
+const actualStateVersion = 23;
 
 export function buildLocalTransaction(
   params: ApiLocalTransactionParams,
@@ -124,10 +120,6 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
     return;
   }
 
-  if (IS_CORE_WALLET && !version) {
-    await migrateCoreWallet(onUpdate);
-  }
-
   if (IS_AIR_APP && !version) {
     if (await storage.getItem('accounts' as StorageKey, true)) {
       // Fix broken version
@@ -162,9 +154,12 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
     // Support multi-accounts
     const mnemonicEncrypted = await storage.getItem('mnemonicEncrypted' as StorageKey);
     if (mnemonicEncrypted) {
-      await storage.setItem('mnemonicsEncrypted' as StorageKey, JSON.stringify({
-        [MAIN_ACCOUNT_ID]: mnemonicEncrypted,
-      }));
+      await storage.setItem(
+        'mnemonicsEncrypted' as StorageKey,
+        JSON.stringify({
+          [MAIN_ACCOUNT_ID]: mnemonicEncrypted,
+        }),
+      );
       await storage.removeItem('mnemonicEncrypted' as StorageKey);
     }
 
@@ -192,10 +187,10 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
   }
 
   if (version === 1) {
-    const addresses = await storage.getItem('addresses' as StorageKey) as string | undefined;
+    const addresses = (await storage.getItem('addresses' as StorageKey)) as string | undefined;
     if (addresses && addresses.includes('-undefined')) {
       for (const field of ['mnemonicsEncrypted', 'addresses', 'publicKeys'] as unknown as StorageKey[]) {
-        const newValue = (await storage.getItem(field) as string).replace('-undefined', '-ton');
+        const newValue = ((await storage.getItem(field)) as string).replace('-undefined', '-ton');
         await storage.setItem(field, newValue);
       }
     }
@@ -233,7 +228,7 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
 
   if (version === 6) {
     for (const key of ['addresses', 'mnemonicsEncrypted', 'publicKeys', 'accounts', 'dapps'] as StorageKey[]) {
-      let data = await storage.getItem(key) as AnyLiteral;
+      let data = (await storage.getItem(key)) as AnyLiteral;
       if (!data) continue;
 
       data = Object.entries(data).reduce((byAccountId, [internalAccountId, accountData]) => {
@@ -259,7 +254,7 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
 
     if (addresses) {
       const publicKeys = (await storage.getItem('publicKeys' as StorageKey)) as Record<string, string>;
-      const accounts = (await storage.getItem('accounts') ?? {}) as Record<string, ApiTonWallet>;
+      const accounts = ((await storage.getItem('accounts')) ?? {}) as Record<string, ApiTonWallet>;
 
       for (const [accountId, oldAddress] of Object.entries(addresses)) {
         const newAddress = toBase64Address(oldAddress, false);
@@ -335,11 +330,16 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
   }
 
   if (version === 10 || version === 11 || version === 12) {
-    const accounts: Record<string, {
-      publicKey: string;
-      address: string;
-      version?: string;
-    }> | undefined = await storage.getItem('accounts', true);
+    const accounts:
+      | Record<
+        string,
+        {
+          publicKey: string;
+          address: string;
+          version?: string;
+        }
+      >
+      | undefined = await storage.getItem('accounts', true);
 
     if (accounts) {
       for (const account of Object.values(accounts)) {
@@ -361,11 +361,16 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
   }
 
   if (version === 13) {
-    const accounts: Record<string, {
-      publicKey: string;
-      address: string;
-      version?: string;
-    }> | undefined = await storage.getItem('accounts', true);
+    const accounts:
+      | Record<
+        string,
+        {
+          publicKey: string;
+          address: string;
+          version?: string;
+        }
+      >
+      | undefined = await storage.getItem('accounts', true);
 
     if (accounts) {
       for (const [accountId, account] of Object.entries(accounts)) {
@@ -437,6 +442,14 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
     version = 22;
     await storage.setItem('stateVersion', version);
   }
+
+  if (version === 22) {
+    await migrations.migration22.start();
+
+    version = 23;
+    await storage.setItem('stateVersion', version);
+  }
+  // Should update `STATE_VERSION_KEY` in `WSecureStorage.kt` whenever a new migration is added here
 }
 
 function buildOldAccountId(account: { id: number; network: string }) {
@@ -477,98 +490,5 @@ async function iosBackupAndMigrateKeychainMode() {
         await airStorage.setItem(key as StorageKey, value);
       }
     }
-  }
-}
-
-async function migrateCoreWallet(onUpdate: OnApiUpdate) {
-  const currentStorage = IS_EXTENSION ? storage : localStorage;
-
-  const [
-    // Default Core Wallet version is v3R2
-    // https://github.com/toncenter/ton-wallet/blob/master/src/js/Controller.js#L128
-    walletVersion = 'v3R2',
-    isTestnet,
-    address,
-    words,
-    publicKey,
-    isTonProxyEnabled,
-  ] = await Promise.all([
-    currentStorage.getItem('walletVersion' as StorageKey),
-    currentStorage.getItem('isTestnet' as StorageKey),
-    currentStorage.getItem('address' as StorageKey),
-    currentStorage.getItem('words' as StorageKey),
-    currentStorage.getItem('publicKey' as StorageKey),
-    currentStorage.getItem('proxy' as StorageKey),
-  ]);
-
-  if (isTestnet) {
-    onUpdate({
-      type: 'updateSettings',
-      settings: {
-        isTestnet: true,
-      },
-    });
-  }
-
-  const network = isTestnet ? 'testnet' : 'mainnet';
-  const accountId = `0-ton-${network}`;
-
-  if (address && words && publicKey) {
-    const newAccountById: Record<string, ApiTonAccount> = {};
-    newAccountById[accountId] = {
-      type: 'ton',
-      mnemonicEncrypted: words,
-      byChain: {
-        ton: {
-          address,
-          version: walletVersion,
-          publicKey,
-          index: 0,
-        },
-      },
-    };
-
-    // The trimmed core build mirrors the wallet onto the opposite network (it has no network switcher and relies on
-    // wipe-both logout). The full-featured combo build must NOT create that invisible twin - it would leave the
-    // mnemonic behind on logout once the network switcher and per-account removal are reachable.
-    let secondAccountId: string | undefined;
-    let secondAddress: string | undefined;
-    if (IS_FEATURE_LIMITED) {
-      const secondNetwork = network === 'mainnet' ? 'testnet' : 'mainnet';
-      secondAccountId = `0-ton-${secondNetwork}`;
-      secondAddress = toBase64Address(address, false, secondNetwork);
-      newAccountById[secondAccountId] = {
-        type: 'ton',
-        mnemonicEncrypted: words,
-        byChain: {
-          ton: {
-            address: secondAddress,
-            version: walletVersion,
-            publicKey,
-            index: 0,
-          },
-        },
-      };
-    }
-
-    await storage.setItem('accounts', newAccountById);
-
-    onUpdate({
-      type: 'migrateCoreApplication',
-      isTestnet,
-      accountId,
-      address,
-      secondAccountId,
-      secondAddress,
-      isTonProxyEnabled,
-    });
-
-    // Clean up storage after migrate the app from Core Wallet
-    [
-      'walletVersion', 'isTestnet', 'words', 'address', 'publicKey', 'proxy', 'isLedger',
-      'ledgerTransportType', '__time', 'isDebug',
-    ].forEach((key) => {
-      void currentStorage.removeItem(key as StorageKey);
-    });
   }
 }

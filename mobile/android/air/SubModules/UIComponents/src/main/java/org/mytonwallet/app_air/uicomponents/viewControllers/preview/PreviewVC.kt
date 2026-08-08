@@ -17,6 +17,8 @@ import androidx.core.animation.doOnEnd
 import androidx.core.view.updateLayoutParams
 import com.facebook.drawee.drawable.ScalingUtils
 import com.facebook.drawee.generic.RoundingParams
+import kotlin.math.min
+import kotlin.math.sqrt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -25,8 +27,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.min
-import kotlin.math.sqrt
 
 class PreviewVC(
     context: Context,
@@ -36,6 +36,7 @@ class PreviewVC(
     val initialRounding: Float,
     val onPreviewDismissed: () -> Unit
 ) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Preview"
 
     override val shouldDisplayTopBar = false
@@ -49,7 +50,7 @@ class PreviewVC(
     enum class DragState {
         NONE,
         DRAG,
-        ZOOM;
+        ZOOM
     }
 
     private var dragState = DragState.NONE
@@ -71,21 +72,21 @@ class PreviewVC(
         pivotY = 0f
 
         val gestureDetector =
-            GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-                override fun onDoubleTap(e: MotionEvent): Boolean {
-                    doubleTapped(e)
-                    return true
-                }
+            GestureDetector(
+                context,
+                object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onDoubleTap(e: MotionEvent): Boolean {
+                        doubleTapped(e)
+                        return true
+                    }
 
-                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                    return true
+                    override fun onSingleTapConfirmed(e: MotionEvent): Boolean = true
                 }
-            })
+            )
         @SuppressLint("ClickableViewAccessibility")
         setOnTouchListener { v, event ->
             val doubleTap = gestureDetector.onTouchEvent(event)
-            if (doubleTap)
-                return@setOnTouchListener true
+            if (doubleTap) return@setOnTouchListener true
 
             // Pass to zoom-controller if not dragging
             val res =
@@ -117,8 +118,7 @@ class PreviewVC(
                     if (dragState == DragState.NONE) {
                         // Ignore small changes to allow user zoom!
                         val slop = ViewConfiguration.get(context).scaledTouchSlop
-                        if (dx < slop && dy < slop)
-                            return@setOnTouchListener true
+                        if (dx < slop && dy < slop) return@setOnTouchListener true
                     }
                     dragState = DragState.DRAG
 
@@ -139,8 +139,7 @@ class PreviewVC(
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (dragState == DragState.ZOOM) {
                         dragState = DragState.NONE
-                        if (zoomableController.scaleFactor < 1.1f)
-                            resetZoom()
+                        if (zoomableController.scaleFactor < 1.1f) resetZoom()
                         return@setOnTouchListener res
                     }
                     dragState = DragState.NONE
@@ -172,8 +171,9 @@ class PreviewVC(
             }
         }
 
-        if (animationView != null)
+        if (animationView != null) {
             setZoomingEnabled(false) // For now, lock pinch zoom for animations
+        }
     }
 
     private val viewWidth: Int by lazy {
@@ -265,8 +265,7 @@ class PreviewVC(
 
     override fun onBackPressed(): Boolean {
         view.lockView()
-        if (imageView.zoomableController.scaleFactor > 1f)
-            imageView.resetZoom()
+        if (imageView.zoomableController.scaleFactor > 1f) imageView.resetZoom()
         val startX = imageView.x + (viewWidth - imageSize).toFloat() / 2
         val startY = imageView.y + (viewHeight - imageSize).toFloat() / 2
         val startAlpha = overlayView.alpha
@@ -324,8 +323,7 @@ class PreviewVC(
     }
 
     private fun renderAnimatedNft() {
-        if (animationView?.parent != view)
-            return
+        if (animationView?.parent != view) return
         animationView.apply {
             setBackgroundColor(
                 Color.TRANSPARENT,

@@ -208,7 +208,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-card-text);
-  text-align: left;
+  text-align: start;
 
   opacity: 0.84;
   background-clip: padding-box, padding-box;
@@ -296,7 +296,7 @@
 
   max-width: 100%;
   margin-top: 0.5rem;
-  padding-right: 1.125rem;
+  padding-inline-end: 1.125rem;
 
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -323,19 +323,20 @@
 }
 
 .accountCurrencyIcon {
-  margin-left: -0.0625rem;
+  margin-inline-start: -0.0625rem;
   font-size: 0.75rem;
   vertical-align: -0.125rem;
 }
 
 .accountAddress {
+  unicode-bidi: plaintext;
   color: var(--color-card-second-text);
 }
 
 .accountCheckMark {
   position: absolute;
   top: 0.3125rem;
-  right: 0.3125rem;
+  inset-inline-end: 0.3125rem;
 
   width: 1rem;
   height: 1rem;
@@ -367,7 +368,7 @@
 }
 
 .declinedLabelDetailed {
-  text-align: left;
+  text-align: start;
 }
 
 .dropdownBlock {

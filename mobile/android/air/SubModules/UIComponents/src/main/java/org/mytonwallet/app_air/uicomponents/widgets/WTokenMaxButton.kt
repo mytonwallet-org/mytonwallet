@@ -8,6 +8,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.view.View
 import android.view.ViewGroup
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
@@ -19,9 +20,11 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import kotlin.math.roundToInt
 
-class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThemedView,
+class WTokenMaxButton(context: Context) :
+    View(context),
+    Counter.Callback,
+    WThemedView,
     WProtectedView {
     private val textPaintSecondary = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Regular.typeface
@@ -43,7 +46,9 @@ class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThem
             textPaintSecondary.measureText(maxString)
                 .roundToInt(),
             Layout.Alignment.ALIGN_NORMAL,
-            1f, 0f, false
+            1f,
+            0f,
+            false
         )
     }
 
@@ -77,7 +82,8 @@ class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThem
         } else {
             maxStaticLayout.let {
                 val x =
-                    measuredWidth - counter.getVisibleWidth() - paddingRight - GAP.dp - maxStaticLayout.width
+                    measuredWidth - counter.getVisibleWidth() - paddingRight - GAP.dp -
+                        maxStaticLayout.width
                 val textY = y - maxStaticLayout.getLineBaseline(0)
 
                 val a = it.paint.alpha
@@ -100,7 +106,6 @@ class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThem
         }
     }
 
-
     private var protectedText: String? = null
 
     fun setAmount(text: String?) {
@@ -111,9 +116,13 @@ class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThem
 
         isEnabled = !text.isNullOrEmpty()
         counter.setValue(
-            if (WGlobalStorage.getIsSensitiveDataProtectionOn()) "*** ${
-                protectedText?.split(" ")?.last()
-            }" else protectedText,
+            if (WGlobalStorage.getIsSensitiveDataProtectionOn()) {
+                "*** ${
+                    protectedText?.split(" ")?.last()
+                }"
+            } else {
+                protectedText
+            },
             isAttachedToWindow
         )
     }
@@ -138,8 +147,10 @@ class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThem
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val requiredWidth =
+            counter.requiredWidth + paddingLeft + paddingRight + GAP.dp + maxStaticLayout.width
         super.onMeasure(
-            (counter.requiredWidth + paddingLeft + paddingRight + GAP.dp + maxStaticLayout.width).exactly,
+            requiredWidth.exactly,
             heightMeasureSpec
         )
     }

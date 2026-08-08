@@ -13,8 +13,8 @@ import android.graphics.drawable.Drawable
 import android.view.animation.DecelerateInterpolator
 import androidx.core.animation.doOnEnd
 import androidx.core.graphics.withSave
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.sqrt
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 
 class CheckboxDrawable(private val invalidateCallback: (() -> Unit)? = null) : Drawable() {
 
@@ -47,13 +47,12 @@ class CheckboxDrawable(private val invalidateCallback: (() -> Unit)? = null) : D
         private set
 
     fun setChecked(isChecked: Boolean, animated: Boolean) {
-        if (this.isChecked == isChecked)
-            return
+        if (this.isChecked == isChecked) return
         this.isChecked = isChecked
         animator?.cancel()
-        if (animated)
+        if (animated) {
             animateToProgress(if (isChecked) 1f else 0f)
-        else {
+        } else {
             progress = if (isChecked) 1f else 0f
             invalidateSelf()
         }

@@ -7,7 +7,6 @@ import UIKit
 import WalletContext
 import WalletCore
 
-private let log = Log("WalletTokens")
 private let contextMenuSourceCornerRadius: CGFloat = 26
 private let walletTokenMenuStyle = ContextMenuStyle(minWidth: 180.0, maxWidth: 280.0)
 
@@ -209,12 +208,21 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     private func configureTokenCell(_ cell: WalletTokenCell, indexPath: IndexPath, item: TokenBalanceItem) {
         let account = self.account
         let token = item.tokenBalance
-        let badgeContent = getBadgeContent(accountContext: _account, slug: token.tokenSlug, isStaking: token.isStaking)
+        let stakingPresentation = $account.getStakingTokenPresentation(
+            tokenSlug: token.tokenSlug,
+            isStaking: token.isStaking
+        )
+        let badgeContent = getBadgeContent(
+            accountContext: _account,
+            slug: token.tokenSlug,
+            stakingBadge: stakingPresentation?.badge
+        )
         cell.baseBackgroundColor = layoutMode.containerBackgroundColor
 
         cell.configure(with: item.tokenBalance,
                        animated: item.animatedAmounts,
                        badgeContent: badgeContent,
+                       stakingAccessoryContent: stakingPresentation?.accessory,
                        isMultichain: account.isMultichain,
                        isPinned: item.isPinned)
 
@@ -284,16 +292,21 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         }
 
         let assetsData = AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
-        let pinPartition = MTokenBalance.partitionTokensByPinning(
-            tokens: walletTokensData.orderedTokenBalances,
-            assetsAndActivityData: assetsData
-        )
-        let orderedTokens = pinPartition.pinned + pinPartition.unpinned
+        let orderedTokens = walletTokensData.orderedTokenBalances
         if orderedTokens.isEmpty {
             return .empty
         }
         let visibleTokens = makeVisibleTokens(from: orderedTokens)
-        let pinnedTokenIDs = Set(pinPartition.pinned.map(\.tokenID))
+        let pinnedTokenIDs = Set(orderedTokens.compactMap { tokenBalance in
+            if case .pinned = assetsData.isTokenPinned(
+                slug: tokenBalance.tokenSlug,
+                isStaked: tokenBalance.isStaking
+            ) {
+                tokenBalance.tokenID
+            } else {
+                nil
+            }
+        })
         let rows = visibleTokens.map { tokenBalance in
             TokenBalanceItem(
                 tokenBalance: tokenBalance,
@@ -314,11 +327,22 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         }
     }
 
-    private func reloadStakeCells(animated _: Bool) { // Improvement: this should simply be an apply snapshot
+    private func refreshVisibleStakingPresentations() {
         for cell in collectionView.visibleCells {
             if let cell = cell as? WalletTokenCell, let walletToken = cell.walletToken {
-                let badgeContent = getBadgeContent(accountContext: _account, slug: walletToken.tokenSlug, isStaking: walletToken.isStaking)
-                cell.configureBadge(badgeContent: badgeContent)
+                let stakingPresentation = $account.getStakingTokenPresentation(
+                    tokenSlug: walletToken.tokenSlug,
+                    isStaking: walletToken.isStaking
+                )
+                let badgeContent = getBadgeContent(
+                    accountContext: _account,
+                    slug: walletToken.tokenSlug,
+                    stakingBadge: stakingPresentation?.badge
+                )
+                cell.configureStakingPresentation(
+                    badgeContent: badgeContent,
+                    accessoryContent: stakingPresentation?.accessory
+                )
             }
         }
     }
@@ -341,12 +365,12 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                     if !shouldSkipUpdate {
                         updateWalletTokens(animated: false)
                     }
-                    reloadStakeCells(animated: false)
+                    refreshVisibleStakingPresentations()
                 }
 
             case .stakingAccountData(let data):
                 if data.accountId == self.account.id {
-                    reloadStakeCells(animated: true)
+                    refreshVisibleStakingPresentations()
                 }
 
             case .tokensChanged:
@@ -373,7 +397,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
 
     private func didSelectToken(_ walletToken: MTokenBalance) {
         let slug = walletToken.tokenSlug
-        if slug == STAKED_TON_SLUG || slug == STAKED_MYCOIN_SLUG || slug == TON_TSUSDE_SLUG || walletToken.isStaking {
+        if walletToken.isStaking || $account.stakingData?.byStakedSlug(slug) != nil {
             goToStakedPage(slug: slug)
         } else {
             didSelect(slug: slug)
@@ -386,16 +410,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     }
 
     private func stakingBaseSlug(for slug: String) -> String? {
-        switch slug {
-        case TONCOIN_SLUG, STAKED_TON_SLUG:
-            TONCOIN_SLUG
-        case MYCOIN_SLUG, STAKED_MYCOIN_SLUG:
-            MYCOIN_SLUG
-        case TON_USDE_SLUG, TON_TSUSDE_SLUG:
-            TON_USDE_SLUG
-        default:
-            nil
-        }
+        $account.stakingData?.byTokenSlug(slug)?.tokenSlug
     }
 
     private func goToStakedPage(slug: String) {
@@ -433,7 +448,10 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
 
     private func makeTokenMenuConfiguration(walletToken: MTokenBalance) -> ContextMenuConfiguration? {
         let tokenSlug = walletToken.tokenSlug
-        let baseSlug = walletToken.isStaking ? (stakingBaseSlug(for: tokenSlug) ?? tokenSlug) : tokenSlug
+        let matchedStakingState = $account.stakingData?.byTokenSlug(tokenSlug)
+        let isStakingPosition = walletToken.isStaking || $account.stakingData?.byStakedSlug(tokenSlug) != nil
+        let stakingState = isStakingPosition ? matchedStakingState : nil
+        let baseSlug = stakingState?.tokenSlug ?? tokenSlug
         guard let token = TokenStore.getToken(slug: tokenSlug) ?? TokenStore.getToken(slug: baseSlug) else {
             return nil
         }
@@ -443,40 +461,27 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         let isServiceToken = token.type == .lp_token || token.isStakedToken || token.isPricelessToken
         let isSwapAvailable = account.supportsSwap && (TokenStore.swapAssets?.contains(where: { $0.slug == token.slug }) ?? false)
 
-        let stakingState: ApiStakingState? = if walletToken.isStaking {
-            if let state = $account.stakingData?.byStakedSlug(walletToken.tokenSlug) {
-                state
-            } else if let state = $account.stakingData?.bySlug(walletToken.tokenSlug) {
-                state
-            } else {
-                nil
-            }
-        } else {
-            nil
-        }
-
         let canBeClaimed = stakingState.map { getStakingStateStatus(state: $0) == .readyToClaim } ?? false
         let hasUnclaimedRewards = stakingState?.type == .jetton ? (stakingState?.unclaimedRewards ?? 0) > 0 : false
-        let isStakingAvailable = !walletToken.isStaking
-            && account.supportsEarn
-            && token.earnAvailable
-            && $account.stakingData?.bySlug(token.slug) != nil
-        let isStakingToken = walletToken.isStaking
+        let isStakingAvailable = !isStakingPosition && $account.isEarnAvailable(forTokenSlug: token.slug)
+        let isStakingToken = isStakingPosition
 
         var primaryItems: [ContextMenuItem] = []
         var secondaryItems: [ContextMenuItem] = []
 
         if !isViewMode {
             if let stakingState {
-                primaryItems.append(.action(
-                    ContextMenuAction(
-                        title: lang("Stake More"),
-                        icon: .system("arrow.up"),
-                        handler: { [weak self] in
-                            self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
-                        }
-                    )
-                ))
+                if baseSlug != MYCOIN_SLUG {
+                    primaryItems.append(.action(
+                        ContextMenuAction(
+                            title: lang("Stake More"),
+                            icon: .system("arrow.up"),
+                            handler: { [weak self] in
+                                self?.showEarnForToken(slug: tokenSlug, isStaking: isStakingToken)
+                            }
+                        )
+                    ))
+                }
                 if stakingState.type != .ethena || !canBeClaimed {
                     let title = stakingState.type == .ethena ? lang("Request Unstaking") : lang("Unstake")
                     primaryItems.append(.action(

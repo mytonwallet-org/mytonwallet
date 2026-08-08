@@ -28,11 +28,11 @@ $nftCardItemWidth: 6.875rem;
 
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   overflow: hidden;
   // Aspect ratio is set here instead of height/width for small screens
-  aspect-ratio: calc($nftCardItemWidth / 1rem) / calc($nftCardItemHeight / 1rem);
+  aspect-ratio: calc($nftCardItemWidth / $nftCardItemHeight);
   width: 100%;
   height: 100%;
   border-radius: var(--border-radius-normal);
@@ -74,7 +74,7 @@ $nftCardItemWidth: 6.875rem;
 .cardContent {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   display: flex;
   align-items: center;
@@ -88,6 +88,8 @@ $nftCardItemWidth: 6.875rem;
 }
 
 .balance {
+  direction: ltr;
+  unicode-bidi: plaintext;
   display: flex;
   gap: 0.0625rem;
   align-items: baseline;
@@ -116,7 +118,7 @@ $nftCardItemWidth: 6.875rem;
 
 .customCardManager, .cardWrapper {
   // Aspect ratio is set here instead of height/width for small screens
-  aspect-ratio: calc($nftCardItemWidth / 1rem) / calc($nftCardItemHeight / 1rem);
+  aspect-ratio: calc($nftCardItemWidth / $nftCardItemHeight);
   min-width: unset;
   height: unset;
 }
@@ -126,7 +128,10 @@ $nftCardItemWidth: 6.875rem;
 }
 
 .customCardShadow {
-  border-radius: var(--border-radius-normal) 0 0 var(--border-radius-normal) !important;
+  border-start-start-radius: var(--border-radius-normal) !important;
+  border-start-end-radius: 0 !important;
+  border-end-start-radius: var(--border-radius-normal) !important;
+  border-end-end-radius: 0 !important;
 }
 
 .bar {

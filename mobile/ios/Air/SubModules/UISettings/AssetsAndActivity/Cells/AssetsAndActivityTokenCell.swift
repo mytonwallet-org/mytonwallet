@@ -21,8 +21,6 @@ final class AssetsAndActivityTokenCell: UICollectionViewListCell {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private var onSelect: (() -> Void)? = nil
-
     private var containerView: UIView = {
         let view = UIView()
         view.isUserInteractionEnabled = true
@@ -35,7 +33,7 @@ final class AssetsAndActivityTokenCell: UICollectionViewListCell {
     private var titleLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 16, weight: .medium)
+        lbl.applyTextStyle(.calloutEmphasized)
         lbl.numberOfLines = 1
         lbl.lineBreakMode = .byTruncatingTail
         lbl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -45,7 +43,7 @@ final class AssetsAndActivityTokenCell: UICollectionViewListCell {
     private var symbolLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 14)
+        lbl.applyTextStyle(.supporting, content: .technical)
         lbl.numberOfLines = 1
         lbl.lineBreakMode = .byTruncatingTail
         lbl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

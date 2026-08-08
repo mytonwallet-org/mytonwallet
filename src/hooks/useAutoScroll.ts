@@ -99,8 +99,10 @@ function useAutoScroll({
     markAutoScrollStarted();
 
     const step = getStepSize(container, items[0]);
+    // In RTL `scrollLeft` is negative, so the target offset must flip sign
+    const sign = getComputedStyle(container).direction === 'rtl' ? -1 : 1;
     container.scrollTo({
-      left: nextIndex * step,
+      left: sign * nextIndex * step,
       behavior: 'smooth',
     });
 
@@ -168,7 +170,8 @@ function calcIndexFromScrollLeft(container: HTMLElement, items: NodeListOf<Eleme
   if (!items.length) return 0;
 
   const step = getStepSize(container, items[0]);
-  return step ? Math.round(container.scrollLeft / step) : 0;
+  // `Math.abs` handles RTL where `scrollLeft` is negative
+  return step ? Math.round(Math.abs(container.scrollLeft) / step) : 0;
 }
 
 function isScrollEndSupported() {

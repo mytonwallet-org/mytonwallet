@@ -2,35 +2,8 @@ import Foundation
 import WalletContext
 import WalletCore
 
-private enum AgentRealBackendMetrics {
-    static let clientIDDefaultsKey = "ui_agent.real_backend.client_id"
-    static let trailingMessageCharacters = CharacterSet.whitespacesAndNewlines.union(
-        CharacterSet(charactersIn: "\u{00A0}\u{200B}\u{200C}\u{200D}\u{FEFF}")
-    )
-}
-
 private let log = Log("AgentRealBackend")
-
-private enum AgentRealBackendCopy {
-    static let unavailableMessage = "Real Agent backend is not configured yet."
-    static let emptyResponseMessage = "The Agent returned an empty response."
-}
-
-private struct AgentRealBackendParsedMessage {
-    let text: String
-    let action: AgentMessageAction?
-}
-
-enum AgentRealBackendError: LocalizedError {
-    case notConfigured
-
-    var errorDescription: String? {
-        switch self {
-        case .notConfigured:
-            AgentRealBackendCopy.unavailableMessage
-        }
-    }
-}
+private let clientIDDefaultsKey = "ui_agent.real_backend.client_id"
 
 @MainActor
 final class AgentRealBackend: AgentBackend {
@@ -45,9 +18,7 @@ final class AgentRealBackend: AgentBackend {
     private var clientID: String
 
     init(
-        transport: AgentRealBackendTransport = AgentHTTPStreamingTransport(
-            endpoint: URL(string: "https://agent.mytonwallet.org/api/message")!
-        ),
+        transport: AgentRealBackendTransport = AgentHTTPStreamingTransport(endpoint: URL(string: "https://agent.mytonwallet.org/api/message")!),
         defaults: UserDefaults = .standard
     ) {
         self.transport = transport
@@ -101,7 +72,7 @@ final class AgentRealBackend: AgentBackend {
             text: text,
             context: AgentRequestContext.current(using: accountContext, editContext: editContext)
         )
-        log.info("send start clientId=\(clientID, .public) textChars=\(text.count) text=\(text, .redacted)")
+        log.info("send start clientId=\(clientID, .public) textChars=\(text.count) text=\(text.prefix(50), .redacted)")
         let task = Task { [weak self] in
             defer { self?.pendingReplyTasks[taskID] = nil }
             await self?.streamReply(request: request, typingIndicatorID: typingIndicator.id)
@@ -131,27 +102,34 @@ final class AgentRealBackend: AgentBackend {
 
         do {
             for try await chunk in transport.streamReply(request: request) {
-                guard !Task.isCancelled, let context = self.context else { return }
+                guard !Task.isCancelled, self.context != nil else { return }
+                let previousCount = streamedText.count
                 streamedText.append(chunk)
 
-                if let streamedMessageID, var message = context.message(for: streamedMessageID) {
-                    message.text = streamedText
-                    message.isStreaming = true
-                    log.info("parsed update messageId=\(streamedMessageID, .public) chars=\(streamedText.count) text=\(streamedText, .redacted)")
-                    context.updateMessage(message, animated: false, scrollToBottom: true)
-                } else {
-                    let message = AgentMessage(
-                        role: .assistant,
-                        text: streamedText,
-                        isStreaming: true
-                    )
-                    streamedMessageID = message.id
-                    log.info("parsed create messageId=\(message.id, .public) chars=\(streamedText.count) text=\(streamedText, .redacted)")
-                    if typingIndicatorIsVisible {
-                        context.replaceItem(id: typingIndicatorID, with: .message(message), animated: true)
-                        typingIndicatorIsVisible = false
+                let allFrames = Self.streamingFrames(for: streamedText)
+                let newFrames = allFrames.enumerated().filter { $0.element.count > previousCount }
+                for (_, frame) in newFrames {
+                    guard !Task.isCancelled, let context = self.context else { return }
+
+                    if let streamedMessageID, var message = context.message(for: streamedMessageID) {
+                        message.text = frame
+                        message.isStreaming = true
+                        log.info("parsed update messageId=\(streamedMessageID, .public) chars=\(frame.count) text=\(frame.prefix(50), .redacted)")
+                        context.updateMessage(message, animated: false, scrollToBottom: true)
                     } else {
-                        context.append(.message(message), animated: true)
+                        let message = AgentMessage(
+                            role: .assistant,
+                            text: frame,
+                            isStreaming: true
+                        )
+                        streamedMessageID = message.id
+                        log.info("parsed create messageId=\(message.id, .public) chars=\(frame.count) text=\(frame.prefix(50), .redacted)")
+                        if typingIndicatorIsVisible {
+                            context.replaceItem(id: typingIndicatorID, with: .message(message), animated: true)
+                            typingIndicatorIsVisible = false
+                        } else {
+                            context.append(.message(message), animated: true)
+                        }
                     }
                 }
             }
@@ -164,7 +142,7 @@ final class AgentRealBackend: AgentBackend {
                     with: .message(
                         AgentMessage(
                             role: .system,
-                            text: AgentRealBackendCopy.emptyResponseMessage,
+                            text: AgentBackendMessages.emptyResponseMessage,
                             isStreaming: false
                         )
                     ),
@@ -179,7 +157,7 @@ final class AgentRealBackend: AgentBackend {
             finalMessage.action = parsedMessage.action
             finalMessage.isStreaming = false
             log.info(
-                "parsed final messageId=\(streamedMessageID, .public) textChars=\(parsedMessage.text.count) text=\(parsedMessage.text, .redacted) actionTitle=\(parsedMessage.action?.title ?? "nil", .redacted) actionURL=\(parsedMessage.action?.url.absoluteString ?? "nil", .redacted)"
+                "parsed final messageId=\(streamedMessageID, .public) textChars=\(parsedMessage.text.count) text=\(parsedMessage.text.prefix(50), .redacted) actionTitle=\(parsedMessage.action?.title ?? "nil", .redacted) actionURL=\(parsedMessage.action?.url.absoluteString ?? "nil", .redacted)"
             )
             context.updateMessage(finalMessage, animated: false, scrollToBottom: true)
         } catch {
@@ -187,7 +165,7 @@ final class AgentRealBackend: AgentBackend {
             guard !Task.isCancelled, let context = self.context else { return }
             let systemMessage = AgentMessage(
                 role: .system,
-                text: (error as? LocalizedError)?.errorDescription ?? AgentRealBackendCopy.unavailableMessage,
+                text: (error as? LocalizedError)?.errorDescription ?? AgentBackendMessages.unavailableMessage,
                 isStreaming: false
             )
             if typingIndicatorIsVisible {
@@ -198,56 +176,20 @@ final class AgentRealBackend: AgentBackend {
         }
     }
 
-    private static func parseMessage(_ rawText: String) -> AgentRealBackendParsedMessage {
-        let trimmedText = rawText.trimmingCharacters(in: AgentRealBackendMetrics.trailingMessageCharacters)
-        guard let match = deeplinkRegex.matches(
-            in: trimmedText,
-            options: [],
-            range: NSRange(trimmedText.startIndex..., in: trimmedText)
-        ).last else {
-            return AgentRealBackendParsedMessage(text: trimmedText, action: nil)
-        }
-
-        guard let fullRange = Range(match.range(at: 0), in: trimmedText),
-              let titleRange = Range(match.range(at: 1), in: trimmedText),
-              let urlRange = Range(match.range(at: 2), in: trimmedText) else {
-            return AgentRealBackendParsedMessage(text: trimmedText, action: nil)
-        }
-
-        let title = String(trimmedText[titleRange])
-        let urlString = String(trimmedText[urlRange])
-        guard let url = URL(string: urlString) else {
-            return AgentRealBackendParsedMessage(text: trimmedText, action: nil)
-        }
-
-        var messageText = trimmedText
-        messageText.removeSubrange(fullRange)
-        messageText = messageText.trimmingCharacters(in: AgentRealBackendMetrics.trailingMessageCharacters)
-
-        return AgentRealBackendParsedMessage(
-            text: messageText,
-            action: AgentMessageAction(title: title, url: url)
-        )
-    }
-
-    private static var deeplinkRegex: NSRegularExpression = {
-        AgentActionLinkMatcher.deeplinkRegex
-    }()
-
     private static func loadOrCreateClientID(from defaults: UserDefaults) -> String {
-        if let existingClientID = defaults.string(forKey: AgentRealBackendMetrics.clientIDDefaultsKey),
+        if let existingClientID = defaults.string(forKey: clientIDDefaultsKey),
            !existingClientID.isEmpty {
             return existingClientID
         }
 
         let newClientID = UUID().uuidString
-        defaults.set(newClientID, forKey: AgentRealBackendMetrics.clientIDDefaultsKey)
+        defaults.set(newClientID, forKey: clientIDDefaultsKey)
         return newClientID
     }
 
     private static func rotateClientID(in defaults: UserDefaults) -> String {
         let newClientID = UUID().uuidString
-        defaults.set(newClientID, forKey: AgentRealBackendMetrics.clientIDDefaultsKey)
+        defaults.set(newClientID, forKey: clientIDDefaultsKey)
         return newClientID
     }
 }

@@ -43,7 +43,7 @@ final class SubwalletsVC: SettingsBaseVC {
     private let listViewController: SubwalletsListVC
     private let actionsState: SubwalletsActionsState
 
-    init(password: String) {
+    init(enclaveToken: EnclaveToken) {
         let account = AccountStore.account ?? DUMMY_ACCOUNT
         let accountContext = AccountContext(source: .current)
         let displayChains = accountContext.orderedChains.map(\.0)
@@ -52,7 +52,7 @@ final class SubwalletsVC: SettingsBaseVC {
         self.variantChains = displayChains.filter { account.supportsSubwallets(on: $0) }
         self.actionsState = actionsState
         self.listViewController = SubwalletsListVC(
-            password: password,
+            enclaveToken: enclaveToken,
             displayChains: displayChains,
             actionsState: actionsState
         )
@@ -139,7 +139,7 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         case noSubwallets
     }
 
-    private let password: String
+    private let enclaveToken: EnclaveToken
     private let accountId: String
     private let displayChains: [ApiChain]
     private let actionsState: SubwalletsActionsState
@@ -152,10 +152,10 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
-    fileprivate init(password: String, displayChains: [ApiChain], actionsState: SubwalletsActionsState) {
+    fileprivate init(enclaveToken: EnclaveToken, displayChains: [ApiChain], actionsState: SubwalletsActionsState) {
         let account = AccountStore.account ?? DUMMY_ACCOUNT
 
-        self.password = password
+        self.enclaveToken = enclaveToken
         self.accountId = account.id
         self.displayChains = displayChains
         self.actionsState = actionsState
@@ -394,7 +394,7 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
             guard let self else { return }
 
             do {
-                mnemonic = try await Api.fetchMnemonic(accountId: accountId, password: password)
+                mnemonic = try await Api.fetchMnemonic(accountId: accountId, enclaveToken: enclaveToken)
                 startFetchingVariants()
             } catch {
                 isLoading = false
@@ -536,7 +536,7 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     }
 
     func createSubwallet() async throws {
-        let account = try await AccountStore.createSubWallet(password: password)
+        let account = try await AccountStore.createSubWallet(enclaveToken: enclaveToken)
         AppActions.showHome(popToRoot: true)
         popToRootAfterDelay()
         showToastAfterReturningHome(message: lang("Subwallet Created"), account: account)
@@ -708,7 +708,7 @@ private struct SubwalletsExplainerText: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 13, weight: .regular))
+            .textStyle(.footnote)
             .lineSpacing(2)
             .tracking(-0.078)
             .foregroundStyle(Color.air.secondaryLabel)
@@ -724,7 +724,7 @@ private struct SubwalletsSectionTitle: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 17, weight: .semibold))
+            .textStyle(.bodyStrong)
             .tracking(-0.43)
             .foregroundStyle(Color.air.secondaryLabel)
             .frame(maxWidth: .infinity, minHeight: 39, alignment: .bottomLeading)
@@ -762,7 +762,7 @@ private struct SubwalletsSearchStatus: View {
                 Text(subwalletsFoundText(foundCount))
             }
         }
-        .font(.system(size: 14, weight: .regular))
+        .textStyle(.supporting)
         .tracking(-0.15)
         .foregroundStyle(Color.air.secondaryLabel)
         .lineLimit(1)
@@ -774,7 +774,7 @@ private struct SubwalletsSearchStatus: View {
 private struct SubwalletsEmptyView: View {
     var body: some View {
         Text(lang("$subwallets_none"))
-            .font(.system(size: 13, weight: .regular))
+            .textStyle(.footnote)
             .tracking(-0.078)
             .foregroundStyle(Color.air.secondaryLabel)
             .frame(maxWidth: .infinity, minHeight: 52, alignment: .center)
@@ -789,14 +789,14 @@ private struct SubwalletRowView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 4) {
                     Text(rowData.title)
-                        .font(.system(size: 16, weight: .medium))
+                        .textStyle(.calloutEmphasized, content: .technical)
                         .tracking(-0.43)
                         .foregroundStyle(Color.air.primaryLabel)
                         .lineLimit(1)
 
                     if let badge = rowData.badge?.nilIfEmpty {
                         Text(badge)
-                            .font(.system(size: 10, weight: .semibold))
+                            .textStyle(.badge, content: .technical)
                             .tracking(0.066)
                             .foregroundStyle(Color.air.secondaryLabel)
                             .frame(height: 14)
@@ -812,14 +812,14 @@ private struct SubwalletRowView: View {
 
             VStack(alignment: .trailing, spacing: 0) {
                 Text("≥ \(rowData.totalBalance)")
-                    .font(.system(size: 16, weight: .regular))
+                    .textStyle(.callout, content: .technical)
                     .tracking(-0.43)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
                 Text(rowData.assetAmounts)
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting, content: .technical)
                     .tracking(-0.15)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
@@ -875,7 +875,7 @@ private struct SubwalletAddressView: View {
                     .truncationMode(.middle)
             }
         }
-        .font(.system(size: 14, weight: .regular))
+        .textStyle(.supporting, content: .technical)
         .frame(height: 18, alignment: .center)
     }
 
@@ -891,9 +891,9 @@ private struct SubwalletAddressView: View {
 private func subwalletsFoundText(_ count: Int) -> String {
     let localized = lang("$subwallets_found")
     guard !localized.isEmpty, localized != "$subwallets_found" else {
-        return "Found: \(count)"
+        return "Found: \(localizedIntegerString(count))"
     }
-    return String.localizedStringWithFormat(localized, count)
+    return formatLocalizedString(localized, arguments: [count])
 }
 
 private struct SubwalletsBottomActions: View {
@@ -977,6 +977,6 @@ private struct SubwalletsBottomActions: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    UINavigationController(rootViewController: SubwalletsVC(password: "password"))
+    UINavigationController(rootViewController: SubwalletsVC(enclaveToken: "token"))
 }
 #endif

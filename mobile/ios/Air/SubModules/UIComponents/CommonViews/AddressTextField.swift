@@ -33,6 +33,42 @@ public struct AddressTextField: UIViewRepresentable {
     
     final class PasteAwareTextView: UITextView {
         var onPaste: (() -> Void)?
+        var usesSingleLineScrolling = false
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            updateSingleLineContainerSize()
+        }
+
+        func updateSingleLineContainerSize() {
+            guard usesSingleLineScrolling else { return }
+            let font = font ?? .preferredFont(forTextStyle: .body)
+            let textWidth = ceil((text as NSString).size(withAttributes: [
+                .font: font,
+            ]).width)
+            let size = CGSize(
+                width: max(bounds.width, textWidth + 2),
+                height: max(bounds.height, ceil(font.lineHeight))
+            )
+            if textContainer.size != size {
+                textContainer.size = size
+            }
+            if contentSize != size {
+                contentSize = size
+            }
+        }
+
+        func revealSelection() {
+            guard usesSingleLineScrolling,
+                  let selectedTextRange else {
+                return
+            }
+            let caretRect = caretRect(for: selectedTextRange.end)
+            scrollRectToVisible(
+                caretRect.insetBy(dx: -2, dy: 0),
+                animated: false
+            )
+        }
         
         override func paste(_ sender: Any?) {
             super.paste(sender)
@@ -71,7 +107,17 @@ public struct AddressTextField: UIViewRepresentable {
         }
         
         public func textViewDidChange(_ textView: UITextView) {
+            if let textView = textView as? PasteAwareTextView {
+                textView.updateSingleLineContainerSize()
+                DispatchQueue.main.async {
+                    textView.revealSelection()
+                }
+            }
             onChange(textView.text)
+        }
+
+        public func textViewDidChangeSelection(_ textView: UITextView) {
+            (textView as? PasteAwareTextView)?.revealSelection()
         }
         
         public func textViewDidBeginEditing(_ textView: UITextView) {
@@ -107,21 +153,30 @@ public struct AddressTextField: UIViewRepresentable {
     public func makeUIView(context: Context) -> UITextView {
         let view = PasteAwareTextView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.isScrollEnabled = false
         view.backgroundColor = .clear
-        view.font = .preferredFont(forTextStyle: .body)
+        view.applyTextStyle(
+            .body,
+            content: .technical,
+            scaling: .dynamic
+        )
         view.autocorrectionType = .no
         view.autocapitalizationType = .none
         view.keyboardType = .asciiCapable
         view.textContainerInset = .zero
-        view.textContainer.lineBreakMode = .byCharWrapping
         view.textContainer.lineFragmentPadding = 0
-        view.textContainer.maximumNumberOfLines = maximumNumberOfLines
+        Self.configureTextLayout(
+            view,
+            maximumNumberOfLines: maximumNumberOfLines
+        )
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineBreakMode = .byCharWrapping
+        paragraphStyle.lineBreakMode = view.textContainer.lineBreakMode
         view.typingAttributes = [
             .paragraphStyle: paragraphStyle,
-            .font: UIFont.systemFont(ofSize: 17),
+            .font: WTypography.uiFont(
+                .body,
+                content: .technical,
+                scaling: .dynamic
+            ),
             .foregroundColor: UIColor.label,
         ]
         view.dataDetectorTypes = []
@@ -133,10 +188,30 @@ public struct AddressTextField: UIViewRepresentable {
         view.onPaste = context.coordinator.onPaste
         return view
     }
+
+    static func configureTextLayout(
+        _ view: UITextView,
+        maximumNumberOfLines: Int
+    ) {
+        let isSingleLine = maximumNumberOfLines == 1
+        view.isScrollEnabled = isSingleLine
+        view.showsHorizontalScrollIndicator = false
+        view.textContainer.maximumNumberOfLines = maximumNumberOfLines
+        view.textContainer.lineBreakMode = isSingleLine
+            ? .byClipping
+            : .byCharWrapping
+        view.textContainer.widthTracksTextView = !isSingleLine
+        if let view = view as? PasteAwareTextView {
+            view.usesSingleLineScrolling = isSingleLine
+            view.updateSingleLineContainerSize()
+        }
+    }
     
     public func updateUIView(_ view: UITextView, context: Context) {
         if value != view.text {
             view.text = value
+            (view as? PasteAwareTextView)?
+                .updateSingleLineContainerSize()
         }
         if let view = view as? PasteAwareTextView {
             view.onPaste = context.coordinator.onPaste

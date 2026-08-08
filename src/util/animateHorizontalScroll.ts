@@ -6,19 +6,23 @@ const DEFAULT_DURATION = 300;
 const stopById = new Map<string, VoidFunction>();
 
 export default function animateHorizontalScroll(container: HTMLElement, left: number, duration = DEFAULT_DURATION) {
-  const isRtl = container.getAttribute('dir') === 'rtl';
+  // Use the computed direction, not the `dir` attribute: scroll containers inherit RTL from `<html>`
+  // and rarely set `dir` on themselves
+  const isRtl = getComputedStyle(container).direction === 'rtl';
   const {
     scrollLeft, offsetWidth: containerWidth, scrollWidth, dataset: { scrollId },
   } = container;
 
+  // In RTL (modern "negative" model) `scrollLeft` ranges over `[containerWidth - scrollWidth, 0]`
+  const minScrollLeft = isRtl ? containerWidth - scrollWidth : 0;
+  const maxScrollLeft = isRtl ? 0 : scrollWidth - containerWidth;
+
   let path = left - scrollLeft;
 
   if (path < 0) {
-    const remainingPath = -scrollLeft * (isRtl ? -1 : 1);
-    path = Math.max(path, remainingPath);
+    path = Math.max(path, minScrollLeft - scrollLeft);
   } else if (path > 0) {
-    const remainingPath = scrollWidth - (scrollLeft + containerWidth);
-    path = Math.min(path, remainingPath);
+    path = Math.min(path, maxScrollLeft - scrollLeft);
   }
 
   if (path === 0) {

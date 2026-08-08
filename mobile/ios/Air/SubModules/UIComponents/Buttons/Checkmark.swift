@@ -28,7 +28,7 @@ public struct Checkmark: View {
                     )
                 Image(systemName: "checkmark")
                     .foregroundStyle(.white)
-                    .font(.system(size: 10, weight: .semibold))
+                    .textStyle(.badge, content: .technical)
                     .transition(.modifier(
                         active: CheckmarkTransition(active: true),
                         identity: CheckmarkTransition(active: false)

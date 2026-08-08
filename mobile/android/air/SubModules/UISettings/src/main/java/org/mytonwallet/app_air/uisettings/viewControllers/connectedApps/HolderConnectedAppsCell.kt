@@ -18,7 +18,9 @@ class HolderConnectedAppsCell(
             onDisconnect = { onDisconnect.invoke(item) },
             onWarning = if (item.app.shouldShowurlTrustStatusWarning()) {
                 { onWarning.invoke(item) }
-            } else null
+            } else {
+                null
+            }
         )
     }
 }

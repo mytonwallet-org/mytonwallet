@@ -30,8 +30,9 @@ class MfaConfirmHeaderView(
     context: Context,
     titleText: String,
     user: AccountMfa.User,
-    account: MAccount?,
-) : WView(context), WThemedView {
+    account: MAccount?
+) : WView(context),
+    WThemedView {
 
     companion object {
         private const val AVATAR_SIZE = 80
@@ -60,11 +61,11 @@ class MfaConfirmHeaderView(
         id = generateViewId()
         addView(
             telegramAvatar,
-            FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT),
+            FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
         addView(
             userImage,
-            FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT),
+            FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
     }
 
@@ -91,7 +92,7 @@ class MfaConfirmHeaderView(
         id = generateViewId()
         setImageDrawable(
             context.getDrawableCompat(
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_tg_inline,
+                org.mytonwallet.app_air.icons.R.drawable.ic_tg_inline
             )
         )
     }

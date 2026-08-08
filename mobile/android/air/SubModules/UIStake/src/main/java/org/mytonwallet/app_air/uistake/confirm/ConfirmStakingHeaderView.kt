@@ -1,14 +1,15 @@
 package org.mytonwallet.app_air.uistake.confirm
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.text.style.RelativeSizeSpan
 import android.util.AttributeSet
 import android.util.TypedValue
 import androidx.appcompat.widget.AppCompatTextView
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -17,16 +18,15 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 class ConfirmStakingHeaderView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0,
+    defStyle: Int = 0
 ) : WCell(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)),
     WThemedView {
 
@@ -112,5 +112,4 @@ class ConfirmStakingHeaderView @JvmOverloads constructor(
         amountTextView.setTextColor(WColor.PrimaryText.color)
         messageTextView.setTextColor(WColor.PrimaryText.color)
     }
-
 }

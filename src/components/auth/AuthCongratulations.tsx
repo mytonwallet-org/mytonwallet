@@ -43,7 +43,10 @@ function AuthCongratulations({
 
   useEffect(() => {
     return isActive
-      ? captureKeyboardListeners({ onEnter: handleClick, onSpace: handleClick })
+      ? captureKeyboardListeners({
+        onEnter: { handler: handleClick, noStopPropagation: true },
+        onSpace: { handler: handleClick, noStopPropagation: true },
+      })
       : undefined;
   }, [isActive]);
 

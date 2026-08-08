@@ -23,6 +23,10 @@ extension Api {
     public static func getLogs() async throws -> Any? {
         try await bridge.callApiRaw("getLogs")
     }
+
+    static func getLogsIfReady() async throws -> Any? {
+        try await bridge.callApiRawIfReady("getLogs")
+    }
     
     public static func ping() async throws -> Bool {
         try await bridge.callApi("ping", decoding: Bool.self)

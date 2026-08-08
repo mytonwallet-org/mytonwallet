@@ -1,32 +1,26 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
+import java.math.BigDecimal
+import java.math.BigInteger
+import java.math.RoundingMode
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import java.math.BigDecimal
-import java.math.BigInteger
 
-data class TokenAmount(
-    val decimals: Int,
-    val amountInteger: BigInteger,
-) {
+data class TokenAmount(val decimals: Int, val amountInteger: BigInteger) {
     val amountDecimal = amountInteger.toBigDecimal(decimals)
 
     companion object {
-        fun valueOf(decimals: Int, amount: BigInteger): TokenAmount {
-            return TokenAmount(
-                decimals = decimals,
-                amountInteger = amount,
-            )
-        }
+        fun valueOf(decimals: Int, amount: BigInteger): TokenAmount = TokenAmount(
+            decimals = decimals,
+            amountInteger = amount
+        )
 
-        fun valueOf(decimals: Int, amount: BigDecimal): TokenAmount {
-            return TokenAmount(
-                decimals = decimals,
-                amountInteger = amount.movePointRight(decimals).toBigInteger(),
-            )
-        }
+        fun valueOf(decimals: Int, amount: BigDecimal): TokenAmount = TokenAmount(
+            decimals = decimals,
+            amountInteger = amount.movePointRight(decimals).toBigInteger()
+        )
     }
 }
 
@@ -73,19 +67,17 @@ data class TokenEquivalent(
             token: IApiToken,
             amount: BigInteger,
             currency: MBaseCurrency
-        ): TokenEquivalent {
-            return if (inFiatMode) {
-                fromCurrency(price, token, amount, currency)
-            } else {
-                fromToken(price, token, amount, currency)
-            }
+        ): TokenEquivalent = if (inFiatMode) {
+            fromCurrency(price, token, amount, currency)
+        } else {
+            fromToken(price, token, amount, currency)
         }
 
         fun fromToken(
             price: BigDecimal,
             token: IApiToken,
             amount: BigInteger,
-            currency: MBaseCurrency,
+            currency: MBaseCurrency
         ): TokenEquivalent {
             val tokenAmount = TokenAmount.valueOf(token.decimals, amount)
             val currencyAmountDecimal = (tokenAmount.amountDecimal * price).stripTrailingZeros()
@@ -103,12 +95,16 @@ data class TokenEquivalent(
             price: BigDecimal,
             token: IApiToken,
             amount: BigInteger,
-            currency: MBaseCurrency,
+            currency: MBaseCurrency
         ): TokenEquivalent {
             val currencyAmount = TokenAmount.valueOf(currency.decimalsCount, amount)
-            val tokenAmountDecimal = if (price > BigDecimal.ZERO)
-                (currencyAmount.amountDecimal / price).stripTrailingZeros()
-            else BigDecimal.ZERO
+            val tokenAmountDecimal = if (price > BigDecimal.ZERO) {
+                currencyAmount.amountDecimal
+                    .divide(price, token.decimals, RoundingMode.DOWN)
+                    .stripTrailingZeros()
+            } else {
+                BigDecimal.ZERO
+            }
 
             return TokenEquivalent(
                 price = price,

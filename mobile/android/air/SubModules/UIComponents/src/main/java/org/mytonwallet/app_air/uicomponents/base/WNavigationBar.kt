@@ -8,14 +8,18 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.animateTintColor
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLtrBaselineSpacingOffset
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -26,14 +30,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WNavigationBar(
     private val viewController: WViewController,
     private val defaultHeight: Int = DEFAULT_HEIGHT,
     private val contentMarginTop: Int = 0
-) : WView(viewController.navigationController!!.context), WThemedView {
+) : WView(viewController.navigationController!!.context),
+    WThemedView {
 
     companion object {
         const val DEFAULT_HEIGHT_THICK = 76
@@ -52,10 +56,11 @@ class WNavigationBar(
         }
 
     val topOffset: Int
-        get() = if (navigationController.isBottomSheet && !viewController.isExpandable)
+        get() = if (navigationController.isBottomSheet && !viewController.isExpandable) {
             0
-        else
+        } else {
             navigationController.getSystemBars().top
+        }
 
     val calculatedMinHeight: Int
         get() = defaultHeight.dp + topOffset
@@ -84,7 +89,15 @@ class WNavigationBar(
             orientation = LinearLayout.VERTICAL
             addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            doOnLayout {
+                updateSubtitleVerticalOffset()
+            }
         }
+    }
+
+    private fun updateSubtitleVerticalOffset() {
+        subtitleLabel.translationY =
+            titleLabel.paint.getLtrBaselineSpacingOffset(subtitleLabel.paint)
     }
 
     private val backButton: WImageButton by lazy {
@@ -198,8 +211,7 @@ class WNavigationBar(
 
     private var oldTitle: String? = null
     fun setTitle(title: String, animated: Boolean) {
-        if (oldTitle == title)
-            return
+        if (oldTitle == title) return
         if (animated) {
             if (oldTitle.isNullOrEmpty()) {
                 titleLabel.alpha = 0f
@@ -218,9 +230,15 @@ class WNavigationBar(
     }
 
     private var oldTitleView: View? = null
+    fun setCenteredTitleView(titleView: View, animated: Boolean) {
+        val container = (titleView.parent as? CenteredTitleContainer)
+            ?.takeIf { it.navigationBar === this }
+            ?: CenteredTitleContainer(this, titleView)
+        setTitleView(container, animated)
+    }
+
     fun setTitleView(titleView: View?, animated: Boolean) {
-        if (oldTitleView == titleView)
-            return
+        if (oldTitleView == titleView) return
 
         val showNewView = {
             if (titleView != null) {
@@ -265,10 +283,30 @@ class WNavigationBar(
         }
     }
 
+    private class CenteredTitleContainer(val navigationBar: WNavigationBar, titleView: View) :
+        FrameLayout(navigationBar.context) {
+        private val ownLocation = IntArray(2)
+        private val navigationBarLocation = IntArray(2)
+
+        init {
+            addView(titleView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
+        }
+
+        override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+            super.onLayout(changed, l, t, r, b)
+            getLocationInWindow(ownLocation)
+            navigationBar.getLocationInWindow(navigationBarLocation)
+            val preferredOffset = navigationBarLocation[0] + navigationBar.width / 2f -
+                ownLocation[0] - width / 2f
+            val titleView = getChildAt(0)
+            val maximumOffset = ((width - titleView.width) / 2f).coerceAtLeast(0f)
+            titleView.translationX = preferredOffset.coerceIn(-maximumOffset, maximumOffset)
+        }
+    }
+
     private var oldSubtitle: String? = null
     fun setSubtitle(subtitle: String?, animated: Boolean) {
-        if (oldSubtitle == subtitle)
-            return
+        if (oldSubtitle == subtitle) return
         if (animated) {
             when {
                 subtitle.isNullOrEmpty() -> {
@@ -297,6 +335,7 @@ class WNavigationBar(
             subtitleLabel.visibility = if (subtitle.isNullOrEmpty()) GONE else VISIBLE
             subtitleLabel.text = subtitle
         }
+        updateSubtitleVerticalOffset()
         oldSubtitle = subtitle
     }
 
@@ -306,8 +345,7 @@ class WNavigationBar(
             navigationController.window.dismissLastNav()
         }
     ): Boolean {
-        if (closeButton.parent != null || trailingView != null)
-            return false
+        if (closeButton.parent != null || trailingView != null) return false
 
         contentView.addView(closeButton, LayoutParams(40.dp, 40.dp))
         closeButton.setOnClickListener {
@@ -331,8 +369,7 @@ class WNavigationBar(
             (closeButtonTrailingMarginDp ?: 8f).dp.roundToInt()
 
     fun removeCloseButton() {
-        if (closeButton.parent == null)
-            return
+        if (closeButton.parent == null) return
         contentView.removeView(closeButton)
         insetsUpdated()
     }
@@ -444,22 +481,43 @@ class WNavigationBar(
         }
 
     var currentTint: WColor? = null
+    private var currentTintColor: Int? = null
+    private val currentTintColorValue: Int
+        get() = currentTintColor ?: currentTint?.color ?: WColor.SecondaryText.color
+
     fun setTint(color: WColor, animated: Boolean) {
         if (!animated) {
             backButton.updateColors(color)
             (trailingView as? WImageButton)?.updateColors(color)
             currentTint = color
+            currentTintColor = color.color
             return
         }
         backButton.drawable?.animateTintColor(
-            currentTint?.color ?: WColor.SecondaryText.color,
+            currentTintColorValue,
             color.color
         )
         (trailingView as? WImageButton)?.drawable?.animateTintColor(
-            currentTint?.color ?: WColor.SecondaryText.color,
+            currentTintColorValue,
             color.color
         )
         currentTint = color
+        currentTintColor = color.color
+    }
+
+    fun setTintColor(color: Int, animated: Boolean) {
+        if (!animated) {
+            backButton.updateTintColor(color)
+            (trailingView as? WImageButton)?.updateTintColor(color)
+        } else {
+            backButton.drawable?.animateTintColor(currentTintColorValue, color)
+            (trailingView as? WImageButton)?.drawable?.animateTintColor(
+                currentTintColorValue,
+                color
+            )
+        }
+        currentTint = null
+        currentTintColor = color
     }
 
     fun setOnBackPressed(onBackPressed: OnClickListener) {

@@ -5,7 +5,7 @@
 
   position: absolute;
   z-index: var(--z-suggestions);
-  left: 0;
+  inset-inline-start: 0;
 
   overflow: auto;
   display: flex;

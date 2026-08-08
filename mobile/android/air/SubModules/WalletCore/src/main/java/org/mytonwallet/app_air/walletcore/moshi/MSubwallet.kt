@@ -1,16 +1,12 @@
 package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.JsonClass
+import java.math.BigInteger
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
-import java.math.BigInteger
 
 @JsonClass(generateAdapter = true)
-data class ApiDerivation(
-    val path: String,
-    val index: Int,
-    val label: String? = null
-) {
+data class ApiDerivation(val path: String, val index: Int, val label: String? = null) {
     fun toJSONObject(): JSONObject = JSONObject().apply {
         put("path", path)
         put("index", index)
@@ -75,12 +71,11 @@ data class ApiCreateSubWalletResult(
 
 @JsonClass(generateAdapter = true)
 data class ApiAddSubWalletResult(
-    val address: String?,
-    val accountId: String? = null,
+    val isNew: Boolean,
+    val accountId: String,
+    val address: String? = null,
     val byChain: Map<String, AccountChain>? = null
 )
 
 @JsonClass(generateAdapter = true)
-data class ApiAddAllFoundSubwalletsResult(
-    val results: List<ApiCreateSubWalletResult>
-)
+data class ApiAddAllFoundSubwalletsResult(val results: List<ApiCreateSubWalletResult>)

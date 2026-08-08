@@ -1,16 +1,15 @@
 package org.mytonwallet.app_air.uistake.util
 
+import java.math.BigInteger
 import org.mytonwallet.app_air.uistake.earn.models.EarnItem
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MStakeHistoryItem
-import java.math.BigInteger
-
 
 fun MStakeHistoryItem.toViewItem(): EarnItem = let {
     val amount = CoinUtils.fromDecimal(profit, 9) ?: BigInteger.ZERO
@@ -25,15 +24,13 @@ fun MStakeHistoryItem.toViewItem(): EarnItem = let {
             false,
             true
         ),
-        profit = profit,
+        profit = profit
     )
 }
 
-private fun tokenDecimals(tokenSlug: String): Int {
-    return when (tokenSlug) {
-        USDE_SLUG, STAKED_USDE_SLUG -> 6
-        else -> 9
-    }
+private fun tokenDecimals(tokenSlug: String): Int = when (tokenSlug) {
+    USDE_SLUG, STAKED_USDE_SLUG -> 6
+    else -> 9
 }
 
 fun MApiTransaction.toViewItem(tokenSlug: String, stakedTokenSlug: String): EarnItem = let {
@@ -57,19 +54,21 @@ fun MApiTransaction.toViewItem(tokenSlug: String, stakedTokenSlug: String): Earn
             formattedAmount
         )
 
-        slug == stakedTokenSlug && isIncoming && type != ApiTransactionType.MINT -> EarnItem.Staked(
-            id,
-            timestamp,
-            amountAbs,
-            formattedAmount
-        )
+        slug == stakedTokenSlug && isIncoming && type != ApiTransactionType.MINT ->
+            EarnItem.Staked(
+                id,
+                timestamp,
+                amountAbs,
+                formattedAmount
+            )
 
-        (slug == tokenSlug || slug == stakedTokenSlug) && type == ApiTransactionType.STAKE -> EarnItem.Staked(
-            id,
-            timestamp,
-            amountAbs,
-            formattedAmount
-        )
+        (slug == tokenSlug || slug == stakedTokenSlug) && type == ApiTransactionType.STAKE ->
+            EarnItem.Staked(
+                id,
+                timestamp,
+                amountAbs,
+                formattedAmount
+            )
 
         slug == tokenSlug && type == ApiTransactionType.UNSTAKE_REQUEST -> EarnItem.UnstakeRequest(
             id,

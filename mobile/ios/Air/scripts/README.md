@@ -2,7 +2,7 @@
 
 ## Swift Module Dependency Analysis Tools
 
-This directory contains tools for analyzing the dependency graph of Swift modules in the MyTonWallet iOS project.
+This directory contains tools for analyzing the dependency graph of Swift modules in the My Wallet iOS project.
 
 ### Quick Start
 

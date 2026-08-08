@@ -42,7 +42,9 @@ class TypingIndicatorView(context: Context) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = (dotRadius * 2 * dotCount + dotSpacing * (dotCount - 1)).toInt() + paddingLeft + paddingRight
+        val width =
+            (dotRadius * 2 * dotCount + dotSpacing * (dotCount - 1)).toInt() + paddingLeft +
+                paddingRight
         val height = (dotRadius * 2).toInt() + paddingTop + paddingBottom
         setMeasuredDimension(width, height)
     }

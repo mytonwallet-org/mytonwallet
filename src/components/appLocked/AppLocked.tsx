@@ -4,11 +4,7 @@ import { getActions, getGlobal, withGlobal } from '../../global';
 import type { AutolockValueType } from '../../global/types';
 
 import { AUTOLOCK_OPTIONS_LIST, DEBUG, IS_TELEGRAM_APP } from '../../config';
-import {
-  selectIsBiometricAuthEnabled,
-  selectIsNativeBiometricAuthEnabled,
-  selectIsPasswordPresent,
-} from '../../global/selectors';
+import { selectHasPassword, selectIsBiometricAuthEnabled } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
@@ -46,7 +42,7 @@ const ACTIVATION_EVENT_NAMES = [
 const ACTIVATION_EVENT_OPTIONS = { capture: true };
 
 interface StateProps {
-  isNonNativeBiometricAuthEnabled: boolean;
+  isBiometricOnly: boolean;
   autolockValue?: AutolockValueType;
   isManualLockActive?: boolean;
   isAppLockEnabled?: boolean;
@@ -91,14 +87,14 @@ function useAppLockState(autolockValue: AutolockValueType, isManualLockActive: b
 }
 
 function useContentSlide(
-  isNonNativeBiometricAuthEnabled: boolean, isLocked: boolean, lockReason?: 'autolock' | 'manual',
+  isBiometricOnly: boolean, isLocked: boolean, lockReason?: 'autolock' | 'manual',
 ) {
   const ref = useRef<HTMLDivElement>();
 
   function getDefaultSlideForBiometricAuth() {
     return (
       (isBackgroundModeActive() || lockReason === 'manual')
-      && isNonNativeBiometricAuthEnabled ? SLIDES.button : SLIDES.passwordForm
+      && isBiometricOnly ? SLIDES.button : SLIDES.passwordForm
     );
   }
 
@@ -110,7 +106,7 @@ function useContentSlide(
   const [innerContentTopPosition, setInnerContentTopPosition] = useState<number>();
   const isFixedState = innerContentTopPosition !== undefined;
 
-  const isFixingSlideEnv = !getDoesUsePinPad() && isNonNativeBiometricAuthEnabled;
+  const isFixingSlideEnv = !getDoesUsePinPad() && isBiometricOnly;
 
   function fixSlide(force?: boolean) {
     const innerContent = ref.current;
@@ -156,7 +152,7 @@ function useContentSlide(
 }
 
 function AppLocked({
-  isNonNativeBiometricAuthEnabled,
+  isBiometricOnly,
   autolockValue = 'never',
   isManualLockActive,
   isAppLockEnabled,
@@ -178,7 +174,7 @@ function AppLocked({
     slideForBiometricAuth,
     setSlideForBiometricAuth,
     getDefaultSlideForBiometricAuth,
-  } = useContentSlide(isNonNativeBiometricAuthEnabled, isLocked, lockReason);
+  } = useContentSlide(isBiometricOnly, isLocked, lockReason);
 
   const handleActivity = useLastCallback(() => {
     lastActivityTime.current = Date.now();
@@ -281,7 +277,7 @@ function AppLocked({
         )}
       >
         {
-          slideForBiometricAuth === SLIDES.button && isNonNativeBiometricAuthEnabled
+          slideForBiometricAuth === SLIDES.button && isBiometricOnly
             ? (
               <UnlockButtonSlide
                 ref={ref}
@@ -305,7 +301,7 @@ function AppLocked({
 
   const transitionKey = Number(slideForBiometricAuth === SLIDES.passwordForm) + Number(shouldRenderUi) * 2;
 
-  const handleUnlockIntent = isNonNativeBiometricAuthEnabled
+  const handleUnlockIntent = isBiometricOnly
     ? slideForBiometricAuth === SLIDES.passwordForm
       ? (!IS_TELEGRAM_APP ? triggerPasswordFormHandleBiometrics : undefined)
       : handleChangeSlideForBiometricAuth
@@ -320,7 +316,7 @@ function AppLocked({
   return (
     <Transition
       ref={transitionRef}
-      name={isNonNativeBiometricAuthEnabled && IS_TELEGRAM_APP ? 'slideFade' : 'semiFade'}
+      name={isBiometricOnly && IS_TELEGRAM_APP ? 'slideFade' : 'semiFade'}
       onContainerClick={handleUnlockIntent}
       activeKey={transitionKey}
       className={styles.appLockedWrapper}
@@ -332,18 +328,16 @@ function AppLocked({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { autolockValue, isAppLockEnabled } = global.settings;
-
-  const isPasswordPresent = selectIsPasswordPresent(global);
-
-  const isBiometricAuthEnabled = selectIsBiometricAuthEnabled(global);
-  const isNativeBiometricAuthEnabled = selectIsNativeBiometricAuthEnabled(global);
-  const isNonNativeBiometricAuthEnabled = isBiometricAuthEnabled && (!isNativeBiometricAuthEnabled || IS_TELEGRAM_APP);
+  const { authTypes, settings: { autolockValue, isAppLockEnabled } } = global;
+  const hasPassword = selectHasPassword(global);
+  // Must follow the same source of truth as `canRender`: a not-yet-migrated user has no `authTypes` yet
+  // still unlocks with biometrics, and the password form has nothing to offer them
+  const isBiometricOnly = selectIsBiometricAuthEnabled(global) && !authTypes?.includes('passcode');
 
   return {
-    isNonNativeBiometricAuthEnabled,
+    isBiometricOnly,
     autolockValue,
-    canRender: Boolean(isAppLockEnabled && isPasswordPresent),
+    canRender: Boolean(isAppLockEnabled && hasPassword),
     isAppLockEnabled,
     isManualLockActive: global.isManualLockActive,
     shouldHideBiometrics: global.appLockHideBiometrics,

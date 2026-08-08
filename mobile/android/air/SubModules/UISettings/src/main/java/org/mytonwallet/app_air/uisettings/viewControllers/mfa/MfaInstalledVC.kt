@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
 class MfaInstalledVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "MfaInstalled"
 
     override val shouldDisplayTopBar = false
@@ -25,14 +26,14 @@ class MfaInstalledVC(context: Context) : WViewController(context) {
             context,
             HeaderAndActionsView.Media.Animation(
                 animation = R.raw.animation_happy,
-                repeat = true,
+                repeat = true
             ),
             mediaSize = 160.dp,
             title = LocaleController.getString("All Set!"),
             subtitle = LocaleController.getString(
-                "Telegram will be used to confirm transfers and important actions.",
+                "Telegram will be used to confirm transfers and important actions."
             ),
-            onStarted = { animationStarted() },
+            onStarted = { animationStarted() }
         ).apply { alpha = 0f }
     }
 
@@ -52,7 +53,7 @@ class MfaInstalledVC(context: Context) : WViewController(context) {
             toCenterX(headerView)
             toBottomPx(
                 doneButton,
-                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0),
+                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
             toStartPx(doneButton, 32.dp + systemBarStartInset)
             toEndPx(doneButton, 32.dp + systemBarEndInset)
@@ -67,7 +68,7 @@ class MfaInstalledVC(context: Context) : WViewController(context) {
             toTopPx(headerView, 80.dp + (navigationController?.getSystemBars()?.top ?: 0))
             toBottomPx(
                 doneButton,
-                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0),
+                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
             toStartPx(doneButton, 32.dp + systemBarStartInset)
             toEndPx(doneButton, 32.dp + systemBarEndInset)

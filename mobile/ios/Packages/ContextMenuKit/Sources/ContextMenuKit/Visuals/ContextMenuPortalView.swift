@@ -4,16 +4,31 @@ import UIKit
 final class ContextMenuPortalView: UIView {
     private let portalContentView: UIView
     private let portalMaskLayer = CAShapeLayer()
+    private let flipsPortalContent: Bool
 
-    init?(sourceView: UIView, matchPosition: Bool = true) {
-        guard let portalContentView = ContextMenuPortalView.makePortalContentView(matchPosition: matchPosition) else {
+    init?(
+        sourceView: UIView,
+        sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection,
+        appliesRightToLeftTransformCorrection: Bool,
+        matchPosition: Bool = true
+    ) {
+        let usesRightToLeftLayout = sourceUserInterfaceLayoutDirection == .rightToLeft
+        let flipsPortalContent = usesRightToLeftLayout && appliesRightToLeftTransformCorrection
+        let matchesPosition = usesRightToLeftLayout ? false : matchPosition
+        guard let portalContentView = ContextMenuPortalView.makePortalContentView(
+            matchesPosition: matchesPosition,
+            matchesTransform: matchPosition
+        ) else {
             return nil
         }
-
         self.portalContentView = portalContentView
+        self.flipsPortalContent = flipsPortalContent
 
         super.init(frame: .zero)
 
+        let semanticContentAttribute = sourceUserInterfaceLayoutDirection.contextMenuSemanticContentAttribute
+        self.semanticContentAttribute = semanticContentAttribute
+        self.portalContentView.semanticContentAttribute = semanticContentAttribute
         self.isUserInteractionEnabled = false
         self.portalContentView.isUserInteractionEnabled = false
         self.addSubview(self.portalContentView)
@@ -27,7 +42,11 @@ final class ContextMenuPortalView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
 
+        self.portalContentView.layer.transform = CATransform3DIdentity
         self.portalContentView.frame = self.bounds
+        if self.flipsPortalContent {
+            self.portalContentView.layer.transform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+        }
     }
 
     func updateSourceView(_ sourceView: UIView?) {
@@ -50,19 +69,19 @@ final class ContextMenuPortalView: UIView {
         self.layer.mask = self.portalMaskLayer
     }
 
-    private static func makePortalContentView(matchPosition: Bool) -> UIView? {
+    private static func makePortalContentView(matchesPosition: Bool, matchesTransform: Bool) -> UIView? {
         guard let portalViewClass = ContextMenuPrivatePortalRuntime.portalViewClass else {
             return nil
         }
 
         let portalView = portalViewClass.init(frame: .zero)
         ContextMenuPrivatePortalRuntime.setProperty(
-            matchPosition,
+            matchesPosition,
             selector: ContextMenuPrivatePortalRuntime.setMatchesPositionSelector,
             on: portalView
         )
         ContextMenuPrivatePortalRuntime.setProperty(
-            matchPosition,
+            matchesTransform,
             selector: ContextMenuPrivatePortalRuntime.setMatchesTransformSelector,
             on: portalView
         )

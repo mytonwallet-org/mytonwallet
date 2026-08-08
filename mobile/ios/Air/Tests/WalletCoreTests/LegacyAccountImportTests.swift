@@ -145,6 +145,7 @@ struct LegacyAccountImportTests {
         let keys = [
             AppStorageHelper.selectedCurrencyKey,
             "settings.langCode",
+            "selectedLanguageCode",
             "settings.langMigrationToUserDefaultsCompleted",
             "AppleLanguages",
             "AppleTextDirection",

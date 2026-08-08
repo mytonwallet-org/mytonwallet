@@ -24,8 +24,9 @@ class WalletConnectPayDataCollectionVC(
     private val url: String,
     private val onComplete: () -> Unit,
     private val onError: (String) -> Unit,
-    private val onClosed: () -> Unit,
+    private val onClosed: () -> Unit
 ) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "WalletConnectPayDataCollection"
 
     override val ignoreSideGuttering = true
@@ -145,30 +146,28 @@ class WalletConnectPayDataCollectionVC(
         }
     }
 
-    private fun openExternally(rawUrl: String): Boolean {
-        return try {
-            val intent = if (rawUrl.startsWith("intent:")) {
-                Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME)
-            } else {
-                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(rawUrl))
-            }
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-            true
-        } catch (_: ActivityNotFoundException) {
-            val fallback = runCatching {
-                Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME)
-                    .getStringExtra("browser_fallback_url")
-            }.getOrNull()
-            if (fallback != null) {
-                webView.loadUrl(fallback)
-                true
-            } else {
-                false
-            }
-        } catch (_: Throwable) {
-            true
+    private fun openExternally(rawUrl: String): Boolean = try {
+        val intent = if (rawUrl.startsWith("intent:")) {
+            Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME)
+        } else {
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(rawUrl))
         }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+        true
+    } catch (_: ActivityNotFoundException) {
+        val fallback = runCatching {
+            Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME)
+                .getStringExtra("browser_fallback_url")
+        }.getOrNull()
+        if (fallback != null) {
+            webView.loadUrl(fallback)
+            true
+        } else {
+            false
+        }
+    } catch (_: Throwable) {
+        true
     }
 
     private inline fun finish(action: () -> Unit) {
@@ -181,8 +180,7 @@ class WalletConnectPayDataCollectionVC(
         super.onDestroy()
         webView.removeJavascriptInterface(JS_INTERFACE)
         webView.destroy()
-        if (!finished)
-            onClosed()
+        if (!finished) onClosed()
     }
 
     companion object {

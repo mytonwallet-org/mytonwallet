@@ -119,6 +119,11 @@ fileprivate struct StakeInfoSection: View {
                                 .font17h22()
                             Spacer()
                             Text(amount: TokenAmount(totalStaked, model.baseToken), format: .init(maxDecimals: 0))
+                                .textStyle(
+                                    .body,
+                                    content: .technical,
+                                    scaling: .dynamic
+                                )
                         }
                         .padding(.top, -1)
                     }
@@ -131,6 +136,11 @@ fileprivate struct StakeInfoSection: View {
                                 .font17h22()
                             Spacer()
                             Text(formatBigIntText(BigInt(totalStakers), tokenDecimals: 0))
+                                .textStyle(
+                                    .body,
+                                    content: .technical,
+                                    scaling: .dynamic
+                                )
                         }
                         .padding(.top, -1)
                     }
@@ -152,8 +162,11 @@ fileprivate struct StakeInfoSection: View {
     @ViewBuilder
     var apyBadge: some View {
         Text(formatPercent(model.apy / 100, showPlus: false))
-            .fontWeight(.medium)
-            .font(.callout)
+            .textStyle(
+                .calloutEmphasized,
+                content: .technical,
+                scaling: .dynamic
+            )
             .lineSpacing(3)
             .padding(.top, 2.66)
             .padding(.bottom, 2.66)
@@ -168,8 +181,13 @@ fileprivate struct StakeInfoSection: View {
     @ViewBuilder
     var estEarning: some View {
         estEarningText
-            .fontWeight(.medium)
-            .font17h22()
+            .textStyle(
+                .bodyEmphasized,
+                content: .technical,
+                scaling: .dynamic
+            )
+            .lineSpacing(1)
+            .frame(minHeight: 22)
             .foregroundStyle(earnGradient)
     }
     

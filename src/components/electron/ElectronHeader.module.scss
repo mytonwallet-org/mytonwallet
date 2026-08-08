@@ -58,7 +58,7 @@
 
   :global(html.is-electron.is-macos) & {
     position: absolute;
-    right: 0.75rem;
+    inset-inline-end: 0.75rem;
   }
 
   :global(html.is-electron.is-windows) &,
@@ -71,7 +71,7 @@
   position: absolute;
   z-index: var(--z-menu-bubble);
   top: 50%;
-  right: 0.8125rem;
+  inset-inline-end: 0.8125rem;
   transform: translateY(-50%);
 
   display: flex;

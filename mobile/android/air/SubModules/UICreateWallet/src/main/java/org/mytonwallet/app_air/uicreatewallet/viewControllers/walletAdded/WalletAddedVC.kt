@@ -20,11 +20,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
 import org.mytonwallet.uihome.tabs.PhoneTabsVC
 
-class WalletAddedVC(
-    context: Context,
-    isNew: Boolean,
-    importedAccountsCount: Int = 1,
-) : WViewController(context) {
+class WalletAddedVC(context: Context, isNew: Boolean, importedAccountsCount: Int = 1) :
+    WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "WalletAdded"
 
     override val shouldDisplayTopBar = false
@@ -43,10 +41,13 @@ class WalletAddedVC(
             mediaSize = 160.dp,
             title = LocaleController.getString("All Set!"),
             subtitle = (
-                (if (isNew)
-                    LocaleController.getString("\$wallet_create_done")
-                else
-                    LocaleController.getPlural(importedAccountsCount, "\$wallet_import_done")) +
+                (
+                    if (isNew) {
+                        LocaleController.getString("\$wallet_create_done")
+                    } else {
+                        LocaleController.getPlural(importedAccountsCount, "\$wallet_import_done")
+                    }
+                    ) +
                     "\n\n" +
                     LocaleController.getString("\$wallet_done_description")
                 ).toProcessedSpannableStringBuilder(),

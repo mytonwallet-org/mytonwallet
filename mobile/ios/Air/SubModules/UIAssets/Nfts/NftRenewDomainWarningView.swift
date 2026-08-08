@@ -1,4 +1,5 @@
 import SwiftUI
+import UIComponents
 import WalletContext
 
 struct NftRenewDomainWarningContent: Hashable, Sendable {
@@ -20,13 +21,13 @@ struct NftRenewDomainWarningView: View {
             Button(action: onTap) {
                 HStack(spacing: 4) {
                     Text(attributedMessage)
-                        .font(.system(size: 14))
+                        .textStyle(.supporting)
                         .foregroundStyle(Color.white)
                         .lineLimit(1)
                         .allowsTightening(true)
                         .layoutPriority(1)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14))
+                    Image(systemName: "chevron.forward")
+                        .textStyle(.supporting, content: .technical)
                         .imageScale(.small)
                         .foregroundStyle(Color.white)
                     Spacer(minLength: 0)
@@ -37,7 +38,7 @@ struct NftRenewDomainWarningView: View {
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .textStyle(.supportingStrong, content: .technical)
                     .foregroundStyle(Color.white.opacity(0.6))
                     .frame(width: 30, height: 30)
             }
@@ -113,7 +114,7 @@ private struct NftRenewDomainWarningStatesPreview: View {
                 ForEach(states, id: \.self) { state in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(state.title)
-                            .font(.system(size: 13, weight: .medium))
+                            .textStyle(.footnoteEmphasized)
                             .foregroundStyle(Color.air.secondaryLabel)
                         NftRenewDomainWarningView(
                             content: state.content,

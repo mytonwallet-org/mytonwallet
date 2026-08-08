@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.walletcontext.models;
+package org.mytonwallet.app_air.walletcontext.models
 
 interface ICollectionTab {
     val chain: String

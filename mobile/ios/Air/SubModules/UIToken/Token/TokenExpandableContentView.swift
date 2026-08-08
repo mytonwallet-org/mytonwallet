@@ -228,7 +228,7 @@ private struct TokenHeaderBalanceView: View {
     private var equivalentView: some View {
         if let baseCurrencyAmount = model.baseCurrencyAmount {
             Text(baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true))
-                .font(.system(size: 17))
+                .textStyle(.body, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
                 .sensitiveData(alignment: .center, cols: 14, rows: 2, cellSize: 13, theme: .adaptive, cornerRadius: 13)

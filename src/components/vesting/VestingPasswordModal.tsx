@@ -80,9 +80,9 @@ function VestingPasswordModal({
     return calcVestingAmountByStatus(vesting, ['ready']);
   }, [vesting]);
 
-  const handleSubmit = useLastCallback((password: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     if (isViewMode || hasAmountError) return;
-    submitClaimingVesting({ password });
+    submitClaimingVesting({ enclaveToken });
   });
 
   const handleHardwareSubmit = useLastCallback(() => {
@@ -147,7 +147,7 @@ function VestingPasswordModal({
             error={hasAmountError ? lang('Insufficient Balance for Fee') : error}
             submitLabel={lang('Confirm')}
             noAutoConfirm
-            onSubmit={handleSubmit}
+            onAuthorize={handleAuthorize}
             onCancel={cancelClaimingVesting}
             onUpdate={clearVestingError}
           >

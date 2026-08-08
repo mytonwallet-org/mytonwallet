@@ -82,8 +82,8 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
         vcSwitchingInProgress = true
 
         Task { @MainActor in
-            let introModel = IntroModel(network: network, password: nil)
-            let model = await LedgerAddAccountModel()
+            let introModel = IntroModel(network: network, authMode: .requiresPasscodeSetup)
+            let model = LedgerAddAccountModel()
             let importWalletVC = LedgerAddAccountVC(model: model, autoStart: false)
             let hadExistingAccounts = !AccountStore.accountsById.isEmpty
             importWalletVC.onDone = { _ in
@@ -103,7 +103,7 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
         guard !vcSwitchingInProgress else { return }
         vcSwitchingInProgress = true
         
-        let vc = AddViewWalletVC(introModel: IntroModel(network: network, password: nil))
+        let vc = AddViewWalletVC(introModel: IntroModel(network: network, authMode: .requiresPasscodeSetup))
         replaceContent(with: vc, newTitle: nil)
     }
 }

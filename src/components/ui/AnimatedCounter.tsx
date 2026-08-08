@@ -7,13 +7,13 @@ import buildClassName from '../../util/buildClassName';
 import { throttleWithTickEnd } from '../../util/schedulers';
 
 import useForceUpdate from '../../hooks/useForceUpdate';
-import useLang from '../../hooks/useLang';
 import usePrevious from '../../hooks/usePrevious';
 
 import styles from './AnimatedCounter.module.scss';
 
 type OwnProps = {
   text: string;
+  className?: string;
   isDisabled?: boolean;
 };
 
@@ -28,10 +28,10 @@ const resetCounterOnTickEnd = throttleWithTickEnd(() => {
 
 const AnimatedCounter: FC<OwnProps> = ({
   text,
+  className,
   isDisabled,
 }) => {
   const animationLevel = getGlobal().settings.animationLevel;
-  const { isRtl } = useLang();
 
   const prevText = usePrevious(text);
   const forceUpdate = useForceUpdate();
@@ -57,7 +57,7 @@ const AnimatedCounter: FC<OwnProps> = ({
   }, [shouldAnimate, text]);
 
   return (
-    <span className={buildClassName(!isDisabled && styles.root)} dir={isRtl ? 'rtl' : undefined}>
+    <span className={buildClassName(!isDisabled && styles.root, className)}>
       {characters}
     </span>
   );

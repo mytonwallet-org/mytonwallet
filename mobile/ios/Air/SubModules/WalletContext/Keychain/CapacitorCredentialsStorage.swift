@@ -45,10 +45,17 @@ public class CapacitorCredentialsStorage {
     
     public static func getCredentials() -> Credentials? {
         do {
-            let credentials = try getCredentialsFromKeychain(NATIVE_BIOMETRICS_SERVER)
-            return credentials
+            return try loadCredentials()
         } catch {
             log.fault("failed to get credentials: \(error, .public)")
+            return nil
+        }
+    }
+
+    public static func loadCredentials() throws -> Credentials? {
+        do {
+            return try getCredentialsFromKeychain(NATIVE_BIOMETRICS_SERVER)
+        } catch KeychainError.noPassword {
             return nil
         }
     }
@@ -73,12 +80,16 @@ public class CapacitorCredentialsStorage {
     
     public static func deleteCredentials() -> Bool {
         do {
-            try deleteCredentialsFromKeychain(NATIVE_BIOMETRICS_SERVER)
+            try deleteCredentialsOrThrow()
             return true
         } catch {
             log.fault("failed to delete credentials: \(error)")
             return false
         }
+    }
+
+    public static func deleteCredentialsOrThrow() throws {
+        try deleteCredentialsFromKeychain(NATIVE_BIOMETRICS_SERVER)
     }
     
     // Store user Credentials in Keychain

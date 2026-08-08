@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,14 +24,11 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
-import java.util.concurrent.ConcurrentHashMap
 
 object TokenStore : IStore {
 
     // Observable Flow
-    data class Tokens(
-        val tokens: Map<String, ApiTokenWithPrice>,
-    )
+    data class Tokens(val tokens: Map<String, ApiTokenWithPrice>)
 
     private val _tokensFlow = MutableStateFlow<Tokens?>(null)
     fun setFlowValue(tokens: Tokens) {
@@ -38,7 +36,7 @@ object TokenStore : IStore {
     }
 
     val tokensFlow = _tokensFlow.asStateFlow()
-    /////
+    // ///
 
     fun loadFromCache() {
         try {
@@ -102,7 +100,7 @@ object TokenStore : IStore {
             return currencyRates?.get(WalletCore.baseCurrency.currencyCode)
         }
 
-    internal val _swapAssetsFlow = MutableStateFlow<List<MApiSwapAsset>?>(null)
+    private val _swapAssetsFlow = MutableStateFlow<List<MApiSwapAsset>?>(null)
     val swapAssetsFlow = _swapAssetsFlow.asStateFlow()
 
     // List of swap assets, as MToken to query
@@ -143,10 +141,16 @@ object TokenStore : IStore {
         val key = slug ?: return null
 
         return tokens[key]
-            ?: swapAssetTokens?.find { it.slug == key || (searchMinterAddress && it.tokenAddress == key) }
+            ?: swapAssetTokens?.find {
+                it.slug == key ||
+                    (searchMinterAddress && it.tokenAddress == key)
+            }
     }
 
     fun setToken(slug: String, token: MToken) {
+        if (!token.priceUsd.isFinite()) {
+            tokens[slug]?.priceUsd?.let { token.priceUsd = it }
+        }
         tokens[slug] = token
     }
 
@@ -183,7 +187,7 @@ object TokenStore : IStore {
         codeHash = codeHash,
         label = label,
         priceUsd = priceUsd,
-        percentChange24h = percentChange24h,
+        percentChange24h = percentChange24h
     )
 
     private val cacheScope =
@@ -243,6 +247,16 @@ object TokenStore : IStore {
         return sb.toString()
     }
 
+    fun clearLocalizedNames() {
+        for (token in tokens.values) {
+            token.localizedName = null
+        }
+        swapAssetTokens?.forEach { it.localizedName = null }
+        updateTokensCache()
+        updateSwapCache()
+        WalletCore.notifyEvent(WalletEvent.TokensChanged)
+    }
+
     fun updateCurrencyRates(update: ApiUpdate.ApiUpdateCurrencyRates) {
         val prevCurrencyRate = baseCurrencyRate
         currencyRates = update.rates
@@ -256,11 +270,10 @@ object TokenStore : IStore {
     fun loadPriceHistory(
         slug: String,
         period: MHistoryTimePeriod,
-        callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit,
+        callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit
     ) {
         val cachedData = WGlobalStorage.getPriceHistory(slug, period.value)
-        if (cachedData != null)
-            callback(cachedData, true, null)
+        if (cachedData != null) callback(cachedData, true, null)
         updatePriceHistory(slug, period, callback)
     }
 

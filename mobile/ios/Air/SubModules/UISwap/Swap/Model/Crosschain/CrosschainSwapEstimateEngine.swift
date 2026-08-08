@@ -58,7 +58,6 @@ func crosschainAdjustedNativeMaxAmount(
             native: networkFee.bigintAmount(decimals: sellingToken.decimals),
             stars: nil
         ),
-        ourFeePercent: 0,
         maxAmountFromBackend: nil
     ))
 }
@@ -217,7 +216,6 @@ func crosschainAdjustedNativeMaxAmount(
                 tokenBalance: tokenBalance,
                 tokenIn: selling.token,
                 fullNetworkFee: .init(token: nil, native: networkFeeData.fee, stars: nil),
-                ourFeePercent: 0,
                 maxAmountFromBackend: nil
             ))
         else {

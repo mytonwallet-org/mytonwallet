@@ -335,7 +335,7 @@ function transformEvmSwap(
     fromAmount: toDecimal(BigInt(outAsset.quantity.int || 0), outToken.decimals),
     to: inToken.slug,
     toAmount: toDecimal(BigInt(inAsset.quantity.int || 0), inToken.decimals),
-    networkFee: tx.attributes.fee.quantity.int,
+    networkFee: toDecimal(BigInt(tx.attributes.fee.quantity.int), nativeToken.decimals),
     swapFee: '0',
     status: 'completed',
     hashes: [],

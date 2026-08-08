@@ -14,7 +14,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class WDashedLineMarker(context: Context?) : MarkerView(context, R.layout.frame),
+class WDashedLineMarker(context: Context?) :
+    MarkerView(context, R.layout.frame),
     WThemedView {
     private val linePaint = Paint()
     private val circlePaint = Paint().apply {
@@ -44,9 +45,7 @@ class WDashedLineMarker(context: Context?) : MarkerView(context, R.layout.frame)
         super.draw(canvas, posX, posY)
     }
 
-    override fun getOffset(): MPPointF {
-        return MPPointF(-width / 2f, -height.toFloat())
-    }
+    override fun getOffset(): MPPointF = MPPointF(-width / 2f, -height.toFloat())
 
     override val isTinted = true
     override fun updateTheme() {

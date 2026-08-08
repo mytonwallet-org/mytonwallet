@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
@@ -9,7 +10,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 sealed class StakingState {
     abstract val stakingType: String
@@ -37,7 +37,7 @@ sealed class StakingState {
         val instantAvailable: BigInteger,
         val end: Long,
         val totalStakers: Int?,
-        val tvl: BigInteger?,
+        val tvl: BigInteger?
     ) : StakingState()
 
     @JsonClass(generateAdapter = true)
@@ -77,7 +77,7 @@ sealed class StakingState {
         val lockedBalance: BigInteger?,
         val unlockTime: Long?,
         val annualYieldStandard: Float,
-        val annualYieldVerified: Float?,
+        val annualYieldVerified: Float?
     ) : StakingState()
 
     @JsonClass(generateAdapter = true)
@@ -106,8 +106,7 @@ sealed class StakingState {
     fun getRequestedAmount(): String? {
         return when (this) {
             is Ethena -> {
-                if (unstakeRequestAmount == BigInteger.ZERO)
-                    return null
+                if (unstakeRequestAmount == BigInteger.ZERO) return null
                 val token = TokenStore.getToken(USDE_SLUG) ?: return null
                 unstakeRequestAmount?.toString(
                     decimals = token.decimals,
@@ -123,9 +122,9 @@ sealed class StakingState {
             }
 
             is Liquid -> {
-                if (unstakeRequestAmount == BigInteger.ZERO)
+                if (unstakeRequestAmount == BigInteger.ZERO) {
                     return null
-                else {
+                } else {
                     val token = TokenStore.getToken(TONCOIN_SLUG) ?: return null
                     unstakeRequestAmount?.toString(
                         decimals = token.decimals,
@@ -137,9 +136,9 @@ sealed class StakingState {
             }
 
             is Nominators -> {
-                if (unstakeRequestAmount == BigInteger.ZERO)
+                if (unstakeRequestAmount == BigInteger.ZERO) {
                     return null
-                else {
+                } else {
                     val token = TokenStore.getToken(TONCOIN_SLUG) ?: return null
                     unstakeRequestAmount?.toString(
                         decimals = token.decimals,
@@ -160,9 +159,7 @@ sealed class StakingState {
             is Nominators -> end
         }
 
-    fun getRemainingToEndTime(): Long? {
-        return endTime?.minus(System.currentTimeMillis())
-    }
+    fun getRemainingToEndTime(): Long? = endTime?.minus(System.currentTimeMillis())
 
     fun getRemainingToEndTimeString(): String? {
         val remaining = getRemainingToEndTime()
@@ -172,6 +169,7 @@ sealed class StakingState {
             } ?: LocaleController.getPlural(7, "\$in_days")
 
             is Jetton -> null
+
             else -> remaining?.let { DateUtils.formatTimeToWait(it) }
         }
     }

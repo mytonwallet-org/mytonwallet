@@ -8,10 +8,8 @@ enum class PortfolioChartKind { NET_WORTH, TOTAL_PNL, DAILY_PNL }
 
 sealed class PortfolioUiState {
     data object Idle : PortfolioUiState()
-    data class Loading(
-        val request: PortfolioHistoryRequest,
-        val animated: Boolean = false,
-    ) : PortfolioUiState()
+    data class Loading(val request: PortfolioHistoryRequest, val animated: Boolean = false) :
+        PortfolioUiState()
     data class Loaded(
         val request: PortfolioHistoryRequest,
         val chartData: StackLinearChartData?,
@@ -26,6 +24,6 @@ sealed class PortfolioUiState {
         val netWorthFailed: Boolean = false,
         val totalPnlFailed: Boolean = false,
         val dailyPnlFailed: Boolean = false,
-        val silent: Boolean = false,
+        val silent: Boolean = false
     ) : PortfolioUiState()
 }

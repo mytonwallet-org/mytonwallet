@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.uicomponents.widgets.dialog
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -15,10 +15,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")
-class WDialogButton(
-    context: Context,
-    private val config: Config
-) : WLabel(context), WThemedView {
+class WDialogButton(context: Context, private val config: Config) :
+    WLabel(context),
+    WThemedView {
     data class Config(
         val title: CharSequence,
         val onTap: (() -> Unit)?,

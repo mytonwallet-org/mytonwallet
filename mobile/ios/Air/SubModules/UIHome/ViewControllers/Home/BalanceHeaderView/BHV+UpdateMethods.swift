@@ -10,8 +10,6 @@ import UIKit
 import UIComponents
 import WalletContext
 
-private let log = Log("BalanceHeaderView+update")
-
 private let throttleDuration = 0.25
 
 @MainActor extension BalanceHeaderView {
@@ -55,14 +53,18 @@ private let throttleDuration = 0.25
 
         let updateView = { [self] in
             // balance header view can not be smaller than 44pt
-            if newHeight < BalanceHeaderView.minHeight {
-                newHeight = BalanceHeaderView.minHeight
+            if newHeight < minimumHeight {
+                newHeight = minimumHeight
             }
 
             // set the new constraint
             heightConstraint.constant = newHeight
 
-            updateStatusViewContainer.alpha = headerViewModel.state == .expanded ? 1 : 0
+            updateStatusViewContainer.alpha =
+                !headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs &&
+                headerViewModel.state == .expanded
+                ? 1
+                : 0
         }
 
         if shouldAnimate {
@@ -77,6 +79,10 @@ private let throttleDuration = 0.25
     
     func update(status: UpdateStatusView.State, animatedWithDuration: TimeInterval?) {
         updateStatusView.setState(newState: status, animatedWithDuration: animatedWithDuration)
-        updateStatusViewContainer.alpha = headerViewModel.state == .expanded ? 1 : 0
+        updateStatusViewContainer.alpha =
+            !headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs &&
+            headerViewModel.state == .expanded
+            ? 1
+            : 0
     }
 }

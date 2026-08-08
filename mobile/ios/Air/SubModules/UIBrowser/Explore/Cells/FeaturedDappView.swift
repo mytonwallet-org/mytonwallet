@@ -24,12 +24,6 @@ struct ExploreScreenFeaturedDappView: View {
 
     private let cornerRadius: Double = 22
 
-    private let iOS17Available: Bool = if #available(iOS 17.0, *) {
-        true
-    } else {
-        false
-    }
-
     var body: some View {
         VStack {
             Spacer()
@@ -52,7 +46,7 @@ struct ExploreScreenFeaturedDappView: View {
 
     @ViewBuilder private var badgeLabel: some View {
         if let badgeText = site.badgeText, !badgeText.isEmpty {
-            Text(badgeText).font(.system(size: 11, weight: .semibold))
+            Text(badgeText).textStyle(.caption2Strong)
                 .frame(height: 14) // should be lineHeight
                 .foregroundStyle(.white)
                 .padding(EdgeInsets(top: 2, leading: 4, bottom: 2, trailing: 4))
@@ -90,7 +84,7 @@ struct ExploreScreenFeaturedDappView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .center, spacing: 4) {
-                    Text(site.name).font(.system(size: 15, weight: .semibold))
+                    Text(site.name).textStyle(.subheadlineStrong)
                         .kerning(-0.28)
                         .lineLimit(1)
                         .frame(height: 18) // should lineHeight
@@ -103,7 +97,7 @@ struct ExploreScreenFeaturedDappView: View {
                     }
                 }
 
-                Text(site.description).font(.system(size: 13, weight: .medium))
+                Text(site.description).textStyle(.footnoteEmphasized)
                     .kerning(-0.55)
                     .applyModifierConditionally {
                         if #available(iOS 26.0, *) {

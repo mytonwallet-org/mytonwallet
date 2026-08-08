@@ -39,7 +39,7 @@ public class ActivityDateCell: UICollectionReusableView {
         contentView.isUserInteractionEnabled = true
         dateLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(dateLabel)
-        dateLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        dateLabel.applyTextStyle(.bodyStrong)
         
         NSLayoutConstraint.activate([
             dateLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),

@@ -5,20 +5,27 @@ import WalletContext
 
 @MainActor
 public enum PasscodeAuthPresenter {
+    @discardableResult
     public static func push(
         on vc: UIViewController,
         title: String,
         customHeaderVC: UIViewController,
+        compactHeaderVC: UIViewController? = nil,
+        sessionKind: AuthSessionKind = .oneShot,
         useBioOnPresent: Bool = true,
+        biometricPassAllowed: Bool = true,
         prefersNavigationTitleWithCustomHeader: Bool = false,
-        onAuthTask: @escaping (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void,
-        onDone: @escaping (_ passcode: String) -> Void
-    ) {
+        onAuthTask: @escaping (_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void,
+        onDone: @escaping (_ enclaveToken: EnclaveToken) -> Void,
+        onCancel: (() -> Void)? = nil
+    ) -> UnlockVC? {
+        guard let navigationController = vc.navigationController else { return nil }
         let unlockVC = UnlockVC(
             title: title,
             replacedTitle: nil,
             subtitle: nil,
             customHeaderVC: customHeaderVC,
+            compactHeaderVC: compactHeaderVC,
             prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             animatedPresentation: false,
             dissmissWhenAuthorized: false,
@@ -26,10 +33,13 @@ public enum PasscodeAuthPresenter {
             onAuthTask: onAuthTask,
             onDone: onDone,
             cancellable: false,
-            onCancel: nil,
-            useBioOnPresent: useBioOnPresent
+            onCancel: onCancel,
+            useBioOnPresent: useBioOnPresent,
+            biometricPassAllowed: biometricPassAllowed,
+            authSessionKind: sessionKind
         )
-        vc.navigationController?.pushViewController(unlockVC, animated: true)
+        navigationController.pushViewController(unlockVC, animated: true)
+        return unlockVC
     }
 
     public static func present(
@@ -38,9 +48,10 @@ public enum PasscodeAuthPresenter {
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        compactHeaderVC: UIViewController? = nil,
         prefersNavigationTitleWithCustomHeader: Bool = false,
-        onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
-        onDone: @escaping (_ passcode: String?) -> Void,
+        onAuthTask: ((_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
+        onDone: @escaping (_ enclaveToken: EnclaveToken?) -> Void,
         cancellable: Bool,
         onCancel: (() -> Void)? = nil
     ) {
@@ -55,10 +66,11 @@ public enum PasscodeAuthPresenter {
                 replacedTitle: replacedTitle,
                 subtitle: subtitle,
                 customHeaderVC: customHeaderVC,
+                compactHeaderVC: compactHeaderVC,
                 prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 dissmissWhenAuthorized: false,
                 onAuthTask: onAuthTask,
-                onDone: onDone,
+                onDone: { enclaveToken in onDone(enclaveToken) },
                 cancellable: cancellable,
                 onCancel: onCancel,
                 useBioOnPresent: useBioOnPresent
@@ -72,30 +84,8 @@ public enum PasscodeAuthPresenter {
             }
         }
 
-        let canUseBiometric = AppStorageHelper.isBiometricActivated() && BiometricHelper.biometryType != nil
-        if onAuthTask == nil && canUseBiometric {
-            Task { @MainActor [weak vc] in
-                let result = await BiometricHelper.authenticate()
-                switch result {
-                case .success:
-                    let passcode = KeychainHelper.biometricPasscode()
-                    do {
-                        guard try await AuthSupport.verifyPassword(password: passcode) else {
-                            vc?.present(makeUnlockVC(useBioOnPresent: false), animated: true)
-                            return
-                        }
-                        onDone(passcode)
-                    } catch {
-                        vc?.present(makeUnlockVC(useBioOnPresent: false), animated: true)
-                    }
-
-                case .canceled, .error, .userDeniedBiometrics:
-                    vc?.present(makeUnlockVC(useBioOnPresent: false), animated: true)
-                }
-            }
-        } else {
-            vc.present(makeUnlockVC(useBioOnPresent: canUseBiometric), animated: true)
-        }
+        let canUseBiometric = AuthSupport.status.authorizableMethods.contains(.biometrics)
+        vc.present(makeUnlockVC(useBioOnPresent: canUseBiometric), animated: true)
     }
 
     public static func presentAsync(
@@ -104,26 +94,27 @@ public enum PasscodeAuthPresenter {
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        compactHeaderVC: UIViewController? = nil,
         prefersNavigationTitleWithCustomHeader: Bool = false,
-        authTask: (@MainActor (_ passcode: String) async -> Void)? = nil
-    ) async -> String? {
+        authTask: (@MainActor (_ enclaveToken: EnclaveToken) async -> Void)? = nil
+    ) async -> EnclaveToken? {
         guard AuthSupport.accountsSupportAppLock else {
             return nil
         }
 
-        var onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)?
+        var onAuthTask: ((_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void)?
         if let authTask {
-            onAuthTask = { passcode, onTaskDone in
+            onAuthTask = { enclaveToken, onTaskDone in
                 Task {
-                    await authTask(passcode)
+                    await authTask(enclaveToken)
                     onTaskDone()
                 }
             }
         }
         let lock = NSLock()
 
-        return await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
-            var nillableContinuation: CheckedContinuation<String?, Never>? = continuation
+        return await withCheckedContinuation { (continuation: CheckedContinuation<EnclaveToken?, Never>) in
+            var nillableContinuation: CheckedContinuation<EnclaveToken?, Never>? = continuation
 
             present(
                 on: vc,
@@ -131,12 +122,13 @@ public enum PasscodeAuthPresenter {
                 replacedTitle: replacedTitle,
                 subtitle: subtitle,
                 customHeaderVC: customHeaderVC,
+                compactHeaderVC: compactHeaderVC,
                 prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
                 onAuthTask: onAuthTask,
-                onDone: { password in
+                onDone: { enclaveToken in
                     lock.lock()
                     defer { lock.unlock() }
-                    nillableContinuation?.resume(returning: password)
+                    nillableContinuation?.resume(returning: enclaveToken)
                     nillableContinuation = nil
                 },
                 cancellable: true,

@@ -31,7 +31,10 @@ class DappOriginContractTest {
         assertEquals(initialOrigin, resolveDappOrigin(initialOrigin, null))
         assertEquals(initialOrigin, resolveDappOrigin(initialOrigin, ""))
         assertEquals(initialOrigin, resolveDappOrigin(initialOrigin, "about:blank"))
-        assertEquals(initialOrigin, resolveDappOrigin(initialOrigin, "file:///android_asset/js/index.html"))
+        assertEquals(
+            initialOrigin,
+            resolveDappOrigin(initialOrigin, "file:///android_asset/js/index.html")
+        )
         assertEquals(initialOrigin, resolveDappOrigin(initialOrigin, "not a url"))
     }
 }

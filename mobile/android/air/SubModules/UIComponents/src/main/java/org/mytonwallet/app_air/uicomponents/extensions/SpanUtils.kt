@@ -1,3 +1,5 @@
+@file:Suppress("PropertyName")
+
 package org.mytonwallet.app_air.uicomponents.extensions
 
 import android.graphics.Typeface
@@ -7,8 +9,8 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import kotlin.math.max
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 
 private const val dots = "···"
 

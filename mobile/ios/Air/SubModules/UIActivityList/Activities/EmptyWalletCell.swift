@@ -41,8 +41,8 @@ final class EmptyWalletCell: UICollectionViewCell {
             walletCreatedView.alpha = 0
             containerView.addSubview(walletCreatedView)
             NSLayoutConstraint.activate([
-                walletCreatedView.leftAnchor.constraint(equalTo: containerView.leftAnchor, constant: 20),
-                walletCreatedView.rightAnchor.constraint(equalTo: containerView.rightAnchor, constant: -20),
+                walletCreatedView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
+                walletCreatedView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
                 walletCreatedView.topAnchor.constraint(equalTo: containerView.topAnchor),
                 walletCreatedView.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor)
             ])

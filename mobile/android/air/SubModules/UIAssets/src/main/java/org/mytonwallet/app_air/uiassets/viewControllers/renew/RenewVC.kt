@@ -10,6 +10,10 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import java.util.Date
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -35,17 +39,15 @@ import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import java.util.Date
-import kotlin.math.roundToInt
 
 class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Renew"
 
     override val displayedAccount =
@@ -62,6 +64,7 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
     private val feeLabel = WLabel(context).apply {
         setStyle(14f, WFont.Regular)
         setTextColor(WColor.SecondaryText)
+        alpha = 0f
     }
 
     private val renewButton = WButton(context).apply {
@@ -133,9 +136,9 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
             ApiMethod.Domains.CheckDnsRenewalDraft(
                 accountId,
                 listOf(nft)
-            ), callback = { res, err ->
-                if (isDestroyed)
-                    return@call
+            ),
+            callback = { res, err ->
+                if (isDestroyed) return@call
                 this.realFee = res?.realFee ?: BigInteger.ZERO
                 if (err != null || realFee == null) {
                     Handler(Looper.getMainLooper()).postDelayed({
@@ -143,30 +146,35 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                     }, 5000)
                     return@call
                 }
+                val tonToken = TokenStore.getToken(TONCOIN_SLUG) ?: return@call
+                val feeText =
+                    "${LocaleController.getString("Fee")}: ${
+                        realFee.toString(
+                            decimals = tonToken.decimals,
+                            currency = tonToken.symbol,
+                            currencyDecimals = realFee.smartDecimalsCount(tonToken.decimals),
+                            showPositiveSign = false,
+                            forceCurrencyToRight = true
+                        )
+                    }"
+                if (feeLabel.text != feeText) {
+                    feeLabel.text = feeText
+                    feeLabel.fadeIn()
+                }
+                renewButton.isLoading = false
                 val accountId = AccountStore.activeAccountId ?: return@call
-                if ((BalanceStore.getBalances(accountId)
-                        ?.get(TONCOIN_SLUG) ?: BigInteger.ZERO) >= realFee
+                if ((
+                        BalanceStore.getBalances(accountId)
+                            ?.get(TONCOIN_SLUG) ?: BigInteger.ZERO
+                        ) >= realFee
                 ) {
                     renewButton.isEnabled = true
-                    renewButton.isLoading = false
-                    val tonToken = TokenStore.getToken(TONCOIN_SLUG) ?: return@call
-                    feeLabel.text =
-                        "${LocaleController.getString("Fee")}: ${
-                            realFee.toString(
-                                decimals = tonToken.decimals,
-                                currency = tonToken.symbol,
-                                currencyDecimals = realFee.smartDecimalsCount(tonToken.decimals),
-                                showPositiveSign = false,
-                                forceCurrencyToRight = true
-                            )
-                        }"
-                    feeLabel.alpha = 0f
-                    feeLabel.fadeIn()
                 } else {
                     renewButton.isEnabled = false
                     renewButton.setText(LocaleController.getString("Insufficient Balance"))
                 }
-            })
+            }
+        )
     }
 
     private fun onRenewPressed() {
@@ -179,9 +187,12 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
 
     private val headerView: View
         get() {
+            val availableHeight = window!!.windowView.height
+            val headerHeight =
+                (availableHeight * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             return PasscodeHeaderSendView(
                 WeakReference(this),
-                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
+                headerHeight
             ).apply {
                 config(
                     Content.ofUrl(nft.image ?: ""),
@@ -208,7 +219,8 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                     window?.dismissLastNav {
                         window?.dismissLastNav { }
                     }
-                }),
+                }
+            ),
             headerView = headerView
         )
         val nav = WNavigationController(
@@ -233,17 +245,27 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                         passcode,
                         listOf(nft),
                         realFee
-                    ), callback = { res, err ->
+                    ),
+                    callback = { res, err ->
                         if (err != null) {
                             showError(err.parsed)
                             return@call
                         }
-                        val mfaHash = res?.mfaRequestHash
+                        val result = res?.firstOrNull()
+                        if (result == null) {
+                            showError(MBridgeError.Type.UNKNOWN)
+                            return@call
+                        }
+                        if (result.error != null) {
+                            showError(MBridgeError.fromErrorName(result.error))
+                            return@call
+                        }
+                        val mfaHash = result.mfaRequestHash
                         if (mfaHash != null) {
                             val mfaVC = org.mytonwallet.app_air.uicomponents
                                 .viewControllers.MfaActionConfirmVC(
                                     context,
-                                    requestHash = mfaHash,
+                                    requestHash = mfaHash
                                 )
                             navigationController?.push(mfaVC, onCompletion = {
                                 navigationController?.removePrevViewControllerOnly()
@@ -253,7 +275,8 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                         window?.dismissLastNav {
                             window?.dismissLastNav { }
                         }
-                    })
+                    }
+                )
             }
         )
         val nav = WNavigationController(

@@ -28,7 +28,8 @@ import org.mytonwallet.app_air.walletcore.stores.AddressStore
 
 @SuppressLint("ViewConstructor")
 class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
-    WCell(context, LayoutParams(MATCH_PARENT, 50.dp)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, 50.dp)),
+    WThemedView {
 
     var onTap: ((address: MSavedAddress) -> Unit)? = null
 
@@ -55,7 +56,7 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
         WImageButton(context).apply {
             val deleteDrawable =
                 context.getDrawableCompat(
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_close // TODO:: Update this icon
+                    org.mytonwallet.app_air.icons.R.drawable.ic_close // TODO:: Update this icon
                 )?.resize(context, 16.dp, 16.dp)
             setImageDrawable(deleteDrawable)
             isGone = true
@@ -129,8 +130,7 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
         addRippleEffect(
             WColor.SecondaryBackground.color,
             if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
-            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
     }
-
 }

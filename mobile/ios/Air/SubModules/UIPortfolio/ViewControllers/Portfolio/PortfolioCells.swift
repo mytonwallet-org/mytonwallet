@@ -6,7 +6,6 @@ import WalletContext
 private let portfolioChartHeight = CGFloat(400)
 private let portfolioChartPanelInset = CGFloat(16)
 private let portfolioChartPanelHorizontalInset = CGFloat(0)
-private let portfolioSectionHeaderFont = UIFont.systemFont(ofSize: 17, weight: .semibold)
 
 private func makePortfolioChartTheme(for traitCollection: UITraitCollection) -> ChartTheme {
     let baseTheme = ChartTheme.extractedTheme(for: traitCollection.userInterfaceStyle)
@@ -282,14 +281,14 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         NSAttributedString(
             string: text,
             attributes: [
-                .font: portfolioSectionHeaderFont,
+                .font: WTypography.uiFont(.bodyStrong),
             ]
         )
     }
 
     private func setupViews() {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = portfolioSectionHeaderFont
+        titleLabel.applyTextStyle(.bodyStrong)
         titleLabel.textColor = .air.secondaryLabel
         titleLabel.numberOfLines = 0
 
@@ -329,14 +328,14 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         loadingStack.axis = .vertical
         loadingStack.alignment = .center
         loadingStack.spacing = 10
-        loadingLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        loadingLabel.applyTextStyle(.supportingEmphasized)
         loadingLabel.textColor = .air.secondaryLabel
         loadingStack.addArrangedSubview(loadingIndicator)
         loadingStack.addArrangedSubview(loadingLabel)
         stateContainer.addSubview(loadingStack)
 
         noDataLabel.translatesAutoresizingMaskIntoConstraints = false
-        noDataLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        noDataLabel.applyTextStyle(.supportingEmphasized)
         noDataLabel.textColor = .air.secondaryLabel
         noDataLabel.textAlignment = .center
         stateContainer.addSubview(noDataLabel)
@@ -345,9 +344,9 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         errorStack.axis = .vertical
         errorStack.alignment = .center
         errorStack.spacing = 10
-        errorTitleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        errorTitleLabel.applyTextStyle(.bodyStrong)
         errorTitleLabel.textColor = .label
-        errorTextLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        errorTextLabel.applyTextStyle(.supportingEmphasized)
         errorTextLabel.textColor = .air.secondaryLabel
         errorTextLabel.numberOfLines = 0
         errorTextLabel.textAlignment = .center
@@ -356,7 +355,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         retryConfiguration.contentInsets = .init(top: 10, leading: 14, bottom: 10, trailing: 14)
         retryConfiguration.baseForegroundColor = .tintColor
         retryButton.configuration = retryConfiguration
-        retryButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        retryButton.titleLabel?.applyTextStyle(.supportingEmphasized)
         retryButton.layer.cornerRadius = 8
         retryButton.layer.cornerCurve = .continuous
         retryButton.backgroundColor = .air.groupedItem

@@ -6,9 +6,9 @@ import androidx.constraintlayout.widget.ConstraintSet
 import androidx.constraintlayout.widget.Guideline
 import androidx.transition.ChangeBounds
 import androidx.transition.TransitionManager
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import kotlin.math.roundToInt
 
 class WConstraintSet(private val constraintView: ConstraintLayout) : ConstraintSet() {
 
@@ -25,7 +25,7 @@ class WConstraintSet(private val constraintView: ConstraintLayout) : ConstraintS
     // MUST be called after all the modifications are done
     fun layoutAnimated(duration: Long = AnimationConstants.QUICK_ANIMATION) {
         val transition = ChangeBounds()
-        transition.setDuration(AnimationConstants.QUICK_ANIMATION);
+        transition.setDuration(AnimationConstants.QUICK_ANIMATION)
         TransitionManager.beginDelayedTransition(constraintView, transition)
         applyTo(constraintView)
     }
@@ -64,56 +64,80 @@ class WConstraintSet(private val constraintView: ConstraintLayout) : ConstraintS
 
     fun topToBottom(v1: View, v2: View, margin: Float = 0F) {
         connect(
-            v1.id, TOP, v2.id, BOTTOM,
+            v1.id,
+            TOP,
+            v2.id,
+            BOTTOM,
             margin.dp.roundToInt()
         )
     }
 
     fun topToBottomPx(v1: View, v2: View, margin: Int) {
         connect(
-            v1.id, TOP, v2.id, BOTTOM,
+            v1.id,
+            TOP,
+            v2.id,
+            BOTTOM,
             margin
         )
     }
 
     fun bottomToTop(v1: View, v2: View, margin: Float = 0F) {
         connect(
-            v1.id, BOTTOM, v2.id, TOP,
+            v1.id,
+            BOTTOM,
+            v2.id,
+            TOP,
             margin.dp.roundToInt()
         )
     }
 
     fun bottomToTopPx(v1: View, v2: View, margin: Int = 0) {
         connect(
-            v1.id, BOTTOM, v2.id, TOP,
+            v1.id,
+            BOTTOM,
+            v2.id,
+            TOP,
             margin
         )
     }
 
     fun startToEnd(v1: View, v2: View, margin: Float = 0F) {
         connect(
-            v1.id, START, v2.id, END,
+            v1.id,
+            START,
+            v2.id,
+            END,
             margin.dp.roundToInt()
         )
     }
 
     fun startToEndPx(v1: View, v2: View, margin: Int = 0) {
         connect(
-            v1.id, START, v2.id, END,
+            v1.id,
+            START,
+            v2.id,
+            END,
             margin
         )
     }
 
     fun endToStart(v1: View, v2: View, margin: Float = 0F) {
         connect(
-            v1.id, END, v2.id, START,
+            v1.id,
+            END,
+            v2.id,
+            START,
             margin.dp.roundToInt()
         )
     }
 
     fun endToStartPx(v1: View, v2: View, margin: Int) {
         connect(
-            v1.id, END, v2.id, START,
+            v1.id,
+            END,
+            v2.id,
+            START,
             margin
         )
     }

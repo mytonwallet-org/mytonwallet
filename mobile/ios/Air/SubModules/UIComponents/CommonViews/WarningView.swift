@@ -36,7 +36,7 @@ public struct WarningView: View {
         VStack(alignment: .leading, spacing: 4) {
             if let header {
                 Text(LocalizedStringKey(header))
-                    .fontWeight(.semibold)
+                    .textStyle(.footnoteStrong, scaling: .dynamic)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             Text(LocalizedStringKey(text))

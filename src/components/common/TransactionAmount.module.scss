@@ -44,8 +44,8 @@ $amountBottomMargin: 1rem;
 
   &.withStatus {
     margin-bottom: 0.25rem;
-    border-bottom-right-radius: var(--border-radius-mini);
-    border-bottom-left-radius: var(--border-radius-mini);
+    border-end-start-radius: var(--border-radius-mini);
+    border-end-end-radius: var(--border-radius-mini);
   }
 
   &.clickable {
@@ -68,6 +68,8 @@ $amountBottomMargin: 1rem;
 .amount,
 .status,
 .baseCurrencyAmount {
+  unicode-bidi: plaintext;
+
   color: var(--color-transaction-amount-gray-text);
   text-align: center;
   text-overflow: ellipsis;

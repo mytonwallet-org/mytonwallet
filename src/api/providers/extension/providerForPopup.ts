@@ -4,12 +4,15 @@ import type { ApiInitArgs, OnApiUpdate } from '../../types';
 
 import { POPUP_PORT } from './config';
 import { createExtensionInterface } from '../../../util/createPostMessageInterface';
+import { initWindowConnector } from '../../../util/windowProvider/connector';
 import * as extensionMethods from '../../extensionMethods';
 import initExtensionMethods from '../../extensionMethods/init';
 import * as methods from '../../methods';
 import initApi, { destroy as destroyMethods } from '../../methods/init';
 
-// FIXME: fix port disconnection on popup close
+// Register the reverse connector listener early, before the popup attempts to connect
+initWindowConnector();
+
 void createExtensionInterface(POPUP_PORT, async (name: string, origin?: string, ...args: any[]) => {
   if (name === 'init') {
     await initApi(args[0] as OnApiUpdate, args[1] as ApiInitArgs);

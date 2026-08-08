@@ -1,12 +1,12 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WSwitch
@@ -26,7 +26,8 @@ class SwitchCell(
     var isLast: Boolean = false,
     private val leadingIconRes: Int? = null,
     onChange: (checked: Boolean) -> Unit
-) : WCell(context), WThemedView {
+) : WCell(context),
+    WThemedView {
 
     fun setIsLast(value: Boolean) {
         isLast = value

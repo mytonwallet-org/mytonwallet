@@ -1,16 +1,17 @@
 import UIKit
+import UIComponents
 
 final class NftDomainExpirationBannerView: UIView {
     enum Style {
         case regular
         case compact
 
-        var font: UIFont {
+        var textStyle: WTextStyle {
             switch self {
             case .regular:
-                .systemFont(ofSize: 12, weight: .semibold)
+                .captionStrong
             case .compact:
-                .systemFont(ofSize: 9, weight: .semibold)
+                .compactBadge
             }
         }
 
@@ -75,7 +76,7 @@ final class NftDomainExpirationBannerView: UIView {
     }
 
     private func applyStyle() {
-        textLabel.font = style.font
+        textLabel.applyTextStyle(style.textStyle)
         heightConstraint?.constant = style.height
     }
 }

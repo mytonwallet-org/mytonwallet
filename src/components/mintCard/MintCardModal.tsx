@@ -59,8 +59,8 @@ function MintCardModal({
 
   const selectedCardName = selectedCardType ? MAP_CARD_TYPE_TO_NAME[selectedCardType] : '';
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
-    submitMintCard({ password });
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
+    submitMintCard({ enclaveToken });
   });
 
   const handleHardwareSubmit = useLastCallback(() => {
@@ -81,7 +81,7 @@ function MintCardModal({
           isLoading={isLoading}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Cancel')}
-          onSubmit={handlePasswordSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={closeMintCardModal}
           onUpdate={clearMintCardError}
           operationType="mintCard"

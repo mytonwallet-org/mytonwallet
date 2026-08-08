@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -15,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.SwipeRevealLayout
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -33,7 +33,8 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 
 class ConnectedAppsCell(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     companion object {
         private const val MAIN_VIEW_RADIUS = 18f
@@ -84,7 +85,7 @@ class ConnectedAppsCell(context: Context) :
 
         addView(imageView)
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
-        addView(subtitleLabel, LayoutParams(0, 22.dp))
+        addView(subtitleLabel, LayoutParams(WRAP_CONTENT, 22.dp))
         setConstraints {
             toCenterY(imageView, 12f)
             toStart(imageView, 16f)
@@ -94,6 +95,8 @@ class ConnectedAppsCell(context: Context) :
             bottomToBottom(subtitleLabel, imageView, -2f)
             startToEnd(subtitleLabel, imageView, 12f)
             toEnd(subtitleLabel, 24f)
+            constrainedWidth(subtitleLabel.id, true)
+            setHorizontalBias(subtitleLabel.id, 0f)
         }
     }
 
@@ -141,10 +144,14 @@ class ConnectedAppsCell(context: Context) :
                     WColor.Background.color,
                     0f,
                     MAIN_VIEW_RADIUS,
-                    if (isLast) maxOf(
-                        MAIN_VIEW_RADIUS,
-                        lastItemRadius
-                    ) else MAIN_VIEW_RADIUS,
+                    if (isLast) {
+                        maxOf(
+                            MAIN_VIEW_RADIUS,
+                            lastItemRadius
+                        )
+                    } else {
+                        MAIN_VIEW_RADIUS
+                    },
                     0f
                 )
             }
@@ -167,7 +174,6 @@ class ConnectedAppsCell(context: Context) :
                     bottomRadius
                 )
             }
-
         })
         setViewDragHelperStateChangeListener {
             when (it) {
@@ -258,7 +264,7 @@ class ConnectedAppsCell(context: Context) :
 
         if (exploreSite.shouldShowurlTrustStatusWarning()) {
             val warningIcon = context.getDrawableCompat(
-                org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
+                org.mytonwallet.app_air.icons.R.drawable.ic_warning
             )
             warningIcon?.let { drawable ->
                 drawable.setBounds(0, 0, 14.dp, 14.dp)
@@ -266,7 +272,10 @@ class ConnectedAppsCell(context: Context) :
                     drawable.setTint(WColor.Red.color)
                 }
                 subtitleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                    drawable, null, null, null
+                    drawable,
+                    null,
+                    null,
+                    null
                 )
                 subtitleLabel.compoundDrawablePadding = 4.dp
             }
@@ -277,7 +286,10 @@ class ConnectedAppsCell(context: Context) :
             onWarningTapped = onWarning
         } else {
             subtitleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                null, null, null, null
+                null,
+                null,
+                null,
+                null
             )
             subtitleLabel.setOnClickListener(null)
             onWarningTapped = null

@@ -9,10 +9,12 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -22,18 +24,17 @@ import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
 class PanelAccountItemView(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     companion object {
         const val HEIGHT_DP = 60
@@ -71,9 +72,12 @@ class PanelAccountItemView(context: Context) :
     }
 
     private val trailingContainerView = WFrameLayout(context).apply {
-        addView(valueLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-        })
+        addView(
+            valueLabel,
+            FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            }
+        )
     }
 
     private val rippleDrawable = WRippleDrawable.create(16f.dp).apply {
@@ -201,18 +205,16 @@ class PanelAccountItemView(context: Context) :
             val balanceDouble = withContext(Dispatchers.Default) {
                 BalanceStore.totalBalanceInBaseCurrency(accountId)
             } ?: run {
-                if (valueLabel.contentView.text != "")
-                    valueLabel.contentView.text = ""
+                if (valueLabel.contentView.text != "") valueLabel.contentView.text = ""
                 return@launch
             }
             val newValue = balanceDouble.toString(
                 baseCurrency.decimalsCount,
                 baseCurrency.sign,
                 baseCurrency.decimalsCount,
-                true,
+                true
             )
-            if (valueLabel.contentView.text != newValue)
-                valueLabel.contentView.text = newValue
+            if (valueLabel.contentView.text != newValue) valueLabel.contentView.text = newValue
         }
     }
 }

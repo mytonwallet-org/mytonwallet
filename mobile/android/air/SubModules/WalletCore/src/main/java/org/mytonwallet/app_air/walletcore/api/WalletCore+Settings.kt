@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.walletcore.api
 
 import kotlinx.coroutines.Dispatchers

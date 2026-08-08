@@ -6,6 +6,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -21,21 +22,21 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
-import java.math.BigInteger
 
 @SuppressLint("ViewConstructor")
 class WalletConnectPayConfirmHeaderView(
     context: Context,
     merchant: WcPayMerchant,
     token: MToken? = null,
-    amount: Amount? = null,
-) : WView(context), WThemedView {
+    amount: Amount? = null
+) : WView(context),
+    WThemedView {
 
     data class Amount(
         val value: BigInteger,
         val decimals: Int,
         val currency: String,
-        val forceCurrencyToRight: Boolean = true,
+        val forceCurrencyToRight: Boolean = true
     )
 
     companion object {
@@ -155,7 +156,7 @@ class WalletConnectPayConfirmHeaderView(
         amountLabel.updateColors(
             primaryColor = WColor.PrimaryText.color,
             secondaryColor = WColor.PrimaryText.color,
-            drawGradient = false,
+            drawGradient = false
         )
         subtitlePrefixLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)

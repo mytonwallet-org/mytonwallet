@@ -29,15 +29,18 @@ public class WordListView: UIView {
 
     private func setupView() {
         translatesAutoresizingMaskIntoConstraints = false
+        semanticContentAttribute = .forceLeftToRight
 
         // prepare stack views
         let rowsCount = Int(ceil(Double(words.count) / 2))
         let leftStackView = UIStackView()
         leftStackView.axis = .vertical
         leftStackView.spacing = 12
+        leftStackView.semanticContentAttribute = .forceLeftToRight
         let rightStackView = UIStackView()
         rightStackView.axis = .vertical
         rightStackView.spacing = 12
+        rightStackView.semanticContentAttribute = .forceLeftToRight
         
         // fill stack views with word items
         for (index, word) in words.enumerated() {

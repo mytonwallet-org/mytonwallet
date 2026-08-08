@@ -13,6 +13,9 @@ import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.view.children
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.min
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.atMost
@@ -32,9 +35,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.min
 
 class WDialog(private val customView: ViewGroup, private val config: Config) : IPopup {
 
@@ -44,7 +44,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
         val contentTopOffset: Int = 0,
         val contentBottomOffset: Int = 0,
         val actionButton: WDialogButton.Config? = null,
-        val secondaryButton: WDialogButton.Config? = null,
+        val secondaryButton: WDialogButton.Config? = null
     )
 
     private var isPresented: Boolean = false
@@ -66,48 +66,64 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     }
 
     private val titleLabel: WLabel? =
-        if (config.title != null) WLabel(customView.context).apply {
-            setStyle(22f, WFont.Medium)
-            gravity = Gravity.START
-            text = config.title
-            setTextColor(WColor.PrimaryText)
-            setSingleLine()
-            ellipsize = TextUtils.TruncateAt.MARQUEE
-            isHorizontalFadingEdgeEnabled = true
-            isSelected = true
-            updateTheme()
-        } else null
+        if (config.title != null) {
+            WLabel(customView.context).apply {
+                setStyle(22f, WFont.Medium)
+                gravity = Gravity.START
+                text = config.title
+                setTextColor(WColor.PrimaryText)
+                setSingleLine()
+                ellipsize = TextUtils.TruncateAt.MARQUEE
+                isHorizontalFadingEdgeEnabled = true
+                isSelected = true
+                updateTheme()
+            }
+        } else {
+            null
+        }
 
     private val subtitleLabel: WLabel? =
-        if (config.subtitle != null) WLabel(customView.context).apply {
-            setStyle(15f)
-            gravity = Gravity.START
-            text = config.subtitle
-            setTextColor(WColor.SecondaryText)
-            updateTheme()
-        } else null
+        if (config.subtitle != null) {
+            WLabel(customView.context).apply {
+                setStyle(15f)
+                gravity = Gravity.START
+                text = config.subtitle
+                setTextColor(WColor.SecondaryText)
+                updateTheme()
+            }
+        } else {
+            null
+        }
 
     private val actionButton: WLabel? =
-        if (config.actionButton != null) WDialogButton(
-            customView.context,
-            config.actionButton
-        ).apply {
-            setOnClickListener {
-                config.actionButton.onTap?.invoke()
-                dismiss()
+        if (config.actionButton != null) {
+            WDialogButton(
+                customView.context,
+                config.actionButton
+            ).apply {
+                setOnClickListener {
+                    config.actionButton.onTap?.invoke()
+                    dismiss()
+                }
             }
-        } else null
+        } else {
+            null
+        }
 
     private val secondaryButton: WLabel? =
-        if (config.secondaryButton != null) WDialogButton(
-            customView.context,
-            config.secondaryButton
-        ).apply {
-            setOnClickListener {
-                config.secondaryButton.onTap?.invoke()
-                dismiss()
+        if (config.secondaryButton != null) {
+            WDialogButton(
+                customView.context,
+                config.secondaryButton
+            ).apply {
+                setOnClickListener {
+                    config.secondaryButton.onTap?.invoke()
+                    dismiss()
+                }
             }
-        } else null
+        } else {
+            null
+        }
 
     private val contentView: WFrameLayout = object : WFrameLayout(customView.context), WThemedView {
         override fun updateTheme() {
@@ -118,40 +134,61 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
         z = Float.MAX_VALUE - 1
         updateTheme()
         titleLabel?.let { titleLabel ->
-            addView(titleLabel, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                gravity = Gravity.START or Gravity.TOP
-                topMargin = 24.dp
-                marginStart = 24.dp
-                marginEnd = 24.dp
-            })
+            addView(
+                titleLabel,
+                FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.START or Gravity.TOP
+                    topMargin = 24.dp
+                    marginStart = 24.dp
+                    marginEnd = 24.dp
+                }
+            )
         }
         subtitleLabel?.let { subtitleLabel ->
-            addView(subtitleLabel, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                gravity = Gravity.START or Gravity.TOP
-                topMargin = if (config.title != null) 60.dp else 24.dp
-                marginStart = 24.dp
-                marginEnd = 24.dp
-            })
+            addView(
+                subtitleLabel,
+                FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.START or Gravity.TOP
+                    topMargin = if (config.title != null) 60.dp else 24.dp
+                    marginStart = 24.dp
+                    marginEnd = 24.dp
+                }
+            )
         }
         config.actionButton?.let {
-            addView(actionButton, FrameLayout.LayoutParams(WRAP_CONTENT, 40.dp).apply {
-                gravity = Gravity.TOP or Gravity.END
-                marginEnd = 12.dp
-            })
+            addView(
+                actionButton,
+                FrameLayout.LayoutParams(WRAP_CONTENT, 40.dp).apply {
+                    gravity = Gravity.TOP or Gravity.END
+                    marginEnd = 12.dp
+                }
+            )
         }
         config.secondaryButton?.let {
-            addView(secondaryButton, FrameLayout.LayoutParams(WRAP_CONTENT, 40.dp).apply {
-                gravity = Gravity.TOP or Gravity.END
-            })
+            addView(
+                secondaryButton,
+                FrameLayout.LayoutParams(WRAP_CONTENT, 40.dp).apply {
+                    gravity = Gravity.TOP or Gravity.END
+                }
+            )
         }
-        addView(customView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-            gravity = Gravity.TOP
-            topMargin = config.contentTopOffset + if (config.title != null) 60.dp else 24.dp
-            bottomMargin =
-                config.contentBottomOffset +
-                    if (config.actionButton != null || config.secondaryButton != null) 64.dp else 24.dp
-        })
-        if (titleLabel != null || subtitleLabel != null)
+        addView(
+            customView,
+            FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                gravity = Gravity.TOP
+                topMargin = config.contentTopOffset + if (config.title != null) 60.dp else 24.dp
+                bottomMargin =
+                    config.contentBottomOffset +
+                    if (config.actionButton != null ||
+                        config.secondaryButton != null
+                    ) {
+                        64.dp
+                    } else {
+                        24.dp
+                    }
+            }
+        )
+        if (titleLabel != null || subtitleLabel != null) {
             customView.post {
                 customView.layoutParams =
                     (customView.layoutParams as ViewGroup.MarginLayoutParams).apply {
@@ -164,15 +201,14 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
                         )
                     }
             }
+        }
         setOnClickListener {}
     }
 
     fun presentOn(viewController: WViewController): Boolean {
-        if (isPresented)
-            throw Exception("WDialog can't be presented more than once")
+        if (isPresented) throw Exception("WDialog can't be presented more than once")
         val navigationParent = viewController.navigationController?.parent
-        if (viewController.isDisappeared)
-            return false
+        if (viewController.isDisappeared) return false
         val parentView = (navigationParent as? WView)
             ?: (navigationParent?.parent as? WView)
             ?: return false
@@ -200,8 +236,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
             }
         }
         contentView.post {
-            if (isDismissing)
-                return@post
+            if (isDismissing) return@post
             if (customView.height == 0) {
                 customView.measure(contentViewWidth.atMost, 0.unspecified)
             }
@@ -213,19 +248,23 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
             } as? ViewGroup.MarginLayoutParams
             customView.layoutParams = customViewLp
             fullHeight =
-                (customViewLp?.topMargin ?: 0) + measuredHeight + (customViewLp?.bottomMargin
-                    ?: 0)
-            if (actionButton != null)
+                (customViewLp?.topMargin ?: 0) + measuredHeight + (
+                    customViewLp?.bottomMargin
+                        ?: 0
+                    )
+            if (actionButton != null) {
                 actionButton.layoutParams =
                     (actionButton.layoutParams as FrameLayout.LayoutParams).apply {
                         topMargin = fullHeight - 52.dp
                     }
-            if (secondaryButton != null)
+            }
+            if (secondaryButton != null) {
                 secondaryButton.layoutParams =
                     (secondaryButton.layoutParams as FrameLayout.LayoutParams).apply {
                         topMargin = fullHeight - 52.dp
-                        rightMargin = actionButton!!.width + 24.dp
+                        marginEnd = actionButton!!.width + 24.dp
                     }
+            }
             presentAnimator = ValueAnimator.ofInt(0, fullHeight).apply {
                 duration = AnimationConstants.DIALOG_PRESENT
                 interpolator = WInterpolator.emphasized
@@ -233,8 +272,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
                     renderFrame(animatedValue as Int)
                 }
                 doOnEnd {
-                    if (isDismissing)
-                        return@doOnEnd
+                    if (isDismissing) return@doOnEnd
                     isAnimating = false
                     presentAnimator = null
                 }
@@ -254,10 +292,11 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     fun insetsUpdated() {
         parentViewController.get()?.let { viewController ->
             val targetTranslationY =
-                if (viewController.isKeyboardOpen)
+                if (viewController.isKeyboardOpen) {
                     min(0, keyboardTop - 16.dp - contentView.bottom).toFloat()
-                else
+                } else {
                     0f
+                }
 
             contentView.animate()
                 .translationY(targetTranslationY)
@@ -272,10 +311,8 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     }
 
     override fun dismiss() {
-        if (!isPresented)
-            throw Exception("WDialog is not presented yet")
-        if (isDismissing)
-            return
+        if (!isPresented) throw Exception("WDialog is not presented yet")
+        if (isDismissing) return
         isDismissing = true
         val fromHeight = presentAnimator?.let { it.animatedValue as Int } ?: contentView.height
         presentAnimator?.cancel()

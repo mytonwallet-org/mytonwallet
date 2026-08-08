@@ -13,25 +13,20 @@ private let apiWalletLog = Log("Api+Wallet")
 
 extension Api {
     
-    public static func fetchPrivateKey(accountId: String, chain: ApiChain, password: String) async throws -> String {
-        try await bridge.callApi("fetchPrivateKey", accountId, chain, password, decoding: String.self)
+    public static func fetchPrivateKey(accountId: String, chain: ApiChain, enclaveToken: EnclaveToken) async throws -> String {
+        return try await bridge.callApi("fetchPrivateKey", accountId, chain, enclaveToken, decoding: String.self)
     }
 
-    public static func fetchMnemonic(accountId: String, password: String) async throws -> [String] {
-        try await bridge.callApi("fetchMnemonic", accountId, password, decoding: [String].self)
+    public static func fetchMnemonic(accountId: String, enclaveToken: EnclaveToken) async throws -> [String] {
+        return try await bridge.callApi("fetchMnemonic", accountId, enclaveToken, decoding: [String].self)
     }
     
     public static func getMnemonicWordList() async throws -> [String] {
         try await bridge.callApi("getMnemonicWordList", decoding: [String].self)
     }
     
-    /// - Important: Do not call this method directly, use **AuthSupport** instead
-    internal static func verifyPassword(password: String) async throws -> Bool {
-        try await bridge.callApi("verifyPassword", password, decoding: Bool.self)
-    }
-    
-    public static func confirmDappRequest(promiseId: String, password: String?) async throws {
-        try await bridge.callApiVoid("confirmDappRequest", promiseId, password)
+    public static func confirmDappRequest(promiseId: String, enclaveToken: EnclaveToken?) async throws {
+        try await bridge.callApiVoid("confirmDappRequest", promiseId, enclaveToken)
     }
     
     public static func confirmDappRequestConnect(promiseId: String, data: ApiDappRequestConfirmation) async throws {

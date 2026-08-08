@@ -9,16 +9,16 @@ import Foundation
 import SwiftUI
 
 public func lang(_ keyAndDefault: String) -> String {
-    NSLocalizedString(keyAndDefault, bundle: LocalizationSupport.shared.bundle, comment: "")
+    NSLocalizedString(keyAndDefault, bundle: AirBundle, comment: "")
 }
 public func lang(_ keyAndDefault: String, arg1: any CVarArg) -> String {
-    return String(format: lang(keyAndDefault), arg1)
+    formatLocalizedString(lang(keyAndDefault), arguments: [arg1])
 }
 public func lang(_ keyAndDefault: String, arg1: any CVarArg, arg2: any CVarArg) -> String {
-    return String(format: lang(keyAndDefault), arg1, arg2)
+    formatLocalizedString(lang(keyAndDefault), arguments: [arg1, arg2])
 }
 public func lang(_ keyAndDefault: String, arg1: any CVarArg, arg2: any CVarArg, arg3: any CVarArg) -> String {
-    return String(format: lang(keyAndDefault), arg1, arg2, arg3)
+    formatLocalizedString(lang(keyAndDefault), arguments: [arg1, arg2, arg3])
 }
 
 // `$in_days` is a pure plural ("in N days"). `today`/`tomorrow` are handled separately because
@@ -35,7 +35,7 @@ public func langMd(_ keyAndDefault: String) -> LocalizedStringKey {
     LocalizedStringKey(lang(keyAndDefault))
 }
 public func langMd(_ keyAndDefault: String, arg1: any CVarArg) -> LocalizedStringKey {
-    LocalizedStringKey(String(format: lang(keyAndDefault), arg1))
+    LocalizedStringKey(formatLocalizedString(lang(keyAndDefault), arguments: [arg1]))
 }
 
 public func attributedLang(_ keyAndDefault: String, attributes: [NSAttributedString.Key : Any]? = nil, arg1: NSAttributedString) -> NSAttributedString {
@@ -76,4 +76,35 @@ public func langJoin(_ items: [String], _ joiner: EnumerationJoiner) -> String {
         result += item
     }
     return result
+}
+
+public func localizedIntegerString(_ value: Int) -> String {
+    formatLocalizedString("%d", arguments: [value])
+}
+
+public func localizedIntegerDigits(in text: String) -> String {
+    String(text.map { character in
+        guard let digit = character.wholeNumberValue, character.isASCII else {
+            return character
+        }
+        return Character(localizedIntegerString(digit))
+    })
+}
+
+public func formatLocalizedString(_ format: String, arguments: [any CVarArg]) -> String {
+    if arguments.contains(where: isIntegerFormatArgument) {
+        return String(format: format, locale: LocalizationSupport.shared.locale, arguments: arguments)
+    }
+    return String(format: format, arguments: arguments)
+}
+
+private func isIntegerFormatArgument(_ argument: any CVarArg) -> Bool {
+    switch argument {
+    case is Int, is Int8, is Int16, is Int32, is Int64:
+        true
+    case is UInt, is UInt8, is UInt16, is UInt32, is UInt64:
+        true
+    default:
+        false
+    }
 }

@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -27,13 +28,10 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-open class WalletTypeView(
-    context: Context,
-    blurredBackground: Boolean = false
-) : WFrameLayout(context) {
+open class WalletTypeView(context: Context, blurredBackground: Boolean = false) :
+    WFrameLayout(context) {
 
     private var eyeDrawable: Drawable? = null
     private var eyeImageView: AppCompatImageView? = null
@@ -44,15 +42,16 @@ open class WalletTypeView(
     private var hardwareTagView: AppCompatImageView? = null
 
     private val walletTypeBlurView: WBlurryBackgroundView? =
-        if (DevicePerformanceClassifier.isHighClass && blurredBackground)
+        if (DevicePerformanceClassifier.isHighClass && blurredBackground) {
             WBlurryBackgroundView(
                 context,
                 fadeSide = null
             ).apply {
                 setOverlayColor(WColor.Transparent)
             }
-        else
+        } else {
             null
+        }
 
     init {
         walletTypeBlurView?.let {
@@ -76,8 +75,7 @@ open class WalletTypeView(
     private var shownAccountId: String? = null
     private var shownIsTemporary: Boolean? = null
     fun configure(account: MAccount?) {
-        if (shownAccountId == account?.accountId && shownIsTemporary == account?.isTemporary)
-            return
+        if (shownAccountId == account?.accountId && shownIsTemporary == account?.isTemporary) return
         shownAccountId = account?.accountId
         shownIsTemporary = account?.isTemporary
 
@@ -88,7 +86,9 @@ open class WalletTypeView(
 
         when {
             account.isViewOnly -> configureViewTagView(account)
+
             account.isHardware -> configureHardwareTagView()
+
             else -> {
                 isGone = true
                 setOnClickListener(null)
@@ -120,14 +120,15 @@ open class WalletTypeView(
                     strokeWidth = 1
                 )
             } else {
-                if (walletTypeBlurView == null)
+                if (walletTypeBlurView == null) {
                     setBackgroundColor(backgroundColor, 10f.dp)
-                else
+                } else {
                     walletTypeBlurView.setBackgroundColor(
                         Color.TRANSPARENT,
                         10f.dp,
                         clipToBounds = true
                     )
+                }
                 setOnClickListener(null)
             }
         }
@@ -173,9 +174,9 @@ open class WalletTypeView(
         if (appliedTemporaryVariant != account.isTemporary) {
             appliedTemporaryVariant = account.isTemporary
             val iconRes = if (account.isTemporary) {
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye_add
+                org.mytonwallet.app_air.icons.R.drawable.ic_wallet_eye_add
             } else {
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye
+                org.mytonwallet.app_air.icons.R.drawable.ic_wallet_eye
             }
             eyeDrawable = context.getDrawableCompat(iconRes)
             eyeImageView?.setImageDrawable(eyeDrawable)
@@ -207,14 +208,15 @@ open class WalletTypeView(
                 AccountStore.saveTemporaryAccount(account)
             }
         } else {
-            if (walletTypeBlurView == null)
+            if (walletTypeBlurView == null) {
                 setBackgroundColor(backgroundColor, 10f.dp)
-            else
+            } else {
                 walletTypeBlurView.setBackgroundColor(
                     Color.TRANSPARENT,
                     10f.dp,
                     clipToBounds = true
                 )
+            }
             setOnClickListener(null)
         }
     }
@@ -224,7 +226,7 @@ open class WalletTypeView(
         viewTagView?.isGone = true
         if (hardwareTagView == null) {
             hardwareDrawable = context.getDrawableCompat(
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger
+                org.mytonwallet.app_air.icons.R.drawable.ic_wallet_ledger
             )?.apply {
                 setTint(color)
             }

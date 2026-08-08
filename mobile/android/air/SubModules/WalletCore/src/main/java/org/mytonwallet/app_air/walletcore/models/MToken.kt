@@ -1,16 +1,18 @@
 package org.mytonwallet.app_air.walletcore.models
 
+import java.math.BigDecimal
+import java.math.BigInteger
+import java.math.RoundingMode
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
-import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
-import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.PRICELESS_TOKEN_HASHES
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
+import org.mytonwallet.app_air.walletcore.defaultShownSlugs
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stakingSlugToTokenSlug
@@ -18,24 +20,31 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
-import java.math.BigDecimal
-import java.math.BigInteger
-import java.math.RoundingMode
 
 val DIESEL_TOKENS = arrayOf(
     "EQAvlWFDxGF2lXm67y4yzC17wYKD9A0guwPkMs1gOsM__NOT", // NOT
     "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs", // USDT
     "EQCvxJy4eG8hyHBFsZ7eePxrRsUQSFE_jpptRAYBmcG_DOGS", // DOGS
     "EQD-cvR0Nz6XAyRBvbhz-abTrRC6sI5tvHvvpeQraV9UAAD7", // CATI
-    "EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo", // HAMSTER
+    "EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo" // HAMSTER
 )
 
-class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
+class MToken(json: JSONObject) :
+    IApiToken,
+    WEquatable<MToken> {
+
+    companion object {
+        private val EARN_AVAILABLE_SLUGS = setOf(TONCOIN_SLUG, USDE_SLUG)
+
+        internal fun isEarnAvailableSlug(slug: String): Boolean =
+            EARN_AVAILABLE_SLUGS.contains(slug)
+    }
 
     override val decimals: Int = json.optInt("decimals")
     override val slug: String = json.optString("slug")
     override val symbol: String = json.optString("symbol")
     override var name: String = json.optString("name")
+    override var localizedName: String? = json.optString("localizedName").ifBlank { null }
     override var image: String = json.optString("image")
     override val tokenAddress: String? =
         json.optString("minterAddress")
@@ -48,10 +57,14 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
 
     var percentChange24hReal: Double = json.optDouble("percentChange24h")
     var percentChange24h: Double =
-        if (percentChange24hReal.isFinite()) BigDecimal(percentChange24hReal).setScale(
-            2,
-            RoundingMode.HALF_UP
-        ).toDouble() else percentChange24hReal
+        if (percentChange24hReal.isFinite()) {
+            BigDecimal(percentChange24hReal).setScale(
+                2,
+                RoundingMode.HALF_UP
+            ).toDouble()
+        } else {
+            percentChange24hReal
+        }
     var priceUsd: Double = json.optDouble("priceUsd")
     val isFromBackend: Boolean = json.optBoolean("isFromBackend")
     val type: String = json.optString("type")
@@ -94,12 +107,11 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
             put("slug", slug)
             put("symbol", symbol)
             put("name", name)
+            put("localizedName", localizedName)
             put("image", image)
             put("tokenAddress", tokenAddress)
-            if (percentChange24hReal.isFinite())
-                put("percentChange24h", percentChange24hReal)
-            if (priceUsd.isFinite())
-                put("priceUsd", priceUsd)
+            if (percentChange24hReal.isFinite()) put("percentChange24h", percentChange24hReal)
+            if (priceUsd.isFinite()) put("priceUsd", priceUsd)
             put("isPopular", isPopular)
             put("chain", chain)
             put("isFromBackend", isFromBackend)
@@ -131,13 +143,15 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
         if (isVisibleToken) {
             return false
         }
-        if (DEFAULT_SHOWN_TOKENS[account.network]?.contains(slug) == true && account.isNew)
-            return false
+        if (defaultShownSlugs(account).contains(slug) && account.isNew) return false
         if (PRICELESS_TOKEN_HASHES.contains(codeHash) &&
-            (BalanceStore.getBalances(account.accountId)?.get(slug)
-                ?: BigInteger.ZERO) > BigInteger.ZERO
-        )
+            (
+                BalanceStore.getBalances(account.accountId)?.get(slug)
+                    ?: BigInteger.ZERO
+                ) > BigInteger.ZERO
+        ) {
             return false
+        }
         if (WGlobalStorage.getAreNoCostTokensHidden()) {
             val tokenBalance =
                 (BalanceStore.getBalances(account.accountId)?.get(slug) ?: BigInteger.ZERO)
@@ -159,8 +173,9 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
         }
 
     fun explorerUrl(network: MBlockchainNetwork): String? {
-        if (tokenAddress.isNullOrEmpty() && cmcSlug != null)
-            return "https://coinmarketcap.com/currencies/${cmcSlug}/"
+        if (tokenAddress.isNullOrEmpty() && cmcSlug != null) {
+            return "https://coinmarketcap.com/currencies/$cmcSlug/"
+        }
 
         val tokenAddress = tokenAddress ?: return null
         return MBlockchain.valueOfOrNull(chain)?.tokenExplorer()?.tokenUrl(network, tokenAddress)
@@ -168,18 +183,15 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
 
     val isEarnAvailable: Boolean
         get() {
-            return slug == TONCOIN_SLUG || slug == MYCOIN_SLUG || slug == USDE_SLUG
+            return isEarnAvailableSlug(slug)
         }
 
     val stakingSlug: String? = tokenSlugToStakingSlug(slug)
 
     val unstakedSlug: String? = stakingSlugToTokenSlug(slug)
 
-    override fun isSame(comparing: WEquatable<*>): Boolean {
-        return comparing is MToken && slug == comparing.slug
-    }
+    override fun isSame(comparing: WEquatable<*>): Boolean =
+        comparing is MToken && slug == comparing.slug
 
-    override fun isChanged(comparing: WEquatable<*>): Boolean {
-        return true
-    }
+    override fun isChanged(comparing: WEquatable<*>): Boolean = true
 }

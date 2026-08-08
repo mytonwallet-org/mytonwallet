@@ -30,7 +30,7 @@ struct TransferRow: View {
         var items: [String] = []
 
         if transfer.isNftTransferPayload {
-            items.append("1 NFT")
+            items.append(lang("%amount% NFTs", arg1: 1))
         }
 
         items.append(contentsOf: transfer.displayedAmounts(chain: chain, includeNativeFee: true).map {
@@ -95,18 +95,19 @@ struct TransferRow: View {
                 Image.airBundle("ScamBadge")
             }
             Text(amountsText)
-                .font(.system(size: 16, weight: .medium))
+                .textStyle(.calloutEmphasized, content: .technical)
                 .opacity(transfer.isScam == true ? 0.7 : 1)
         }
     }
     
     @ViewBuilder
     var subtitle: some View {
-        let to = Text(lang("to"))
+        let to = Text(lang("to")).textStyle(.supporting)
         let addr = Text(formatStartEndAddress(transfer.displayedToAddress))
-            .fontWeight(.semibold)
+            .textStyle(.supportingStrong, content: .technical)
         Text("\(to) \(addr)")
-            .font14h18()
+            .lineSpacing(2)
+            .padding(.top, 1)
             .foregroundStyle(Color.air.secondaryLabel)
     }
 }

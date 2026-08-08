@@ -68,7 +68,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
     .filter(([slug]) => (slug in tokenInfo.bySlug && !accountSettings.deletedSlugs?.includes(slug)))
     .map(([slug, balance]): UserToken => {
       const {
-        symbol, name, image, decimals, cmcSlug, color, chain, tokenAddress, codeHash,
+        symbol, name, localizedName, image, decimals, cmcSlug, color, chain, tokenAddress, codeHash,
         type, label, keywords, percentChange24h = 0, priceUsd,
       } = tokenInfo.bySlug[slug];
 
@@ -91,6 +91,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
         slug,
         amount: balance,
         name,
+        localizedName,
         image,
         price,
         priceUsd,
@@ -153,6 +154,10 @@ export function selectToken(global: GlobalState, slug: string) {
   return global.tokenInfo.bySlug[slug];
 }
 
+export function selectTokenDetails(global: GlobalState, slug: string) {
+  return global.tokenDetails.bySlug[slug];
+}
+
 export const selectUserTokenMemoized = memoize((global: GlobalState, slug: string): UserToken | undefined => {
   const apiToken = selectToken(global, slug);
   if (!apiToken) return undefined;
@@ -204,6 +209,20 @@ export function selectMycoin(global: GlobalState) {
 
 export function selectTokenByMinterAddress(global: GlobalState, minter: string) {
   return Object.values(global.tokenInfo.bySlug).find((token) => token.tokenAddress === minter);
+}
+
+const selectHasLocalizedTokenNamesMemoized = memoize((tokensBySlug: GlobalState['tokenInfo']['bySlug']) => {
+  for (const slug in tokensBySlug) {
+    if (tokensBySlug[slug].localizedName) {
+      return true;
+    }
+  }
+
+  return false;
+});
+
+export function selectHasLocalizedTokenNames(global: GlobalState) {
+  return selectHasLocalizedTokenNamesMemoized(global.tokenInfo.bySlug);
 }
 
 export function selectChainTokenWithMaxBalanceSlow(global: GlobalState, chain: ApiChain): UserToken | undefined {

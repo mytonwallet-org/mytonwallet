@@ -112,14 +112,6 @@ public class WLineChartView: LineChartView {
 }
 
 class ChartMarker: Marker {
-    fileprivate var topLabel: String?
-    fileprivate var bottomLabel: String?
-    fileprivate var size = CGSize()
-    fileprivate var _topLabelSize: CGSize = .zero
-    fileprivate var _topDrawAttributes = [NSAttributedString.Key: Any]()
-    fileprivate var _bottomLabelSize: CGSize = .zero
-    fileprivate var _bottomDrawAttributes = [NSAttributedString.Key: Any]()
-    
     private let chartView: LineChartView
     private let popupDateFormatter: ((Double) -> String)?
     private let popupValueFormatter: ((String) -> String)?

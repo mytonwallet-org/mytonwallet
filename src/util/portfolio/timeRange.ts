@@ -2,7 +2,7 @@ import type { ApiPriceHistoryPeriod } from '../../api/types';
 
 import { DAY } from '../dateFormat';
 
-export const PORTFOLIO_TIME_RANGES: readonly ApiPriceHistoryPeriod[] = ['ALL', '1Y', '3M', '1M', '7D', '1D'];
+export const TIME_RANGES: readonly ApiPriceHistoryPeriod[] = ['ALL', '1Y', '3M', '1M', '7D', '1D'];
 
 export const DEFAULT_PORTFOLIO_TIME_RANGE: ApiPriceHistoryPeriod = '3M';
 

@@ -23,23 +23,23 @@ function ElectronHeader({ children, withTitle }: Props) {
   useElectronDrag(containerRef);
 
   const handleMinimize = useLastCallback(() => {
-    window.electron?.minimize();
+    window.electron?.minimize?.();
   });
 
   const handleMaximize = useLastCallback(async () => {
-    if (await window.electron?.getIsMaximized()) {
-      window.electron?.unmaximize();
+    if (await window.electron?.getIsMaximized?.()) {
+      window.electron?.unmaximize?.();
     } else {
-      window.electron?.maximize();
+      window.electron?.maximize?.();
     }
   });
 
   const handleClose = useLastCallback(() => {
-    window.electron?.close();
+    window.electron?.close?.();
   });
 
   const handleDoubleClick = useLastCallback(() => {
-    void window.electron?.handleDoubleClick();
+    void window.electron?.handleDoubleClick?.();
   });
 
   const showWindowButtons = IS_WINDOWS || IS_LINUX;

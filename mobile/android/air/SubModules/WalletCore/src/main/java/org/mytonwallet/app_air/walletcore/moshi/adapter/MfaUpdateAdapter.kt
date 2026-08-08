@@ -35,8 +35,12 @@ class MfaUpdateAdapter {
     @ToJson
     fun toJson(writer: JsonWriter, value: MfaUpdate?) {
         when (value) {
-            is MfaUpdate.Set -> writer.valueSink().use { it.writeUtf8(value.value.jsonObject.toString()) }
+            is MfaUpdate.Set -> writer.valueSink().use {
+                it.writeUtf8(value.value.jsonObject.toString())
+            }
+
             MfaUpdate.Clear -> writer.value(false)
+
             null -> writer.nullValue()
         }
     }

@@ -88,7 +88,11 @@ function TokenDropdown<T extends TokenWithId>({
       selectedValue={selectedTokenId}
       buttonPrefix={buttonPrefix}
       className={styles.dropdown}
+      buttonClassName={styles.button}
+      buttonIconClassName={styles.tokenIcon}
+      buttonIconOverlayClassName={styles.chainIcon}
       menuClassName={theme && styles[theme]}
+      arrow="expand"
       disabled={isDisabled}
       onChange={handleChange}
     />

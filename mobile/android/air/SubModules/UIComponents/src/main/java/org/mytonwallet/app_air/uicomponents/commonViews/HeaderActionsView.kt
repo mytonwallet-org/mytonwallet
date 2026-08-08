@@ -16,6 +16,8 @@ import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.graphics.toColorInt
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.sp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -28,27 +30,26 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Positioning
-import org.mytonwallet.app_air.walletbasecontext.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class HeaderActionsView(
     context: Context,
     var tabs: List<Item>,
-    var onClick: ((Identifier) -> Unit)?,
-) : WCell(context), WThemedView, IHeaderActionsView {
+    var onClick: ((Identifier) -> Unit)?
+) : WCell(context),
+    WThemedView,
+    IHeaderActionsView {
 
     private var actionViews = HashMap<Identifier, HeaderActionItem>()
     var tabsLocalized = if (LocaleController.isRTL) tabs.asReversed() else tabs
@@ -101,7 +102,8 @@ class HeaderActionsView(
                     if (index != 0) {
                         leftMargin = 11.dp
                     }
-                })
+                }
+            )
             val identifier = tabsLocalized[index].identifier
             itemView.setOnClickListener {
                 if (alpha > 0) {
@@ -131,8 +133,10 @@ class HeaderActionsView(
             rightToRight(this@HeaderActionsView, itemViews.last())
             if (itemViews.size > 1) {
                 createHorizontalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.LEFT,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.RIGHT,
                     itemViews.map { it.id }.toIntArray(),
                     null,
                     ConstraintSet.CHAIN_SPREAD
@@ -147,16 +151,15 @@ class HeaderActionsView(
         }
     }
 
-    private fun isSellAllowed(): Boolean {
-        return account?.supportsBuyWithCard == true && ConfigStore.isLimited != true
-    }
+    private fun isSellAllowed(): Boolean =
+        account?.supportsBuyWithCard == true && ConfigStore.isLimited != true
 
     private fun presentSendSellMenu(anchorView: View) {
         val items = mutableListOf<WMenuPopup.Item>()
         items.add(
             WMenuPopup.Item(
                 R.drawable.ic_header_popup_menu_send_outline,
-                LocaleController.getString("Send"),
+                LocaleController.getString("Send")
             ) {
                 onClick?.invoke(Identifier.SEND)
             }
@@ -164,7 +167,7 @@ class HeaderActionsView(
         items.add(
             WMenuPopup.Item(
                 R.drawable.ic_header_popup_menu_multisend_outline,
-                LocaleController.getString("Multisend"),
+                LocaleController.getString("Multisend")
             ) {
                 onClick?.invoke(Identifier.MULTISEND)
             }
@@ -173,7 +176,7 @@ class HeaderActionsView(
             items.add(
                 WMenuPopup.Item(
                     R.drawable.ic_header_popup_menu_sell_outline,
-                    LocaleController.getString("Sell"),
+                    LocaleController.getString("Sell")
                 ) {
                     onClick?.invoke(Identifier.SELL)
                 }
@@ -188,11 +191,7 @@ class HeaderActionsView(
         )
     }
 
-    data class Item(
-        val identifier: Identifier,
-        val icon: Drawable,
-        val title: String
-    )
+    data class Item(val identifier: Identifier, val icon: Drawable, val title: String)
 
     enum class Identifier {
         BUY,
@@ -212,7 +211,7 @@ class HeaderActionsView(
         WALLET_SETTINGS,
         WALLET_MENU,
         EDIT,
-        BACK,
+        BACK
     }
 
     override fun insetsUpdated() {
@@ -324,8 +323,7 @@ class HeaderActionsView(
 
     override var fadeInPercent: Float = 1f
         set(value) {
-            if (field == value)
-                return
+            if (field == value) return
             field = value
             val alphaValue = ((value - 0.4f) * 5 / 3).coerceAtLeast(0f)
             alpha = alphaValue
@@ -388,10 +386,7 @@ class HeaderActionsView(
         actionViews[Identifier.EARN]?.visibility = if (visible) VISIBLE else GONE
     }
 
-    private class HeaderActionItem(
-        context: Context,
-        item: Item
-    ) : WView(context) {
+    private class HeaderActionItem(context: Context, item: Item) : WView(context) {
         val iconContainer: WFrameLayout = WFrameLayout(context).apply {
             pivotX = ICON_SIZE.dp / 2f
             pivotY = ICON_SIZE.dp.toFloat()
@@ -433,8 +428,8 @@ class HeaderActionsView(
         private const val ICON_SIZE = 44
         private const val ICON_INNER_SIZE = 30
 
-        fun headerTabs(context: Context, showEarn: Boolean): List<Item> {
-            return mutableListOf<Item>().apply {
+        fun headerTabs(context: Context, showEarn: Boolean): List<Item> =
+            mutableListOf<Item>().apply {
                 add(
                     Item(
                         Identifier.RECEIVE,
@@ -466,6 +461,5 @@ class HeaderActionsView(
                     )
                 }
             }
-        }
     }
 }

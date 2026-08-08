@@ -119,7 +119,9 @@ function NftAttributesModal({
   }
 
   const handleOpenMenu = useLastCallback(() => {
-    const { right: x, y } = menuButtonRef.current!.getBoundingClientRect();
+    const { left, right, y } = menuButtonRef.current!.getBoundingClientRect();
+    // RTL: mirror the anchor edge
+    const x = lang.isRtl ? left : right;
     setMenuAnchor({ x, y });
   });
 
@@ -168,6 +170,7 @@ function NftAttributesModal({
   return (
     <Modal
       isOpen={isOpen}
+      noBackdrop
       className={styles.modal}
       dialogClassName={styles.dialog}
       contentClassName={styles.container}

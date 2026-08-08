@@ -22,24 +22,41 @@ public struct MAccount: Equatable, Hashable, Sendable, Codable, Identifiable, Fe
     public var type: AccountType
     public var byChain: [String: AccountChain] // keys have to be strings because encoding won't work with ApiChain as keys
     public var isTemporary: Bool?
+    public var secretState: AccountSecretState?
 
     static public let databaseTableName: String = "accounts"
 
-    init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], isTemporary: Bool? = nil) {
+    init(
+        id: String,
+        title: String?,
+        type: AccountType,
+        byChain: [String: AccountChain],
+        isTemporary: Bool? = nil,
+        secretState: AccountSecretState? = nil
+    ) {
         self.id = id
         self.title = title
         self.type = type
         self.byChain = byChain
         self.isTemporary = isTemporary
+        self.secretState = secretState
     }
     
-    public init(id: String, title: String?, type: AccountType, byChain: [ApiChain : AccountChain], isTemporary: Bool? = nil) {
+    public init(
+        id: String,
+        title: String?,
+        type: AccountType,
+        byChain: [ApiChain: AccountChain],
+        isTemporary: Bool? = nil,
+        secretState: AccountSecretState? = nil
+    ) {
         self.init(
             id: id,
             title: title,
             type: type,
             byChain: Dictionary(byChain.map { ($0.rawValue, $1) }, uniquingKeysWith: { first, _ in first }),
             isTemporary: isTemporary,
+            secretState: secretState
         )
     }
 }
@@ -189,19 +206,25 @@ extension MAccount {
     }
     
     public var shareLink: URL {
+        shareLink(visibleChains: Set(orderedChains.map(\.0)))
+    }
+
+    public func shareLink(visibleChains: Set<ApiChain>) -> URL {
         var components = URLComponents(string: SHORT_UNIVERSAL_URL + "view/")!
-        components.queryItems = viewAccountQueryItems
+        components.queryItems = viewAccountQueryItems(visibleChains: visibleChains)
         if network == .testnet {
             components.queryItems?.append(URLQueryItem(name: "testnet", value: "true"))
         }
         return components.url!
     }
 
-    private var viewAccountQueryItems: [URLQueryItem] {
+    private func viewAccountQueryItems(visibleChains: Set<ApiChain>) -> [URLQueryItem] {
         let evmAddress = collapsedEvmAddress
         var didAddEvm = false
 
         return orderedChains.compactMap { (chain, info) in
+            guard visibleChains.contains(chain) else { return nil }
+
             if let evmAddress, chain.isEvm {
                 guard !didAddEvm else { return nil }
                 didAddEvm = true

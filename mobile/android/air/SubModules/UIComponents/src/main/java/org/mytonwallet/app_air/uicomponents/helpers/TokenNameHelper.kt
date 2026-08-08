@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.helpers
 
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
@@ -24,6 +25,7 @@ object TokenNameHelper {
     }
 
     private fun displayName(token: MToken): String {
+        if (WGlobalStorage.getUseLocalizedTokenNames()) token.localizedName?.let { return it }
         val name = token.name
         if (!token.isRwaStock) return name
         val label = token.label?.trim()?.takeIf { it.isNotEmpty() } ?: return name

@@ -14,7 +14,6 @@ import Dependencies
 
     var realFee: BigInt?
     var isLoadingDraft = false
-    var isSubmitting = false
     var errorMessage: String?
 
     var onRenew: (() -> Void)?
@@ -61,11 +60,11 @@ import Dependencies
     }
     
     var canRenew: Bool {
-        !isSubmitting && !isLoadingDraft && realFee != nil && !isInsufficientBalance
+        !isLoadingDraft && realFee != nil && !isInsufficientBalance && !nfts.isEmpty
     }
     
     var isButtonLoading: Bool {
-        isSubmitting || isLoadingDraft
+        isLoadingDraft
     }
     
     func loadDraft() async {
@@ -82,33 +81,13 @@ import Dependencies
         isLoadingDraft = false
     }
     
-    func submit(password: String?) async throws -> ApiMfaProtectedResult {
-        guard !isSubmitting else { return ApiMfaProtectedResult() }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        let result = try await Api.submitDnsRenewal(
-            accountId: account.id,
-            password: password,
-            nfts: nfts,
-            realFee: realFee
-        )
-        var activityIds: [String] = []
-        for entry in result {
-            if let error = entry.error {
-                throw SdkError.apiReturnedError(error: error, context: result)
-            }
-            if let mfaRequestHash = entry.mfaRequestHash {
-                return ApiMfaProtectedResult(mfaRequestHash: mfaRequestHash)
-            }
-            activityIds.append(contentsOf: entry.activityIds ?? [])
+    func makeConfirmationSnapshot() -> RenewDomainConfirmationSnapshot? {
+        let nfts = nfts
+        guard canRenew, !nfts.isEmpty, let realFee else {
+            return nil
         }
-        return ApiMfaProtectedResult(activityIds: activityIds)
-    }
-
-    func makeLedgerPayload() async throws -> SignData {
-        guard !nfts.isEmpty else { throw CancellationError() }
-        return .renewDomains(
-            accountId: account.id,
+        return RenewDomainConfirmationSnapshot(
+            account: account,
             nfts: nfts,
             realFee: realFee
         )

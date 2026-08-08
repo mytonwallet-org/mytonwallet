@@ -1,13 +1,15 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import android.text.TextPaint
 import android.widget.FrameLayout
 import androidx.core.view.children
+import kotlin.math.max
+import kotlin.math.round
+import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animator.ListAnimator.Measurable
 import me.vkryl.android.animator.ReplaceAnimator
@@ -17,22 +19,22 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
-import kotlin.math.max
-import kotlin.math.round
-import kotlin.math.roundToInt
 
-open class WTokenSymbolIconView(context: Context) : FrameLayout(context), ReplaceAnimator.Callback,
+open class WTokenSymbolIconView(context: Context) :
+    FrameLayout(context),
+    ReplaceAnimator.Callback,
     WThemedView {
     private class Item(
         val slug: String?,
@@ -40,13 +42,9 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
         val textWidth: Int,
         val iconView: WCustomImageView?
     ) : Measurable {
-        override fun getWidth(): Int {
-            return textWidth
-        }
+        override fun getWidth(): Int = textWidth
 
-        override fun getHeight(): Int {
-            return 0
-        }
+        override fun getHeight(): Int = 0
     }
 
     private val baseCurrLeftPadding = 12.dp
@@ -71,16 +69,18 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
         AnimationConstants.VERY_QUICK_ANIMATION
     )
 
-    private val currencyIndicatorAnimatedWidth get() = (currencyIndicatorVisible.floatValue * baseCurrWidth)
+    private val currencyIndicatorAnimatedWidth get() = (
+        currencyIndicatorVisible.floatValue *
+            baseCurrWidth
+        )
     private val currencyIndicatorVisible = BoolAnimator(
         220L,
         AnimatorUtils.DECELERATE_INTERPOLATOR,
-        false,
+        false
     ) { _, _, _, _ ->
         prepare()
         invalidate()
     }
-
 
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Medium.typeface
@@ -106,10 +106,14 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
         if (currencyIndicatorVisible.floatValue > 0f) {
             baseCurrIndicatorPaint.alpha = (currencyIndicatorVisible.floatValue * 255f).roundToInt()
             val xBaseCurr =
-                if (LocaleController.isRTL)
+                if (LocaleController.isRTL) {
                     baseCurrLeftPadding.toFloat()
-                else
-                    measuredWidth - animator.metadata.totalWidth - currencyIndicatorAnimatedWidth - dPaddingLeft - dPaddingRight + baseCurrLeftPadding
+                } else {
+                    measuredWidth - animator.metadata.totalWidth - currencyIndicatorAnimatedWidth -
+                        dPaddingLeft -
+                        dPaddingRight +
+                        baseCurrLeftPadding
+                }
             canvas.drawText(baseCurrIndicatorText, xBaseCurr, baseline, baseCurrIndicatorPaint)
         }
 
@@ -120,10 +124,11 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
                 offset *= -1
             }
 
-            val x = if (LocaleController.isRTL)
+            val x = if (LocaleController.isRTL) {
                 dPaddingRight.toFloat()
-            else
+            } else {
                 measuredWidth - it.item.width - dPaddingRight.toFloat()
+            }
             val y = baseline + offset
 
             textPaint.alpha = (it.visibility * 255).roundToInt()
@@ -143,7 +148,8 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
                 symbol = "GRAM",
                 chain = "ton",
                 decimals = 9
-            ), showChain
+            ),
+            showChain
         )
     }
 
@@ -155,9 +161,10 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
                 chain = asset.chain,
                 decimals = asset.decimals,
                 name = asset.name,
+                localizedName = asset.localizedName,
                 image = asset.image,
                 priceUsd = asset.priceUsd,
-                percentChange24h = asset.percentChange24hReal,
+                percentChange24h = asset.percentChange24hReal
             ),
             showChain
         )
@@ -189,7 +196,8 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
                 text,
                 textPaint.measureText(text).roundToInt(),
                 tokenIcon
-            ), !animator.isEmpty && isAttachedToWindow
+            ),
+            !animator.isEmpty && isAttachedToWindow
         )
         updateViewsAttached()
     }
@@ -221,7 +229,9 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
                 width = max(width, entry.item.width)
             }
         }
-        width += dPaddingLeft + dPaddingRight + (if (currencyIndicatorVisible.value) baseCurrWidth else 0)
+        width +=
+            dPaddingLeft + dPaddingRight +
+            (if (currencyIndicatorVisible.value) baseCurrWidth else 0)
         return width
     }
 
@@ -232,7 +242,10 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
 
     private fun prepare() {
         val shapeLeft =
-            measuredWidth - animator.metadata.totalWidth.roundToInt() - currencyIndicatorAnimatedWidth.roundToInt() - dPaddingLeft - dPaddingRight
+            measuredWidth - animator.metadata.totalWidth.roundToInt() -
+                currencyIndicatorAnimatedWidth.roundToInt() -
+                dPaddingLeft -
+                dPaddingRight
         val iconLeft =
             measuredWidth - animator.metadata.totalWidth.roundToInt() - dPaddingLeft - dPaddingRight
         shapeDrawable.setBounds(shapeLeft, 0, measuredWidth, measuredHeight)

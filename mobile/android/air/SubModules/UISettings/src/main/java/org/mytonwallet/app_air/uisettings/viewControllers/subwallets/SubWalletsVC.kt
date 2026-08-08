@@ -13,6 +13,9 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,8 +62,10 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
+import org.mytonwallet.app_air.walletcore.api.enclaveDuplicateSecrets
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiGroupedWalletVariant
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubWallet
@@ -69,16 +74,12 @@ import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.roundToInt
 
-class SubWalletsVC(
-    context: Context,
-    private val password: String,
-) : WViewController(context),
+class SubWalletsVC(context: Context, private val password: String) :
+    WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
 
+    @Suppress("PropertyName")
     override val TAG = "Subwallets"
     override val isSwipeBackAllowed = false
     override val isEdgeSwipeBackAllowed = true
@@ -151,7 +152,8 @@ class SubWalletsVC(
         rv.addItemDecoration(
             PositionBasedItemDecoration { _ ->
                 Rect(
-                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+                    ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding +
+                        systemBarStartInset,
                     0,
                     ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
                     0
@@ -177,7 +179,7 @@ class SubWalletsVC(
     private val createButtonSpannable: SpannableString by lazy {
         val text = LocaleController.getString("Create Subwallet")
         val drawable = context.getDrawableCompat(
-            org.mytonwallet.app_air.uisettings.R.drawable.ic_plus
+            org.mytonwallet.app_air.icons.R.drawable.ic_plus
         )?.apply {
             setTint(WColor.TextOnTint.color)
             val size = 20.dp
@@ -207,7 +209,7 @@ class SubWalletsVC(
         WLabel(context).apply {
             val title = LocaleController.getString("Add All Found")
             val drawable = context.getDrawableCompat(
-                org.mytonwallet.app_air.uisettings.R.drawable.ic_subwallets_add
+                org.mytonwallet.app_air.icons.R.drawable.ic_subwallets_add
             )?.apply {
                 setTint(WColor.PrimaryText.color)
                 val size = 20.dp
@@ -404,7 +406,9 @@ class SubWalletsVC(
                     kotlinx.coroutines.suspendCancellableCoroutine { cont ->
                         WalletCore.call(
                             ApiMethod.Settings.GetWalletVariants(
-                                accountId, page, mnemonic
+                                accountId,
+                                page,
+                                mnemonic
                             )
                         ) { variants, error ->
                             if (!cont.isActive) return@call
@@ -460,38 +464,42 @@ class SubWalletsVC(
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int =
         if (groups.isNotEmpty() || showEmptyLabel) 2 else 1
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            SECTION_TOP -> 5
-            else -> if (groups.isNotEmpty()) groups.size else 1
-        }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        SECTION_TOP -> 5
+        else -> if (groups.isNotEmpty()) groups.size else 1
     }
 
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        if (indexPath.section == SECTION_TOP) return when (indexPath.row) {
-            ROW_TOP_DESCRIPTION -> LABEL_CELL
-            ROW_HEADER -> CURRENT_HEADER_CELL
-            ROW_CURRENT_WALLET -> CURRENT_WALLET_CELL
-            ROW_BOTTOM_DESCRIPTION -> LABEL_CELL
-            else -> SUBWALLETS_HEADER_CELL
+        if (indexPath.section == SECTION_TOP) {
+            return when (indexPath.row) {
+                ROW_TOP_DESCRIPTION -> LABEL_CELL
+                ROW_HEADER -> CURRENT_HEADER_CELL
+                ROW_CURRENT_WALLET -> CURRENT_WALLET_CELL
+                ROW_BOTTOM_DESCRIPTION -> LABEL_CELL
+                else -> SUBWALLETS_HEADER_CELL
+            }
         }
         return if (groups.isNotEmpty()) SUBWALLET_CELL else EMPTY_SUBWALLETS_CELL
     }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             CURRENT_HEADER_CELL -> HeaderCell(context)
+
             LABEL_CELL -> SubwalletDescriptionCell(context)
+
             CURRENT_WALLET_CELL -> SubwalletCell(context)
+
             SUBWALLETS_HEADER_CELL -> SubwalletsHeaderCell(context)
+
             SUBWALLET_CELL -> SubwalletCell(context).apply {
                 onTap = { id -> handleSubwalletTap(id) }
             }
 
             EMPTY_SUBWALLETS_CELL -> EmptySubwalletsCell(context)
+
             else -> HeaderCell(context)
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -582,18 +590,31 @@ class SubWalletsVC(
                 return@call
             }
 
-            val newAccountId = result.accountId
-            val byChain = result.byChain
             val activeAccount = account ?: run {
                 view.unlockView()
                 return@call
             }
 
-            if (newAccountId != null && byChain != null) {
+            if (result.isNew) {
+                val byChain = result.byChain
+                if (byChain == null) {
+                    view.unlockView()
+                    showError(MBridgeError.Type.UNKNOWN)
+                    return@call
+                }
+                val enclaveError = WalletCore.enclaveDuplicateSecrets(
+                    activeAccount,
+                    listOf(result.accountId)
+                )
+                if (enclaveError != null) {
+                    view.unlockView()
+                    showError(enclaveError)
+                    return@call
+                }
                 Logger.d(
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
-                        .append(newAccountId, LogMessage.MessagePartPrivacy.PUBLIC)
+                        .append(result.accountId, LogMessage.MessagePartPrivacy.PUBLIC)
                         .append("Subwallet Added", LogMessage.MessagePartPrivacy.PUBLIC)
                         .append(
                             "Address: ${result.address}",
@@ -603,38 +624,50 @@ class SubWalletsVC(
 
                 val derivationIndex = group.byChain.values.firstOrNull()?.wallet?.derivation?.index
                 WGlobalStorage.addAccount(
-                    accountId = newAccountId,
+                    accountId = result.accountId,
                     accountType = activeAccount.accountType.value,
                     MAccount.byChainToJson(byChain),
                     name = subwalletTitle(activeAccount.name, derivationIndex),
                     importedAt = System.currentTimeMillis()
                 )
-                AirPushNotifications.subscribe(newAccountId, ignoreIfLimitReached = true)
-                WalletCore.activateAccount(
-                    accountId = newAccountId,
-                    notifySDK = false
-                ) { _, activateErr ->
-                    view.unlockView()
-                    if (activateErr != null) {
-                        Logger.e(
-                            Logger.LogTag.ACCOUNT,
-                            LogMessage.Builder()
-                                .append(
-                                    "Activation failed in subwallets: $activateErr",
-                                    LogMessage.MessagePartPrivacy.PUBLIC
-                                ).build()
-                        )
-                        return@activateAccount
+                AirPushNotifications.subscribe(result.accountId, ignoreIfLimitReached = true)
+            }
+
+            WalletCore.activateAccount(
+                accountId = result.accountId,
+                notifySDK = false
+            ) { _, activateErr ->
+                view.unlockView()
+                if (activateErr != null) {
+                    Logger.e(
+                        Logger.LogTag.ACCOUNT,
+                        LogMessage.Builder()
+                            .append(
+                                "Activation failed in subwallets: $activateErr",
+                                LogMessage.MessagePartPrivacy.PUBLIC
+                            ).build()
+                    )
+                    return@activateAccount
+                }
+                navigationController?.popToRoot()
+                WalletCore.notifyEvent(
+                    if (result.isNew) {
+                        WalletEvent.AddNewWalletCompletion
+                    } else {
+                        WalletEvent.AccountChangedInApp(persistedAccountsModified = false)
                     }
-                    navigationController?.popToRoot()
-                    WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+                )
+                if (result.isNew) {
                     ToastHelper.notifySubwalletAdded(
                         viewController = this,
-                        accountId = newAccountId
+                        accountId = result.accountId
+                    )
+                } else {
+                    ToastHelper.notifySubwalletSwitched(
+                        viewController = this,
+                        accountId = result.accountId
                     )
                 }
-            } else {
-                view.unlockView()
             }
         }
     }
@@ -660,6 +693,21 @@ class SubWalletsVC(
             val results = result.results
             if (results.isEmpty()) {
                 view.unlockView()
+                return@call
+            }
+
+            if (results.any { it.isNew && it.byChain == null }) {
+                view.unlockView()
+                showError(MBridgeError.Type.UNKNOWN)
+                return@call
+            }
+            val enclaveError = WalletCore.enclaveDuplicateSecrets(
+                activeAccount,
+                results.filter { it.isNew }.map { it.accountId }
+            )
+            if (enclaveError != null) {
+                view.unlockView()
+                showError(enclaveError)
                 return@call
             }
 
@@ -744,6 +792,15 @@ class SubWalletsVC(
                     view.unlockView()
                     return@call
                 }
+                val enclaveError = WalletCore.enclaveDuplicateSecrets(
+                    activeAccount,
+                    listOf(result.accountId)
+                )
+                if (enclaveError != null) {
+                    view.unlockView()
+                    showError(enclaveError)
+                    return@call
+                }
                 Logger.d(
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
@@ -819,7 +876,7 @@ class SubWalletsVC(
             val entry = group.byChain[chain.name] ?: return@mapNotNull null
             chain.name to AccountChain(
                 address = entry.wallet.address,
-                derivation = entry.wallet.derivation,
+                derivation = entry.wallet.derivation
             )
         }.toMap()
 
@@ -837,25 +894,19 @@ class SubWalletsVC(
         )
     }
 
-    private fun currentSubwalletIndex(): Int {
-        return displayChains
-            .firstNotNullOfOrNull { account?.byChain?.get(it.name)?.derivation?.index }
-            ?: 0
-    }
+    private fun currentSubwalletIndex(): Int = displayChains
+        .firstNotNullOfOrNull { account?.byChain?.get(it.name)?.derivation?.index }
+        ?: 0
 
-    private fun currentDerivationBadge(): String? {
-        return displayChains
-            .firstNotNullOfOrNull {
-                derivationBadgeText(account?.byChain?.get(it.name)?.derivation?.label)
-            }
-    }
+    private fun currentDerivationBadge(): String? = displayChains
+        .firstNotNullOfOrNull {
+            derivationBadgeText(account?.byChain?.get(it.name)?.derivation?.label)
+        }
 
-    private fun derivationBadge(group: ApiGroupedWalletVariant): String? {
-        return displayChains
-            .firstNotNullOfOrNull {
-                derivationBadgeText(group.byChain[it.name]?.wallet?.derivation?.label)
-            }
-    }
+    private fun derivationBadge(group: ApiGroupedWalletVariant): String? = displayChains
+        .firstNotNullOfOrNull {
+            derivationBadgeText(group.byChain[it.name]?.wallet?.derivation?.label)
+        }
 
     private fun derivationBadgeText(label: String?): String? {
         val nonEmpty = label?.takeIf { it.isNotEmpty() } ?: return null
@@ -880,7 +931,10 @@ class SubWalletsVC(
             val amountDouble = raw.doubleAbsRepresentation(token.decimals)
             val rowFiat = amountDouble * token.priceUsd
             val part = amountDouble.toString(
-                token.decimals, token.symbol, 0, true
+                token.decimals,
+                token.symbol,
+                0,
+                true
             ) ?: continue
             items.add(AssetItem(rowFiat, part))
             fiatValue += rowFiat
@@ -897,9 +951,7 @@ class SubWalletsVC(
         return CurrentBalanceDisplay(nativeAmount, totalBalance)
     }
 
-    private fun subwalletBalanceDisplay(
-        group: ApiGroupedWalletVariant
-    ): Pair<String, String> {
+    private fun subwalletBalanceDisplay(group: ApiGroupedWalletVariant): Pair<String, String> {
         data class AssetItem(val fiat: Double, val part: String)
 
         val items = mutableListOf<AssetItem>()
@@ -913,7 +965,10 @@ class SubWalletsVC(
                 val amountDouble = raw.doubleAbsRepresentation(token.decimals)
                 val rowFiat = amountDouble * token.priceUsd
                 val part = amountDouble.toString(
-                    token.decimals, token.symbol, 0, true
+                    token.decimals,
+                    token.symbol,
+                    0,
+                    true
                 ) ?: continue
                 items.add(AssetItem(rowFiat, part))
                 fiatUsd += rowFiat
@@ -936,8 +991,11 @@ class SubWalletsVC(
         val suffixDigits = parentName.takeLastWhile { it.isDigit() }
         val base = if (suffixDigits.isNotEmpty()) {
             val dotIndex = parentName.length - suffixDigits.length - 1
-            if (dotIndex >= 0 && parentName[dotIndex] == '.') parentName.substring(0, dotIndex)
-            else parentName
+            if (dotIndex >= 0 && parentName[dotIndex] == '.') {
+                parentName.substring(0, dotIndex)
+            } else {
+                parentName
+            }
         } else {
             "${parentName.trim()} "
         }

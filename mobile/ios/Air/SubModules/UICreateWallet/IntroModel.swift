@@ -19,23 +19,45 @@ enum WalletSetupResult {
     case deferredToPasscode
 }
 
-@MainActor public final class IntroModel {    
+private let log = Log("IntroActions")
+
+public enum IntroAuthMode: Sendable {
+    case requiresPasscodeSetup
+    case authorized(enclaveToken: EnclaveToken)
+
+    public init(enclaveToken: EnclaveToken?) {
+        self = if let enclaveToken {
+            .authorized(enclaveToken: enclaveToken)
+        } else {
+            .requiresPasscodeSetup
+        }
+    }
+}
+
+@MainActor public final class IntroModel {
     private static let postImportToastDelay: TimeInterval = 2.0
     
     public let network: ApiNetwork
-    private var password: String?
+    private let authMode: IntroAuthMode
     private var words: [String]?
     private var pendingToastWorkItem: DispatchWorkItem?
     
     let allowOpenWithoutChecking: Bool = IS_DEBUG_OR_TESTFLIGHT
     var hasExistingPassword: Bool {
-        password?.nilIfEmpty != nil
+        cachedEnclaveToken != nil
     }
     
-    public init(network: ApiNetwork, password: String?, words: [String]? = nil) {
+    public init(network: ApiNetwork, authMode: IntroAuthMode, words: [String]? = nil) {
         self.network = network
-        self.password = password
+        self.authMode = authMode
         self.words = words
+    }
+
+    private var cachedEnclaveToken: EnclaveToken? {
+        if case let .authorized(enclaveToken) = authMode {
+            return enclaveToken
+        }
+        return nil
     }
        
     // MARK: - Navigation
@@ -73,7 +95,7 @@ enum WalletSetupResult {
     func onLedger() {
         topWViewController()?.dismiss(animated: true, completion: {
             Task { @MainActor in
-                let model = await LedgerAddAccountModel()
+                let model = LedgerAddAccountModel()
                 let vc = LedgerAddAccountVC(model: model)
                 let hadExistingAccounts = !AccountStore.accountsById.isEmpty
                 vc.onDone = { vc in
@@ -111,12 +133,12 @@ enum WalletSetupResult {
     
     @discardableResult
     func onCheckPassed() async throws -> WalletSetupResult {
-        if let password = password?.nilIfEmpty {
-            try await _createWallet(passcode: password, biometricsEnabled: nil)
+        if let enclaveToken = cachedEnclaveToken {
+            try await _createWallet(enclaveToken: enclaveToken)
             return .completed
         } else {
-            let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password in
-                try await self._createWallet(passcode: password, biometricsEnabled: biometricsEnabled)
+            let setPasscode = SetPasscodeVC(onCompletion: { enclaveToken in
+                try await self._createWallet(enclaveToken: enclaveToken)
             })
             push(setPasscode)
             return .deferredToPasscode
@@ -126,7 +148,7 @@ enum WalletSetupResult {
     public func onDone(successKind: SuccessKind, hadExistingAccounts: Bool, accountIds: [String]) {
         if hadExistingAccounts {
             onOpenWallet()
-            
+
             if let singleAccountId = accountIds.count == 1 ? accountIds.first : nil {
                 pendingToastWorkItem?.cancel()
                 let workItem = DispatchWorkItem {
@@ -150,15 +172,15 @@ enum WalletSetupResult {
             }
         }
     }
-    
+
     @discardableResult
     func onWordInputContinue(words: [String]) async throws -> WalletSetupResult {
-        if let password = password?.nilIfEmpty {
-            try await _importWallet(words: words, passcode: password, biometricsEnabled: nil)
+        if let enclaveToken = cachedEnclaveToken {
+            try await _importWallet(words: words, enclaveToken: enclaveToken)
             return .completed
         } else {
-            let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password in
-                try await self._importWallet(words: words, passcode: password, biometricsEnabled: biometricsEnabled)
+            let setPasscode = SetPasscodeVC(onCompletion: { enclaveToken in
+                try await self._importWallet(words: words, enclaveToken: enclaveToken)
             })
             push(setPasscode)
             return .deferredToPasscode
@@ -184,40 +206,23 @@ enum WalletSetupResult {
     }
     
     // MARK: - Actions
+
     
-    private func _createWallet(passcode: String, biometricsEnabled: Bool?) async throws {
+    private func _createWallet(enclaveToken: EnclaveToken) async throws {
         let hadExistingAccounts = !AccountStore.accountsById.isEmpty
-        let accounts = try await AccountStore.importMnemonic(
-            network: network,
-            words: words.orThrow(),
-            passcode: passcode,
-            isNewMnemonic: true
-        )
-        KeychainHelper.save(biometricPasscode: passcode)
-        if let biometricsEnabled { // nil if not first wallet
-            AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
-        }
-        onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, accountIds: accounts.map { $0.id })
+        let accounts = try await AccountStore.importMnemonic(network: network, words: words.orThrow(), enclaveToken: enclaveToken)
+        self.onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, accountIds: accounts.map { $0.id })
     }
     
-    private func _importWallet(words: [String], passcode: String, biometricsEnabled: Bool?) async throws {
+    private func _importWallet(words: [String], enclaveToken: EnclaveToken) async throws {
         let hadExistingAccounts = !AccountStore.accountsById.isEmpty
         var importedAccountIds: [String] = []
         if let privateKeyWords = normalizeMnemonicPrivateKey(words) {
-            let account = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], passcode: passcode)
+            let account = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], enclaveToken: enclaveToken)
             importedAccountIds.append(account.id)
         } else {
-            let accounts = try await AccountStore.importMnemonic(
-                network: network,
-                words: words,
-                passcode: passcode,
-                isNewMnemonic: false
-            )
+            let accounts = try await AccountStore.importMnemonic(network: network, words: words, enclaveToken: enclaveToken)
             importedAccountIds += accounts.map { $0.id }
-        }
-        KeychainHelper.save(biometricPasscode: passcode)
-        if let biometricsEnabled { // nil if not first wallet
-            AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
         }
         self.onDone(successKind: .imported, hadExistingAccounts: hadExistingAccounts, accountIds: importedAccountIds)
     }

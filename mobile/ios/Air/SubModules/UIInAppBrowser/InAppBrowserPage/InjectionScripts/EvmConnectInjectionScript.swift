@@ -108,13 +108,15 @@ struct EvmConnectInjectionScript {
             }
 
             function hexToEip155Caip2(hex) {
-                const withPrefix = String(hex || '').startsWith('0x') ? String(hex) : `0x${hex}`;
-                return `eip155:${BigInt(withPrefix)}`;
+                const value = String(hex ?? '');
+                if (!value) throw new TypeError('Invalid chain ID');
+                return `eip155:${BigInt(value)}`;
             }
 
             function normalizeHexChainId(hex) {
-                const withPrefix = String(hex || '').startsWith('0x') ? String(hex) : `0x${hex}`;
-                return `0x${BigInt(withPrefix).toString(16)}`;
+                const value = String(hex ?? '');
+                if (!value) throw new TypeError('Invalid chain ID');
+                return `0x${BigInt(value).toString(16)}`;
             }
 
             function isSupportedCaip(caip2) {

@@ -13,12 +13,13 @@ val Map<String, AccountChain>.jsonObject: JSONObject
         return jsonObject
     }
 
-fun Map<String, AccountChain>.sortedByBalance(perChainBalance: Map<MBlockchain, Double>?): List<Map.Entry<String, AccountChain>> {
-    return entries.sortedWith(
-        compareByDescending<Map.Entry<String, AccountChain>> { (chainName, _) ->
-            MBlockchain.supportedChains.find { it.name == chainName }
-                ?.let { perChainBalance?.get(it) } ?: 0.0
-        }.thenBy { (chainName, _) ->
-            MBlockchain.supportedChainIndexes[chainName] ?: Int.MAX_VALUE
-        })
-}
+fun Map<String, AccountChain>.sortedByBalance(
+    perChainBalance: Map<MBlockchain, Double>?
+): List<Map.Entry<String, AccountChain>> = entries.sortedWith(
+    compareByDescending<Map.Entry<String, AccountChain>> { (chainName, _) ->
+        MBlockchain.supportedChains.find { it.name == chainName }
+            ?.let { perChainBalance?.get(it) } ?: 0.0
+    }.thenBy { (chainName, _) ->
+        MBlockchain.supportedChainIndexes[chainName] ?: Int.MAX_VALUE
+    }
+)

@@ -11,4 +11,3 @@ data class MApiGetAddressInfoResult(
     val isBounceable: Boolean? = null,
     val error: MApiAnyDisplayError? = null
 )
-

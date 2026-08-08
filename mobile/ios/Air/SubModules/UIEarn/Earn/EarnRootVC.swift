@@ -12,14 +12,25 @@ public enum EarnInitialAction: Sendable {
 
 @MainActor
 public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendable {
+
+    private struct PendingSelection: Equatable {
+        var accountId: String
+        var itemId: String
+    }
     
     public let tokenSlug: String?
     private var initialAction: EarnInitialAction?
     private var isReadyForInitialAction = false
+    private let isAccountSwitchingAllowed: Bool
+    private var displayedAccountId: String?
+    private var pendingSelection: PendingSelection?
     
     private var tonVC: EarnVC!
     private var mycoinVC: EarnVC!
     private var ethenaVC: EarnVC!
+    private lazy var accountSwitcher = AccountSwitcher(configuration: .init(accountSupport: .earn)) { [weak self] accountId in
+        self?.selectAccount(accountId: accountId)
+    }
 
     @AccountContext private var account: MAccount
     
@@ -47,7 +58,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         let stakingState = $account.stakingData
         
         items += _allSegmentedControlItems[TONCOIN_SLUG]!
-        if stakingState?.mycoinState != nil {
+        if stakingState?.hasMycoinStakeOrRewards == true {
             items += _allSegmentedControlItems[MYCOIN_SLUG]!
         }
         if stakingState?.ethenaState != nil {
@@ -60,6 +71,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         self._account = accountContext
         self.tokenSlug = StakingConfig.config(forTokenSlug: tokenSlug)?.baseTokenSlug ?? tokenSlug ?? TONCOIN_SLUG
         self.initialAction = initialAction
+        self.isAccountSwitchingAllowed = accountContext.source == .current
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -70,6 +82,15 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+        displayedAccountId = account.id
+        observe { [weak self] in
+            guard let self else { return }
+            let accountId = account.id
+            updateLeftNavigationItem()
+            guard displayedAccountId != accountId else { return }
+            displayedAccountId = accountId
+            updateWithStakingState()
+        }
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -102,8 +123,8 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         view.addSubview(segmentedController)
         NSLayoutConstraint.activate([
             segmentedController.topAnchor.constraint(equalTo: view.topAnchor),
-            segmentedController.leftAnchor.constraint(equalTo: view.leftAnchor),
-            segmentedController.rightAnchor.constraint(equalTo: view.rightAnchor),
+            segmentedController.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            segmentedController.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             segmentedController.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         segmentedController.backgroundColor = .clear
@@ -132,9 +153,56 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         segmentedController.scrollView.isScrollEnabled = items.count > 1
         segmentedController.segmentedControl?.isHidden = items.count < 2
         segmentedController.replace(items: items)
+        restorePendingSelectionIfPossible(items: items)
         if initialAction != nil {
             DispatchQueue.main.async { [self] in
                 performInitialActionIfPossible()
+            }
+        }
+    }
+
+    private func restorePendingSelectionIfPossible(items: [SegmentedControlItem]) {
+        guard let pendingSelection, pendingSelection.accountId == account.id else { return }
+        guard let index = items.firstIndex(where: { $0.id == pendingSelection.itemId }) else {
+            if $account.stakingData != nil {
+                self.pendingSelection = nil
+            }
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.pendingSelection == pendingSelection, account.id == pendingSelection.accountId else { return }
+            segmentedController.setSelectedIndex(to: index, animated: false)
+            self.pendingSelection = nil
+        }
+    }
+
+    private func updateLeftNavigationItem() {
+        guard isAccountSwitchingAllowed else {
+            navigationItem.setLeftBarButtonItems(nil, animated: true)
+            return
+        }
+
+        accountSwitcher.update(selectedAccountId: account.id)
+        let items = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
+            ? [accountSwitcher.barButtonItem]
+            : nil
+        navigationItem.setLeftBarButtonItems(items, animated: true)
+    }
+
+    private func selectAccount(accountId: String) {
+        if let selectedItemId = segmentedController.model.selectedItem?.id {
+            pendingSelection = PendingSelection(accountId: accountId, itemId: selectedItemId)
+        }
+        Task {
+            do {
+                try await AccountStore.activateAccount(accountId: accountId)
+                $account.accountId = accountId
+            } catch {
+                if pendingSelection?.accountId == accountId {
+                    pendingSelection = nil
+                }
+                AppActions.showError(error: error)
             }
         }
     }
@@ -145,8 +213,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         let requestedIndex = currentItems.firstIndex { $0.id == tokenSlug }
         let index = requestedIndex ?? (allowFallback ? 0 : nil)
         guard let index else { return nil }
-        segmentedController.switchTo(tabIndex: index)
-        segmentedController.handleSegmentChange(to: index, animated: false)
+        segmentedController.setSelectedIndex(to: index, animated: false)
         guard requestedIndex != nil else { return nil }
         return currentItems[index].viewController as? EarnVC
     }

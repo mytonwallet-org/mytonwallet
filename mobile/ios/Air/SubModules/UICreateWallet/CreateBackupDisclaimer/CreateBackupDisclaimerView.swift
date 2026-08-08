@@ -39,7 +39,7 @@ struct CreateBackupDisclaimerView: View {
             WUIAnimatedSticker("animation_snitch", size: 96, loop: false)
                 .frame(width: 96, height: 96)
             Text(lang("Create Backup"))
-                .font(.system(size: 28, weight: .semibold))
+                .textStyle(.screenTitle)
         }
         .padding(.horizontal, 16)
         .multilineTextAlignment(.center)
@@ -110,9 +110,7 @@ private struct StepView: View {
     var isCompleted: Bool
     var text: LocalizedStringKey
     var onTap: () -> ()
-    
-    @State private var isOn = false
-    
+
     var body: some View {
         InsetSection {
             InsetButtonCell(verticalPadding: 12, action: onTap) {
@@ -122,7 +120,7 @@ private struct StepView: View {
                         .allowsHitTesting(false) // handled by button
                         .accessibilityHidden(true)
                     Text(text)
-                        .font(.system(size: 16, weight: .regular))
+                        .textStyle(.callout)
                         .contentShape(.rect(cornerRadius: 12))
                         .foregroundStyle(Color.air.primaryLabel)
                         .lineSpacing(4)

@@ -13,21 +13,16 @@ data class ApiPromotion(
 ) {
 
     companion object {
-        fun fromJson(jsonObject: JSONObject): ApiPromotion? {
-            return try {
-                val adapter = WalletCore.moshi.adapter(ApiPromotion::class.java)
-                adapter.fromJson(jsonObject.toString())
-            } catch (_: Exception) {
-                null
-            }
+        fun fromJson(jsonObject: JSONObject): ApiPromotion? = try {
+            val adapter = WalletCore.moshi.adapter(ApiPromotion::class.java)
+            adapter.fromJson(jsonObject.toString())
+        } catch (_: Exception) {
+            null
         }
     }
 
     @JsonClass(generateAdapter = true)
-    data class CardOverlay(
-        val mascotIcon: MascotIcon? = null,
-        val onClickAction: String
-    ) {
+    data class CardOverlay(val mascotIcon: MascotIcon? = null, val onClickAction: String) {
         @JsonClass(generateAdapter = true)
         data class MascotIcon(
             val url: String,
@@ -52,9 +47,6 @@ data class ApiPromotion(
         val actionButton: ActionButton? = null
     ) {
         @JsonClass(generateAdapter = true)
-        data class ActionButton(
-            val title: String,
-            val url: String
-        )
+        data class ActionButton(val title: String, val url: String)
     }
 }

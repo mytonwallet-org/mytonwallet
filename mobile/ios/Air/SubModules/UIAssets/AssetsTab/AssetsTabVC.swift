@@ -62,7 +62,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
               let index = segmentedController.model.getItemIndexById(itemId: tab.segmentedControlItemId) else {
             return false
         }
-        segmentedController.handleSegmentChange(to: index, animated: animated)
+        segmentedController.setSelectedIndex(to: index, animated: animated)
         return true
     }
 
@@ -107,8 +107,8 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         view.addSubview(segmentedController)
         NSLayoutConstraint.activate([
             segmentedController.topAnchor.constraint(equalTo: view.topAnchor),
-            segmentedController.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
-            segmentedController.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor),
+            segmentedController.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            segmentedController.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             segmentedController.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         segmentedController.separator.isHidden = true

@@ -8,6 +8,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
@@ -38,11 +39,13 @@ import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.debug.TokenInfoDebugConfig
+import org.mytonwallet.app_air.walletcore.debug.TokenInfoDebugSource
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
-import java.lang.ref.WeakReference
 
 class DebugMenuVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "DebugMenu"
 
     override val shouldDisplayBottomBar = true
@@ -59,7 +62,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "View Logs on Device",
         "",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = false,
+        isLast = false
     ).apply {
         setOnClickListener {
             navigationController?.tabBarController?.mainNavigationController?.push(LogsVC(context))
@@ -72,7 +75,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "Share Log File",
         "",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = true,
+        isLast = true
     ).apply {
         setOnClickListener { Logger.shareLogFile(window!!) }
     }
@@ -89,7 +92,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "Add Testnet Wallet",
         "",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = true,
+        isLast = true
     ).apply {
         setOnClickListener {
             val nav = WNavigationController(
@@ -119,7 +122,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "Permissions",
         "",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = false,
+        isLast = false
     ).apply {
         setOnClickListener {
             navigationController?.tabBarController?.mainNavigationController
@@ -132,7 +135,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         context,
         "Shake to open Debug Menu",
         WGlobalStorage.getIsShakeToDebugEnabled(),
-        isLast = true,
+        isLast = true
     ) { checked ->
         WGlobalStorage.setIsShakeToDebugEnabled(checked)
         if (checked) ShakeDetector.onAppResume() else ShakeDetector.onAppPause()
@@ -150,7 +153,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "App Version",
         "${LaunchConfig.getVersionName(context)} (${LaunchConfig.getBuildNumber(context)})",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = false,
+        isLast = false
     )
 
     private val deviceModelRow = KeyValueRowView(
@@ -158,7 +161,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "Device Model",
         Build.MODEL,
         KeyValueRowView.Mode.PRIMARY,
-        isLast = false,
+        isLast = false
     )
 
     private val androidVersionRow = KeyValueRowView(
@@ -166,7 +169,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "Android Version",
         "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = false,
+        isLast = false
     )
 
     private val performanceClassRow = KeyValueRowView(
@@ -174,7 +177,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "Performance Class",
         DevicePerformanceClassifier.performanceClass?.name?.take(1) ?: "Unknown",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = true,
+        isLast = true
     )
 
     // Section 5: Debug (debug and beta builds only)
@@ -184,7 +187,22 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         HeaderCell(context).apply {
             configure("Debug", titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
         }
-    } else null
+    } else {
+        null
+    }
+
+    private val experimentalFeaturesRow: SwitchCell? = if (isDebugSectionVisible) {
+        SwitchCell(
+            context,
+            "Experimental Features",
+            WGlobalStorage.getAreExperimentalFeaturesEnabled(),
+            isLast = false
+        ) { checked ->
+            WGlobalStorage.setAreExperimentalFeaturesEnabled(checked)
+        }
+    } else {
+        null
+    }
 
     private val seasonalThemeDropdown: WEditableItemView? = if (isDebugSectionVisible) {
         WEditableItemView(context).apply {
@@ -194,7 +212,9 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             )
             setText(ConfigStore.seasonalThemeOverride?.value ?: "None")
         }
-    } else null
+    } else {
+        null
+    }
 
     private val seasonalThemeRow: KeyValueRowView? = if (isDebugSectionVisible) {
         KeyValueRowView(
@@ -202,12 +222,41 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             "Seasonal Theme",
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = true,
+            isLast = false
         ).apply {
             setValueView(seasonalThemeDropdown!!)
             setOnClickListener { presentSeasonalThemeOverrideMenu() }
         }
-    } else null
+    } else {
+        null
+    }
+
+    private val tokenInfoSourceDropdown: WEditableItemView? = if (isDebugSectionVisible) {
+        WEditableItemView(context).apply {
+            id = generateViewId()
+            drawable = context.getDrawableCompat(
+                org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
+            )
+            setText(TokenInfoDebugConfig.source.displayName)
+        }
+    } else {
+        null
+    }
+
+    private val tokenInfoSourceRow: KeyValueRowView? = if (isDebugSectionVisible) {
+        KeyValueRowView(
+            context,
+            "Token Info Source",
+            "",
+            KeyValueRowView.Mode.PRIMARY,
+            isLast = true
+        ).apply {
+            setValueView(tokenInfoSourceDropdown!!)
+            setOnClickListener { presentTokenInfoSourceMenu() }
+        }
+    } else {
+        null
+    }
 
     private val scrollingContentView: WView by lazy {
         WView(context).apply {
@@ -235,7 +284,12 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             if (isDebugSectionVisible) {
                 addView(spacer4!!, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
                 addView(debugTitleLabel!!, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                addView(
+                    experimentalFeaturesRow!!,
+                    ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp)
+                )
                 addView(seasonalThemeRow!!, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+                addView(tokenInfoSourceRow!!, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             }
             setConstraints {
                 // Logs
@@ -267,8 +321,11 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                 if (isDebugSectionVisible) {
                     topToBottom(spacer4!!, performanceClassRow)
                     topToBottom(debugTitleLabel!!, spacer4)
-                    topToBottom(seasonalThemeRow!!, debugTitleLabel)
-                    toBottomPx(seasonalThemeRow, navigationController?.bottomInset ?: 0)
+                    topToBottom(experimentalFeaturesRow!!, debugTitleLabel)
+                    toCenterX(experimentalFeaturesRow)
+                    topToBottom(seasonalThemeRow!!, experimentalFeaturesRow)
+                    topToBottom(tokenInfoSourceRow!!, seasonalThemeRow)
+                    toBottomPx(tokenInfoSourceRow, navigationController?.bottomInset ?: 0)
                 } else {
                     toBottomPx(
                         performanceClassRow,
@@ -317,27 +374,27 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         logsTitleLabel.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.TOOLBAR_RADIUS.dp,
-            0f,
+            0f
         )
         viewLogsRow.setBackgroundColor(WColor.Background.color)
         shareLogRow.setBackgroundColor(WColor.Background.color)
         testnetTitleLabel.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            0f,
+            0f
         )
         addTestnetRow.setBackgroundColor(WColor.Background.color)
         settingsTitleLabel.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            0f,
+            0f
         )
         shakeToDebugRow.setBackgroundColor(WColor.Background.color)
         permissionsRow.setBackgroundColor(WColor.Background.color)
         infoTitleLabel.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            0f,
+            0f
         )
         appVersionRow.setBackgroundColor(WColor.Background.color)
         deviceModelRow.setBackgroundColor(WColor.Background.color)
@@ -347,9 +404,11 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             debugTitleLabel?.setBackgroundColor(
                 WColor.Background.color,
                 ViewConstants.BLOCK_RADIUS.dp,
-                0f,
+                0f
             )
+            experimentalFeaturesRow?.setBackgroundColor(WColor.Background.color)
             seasonalThemeRow?.setBackgroundColor(WColor.Background.color)
+            tokenInfoSourceRow?.setBackgroundColor(WColor.Background.color)
         }
     }
 
@@ -396,6 +455,32 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                     dropdown.setText("Valentine")
                 }
             ),
+            popupWidth = WRAP_CONTENT,
+            positioning = WMenuPopup.Positioning.BELOW,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                dropdown,
+                roundRadius = 40f.dp
+            )
+        )
+    }
+
+    private fun presentTokenInfoSourceMenu() {
+        val dropdown = tokenInfoSourceDropdown ?: return
+        val currentSource = TokenInfoDebugConfig.source
+        WMenuPopup.present(
+            dropdown,
+            TokenInfoDebugSource.entries.map { source ->
+                WMenuPopup.Item(
+                    WMenuPopup.Item.Config.SelectableItem(
+                        source.displayName,
+                        null,
+                        source == currentSource
+                    )
+                ) {
+                    TokenInfoDebugConfig.setSource(source)
+                    dropdown.setText(source.displayName)
+                }
+            },
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.BELOW,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(

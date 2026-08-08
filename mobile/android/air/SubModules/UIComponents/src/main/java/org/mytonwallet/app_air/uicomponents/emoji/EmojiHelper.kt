@@ -57,7 +57,8 @@ object EmojiHelper {
                     val unified = graphemeToUnified(cluster)
                     spannable.setSpan(
                         EmojiSpan(unified, viewRef),
-                        start, end,
+                        start,
+                        end,
                         Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                     )
                 }
@@ -82,28 +83,26 @@ object EmojiHelper {
         return false
     }
 
-    private fun isEmojiCodePoint(cp: Int): Boolean {
-        return cp in 0x1F600..0x1F64F ||
-            cp in 0x1F300..0x1F5FF ||
-            cp in 0x1F680..0x1F6FF ||
-            cp in 0x1F1E0..0x1F1FF ||
-            cp in 0x1F900..0x1F9FF ||
-            cp in 0x1FA00..0x1FA6F ||
-            cp in 0x1FA70..0x1FAFF ||
-            cp in 0x2600..0x26FF ||
-            cp in 0x2700..0x27BF ||
-            cp in 0x2300..0x23FF ||
-            cp in 0x2B05..0x2B55 ||
-            cp in 0x25A0..0x25FF ||
-            cp in 0x1F3FB..0x1F3FF ||
-            cp in 0xE0020..0xE007F ||
-            cp == 0x00A9 || cp == 0x00AE ||
-            cp == 0x203C || cp == 0x2049 ||
-            cp == 0x2122 || cp == 0x2139 ||
-            cp in 0x3030..0x303D ||
-            cp in 0xFE00..0xFE0F ||
-            cp == 0x200D
-    }
+    private fun isEmojiCodePoint(cp: Int): Boolean = cp in 0x1F600..0x1F64F ||
+        cp in 0x1F300..0x1F5FF ||
+        cp in 0x1F680..0x1F6FF ||
+        cp in 0x1F1E0..0x1F1FF ||
+        cp in 0x1F900..0x1F9FF ||
+        cp in 0x1FA00..0x1FA6F ||
+        cp in 0x1FA70..0x1FAFF ||
+        cp in 0x2600..0x26FF ||
+        cp in 0x2700..0x27BF ||
+        cp in 0x2300..0x23FF ||
+        cp in 0x2B05..0x2B55 ||
+        cp in 0x25A0..0x25FF ||
+        cp in 0x1F3FB..0x1F3FF ||
+        cp in 0xE0020..0xE007F ||
+        cp == 0x00A9 || cp == 0x00AE ||
+        cp == 0x203C || cp == 0x2049 ||
+        cp == 0x2122 || cp == 0x2139 ||
+        cp in 0x3030..0x303D ||
+        cp in 0xFE00..0xFE0F ||
+        cp == 0x200D
 
     private fun graphemeToUnified(grapheme: String): String {
         val parts = mutableListOf<String>()

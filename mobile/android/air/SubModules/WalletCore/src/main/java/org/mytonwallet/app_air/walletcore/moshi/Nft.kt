@@ -12,6 +12,7 @@ import org.mytonwallet.app_air.walletcore.TELEGRAM_USERNAMES_COLLECTION
 import org.mytonwallet.app_air.walletcore.TON_DNS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
+import org.mytonwallet.app_air.walletcore.helpers.shouldHideNft
 import org.mytonwallet.app_air.walletcore.models.MMarketplace
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.BLACK
@@ -27,7 +28,7 @@ data class MApiCheckNftDraftOptions(
     val nfts: List<JSONObject>,
     val toAddress: String,
     val comment: String?,
-    val isNftBurn: Boolean,
+    val isNftBurn: Boolean
 )
 
 @JsonClass(generateAdapter = false)
@@ -72,7 +73,7 @@ enum class ApiMtwCardBorderShineType {
     RIGHT,
 
     @Json(name = "radioactive")
-    RADIOACTIVE;
+    RADIOACTIVE
 }
 
 @JsonClass(generateAdapter = true)
@@ -83,8 +84,10 @@ data class ApiNftMetadata(
     @Json(name = "mtwCardId") val mtwCardId: Int? = null,
     @Json(name = "mtwCardType") val mtwCardType: ApiMtwCardType? = null,
     @Json(name = "mtwCardTextType") val mtwCardTextType: ApiMtwCardTextType? = null,
-    @Json(name = "mtwCardBorderShineType") val mtwCardBorderShineType: ApiMtwCardBorderShineType? = null,
-    @Json(name = "attributes") val attributes: List<Attribute?>? = null,
+    @Json(
+        name = "mtwCardBorderShineType"
+    ) val mtwCardBorderShineType: ApiMtwCardBorderShineType? = null,
+    @Json(name = "attributes") val attributes: List<Attribute?>? = null
 ) {
     companion object {
         const val MTW_CARD_BASE_URL = "https://static.mytonwallet.org/cards/"
@@ -96,11 +99,10 @@ data class ApiNftMetadata(
         @Json(name = "value") val value: String?
     )
 
-    fun cardImageUrl(mini: Boolean): String {
-        return if (mini)
-            "${MTW_CARD_BASE_URL}mini@3x/$mtwCardId.webp"
-        else
-            "${MTW_CARD_V2_BASE_URL}$mtwCardId.webp"
+    fun cardImageUrl(mini: Boolean): String = if (mini) {
+        "${MTW_CARD_BASE_URL}mini@3x/$mtwCardId.webp"
+    } else {
+        "${MTW_CARD_V2_BASE_URL}$mtwCardId.webp"
     }
 
     val mtwCardColors: Pair<Int, Int>
@@ -109,28 +111,28 @@ data class ApiNftMetadata(
                 SILVER -> {
                     Pair(
                         Color.rgb(39, 39, 39),
-                        Color.rgb(152, 152, 152),
+                        Color.rgb(152, 152, 152)
                     )
                 }
 
                 GOLD -> {
                     Pair(
                         Color.rgb(76, 52, 3),
-                        Color.rgb(176, 125, 29),
+                        Color.rgb(176, 125, 29)
                     )
                 }
 
                 PLATINUM -> {
                     Pair(
                         Color.rgb(255, 255, 255),
-                        Color.rgb(119, 119, 127),
+                        Color.rgb(119, 119, 127)
                     )
                 }
 
                 BLACK -> {
                     Pair(
                         Color.rgb(206, 206, 207),
-                        Color.rgb(68, 69, 70),
+                        Color.rgb(68, 69, 70)
                     )
                 }
 
@@ -185,7 +187,7 @@ enum class ApiNftInterface {
     COMPRESSED,
 
     @Json(name = "mplCore")
-    MPL_CORE,
+    MPL_CORE
 }
 
 @JsonClass(generateAdapter = true)
@@ -213,9 +215,10 @@ data class ApiNft(
     val isOnFragment: Boolean? = null,
     val isTelegramGift: Boolean? = null,
     val isScam: Boolean? = null,
+    val isUnverified: Boolean? = null,
     val metadata: ApiNftMetadata? = null,
     val `interface`: ApiNftInterface? = null,
-    val compression: ApiNftCompression? = null,
+    val compression: ApiNftCompression? = null
 ) : WEquatable<ApiNft> {
 
     companion object {
@@ -259,6 +262,7 @@ data class ApiNft(
 
     var fragmentUrl: String? = when {
         metadata?.fragmentUrl != null -> metadata.fragmentUrl
+
         collectionName?.lowercase()?.contains("numbers") ?: false ->
             MMarketplace.Fragment.numberUrl(name?.replace(Regex("[^0-9]"), "") ?: "")
 
@@ -307,29 +311,29 @@ data class ApiNft(
             }
         }
 
-    fun shouldHide(): Boolean {
-        if (NftStore.nftData?.whitelistedNftAddresses?.contains(address) == true)
-            return false
-        return isHidden == true || NftStore.nftData?.blacklistedNftAddresses?.contains(address) == true
-    }
+    fun shouldHide(): Boolean = shouldHideNft(
+        isHiddenByUser = NftStore.nftData?.blacklistedNftAddresses?.contains(address) == true,
+        isWhitelisted = NftStore.nftData?.whitelistedNftAddresses?.contains(address) == true,
+        isHidden = isHidden == true,
+        isUnverified = isUnverified == true,
+        areUnverifiedNftsHidden = WGlobalStorage.getAreUnverifiedNftsHidden()
+    )
 
-    fun canRenew(): Boolean {
-        return NftStore.nftData?.expirationByAddress?.contains(address) == true
-    }
+    fun canRenew(): Boolean = NftStore.nftData?.expirationByAddress?.contains(address) == true
 
-    fun canLinkToAddress(): Boolean {
-        return isTonDns || isTelegramUsername
-    }
+    fun canLinkToAddress(): Boolean = isTonDns || isTelegramUsername
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
-        if (comparing is ApiNft)
-            return address == comparing.address
+        if (comparing is ApiNft) return address == comparing.address
         return false
     }
 
     override fun isChanged(comparing: WEquatable<*>): Boolean {
-        if (comparing is ApiNft)
-            return isHidden != comparing.isHidden || isOnSale != comparing.isOnSale
+        if (comparing is ApiNft) {
+            return isHidden != comparing.isHidden ||
+                isUnverified != comparing.isUnverified ||
+                isOnSale != comparing.isOnSale
+        }
         return true
     }
 }

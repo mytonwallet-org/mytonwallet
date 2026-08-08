@@ -13,16 +13,8 @@ struct TransactionAddressDisplayTests {
     }
 
     @Test
-    func `ton burn shows address only in details`() {
+    func `burn hides implementation address everywhere`() {
         let activity = makeActivity(type: .burn, slug: TONCOIN_SLUG)
-
-        #expect(!activity.shouldShowTransactionAddress(in: .list))
-        #expect(activity.shouldShowTransactionAddress(in: .details))
-    }
-
-    @Test
-    func `non ton burn hides address everywhere`() {
-        let activity = makeActivity(type: .burn, slug: ETH_SLUG)
 
         #expect(!activity.shouldShowTransactionAddress(in: .list))
         #expect(!activity.shouldShowTransactionAddress(in: .details))

@@ -2,6 +2,26 @@
 
 .modal {
   --z-modal: 98;
+
+  // This modal sits below the media viewer, so it opts out of the shared `#portals::before` backdrop
+  // (pinned to the root `--z-modal`) and paints its own tint inside this lowered stacking context
+  &::before {
+    pointer-events: none;
+    content: '';
+
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+
+    opacity: 0;
+    background-color: var(--color-tint);
+
+    @include mixins.transition(opacity var(--transition));
+  }
+
+  &:global(.open)::before {
+    opacity: 1;
+  }
 }
 
 .dialog {
@@ -72,28 +92,28 @@
 }
 
 .closeButton {
-  left: 0.75rem;
+  inset-inline-start: 0.75rem;
 
   :global(html.is-electron.is-macos) & {
-    right: 0.75rem;
-    left: auto;
+    inset-inline-start: auto;
+    inset-inline-end: 0.75rem;
   }
 
   @include mixins.respond-above(xs) {
-    right: 0.75rem;
-    left: auto;
+    inset-inline-start: auto;
+    inset-inline-end: 0.75rem;
   }
 }
 
 .menuButton {
-  right: 0.75rem;
+  inset-inline-end: 0.75rem;
 
   :global(html.is-electron.is-macos) & {
-    right: 3.75rem;
+    inset-inline-end: 3.75rem;
   }
 
   @include mixins.respond-above(xs) {
-    right: 3.75rem;
+    inset-inline-end: 3.75rem;
   }
 }
 
@@ -109,7 +129,7 @@
     position: absolute;
     z-index: 2;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
     // Workaround for iOS Safari z-index issue - during transition on Lottie nft they overlap other elements
     transform: translate3d(0, 0, 0);
 
@@ -166,7 +186,7 @@
 .thumbnail {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 }
 
 .fullImage {
@@ -179,7 +199,7 @@
   position: absolute;
   z-index: 2;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
   // Workaround for iOS Safari z-index issue - during transition on Lottie nft they overlap other elements
   transform: translate3d(0, 0, 0);
 
@@ -247,6 +267,8 @@
 }
 
 .description {
+  unicode-bidi: plaintext;
+
   margin-bottom: 1.25rem;
   padding: 0.875rem 0.75rem;
   border-radius: var(--border-radius-default);
@@ -258,6 +280,10 @@
   overflow-wrap: break-word;
 
   background: var(--color-background-first);
+
+  :global(html[dir="rtl"]) & {
+    text-align: right;
+  }
 }
 
 .copyButtonWrapper {
@@ -295,12 +321,12 @@
   background: var(--color-background-first-disabled);
 
   &.first {
-    border-top-left-radius: var(--border-radius-normal);
+    border-start-start-radius: var(--border-radius-normal);
   }
 
   &.last {
     border-width: 1px;
-    border-bottom-left-radius: var(--border-radius-normal);
+    border-end-start-radius: var(--border-radius-normal);
   }
 }
 
@@ -310,19 +336,20 @@
   background: var(--color-background-first);
 
   &.first {
-    border-top-right-radius: var(--border-radius-normal);
+    border-start-end-radius: var(--border-radius-normal);
   }
 
   &.last {
     border-width: 1px 1px 1px 0;
-    border-bottom-right-radius: var(--border-radius-normal);
+    border-end-end-radius: var(--border-radius-normal);
   }
 }
 
 .expandButton {
   display: inline-block;
 
-  margin: 0.375rem 0 0 0.5rem;
+  margin-block: 0.375rem 0;
+  margin-inline: 0.5rem 0;
 
   font-size: 0.8125rem;
   font-weight: 600;

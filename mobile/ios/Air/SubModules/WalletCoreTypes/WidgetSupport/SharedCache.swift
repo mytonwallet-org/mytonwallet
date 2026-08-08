@@ -44,7 +44,11 @@ public actor SharedCache {
         persist()
     }
 
-    public func update(tokens: [String: ApiToken]? = nil, baseCurrency: MBaseCurrency? = nil, rates: [String: MDouble]? = nil) {
+    public func update(
+        tokens: [String: ApiToken]? = nil,
+        baseCurrency: MBaseCurrency? = nil,
+        rates: [String: MDouble]? = nil
+    ) {
         var didChange = false
 
         if let tokens {
@@ -85,7 +89,11 @@ public actor SharedCache {
 
     private func persist() {
         guard let url else { return }
-        let snapshot = Snapshot(tokens: tokens, baseCurrency: baseCurrency, rates: rates)
+        let snapshot = Snapshot(
+            tokens: tokens,
+            baseCurrency: baseCurrency,
+            rates: rates
+        )
         do {
             let data = try JSONEncoder().encode(snapshot)
             try data.write(to: url, options: .atomic)

@@ -1,7 +1,9 @@
+@use "../../styles/mixins";
+
 .wrapper {
   align-self: center;
   width: auto;
-  height: 3rem;
+  height: 2.25rem;
 }
 
 .slide {
@@ -18,17 +20,18 @@
   align-self: center;
   justify-content: center;
 
-  height: 3rem;
-  padding: 0.75rem !important;
+  height: 2.25rem;
+  padding-block: 0 !important;
+  padding-inline: 0.5rem 0.625rem !important;
   border: none;
-  border-radius: var(--border-radius-small);
+  border-radius: 1.125rem;
 
-  color: var(--color-input-button-text);
+  color: var(--color-black);
 
   background-color: var(--color-input-button-background);
   outline: none;
 
-  transition: background-color 150ms;
+  @include mixins.transition(background-color 150ms);
 
   @media (hover: hover) {
     &:hover {
@@ -57,12 +60,13 @@
 
   margin-top: 0.125rem;
 
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 700;
+  line-height: 1.25rem;
 }
 
-.chevronIcon {
-  margin-top: -0.0625rem;
-  font-size: 1rem;
-  color: var(--color-gray-3);
+.caretIcon {
+  margin-inline-start: 0.25rem;
+  font-size: 0.5625rem;
+  color: var(--color-gray-2);
 }

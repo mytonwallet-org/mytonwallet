@@ -9,17 +9,21 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.core.animation.doOnEnd
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.startsWithRtlChar
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.roundToInt
 
-class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
+class WReplaceableLabel(context: Context) :
+    WFrameLayout(context),
+    WThemedView {
 
     private val drawableSize = 13.dp
     private val expandSize = 14.dp
@@ -46,7 +50,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
     }
 
     private val expandDrawable = context.requireDrawableCompat(
-        org.mytonwallet.app_air.uicomponents.R.drawable.ic_expand
+        org.mytonwallet.app_air.icons.R.drawable.ic_expand
     )
 
     private val selectDelayMs = 1_000L
@@ -58,12 +62,18 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         clipChildren = false
         clipToPadding = false
         setWillNotDraw(false)
-        addView(prevLabel, LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
-            gravity = Gravity.CENTER
-        })
-        addView(currentLabel, LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
-            gravity = Gravity.CENTER
-        })
+        addView(
+            prevLabel,
+            LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
+                gravity = Gravity.CENTER
+            }
+        )
+        addView(
+            currentLabel,
+            LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
+                gravity = Gravity.CENTER
+            }
+        )
         updateTheme()
     }
 
@@ -73,7 +83,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         val isExpandable: Boolean,
         val textColor: WColor,
         val textSize: Float,
-        val font: WFont,
+        val font: WFont
     )
 
     fun setGravity(newGravity: Int) {
@@ -95,7 +105,8 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
             applyPadding(
                 prevLabel,
                 if (config.isLoading) 1f else 0f,
-                if (config.isExpandable) 1f else 0f
+                if (config.isExpandable) 1f else 0f,
+                config.text
             )
             applyConfig(currentLabel, null)
             scheduleSelection()
@@ -105,8 +116,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
 
         if (configs.size > 2) configs.removeAt(2)
         configs.add(config)
-        if (animator?.isRunning != true)
-            startNextAnimation()
+        if (animator?.isRunning != true) startNextAnimation()
     }
 
     override fun updateTheme() {
@@ -129,17 +139,32 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
             text = config.text
             val progress = if (config.isLoading) 1f else 0f
             val expand = if (config.isExpandable) 1f else 0f
-            applyPadding(label, progress, expand)
+            applyPadding(label, progress, expand, config.text)
             setTextColor(config.textColor)
             setStyle(config.textSize, config.font)
         }
     }
 
-    private fun applyPadding(label: WLabel, progressVisibility: Float, expandVisibility: Float) {
+    // The progress indicator always sits on the locale start side; the expand icon sits next
+    // to the end of the text, mirrored to the left when the text itself starts with an RTL char.
+    private fun indicatorOnLeft() = !LocaleController.isRTL
+
+    private fun expandOnLeft(text: CharSequence?) = text?.startsWithRtlChar() == true
+
+    private fun applyPadding(
+        label: WLabel,
+        progressVisibility: Float,
+        expandVisibility: Float,
+        text: CharSequence?
+    ) {
+        val progressPadding = (progressVisibility * 24.dp).roundToInt()
+        val expandPadding = (expandVisibility * expandSize).roundToInt()
+        val indicatorLeft = indicatorOnLeft()
+        val expandLeft = expandOnLeft(text)
         label.setPadding(
-            (progressVisibility * 24.dp).roundToInt(),
+            (if (indicatorLeft) progressPadding else 0) + (if (expandLeft) expandPadding else 0),
             0,
-            (expandVisibility * expandSize).roundToInt(),
+            (if (!indicatorLeft) progressPadding else 0) + (if (!expandLeft) expandPadding else 0),
             0
         )
     }
@@ -176,30 +201,33 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        val progressVisibility = if (configs.size > 1)
+        val progressVisibility = if (configs.size > 1) {
             lerp(
                 if (configs.firstOrNull()?.isLoading == true) 1f else 0f,
                 if (configs.getOrNull(1)?.isLoading == true) 1f else 0f,
                 animationProgress
             )
-        else
+        } else {
             if (configs.firstOrNull()?.isLoading == true) 1f else 0f
-        val expandVisibility = if (configs.size > 1)
+        }
+        val expandVisibility = if (configs.size > 1) {
             lerp(
                 if (configs.firstOrNull()?.isExpandable == true) 1f else 0f,
                 if (configs.getOrNull(1)?.isExpandable == true) 1f else 0f,
                 animationProgress
             )
-        else
+        } else {
             if (configs.firstOrNull()?.isExpandable == true) 1f else 0f
-        val widthValue = if (configs.size > 1)
+        }
+        val widthValue = if (configs.size > 1) {
             lerp(
                 prevLabel.measuredWidth.toFloat(),
                 currentLabel.measuredWidth.toFloat(),
                 animationProgress
             ).roundToInt()
-        else
+        } else {
             prevLabel.measuredWidth
+        }
         configLabels()
         drawProgress(canvas, widthValue, progressVisibility)
         drawExpand(canvas, widthValue, expandVisibility)
@@ -229,20 +257,24 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         if (progressVisibility > 0f) invalidate() else return
 
         val top = 7f.dp.roundToInt()
-        if (progressVisibility == 1f)
+        val indicatorLeft = indicatorOnLeft()
+        if (progressVisibility == 1f) {
+            val textLeft = (measuredWidth - widthValue) / 2
+            val left = if (indicatorLeft) textLeft else textLeft + widthValue - drawableSize
             roundDrawable.setBounds(
-                (measuredWidth - widthValue) / 2,
+                left,
                 top,
-                (measuredWidth - widthValue) / 2 + drawableSize,
+                left + drawableSize,
                 top + drawableSize
             )
-        else {
+        } else {
             val prevConfigIsLoading = configs.firstOrNull()?.isLoading == true
             val label = if (prevConfigIsLoading) prevLabel else currentLabel
+            val left = if (indicatorLeft) label.left else label.right - drawableSize
             roundDrawable.setBounds(
-                label.left,
+                left,
                 top + label.translationY.roundToInt(),
-                label.left + drawableSize,
+                left + drawableSize,
                 top + label.translationY.roundToInt() + drawableSize
             )
         }
@@ -255,23 +287,43 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         expandDrawable.alpha = alpha
 
         val top = 7f.dp.roundToInt()
-        if (drawVisibility == 1f)
+        val mirror: Boolean
+        if (drawVisibility == 1f) {
+            mirror = expandOnLeft(configs.firstOrNull()?.text)
+            val textLeft = (measuredWidth - widthValue) / 2
+            val left = if (mirror) {
+                textLeft
+            } else {
+                textLeft + widthValue - expandSize
+            }
             expandDrawable.setBounds(
-                (measuredWidth - widthValue) / 2 + widthValue - expandSize,
+                left,
                 top,
-                (measuredWidth - widthValue) / 2 + widthValue,
+                left + expandSize,
                 top + expandSize
             )
-        else {
+        } else {
             val prevConfigHasExpand = configs.firstOrNull()?.isLoading == false
+            val config = if (prevConfigHasExpand) configs.firstOrNull() else configs.getOrNull(1)
             val label = if (prevConfigHasExpand) prevLabel else currentLabel
+            mirror = expandOnLeft(config?.text)
+            val left = if (mirror) label.left else label.right - expandSize
             expandDrawable.setBounds(
-                label.right - expandSize,
+                left,
                 top + label.translationY.roundToInt(),
-                label.right,
+                left + expandSize,
                 top + label.translationY.roundToInt() + expandSize
             )
         }
-        expandDrawable.draw(canvas)
+        if (mirror) {
+            val bounds = expandDrawable.bounds
+            val cx = bounds.exactCenterX()
+            canvas.save()
+            canvas.scale(-1f, 1f, cx, 0f)
+            expandDrawable.draw(canvas)
+            canvas.restore()
+        } else {
+            expandDrawable.draw(canvas)
+        }
     }
 }

@@ -319,6 +319,47 @@ func makeMigrator() -> DatabaseMigrator {
             t.add(column: "appTabOrder", .jsonText).defaults(to: "[]").notNull()
         }
     }
+    migrator.registerMigration("v19") { db in
+        try db.alter(table: "account_assets_and_activity_data") { t in
+            t.add(column: "chainDisplayConfiguration", .jsonText)
+        }
+    }
+    migrator.registerMigration("v20") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "useLocalizedTokenNames", .boolean)
+                .notNull()
+                .defaults(to: true)
+        }
+    }
+    migrator.registerMigration("v21") { db in
+        try db.alter(table: "accounts") { t in
+            t.add(column: "secretState", .jsonText)
+        }
+    }
+    migrator.registerMigration("v22") { db in
+        try db.create(table: "account_hidden_nfts") { t in
+            t.column("accountId", .text)
+                .notNull()
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("chain", .text).notNull()
+            t.column("nftAddress", .text).notNull()
+            t.primaryKey(["accountId", "chain", "nftAddress"])
+        }
+    }
+    migrator.registerMigration("v23") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "areUnverifiedNftsHidden", .boolean)
+                .notNull()
+                .defaults(to: true)
+        }
+    }
+    migrator.registerMigration("v24") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "isTokenInfoExpanded", .boolean)
+                .notNull()
+                .defaults(to: true)
+        }
+    }
 
     return migrator
 }

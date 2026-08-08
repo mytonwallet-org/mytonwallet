@@ -5,8 +5,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsAccountCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsVersionCell
@@ -53,7 +53,7 @@ class SettingsVM {
         SettingsSection(
             section = SettingsSection.Section.HELP,
             title = LocaleController.getString("Help"),
-            children = emptyList(),
+            children = emptyList()
         ),
         SettingsSection(
             section = SettingsSection.Section.ABOUT,
@@ -75,14 +75,20 @@ class SettingsVM {
                     identifier = SettingsItem.Identifier.ABOUT_MTW,
                     icon = R.drawable.ic_about,
                     title = LocaleController.getStringWithKeyValues(
-                        "About %app_name%", listOf(
-                            Pair("%app_name%", ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key))
+                        "About %app_name%",
+                        listOf(
+                            Pair(
+                                "%app_name%",
+                                ApplicationContextHolder.applicationContext.getString(
+                                    BaseR.string.app_locale_name_key
+                                )
+                            )
                         )
                     ),
                     hasTintColor = false
                 )
             )
-        ),
+        )
     )
 
     fun subtitleFor(item: SettingsItem): String? {
@@ -94,9 +100,13 @@ class SettingsVM {
         // Determine the value based on the item's identifier
         return when (item.identifier) {
             SettingsItem.Identifier.LANGUAGE -> LocaleController.activeLanguage.englishName
-            SettingsItem.Identifier.WALLET_VERSIONS -> AccountStore.walletVersionsData?.currentVersion
+
+            SettingsItem.Identifier.WALLET_VERSIONS ->
+                AccountStore.walletVersionsData?.currentVersion
+
             SettingsItem.Identifier.CONNECTED_APPS -> LocaleController.getPlural(
-                DappsStore.dApps[AccountStore.activeAccountId]?.size ?: 0, "\$connected_apps"
+                DappsStore.dApps[AccountStore.activeAccountId]?.size ?: 0,
+                "\$connected_apps"
             )
 
             else -> null
@@ -151,7 +161,7 @@ class SettingsVM {
                     icon = R.drawable.ic_show_all,
                     title = LocaleController.getString("Show All Wallets"),
                     value = null,
-                    hasTintColor = true,
+                    hasTintColor = true
                 )
             )
         }
@@ -182,7 +192,7 @@ class SettingsVM {
                 subtitle = LocaleController.getString("Night Mode, Palette, Card"),
                 hasTintColor = false
             ),
-            if (WGlobalStorage.isPasscodeSet())
+            if (WGlobalStorage.isPasscodeSet()) {
                 SettingsItem(
                     identifier = SettingsItem.Identifier.SECURITY,
                     icon = R.drawable.ic_backup,
@@ -190,7 +200,9 @@ class SettingsVM {
                     subtitle = LocaleController.getString("Back Up, Passcode, Auto-Lock"),
                     hasTintColor = false
                 )
-            else null,
+            } else {
+                null
+            },
             SettingsItem(
                 identifier = SettingsItem.Identifier.ASSETS_AND_ACTIVITY,
                 icon = R.drawable.ic_assets_activities,
@@ -198,7 +210,7 @@ class SettingsVM {
                 subtitle = LocaleController.getString("Base Currency, Token Order, Hidden NFTs"),
                 hasTintColor = false
             ),
-            if (currentAccountSupportsSubWallets)
+            if (currentAccountSupportsSubWallets) {
                 SettingsItem(
                     identifier = SettingsItem.Identifier.SUBWALLETS,
                     icon = R.drawable.ic_subwallets,
@@ -206,8 +218,10 @@ class SettingsVM {
                     subtitle = LocaleController.getString("Other addresses for this wallet"),
                     hasTintColor = false
                 )
-            else null,
-            if (AccountStore.walletVersionsData?.versions?.isNotEmpty() == true)
+            } else {
+                null
+            },
+            if (AccountStore.walletVersionsData?.versions?.isNotEmpty() == true) {
                 SettingsItem(
                     identifier = SettingsItem.Identifier.WALLET_VERSIONS,
                     icon = R.drawable.ic_versions,
@@ -215,15 +229,19 @@ class SettingsVM {
                     subtitle = LocaleController.getString("Your assets on other TON contracts"),
                     hasTintColor = false
                 )
-            else null,
-            if (DappsStore.dApps[AccountStore.activeAccountId]?.isNotEmpty() == true)
+            } else {
+                null
+            },
+            if (DappsStore.dApps[AccountStore.activeAccountId]?.isNotEmpty() == true) {
                 SettingsItem(
                     identifier = SettingsItem.Identifier.CONNECTED_APPS,
                     icon = R.drawable.ic_apps,
                     title = LocaleController.getString("Connected Apps"),
-                    hasTintColor = false,
+                    hasTintColor = false
                 )
-            else null,
+            } else {
+                null
+            },
             SettingsItem(
                 identifier = SettingsItem.Identifier.NOTIFICATION_SETTINGS,
                 icon = R.drawable.ic_notifications,
@@ -267,10 +285,13 @@ class SettingsVM {
                         identifier = SettingsItem.Identifier.MTW_FEATURES,
                         icon = R.drawable.ic_features,
                         title = LocaleController.getStringWithKeyValues(
-                            "%app_name% Features", listOf(
+                            "%app_name% Features",
+                            listOf(
                                 Pair(
                                     "%app_name%",
-                                    ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key)
+                                    ApplicationContextHolder.applicationContext.getString(
+                                        BaseR.string.app_locale_name_key
+                                    )
                                 )
                             )
                         ),
@@ -293,13 +314,20 @@ class SettingsVM {
             settingsSections.indexOfFirst { it.section == SettingsSection.Section.HELP }
         if (helpSectionIndex == -1) return true
 
-        val dynamicItems = if ((ConfigStore.supportAccountsCount ?: 0.0) > 0) listOf(
-            askAQuestionItem
-        ) else listOf()
+        val dynamicItems = if ((ConfigStore.supportAccountsCount ?: 0.0) > 0) {
+            listOf(
+                askAQuestionItem
+            )
+        } else {
+            listOf()
+        }
         val newChildren = dynamicItems + helpSectionStaticItems
 
-        if (settingsSections[helpSectionIndex].children.map { it.identifier } == newChildren.map { it.identifier })
+        if (settingsSections[helpSectionIndex].children.map { it.identifier } ==
+            newChildren.map { it.identifier }
+        ) {
             return false
+        }
         settingsSections[helpSectionIndex].children = newChildren
         return true
     }
@@ -311,6 +339,7 @@ class SettingsVM {
                 val isLast = index == section.children.size - 1
                 sum += when (item.identifier) {
                     SettingsItem.Identifier.ACCOUNT -> SettingsAccountCell.heightForItem(isLast)
+
                     else -> SettingsItemCell.cellHeightForItem(
                         isSubtitled = !subtitleFor(item).isNullOrEmpty(),
                         isLast = isLast

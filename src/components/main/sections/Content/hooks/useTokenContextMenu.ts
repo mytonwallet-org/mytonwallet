@@ -13,7 +13,7 @@ import {
 } from '../../../../../config';
 import { vibrate } from '../../../../../util/haptics';
 import { compact } from '../../../../../util/iteratees';
-import { getStakingStateStatus } from '../../../../../util/staking';
+import { getIsNewStakeAllowed, getStakingStateStatus } from '../../../../../util/staking';
 import { getIsServiceToken } from '../../../../../util/tokens';
 
 import useContextMenuHandlers from '../../../../../hooks/useContextMenuHandlers';
@@ -65,6 +65,8 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
   });
   const isServiceToken = getIsServiceToken(token);
   const stakingId = stakingState?.id;
+  const baseSlug = token.isStaking ? token.slug.replace(STAKING_SLUG_PREFIX, '') : token.slug;
+  const isStakeMoreAllowed = getIsNewStakeAllowed(baseSlug);
   const isContextMenuShown = contextMenuAnchor !== undefined;
   const canBeClaimed = stakingState ? getStakingStateStatus(stakingState) === 'readyToClaim' : undefined;
   const hasUnclaimedRewards = stakingState?.type === 'jetton'
@@ -90,7 +92,7 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
     }
 
     const result: (false | undefined | DropdownItem<MenuHandler>)[] = stakingId
-      ? [{
+      ? [isStakeMoreAllowed && {
         name: 'Stake More',
         fontIcon: 'menu-send',
         value: 'stakeMore',
@@ -127,7 +129,7 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
 
     return compact(result.concat(mandatoryItems));
   }, [
-    canBeClaimed, hasUnclaimedRewards, isStakingAvailable, isSwapDisabled, isViewMode,
+    canBeClaimed, hasUnclaimedRewards, isStakingAvailable, isStakeMoreAllowed, isSwapDisabled, isViewMode,
     stakingId, stakingState?.type, isServiceToken, isPinned,
   ]);
 

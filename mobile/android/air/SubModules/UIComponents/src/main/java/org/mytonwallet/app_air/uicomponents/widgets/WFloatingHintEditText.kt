@@ -17,15 +17,15 @@ import android.view.Gravity
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import androidx.core.graphics.withTranslation
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.textCursorDrawableCompat
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 open class WFloatingHintEditText @JvmOverloads constructor(
     context: Context,
@@ -99,11 +99,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         }
     }
 
-    override fun onFocusChanged(
-        focused: Boolean,
-        direction: Int,
-        previouslyFocusedRect: Rect?
-    ) {
+    override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: Rect?) {
         super.onFocusChanged(focused, direction, previouslyFocusedRect)
         viewState?.let { viewState ->
             onViewStateUpdated(viewState.copy(hasFocus = focused))
@@ -174,25 +170,22 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         }
     }
 
-    private fun buildTargetViewPropertiesState(targetState: ViewState): ViewPropertiesState {
-        return when {
-            // initial
-            !targetState.hasFocus && !targetState.hasText -> ViewPropertiesState()
+    private fun buildTargetViewPropertiesState(targetState: ViewState): ViewPropertiesState = when {
+        // initial
+        !targetState.hasFocus && !targetState.hasText -> ViewPropertiesState()
 
-            // focus, empty
-            targetState.hasFocus && !targetState.hasText -> ViewPropertiesState(
-                hintAlpha = 1f,
-                cursorAlpha = 1f
-            )
+        // focus, empty
+        targetState.hasFocus && !targetState.hasText -> ViewPropertiesState(
+            hintAlpha = 1f,
+            cursorAlpha = 1f
+        )
 
-            // non-empty
-            else -> ViewPropertiesState(
-                hintAlpha = 0f,
-                cursorAlpha = 1f
-            )
-        }
+        // non-empty
+        else -> ViewPropertiesState(
+            hintAlpha = 0f,
+            cursorAlpha = 1f
+        )
     }
-
 
     override fun onRtlPropertiesChanged(layoutDirection: Int) {
         super.onRtlPropertiesChanged(layoutDirection)
@@ -230,16 +223,17 @@ open class WFloatingHintEditText @JvmOverloads constructor(
     ) {
         val viewPropertiesState = viewPropertiesStateSet.current
         hintLayout.paint.alpha = (viewPropertiesState.hintAlpha * 255).roundToInt()
-        val hintExtraPadding = paddingRight - paddingLeft
-        val contentXOffset = -viewPropertiesState.hintTranslationX * (contextX + hintExtraPadding)
-        canvas.withTranslation(hintX + contentXOffset - scrollX, hintY - scrollY) {
+        val isRtl = layoutDirection == LAYOUT_DIRECTION_RTL
+        val hintExtraPadding = if (isRtl) paddingLeft - paddingRight else paddingRight - paddingLeft
+        val offsetMagnitude = viewPropertiesState.hintTranslationX * (contextX + hintExtraPadding)
+        val contentXOffset = if (isRtl) offsetMagnitude else -offsetMagnitude
+        canvas.withTranslation(hintX + contentXOffset + scrollX, hintY + scrollY) {
             hintLayout.draw(canvas)
         }
     }
 
-    private fun shouldDrawHint(): Boolean {
-        return text.isNullOrEmpty() && !floatingHintText.isNullOrBlank()
-    }
+    private fun shouldDrawHint(): Boolean =
+        text.isNullOrEmpty() && !floatingHintText.isNullOrBlank()
 
     private fun obtainFloatingHintDrawState(): FloatingHintState? {
         if (floatingHintDrawState != null) {
@@ -346,7 +340,8 @@ open class WFloatingHintEditText @JvmOverloads constructor(
 
     private fun resolveAlignment(gravity: Int): Layout.Alignment {
         val horizontalGravity = resolveHorizontalGravity(
-            gravity, layoutDirection == LAYOUT_DIRECTION_RTL
+            gravity,
+            layoutDirection == LAYOUT_DIRECTION_RTL
         )
         return when (horizontalGravity) {
             Gravity.CENTER_HORIZONTAL -> Layout.Alignment.ALIGN_CENTER
@@ -361,7 +356,9 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         if (hGravity == 0) {
             return Gravity.LEFT
         }
-        if (hGravity == Gravity.LEFT || hGravity == Gravity.RIGHT || hGravity == Gravity.CENTER_HORIZONTAL) {
+        if (hGravity == Gravity.LEFT || hGravity == Gravity.RIGHT ||
+            hGravity == Gravity.CENTER_HORIZONTAL
+        ) {
             return hGravity
         }
         return if (isRtl) {
@@ -388,16 +385,13 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         return inputConnection
     }
 
-    data class ViewState(
-        val hasFocus: Boolean = false,
-        val hasText: Boolean = false
-    )
+    data class ViewState(val hasFocus: Boolean = false, val hasText: Boolean = false)
 
     private data class FloatingHintState(
         val hintLayout: StaticLayout,
         val x: Float,
         val contentX: Float,
-        val y: Float,
+        val y: Float
     )
 
     private data class ViewPropertiesState(

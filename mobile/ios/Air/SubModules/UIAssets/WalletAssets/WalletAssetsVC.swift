@@ -6,8 +6,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let log = Log("Home-WalletAssets")
-
 @MainActor public protocol WalletAssetsDelegate: AnyObject {
     func walletAssetDidChangeHeight(animated: Bool)
 }
@@ -31,6 +29,7 @@ private let log = Log("Home-WalletAssets")
     private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
     private var lastMeasuredWidth: CGFloat = 0
     private var calculatedTabHeights: [ObjectIdentifier: CGFloat] = [:]
+    private var forceAnimatedHeightReport = false
     
     private lazy var tabContextMenuProviders = WalletAssetsTabContextMenuProviders(
         accountSource: accountSource,
@@ -74,11 +73,14 @@ private let log = Log("Home-WalletAssets")
     private func switchIncomingFirstTabAccountTo(_ accountId: String, animated: Bool) {
         guard let first = tabsViewModel.displayTabs.first, let vc = tabViewControllers[first] else { return }
 
+        forceAnimatedHeightReport = animated
+        defer { forceAnimatedHeightReport = false }
+
         switch vc {
         case let tokensVC as WalletTokensVC:
-            tokensVC.switchAccountTo(accountId: accountId, animated: animated)
+            tokensVC.switchAccountTo(accountId: accountId, animated: false)
         case let nftsVC as NftsVC:
-            nftsVC.switchAccountTo(accountId: accountId, animated: animated)
+            nftsVC.switchAccountTo(accountId: accountId, animated: false)
         default:
             break
         }
@@ -89,7 +91,6 @@ private let log = Log("Home-WalletAssets")
         
         tabsViewModel.changeAccountTo(accountId: accountId)
         switchIncomingFirstTabAccountTo(accountId, animated: true)
-        
         walletAssetsView.tabsContainer.handleSegmentChange(to: 0, animated: true)
     }
         
@@ -166,8 +167,9 @@ private let log = Log("Home-WalletAssets")
         super.viewDidLoad()
         
         tokensVC?.onHeightChanged = { [weak self] animated in
-            self?.invalidateCalculatedTabHeights()
-            self?.headerHeightChanged(animated: animated)
+            guard let self else { return }
+            self.invalidateCalculatedTabHeights()
+            self.headerHeightChanged(animated: animated || self.forceAnimatedHeightReport)
         }
         
         nftsVCManager.restoreTabsOnReorderCanceling = true
@@ -223,8 +225,8 @@ private let log = Log("Home-WalletAssets")
         tabsViewModel.delegate = self
         _displayTabsChanged(force: true, animated: false)
                 
-        walletAssetsView.tabsContainer.model.onItemsReorder = { [weak self] items in
-            guard let self else { return }            
+        walletAssetsView.tabsContainer.model.onItemsReorder = { [weak self] (items: [SegmentedControlItem]) in
+            guard let self else { return }
             let displayTabs: [DisplayAssetTab] = items.compactMap { item in
                 DisplayAssetTab.fromSegmentedControlItemId(item.id, accountId: self.accountIdProvider.accountId)
             }

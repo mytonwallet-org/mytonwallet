@@ -11,11 +11,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.colorChanged
 import org.mytonwallet.app_air.walletbasecontext.utils.isBrightColor
 
 object BackgroundUtils {
-    fun createCardBackground(
-        baseColor: Int,
-        width: Int,
-        height: Int
-    ): Bitmap {
+    fun createCardBackground(baseColor: Int, width: Int, height: Int): Bitmap {
         val isBright = baseColor.isBrightColor()
 
         val bitmap = createBitmap(width, height)
@@ -24,7 +20,10 @@ object BackgroundUtils {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         paint.shader = LinearGradient(
-            0f, 0f, width.toFloat(), height.toFloat(),
+            0f,
+            0f,
+            width.toFloat(),
+            height.toFloat(),
             intArrayOf(
                 baseColor.colorChanged(0.05f, isBright),
                 baseColor.colorChanged(0.3f, isBright)

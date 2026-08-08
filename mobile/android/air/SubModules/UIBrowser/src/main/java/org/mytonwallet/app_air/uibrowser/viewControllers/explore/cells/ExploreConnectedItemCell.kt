@@ -1,14 +1,15 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
+import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -17,10 +18,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 
 @SuppressLint("ViewConstructor")
-class ExploreConnectedItemCell(
-    context: Context,
-    private val onDAppTap: (site: ApiDapp) -> Unit,
-) :
+class ExploreConnectedItemCell(context: Context, private val onDAppTap: (site: ApiDapp) -> Unit) :
     WCell(context, LayoutParams(WRAP_CONTENT, 36.dp)),
     WThemedView {
 
@@ -36,7 +34,9 @@ class ExploreConnectedItemCell(
 
     private val titleLabel = WLabel(context).apply {
         setStyle(adaptiveFontSize(), WFont.Medium)
-        maxLines = 1
+        setSingleLine()
+        maxWidth = 150.dp
+        ellipsize = TextUtils.TruncateAt.END
     }
 
     override fun setupViews() {

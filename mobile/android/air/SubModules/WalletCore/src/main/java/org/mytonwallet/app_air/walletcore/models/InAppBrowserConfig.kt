@@ -15,12 +15,12 @@ data class InAppBrowserConfig(
     val topBarColorMode: TopBarColorMode = TopBarColorMode.CONTENT_BASED,
     val topBarColor: Int? = null,
     val optionsOnTitle: Boolean = false,
-    val allowDownloads: Boolean = false,
+    val allowDownloads: Boolean = false
 ) {
     enum class TopBarColorMode {
         SYSTEM,
         CONTENT_BASED,
-        FIXED,
+        FIXED
     }
 
     data class Option(

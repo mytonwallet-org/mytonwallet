@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import com.squareup.moshi.JsonClass
+import java.math.BigDecimal
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
-import java.math.BigDecimal
 
 enum class MultiWalletSupport {
     VERSION,
@@ -36,6 +36,14 @@ enum class MBlockchain(
         isSupported = true
     ),
 
+    hyperliquid(
+        R.drawable.ic_blockchain_hyperliquid_128,
+        "hyperliquid",
+        "Hyperliquid",
+        HyperliquidConfig,
+        isSupported = true
+    ),
+
     ton(
         R.drawable.ic_blockchain_ton_128,
         "toncoin",
@@ -60,14 +68,6 @@ enum class MBlockchain(
         isSupported = true
     ),
 
-    hyperliquid(
-        R.drawable.ic_blockchain_hyperliquid_128,
-        "hyperliquid",
-        "Hyperliquid",
-        HyperliquidConfig,
-        isSupported = true
-    ),
-
     base(
         R.drawable.ic_blockchain_base_128,
         "base",
@@ -76,11 +76,19 @@ enum class MBlockchain(
         isSupported = true
     ),
 
-    polygon(
-        R.drawable.ic_blockchain_polygon_128,
-        "pol",
-        "Polygon",
-        PolygonConfig,
+    robinhood(
+        R.drawable.ic_blockchain_robinhood_128,
+        "robinhood",
+        "Robinhood",
+        RobinhoodConfig,
+        isSupported = true
+    ),
+
+    monad(
+        R.drawable.ic_blockchain_monad_128,
+        "mon",
+        "Monad",
+        MonadConfig,
         isSupported = true
     ),
 
@@ -92,11 +100,11 @@ enum class MBlockchain(
         isSupported = true
     ),
 
-    monad(
-        R.drawable.ic_blockchain_monad_128,
-        "mon",
-        "Monad",
-        MonadConfig,
+    polygon(
+        R.drawable.ic_blockchain_polygon_128,
+        "pol",
+        "Polygon",
+        PolygonConfig,
         isSupported = true
     ),
 
@@ -145,26 +153,19 @@ enum class MBlockchain(
     val canSwapByBuyAmount get() = config?.canSwapByBuyAmount ?: false
     val multiWalletSupport get() = config?.multiWalletSupport
 
-    fun isValidAddress(address: String) =
-        config?.isValidAddress(address) ?: false
+    fun isValidAddress(address: String) = config?.isValidAddress(address) ?: false
 
-    fun isValidDNS(address: String) =
-        config?.isValidDNS(address) ?: false
+    fun isValidDNS(address: String) = config?.isValidDNS(address) ?: false
 
-    fun idToTxHash(id: String?) =
-        config?.idToTxHash(id)
+    fun idToTxHash(id: String?) = config?.idToTxHash(id)
 
-    fun transactionExplorers() =
-        config?.transactionExplorers() ?: emptyList()
+    fun transactionExplorers() = config?.transactionExplorers() ?: emptyList()
 
-    fun addressExplorers() =
-        config?.addressExplorers() ?: emptyList()
+    fun addressExplorers() = config?.addressExplorers() ?: emptyList()
 
-    fun tokenExplorer() =
-        config?.tokenExplorer()
+    fun tokenExplorer() = config?.tokenExplorer()
 
-    fun nftExplorer() =
-        config?.nftExplorer()
+    fun nftExplorer() = config?.nftExplorer()
 
     val isOnrampSupported get() = isSupported && config?.isOnRampSupported == true
     val isOfframpSupported get() = isSupported && config?.isOffRampSupported == true
@@ -189,7 +190,8 @@ enum class MBlockchain(
         const val VIEW_ACCOUNT_EVM_PARAM = "evm"
 
         private val GRAM_CHAIN_ORDER = listOf(
-            ton, ethereum, solana, tron, bnb, hyperliquid, base, arbitrum
+            ton, ethereum, solana, hyperliquid, tron, bnb, base, robinhood, monad,
+            arbitrum, polygon, avalanche
         )
 
         val supportedChains: List<MBlockchain> by lazy {
@@ -199,7 +201,9 @@ enum class MBlockchain(
                     val i = GRAM_CHAIN_ORDER.indexOf(it)
                     if (i < 0) Int.MAX_VALUE else i
                 }
-            } else supported
+            } else {
+                supported
+            }
         }
         val supportedChainValues: List<String> by lazy { supportedChains.map { it.name } }
         val evmChains: List<MBlockchain> by lazy {
@@ -213,8 +217,7 @@ enum class MBlockchain(
         fun isValidAddressOnAnyChain(address: String): Boolean =
             supportedChains.any { it.isValidAddress(address) }
 
-        fun isEvmChain(chain: String): Boolean =
-            evmChainValues.contains(chain)
+        fun isEvmChain(chain: String): Boolean = evmChainValues.contains(chain)
 
         fun valueOfOrNull(name: String): MBlockchain? {
             val normalized = when (name) {
@@ -226,7 +229,13 @@ enum class MBlockchain(
         }
 
         val POPULAR_TOKEN_ORDER = listOf(
-            "TON", "USD₮", "USDT", "BTC", "ETH", "jUSDT", "jWBTC"
+            "TON",
+            "USD₮",
+            "USDT",
+            "BTC",
+            "ETH",
+            "jUSDT",
+            "jWBTC"
         )
 
         val POPULAR_TOKEN_ORDER_MAP =

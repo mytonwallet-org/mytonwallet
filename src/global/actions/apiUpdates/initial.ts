@@ -13,8 +13,9 @@ import {
 } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { areDeepEqual } from '../../../util/areDeepEqual';
-import { buildCollectionByKey, unique } from '../../../util/iteratees';
+import { buildCollectionByKey, omitUndefined, unique } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
+import { normalizeAllowedOnOffRampCurrencies } from '../../../util/ramp-currencies';
 import { getIsActiveStakingState } from '../../../util/staking';
 import { omitAccounts } from '../../helpers/auth';
 import { pinMwCardsFirst } from '../../helpers/nfts';
@@ -23,7 +24,6 @@ import {
   addUnorderedNfts,
   applyIncomingNftFromActivity,
   applyOutgoingNftFromActivity,
-  createAccount,
   removeNft,
   updateAccount,
   updateAccountChain,
@@ -36,7 +36,6 @@ import {
   updateCurrencyRates,
   updateNft,
   updateRestrictions,
-  updateSettings,
   updateStakingDefault,
   updateSwapTokens,
   updateTokens,
@@ -180,8 +179,15 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         orderedAddresses = (currentNfts?.orderedAddresses ?? [])
           .filter((addr) => streamed.has(addr) || currentNfts?.byAddress?.[addr]?.chain !== chain);
       } else if (shouldAppend) {
-        // Batch or collection loading - preserve existing entries (fresher websocket data)
-        byAddress = { ...nfts, ...currentNfts?.byAddress };
+        // Batch or collection loading - preserve existing entries (fresher websocket data), except the
+        // verification verdict, which the incoming batch recomputes from the current trusted collection list
+        byAddress = { ...nfts };
+        for (const [address, existingNft] of Object.entries(currentNfts?.byAddress ?? {})) {
+          const incomingNft = nfts[address];
+          byAddress[address] = incomingNft
+            ? omitUndefined({ ...existingNft, isUnverified: incomingNft.isUnverified })
+            : existingNft;
+        }
         orderedAddresses = unique(
           ([] as string[]).concat(currentNfts?.orderedAddresses ?? [], newOrderedAddresses),
         );
@@ -384,7 +390,11 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         isAppUpdateRequired,
         swapVersion,
         seasonalTheme,
+        allowedOnOffRampCurrencies,
       } = update;
+
+      const normalizedRampCurrencies = normalizeAllowedOnOffRampCurrencies(allowedOnOffRampCurrencies);
+      const previousRampCurrencies = global.restrictions.allowedOnOffRampCurrencies;
 
       const shouldRestrictSwapsAndOnOffRamp = IS_FEATURE_LIMITED;
       global = updateRestrictions(global, {
@@ -396,6 +406,10 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         isCopyStorageEnabled,
         supportAccountsCount,
         countryCode,
+        // Keep the previous reference for an unchanged list so connected containers do not re-render on every poll
+        allowedOnOffRampCurrencies: areDeepEqual(normalizedRampCurrencies, previousRampCurrencies)
+          ? previousRampCurrencies
+          : normalizedRampCurrencies,
       });
       global = {
         ...global,
@@ -460,49 +474,6 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       break;
     }
 
-    // Should be removed in future versions
-    case 'migrateCoreApplication': {
-      const {
-        accountId,
-        isTestnet,
-        address,
-        secondAddress,
-        secondAccountId,
-        isTonProxyEnabled,
-      } = update;
-
-      global = updateSettings(global, { isTestnet });
-      global = createAccount({
-        global,
-        accountId,
-        type: 'mnemonic',
-        byChain: { ton: { address } },
-      });
-      // The opposite-network twin exists only on the trimmed core build; the combo build omits it (no secondAccountId).
-      if (secondAccountId && secondAddress) {
-        global = createAccount({
-          global,
-          accountId: secondAccountId,
-          type: 'mnemonic',
-          byChain: { ton: { address: secondAddress } },
-          network: isTestnet ? 'mainnet' : 'testnet', // Second account should be created on opposite network
-        });
-      }
-      setGlobal(global);
-
-      // Run the application only after the post-migration GlobalState has been applied
-      requestAnimationFrame(() => {
-        actions.tryAddNotificationAccount({ accountId });
-        actions.switchAccount({ accountId, newNetwork: isTestnet ? 'testnet' : 'mainnet' });
-        actions.afterSignIn();
-
-        if (isTonProxyEnabled) {
-          actions.toggleTonProxy({ isEnabled: true });
-        }
-      });
-      break;
-    }
-
     case 'removeAccounts': {
       const { accountIds } = update;
       const removed = new Set(accountIds);
@@ -523,7 +494,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
       // `omitAccounts` clears `currentAccountId` when the active account is removed, but nothing downstream
       // self-heals from `currentAccountId === undefined` (`activateAccount` bails out). Re-select a survivor via
-      // `switchAccount` (which also syncs `settings.isTestnet` — see the `migrateCoreApplication` case above).
+      // `switchAccount`, which also syncs `settings.isTestnet`.
       // Zero survivors is a full wipe: leave `currentAccountId` undefined. `orderedAccountIds` is a merge-only
       // hint that can retain ids of accounts removed in earlier sessions, so pick the first one still live.
       if (wasCurrentRemoved) {

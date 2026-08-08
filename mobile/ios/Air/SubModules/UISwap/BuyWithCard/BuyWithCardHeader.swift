@@ -24,9 +24,9 @@ struct BuyWithCardHeader: View {
             @Perception.Bindable var model = model
             VStack(alignment: .center, spacing: 0) {
                 Text(lang("Buy with Card"))
-                    .font(.system(size: 17, weight: .semibold))
+                    .textStyle(.bodyStrong)
                 Text("\(lang(model.selectedCurrency.name)) \(Image(systemName: "chevron.down"))")
-                    .font(.system(size: 13, weight: .regular))
+                    .textStyle(.footnote)
                     .imageScale(.small)
                     .frame(minWidth: 200)
                     .foregroundStyle(.secondary)

@@ -1,14 +1,14 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import kotlin.collections.iterator
 import org.json.JSONArray
 import org.json.JSONObject
-import kotlin.collections.iterator
 
 val Array<*>.toJSONString: String
     get() {
         val jsonArray = JSONArray()
         for (item in this) {
-            jsonArray.put(item);
+            jsonArray.put(item)
         }
         return jsonArray.toString()
     }

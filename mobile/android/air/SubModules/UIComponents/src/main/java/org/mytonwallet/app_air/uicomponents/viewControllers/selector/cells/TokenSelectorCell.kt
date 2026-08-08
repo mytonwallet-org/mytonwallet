@@ -1,21 +1,23 @@
 package org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.LinearLayout
-import androidx.core.view.marginBottom
+import java.math.BigInteger
+import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.TokenNameHelper
 import org.mytonwallet.app_air.uicomponents.helpers.TokenTagHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -27,15 +29,15 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
+class TokenSelectorCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     enum class SecondaryAmountMode {
         BALANCE_VALUE,
-        TOKEN_PRICE,
+        TOKEN_PRICE
     }
 
     private val tagHelper = TokenTagHelper(context)
@@ -71,23 +73,21 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         )
     }
 
-    private val bottomRightLabel: WLabel by lazy {
-        WLabel(context).apply {
-            setStyle(13f)
-            layoutDirection = LAYOUT_DIRECTION_LTR
-        }
+    private val bottomRightLabel = WLabel(context).apply {
+        setStyle(13f)
     }
 
-    private val rightContainer: LinearLayout by lazy {
-        LinearLayout(context).apply {
+    private val rightContainer: WView by lazy {
+        WView(context).apply {
             id = generateViewId()
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.END
-            addView(topRightLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                topMargin = (-2.5f).dp.roundToInt()
-                bottomMargin = 1.dp
-            })
-            addView(bottomRightLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            addView(topRightLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            addView(bottomRightLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            setConstraints {
+                toTop(topRightLabel, 8f)
+                toEnd(topRightLabel)
+                toBottom(bottomRightLabel, 11f)
+                toEnd(bottomRightLabel)
+            }
         }
     }
 
@@ -101,7 +101,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(tagHelper.tagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
         addView(bottomLeftLabel)
-        addView(rightContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(rightContainer, LayoutParams(WRAP_CONTENT, MATCH_PARENT))
         setConstraints {
             toTop(iconView, 8f)
             toBottom(iconView, 8f)
@@ -111,7 +111,6 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
             startToEnd(tagHelper.tagLabel, topLeftLabel, 3f)
             centerYToCenterY(tagHelper.tagLabel, topLeftLabel)
             endToStart(tagHelper.tagLabel, rightContainer, 4f)
-            toCenterY(rightContainer)
             toEnd(rightContainer, 16f)
             constrainedWidth(topLeftLabel.id, true)
             setHorizontalBias(topLeftLabel.id, 0f)
@@ -149,13 +148,14 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
     private var tokenBalance: MTokenBalance? = null
     private var isLast = false
 
+    @SuppressLint("SetTextI18n")
     fun configure(
         tokenBalance: MTokenBalance,
         showChain: Boolean,
         isLast: Boolean,
         accountId: String? = null,
         showBalance: Boolean = true,
-        secondaryAmountMode: SecondaryAmountMode = SecondaryAmountMode.BALANCE_VALUE,
+        secondaryAmountMode: SecondaryAmountMode = SecondaryAmountMode.BALANCE_VALUE
     ) {
         this.tokenBalance = tokenBalance
         this.isLast = isLast
@@ -183,8 +183,9 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
                 forceCurrencyToRight = true
             )
 
-            bottomRightLabel.text = when (secondaryAmountMode) {
+            bottomRightLabel.text = "\u202D" + when (secondaryAmountMode) {
                 SecondaryAmountMode.TOKEN_PRICE -> tokenPriceText(token)
+
                 SecondaryAmountMode.BALANCE_VALUE -> tokenBalance.toBaseCurrency?.toString(
                     token?.decimals ?: 9,
                     WalletCore.baseCurrency.sign,
@@ -196,8 +197,9 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
             topRightLabel.visibility = GONE
 
             bottomRightLabel.text = tokenPriceText(token)
-            if (bottomRightLabel.textSize != topRightLabel.contentView.textSize)
+            if (bottomRightLabel.textSize != topRightLabel.contentView.textSize) {
                 bottomRightLabel.textSize = adaptiveFontSize()
+            }
         }
 
         bottomLeftLabel.text = token?.mBlockchain?.displayName
@@ -205,19 +207,19 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
                 if (it.isLowerCase()) it.titlecase() else it.toString()
             } ?: ""
 
-        tagHelper.configure(this, topLeftLabel, topRightLabel, accountId, token, tokenBalance)
+        tagHelper.configure(this, topLeftLabel, rightContainer, accountId, token, tokenBalance)
     }
 
-    private fun tokenPriceText(token: MToken?): String {
-        return when (val tokenPrice = token?.price) {
-            null -> ""
-            0.0 -> LocaleController.getString("No Price")
-            else -> tokenPrice.toString(
-                token.decimals,
-                WalletCore.baseCurrency.sign,
-                WalletCore.baseCurrency.decimalsCount,
-                smartDecimals = true
-            ) ?: ""
-        }
+    private fun tokenPriceText(token: MToken?): String = when (val tokenPrice = token?.price) {
+        null -> ""
+
+        0.0 -> LocaleController.getString("No Price")
+
+        else -> tokenPrice.toString(
+            token.decimals,
+            WalletCore.baseCurrency.sign,
+            WalletCore.baseCurrency.decimalsCount,
+            smartDecimals = true
+        ) ?: ""
     }
 }

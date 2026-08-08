@@ -5,5 +5,5 @@ data class ChartBottomSignatureData(
     val stepMax: Int,
     val stepMin: Int,
     var alpha: Int = 0,
-    var fixedAlpha: Int = 255,
+    var fixedAlpha: Int = 255
 )

@@ -611,9 +611,11 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 53;
   }
+
   if (cached.stateVersion === 53) {
     cached.stateVersion = 54;
   }
+
   if (cached.stateVersion === 54) {
     // Desktop redesign reordered `ContentTab` enum (added `Overview` at index 0, `Settings` at end),
     // so persisted numeric values now point to the wrong tabs. Clear them to let the layout-aware
@@ -624,6 +626,7 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 55;
   }
+
   if (cached.stateVersion === 55) {
     // `walletTokensLimit` (numeric Top-N preset) replaced by `overviewCellSize` enum.
     if (cached.settings?.byAccountId) {
@@ -637,6 +640,7 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 56;
   }
+
   if (cached.stateVersion === 56) {
     // `nfts.ownedMtwCardAddresses` renamed to `ownedMwCardAddresses` (MTW -> MW rebrand)
     for (const accountId of Object.keys(cached.byAccountId)) {
@@ -648,6 +652,7 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 57;
   }
+
   if (cached.stateVersion === 57) {
     // Net Change was replaced by PnL Change
     if (cached.portfolio) {
@@ -655,9 +660,35 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 58;
   }
+
   if (cached.stateVersion === 58) {
     clearActivities();
     cached.stateVersion = 59;
+  }
+  if (cached.stateVersion === 59 || cached.stateVersion === 60) {
+    const hasMnemonicAccounts = cached.accounts
+      && Object.values(cached.accounts.byId).some((account) => account.type === 'mnemonic');
+    const authConfig = (cached.settings as any).authConfig as { kind?: string } | undefined;
+    const isLegacyBiometricActivated = authConfig && authConfig.kind !== 'password';
+
+    if (!hasMnemonicAccounts || !isLegacyBiometricActivated) {
+      // Ensure no unnecessary biometric settings are stored
+      delete (cached.settings as any).authConfig;
+    }
+
+    // The flat `hiddenChains` list moves into `chainDisplayConfiguration`, the shape the native apps read.
+    // The mode becomes `manual`, the same way the native apps interpret a configuration that carries hidden chains
+    // but no mode: the user picked the visibility by hand, so the app must not start picking it by balance instead.
+    if (cached.settings?.byAccountId) {
+      for (const accountSettings of Object.values(cached.settings.byAccountId)) {
+        const hiddenChains = (accountSettings as any).hiddenChains as ApiChain[] | undefined;
+        if (hiddenChains?.length) {
+          accountSettings.chainDisplayConfiguration = { displayMode: 'manual', hiddenChains };
+        }
+        delete (accountSettings as any).hiddenChains;
+      }
+    }
+    cached.stateVersion = 61;
   }
   // When adding migration here, increase `STATE_VERSION`
 }
@@ -720,6 +751,7 @@ function updateCache(force?: boolean) {
   const reducedGlobal: GlobalState = {
     ...INITIAL_STATE,
     ...pick(global, [
+      'authTypes',
       'currentAccountId',
       // The temporary account is correctly removed from the state during the initialization phase
       'currentTemporaryViewAccountId',

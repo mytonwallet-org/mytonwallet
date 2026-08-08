@@ -1,5 +1,7 @@
 import React, { memo, useEffect, useState } from '../../../lib/teact/teact';
+import { getGlobal } from '../../../global';
 
+import { selectEnclaveToken } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { callApi } from '../../../api';
 
@@ -16,7 +18,7 @@ import styles from './Backup.module.scss';
 interface OwnProps {
   isActive?: boolean;
   currentAccountId: string;
-  enteredPassword?: string;
+  isInsideModal?: boolean;
   isBackupSlideActive?: boolean;
   onBackClick: NoneToVoidFunction;
   onSubmit: NoneToVoidFunction;
@@ -25,7 +27,6 @@ interface OwnProps {
 function BackupPrivateKey({
   isActive,
   currentAccountId,
-  enteredPassword,
   isBackupSlideActive,
   onBackClick,
   onSubmit,
@@ -36,9 +37,11 @@ function BackupPrivateKey({
 
   useEffect(() => {
     async function loadPrivateKey() {
-      if (isBackupSlideActive && enteredPassword) {
+      if (isBackupSlideActive) {
         // todo: Add a UI for choosing the chain to export the private key from
-        const privateKeyResult = await callApi('fetchPrivateKey', currentAccountId, 'ton', enteredPassword);
+        const privateKeyResult = await callApi(
+          'fetchPrivateKey', currentAccountId, 'ton', selectEnclaveToken(getGlobal())!,
+        );
 
         setPrivateKey(privateKeyResult);
       } else {
@@ -46,7 +49,7 @@ function BackupPrivateKey({
       }
     }
     void loadPrivateKey();
-  }, [currentAccountId, enteredPassword, isBackupSlideActive]);
+  }, [currentAccountId, isBackupSlideActive]);
 
   useHistoryBack({
     isActive,

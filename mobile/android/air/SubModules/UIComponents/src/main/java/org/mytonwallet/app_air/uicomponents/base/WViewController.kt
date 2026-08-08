@@ -1,7 +1,10 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.base
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
@@ -13,13 +16,20 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+import androidx.core.graphics.createBitmap
 import androidx.core.view.children
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.ScreenRecordProtectionView
@@ -31,6 +41,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialogButton
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior
@@ -42,6 +53,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -49,13 +61,11 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.min
-import kotlin.math.roundToInt
 
-
-abstract class WViewController(val context: Context) : WThemedView, WProtectedView {
+abstract class WViewController(val context: Context) :
+    WThemedView,
+    WProtectedView {
+    @Suppress("PropertyName")
     abstract val TAG: String
 
     // Available configurations //////////////////////
@@ -72,10 +82,11 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     // If the view-controller is presented in the content panel on tablet, returns the `ADDITIONAL_TABLET_PADDING`
     open val additionalTabletPadding: Int
         get() {
-            return if (isSplitDetailPanel)
+            return if (isSplitDetailPanel) {
                 ViewConstants.ADDITIONAL_TABLET_PADDING
-            else
+            } else {
                 0
+            }
         }
 
     open val shouldDisplayTopBar = true
@@ -100,6 +111,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
 
     open val protectFromScreenRecord = false
+    open val shouldHideKeyboardOnDisappear = true
 
     // App will switch to displayed account id whenever screen is appeared
     data class DisplayedAccount(val accountId: String?, val isPushedTemporary: Boolean) {
@@ -111,7 +123,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
 
     open val displayedAccount: DisplayedAccount? = null
-    //////////////////////////////////////////////////
+    // ////////////////////////////////////////////////
 
     // ContainerView /////////////////////////////////
     open val view: ContainerView by lazy {
@@ -126,18 +138,24 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     open val isContentWidthCapped = false
 
     protected fun updateBlurPaddings() {
-        if (topReversedCornerView == null && bottomReversedCornerView == null)
-            return
+        if (topReversedCornerView == null && bottomReversedCornerView == null) return
         val basePadding =
             if (ignoreSideGuttering) 0f else ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
         val maxContentWidth =
             if (isContentWidthCapped) WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp.toFloat() else 0f
         val tabletContentStartPadding =
-            if (ignoreSideGuttering && isSplitDetailPanel && !isInCenteredWindow) -ViewConstants.TABLET_CONTENT_START_PADDING.dp else 0f
+            if (ignoreSideGuttering && isSplitDetailPanel &&
+                !isInCenteredWindow
+            ) {
+                -ViewConstants.TABLET_CONTENT_START_PADDING.dp
+            } else {
+                0f
+            }
         topReversedCornerView?.apply {
             setHorizontalPadding(basePadding)
             setSideInsets(
-                tabletContentStartPadding + if (ignoreSideGuttering) 0f else systemBarStartInset.toFloat(),
+                tabletContentStartPadding +
+                    if (ignoreSideGuttering) 0f else systemBarStartInset.toFloat(),
                 if (ignoreSideGuttering) 0f else systemBarEndInset.toFloat()
             )
             setMaxContentWidth(maxContentWidth)
@@ -145,7 +163,8 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         bottomReversedCornerView?.apply {
             setHorizontalPadding(basePadding)
             setSideInsets(
-                tabletContentStartPadding + if (ignoreSideGuttering) 0f else systemBarStartInset.toFloat(),
+                tabletContentStartPadding +
+                    if (ignoreSideGuttering) 0f else systemBarStartInset.toFloat(),
                 if (ignoreSideGuttering) 0f else systemBarEndInset.toFloat()
             )
             setMaxContentWidth(maxContentWidth)
@@ -153,16 +172,14 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
 
     open fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
-        if (isContentWidthCapped && w != oldW)
-            updateBlurPaddings()
+        if (isContentWidthCapped && w != oldW) updateBlurPaddings()
     }
 
     val isSplitDetailPanel: Boolean
         get() = navigationController?.tabBarController != null
     val systemBarStartInset: Int
         get() {
-            if (isSplitDetailPanel)
-                return 0
+            if (isSplitDetailPanel) return 0
             val bars = navigationController?.getSystemBars() ?: return 0
             return if (LocaleController.isRTL) bars.right else bars.left
         }
@@ -174,15 +191,13 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     private var centeredWindowCloseButtonAdded = false
     open fun insetsUpdated() {
-        if (!view.configured)
-            return
+        if (!isViewConfigured) return
         isKeyboardOpen = (window?.imeInsets?.bottom ?: 0) > 0
         updateBlurPaddings()
         navigationBar?.insetsUpdated()
         activeDialogs.forEach { it.insetsUpdated() }
         if (isInCenteredWindow && !centeredWindowCloseButtonAdded) {
-            if (navigationBar?.addCloseButton() == true)
-                centeredWindowCloseButtonAdded = true
+            if (navigationBar?.addCloseButton() == true) centeredWindowCloseButtonAdded = true
         } else if (!isInCenteredWindow && centeredWindowCloseButtonAdded) {
             centeredWindowCloseButtonAdded = false
             navigationBar?.removeCloseButton()
@@ -200,7 +215,8 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     @SuppressLint("ViewConstructor")
     open class ContainerView(val viewController: WeakReference<WViewController>) :
-        WView(viewController.get()!!.context), WProtectedView {
+        WView(viewController.get()!!.context),
+        WProtectedView {
         override fun setupViews() {
             super.setupViews()
             viewController.get()?.setupViews()
@@ -217,7 +233,10 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
         override fun didSetupViews() {
             super.didSetupViews()
-            viewController.get()?.didSetupViews()
+            viewController.get()?.let {
+                it.didSetupViews()
+                it.onViewSetupCompleted()
+            }
         }
 
         override fun onAttachedToWindow() {
@@ -229,43 +248,45 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         private var initialY: Float? = null
         private var isScrollingVertical: Boolean? = null
 
-        private fun canHandleSwipeBack(ev: MotionEvent?): Boolean {
-            return viewController.get()?.isViewAppearanceAnimationInProgress != true &&
+        private fun canHandleSwipeBack(ev: MotionEvent?): Boolean =
+            viewController.get()?.isViewAppearanceAnimationInProgress != true &&
                 (
                     viewController.get()?.isSwipeBackAllowed == true || // is swipe allowed
                         isScrollingVertical == false || // it's already swiping
-                        viewController.get()?.isEdgeSwipeBackAllowed == true &&
-                        ((!LocaleController.isRTL && (ev?.x ?: 60f.dp) < 60f.dp) ||
-                            (LocaleController.isRTL && (ev?.x ?: 0f) > (width - 60f.dp)))
+                        (
+                            viewController.get()?.isEdgeSwipeBackAllowed == true &&
+                                (
+                                    (!LocaleController.isRTL && (ev?.x ?: 60f.dp) < 60f.dp) ||
+                                        (LocaleController.isRTL && (ev?.x ?: 0f) > (width - 60f.dp))
+                                    )
+                            )
                     ) &&
-                (viewController.get()?.navigationController?.viewControllers?.size ?: 0) > 1
-        }
+                (viewController.get()?.navigationController?.viewControllers?.size ?: 0) > 1 &&
+                isEnabled
 
         override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
-            if (!isEnabled)
-                return true
+            if (!isEnabled) return true
             if (canHandleSwipeBack(ev)) {
                 ev?.let {
                     val swipeTouchListener = viewController.get()?.swipeTouchListener
                     when (it.action) {
                         MotionEvent.ACTION_DOWN -> {
                             swipeTouchListener?.onTouch(this, ev)
-                            if (isScrollingVertical != null)
-                                isScrollingVertical = null
+                            if (isScrollingVertical != null) isScrollingVertical = null
                             initialX = it.x
                             initialY = it.y
                         }
 
                         MotionEvent.ACTION_MOVE -> {
-                            if (initialX == null)
-                                return@let
+                            if (initialX == null) return@let
                             if (isScrollingVertical == null) {
                                 val diffX = abs(it.x - initialX!!)
                                 val diffY = abs(it.y - initialY!!)
-                                if (diffX > 20)
+                                if (diffX > 20) {
                                     isScrollingVertical = false
-                                else if (diffY > 10)
+                                } else if (diffY > 10) {
                                     isScrollingVertical = true
+                                }
                                 if (isScrollingVertical != null) {
                                     initialX = it.x
                                     initialY = it.y
@@ -282,6 +303,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                                 }
 
                                 null -> return false
+
                                 else -> {
                                     // scroll normally :)
                                 }
@@ -302,6 +324,13 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(event: MotionEvent?): Boolean {
+            if (!isEnabled) {
+                isScrollingVertical = null
+                initialX = null
+                initialY = null
+                viewController.get()?.swipeTouchListener?.cancelSwipe()
+                return true
+            }
             event?.let {
                 val swipeTouchListener = viewController.get()?.swipeTouchListener
                 when (event.action) {
@@ -316,15 +345,15 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                     }
 
                     MotionEvent.ACTION_MOVE -> {
-                        if (initialX == null)
-                            return@let
+                        if (initialX == null) return@let
                         if (isScrollingVertical == null) {
                             val diffX = abs(it.x - initialX!!)
                             val diffY = abs(it.y - initialY!!)
-                            if (diffX > 20)
+                            if (diffX > 20) {
                                 isScrollingVertical = false
-                            else if (diffY > 10)
+                            } else if (diffY > 10) {
                                 isScrollingVertical = true
+                            }
                             if (isScrollingVertical != null) {
                                 initialX = it.x
                                 initialY = it.y
@@ -355,13 +384,12 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             viewController.get()?.onViewDetachedFromWindow()
         }
     }
-    //////////////////////////////////////////////////
+    // ////////////////////////////////////////////////
 
     // Performance Tracker ///////////////////////////
     open val shouldMonitorFrames = false
     private val frameMonitor: WFramePerformanceMonitor? by lazy {
-        if (window == null)
-            return@lazy null
+        if (window == null) return@lazy null
         WFramePerformanceMonitor(
             activity = window!!,
             isEnabled = shouldMonitorFrames
@@ -388,7 +416,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                     if (frameDropRate > 2.0f) {
                         Logger.w(
                             Logger.LogTag.FPS_PERFORMANCE,
-                            "onPerformanceSummary: Poor performance dropRate=${frameDropRate}%"
+                            "onPerformanceSummary: Poor performance dropRate=$frameDropRate%"
                         )
                     }
                 }
@@ -396,9 +424,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         }
     }
 
-    private fun getPerformanceContext(): String {
-        return "$this"
-    }
+    private fun getPerformanceContext(): String = "$this"
 
     protected open fun onFramePerformanceIssue(
         frameDuration: Long,
@@ -455,12 +481,13 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         }
         return true
     }
-    //////////////////////////////////////////////////
+    // ////////////////////////////////////////////////
 
     // Lifecycle callbacks ///////////////////////////
     open fun setupViews() {
-        if (protectFromScreenRecord && window?.isScreenRecordInProgress == true)
+        if (protectFromScreenRecord && window?.isScreenRecordInProgress == true) {
             presentScreenRecordProtectionView()
+        }
     }
 
     open fun onViewAttachedToWindow() {
@@ -469,35 +496,27 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                 tabBarController.resumeBlurring()
             }
         }
-        if (isViewConfigured) {
-            isDisappeared = false
-            if (pendingThemeChange)
-                notifyThemeChanged()
-            return
-        }
-        isViewConfigured = true
-        // setup views is called in the containerView.onAttachedToWindow, already.
-        navigationBar?.bringToFront()
-        topBlurViewGuideline?.bringToFront()
     }
 
-    // Called after `setupViews` and `onViewAttachedToWindow`
+    private fun onViewSetupCompleted() {
+        isViewConfigured = true
+        navigationBar?.bringToFront()
+        topBlurViewGuideline?.bringToFront()
+        if (!isDisappeared) insetsUpdated()
+    }
+
     open fun didSetupViews() {
-        if (overrideShowTopBlurView ?: shouldDisplayTopBar)
-            addTopCornerRadius()
-        if (shouldDisplayBottomBar && !isInCenteredWindow)
-            addBottomCornerRadius()
+        if (overrideShowTopBlurView ?: shouldDisplayTopBar) addTopCornerRadius()
+        if (shouldDisplayBottomBar && !isInCenteredWindow) addBottomCornerRadius()
         updateBlurPaddings()
     }
 
     open fun viewWillAppear() {
         Logger.d(Logger.LogTag.SCREEN, "VCWillAppear: $TAG hash=${hashCode()}")
-        if (!isDisappeared)
-            return
+        if (!isDisappeared) return
         isDisappeared = false
-        if (pendingThemeChange)
-            notifyThemeChanged()
-        insetsUpdated()
+        if (pendingThemeChange) notifyThemeChanged()
+        if (isViewConfigured) insetsUpdated()
         topReversedCornerView?.resumeBlurring()
         bottomReversedCornerView?.resumeBlurring()
         isViewAppearanceAnimationInProgress = true
@@ -530,9 +549,8 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     //  - Window will replace it with another navigation controller
     open fun viewWillDisappear() {
         Logger.i(Logger.LogTag.SCREEN, "VCWillDisappear: $TAG ${hashCode()}")
-        if (isDisappeared)
-            return
-        view.hideKeyboard()
+        if (isDisappeared) return
+        if (shouldHideKeyboardOnDisappear) view.hideKeyboard()
         isDisappeared = true
         frameMonitor?.stopMonitoring()
     }
@@ -541,18 +559,18 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     open fun onViewDetachedFromWindow() {}
 
     open fun onDestroy() {
+        isDisappeared = true
         isDestroyed = true
         frameMonitor?.stopMonitoring()
         dismissActiveDialogs()
         view.removeAllViews()
     }
-    //////////////////////////////////////////////////
+    // ////////////////////////////////////////////////
 
     // Protect screen record
     var screenRecordProtectionView: ScreenRecordProtectionView? = null
     fun onScreenRecordStateChanged(isRecording: Boolean) {
-        if (!protectFromScreenRecord)
-            return
+        if (!protectFromScreenRecord) return
         if (isRecording) {
             presentScreenRecordProtectionView()
         } else {
@@ -572,15 +590,17 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
 
     private fun dismissScreenRecordProtectionView(proceed: Boolean) {
-        if (screenRecordProtectionView?.parent != null)
+        if (screenRecordProtectionView?.parent != null) {
             screenRecordProtectionView?.fadeOut {
                 // Double check if it's not recording yet
-                if (proceed || window?.isScreenRecordInProgress != true)
+                if (proceed || window?.isScreenRecordInProgress != true) {
                     view.removeView(screenRecordProtectionView)
+                }
                 screenRecordProtectionView = null
             }
+        }
     }
-    //////////////////////////////////////////////////
+    // ////////////////////////////////////////////////
 
     var pendingThemeChange = false
     private var _isDarkThemeApplied: Boolean? = null
@@ -592,15 +612,14 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         val themeChanged = ThemeManager.isDark != _isDarkThemeApplied || pendingThemeChange
         _isDarkThemeApplied = ThemeManager.isDark
         pendingThemeChange = false
-        if (themeChanged || isTinted)
-            updateTheme()
+        if (themeChanged || isTinted) updateTheme()
         updateThemeForChildren(view, onlyTintedViews = !themeChanged)
         syncBottomCornerRadius()
         if (themeChanged) {
             topReversedCornerView?.let { topReversedCornerView ->
                 view.setConstraints {
                     toTop(
-                        topReversedCornerView,
+                        topReversedCornerView
                     )
                     (topBlurViewGuideline ?: navigationBar)?.let {
                         bottomToBottom(
@@ -623,8 +642,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     override fun updateProtectedView() {}
 
     fun setupNavBar(shouldShow: Boolean, defaultHeight: Int = WNavigationBar.DEFAULT_HEIGHT) {
-        if (navigationController == null)
-            throw Exception()
+        if (navigationController == null) throw Exception()
         if (shouldShow) {
             if (navigationBar == null) {
                 navigationBar =
@@ -655,7 +673,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     open fun showError(error: MBridgeError?) {
         showAlert(
             LocaleController.getString("Error"),
-            (error ?: MBridgeError.UNKNOWN).toLocalized
+            (error ?: MBridgeError.Type.UNKNOWN).toLocalized
         )
     }
 
@@ -703,8 +721,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             context,
             topBarConfiguration
         )
-        if (ignoreSideGuttering)
-            topReversedCornerView?.setHorizontalPadding(0f)
+        if (ignoreSideGuttering) topReversedCornerView?.setHorizontalPadding(0f)
         view.addView(
             topReversedCornerView!!,
             ConstraintLayout.LayoutParams(
@@ -714,7 +731,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         )
         view.setConstraints {
             toTop(
-                topReversedCornerView!!,
+                topReversedCornerView!!
             )
             (topBlurViewGuideline ?: navigationBar)?.let {
                 bottomToBottom(
@@ -756,8 +773,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             additionalTabletPadding = isSplitDetailPanel
         )
         bottomReversedCornerView = bottomView
-        if (ignoreSideGuttering)
-            bottomView.setHorizontalPadding(0f)
+        if (ignoreSideGuttering) bottomView.setHorizontalPadding(0f)
         view.addView(
             bottomView,
             ConstraintLayout.LayoutParams(
@@ -798,7 +814,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         updateBlurViewsWithSettle(
             scrollable = recyclerView,
             isIdle = { recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE },
-            offset = { recyclerView.computeVerticalScrollOffset() },
+            offset = { recyclerView.computeVerticalScrollOffset() }
         )
     }
 
@@ -806,14 +822,14 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         updateBlurViewsWithSettle(
             scrollable = scrollView,
             isIdle = { scrollView.scrollState == WScrollView.SCROLL_STATE_IDLE },
-            offset = { scrollView.scrollY },
+            offset = { scrollView.scrollY }
         )
     }
 
     private fun updateBlurViewsWithSettle(
         scrollable: ViewGroup,
         isIdle: () -> Boolean,
-        offset: () -> Int,
+        offset: () -> Int
     ) {
         updateBlurViews(scrollable, offset())
         pendingOverScrollSettle?.let { overScrollSettleHandler.removeCallbacks(it) }
@@ -844,8 +860,11 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         } else {
             topReversedCornerView?.pauseBlurring(false)
             bottomReversedCornerView?.pauseBlurring()
-            if (navigationController?.tabBarController?.activeNavigationController == navigationController)
+            if (navigationController?.tabBarController?.activeNavigationController ==
+                navigationController
+            ) {
                 navigationController?.tabBarController?.pauseBlurring()
+            }
         }
     }
 
@@ -855,9 +874,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             return getModalHalfExpandedHeight() != null
         }
 
-    open fun getModalHalfExpandedHeight(): Int? {
-        return null
-    }
+    open fun getModalHalfExpandedHeight(): Int? = null
 
     protected var modalExpandOffset: Int? = null
     protected var modalExpandProgress: Float? = null
@@ -908,28 +925,70 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     private var isHeavyAnimationIsProgress = false
     fun heavyAnimationInProgress() {
-        if (isHeavyAnimationIsProgress)
-            return
+        if (isHeavyAnimationIsProgress) return
         isHeavyAnimationIsProgress = true
         WGlobalStorage.incDoNotSynchronize()
     }
 
     fun heavyAnimationDone() {
-        if (!isHeavyAnimationIsProgress)
-            return
+        if (!isHeavyAnimationIsProgress) return
         isHeavyAnimationIsProgress = false
         WGlobalStorage.decDoNotSynchronize()
+    }
+
+    // Snapshots the current content, applies `update` (e.g. replacing the nav root), then
+    // cross-fades: the snapshot fades out on top of the new content while `fadeInView`
+    // (resolved after `update`, since it may not exist before) optionally fades in under it.
+    @SuppressLint("ClickableViewAccessibility")
+    fun updateWithCrossFade(
+        duration: Long = AnimationConstants.QUICK_ANIMATION,
+        fadeInView: (() -> View?)? = null,
+        update: () -> Unit
+    ) {
+        val container = navigationController
+        if (container == null ||
+            view.width <= 0 || view.height <= 0 ||
+            !WGlobalStorage.getAreAnimationsActive()
+        ) {
+            update()
+            return
+        }
+
+        val bitmap = createBitmap(view.width, view.height)
+        view.draw(Canvas(bitmap))
+        val snapshotView = ImageView(context).apply {
+            setImageBitmap(bitmap)
+            scaleType = ImageView.ScaleType.FIT_XY
+            setOnTouchListener { _, _ -> true }
+        }
+
+        update()
+
+        container.addView(
+            snapshotView,
+            ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        )
+        fadeInView?.invoke()?.let {
+            it.alpha = 0f
+            it.fadeIn(duration)
+        }
+        snapshotView.fadeOut(duration) {
+            container.removeView(snapshotView)
+            bitmap.recycle()
+        }
     }
 
     private fun switchToDisplayedAccountId() {
         val displayedAccount = this@WViewController.displayedAccount ?: return
         val displayedAccountId = displayedAccount.accountId ?: return
         // Check if displayed account will be activated
-        if (WalletCore.nextAccountId == displayedAccountId)
-            return
+        if (WalletCore.nextAccountId == displayedAccountId) return
         // Check if displayed account is already activated
-        if (WalletCore.nextAccountId == null && AccountStore.activeAccountId == displayedAccountId)
+        if (WalletCore.nextAccountId == null &&
+            AccountStore.activeAccountId == displayedAccountId
+        ) {
             return
+        }
         if (!WGlobalStorage.accountExists(displayedAccountId)) {
             if (WGlobalStorage.accountIds().isEmpty()) {
                 // Resetting accounts is in progress; should not pop.
@@ -946,7 +1005,13 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             isPushedTemporary = displayedAccount.isPushedTemporary
         ) { activeAccount, err ->
             if (activeAccount == null || err != null) {
-                throw Error()
+                if (err?.type == MBridgeError.Type.BRIDGE_INTERRUPTED) return@activateAccount
+                Logger.e(
+                    Logger.LogTag.ACCOUNT,
+                    "switchToDisplayedAccountId: Failed account=$displayedAccountId err=$err"
+                )
+                WalletContextManager.delegate?.get()?.restartApp()
+                return@activateAccount
             }
             WalletCore.notifyEvent(
                 WalletEvent.AccountChangedInApp(
@@ -967,7 +1032,7 @@ fun WViewController.showAlert(
     secondaryButtonPressed: (() -> Unit)? = null,
     preferPrimary: Boolean = true,
     primaryIsDanger: Boolean = false,
-    allowLinkInText: Boolean = false,
+    allowLinkInText: Boolean = false
 ): WDialog {
     val dialog = WDialog(
         customView = FrameLayout(context).apply {
@@ -989,23 +1054,34 @@ fun WViewController.showAlert(
                 this.text = text
                 updateTheme()
             }
-            addView(messageLabel, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                marginStart = 24.dp
-                marginEnd = 24.dp
-            })
-        }, WDialog.Config(
+            addView(
+                messageLabel,
+                FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    marginStart = 24.dp
+                    marginEnd = 24.dp
+                }
+            )
+        },
+        WDialog.Config(
             title,
             actionButton = WDialogButton.Config(
                 title = button,
                 onTap = buttonPressed,
-                style = if (primaryIsDanger) WDialogButton.Config.Style.DANGER else
-                    if (preferPrimary) WDialogButton.Config.Style.PREFERRED else WDialogButton.Config.Style.NORMAL
+                style = when {
+                    primaryIsDanger -> WDialogButton.Config.Style.DANGER
+                    preferPrimary -> WDialogButton.Config.Style.PREFERRED
+                    else -> WDialogButton.Config.Style.NORMAL
+                }
             ),
-            secondaryButton = if (secondaryButton != null) WDialogButton.Config(
-                title = secondaryButton,
-                onTap = secondaryButtonPressed,
-                style = WDialogButton.Config.Style.NORMAL
-            ) else null
+            secondaryButton = if (secondaryButton != null) {
+                WDialogButton.Config(
+                    title = secondaryButton,
+                    onTap = secondaryButtonPressed,
+                    style = WDialogButton.Config.Style.NORMAL
+                )
+            } else {
+                null
+            }
         )
     )
     dialog.presentOn(this)
@@ -1014,9 +1090,11 @@ fun WViewController.showAlert(
 
 fun WViewController.executeWithLowPriority(block: () -> Unit) {
     Handler(Looper.getMainLooper()).postDelayed({
-        Looper.myQueue().addIdleHandler(IdleHandler {
-            block()
-            false
-        })
+        Looper.myQueue().addIdleHandler(
+            IdleHandler {
+                block()
+                false
+            }
+        )
     }, 100)
 }

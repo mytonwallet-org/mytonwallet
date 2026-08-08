@@ -105,6 +105,19 @@ public struct MtwCardBalanceView: View, Equatable {
             sensitiveDataTheme: .adaptive,
         )
 
+        public static let homeNavigationBarCollapsed = Style(
+            id: "homeNavigationBarCollapsed",
+            integerFont: .compactRounded(ofSize: 48, weight: .bold),
+            fractionFont: .compactRounded(ofSize: 32, weight: .bold),
+            symbolFont: .compactRounded(ofSize: 40, weight: .bold),
+            integerColor: UIColor.label,
+            fractionColor: .air.secondaryLabel,
+            symbolColor: .air.secondaryLabel,
+            showChevron: true,
+            sensitiveDataCellSize: 15,
+            sensitiveDataTheme: .adaptive,
+        )
+
         public static let customizeWalletCard = Style(
             id: "customizeWalletCard",
             integerFont: .compactRounded(ofSize: 46, weight: .bold),
@@ -197,6 +210,7 @@ public struct MtwCardBalanceView: View, Equatable {
                     .accessibilityHidden(true)
             }
         }
+        .environment(\.layoutDirection, .leftToRight)
         .backportGeometryGroup()
         .minimumScaleFactor(0.1)
         .sensitiveData(

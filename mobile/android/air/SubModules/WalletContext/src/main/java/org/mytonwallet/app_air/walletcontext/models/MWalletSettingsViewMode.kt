@@ -5,8 +5,7 @@ enum class MWalletSettingsViewMode(val value: String) {
     LIST("list");
 
     companion object {
-        fun fromValue(value: String?): MWalletSettingsViewMode? {
-            return entries.firstOrNull { it.value == value }
-        }
+        fun fromValue(value: String?): MWalletSettingsViewMode? =
+            entries.firstOrNull { it.value == value }
     }
 }

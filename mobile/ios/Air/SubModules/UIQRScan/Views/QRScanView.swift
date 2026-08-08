@@ -52,8 +52,8 @@ final class QRScanView: UIView {
         previewView.backgroundColor = .black
         addSubview(previewView)
         NSLayoutConstraint.activate([
-            previewView.leftAnchor.constraint(equalTo: leftAnchor),
-            previewView.rightAnchor.constraint(equalTo: rightAnchor),
+            previewView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            previewView.trailingAnchor.constraint(equalTo: trailingAnchor),
             previewView.topAnchor.constraint(equalTo: topAnchor),
             previewView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
@@ -72,13 +72,13 @@ final class QRScanView: UIView {
         }
 
         NSLayoutConstraint.activate([
-            topDimView.leftAnchor.constraint(equalTo: leftAnchor),
-            topDimView.rightAnchor.constraint(equalTo: rightAnchor),
+            topDimView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            topDimView.trailingAnchor.constraint(equalTo: trailingAnchor),
             topDimView.topAnchor.constraint(equalTo: topAnchor),
             topDimView.bottomAnchor.constraint(equalTo: focusView.topAnchor),
 
-            bottomDimView.leftAnchor.constraint(equalTo: leftAnchor),
-            bottomDimView.rightAnchor.constraint(equalTo: rightAnchor),
+            bottomDimView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bottomDimView.trailingAnchor.constraint(equalTo: trailingAnchor),
             bottomDimView.topAnchor.constraint(equalTo: focusView.bottomAnchor),
             bottomDimView.bottomAnchor.constraint(equalTo: bottomAnchor),
 

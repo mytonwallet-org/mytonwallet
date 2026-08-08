@@ -16,23 +16,23 @@ private let log = Log("DebugView")
 
 
 struct DebugView: View {
-    
-    @State private var showDeleteAllAlert: Bool = false
+
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
     @AppStorage(DebugProductionMode.userDefaultsKey) private var forceProductionMode = false
-    @AppStorage(DebugMfaEnabledOverride.userDefaultsKey) private var forceMfaEnabled = false
 #if DEBUG
     @AppStorage(DebugBypassLockscreen.userDefaultsKey) private var bypassLockscreen = false
     @AppStorage(DebugPromotionPreset.userDefaultsKey) private var showAirPromotionPreset = false
 #endif
-    @State private var isLimitedOverride: Bool? = ConfigStore.shared.isLimitedOverride
-    @State private var seasonalThemeOverride: ApiUpdate.UpdateConfig.SeasonalTheme? = ConfigStore.shared.seasonalThemeOverride
 
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
             List {
+
+                if IS_DEBUG_OR_TESTFLIGHT_DEFAULT {
+                    testFlightOnlySections
+                }
                 
                 Section {
                     Button("Share logs") {
@@ -77,84 +77,6 @@ struct DebugView: View {
                     }
                 } footer: {
                     Text(lang("Token approvals and wallet permissions"))
-                }
-                
-                // MARK: - TestFlight or debug
-                
-                if IS_DEBUG_OR_TESTFLIGHT_DEFAULT {
-
-                    Text("TestFlight Only")
-                        .header(.purple)
-
-                    Section {
-                        Toggle("View as production", isOn: $forceProductionMode)
-                    } footer: {
-                        Text("Makes `IS_DEBUG_OR_TESTFLIGHT` return false. Restart the app to apply it to startup-only behavior.")
-                    }
-
-                    Section {
-                        Button(lang("$agent_consent_debug_reset_button")) {
-                            log.info("Reset Agent consent state")
-                            AirDebugActions.resetAgentConsentState()
-                            dismiss()
-                        }
-                    } footer: {
-                        Text(lang("$agent_consent_debug_reset_footer"))
-                    }
-
-                    Section {
-                        Button("Force Intro") {
-                            log.info("Force Intro")
-                            dismiss()
-                            Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(250))
-                                AirDebugActions.forceIntro()
-                            }
-                        }
-                    } footer: {
-                        Text("Launches the intro flow for testing with existing accounts.")
-                    }
-
-                    Section {
-                        Toggle("Force enable MFA", isOn: $forceMfaEnabled)
-
-                        Picker("Is Limited Override", selection: $isLimitedOverride) {
-                            Text("Disabled")
-                                .tag(Optional<Bool>.none)
-                            Text("True")
-                                .tag(Optional(true))
-                            Text("False")
-                                .tag(Optional(false))
-                        }
-                        .pickerStyle(.navigationLink)
-
-                        Picker("Seasonal Theme Override", selection: $seasonalThemeOverride) {
-                            Text("Disabled")
-                                .tag(Optional<ApiUpdate.UpdateConfig.SeasonalTheme>.none)
-                            ForEach(ApiUpdate.UpdateConfig.SeasonalTheme.allCases, id: \.self) { seasonalTheme in
-                                Text(seasonalTheme.rawValue)
-                                    .tag(Optional(seasonalTheme))
-                            }
-                        }
-                        .pickerStyle(.navigationLink)
-                    } header: {
-                        Text("Config")
-                    }
-                    .onAppear {
-                        isLimitedOverride = ConfigStore.shared.isLimitedOverride
-                        seasonalThemeOverride = ConfigStore.shared.seasonalThemeOverride
-                    }
-                    .onChange(of: isLimitedOverride) { isLimitedOverride in
-                        ConfigStore.shared.isLimitedOverride = isLimitedOverride
-                    }
-                    .onChange(of: seasonalThemeOverride) { seasonalThemeOverride in
-                        ConfigStore.shared.seasonalThemeOverride = seasonalThemeOverride
-                    }
-                    .onChange(of: forceMfaEnabled) { _ in
-                        Task { @MainActor in
-                            AccountConfigStore.liveValue.refreshDebugOverrides()
-                        }
-                    }
                 }
                 
                 Section {
@@ -260,6 +182,51 @@ struct DebugView: View {
             .navigationBarItems(trailing: Button("", systemImage: "xmark", action: { dismiss() }))
         }
     }
+
+    @ViewBuilder
+    private var testFlightOnlySections: some View {
+        Text("TestFlight Only")
+            .header(.purple)
+
+        DrawerCloseControlExperimentPicker()
+
+        DrawerAnimationExperimentSection()
+
+        TopTabsNavigationExperimentPicker()
+
+        WalletTokenPercentChangeThresholdExperimentPicker()
+
+        Section {
+            Toggle("View as production", isOn: $forceProductionMode)
+        } footer: {
+            Text("Makes `IS_DEBUG_OR_TESTFLIGHT` return false. Restart the app to apply it to startup-only behavior.")
+        }
+
+        Section {
+            Button(lang("$agent_consent_debug_reset_button")) {
+                log.info("Reset Agent consent state")
+                AirDebugActions.resetAgentConsentState()
+                dismiss()
+            }
+        } footer: {
+            Text(lang("$agent_consent_debug_reset_footer"))
+        }
+
+        Section {
+            Button("Force Intro") {
+                log.info("Force Intro")
+                dismiss()
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    AirDebugActions.forceIntro()
+                }
+            }
+        } footer: {
+            Text("Launches the intro flow for testing with existing accounts.")
+        }
+
+        TestFlightConfigDebugSection()
+    }
     
     func onLogExport() async {
         do {
@@ -269,7 +236,255 @@ struct DebugView: View {
                 topViewController()?.presentActivityViewController(vc)
             }
         } catch {
-            Log.shared.fault("failed to share logs \(error, .public)")
+            Log.shared.error("failed to share logs \(error, .public)")
+        }
+    }
+}
+
+private struct DrawerAnimationExperimentSection: View {
+    @AppStorage(DrawerAnimationExperiment.exposedMainWidthUserDefaultsKey)
+    private var exposedMainWidth = DrawerAnimationExperiment.defaultExposedMainWidth
+    @AppStorage(DrawerAnimationExperiment.parallaxFactorUserDefaultsKey)
+    private var parallaxFactor = DrawerAnimationExperiment.defaultParallaxFactor
+    @AppStorage(DrawerAnimationExperiment.minimumScaleUserDefaultsKey)
+    private var minimumScale = DrawerAnimationExperiment.defaultMinimumScale
+    @AppStorage(DrawerAnimationExperiment.openMainContentOpacityUserDefaultsKey)
+    private var openMainContentOpacity = DrawerAnimationExperiment.defaultOpenMainContentOpacity
+    @AppStorage(DrawerAnimationExperiment.minimumDrawerOpacityUserDefaultsKey)
+    private var minimumDrawerOpacity = DrawerAnimationExperiment.defaultMinimumDrawerOpacity
+    @AppStorage(DrawerAnimationExperiment.transitionDurationUserDefaultsKey)
+    private var transitionDuration = DrawerAnimationExperiment.defaultTransitionDuration
+    @AppStorage(DrawerAnimationExperiment.minimumTransitionDurationUserDefaultsKey)
+    private var minimumTransitionDuration = DrawerAnimationExperiment.defaultMinimumTransitionDuration
+    @AppStorage(DrawerAnimationExperiment.springDampingRatioUserDefaultsKey)
+    private var springDampingRatio = DrawerAnimationExperiment.defaultSpringDampingRatio
+    @AppStorage(DrawerAnimationExperiment.overscrollReturnDurationUserDefaultsKey)
+    private var overscrollReturnDuration = DrawerAnimationExperiment.defaultOverscrollReturnDuration
+
+    var body: some View {
+        Group {
+            Section {
+                Stepper(value: $exposedMainWidth, in: 16...160, step: 1) {
+                    valueRow("Visible Main Content", value: "\(Int(exposedMainWidth)) pt")
+                }
+
+                Stepper(value: $parallaxFactor, in: 0...0.3, step: 0.01) {
+                    valueRow("Drawer Parallax", value: percent(parallaxFactor))
+                }
+
+                Stepper(value: $minimumScale, in: 0.85...1, step: 0.005) {
+                    valueRow("Drawer Starting Scale", value: percent(minimumScale, fractionLength: 1))
+                }
+
+                Stepper(value: $openMainContentOpacity, in: 0...1, step: 0.01) {
+                    valueRow("Open Main Opacity", value: percent(openMainContentOpacity))
+                }
+
+                Stepper(value: $minimumDrawerOpacity, in: 0...1, step: 0.01) {
+                    valueRow("Drawer Starting Opacity", value: percent(minimumDrawerOpacity))
+                }
+            } header: {
+                Text("Drawer Presentation")
+            } footer: {
+                Text("Values update the current experimental drawer immediately. Starting values apply at the beginning of its reveal transition and animate to 100%.")
+            }
+
+            Section {
+                Stepper(value: $transitionDuration, in: 0.1...1, step: 0.01) {
+                    valueRow("Full Duration", value: seconds(transitionDuration))
+                }
+
+                Stepper(value: $minimumTransitionDuration, in: 0.05...0.5, step: 0.01) {
+                    valueRow("Minimum Settle", value: seconds(minimumTransitionDuration))
+                }
+
+                Stepper(value: $springDampingRatio, in: 0.5...1, step: 0.01) {
+                    valueRow("Spring Damping", value: decimal(springDampingRatio))
+                }
+
+                Stepper(value: $overscrollReturnDuration, in: 0.1...0.8, step: 0.01) {
+                    valueRow("Overscroll Return", value: seconds(overscrollReturnDuration))
+                }
+
+                Button("Reset Drawer Settings") {
+                    DrawerAnimationExperiment.reset()
+                }
+            } header: {
+                Text("Drawer Animation")
+            } footer: {
+                Text("The spring uses gesture velocity. Full duration is scaled by the remaining transition distance, with Minimum Settle as its lower bound.")
+            }
+        }
+        .onChange(of: exposedMainWidth) { _ in notifyDidChange() }
+        .onChange(of: parallaxFactor) { _ in notifyDidChange() }
+        .onChange(of: minimumScale) { _ in notifyDidChange() }
+        .onChange(of: openMainContentOpacity) { _ in notifyDidChange() }
+        .onChange(of: minimumDrawerOpacity) { _ in notifyDidChange() }
+        .onChange(of: transitionDuration) { _ in notifyDidChange() }
+        .onChange(of: minimumTransitionDuration) { _ in notifyDidChange() }
+        .onChange(of: springDampingRatio) { _ in notifyDidChange() }
+        .onChange(of: overscrollReturnDuration) { _ in notifyDidChange() }
+    }
+
+    private func valueRow(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+    }
+
+    private func percent(_ value: Double, fractionLength: Int = 0) -> String {
+        value.formatted(.percent.precision(.fractionLength(fractionLength)))
+    }
+
+    private func decimal(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(2)))
+    }
+
+    private func seconds(_ value: Double) -> String {
+        "\(decimal(value)) s"
+    }
+
+    private func notifyDidChange() {
+        DrawerAnimationExperiment.notifyDidChange()
+    }
+}
+
+private struct DrawerCloseControlExperimentPicker: View {
+    @AppStorage(DrawerCloseControlExperiment.variantUserDefaultsKey)
+    private var selection = DrawerCloseControlExperiment.initialVariantRawValue
+
+    var body: some View {
+        Section {
+            Picker("Drawer Close Control", selection: $selection) {
+                ForEach(DrawerCloseControlExperiment.Variant.allCases) { variant in
+                    Text(variant.title).tag(variant.rawValue)
+                }
+            }
+        } footer: {
+            Text("Selects either the standard close button or the currently open main tab title for dismissing the experimental Settings drawer.")
+        }
+        .onChange(of: selection) { _ in
+            DrawerCloseControlExperiment.notifyDidChange()
+        }
+    }
+}
+
+private struct TopTabsNavigationExperimentPicker: View {
+    @AppStorage(TopTabsNavigationExperiment.variantUserDefaultsKey)
+    private var selection = TopTabsNavigationExperiment.initialVariantRawValue
+
+    var body: some View {
+        Section {
+            Picker("Top Tabs Navigation", selection: $selection) {
+                ForEach(TopTabsNavigationExperiment.Variant.allCases) { variant in
+                    Text(variant.title).tag(variant.rawValue)
+                }
+            }
+        } footer: {
+            Text("Selects the experimental swipeable compact-width root navigation layout. Regular-width sidebar navigation is unchanged.")
+        }
+        .onChange(of: selection) { _ in
+            TopTabsNavigationExperiment.notifyDidChange()
+        }
+    }
+}
+
+private struct WalletTokenPercentChangeThresholdExperimentPicker: View {
+    @AppStorage(WalletTokenPercentChangeThresholdExperiment.userDefaultsKey)
+    private var selection = WalletTokenPercentChangeThresholdExperiment.initialPresetRawValue
+
+    var body: some View {
+        Section {
+            Picker("Token Row % Threshold", selection: $selection) {
+                ForEach(WalletTokenPercentChangeThresholdExperiment.Preset.allCases) { preset in
+                    Text(preset.title).tag(preset.rawValue)
+                }
+            }
+        } footer: {
+            Text("Hides 24-hour percentage changes in wallet token rows when their absolute value is below the selected threshold. Off preserves the current behavior.")
+        }
+        .onChange(of: selection) { _ in
+            WalletCoreData.notify(event: .tokensChanged)
+        }
+    }
+}
+
+private struct TestFlightConfigDebugSection: View {
+    @AppStorage(DebugMfaEnabledOverride.userDefaultsKey) private var forceMfaEnabled = false
+    @AppStorage(DebugTokenInfoMock.userDefaultsKey)
+    private var tokenInfoMockPreset = DebugTokenInfoMock.Preset.disabled.rawValue
+
+    @State private var isLimitedOverride: Bool? = ConfigStore.shared.isLimitedOverride
+    @State private var seasonalThemeOverride: ApiUpdate.UpdateConfig.SeasonalTheme? =
+        ConfigStore.shared.seasonalThemeOverride
+
+    var body: some View {
+        Section {
+            Toggle("Force enable MFA", isOn: $forceMfaEnabled)
+
+            Picker(lang("Token Info Mock"), selection: $tokenInfoMockPreset) {
+                Text(lang("Disabled"))
+                    .tag(DebugTokenInfoMock.Preset.disabled.rawValue)
+                Text(lang("Design"))
+                    .tag(DebugTokenInfoMock.Preset.design.rawValue)
+                Text(lang("Localized Description"))
+                    .tag(DebugTokenInfoMock.Preset.localizedDescription.rawValue)
+                Text(lang("Long / Sparse"))
+                    .tag(DebugTokenInfoMock.Preset.longSparse.rawValue)
+                Text(lang("Loading"))
+                    .tag(DebugTokenInfoMock.Preset.loading.rawValue)
+                Text(lang("Missing Description"))
+                    .tag(DebugTokenInfoMock.Preset.missingDescription.rawValue)
+                Text(lang("Missing Token Info"))
+                    .tag(DebugTokenInfoMock.Preset.missingTokenInfo.rawValue)
+                Text(lang("Error"))
+                    .tag(DebugTokenInfoMock.Preset.error.rawValue)
+            }
+            .pickerStyle(.navigationLink)
+
+            Picker("Is Limited Override", selection: $isLimitedOverride) {
+                Text("Disabled")
+                    .tag(Optional<Bool>.none)
+                Text("True")
+                    .tag(Optional(true))
+                Text("False")
+                    .tag(Optional(false))
+            }
+            .pickerStyle(.navigationLink)
+
+            Picker("Seasonal Theme Override", selection: $seasonalThemeOverride) {
+                Text("Disabled")
+                    .tag(Optional<ApiUpdate.UpdateConfig.SeasonalTheme>.none)
+                ForEach(ApiUpdate.UpdateConfig.SeasonalTheme.allCases, id: \.self) { seasonalTheme in
+                    Text(seasonalTheme.rawValue)
+                        .tag(Optional(seasonalTheme))
+                }
+            }
+            .pickerStyle(.navigationLink)
+        } header: {
+            Text("Config")
+        }
+        .onAppear {
+            isLimitedOverride = ConfigStore.shared.isLimitedOverride
+            seasonalThemeOverride = ConfigStore.shared.seasonalThemeOverride
+        }
+        .onChange(of: isLimitedOverride) { isLimitedOverride in
+            ConfigStore.shared.isLimitedOverride = isLimitedOverride
+        }
+        .onChange(of: seasonalThemeOverride) { seasonalThemeOverride in
+            ConfigStore.shared.seasonalThemeOverride = seasonalThemeOverride
+        }
+        .onChange(of: forceMfaEnabled) { _ in
+            Task { @MainActor in
+                AccountConfigStore.liveValue.refreshDebugOverrides()
+            }
+        }
+        .onChange(of: tokenInfoMockPreset) { _ in
+            WalletCoreData.notify(event: .configChanged)
         }
     }
 }
@@ -278,7 +493,7 @@ private extension View {
     func header(_ color: Color) -> some View {
         self
             .foregroundStyle(color)
-            .font(.title2.weight(.bold))
+            .textStyle(.title2Strong)
             .listRowBackground(Color.clear)
             .offset(y: 8)
     }
@@ -530,19 +745,19 @@ private struct DebugAccountRowView: View {
                     .font(.headline.monospaced())
                 Spacer(minLength: 8)
                 Text(row.statusTitle)
-                    .font(.caption.weight(.semibold))
+                    .textStyle(.captionStrong)
                     .foregroundStyle(statusColor)
             }
 
             if !row.dbSummary.isEmpty {
                 Text("DB: \(row.dbSummary.joined(separator: " | "))")
-                    .font(.caption)
+                    .textStyle(.caption, content: .technical)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
             if !row.keychainSummary.isEmpty {
                 Text("Keychain: \(row.keychainSummary.joined(separator: " | "))")
-                    .font(.caption)
+                    .textStyle(.caption, content: .technical)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -568,8 +783,14 @@ private struct DebugKeyValueRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
+                .textStyle(.body, scaling: .dynamic)
             Spacer(minLength: 16)
             Text(value)
+                .textStyle(
+                    .body,
+                    content: .technical,
+                    scaling: .dynamic
+                )
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)

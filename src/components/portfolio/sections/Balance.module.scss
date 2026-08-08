@@ -44,6 +44,11 @@
   color: var(--color-gray-2);
 }
 
+.valueChange,
+.value {
+  unicode-bidi: plaintext;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;

@@ -2,10 +2,10 @@ package org.mytonwallet.app_air.walletcore.api
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Types
-import org.json.JSONObject
-import org.mytonwallet.app_air.walletcore.WalletCore
 import java.lang.reflect.Type
 import java.math.BigInteger
+import org.json.JSONObject
+import org.mytonwallet.app_air.walletcore.WalletCore
 
 class ArgumentsBuilder {
     private val args = mutableListOf<String>()
@@ -74,7 +74,5 @@ class ArgumentsBuilder {
         return this
     }
 
-    fun build(): String {
-        return args.joinToString(",", prefix = "[", postfix = "]")
-    }
+    fun build(): String = args.joinToString(",", prefix = "[", postfix = "]")
 }

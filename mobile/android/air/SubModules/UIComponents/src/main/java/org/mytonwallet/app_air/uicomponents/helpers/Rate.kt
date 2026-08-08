@@ -1,14 +1,11 @@
 package org.mytonwallet.app_air.uicomponents.helpers
 
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 
-data class Rate(
-    val sendAmount: BigDecimal,
-    val receiveAmount: BigDecimal,
-) {
+data class Rate(val sendAmount: BigDecimal, val receiveAmount: BigDecimal) {
 
     fun fmtSend(symbol: String?, decimals: Int?, round: Boolean) =
         fmt(sendAmount, symbol, decimals, round)
@@ -27,10 +24,7 @@ data class Rate(
             return symbol?.let { "$amountFmt $it" } ?: amountFmt
         }
 
-        fun build(
-            sendAmount: BigDecimal,
-            receiveAmount: BigDecimal
-        ): Rate {
+        fun build(sendAmount: BigDecimal, receiveAmount: BigDecimal): Rate {
             if (receiveAmount.compareTo(BigDecimal.ZERO) == 0 || receiveAmount == BigInteger.ZERO) {
                 return Rate(sendAmount = BigDecimal.ZERO, receiveAmount = BigDecimal.ONE)
             }

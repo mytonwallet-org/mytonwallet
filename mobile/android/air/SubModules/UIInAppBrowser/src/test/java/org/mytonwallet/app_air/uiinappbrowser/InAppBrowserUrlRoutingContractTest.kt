@@ -9,14 +9,16 @@ class InAppBrowserUrlRoutingContractTest {
     fun browserWalletOfframpDeeplinksAreConsumedBeforeDelegate() {
         val handledSources = mutableListOf<String>()
 
-        val mtwDecision = resolveRouting("mtw://offramp?depositWalletAddress=UQAddress") { _, source ->
-            handledSources.add(source.toString())
-            false
-        }
-        val gramDecision = resolveRouting("gramwallet://offramp?depositWalletAddress=UQAddress") { _, source ->
-            handledSources.add(source.toString())
-            false
-        }
+        val mtwDecision =
+            resolveRouting("mtw://offramp?depositWalletAddress=UQAddress") { _, source ->
+                handledSources.add(source.toString())
+                false
+            }
+        val gramDecision =
+            resolveRouting("gramwallet://offramp?depositWalletAddress=UQAddress") { _, source ->
+                handledSources.add(source.toString())
+                false
+            }
 
         assertEquals("CONSUME", mtwDecision)
         assertEquals("CONSUME", gramDecision)
@@ -73,7 +75,5 @@ class InAppBrowserUrlRoutingContractTest {
     private fun resolveRouting(
         url: String,
         handleDeeplink: (String, DeeplinkOpenSource) -> Boolean
-    ): String {
-        return InAppBrowserUrlRoutingDecision.resolve(url, handleDeeplink).toString()
-    }
+    ): String = InAppBrowserUrlRoutingDecision.resolve(url, handleDeeplink).toString()
 }

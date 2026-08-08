@@ -1,8 +1,6 @@
 import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { GlobalState } from '../../global/types';
-
 import { WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION } from '../../config';
 import { getIsFaceIdAvailable } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -38,7 +36,7 @@ interface OwnProps {
   onLogOutClick?: NoneToVoidFunction;
 }
 
-type StateProps = Pick<GlobalState['settings'], 'authConfig'> & {
+interface StateProps {
   isPinAccepted?: boolean;
 };
 

@@ -150,14 +150,17 @@ function useActiveTabCentering(activeTab: number, container?: HTMLDivElement) {
       return;
     }
 
-    const { offsetLeft: activeTabOffsetLeft, offsetWidth: activeTabOffsetWidth } = activeTabElement;
-    const newLeft = activeTabOffsetLeft - (offsetWidth / 2) + (activeTabOffsetWidth / 2);
+    // Use viewport rects so the math is direction-agnostic: in RTL `scrollLeft` is negative and
+    // `offsetLeft` semantics vary across browsers
+    const containerRect = container.getBoundingClientRect();
+    const tabRect = activeTabElement.getBoundingClientRect();
+    const offsetFromCenter = (tabRect.left + tabRect.width / 2) - (containerRect.left + containerRect.width / 2);
 
     // Prevent scrolling by only a couple of pixels, which doesn't look smooth
-    if (Math.abs(newLeft - scrollLeft) < TAB_SCROLL_THRESHOLD_PX) {
+    if (Math.abs(offsetFromCenter) < TAB_SCROLL_THRESHOLD_PX) {
       return;
     }
 
-    void animateHorizontalScroll(container, newLeft, SCROLL_DURATION);
+    void animateHorizontalScroll(container, scrollLeft + offsetFromCenter, SCROLL_DURATION);
   }, [activeTab, container]);
 }

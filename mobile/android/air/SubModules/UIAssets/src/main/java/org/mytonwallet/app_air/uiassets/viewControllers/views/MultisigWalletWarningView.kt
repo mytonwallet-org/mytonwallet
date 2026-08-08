@@ -25,8 +25,11 @@ class MultisigWalletWarningView(context: Context) :
     companion object {
         private fun helpUrl(): String {
             val ctx = ApplicationContextHolder.applicationContext
-            val resId = if (WGlobalStorage.getLangCode() == "ru") BaseR.string.app_help_scam_url_ru
-            else BaseR.string.app_help_scam_url_en
+            val resId = if (WGlobalStorage.getLangCode() == "ru") {
+                BaseR.string.app_help_scam_url_ru
+            } else {
+                BaseR.string.app_help_scam_url_en
+            }
             return ctx.getString(resId).ifEmpty { ctx.getString(BaseR.string.app_help_scam_url_en) }
         }
     }
@@ -44,10 +47,10 @@ class MultisigWalletWarningView(context: Context) :
         val linkSpannable = SpannableStringBuilder(link).apply {
             setSpan(
                 WClickableSpan(url) {
-                    if (url.isNotEmpty())
-                        WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
+                    if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
                 },
-                0, length,
+                0,
+                length,
                 SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
@@ -60,11 +63,14 @@ class MultisigWalletWarningView(context: Context) :
         ).toProcessedSpannableStringBuilder()
 
         text = SpannableStringBuilder(
-            LocaleController.getString("Multisig Wallet Detected").toProcessedSpannableStringBuilder()
+            LocaleController.getString(
+                "Multisig Wallet Detected"
+            ).toProcessedSpannableStringBuilder()
         ).apply {
             setSpan(
                 android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
-                0, length,
+                0,
+                length,
                 SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE
             )
             append("\n")

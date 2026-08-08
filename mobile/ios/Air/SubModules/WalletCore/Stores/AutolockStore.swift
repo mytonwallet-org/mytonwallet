@@ -6,8 +6,6 @@ import Kingfisher
 
 public let DEFAULT_AUTOLOCK_OPTION = MAutolockOption.never
 
-private let log = Log("AutolockStore")
-
 @MainActor
 public final class AutolockStore: NSObject, Sendable {
 

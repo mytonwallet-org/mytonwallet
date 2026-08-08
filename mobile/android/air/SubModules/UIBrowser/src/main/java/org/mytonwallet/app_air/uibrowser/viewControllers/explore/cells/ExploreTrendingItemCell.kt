@@ -30,15 +30,14 @@ class ExploreTrendingItemCell(
     context: Context,
     cellWidth: Int,
     val site: MExploreSite,
-    private val onSiteTap: (site: MExploreSite) -> Unit,
-) :
-    WView(
-        context,
-        LayoutParams(
-            if (site.extendedIcon.isNotBlank()) cellWidth * 2 else cellWidth,
-            if (site.extendedIcon.isNotBlank()) cellWidth + 14.dp else cellWidth + 6.dp
-        )
-    ),
+    private val onSiteTap: (site: MExploreSite) -> Unit
+) : WView(
+    context,
+    LayoutParams(
+        if (site.extendedIcon.isNotBlank()) cellWidth * 2 else cellWidth,
+        if (site.extendedIcon.isNotBlank()) cellWidth + 14.dp else cellWidth + 6.dp
+    )
+),
     WThemedView {
 
     private val imageView = WCustomImageView(context).apply {
@@ -71,7 +70,7 @@ class ExploreTrendingItemCell(
     }
 
     private val verifiedDrawable = titleLabel.context.requireDrawableCompat(
-        org.mytonwallet.app_air.uicomponents.R.drawable.ic_verified
+        org.mytonwallet.app_air.icons.R.drawable.ic_verified
     ).apply {
         setBounds(0, 1.dp, 13.dp, 14.dp)
     }
@@ -88,8 +87,10 @@ class ExploreTrendingItemCell(
         addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         setConstraints {
             toTop(titleLabel)
+            toStart(titleLabel)
             topToBottom(subtitleLabel, titleLabel)
             toBottom(subtitleLabel, 1f)
+            toStart(subtitleLabel)
         }
     }
 
@@ -147,13 +148,14 @@ class ExploreTrendingItemCell(
     override fun setupViews() {
         super.setupViews()
 
-        setPadding(10.dp, 0.dp, 0.dp, 16.dp)
+        setPaddingRelative(10.dp, 0.dp, 0.dp, 16.dp)
         addView(contentView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         if (site.withBorder) {
             contentView.setPadding(1.dp, 1.dp, 1.dp, 1.dp)
         }
-        if (site.badgeText.isNotBlank())
+        if (site.badgeText.isNotBlank()) {
             addView(badgeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        }
         setConstraints {
             toTop(contentView, 6f)
             toBottom(contentView)

@@ -4,9 +4,11 @@ import android.content.Context
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
@@ -22,20 +24,22 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
 import org.mytonwallet.app_air.walletcore.api.activateAccount
+import org.mytonwallet.app_air.walletcore.api.enclaveDuplicateSecrets
 import org.mytonwallet.app_air.walletcore.api.importNewWalletVersion
+import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
-import java.lang.ref.WeakReference
 
-class WalletVersionsVC(context: Context) : WViewController(context),
-    WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+class WalletVersionsVC(context: Context) :
+    WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "WalletVersions"
 
     companion object {
@@ -64,15 +68,15 @@ class WalletVersionsVC(context: Context) : WViewController(context),
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
 
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
-                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE)
+                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
                     updateBlurViews(recyclerView)
+                }
             }
         })
         rv
@@ -160,28 +164,24 @@ class WalletVersionsVC(context: Context) : WViewController(context),
         recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 2
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            0 -> 1
-            else -> {
-                walletVersionsData?.versions?.size ?: 0
-            }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        0 -> 1
+
+        else -> {
+            walletVersionsData?.versions?.size ?: 0
         }
     }
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             0 -> HEADER_CELL
             else -> VERSION_CELL
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
                 WalletVersionsHeaderCell(context)
             }
@@ -194,7 +194,6 @@ class WalletVersionsVC(context: Context) : WViewController(context),
                 }
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -218,9 +217,10 @@ class WalletVersionsVC(context: Context) : WViewController(context),
     }
 
     private fun importVersion(version: String) {
+        val sourceAccount = AccountStore.activeAccount ?: return
         view.lockView()
         WalletCore.importNewWalletVersion(
-            AccountStore.activeAccount!!,
+            sourceAccount,
             version
         ) { importedAccount, err ->
             if (err != null) {
@@ -230,6 +230,15 @@ class WalletVersionsVC(context: Context) : WViewController(context),
             }
             val importedAccountId = importedAccount?.accountId ?: run {
                 view.unlockView()
+                return@importNewWalletVersion
+            }
+            val enclaveError = WalletCore.enclaveDuplicateSecrets(
+                sourceAccount,
+                listOf(importedAccountId)
+            )
+            if (enclaveError != null) {
+                view.unlockView()
+                showError(enclaveError)
                 return@importNewWalletVersion
             }
 
@@ -274,8 +283,9 @@ class WalletVersionsVC(context: Context) : WViewController(context),
                     )
                     return@activateAccount
                 }
-                if ((navigationController?.viewControllers?.size ?: 0) > 1)
+                if ((navigationController?.viewControllers?.size ?: 0) > 1) {
                     navigationController?.pop(false)
+                }
                 WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
                 ToastHelper.notifyWalletImported(
                     viewController = this,
@@ -284,5 +294,4 @@ class WalletVersionsVC(context: Context) : WViewController(context),
             }
         }
     }
-
 }

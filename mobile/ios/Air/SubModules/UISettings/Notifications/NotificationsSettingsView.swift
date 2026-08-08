@@ -7,8 +7,6 @@ import WalletContext
 import WalletCore
 import Perception
 
-private let log = Log("NotificationsVC")
-
 struct NotificationsSettingsView: View {
     
     var viewModel: NotificationsSettingsViewModel
@@ -61,7 +59,7 @@ struct NotificationsSettingsView: View {
         InsetSection {
             InsetCell {
                 Text(lang("Notifications are disabled"))
-                    .font(.system(size: 17, weight: .semibold))
+                    .textStyle(.bodyStrong)
             }
             InsetButtonCell(alignment: .leading, action: goToSettings) {
                 Text(lang("Enable in Settings"))
@@ -103,7 +101,7 @@ struct NotificationsSettingsView: View {
                 }
             }
         } header: {
-            Text(lang("Select up to %count% wallets for notifications", arg1: "\(MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT)"))
+            Text(lang("Select up to %count% wallets for notifications", arg1: localizedIntegerString(MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT)))
         }
     }
     
@@ -152,13 +150,15 @@ struct SelectableAccountRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(account.displayName)
-                        .font(.system(size: 16, weight: .medium))
+                        .textStyle(.calloutEmphasized)
                     AccountTypeBadge(account.type)
                         .foregroundStyle(Color.air.secondaryLabel)
                 }
                 let firstAddress = account.firstAddress
                 Text("\(formatStartEndAddress(firstAddress))")
-                    .font14h18()
+                    .textStyle(.supporting, content: .technical)
+                    .lineSpacing(2)
+                    .padding(.top, 1)
                     .fixedSize()
                     .foregroundStyle(Color.air.secondaryLabel)
             }

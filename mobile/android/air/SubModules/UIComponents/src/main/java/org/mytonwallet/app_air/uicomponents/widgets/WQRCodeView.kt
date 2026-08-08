@@ -1,3 +1,5 @@
+@file:Suppress("PropertyName")
+
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.annotation.SuppressLint
@@ -17,13 +19,12 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.google.zxing.qrcode.encoder.ByteMatrix
 import com.google.zxing.qrcode.encoder.Encoder
 import com.google.zxing.qrcode.encoder.QRCode
-import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import java.util.EnumMap
 import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
-
+import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 @SuppressLint("ViewConstructor")
 class WQRCodeView(
@@ -34,8 +35,7 @@ class WQRCodeView(
     private val logoRes: Int,
     private val logoSize: Int,
     private val colorGradient: LinearGradient?
-) :
-    AppCompatImageView(context) {
+) : AppCompatImageView(context) {
 
     init {
         id = generateViewId()
@@ -57,11 +57,15 @@ class WQRCodeView(
             encodingHints[EncodeHintType.MARGIN] = 0
             val code: QRCode = Encoder.encode(qrCode, ErrorCorrectionLevel.H, encodingHints)
             val bitmap: Bitmap = renderQRImage(
-                code, qWidth, qHeight, try {
+                code,
+                qWidth,
+                qHeight,
+                try {
                     context.getDrawableCompat(logoRes)
                 } catch (_: Throwable) {
                     null
-                }, logoSize
+                },
+                logoSize
             )
             Handler(Looper.getMainLooper()).post {
                 setImageBitmap(bitmap)
@@ -79,11 +83,16 @@ class WQRCodeView(
         encodingHints[EncodeHintType.MARGIN] = 0
         val code: QRCode = Encoder.encode(qrCode, ErrorCorrectionLevel.H, encodingHints)
         val bitmap: Bitmap = renderQRImage(
-            code, qWidth, qHeight, try {
+            code,
+            qWidth,
+            qHeight,
+            try {
                 context.getDrawableCompat(logoRes)
             } catch (_: Throwable) {
                 null
-            }, logoSize, quietZone = 0
+            },
+            logoSize,
+            quietZone = 0
         )
 
         setImageBitmap(bitmap)
@@ -115,10 +124,7 @@ class WQRCodeView(
         // Set up paint for drawing QR code
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            if (colorGradient != null)
-                shader = colorGradient
-            else
-                color = Color.BLACK
+            if (colorGradient != null) shader = colorGradient else color = Color.BLACK
         }
 
         // Get the QR code matrix
@@ -144,19 +150,26 @@ class WQRCodeView(
         val centerX = outputWidth / 2
         val centerY = outputHeight / 2
         val halfLogoSizeWithPadding = logoSize / 2 + logoPadding
-        fun isInCenter(x: Int, y: Int): Boolean {
-            return (x >= centerX - halfLogoSizeWithPadding) && (x <= centerX + halfLogoSizeWithPadding) &&
-                (y >= centerY - halfLogoSizeWithPadding) && (y <= centerY + halfLogoSizeWithPadding)
-        }
+        fun isInCenter(x: Int, y: Int): Boolean = (x >= centerX - halfLogoSizeWithPadding) &&
+            (x <= centerX + halfLogoSizeWithPadding) &&
+            (y >= centerY - halfLogoSizeWithPadding) && (y <= centerY + halfLogoSizeWithPadding)
         for (inputY in 0 until inputHeight) {
             val outputY = topPadding + multiple * inputY
             for (inputX in 0 until inputWidth) {
                 val outputX = leftPadding + multiple * inputX
                 if (input.get(inputX, inputY).toInt() == 1) {
                     val isInCorners =
-                        (inputX <= FINDER_PATTERN_SIZE && inputY <= FINDER_PATTERN_SIZE ||
-                            inputX >= inputWidth - FINDER_PATTERN_SIZE && inputY <= FINDER_PATTERN_SIZE ||
-                            inputX <= FINDER_PATTERN_SIZE && inputY >= inputHeight - FINDER_PATTERN_SIZE)
+                        (
+                            (inputX <= FINDER_PATTERN_SIZE && inputY <= FINDER_PATTERN_SIZE) ||
+                                (
+                                    inputX >= inputWidth - FINDER_PATTERN_SIZE &&
+                                        inputY <= FINDER_PATTERN_SIZE
+                                    ) ||
+                                (
+                                    inputX <= FINDER_PATTERN_SIZE &&
+                                        inputY >= inputHeight - FINDER_PATTERN_SIZE
+                                    )
+                            )
                     if (!isInCorners && !isInCenter(outputX, outputY)) {
                         canvas.drawOval(
                             RectF(
@@ -258,10 +271,7 @@ class WQRCodeView(
             ),
             paint
         )
-        if (shaderCache != null)
-            paint.shader = shaderCache
-        else
-            paint.color = Color.BLACK
+        if (shaderCache != null) paint.shader = shaderCache else paint.color = Color.BLACK
 
         canvas.drawOval(
             RectF(

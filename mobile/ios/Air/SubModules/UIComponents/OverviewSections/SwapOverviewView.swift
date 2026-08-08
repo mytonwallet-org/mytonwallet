@@ -45,7 +45,7 @@ public struct SwapOverviewView: View {
             }
             .buttonStyle(.plain)
             Image(systemName: "chevron.forward")
-                .font(.body)
+                .textStyle(.body, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .frame(width: 32, height: 32)
             Button {

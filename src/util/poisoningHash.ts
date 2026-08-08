@@ -74,6 +74,10 @@ export function updatePoisoningCacheFromGlobalState(global: GlobalState) {
 }
 
 export function getIsTransactionWithPoisoning(tx: ApiTransaction) {
+  // The sender of an outgoing transaction is the wallet itself, so matching it against the cache can only
+  // ever produce a false positive that hides the user's own transfer.
+  if (!tx.isIncoming) return false;
+
   const { fromAddress: address } = tx;
 
   const cached = getFromCache(address);

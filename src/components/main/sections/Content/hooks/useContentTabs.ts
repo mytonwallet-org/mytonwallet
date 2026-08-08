@@ -31,6 +31,7 @@ interface OwnProps {
   nfts?: Record<string, ApiNft>;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
+  areUnverifiedNftsHidden?: boolean;
   collectionTabs?: ApiNftCollection[];
   activeContentTab?: ContentTab;
   activityReturnContentTab?: ContentTab;
@@ -49,6 +50,7 @@ export default function useContentTabs({
   nfts,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
+  areUnverifiedNftsHidden,
   collectionTabs,
   activeContentTab,
   activityReturnContentTab,
@@ -112,6 +114,7 @@ export default function useContentTabs({
     nfts,
     blacklistedNftAddresses,
     whitelistedNftAddresses,
+    areUnverifiedNftsHidden,
   });
 
   const visibleCollectionTabs = useMemo(() => (

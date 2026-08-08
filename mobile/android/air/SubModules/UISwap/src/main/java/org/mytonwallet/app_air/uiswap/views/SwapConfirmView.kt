@@ -8,6 +8,7 @@ import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.appcompat.widget.AppCompatTextView
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -21,10 +22,9 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import java.math.BigInteger
 
 class SwapConfirmView(context: Context) :
     WCell(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)),
@@ -76,7 +76,6 @@ class SwapConfirmView(context: Context) :
         isHorizontalFadingEdgeEnabled = true
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, lineHeight)
     }
-
 
     init {
         setPaddingDp(20, 16, 20, 26)

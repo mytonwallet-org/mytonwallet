@@ -50,7 +50,7 @@
 
 .list {
   margin-bottom: 0;
-  padding-left: 3.5rem;
+  padding-inline-start: 3.5rem;
 }
 
 .term {
@@ -68,7 +68,7 @@
 .icon {
   position: absolute;
   top: 0;
-  left: -2.75rem;
+  inset-inline-start: -2.75rem;
 
   font-size: 2.25rem;
   color: var(--current-accent-color);

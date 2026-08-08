@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import UIPasscode
 import WalletCore
@@ -41,7 +42,7 @@ final class MfaConfirmHeaderVC: WViewController {
     }
 }
 
-struct MfaConfirmHeaderView: View {
+struct MfaConfirmHeaderView: ConfirmationContent {
     let account: MAccount
     let title: String
     let user: AccountMfa.User?
@@ -56,22 +57,12 @@ struct MfaConfirmHeaderView: View {
             }
 
             Text(title)
-                .font(.system(size: 28, weight: .semibold))
+                .textStyle(.screenTitle)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color(.label))
                 .padding(.horizontal, 32)
 
-            HStack(spacing: 4) {
-                Image.airBundle("TelegramLogo20")
-                    .resizable()
-                    .frame(width: 20, height: 20)
-                Text(verbatim: userDisplayText)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.tint)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.accentColor.opacity(0.12), in: Capsule())
+            userSummary
 
             Spacer(minLength: 0)
         }
@@ -80,12 +71,32 @@ struct MfaConfirmHeaderView: View {
         .background(Color.air.groupedBackground)
     }
 
-    private var userDisplayText: String {
+    var compactRepresentation: some View {
+        userSummary
+    }
+
+    private var userSummary: some View {
+        CompactActionSummary {
+            Image.airBundle("TelegramLogo20")
+                .renderingMode(.template)
+                .resizable()
+        } label: {
+            userDisplayText
+        }
+    }
+
+    @ViewBuilder
+    private var userDisplayText: some View {
         let name = user?.name.nilIfEmpty ?? lang("Telegram Account")
         if let username = user?.username?.nilIfEmpty {
-            return "\(name) · @\(username)"
+            Text(verbatim: name)
+                .textStyle(.bodyEmphasized) +
+            Text(verbatim: " · @\(username)")
+                .textStyle(.bodyEmphasized, content: .technical)
+        } else {
+            Text(verbatim: name)
+                .textStyle(.bodyEmphasized)
         }
-        return name
     }
 }
 

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Paint
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -16,6 +15,11 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -27,6 +31,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
@@ -46,6 +51,7 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.uisend.sendNft.views.WNftTagsChipGroup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -63,19 +69,17 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.ceil
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 class ConfirmNftVC(
     context: Context,
     val mode: Mode,
     private val nfts: List<ApiNft>,
     private val comment: String?
-) : WViewController(context), ConfirmNftVM.Delegate, WalletCore.EventObserver {
+) : WViewController(context),
+    ConfirmNftVM.Delegate,
+    WalletCore.EventObserver {
 
+    @Suppress("PropertyName")
     override val TAG = "ConfirmNft"
 
     constructor(context: Context, mode: Mode, nft: ApiNft, comment: String?) : this(
@@ -110,9 +114,7 @@ class ConfirmNftVC(
             val isScam: Boolean = false
         ) : Mode()
 
-        data class Burn(
-            override val chain: MBlockchain,
-        ) : Mode()
+        data class Burn(override val chain: MBlockchain) : Mode()
     }
 
     private val viewModel = ConfirmNftVM(mode, this)
@@ -308,8 +310,7 @@ class ConfirmNftVC(
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
         ReversedCornerViewUpsideDown(context, scrollView).apply {
-            if (ignoreSideGuttering)
-                setHorizontalPadding(0f)
+            if (ignoreSideGuttering) setHorizontalPadding(0f)
         }
 
     private val confirmButton by lazy {
@@ -378,7 +379,8 @@ class ConfirmNftVC(
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toBottomPx(
-                confirmButton, 20.dp + max(
+                confirmButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -430,22 +432,23 @@ class ConfirmNftVC(
         }
     }
 
-    private fun burnWarningText(): String {
-        return if (nfts.size > 1) {
-            val duration = burnDurationText()
-            LocaleController.getString("\$multi_burn_nft_warning")
-                .replace("%amount%", nfts.size.toString())
-                .replace("%duration%", duration)
-                .trim()
-        } else {
-            LocaleController.getString("Are you sure you want to burn this NFT? It will be lost forever.")
-                .trim()
-        }
+    private fun burnWarningText(): String = if (nfts.size > 1) {
+        val duration = burnDurationText()
+        LocaleController.getString("\$multi_burn_nft_warning")
+            .replace("%amount%", nfts.size.toString())
+            .replace("%duration%", duration)
+            .trim()
+    } else {
+        LocaleController.getString(
+            "Are you sure you want to burn this NFT? It will be lost forever."
+        )
+            .trim()
     }
 
     private fun burnDurationText(): String {
         val durationSeconds =
-            ceil(nfts.size / NFT_BATCH_SIZE.toDouble()).roundToInt() * BURN_CHUNK_DURATION_APPROX_SEC
+            ceil(nfts.size / NFT_BATCH_SIZE.toDouble()).roundToInt() *
+                BURN_CHUNK_DURATION_APPROX_SEC
         val durationMinutes = ceil(durationSeconds / 60.0).roundToInt()
         return LocaleController.getPlural(durationMinutes, "\$duration_minutes").trim()
     }
@@ -519,7 +522,8 @@ class ConfirmNftVC(
             toStartPx(confirmButton, 20.dp + systemBarStartInset)
             toEndPx(confirmButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                confirmButton, 20.dp + max(
+                confirmButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -578,17 +582,11 @@ class ConfirmNftVC(
         )
     }
 
-    private fun resolvedAddress(): String {
-        return viewModel.resolvedAddress ?: viewModel.toAddress
-    }
+    private fun resolvedAddress(): String = viewModel.resolvedAddress ?: viewModel.toAddress
 
-    private fun resolvedName(): String? {
-        return (mode as? Mode.Send)?.addressName
-    }
+    private fun resolvedName(): String? = (mode as? Mode.Send)?.addressName
 
-    private fun isScamAddress(): Boolean {
-        return (mode as? Mode.Send)?.isScam == true
-    }
+    private fun isScamAddress(): Boolean = (mode as? Mode.Send)?.isScam == true
 
     private fun buildRecipientPreview(
         address: String,
@@ -639,13 +637,30 @@ class ConfirmNftVC(
 
     private fun confirmSend() {
         if (account?.isHardware == true) {
+            val tonAddress = account.tonAddress ?: run {
+                Logger.e(
+                    Logger.LogTag.SEND,
+                    "Hardware NFT submission blocked: TON address is missing"
+                )
+                showError(null)
+                return
+            }
+            val signData = viewModel.signNftTransferData(nfts, mode is Mode.Burn, comment)
+                ?: run {
+                    Logger.e(
+                        Logger.LogTag.SEND,
+                        "Hardware NFT submission blocked: signing prerequisites are missing"
+                    )
+                    showError(null)
+                    return
+                }
             sentNftAddresses = nfts.mapTo(mutableSetOf()) { it.address }
             push(
                 LedgerConnectVC(
                     context,
                     LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                        account.tonAddress!!,
-                        viewModel.signNftTransferData(nfts, mode is Mode.Burn, comment)
+                        tonAddress,
+                        signData
                     ) {
                         // Wait for Pending Activity event...
                     },
@@ -678,7 +693,7 @@ class ConfirmNftVC(
                                     .replace("%amount%", "${nfts.size} NFT")
                                     .replace(
                                         "%address%",
-                                        recipient.formatStartEndAddress(),
+                                        recipient.formatStartEndAddress()
                                     )
                                 val mfaVC = org.mytonwallet.app_air.uicomponents
                                     .viewControllers.MfaActionConfirmVC(
@@ -687,13 +702,13 @@ class ConfirmNftVC(
                                         chip = org.mytonwallet.app_air.uicomponents
                                             .viewControllers.MfaActionConfirmVC.Chip(
                                                 leading = null,
-                                                text = chipText,
-                                            ),
+                                                text = chipText
+                                            )
                                     )
                                 navigationController?.push(mfaVC, onCompletion = {
                                     navigationController?.removePrevViewControllerOnly()
                                 })
-                            },
+                            }
                         )
                     }
                 )
@@ -703,7 +718,8 @@ class ConfirmNftVC(
 
     private val headerView: View
         get() {
-            val address = viewModel.resolvedAddress?.formatStartEndAddress() ?: ""
+            val resolvedAddress = viewModel.resolvedAddress
+            val address = resolvedAddress?.formatStartEndAddress() ?: ""
             val sendingToString = LocaleController.getString("Sending to")
             val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 typeface = WFont.Regular.typeface
@@ -712,19 +728,21 @@ class ConfirmNftVC(
             val addressAttr =
                 SpannableStringBuilder(sendingToString).apply {
                     append(" $address")
-                    AddressPopupHelpers.configSpannableAddress(
-                        viewController = WeakReference(this@ConfirmNftVC),
-                        title = null,
-                        spannedString = this,
-                        startIndex = length - address.length,
-                        length = address.length,
-                        network = displayedAccount.network,
-                        blockchain = chain,
-                        address = viewModel.resolvedAddress!!,
-                        popupXOffset = startOffset.roundToInt(),
-                        centerHorizontally = false,
-                        showTemporaryViewOption = false
-                    )
+                    if (resolvedAddress != null) {
+                        AddressPopupHelpers.configSpannableAddress(
+                            viewController = WeakReference(this@ConfirmNftVC),
+                            title = null,
+                            spannedString = this,
+                            startIndex = length - address.length,
+                            length = address.length,
+                            network = displayedAccount.network,
+                            blockchain = chain,
+                            address = resolvedAddress,
+                            popupXOffset = startOffset.roundToInt(),
+                            centerHorizontally = false,
+                            showTemporaryViewOption = false
+                        )
+                    }
                     styleDots(sendingToString.length + 1)
                     setSpan(
                         WForegroundColorSpan(WColor.SecondaryText),
@@ -764,6 +782,11 @@ class ConfirmNftVC(
 
         sentNftAddresses = null
         WalletCore.unregisterObserver(this)
+        val completionTitle = if (mode is Mode.Burn) {
+            LocaleController.getPlural(nfts.size, "\$nfts_burned")
+        } else {
+            null
+        }
         if (window?.topNavigationController != navigationController) {
             window?.dismissNav(navigationController)
             return
@@ -773,7 +796,8 @@ class ConfirmNftVC(
                 WalletCore.notifyEvent(
                     WalletEvent.OpenActivity(
                         displayedAccount.accountId!!,
-                        receivedActivity
+                        receivedActivity,
+                        completionTitle
                     )
                 )
             }
@@ -782,7 +806,8 @@ class ConfirmNftVC(
                 WalletCore.notifyEvent(
                     WalletEvent.OpenActivity(
                         displayedAccount.accountId!!,
-                        receivedActivity
+                        receivedActivity,
+                        completionTitle
                     )
                 )
             }

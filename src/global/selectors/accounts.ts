@@ -1,7 +1,6 @@
 import type { ApiChain, ApiLedgerAccountInfo, ApiNetwork } from '../../api/types';
-import type {
-  Account, AccountSettings, AccountState, GlobalState, UserToken,
-} from '../types';
+import type { LegacyAuthConfig } from '../../enclave';
+import type { Account, AccountSettings, AccountState, GlobalState, UserToken } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
@@ -25,6 +24,12 @@ export const selectNetworkAccountsMemoized = memoize((network: ApiNetwork, accou
 
 export function selectNetworkAccounts(global: GlobalState) {
   return selectNetworkAccountsMemoized(selectCurrentNetwork(global), global.accounts?.byId);
+}
+
+export function selectHasMultipleAccounts(global: GlobalState) {
+  const accountsById = global.accounts?.byId;
+
+  return Boolean(accountsById && isKeyCountGreater(accountsById, 1));
 }
 
 export function selectCurrentNetwork(global: GlobalState): ApiNetwork {
@@ -110,12 +115,55 @@ export function selectIsMnemonicAccount(global: GlobalState) {
   return Boolean(account) && isMnemonicAccount(account);
 }
 
-const selectIsPasswordPresentMemoized = memoize((accounts: Record<string, Account> | undefined) => {
+/** Whether the Enclave holds an auth method, i.e. whether it can decrypt anything at all. */
+export function selectHasAuth(global: GlobalState) {
+  return Boolean(global.authTypes?.length);
+}
+
+/**
+ * Whether the user already owns a password - either an Enclave auth or a legacy pre-Enclave one that the
+ * next `PasswordForm` migrates. Routing that picks between creating the first credential and asking for
+ * the existing one must use this: a not-yet-migrated user has no Enclave auth yet still has a password,
+ * and offering to create another one mints a master key that strands their secrets.
+ */
+export function selectHasPassword(global: GlobalState) {
+  return selectHasAuth(global) || selectIsLegacyPasswordPresent(global);
+}
+
+/** Checks if there are any legacy accounts (memoized) */
+const selectIsLegacyPasswordPresentMemoized = memoize((accounts: Record<string, Account> | undefined) => {
   return Object.values(accounts ?? {}).some(isMnemonicAccount);
 });
 
-export function selectIsPasswordPresent(global: GlobalState) {
-  return selectIsPasswordPresentMemoized(selectAccounts(global));
+/** Checks if there are any legacy accounts */
+export function selectIsLegacyPasswordPresent(global: GlobalState) {
+  return selectIsLegacyPasswordPresentMemoized(selectAccounts(global));
+}
+
+/**
+ * Checks if migration from legacy auth to Enclave is needed: the user holds a pre-Enclave password but no
+ * Enclave auth yet. Only mnemonic accounts count - a hardware-only or view-only wallet has no password to
+ * migrate, and treating it as pending would send it into a migration that finds nothing to decrypt.
+ */
+export function selectShouldMigrate(global: GlobalState) {
+  return !selectHasAuth(global) && selectIsLegacyPasswordPresent(global);
+}
+
+/**
+ * Gets the legacy auth config from settings.
+ * Returns `undefined` if no legacy config exists.
+ */
+export function selectLegacyAuthConfig(global: GlobalState) {
+  return (global.settings as any).authConfig as LegacyAuthConfig | undefined;
+}
+
+/**
+ * Checks if user had biometrics enabled in the legacy auth system.
+ * This is used during migration to prompt user to re-enable biometrics.
+ */
+export function selectHasLegacyBiometrics(global: GlobalState) {
+  const legacyAuthConfig = selectLegacyAuthConfig(global);
+  return Boolean(legacyAuthConfig && legacyAuthConfig.kind !== 'password');
 }
 
 export function selectAccountIdByAddress(
@@ -179,16 +227,25 @@ export function selectHasSession(global: GlobalState) {
   return Boolean(selectCurrentAccountId(global));
 }
 
-export function selectIsBiometricAuthEnabled(global: GlobalState) {
-  const { authConfig } = global.settings;
+/**
+ * @deprecated Use only for legacy (pre-Enclave) auth detection
+ */
+function selectIsLegacyBiometricAuthEnabled(global: GlobalState): boolean {
+  const legacyAuthConfig = (global.settings as any).authConfig as
+    | { kind: 'password' | 'webauthn' | 'native-biometrics' | 'electron-safe-storage' }
+    | undefined;
 
-  return !!authConfig && authConfig.kind !== 'password';
+  return Boolean(legacyAuthConfig && legacyAuthConfig.kind !== 'password');
 }
 
-export function selectIsNativeBiometricAuthEnabled(global: GlobalState) {
-  const { authConfig } = global.settings;
+export function selectIsBiometricAuthEnabled(global: GlobalState) {
+  // New Enclave format
+  if (global.authTypes?.length) {
+    return global.authTypes.includes('biometric');
+  }
 
-  return !!authConfig && authConfig.kind === 'native-biometrics';
+  // Legacy format
+  return selectIsLegacyBiometricAuthEnabled(global);
 }
 
 export function selectIsAllowSuspiciousActions(global: GlobalState, accountId: string) {

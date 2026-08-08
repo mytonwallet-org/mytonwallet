@@ -194,11 +194,13 @@ private struct MfaScreen: View {
             VStack(spacing: 12) {
                 if state.shouldShowConnectionFee {
                     (
-                        Text(lang("Connection Fee:")) +
-                        Text(" ") +
+                        Text(lang("Connection Fee:"))
+                            .textStyle(.supporting) +
+                        Text(" ")
+                            .textStyle(.supporting) +
                         Text(amount: TokenAmount(MfaFlowModel.installFee, .TONCOIN), format: .init())
+                            .textStyle(.supporting, content: .technical)
                     )
-                        .font(.system(size: 14))
                         .foregroundStyle(state.feeTextColor)
                 }
 
@@ -231,12 +233,16 @@ private struct MfaScreen: View {
 struct MfaTitleView: View {
     var body: some View {
         (
-            Text(lang("Confirm with")) +
-            Text(" ") +
-            Text(Image.airBundle("TelegramLogo20")) +
+            Text(lang("Confirm with"))
+                .textStyle(.screenTitle) +
+            Text(" ")
+                .textStyle(.screenTitle) +
+            Text(Image.airBundle("inline.telegram"))
+                .textStyle(.screenTitle, content: .technical) +
             Text("\u{00A0}Telegram")
+                .textStyle(.screenTitle, content: .technical)
         )
-        .font(.system(size: 28, weight: .semibold))
+        .imageScale(.small)
         .foregroundStyle(Color.air.primaryLabel)
         .multilineTextAlignment(.center)
     }
@@ -265,7 +271,7 @@ private struct MfaBenefitCard: View {
                         .interpolation(.high)
                         .frame(width: 30, height: 30)
                     Text(attributedText)
-                        .font(.system(size: 16))
+                        .textStyle(.callout)
                         .foregroundStyle(Color(.label))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -280,7 +286,7 @@ private struct MfaAccountSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(lang("My Telegram Account"))
-                .font(.system(size: 17, weight: .semibold))
+                .textStyle(.bodyStrong)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .padding(.horizontal, 16)
 
@@ -291,10 +297,13 @@ private struct MfaAccountSection: View {
 
                         VStack(alignment: .leading, spacing: 0) {
                             Text(displayName)
-                                .font(.system(size: 16, weight: .medium))
+                                .textStyle(.calloutEmphasized)
                                 .foregroundStyle(Color(.label))
                             Text(user?.username.flatMap { "@\($0)" } ?? lang("Without username"))
-                                .font(.system(size: 14))
+                                .textStyle(
+                                    .supporting,
+                                    content: user?.username == nil ? .default : .technical
+                                )
                                 .foregroundStyle(Color.air.secondaryLabel)
                         }
 
@@ -307,41 +316,6 @@ private struct MfaAccountSection: View {
 
     private var displayName: String {
         user?.name.nilIfEmpty ?? lang("Telegram Account")
-    }
-}
-
-struct MfaAccountAvatarView: View {
-    let account: MAccount
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: account.firstAddress.gradientColors.map { Color($0) },
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-
-            switch account.avatarContent {
-            case .initial(let value):
-                Text(verbatim: value)
-                    .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
-            case .sixCharacters(let top, let bottom):
-                VStack(spacing: -size * 0.03) {
-                    Text(verbatim: top)
-                    Text(verbatim: bottom)
-                }
-                .font(.system(size: size * 0.24, weight: .heavy, design: .rounded))
-            case .typeIcon, .image:
-                Text(account.displayName.prefix(1).uppercased())
-                    .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
-            }
-        }
-        .foregroundStyle(.white)
-        .frame(width: size, height: size)
     }
 }
 

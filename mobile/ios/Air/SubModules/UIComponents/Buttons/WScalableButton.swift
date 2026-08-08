@@ -59,7 +59,6 @@ public class WScalableButton: UIControl {
     public static let preferredCornerRadius: CGFloat = 24
 
     private let baseCornerRadius: CGFloat = WScalableButton.preferredCornerRadius
-    private var suppressNextTap: Bool = false
 
     private let imageView: UIImageView = {
         let view = UIImageView()
@@ -69,7 +68,7 @@ public class WScalableButton: UIControl {
         return view
     }()
 
-    private let baseTitleLabelFont = UIFont.systemFont(ofSize: 13, weight: .medium)
+    private let baseTitleLabelFont = WTypography.uiFont(.footnoteEmphasized)
     private let titleLabelHorMargin: CGFloat = 8
 
     private lazy var titleLabel: UILabel = {
@@ -219,34 +218,7 @@ public class WScalableButton: UIControl {
     }
 
     @objc private func didTap() {
-        guard !consumeSuppressedTapIfNeeded() else { return }
         onTap?()
-    }
-
-    @discardableResult
-    public func consumeSuppressedTapIfNeeded() -> Bool {
-        let suppressNextTap = self.suppressNextTap
-        self.suppressNextTap = false
-        return suppressNextTap
-    }
-
-    public func cancelCurrentInteractionAndSuppressNextTap() {
-        suppressNextTap = true
-        cancelTracking(with: nil)
-        isHighlighted = false
-        switch style {
-        case .standard:
-            if #available(iOS 26, iOSApplicationExtension 26, *),
-               let effectView = self.containerView as? UIVisualEffectView {
-                effectView.effect = UIBlurEffect(style: .systemUltraThinMaterial)
-                let effect = UIGlassEffect(style: .regular)
-                effect.isInteractive = true
-                effect.tintColor = UIColor.air.folderFill
-                effectView.effect = effect
-            }
-        case .thinGlass:
-            transform = .identity
-        }
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -404,32 +376,52 @@ public class ButtonsToolbarLayoutContext {
 }
 
 open class ButtonsToolbar: UIView {
+    public static let preferredItemWidth: CGFloat = 100
+    public static var preferredSpacing: CGFloat { screenWidth < 390 ? 8 : 10 }
+
     private struct ArrangedView {
         let view: UIView
         let widthConstraint: NSLayoutConstraint
-        let leadingConstraint: NSLayoutConstraint
     }
-    
+
     private var arrangedSubviews: [ArrangedView] = []
     private var updateCounter: Int = 0
-    private let minItemWidth: CGFloat = 100
+    private var minItemWidth: CGFloat { Self.preferredItemWidth }
+    private let stackView = UIStackView()
     
     public var spacing: CGFloat {
         didSet {
             if oldValue != spacing {
+                stackView.spacing = spacing
                 update()
             }
         }
     }
     
     public override init(frame: CGRect) {
-        spacing = screenWidth < 390 ? 8 : 10
-        
+        spacing = Self.preferredSpacing
         super.init(frame: frame)
+        setupStackView()
     }
     
     @MainActor public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupStackView() {
+        stackView.axis = .horizontal
+        stackView.alignment = .fill
+        stackView.distribution = .fill
+        stackView.spacing = spacing
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stackView)
+        NSLayoutConstraint.activate([
+            stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stackView.topAnchor.constraint(equalTo: topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stackView.leftAnchor.constraint(greaterThanOrEqualTo: leftAnchor),
+            stackView.rightAnchor.constraint(lessThanOrEqualTo: rightAnchor),
+        ])
     }
     
     public func beginUpdate() {
@@ -455,15 +447,14 @@ open class ButtonsToolbar: UIView {
         defer {
             endUpdate()
         }
-        addSubview(view)
+        stackView.addArrangedSubview(view)
         view.tintColor = .tintColor
         let widthConstraint = view.widthAnchor.constraint(equalToConstant: minItemWidth)
-        let leadingConstraint = view.leadingAnchor.constraint(equalTo: leadingAnchor)
-        arrangedSubviews.append(.init(view: view, widthConstraint: widthConstraint, leadingConstraint: leadingConstraint))
+        widthConstraint.priority = UILayoutPriority(999)
+        arrangedSubviews.append(.init(view: view, widthConstraint: widthConstraint))
         NSLayoutConstraint.activate([
              widthConstraint,
-             leadingConstraint,
-             view.heightAnchor.constraint(equalTo: heightAnchor)
+             view.heightAnchor.constraint(equalTo: stackView.heightAnchor)
         ])
     }
         
@@ -490,14 +481,9 @@ open class ButtonsToolbar: UIView {
                 item.onToolbarLayout(layoutContext: context)
             }
         }
-        
-        var offsetX = max(0.0, ((width - visibleCountF * (itemWidth + spacing) + spacing) / 2).rounded())
         for btn in arrangedSubviews {
-            if btn.leadingConstraint.constant != offsetX { btn.leadingConstraint.constant = offsetX }
-            if btn.widthConstraint.constant != itemWidth { btn.widthConstraint.constant = itemWidth }
-            if !btn.view.isHidden {
-                offsetX += itemWidth + spacing
-            }
+            let width = btn.view.isHidden ? 0 : itemWidth
+            if btn.widthConstraint.constant != width { btn.widthConstraint.constant = width }
         }
     }
 }

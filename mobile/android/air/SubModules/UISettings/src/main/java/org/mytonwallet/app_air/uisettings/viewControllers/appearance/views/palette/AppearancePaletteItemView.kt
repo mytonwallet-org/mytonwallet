@@ -12,7 +12,7 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isGone
 import com.google.android.material.progressindicator.CircularProgressIndicator
-import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setMarginsDp
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -30,12 +30,13 @@ class AppearancePaletteItemView(
     context: Context,
     val nftAccentId: Int?,
     val onTap: (nftAccentId: Int?, state: State) -> Unit
-) : WFrameLayout(context), WThemedView {
+) : WFrameLayout(context),
+    WThemedView {
     enum class State {
         LOADING,
         LOCKED,
         AVAILABLE,
-        SELECTED,
+        SELECTED
     }
 
     var state: State = State.LOADING
@@ -67,9 +68,12 @@ class AppearancePaletteItemView(
                     lockView = AppCompatImageView(context).apply {
                         setImageDrawable(lockDrawable)
                     }
-                    addView(lockView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                        gravity = Gravity.CENTER
-                    })
+                    addView(
+                        lockView,
+                        LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                            gravity = Gravity.CENTER
+                        }
+                    )
                 } else {
                     lockView?.isGone = false
                 }
@@ -80,9 +84,12 @@ class AppearancePaletteItemView(
                 lockView?.isGone = true
                 if (selectedItemView == null) {
                     selectedItemView = View(context)
-                    addView(selectedItemView, LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
-                        setMarginsDp(2)
-                    })
+                    addView(
+                        selectedItemView,
+                        LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
+                            setMarginsDp(2)
+                        }
+                    )
                 } else {
                     selectedItemView?.isGone = false
                 }
@@ -110,7 +117,10 @@ class AppearancePaletteItemView(
 
     override fun updateTheme() {
         val color =
-            nftAccentId?.let { (if (isDark) NftAccentColors.dark else NftAccentColors.light)[nftAccentId].toColorInt() }
+            nftAccentId?.let {
+                val palette = if (isDark) NftAccentColors.dark else NftAccentColors.light
+                palette[nftAccentId].toColorInt()
+            }
                 ?: (if (isDark) DEFAULT_TINT_DARK else DEFAULT_TINT_LIGHT)
         setBackgroundColor(color, 17f.dp)
         val textOnTint = textOnTint

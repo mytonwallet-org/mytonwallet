@@ -36,6 +36,7 @@
 		5890CBB22E858CE100110FDF /* TokenWithChartWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBAC2E858CE100110FDF /* TokenWithChartWidgetTimelineProvider.swift */; };
 		58B1A72E2E87030400880BB1 /* ChartStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B1A72D2E87030400880BB1 /* ChartStyle.swift */; };
 		58B1A7302E87036900880BB1 /* ActionsStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B1A72F2E87036900880BB1 /* ActionsStyle.swift */; };
+		58C1E9DF2F6429DC0036882D /* UIComponents in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 584C51072F60A88C0079935F /* UIComponents */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		58E2E5582E15210500B90FFD /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E2E5572E15210500B90FFD /* SceneDelegate.swift */; };
 		58F631DB2EB8CDFA00A90B79 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E2E5572E15210500B90FFD /* SceneDelegate.swift */; };
 		58F631DC2EB8CDFA00A90B79 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
@@ -43,6 +44,7 @@
 		58F631DE2EB8CDFA00A90B79 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		58F632092EB8CDFA00A90B79 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
 		58F6320B2EB8CDFA00A90B79 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
+		58F633012EB8CDFA00A90B79 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 58F633002EB8CDFA00A90B79 /* FirebaseCrashlytics */; };
 		58F9CCB92FD1970A0054DAD3 /* WalletCoreTypes in Frameworks */ = {isa = PBXBuildFile; productRef = 58F9CCB82FD1970A0054DAD3 /* WalletCoreTypes */; };
 		59A4C2E82F4D1001009A1B2C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
 		59A4C2EA2F4D1001009A1B2C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
@@ -73,7 +75,18 @@
 		59C000222F81000100ABCD01 /* ActionsWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2272E83D5C800588415 /* ActionsWidgetTimelineProvider.swift */; };
 		59C000232F81000100ABCD01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 582009F42E822DDD0010E2B5 /* Assets.xcassets */; };
 		59C000242F81000100ABCD01 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59B6E9A12F7B0001001A2B3C /* Localizable.xcstrings */; };
+		59C000412F81000100ABCD01 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 59C000402F81000100ABCD01 /* FirebaseCrashlytics */; };
 		59C0009B2F81000100ABCD01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59C0009A2F81000100ABCD01 /* Assets.xcassets */; };
+		59C100012FB1000100BEEF01 /* GramWalletNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 59C100052FB1000100BEEF01 /* GramWalletNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		59C100022FB1000100BEEF01 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C100062FB1000100BEEF01 /* NotificationService.swift */; };
+		59C100032FB1000100BEEF01 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
+		59C100122FB1000100BEEF01 /* WalletCoreTypes in Frameworks */ = {isa = PBXBuildFile; productRef = 59C100142FB1000100BEEF01 /* WalletCoreTypes */; };
+		59C100132FB1000100BEEF01 /* WalletContext in Frameworks */ = {isa = PBXBuildFile; productRef = 59C100152FB1000100BEEF01 /* WalletContext */; };
+		59C200012FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 59C200052FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		59C200022FB2000100BEEF01 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C100062FB1000100BEEF01 /* NotificationService.swift */; };
+		59C200032FB2000100BEEF01 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
+		59C200122FB2000100BEEF01 /* WalletCoreTypes in Frameworks */ = {isa = PBXBuildFile; productRef = 59C200142FB2000100BEEF01 /* WalletCoreTypes */; };
+		59C200132FB2000100BEEF01 /* WalletContext in Frameworks */ = {isa = PBXBuildFile; productRef = 59C200152FB2000100BEEF01 /* WalletContext */; };
 		59D100012F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		59D100032F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		59D100042F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
@@ -93,6 +106,7 @@
 		67EFEAD7CE812E8CF3664678 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = F9BE5EF7B8C92B9D9B26DF89 /* FirebaseMessaging */; };
 		59F100202FB0000100C0FF01 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 59F100102FB0000100C0FF01 /* FirebaseCore */; };
 		59F100212FB0000100C0FF01 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 59F100112FB0000100C0FF01 /* FirebaseMessaging */; };
+		59F100262FB0000100C0FF01 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 59F100162FB0000100C0FF01 /* FirebaseCrashlytics */; };
 		59F100242FB0000100C0FF03 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 59F100142FB0000100C0FF03 /* FirebaseCore */; };
 		59F100252FB0000100C0FF03 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 59F100152FB0000100C0FF03 /* FirebaseMessaging */; };
 		71335BE0CB67B3D704148F53 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
@@ -120,6 +134,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 59C000342F81000100ABCD01;
 			remoteInfo = GramWalletWidgetExtension;
+		};
+		59C100042FB1000100BEEF01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 59C1000A2FB1000100BEEF01;
+			remoteInfo = GramWalletNotificationServiceExtension;
+		};
+		59C200042FB2000100BEEF01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 59C2000A2FB2000100BEEF01;
+			remoteInfo = MyTonWalletNotificationServiceExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -151,6 +179,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				582009D62E820AD40010E2B5 /* AirWidgetExtension.appex in Embed Foundation Extensions */,
+				59C200012FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -182,6 +211,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				59C000012F81000100ABCD01 /* GramWalletWidgetExtension.appex in Embed Foundation Extensions */,
+				59C100012FB1000100BEEF01 /* GramWalletNotificationServiceExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -237,6 +267,12 @@
 		59C0002A2F81000100ABCD01 /* GramWalletWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GramWalletWidgetExtension.entitlements; sourceTree = "<group>"; };
 		59C0003E2F81000100ABCD01 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		59C0009A2F81000100ABCD01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		59C100052FB1000100BEEF01 /* GramWalletNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GramWalletNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		59C100062FB1000100BEEF01 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		59C100072FB1000100BEEF01 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		59C100082FB1000100BEEF01 /* GramWalletNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GramWalletNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
+		59C200052FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MyTonWalletNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		59C200082FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyTonWalletNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		59D100062F90000100FACE01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		59D1000A2F90000100FACE01 /* diamond.tgs */ = {isa = PBXFileReference; lastKnownFileType = file; path = diamond.tgs; sourceTree = "<group>"; };
 		59F100102FB0000100CAFE01 /* JS */ = {isa = PBXFileReference; lastKnownFileType = folder; path = JS; sourceTree = "<group>"; };
@@ -291,6 +327,7 @@
 				59E000052FA0000100BEEF01 /* WalletResources in Frameworks */,
 				59F100202FB0000100C0FF01 /* FirebaseCore in Frameworks */,
 				59F100212FB0000100C0FF01 /* FirebaseMessaging in Frameworks */,
+				59F100262FB0000100C0FF01 /* FirebaseCrashlytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -312,6 +349,7 @@
 				59E000072FA0000100BEEF01 /* WalletResources in Frameworks */,
 				A2F6C8F58E74FF70AA316904 /* FirebaseCore in Frameworks */,
 				DEC5F7D0F4B76E59868A6B79 /* FirebaseMessaging in Frameworks */,
+				58F633012EB8CDFA00A90B79 /* FirebaseCrashlytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -323,6 +361,7 @@
 				59E000082FA0000100BEEF01 /* WalletResources in Frameworks */,
 				C4D16308205C59A627997B13 /* FirebaseCore in Frameworks */,
 				67EFEAD7CE812E8CF3664678 /* FirebaseMessaging in Frameworks */,
+				59C000412F81000100ABCD01 /* FirebaseCrashlytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -333,6 +372,24 @@
 				59C000152F81000100ABCD01 /* SwiftUI.framework in Frameworks */,
 				59C000162F81000100ABCD01 /* WidgetKit.framework in Frameworks */,
 				59E002012FA2000100BEEF01 /* WalletCoreTypes in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C1000C2FB1000100BEEF01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C100132FB1000100BEEF01 /* WalletContext in Frameworks */,
+				59C100122FB1000100BEEF01 /* WalletCoreTypes in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C2000C2FB2000100BEEF01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C200132FB2000100BEEF01 /* WalletContext in Frameworks */,
+				59C200122FB2000100BEEF01 /* WalletCoreTypes in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,6 +450,7 @@
 				504EC3061FED79650016851F /* App */,
 				584C517D2F6142520079935F /* Air */,
 				582009F62E822DDD0010E2B5 /* AirWidget */,
+				59C100092FB1000100BEEF01 /* NotificationServiceExtension */,
 				58F632322EB8CECA00A90B79 /* Entitlements */,
 				504EC3051FED79650016851F /* Products */,
 				27E2DDA53C4D2A4D1A88CE4A /* Frameworks */,
@@ -407,6 +465,8 @@
 				58F6322E2EB8CDFA00A90B79 /* MyTonWallet_AirOnly.app */,
 				59C000252F81000100ABCD01 /* GramWallet.app */,
 				59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */,
+				59C100052FB1000100BEEF01 /* GramWalletNotificationServiceExtension.appex */,
+				59C200052FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex */,
 				47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */,
 			);
 			name = Products;
@@ -470,9 +530,20 @@
 				58F632312EB8CE9C00A90B79 /* MyTonWallet_AirOnly.entitlements */,
 				59C000282F81000100ABCD01 /* GramWallet.entitlements */,
 				59C0002A2F81000100ABCD01 /* GramWalletWidgetExtension.entitlements */,
+				59C100082FB1000100BEEF01 /* GramWalletNotificationServiceExtension.entitlements */,
+				59C200082FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.entitlements */,
 				579622823A5A8EDC7EE38C44 /* MyTonWallet_Preview.entitlements */,
 			);
 			path = Entitlements;
+			sourceTree = "<group>";
+		};
+		59C100092FB1000100BEEF01 /* NotificationServiceExtension */ = {
+			isa = PBXGroup;
+			children = (
+				59C100062FB1000100BEEF01 /* NotificationService.swift */,
+				59C100072FB1000100BEEF01 /* Info.plist */,
+			);
+			path = NotificationServiceExtension;
 			sourceTree = "<group>";
 		};
 		59D100072F90000100FACE01 /* Animations */ = {
@@ -522,11 +593,13 @@
 				504EC3021FED79650016851F /* Resources */,
 				279105522C89BC3B0075D4B5 /* Embed Frameworks */,
 				582009BE2E820A860010E2B5 /* Embed Foundation Extensions */,
+				58F633102FD2000100A90B79 /* Upload Crashlytics Symbols */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				582009D52E820AD40010E2B5 /* PBXTargetDependency */,
+				59C2000E2FB2000100BEEF01 /* PBXTargetDependency */,
 			);
 			name = MyTonWallet;
 			packageProductDependencies = (
@@ -534,6 +607,7 @@
 				59E0000A2FA0000100BEEF01 /* WalletResources */,
 				59F100102FB0000100C0FF01 /* FirebaseCore */,
 				59F100112FB0000100C0FF01 /* FirebaseMessaging */,
+				59F100162FB0000100C0FF01 /* FirebaseCrashlytics */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* MyTonWallet.app */;
@@ -583,6 +657,7 @@
 				59E0000C2FA0000100BEEF01 /* WalletResources */,
 				25561833DFEA1EB541CE6CFA /* FirebaseCore */,
 				238EDAED8A39AE9B0BC5976B /* FirebaseMessaging */,
+				58F633002EB8CDFA00A90B79 /* FirebaseCrashlytics */,
 			);
 			productName = App;
 			productReference = 58F6322E2EB8CDFA00A90B79 /* MyTonWallet_AirOnly.app */;
@@ -597,11 +672,13 @@
 				59C0002D2F81000100ABCD01 /* Resources */,
 				59C0002E2F81000100ABCD01 /* Embed Frameworks */,
 				59C0002F2F81000100ABCD01 /* Embed Foundation Extensions */,
+				59C000422FD2000100ABCD01 /* Upload Crashlytics Symbols */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				59C000352F81000100ABCD01 /* PBXTargetDependency */,
+				59C1000E2FB1000100BEEF01 /* PBXTargetDependency */,
 			);
 			name = GramWallet;
 			packageProductDependencies = (
@@ -609,6 +686,7 @@
 				59E0000D2FA0000100BEEF01 /* WalletResources */,
 				2F4105E6D6E2A708EB52003A /* FirebaseCore */,
 				F9BE5EF7B8C92B9D9B26DF89 /* FirebaseMessaging */,
+				59C000402F81000100ABCD01 /* FirebaseCrashlytics */,
 			);
 			productName = App;
 			productReference = 59C000252F81000100ABCD01 /* GramWallet.app */;
@@ -637,6 +715,48 @@
 			);
 			productName = GramWalletWidgetExtension;
 			productReference = 59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		59C1000A2FB1000100BEEF01 /* GramWalletNotificationServiceExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 59C100112FB1000100BEEF01 /* Build configuration list for PBXNativeTarget "GramWalletNotificationServiceExtension" */;
+			buildPhases = (
+				59C1000D2FB1000100BEEF01 /* Sources */,
+				59C1000C2FB1000100BEEF01 /* Frameworks */,
+				59C1000B2FB1000100BEEF01 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GramWalletNotificationServiceExtension;
+			packageProductDependencies = (
+				59C100142FB1000100BEEF01 /* WalletCoreTypes */,
+				59C100152FB1000100BEEF01 /* WalletContext */,
+			);
+			productName = GramWalletNotificationServiceExtension;
+			productReference = 59C100052FB1000100BEEF01 /* GramWalletNotificationServiceExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		59C2000A2FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 59C200112FB2000100BEEF01 /* Build configuration list for PBXNativeTarget "MyTonWalletNotificationServiceExtension" */;
+			buildPhases = (
+				59C2000D2FB2000100BEEF01 /* Sources */,
+				59C2000C2FB2000100BEEF01 /* Frameworks */,
+				59C2000B2FB2000100BEEF01 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MyTonWalletNotificationServiceExtension;
+			packageProductDependencies = (
+				59C200142FB2000100BEEF01 /* WalletCoreTypes */,
+				59C200152FB2000100BEEF01 /* WalletContext */,
+			);
+			productName = MyTonWalletNotificationServiceExtension;
+			productReference = 59C200052FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		7388E62D305CB72073B797EA /* MyTonWallet_Preview */ = {
@@ -686,6 +806,12 @@
 					59C000342F81000100ABCD01 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					59C1000A2FB1000100BEEF01 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					59C2000A2FB2000100BEEF01 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 				};
 			};
 			buildConfigurationList = 504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */;
@@ -704,6 +830,8 @@
 				th,
 				tr,
 				uk,
+				ar,
+				fa,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
@@ -718,6 +846,8 @@
 				582009C62E820AD20010E2B5 /* AirWidgetExtension */,
 				59C000332F81000100ABCD01 /* GramWallet */,
 				59C000342F81000100ABCD01 /* GramWalletWidgetExtension */,
+				59C1000A2FB1000100BEEF01 /* GramWalletNotificationServiceExtension */,
+				59C2000A2FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension */,
 				7388E62D305CB72073B797EA /* MyTonWallet_Preview */,
 			);
 		};
@@ -791,7 +921,74 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		59C1000B2FB1000100BEEF01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C100032FB1000100BEEF01 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C2000B2FB2000100BEEF01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C200032FB2000100BEEF01 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		58F633102FD2000100A90B79 /* Upload Crashlytics Symbols */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${PRODUCT_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Info.plist",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist",
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+			);
+			name = "Upload Crashlytics Symbols";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  echo \"Skipping Crashlytics symbol upload for ${CONFIGURATION} build\"\n  exit 0\nfi\n\n\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n";
+		};
+		59C000422FD2000100ABCD01 /* Upload Crashlytics Symbols */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${PRODUCT_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Info.plist",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist",
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+			);
+			name = "Upload Crashlytics Symbols";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  echo \"Skipping Crashlytics symbol upload for ${CONFIGURATION} build\"\n  exit 0\nfi\n\n\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		4A9ADD0EA4262D6167811F4D /* Sources */ = {
@@ -884,6 +1081,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		59C1000D2FB1000100BEEF01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C100022FB1000100BEEF01 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C2000D2FB2000100BEEF01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C200022FB2000100BEEF01 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -896,6 +1109,16 @@
 			isa = PBXTargetDependency;
 			target = 59C000342F81000100ABCD01 /* GramWalletWidgetExtension */;
 			targetProxy = 59C000362F81000100ABCD01 /* PBXContainerItemProxy */;
+		};
+		59C1000E2FB1000100BEEF01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 59C1000A2FB1000100BEEF01 /* GramWalletNotificationServiceExtension */;
+			targetProxy = 59C100042FB1000100BEEF01 /* PBXContainerItemProxy */;
+		};
+		59C2000E2FB2000100BEEF01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 59C2000A2FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension */;
+			targetProxy = 59C200042FB2000100BEEF01 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1060,6 +1283,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "My Wallet";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1078,6 +1305,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Resources/MyTonWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1087,6 +1315,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "My Wallet";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1199,6 +1431,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "My Wallet_AirOnly";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1226,6 +1462,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "My Wallet_AirOnly";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1253,6 +1493,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.gramwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1271,6 +1515,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Resources/GramWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1280,6 +1525,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.gramwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1375,6 +1624,162 @@
 			};
 			name = Release;
 		};
+		59C1000F2FB1000100BEEF01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWalletNotificationServiceExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Gram Wallet Notifications";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "io.gramwallet.app.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG GRAM_WALLET $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		59C100102FB1000100BEEF01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWalletNotificationServiceExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Gram Wallet Notifications";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "io.gramwallet.app.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "GRAM_WALLET $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		59C2000F2FB2000100BEEF01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWalletNotificationServiceExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "My Wallet Notifications";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		59C200102FB2000100BEEF01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWalletNotificationServiceExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "My Wallet Notifications";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		668B2FFA2D78180C90FDD761 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1459,6 +1864,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		59C100112FB1000100BEEF01 /* Build configuration list for PBXNativeTarget "GramWalletNotificationServiceExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59C1000F2FB1000100BEEF01 /* Debug */,
+				59C100102FB1000100BEEF01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		59C200112FB2000100BEEF01 /* Build configuration list for PBXNativeTarget "MyTonWalletNotificationServiceExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59C2000F2FB2000100BEEF01 /* Debug */,
+				59C200102FB2000100BEEF01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E7E6A44CCDF5260ACDE65F97 /* Build configuration list for PBXNativeTarget "MyTonWallet_Preview" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1512,6 +1935,21 @@
 			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCore;
 		};
+		58F633002EB8CDFA00A90B79 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		59F100162FB0000100C0FF01 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		59C000402F81000100ABCD01 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
 		2F4105E6D6E2A708EB52003A /* FirebaseCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
@@ -1532,6 +1970,22 @@
 		59C0003D2F81000100ABCD01 /* AirAsFramework */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AirAsFramework;
+		};
+		59C100142FB1000100BEEF01 /* WalletCoreTypes */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletCoreTypes;
+		};
+		59C100152FB1000100BEEF01 /* WalletContext */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletContext;
+		};
+		59C200142FB2000100BEEF01 /* WalletCoreTypes */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletCoreTypes;
+		};
+		59C200152FB2000100BEEF01 /* WalletContext */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletContext;
 		};
 		59E0000A2FA0000100BEEF01 /* WalletResources */ = {
 			isa = XCSwiftPackageProductDependency;

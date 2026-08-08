@@ -69,6 +69,7 @@ describe('getViewAccountUrl', () => {
       tron: TEST_TRON_ADDRESS,
       bnb: TEST_EVM_ADDRESS,
       hyperliquid: TEST_EVM_ADDRESS,
+      robinhood: TEST_EVM_ADDRESS,
       base: TEST_EVM_ADDRESS,
       arbitrum: TEST_EVM_ADDRESS,
       monad: TEST_EVM_ADDRESS,
@@ -100,6 +101,7 @@ describe('getViewAccountUrl', () => {
       monad: TEST_EVM_ADDRESS,
       avalanche: TEST_EVM_ADDRESS,
       hyperliquid: TEST_EVM_ADDRESS,
+      robinhood: TEST_EVM_ADDRESS,
     }, true)).toBe(`https://my.tt/view/?evm=${TEST_EVM_ADDRESS}&testnet=true`);
   });
 });

@@ -7,9 +7,9 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import org.mytonwallet.app_air.widgets.actionsWidget.ActionsWidget
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget
-import java.util.concurrent.TimeUnit
 
 object WidgetsConfigurations {
     const val WIDGET_UPDATE_WORK = "widgetUpdateWork"

@@ -1,6 +1,6 @@
 import AppIntents
 
-public enum PricePeriod: String, CaseIterable, Equatable, Hashable, Codable, Sendable, AppEnum, Identifiable, AppEntity {
+public enum PricePeriod: String, CaseIterable, Equatable, Hashable, Codable, Sendable, AppEnum {
     
     case day = "1D"
     case week = "7D"
@@ -20,22 +20,5 @@ public enum PricePeriod: String, CaseIterable, Equatable, Hashable, Codable, Sen
             .week: DisplayRepresentation(title: LocalizedStringResource("$period_week")),
             .day: DisplayRepresentation(title: LocalizedStringResource("$period_day")),
         ]
-    }
-    
-    public var id: String { rawValue }
-    
-    public static var defaultQuery = PeriodQuery()
-}
-
-public struct PeriodQuery: EntityQuery {
-
-    public init() {}
-    
-    public func entities(for identifiers: [PricePeriod.ID]) async throws -> [PricePeriod] {
-        identifiers.compactMap { PricePeriod(rawValue: $0) }
-    }
-
-    public func suggestedEntities() async throws -> IntentItemCollection<PricePeriod> {
-        IntentItemCollection(items: [.all, .year, .threeMonths, .month, .week, .day])
     }
 }

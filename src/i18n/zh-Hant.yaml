@@ -151,7 +151,7 @@ $signature_warning: |
   簽署自定義資訊是非常危險的。僅當您信任其來源時才使用它。
 Sign: 簽署
 Done!: 完成!
-Signing was confirmed!: 簽署已確認!
+Signing Confirmed: 簽署已確認
 Activity Details: 活動詳情
 No activities found: 未找到活動
 Comment Copied: 註記欄已被複製
@@ -171,6 +171,7 @@ Assets: 資產
 Activity: 活動紀錄
 NFT: NFT
 No NFTs yet: 尚未有 NFT
+No hidden NFTs.: 沒有隱藏的 NFT。
 $nft_explore_offer: |
   探索市場來尋找現有的 NFT 收藏.
 Received: 已收到
@@ -206,7 +207,7 @@ Receiving Address: 接收地址
 Fee: 手續費
 Edit: 編輯
 Confirm: 確認
-Data Signed!: 資料已簽名!
+Data Signed: 資料已簽名
 Details: 明細
 View details: 檢視詳情
 Change password visibility: 更改密碼能見度
@@ -248,7 +249,6 @@ $safe_staking_description_jetton2: 您可以在 **任何時候** 提取您的質
 $min_value: 最少 %value%
 Est. balance in a year: 預估 1 年後的資產餘額
 Confirm Staking: 確認質押
-Coins have been staked!: 代幣已被質押成功!
 View: 查看
 Stake More: 繼續質押
 Staking: 質押中
@@ -261,7 +261,6 @@ $total: "總額: %value%"
 $unstake_asset: 解除 %symbol% 質押
 Amount to unstake: 解除質押數量
 Confirm Unstaking: 確認解除質押
-Request for unstaking is sent!: 解除質押申請已送出!
 $unstaking_when_receive: 你將會在 %time% 後收到解除的質押數量。
 $unstaking_when_receive_with_amount: 您將於 %time% 後收到未質押的 %amount%。
 $unstaking_when_receive_with_amount_ethena: "%amount% 將在 %time% 後可供提款。"
@@ -275,6 +274,10 @@ Unstaking: 解除質押
 $unstake_action: 解押
 The network fee has slightly changed, try sending again.: 網路費略有變化，請重新發送交易。
 Transfer was unsuccessful. Try again later.: 轉帳未成功，請稍後再試。
+Action Partially Completed: 操作部分完成
+$action_partially_completed_description: "已完成 %completed% 項操作，共 %total% 項。其餘操作未完成。再次嘗試前，請檢查您的活動記錄。"
+Action Status Unknown: 操作狀態未知
+$action_status_unknown_description: "無法驗證操作是否完成。重試前請檢查您的活動記錄和餘額；立即重試可能會導致操作被提交兩次。"
 Invalid amount: 無效金額
 Invalid address: 無效地址
 Domain is not connected to a wallet: 域名未與錢包連結
@@ -350,6 +353,7 @@ Add Token: 添加令牌
 Delete Token: 刪除令牌
 Are you sure you want to delete?: 您確定要刪除 %token% 嗎？
 Hide Tokens With No Cost: 無需掩蓋令牌
+Localized Token Names: 本地化名稱
 Sort By Cost: 按成本排序
 Update %app_name%: 更新 %app_name%
 Connect Ledger: 連接賬本
@@ -388,7 +392,6 @@ You sell: 您賣出
 You buy: 您購買
 Swap Details: 交換詳情
 Blockchain Fee: 區塊鏈費用
-Aggregator Fee: 聚合器費用
 Included: 包括
 Price Impact: 價格影響
 Minimum Received: 最低接收數量
@@ -403,7 +406,6 @@ $swap_price_impact_tooltip1: 這顯示了您的交易可能對代幣價格造成
 $swap_price_impact_tooltip2: 大型交易可能會使價格上漲或下跌得更多。較低的值通常較好。
 $swap_slippage_tooltip1: 設置此值可以允許價格在進行交換前發生變化的程度。
 $swap_slippage_tooltip2: 如果在處理您的交換時，價格變化超過此值，您的訂單將被取消。
-Coins have been swapped!: 币已交换完成！
 Slippage not specified: 未指定下單誤差
 Slippage too high: 下單誤差過高
 Not Enough %symbol%: "%symbol% 不足"
@@ -498,6 +500,15 @@ Scan QR: 掃描二維碼
 Account: 帳戶
 Accounts: 帳戶
 Networks: 網路
+Blockchains: 區塊鏈
+All Chains: 所有區塊鏈
+"You will still be able to receive and send tokens in hidden chains.": "你仍然可以在已隱藏的區塊鏈上接收和傳送代幣。"
+"Sort by Value": "依價值排序"
+"Automatically sort and hide chains based on your portfolio.": "根據您的投資組合自動排序及隱藏區塊鏈。"
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "隱藏的區塊鏈仍可用於接收及傳送代幣，但不會顯示在主列表中。"
+"Move Up": "上移"
+"Move Down": "下移"
+Tokens: 代幣
 Receive Funds: 收款
 Open the receive screen.: 開啟收款頁面。
 "Receive with ${applicationName}": 使用 ${applicationName} 收款
@@ -522,8 +533,11 @@ Russian Ruble: 俄羅斯盧布
 Chinese Yuan: 人民幣
 $max_balance: "最大: %balance%"
 $available_balance: "可用: %balance%"
+$send_recipient_invalid: 無效
+$send_recipient_not_compatible: 不相容
 $unstake_information_instantly: 您將立即收到您的存款
 Select Token: 選擇代幣
+$token_picker_hidden: 隱藏
 MY: 我的
 Popular: 受歡迎
 Not Found: 未找到
@@ -532,7 +546,6 @@ Wallet is imported!: 錢包是進口的！
 Create a code to protect it: 創建程式碼來保護它
 Enter your code again: 再次輸入您的代碼
 Code set successfully: 代碼設定成功
-Use Biometrics: 使用生物辨識技術
 Use Touch ID: 使用 Touch ID
 Use Face ID: 使用 Face ID
 Connect Touch ID: 連接 Touch ID
@@ -626,9 +639,9 @@ Send NFT: 發送 NFT
 Send Collectible: 發送收藏品
 Send Collectibles: 發送收藏品
 $nfts_burned:
-  zeroValue: "%1$d 個 NFT 已銷毀！"
-  oneValue: "%1$d 個 NFT 已銷毀！"
-  otherValue: "%1$d 個 NFT 已銷毀！"
+  zeroValue: "%count% 個 NFT 已銷毀"
+  oneValue: "%count% 個 NFT 已銷毀"
+  otherValue: "%count% 個 NFT 已銷毀"
 No NFT selected: 未選擇 NFT
 Cannot be sent: 無法發送
 NFT is for sale: NFT 正在出售
@@ -712,6 +725,14 @@ Install on Desktop: 安裝到桌面
 Install on Mobile: 安裝在手機
 Install App: 安裝應用程式
 Hide: 隱藏
+Hide and Report: 隱藏並檢舉
+Hide and Report NFT: 隱藏並檢舉 NFT
+Report: 檢舉
+Report NFT: 檢舉 NFT
+This NFT will remain hidden on this device and be reported.: 此 NFT 將在此裝置上保持隱藏並被檢舉。
+Only Hide: 僅隱藏
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: 你是否還要檢舉此 NFT 內容不當？隨後它將從此裝置上永久移除。
+This NFT will be permanently hidden on this device and reported.: 此 NFT 將在此裝置上永久隱藏並被檢舉。
 Hidden NFTs: 隱藏的NFT
 Hidden By Me: 我隱藏的
 Probably Scam: 可能是騙局
@@ -764,16 +785,8 @@ If away for 10 min: 離開10分鐘
 Unlock: 解鎖
 This address mimics another address that you previously interacted with.: 此地址模仿了您之前互動過的另一個地址。
 Biometric authentication failed: 生物識別認證失敗
+Authentication is already configured: 認證已設定
 Reset biometrics in security settings, or use a passcode.: 在安全設定中重置生物識別，或使用密碼。
-Best Rate: 最佳匯率
-via %dex_name%: 透過 %dex_name%
-$swap_dex_chooser_rate_title: 在 **DeDust** 和 **STON.fi** 上分析的實際匯率，以便使用 **最佳匯率**。
-You will receive %amount% **more**.: 您將收到 %amount% **更多**。
-You will spend %amount% **less**.: 您將少花 %amount%。
-Best: 最佳
-Use Best Rate: 使用最佳匯率
-Switch to %dex_name%: 切換到 %dex_name%
-Built-in DEX Aggregator: 內建Dex聚合器
 Add Tokens: 添加令牌
 No tokens yet: 尚無代幣
 $no_tokens_description: 從其他錢包接收代幣，或者在設定中啟用首選代幣進行監控。
@@ -786,7 +799,6 @@ Notifications & Sounds: 通知和聲音
 Sounds: 聲音
 Push Notifications: 推送通知
 Select up to %count% wallets for notifications: 選擇最多 %count% 個錢包接收通知
-$swap_aggregator_fee_tooltip: 內建的 **DEX 聚合器** 會在可用的 DEX 中找到 **最佳匯率**。服務費為 %percent%。
 Accumulated Rewards: 累積獎勵
 $swap_reverse_prohibited: 無法為這對代幣設置購買金額
 Blockchain Fee Details: 區塊鏈費用詳情
@@ -801,7 +813,6 @@ Wallet: 錢包
 Trending: 熱門
 No Data: 無數據
 Toggle fullscreen: 切換全螢幕模式
-Request is sent!: 請求已發送！
 Transaction ID: 交易ID
 Outgoing Transaction ID: 轉出交易ID
 Incoming Transaction ID: 轉入交易ID
@@ -814,6 +825,7 @@ $dapp_return_details: |
   %fee_amount% 將立即從您的錢包扣除以支付費用。
 
   %received_amount% 將在幾分鐘內退還給您。
+$dapp_return_disclaimer: 顯示的返還金額不受保證，並可能被惡意 Dapp 操縱。如果您不確定此服務的可靠性，請取消操作。
 Additional Amount Sent: 額外發送
 Show Sensitive Data: 顯示敏感數據
 Hide Sensitive Data: 隱藏敏感數據
@@ -821,6 +833,7 @@ Copy Address: 複製地址
 Copy Transaction ID: 複製交易ID
 Requesting Unstake: 請求解除質押
 Requested Unstake: 已申請解除質押
+Unstake Requested: 已申請解除質押
 $request_unstake_action: 請求解押
 Calling Contract: 呼叫合約
 Called Contract: 已調用合約
@@ -922,7 +935,6 @@ $safe_staking_ethena_description3: 您可隨時**提取存款**及累計利息�
 Unstake %amount%: 解除質押 %amount%
 Request Unstaking: 申請取消質押
 $unstaking_when_receive_ethena: 您將在 **7 天** 後收到已解除質押的存款。
-Coins have been unstaked!: 代幣已解鎖！
 Confirm Upgrading: 確認升級
 How does it work?: 它是如何運作的？
 Multisend: 批量發送
@@ -955,8 +967,8 @@ Configure DNS: 設定DNS
 Link to Wallet: 連結到錢包
 Change Wallet: 變更錢包
 Change Linked Wallet: 變更已連結錢包
-Domain has been renewed!: 網域已續約!
-Domains have been renewed!: 網域已成功續約!
+Domain Renewed: 網域已續約
+Domains Renewed: 網域已成功續約
 Linked Wallet: 已連結錢包
 Domain Linked: 網域已連結
 Link: 連結
@@ -1113,6 +1125,8 @@ $invalid_address_format: 無效的地址格式
 $no_valid_view_addresses: 沒有可查看的有效地址
 Account Saved: 帳戶已成功保存
 Share Wallet Link: 分享錢包連結
+Address: 地址
+Domain: 網域
 Remove: 移除
 $missing_offramp_deposit_address: 缺少 off-ramp 的充值地址。
 Buy: 購買
@@ -1121,6 +1135,7 @@ Sell on Card: 出售到卡
 Sell %symbol%: 出售 %symbol%
 $connect_dapp_description: 已連接的應用程式只能查看你的錢包地址，未經你的許可無法轉移你的資產。
 $connect_dapp_title: 連接到 %name%？
+$connect_dapp_no_compatible_wallets_found: 此連線需要多鏈錢包。您目前的錢包僅支援 TON，且沒有其他多鏈錢包。請使用下方按鈕建立新的多鏈錢包。
 Choose Wallet: 選擇錢包
 Wallet to use on %host%: 用於 %host% 的錢包
 Selected Wallet: 已選錢包
@@ -1128,6 +1143,8 @@ Wallet to use for payment: 用於付款的錢包
 $wallet_connect_pay_no_options: 此錢包沒有可用的支付選項。
 $wallet_connect_pay_try_another_wallet: 請嘗試選擇其他錢包。
 Connect Wallet: 連接錢包
+Create Multichain Wallet: 建立多鏈錢包
+Select multichain wallet: 選擇多鏈錢包
 Connect Anyway: 仍要連接
 Insufficient Fee: 手續費不足
 Waiting for a View deeplink to display a wallet address.: 正在等待檢視深層連結以顯示錢包地址。
@@ -1136,6 +1153,11 @@ $explorer_mode_warning: "瀏覽器模式：正在等待檢視深層連結以開�
 This command is not supported in explorer mode: 此命令在瀏覽器模式下不支援
 $saved_addresses_header: 已儲存
 confirm an action in My Wallet: 在 My Wallet 中確認操作
+Migration was rolled back: 遷移已回滾
+Rollback Enclave Migration: 回退飛地遷移
+Unable to migrate wallet data. Please contact support.: 無法遷移錢包數據。請聯繫支援。
+Failed to retrieve password from biometrics: 無法從生物辨識中取得密碼
+Migration failed. Please try again.: 遷移失敗。請重試。
 Timed out waiting for account to be ready: 等待帳戶準備就緒逾時
 $connected_apps:
   otherValue: "%1$d 已連接"
@@ -1174,7 +1196,6 @@ Transfer Info: 轉帳資訊
 Transfer not found: 未找到轉帳
 Failed to fetch transfer: 取得轉帳失敗
 Transfer in progress: 轉帳進行中
-Transfer Sent!: 轉帳已發送！
 Please confirm transfer on your Ledger: 請在您的 Ledger 上確認轉帳
 Please confirm action on your Ledger: 請在您的 Ledger 上確認操作
 Not all transfers were sent successfully: 並非所有轉帳都發送成功
@@ -1226,6 +1247,15 @@ Enabling biometric confirmation will reset the passcode.: 啟用生物識別認�
 Confirm action with your passcode: 用密碼確認操作
 No Image: 無圖片
 Different blockchain. Cannot be selected: 不同的區塊鏈。無法選擇
+Chains: 區塊鏈
+enclave_use_biometrics: 使用生物辨識
+Copy Storage Data: 複製儲存資料
+Rollback Migration: 回滾遷移
+Enclave session expired: Enclave 工作階段已過期
+Failed to setup auth: 設定驗證失敗
+Failed to setup biometric auth: 設定生物辨識驗證失敗
+No enclave session token available: 沒有可用的 Enclave 工作階段令牌
+Missing authorization: 缺少授權
 $address_suggestion_no_chain: 無 %chain%
 Subwallets: 子錢包
 Other addresses for this wallet: 此錢包的其他地址
@@ -1254,7 +1284,6 @@ Deposit: 存入
 Trade: 交易
 Show All %collection_name%: 顯示全部 %collection_name%
 Scanning for subwallets...: 正在掃描子錢包...
-This process may take up to a minute. Please wait.: 此過程可能需要一分鐘。請稍候。
 Your assets on other TON contracts: 您在其他 TON 合約上的資產
 No existing subwallets found: 未找到現有子錢包
 You can create a new subwallet if you need another address on the same secret words.: 如果您需要相同密語上的另一個地址，可以建立新的子錢包。
@@ -1407,7 +1436,6 @@ Swap is not supported on this account.: 此帳戶不支援兌換。
 Connecting your wallet: 正在連線錢包
 Action is not possible on a view-only wallet.: 只讀錢包無法執行此動作。
 No matching chains: 沒有相容的網路
-Select multichain wallet: 選擇多鏈錢包
 Logged in with My Wallet: 已透過 My Wallet 登入
 You have no apps connected to this wallet.: 這個錢包沒有已連線的應用程式。
 Asset: 資產
@@ -1563,6 +1591,11 @@ $web_permission_location: 位置資訊
 $web_permission_device_features: 裝置功能
 $web_permission_this_site: 此網站
 
+$enclave_use_biometrics: 使用生物辨識技術
+$enclave_enter_passcode_or_use_biometrics: 輸入密碼或使用指紋
+$enclave_use_pin: 使用 PIN 碼
+$enclave_cancel: 取消
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: 已發送 %amount% %symbol%
 push_activity_token_received: 已收到 %amount% %symbol%
@@ -1588,23 +1621,31 @@ push_activity_dns_renewed: 已續訂 DNS
 push_activity_subscription_started: 已開始訂閱
 push_activity_subscription_payment_received: 已收到訂閱付款 %amount% %symbol%
 push_activity_subscription_canceled: 已取消訂閱
-push_activity_swap_completed: 兌換 %from_symbol% -> %to_symbol% 已完成
-push_activity_swap_failed: 兌換 %from_symbol% -> %to_symbol% 失敗
-push_activity_swap_expired: 兌換 %from_symbol% -> %to_symbol% 已過期
-push_activity_swap_pending: 兌換 %from_symbol% -> %to_symbol% %status%
+push_activity_swap_completed: 兌換 %from_symbol% → %to_symbol% 已完成
+push_activity_swap_failed: 兌換 %from_symbol% → %to_symbol% 失敗
+push_activity_swap_expired: 兌換 %from_symbol% → %to_symbol% 已過期
+push_activity_swap_pending: 兌換 %from_symbol% → %to_symbol% %status%
 push_activity_staking_profit: 質押收益 %amount% GRAM
 push_activity_staking_loyalty_profit: 質押忠誠度收益 %amount% GRAM
 push_domain_title_renew: 續訂您的網域
 push_domain_expired_yesterday: 您的網域 %domain% 昨天已過期。請盡快續訂，以免失去存取權限
 push_domain_expired_days_ago: 您的網域 %domain% 已於 %days% 天前過期。請盡快續訂，以免失去存取權限
+push_domain_expired_days_ago_number:
+  zeroValue: 您的網域 %domain% 已於 %days% 天前過期。請盡快續訂，以免失去存取權限
+  oneValue: 您的網域 %domain% 已於 %days% 天前過期。請盡快續訂，以免失去存取權限
+  otherValue: 您的網域 %domain% 已於 %days% 天前過期。請盡快續訂，以免失去存取權限
 push_domain_expires_today: 您的網域 %domain% 將於今天過期。請續訂以免失去存取權限
 push_domain_expires_tomorrow: 您的網域 %domain% 將於明天過期。請續訂以免失去存取權限
 push_domain_expires_in_days: 您的網域 %domain% 將於 %days% 天後過期。請續訂以免失去存取權限
+push_domain_expires_in_days_number:
+  zeroValue: 您的網域 %domain% 將於 %days% 天後過期。請續訂以免失去存取權限
+  oneValue: 您的網域 %domain% 將於 %days% 天後過期。請續訂以免失去存取權限
+  otherValue: 您的網域 %domain% 將於 %days% 天後過期。請續訂以免失去存取權限
 
 $more_nfts:
   zeroValue: 無 NFT
   oneValue: "+1 個 NFT"
-  otherValue: "+%1$d 個 NFT"
+  otherValue: "+%count% 個 NFT"
 
 $subwallets_hint: 使用子錢包可獲取額外地址，無需建立新的密語。
 $subwallets_created_wallets: 如果您之前建立過子錢包，它們將顯示在下面的列表中。
@@ -1626,13 +1667,76 @@ Email: 電子郵件
 Choose Token: 選擇代幣
 You don't have any eligible tokens for this payment: 您沒有適用於此次付款的代幣
 Buy, swap, or receive a supported token to continue.: 購買、兌換或接收支援的代幣以繼續。
+Copy Wallet Link: 複製錢包連結
 Are you sure you want to cancel the payment?: 你確定要取消付款嗎？
 Cancel Payment: 取消付款
-Paid!: 已付款！
+Paid: 已付款
 Payment: 付款
-Sent!: 已送出！
 $chart_months_short: 1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月
 $chart_week_days: 星期日,星期一,星期二,星期三,星期四,星期五,星期六
 $chart_week_days_short: 週日,週一,週二,週三,週四,週五,週六
 Unsupported Chain: 不支援的網路
 Please upgrade to multichain to use this app.: 請升級至多鏈錢包以使用此應用程式。
+Rounded Corners: 圓角
+Enable Blur: 啟用模糊
+App Font: 應用程式字體
+Rounded Balance Font: 圓潤餘額字體
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: 測試網不支援出售到卡。
+Selling to card is not supported for this account.: 此帳戶不支援出售到卡。
+"Why is %tokenName% %direction% %timeframe%?": "%tokenName% 的價格為什麼%timeframe%%direction%？"
+up: 上漲
+down: 下跌
+today: 今天
+this week: 本週
+this month: 本月
+Info: 資訊
+Market: 市場
+Market Cap: 市值
+Created: 建立時間
+Expanded: 已展開
+Collapsed: 已收合
+Circulating / Total Supply: 流通量 / 總供應量
+Circulating Supply: 流通供應量
+Total Supply: 總供應量
+Volume · 24h: 24 小時交易量
+Token Info Mock: 代幣資訊模擬資料
+Design: 設計稿
+Localized Description: 本地化描述
+Long / Sparse: 長文字 / 資料缺失
+Loading: 載入中
+Missing Description: 缺少描述
+Missing Token Info: 缺少代幣資訊
+Website: 網站
+Documentation: 說明文件
+Source Code: 原始碼
+Translated from English: 譯自英文
+Show Original: 顯示原文
+Show Translation: 顯示譯文
+Original Text: 原文
+$token_info_market_cap_hint: 代幣流通供應量的總市值。
+$token_info_supply_hint: 目前流通的代幣數量與總供應量的比較。
+$token_info_volume_hint: 過去 24 小時內的總交易額。
+$token_info_expand_hint: 展開代幣資訊。
+$token_info_collapse_hint: 收合代幣資訊。
+$token_info_open_in_browser_hint: 在瀏覽器中開啟。
+$token_info_fallback_description: 暫無公開資訊
+$token_info_no_description: 暫無描述
+$swap_cex_aml_kyc_policy_with_provider: "%provider% AML/KYC"
+$enclave_migration_damaged_title: 錢包資料已損毀
+$enclave_migration_damaged_message: |
+  這與密碼無關。您其中一個錢包的儲存資料無法讀取，因此更新已停止，其餘錢包仍維持先前的格式。
+
+  請不要重新安裝應用程式，也不要清除其資料，那會抹除仍然完好的錢包。請聯絡 %support_link%，我們會協助您復原。
+$enclave_migration_interrupted_title: 更新遭到中斷
+$enclave_migration_interrupted_message: |
+  先前一次更新錢包資料的嘗試中途停止，無法從此畫面繼續。在這裡重試不會有幫助。
+
+  請不要重新安裝應用程式，也不要清除其資料，您的錢包仍儲存在本裝置上。請聯絡 %support_link%，我們會協助您完成更新。
+$enclave_migration_storage_title: 無法儲存錢包資料
+$enclave_migration_storage_message: |
+  更新後的錢包資料無法儲存到本裝置。釋放一些磁碟空間可能會有幫助。
+
+  請不要重新安裝應用程式，也不要清除其資料，您的錢包仍儲存在裝置上。若反覆出現，請聯絡 %support_link%。
+Hide Unverified NFTs: 隱藏未驗證的NFT
+Unverified: 未驗證

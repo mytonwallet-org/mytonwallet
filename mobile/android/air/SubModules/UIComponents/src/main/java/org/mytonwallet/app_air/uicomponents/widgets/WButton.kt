@@ -9,6 +9,8 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.TypedValue
 import android.view.View
+import kotlin.math.min
+import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animator.ListAnimator.Measurable
 import me.vkryl.android.animator.ReplaceAnimator
@@ -26,10 +28,10 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
-import kotlin.math.min
-import kotlin.math.roundToInt
 
-class WButton(context: Context) : View(context), WThemedView {
+class WButton(context: Context) :
+    View(context),
+    WThemedView {
     private val ripple = WRippleDrawable.create(120f.dp)
     private val progressDrawable = RoundProgressDrawable()
     var buttonHeight = 50.dp
@@ -44,17 +46,13 @@ class WButton(context: Context) : View(context), WThemedView {
         )
     }
 
-    fun measureText(txt: String): Float {
-        return textPaint.measureText(txt)
-    }
+    fun measureText(txt: String): Float = textPaint.measureText(txt)
 
     sealed class Type {
 
         data object Primary : Type()
         data object Destructive : Type()
-        data class Secondary(
-            val backgroundBaseColor: WColor? = null,
-        ) : Type()
+        data class Secondary(val backgroundBaseColor: WColor? = null) : Type()
 
         companion object {
             val PRIMARY: Type = Primary
@@ -65,18 +63,10 @@ class WButton(context: Context) : View(context), WThemedView {
         }
     }
 
-    data class Item(
-        val maxWidth: Int,
-        val text: String,
-        val layout: StaticLayout
-    ) : Measurable {
-        override fun getWidth(): Int {
-            return layout.width
-        }
+    data class Item(val maxWidth: Int, val text: String, val layout: StaticLayout) : Measurable {
+        override fun getWidth(): Int = layout.width
 
-        override fun getHeight(): Int {
-            return 0
-        }
+        override fun getHeight(): Int = 0
     }
 
     var type = Type.PRIMARY
@@ -172,7 +162,10 @@ class WButton(context: Context) : View(context), WThemedView {
     }
 
     private fun checkEnabled() {
-        super.setEnabled(isEnabledAnimator.value && !isLoadingAnimator.value && (!isErrorAnimator.value || clickableError))
+        super.setEnabled(
+            isEnabledAnimator.value && !isLoadingAnimator.value &&
+                (!isErrorAnimator.value || clickableError)
+        )
     }
 
     override fun verifyDrawable(who: Drawable): Boolean {
@@ -240,20 +233,30 @@ class WButton(context: Context) : View(context), WThemedView {
 
         val maxWidth = measuredWidth - paddingLeft - paddingRight
         val staticLayout = StaticLayout.Builder.obtain(
-            text, 0, text.length, textPaint, Int.MAX_VALUE
+            text,
+            0,
+            text.length,
+            textPaint,
+            Int.MAX_VALUE
         ).build()
 
         val textWidth = 0.until(staticLayout.lineCount).maxOf { i ->
             staticLayout.getLineWidth(i)
         }
         val layout = StaticLayout(
-            text, textPaint, (textWidth).ceilToInt(),
-            Layout.Alignment.ALIGN_NORMAL, 1f, 0f, false
+            text,
+            textPaint,
+            (textWidth).ceilToInt(),
+            Layout.Alignment.ALIGN_NORMAL,
+            1f,
+            0f,
+            false
         )
 
         animator.replace(
             Item(maxWidth, text = text.toString(), layout),
-            isAnimated && !animator.isEmpty && isAttachedToWindow && isLoadingAnimator.floatValue != 1f
+            isAnimated && !animator.isEmpty && isAttachedToWindow &&
+                isLoadingAnimator.floatValue != 1f
         )
     }
 
@@ -286,8 +289,13 @@ class WButton(context: Context) : View(context), WThemedView {
         }
 
         val layout = StaticLayout(
-            oldItem.text, textPaint, textWidth,
-            Layout.Alignment.ALIGN_NORMAL, 1f, 0f, false
+            oldItem.text,
+            textPaint,
+            textWidth,
+            Layout.Alignment.ALIGN_NORMAL,
+            1f,
+            0f,
+            false
         )
 
         animator.replace(Item(maxWidth, text = oldItem.text, layout), false)
@@ -299,8 +307,11 @@ class WButton(context: Context) : View(context), WThemedView {
 
     override val isTinted = true
     private fun updateColors() {
-        val tint = if (type == Type.DESTRUCTIVE) WColor.Error.color
-        else customTint ?: WColor.Tint.color
+        val tint = if (type == Type.DESTRUCTIVE) {
+            WColor.Error.color
+        } else {
+            customTint ?: WColor.Tint.color
+        }
         val tintColor = fromToArgb(
             alphaColor(
                 0.5f,
@@ -332,10 +343,13 @@ class WButton(context: Context) : View(context), WThemedView {
         val backgroundColor = fromToArgb(
             when (type) {
                 is Type.Primary, Type.Destructive -> tintColor
+
                 is Type.Secondary -> type.backgroundBaseColor?.let { base ->
                     fromToArgb(base.color, tintColor, 0.1f)
                 } ?: 0
-            }, errorBackgroundColor, isErrorAnimator.floatValue
+            },
+            errorBackgroundColor,
+            isErrorAnimator.floatValue
         )
 
         val textColor = fromToArgb(
@@ -350,7 +364,9 @@ class WButton(context: Context) : View(context), WThemedView {
                 }
 
                 is Type.Secondary -> tintColor
-            }, errorTextColor, isErrorAnimator.floatValue
+            },
+            errorTextColor,
+            isErrorAnimator.floatValue
         )
 
         val rippleColor = when (type) {

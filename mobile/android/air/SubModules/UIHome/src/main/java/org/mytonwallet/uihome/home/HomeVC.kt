@@ -16,6 +16,11 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.absoluteValue
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
@@ -47,8 +52,8 @@ import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
-import org.mytonwallet.app_air.uiwalletconnectpay.WalletConnectPayController
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
+import org.mytonwallet.app_air.uiwalletconnectpay.WalletConnectPayController
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -66,23 +71,23 @@ import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.uihome.home.views.ActivityListView
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import org.mytonwallet.uihome.home.views.header.StickyHeaderView
 import org.mytonwallet.uihome.home.views.header.StickyHeaderView.Mode
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.absoluteValue
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 class HomeVC(context: Context, private val mode: MScreenMode) :
     WViewControllerWithModelStore(context),
     HomeVM.Delegate,
-    ActivityListView.DataSource, ActivityListView.Delegate,
-    WThemedView, WProtectedView, ISortableView {
+    ActivityListView.DataSource,
+    ActivityListView.Delegate,
+    WThemedView,
+    WProtectedView,
+    ISortableView {
+    @Suppress("PropertyName")
     override val TAG = "Home"
 
     private val px92 = 92.dp
@@ -126,8 +131,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         allActivityListViews.forEach {
             it.onWideLayoutChanged()
         }
-        if (!nowWide)
-            moveActionsViewToCell()
+        if (!nowWide) moveActionsViewToCell()
         rvMode = if (nowWide) recyclerViewModeValue() else phoneHeaderView.mode
         if (!nowWide) {
             allActivityListViews.forEach { it.updateHeaderHeights() }
@@ -140,11 +144,16 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             return
         }
         val verticalOffset = currentActivityListView.recyclerView.computeVerticalScrollOffset()
-        if (verticalOffset > 0)
+        if (verticalOffset > 0) {
             phoneHeaderView.updateScroll(verticalOffset.coerceAtLeast(0), 0f, false)
-        rvMode = phoneHeaderView.mode
-        if (phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) {
-            allActivityListViews.forEach {
+        }
+        if (rvMode != phoneHeaderView.mode) {
+            headerModeChanged()
+            return
+        }
+        allActivityListViews.forEach {
+            it.updateHeaderHeights()
+            if (phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) {
                 it.recyclerView.setupOverScroll()
                 it.recyclerView.setMaxOverscrollOffset(
                     if (phoneHeaderView.canExpandForHeight) phoneHeaderView.diffPx else 0f
@@ -209,7 +218,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     private fun isSellAllowed(): Boolean {
-        return homeVM.showingAccount?.supportsBuyWithCard == true// && ConfigStore.isLimited != true
+        // Also check ConfigStore.isLimited when the restriction is restored.
+        return homeVM.showingAccount?.supportsBuyWithCard == true
     }
 
     private var prevActivityListView =
@@ -218,7 +228,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             WeakReference(this),
             WeakReference(this)
         ).apply {
-            isInvisible = true
+            isGone = true
         }
     private var currentActivityListView =
         ActivityListView(
@@ -232,15 +242,26 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             WeakReference(this),
             WeakReference(this)
         ).apply {
-            isInvisible = true
+            isGone = true
         }
     private val allActivityListViews =
         listOf(prevActivityListView, currentActivityListView, nextActivityListView)
-    private val activityListViewsContainer = WFrameLayout(context).apply {
+    private val activityListViewsContainer = object : WFrameLayout(context) {
+        override fun onVisibilityAggregated(isVisible: Boolean) {
+            super.onVisibilityAggregated(isVisible)
+            if (isVisible) {
+                post {
+                    scheduleInitialContentRenderCallback()
+                }
+            }
+        }
+    }.apply {
         addView(prevActivityListView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(currentActivityListView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(nextActivityListView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
+
+    private var initialContentRenderCallback: (() -> Unit)? = null
 
     private val headerCell: HeaderSpaceCell
         get() {
@@ -285,15 +306,21 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
                 if (ev.action == MotionEvent.ACTION_DOWN) {
                     isPassingToDirectionalTouchHandler =
-                        phoneHeaderView.mode == HomeHeaderView.Mode.Expanded && ev.y < activityListViewHeaderHeight()
+                        phoneHeaderView.mode == HomeHeaderView.Mode.Expanded &&
+                        ev.y < activityListViewHeaderHeight()
                     if (!isPassingToDirectionalTouchHandler) {
-                        if (phoneHeaderView.mode == HomeHeaderView.Mode.Expanded) moveHeaderViewToCell()
+                        if (phoneHeaderView.mode ==
+                            HomeHeaderView.Mode.Expanded
+                        ) {
+                            moveHeaderViewToCell()
+                        }
                     }
                 }
-                return if (isPassingToDirectionalTouchHandler)
+                return if (isPassingToDirectionalTouchHandler) {
                     touchHandler.dispatchTouch(view, ev) ?: super.dispatchTouchEvent(ev)
-                else
+                } else {
                     super.dispatchTouchEvent(ev)
+                }
             }
         }
     }
@@ -329,7 +356,15 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             stickyHeaderView.updateStatusView,
             onModeChange = { animated ->
                 if (animated) {
-                    currentActivityListView.recyclerView.setBounceBackSkipValue(if (rvMode == phoneHeaderView.mode) 0 else phoneHeaderView.diffPx.toInt())
+                    currentActivityListView.recyclerView.setBounceBackSkipValue(
+                        if (rvMode ==
+                            phoneHeaderView.mode
+                        ) {
+                            0
+                        } else {
+                            phoneHeaderView.diffPx.toInt()
+                        }
+                    )
                 } else {
                     headerModeChanged()
                 }
@@ -337,9 +372,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     stickyHeaderViewMode,
                     if (stickyHeaderView.updateStatusView.state != null &&
                         stickyHeaderView.updateStatusView.state !is UpdateStatusView.State.Updated
-                    )
+                    ) {
                         stickyHeaderView.updateStatusView.state!!
-                    else UpdateStatusView.State.Updated(homeVM.showingAccount?.name ?: ""),
+                    } else {
+                        UpdateStatusView.State.Updated(homeVM.showingAccount?.name ?: "")
+                    },
                     true
                 )
             },
@@ -360,6 +397,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         v.apply {
             background = null
             onLayoutRecalculated = {
+                currentActivityListView.updateHeaderHeights()
                 if (mode == HomeHeaderView.Mode.Collapsed) {
                     currentActivityListView.recyclerView.setMaxOverscrollOffset(
                         if (canExpandForHeight) diffPx else 0f
@@ -375,10 +413,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 context,
                 TabletHeaderActionsView.headerTabs(context, true),
                 onClick = {
-                    if (currentActivityListView.skeletonVisible)
-                        return@TabletHeaderActionsView
+                    if (currentActivityListView.skeletonVisible) return@TabletHeaderActionsView
                     onClick(HeaderActionsView.Identifier.valueOf(it.name))
-                },
+                }
             ).apply {
                 onHorizontalScroll = { updateTopBlurHorizontalPadding() }
             }
@@ -387,10 +424,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 context,
                 HeaderActionsView.headerTabs(context, true),
                 onClick = {
-                    if (currentActivityListView.skeletonVisible)
-                        return@HeaderActionsView
+                    if (currentActivityListView.skeletonVisible) return@HeaderActionsView
                     onClick(it)
-                },
+                }
             ).apply {
                 setPadding(0, 0, 0, 16.dp)
             }
@@ -413,7 +449,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         SellWithCardLauncher.launch(
             caller = WeakReference(this),
             account = activeAccount,
-            tokenSlug = tokenSlug,
+            tokenSlug = tokenSlug
         )
     }
 
@@ -428,7 +464,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
 
             HeaderActionsView.Identifier.LOCK_APP -> {
-                WalletContextManager.delegate?.get()?.lockScreen()
+                WalletContextManager.delegate?.get()?.lockScreen(startWithBiometrics = false)
             }
 
             HeaderActionsView.Identifier.TOGGLE_SENSITIVE_DATA_PROTECTION -> {
@@ -441,10 +477,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
 
             HeaderActionsView.Identifier.RECEIVE -> {
-                val receiveVC = ReceiveVC.createIfAvailable(
-                    context,
-                    homeVM.showingAccount?.firstChain
-                ) ?: return
+                val receiveVC = ReceiveVC.createIfAvailable(context) ?: return
                 val navVC = WNavigationController(
                     window!!,
                     WNavigationController.PresentationConfig.PreferredFullScreen
@@ -480,8 +513,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
 
             HeaderActionsView.Identifier.SCAN_QR -> {
-                if (currentActivityListView.skeletonVisible)
-                    return
+                if (currentActivityListView.skeletonVisible) return
                 QrScannerDialog.build(context) { qr ->
                     for (blockchain in MBlockchain.supportedChains) {
                         if (blockchain.isValidAddress(qr)) {
@@ -491,7 +523,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                             )
                             navVC.setRoot(
                                 SendVC(
-                                    context, blockchain.nativeSlug, SendVC.InitialValues(
+                                    context,
+                                    blockchain.nativeSlug,
+                                    SendVC.InitialValues(
                                         address = qr
                                     )
                                 )
@@ -504,8 +538,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                         qr,
                         DeeplinkOpenSource.QR_SCAN
                     )
-                    if (validDeeplink == true)
-                        return@build
+                    if (validDeeplink == true) return@build
                     if (URLUtil.isValidUrl(qr)) {
                         tonConnectController.connectStart(qr)
                         return@build
@@ -541,10 +574,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
 
             HeaderActionsView.Identifier.WALLET_SETTINGS -> {
-                if (phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed)
-                    return
+                if (phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) return
                 val navVC = WNavigationController(
-                    window!!, WNavigationController.PresentationConfig(
+                    window!!,
+                    WNavigationController.PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
@@ -584,13 +617,19 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         get() = topBlurReversedCornerView
 
     private val topBlurReversedCornerView = ReversedCornerView(
-        context, ReversedCornerView.Config(blurRootView = activityListViewsContainer)
+        context,
+        ReversedCornerView.Config(blurRootView = activityListViewsContainer)
     ).apply {
         isGone = true
     }
 
     override fun setupViews() {
         super.setupViews()
+        val initialAccountId = when (mode) {
+            MScreenMode.Default -> WGlobalStorage.getActiveAccountId()
+            is MScreenMode.SingleWallet -> mode.accountId
+        }
+        initialAccountId?.let(NftStore::preloadCollections)
 
         view.addView(activityListViewsContainer, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(
@@ -602,8 +641,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
             )
         )
-        if (!isWideHome)
+        if (!isWideHome) {
             view.addView(phoneHeaderView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         view.addView(stickyHeaderView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.setConstraints {
             toTopPx(stickyHeaderView, navigationController?.getSystemBars()?.top ?: 0)
@@ -615,14 +655,15 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         view.post {
             moveActionsViewToCell()
             view.fadeIn()
-            if (isWideHome)
+            if (isWideHome) {
                 stickyHeaderView.update(Mode.WideScreen, null, false)
-            else
+            } else {
                 allActivityListViews.forEach {
                     it.recyclerView.setMaxOverscrollOffset(
                         if (phoneHeaderView.canExpandForHeight) phoneHeaderView.diffPx else 0f
                     )
                 }
+            }
         }
 
         WalletCore.doOnBridgeReady {
@@ -630,6 +671,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             updateHeaderCards(false)
             updateBalance(false)
             configureAccountViews(shouldLoadNewWallets = true, skipSkeletonOnCache = false)
+            executeWithLowPriority {
+                if (isDestroyed) return@executeWithLowPriority
+                allActivityListViews.forEach { if (it.isGone) it.isInvisible = true }
+            }
         }
 
         if (mode == MScreenMode.Default) {
@@ -657,26 +702,28 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     private fun expand() {
         if (isWideHome) return
-        if (phoneHeaderView.mode == HomeHeaderView.Mode.Expanded)
-            return
-        if (!phoneHeaderView.canExpandForHeight)
-            return
+        if (phoneHeaderView.mode == HomeHeaderView.Mode.Expanded) return
+        if (!phoneHeaderView.canExpandForHeight) return
         currentActivityListView.expandingProgrammatically = true
         topBlurReversedCornerView.pauseBlurring(false)
         topBlurReversedCornerView.isGone = true
         currentActivityListView.recyclerView.scrollToOverScroll(
-            (phoneHeaderView.expandedContentHeight -
-                phoneHeaderView.collapsedHeight).toInt()
+            (
+                phoneHeaderView.expandedContentHeight -
+                    phoneHeaderView.collapsedHeight
+                ).toInt()
         )
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        initialContentRenderCallback = null
         homeVM.destroy()
         if (mode is MScreenMode.SingleWallet &&
             WGlobalStorage.temporaryAddedAccountIds.contains(mode.accountId)
-        )
+        ) {
             homeVM.removeTemporaryAccount()
+        }
         _actionsView?.onDestroy()
         phoneHeaderView.onDestroy()
         if (mode == MScreenMode.Default) {
@@ -771,15 +818,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             navigationBar?.bringToFront()
         } else {
             phoneHeaderView.bringToFront()
-            if (stickyHeaderView.isInActionMode) {
-                stickyHeaderView.bringToFront()
-            }
+            stickyHeaderView.bringToFront()
         }
     }
 
     fun applyHorizontalSwipe(progress: Float, verticalOffset: Int, actionsFadeInPercent: Float) {
-        if (currentActivityListView.isInvisible)
-            currentActivityListView.isInvisible = false
+        if (!currentActivityListView.isVisible) currentActivityListView.isInvisible = false
         currentActivityListView.updateAlpha(1 - abs(progress))
         if (progress == 0f) {
             actionsCellView.translationY = 0f
@@ -804,7 +848,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             nextActivityListView.updateHeaderHeights()
         } else {
             nextActivityListView.updateAlpha(0f)
-            nextActivityListView.isInvisible = true
+            if (!nextActivityListView.isGone) nextActivityListView.isInvisible = true
         }
         if (progress < -0.02) {
             prevActivityListView.isInvisible = false
@@ -812,7 +856,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             prevActivityListView.updateHeaderHeights()
         } else {
             prevActivityListView.updateAlpha(0f)
-            prevActivityListView.isInvisible = true
+            if (!prevActivityListView.isGone) prevActivityListView.isInvisible = true
         }
         updateActionsAlpha()
     }
@@ -821,7 +865,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (isWideHome) {
             if (dy > 1) {
                 resumeBlurViews()
-            } else if (currentActivityListView.recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
+            } else if (currentActivityListView.recyclerView.scrollState !=
+                RecyclerView.SCROLL_STATE_IDLE
+            ) {
                 pauseBlurViews()
             }
             actionsLayoutFadeInPercent = 1f
@@ -835,19 +881,31 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 moveHeaderViewToParent()
             }
         } else {
-            if (currentActivityListView.recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE ||
+            val isScrolling =
+                currentActivityListView.recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
+            if (isScrolling ||
                 currentActivityListView.recyclerView.getOverScrollOffset() > 0
             ) {
                 pauseBlurViews()
             }
         }
         val scrollY =
-            dy - (if (rvMode == HomeHeaderView.Mode.Expanded) phoneHeaderView.diffPx else 0f).roundToInt()
+            dy -
+                (
+                    if (rvMode ==
+                        HomeHeaderView.Mode.Expanded
+                    ) {
+                        phoneHeaderView.diffPx
+                    } else {
+                        0f
+                    }
+                    ).roundToInt()
         // Do NOT accept negative scrollY values if user is not dragging anymore and dy >= 0, to prevent ui jumps/glitches.
         val acceptNegativeScrollY =
             dy < 0 ||
                 phoneHeaderView.mode == HomeHeaderView.Mode.Expanded ||
-                currentActivityListView.recyclerView.scrollState == RecyclerView.SCROLL_STATE_DRAGGING
+                currentActivityListView.recyclerView.scrollState ==
+                RecyclerView.SCROLL_STATE_DRAGGING
         if (!acceptNegativeScrollY && scrollY < 0) {
             currentActivityListView.scrollEnded(0)
             currentActivityListView.recyclerView.stopScroll()
@@ -879,22 +937,26 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     private val pausedBlurViews: Boolean
         get() {
             return !topBlurReversedCornerView.isPlaying &&
-                (bottomReversedCornerView?.let { !it.isPlaying }
-                    ?: navigationController?.tabBarController?.pausedBlurViews
-                    ?: false)
+                (
+                    bottomReversedCornerView?.let { !it.isPlaying }
+                        ?: navigationController?.tabBarController?.pausedBlurViews
+                        ?: false
+                    )
         }
 
     override fun pauseBlurViews() {
         if (rvMode == HomeHeaderView.Mode.Expanded ||
             phoneHeaderView.mode == HomeHeaderView.Mode.Expanded
         ) {
-            if (pausedBlurViews)
-                return
+            if (pausedBlurViews) return
             topBlurReversedCornerView.pauseBlurring(false)
             topBlurReversedCornerView.isGone = true
             bottomReversedCornerView?.pauseBlurring()
-            if (navigationController?.tabBarController?.activeNavigationController == navigationController)
+            if (navigationController?.tabBarController?.activeNavigationController ==
+                navigationController
+            ) {
                 navigationController?.tabBarController?.pauseBlurring()
+            }
         }
     }
 
@@ -902,14 +964,15 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         get() {
             return topBlurReversedCornerView.isVisible &&
                 topBlurReversedCornerView.isPlaying &&
-                (bottomReversedCornerView?.isPlaying
-                    ?: navigationController?.tabBarController?.pausedBlurViews?.let { !it }
-                    ?: false)
+                (
+                    bottomReversedCornerView?.isPlaying
+                        ?: navigationController?.tabBarController?.pausedBlurViews?.let { !it }
+                        ?: false
+                    )
         }
 
     private fun resumeBlurViews() {
-        if (resumedBlurViews)
-            return
+        if (resumedBlurViews) return
         topBlurReversedCornerView.isGone = false
         topBlurReversedCornerView.resumeBlurring()
         resumeBottomBlurViews()
@@ -944,29 +1007,61 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
         updateTopReversedCornerViewHeight()
         currentActivityListView.assetsCell?.updateSegmentItemsTheme()
-        if (phoneHeaderView.parent is WCell)
-            phoneHeaderView.updateTheme()
-        if (!isWideHome && actionsCellView.parent is WCell)
-            actionsView.updateTheme()
+        if (phoneHeaderView.parent is WCell) phoneHeaderView.updateTheme()
+        if (!isWideHome && actionsCellView.parent is WCell) actionsView.updateTheme()
     }
 
     // Configure lists
     var renderedAccounts = ""
+
+    fun doOnInitialContentRendered(callback: () -> Unit) {
+        initialContentRenderCallback = callback
+        scheduleInitialContentRenderCallback()
+    }
+
+    private fun scheduleInitialContentRenderCallback() {
+        val callback = initialContentRenderCallback ?: return
+        if (isDestroyed || !activityListViewsContainer.isShown) return
+
+        val accountId = (headerView.centerAccount ?: homeVM.showingAccount)?.accountId ?: return
+        if (currentActivityListView.showingAccountId != accountId) return
+
+        initialContentRenderCallback = null
+        activityListViewsContainer.doOnPreDraw {
+            activityListViewsContainer.post {
+                if (isDestroyed) return@post
+                val renderedAccountId =
+                    (headerView.centerAccount ?: homeVM.showingAccount)?.accountId
+                if (!activityListViewsContainer.isShown ||
+                    renderedAccountId != accountId ||
+                    currentActivityListView.showingAccountId != accountId
+                ) {
+                    initialContentRenderCallback = callback
+                    scheduleInitialContentRenderCallback()
+                    return@post
+                }
+                callback()
+            }
+        }
+    }
+
     private fun configureActivityLists(
         shouldLoadNewWallets: Boolean,
         skipSkeletonOnCache: Boolean
     ) {
         val activeAccount = headerView.centerAccount ?: homeVM.showingAccount ?: return
+        NftStore.preloadCollections(activeAccount.accountId)
         homeVM.loadedAccountId = activeAccount.accountId
         val accountIds = WGlobalStorage.accountIds()
         val activeAccountIndex = accountIds.indexOf(activeAccount.accountId)
-        val prevAccountId = accountIds.getOrNull(activeAccountIndex - 1)
-        val nextAccountId = accountIds.getOrNull(activeAccountIndex + 1)
+        val prevAccountId =
+            accountIds.getOrNull(activeAccountIndex - LocaleController.rtlMultiplier)
+        val nextAccountId =
+            accountIds.getOrNull(activeAccountIndex + LocaleController.rtlMultiplier)
         if (shouldLoadNewWallets) {
             val newRenderedAccounts =
                 "$prevAccountId${activeAccount.accountId}$nextAccountId"
-            if (renderedAccounts == newRenderedAccounts)
-                return
+            if (renderedAccounts == newRenderedAccounts) return
             renderedAccounts = newRenderedAccounts
         }
 
@@ -978,11 +1073,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 nextActivityListView
             )
 
-        fun getViewForAccountId(id: String?): ActivityListView<HomeVC>? {
-            return activityListViewsCopy.firstOrNull { activityListView ->
+        fun getViewForAccountId(id: String?): ActivityListView<HomeVC>? =
+            activityListViewsCopy.firstOrNull { activityListView ->
                 activityListView.showingAccountId == id
             }
-        }
 
         val prevView = getViewForAccountId(prevAccountId)
         if (prevView != null) activityListViewsCopy.remove(prevView)
@@ -992,43 +1086,47 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (nextView != null) activityListViewsCopy.remove(nextView)
 
         prevActivityListView =
-            (prevView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-                configure(
-                    prevAccountId,
-                    shouldLoadNewWallets,
-                    skipSkeletonOnCache = skipSkeletonOnCache
-                )
-            }).apply {
-                if (swipeItemsOffset == 0)
+            (
+                prevView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
+                    configure(
+                        prevAccountId,
+                        shouldLoadNewWallets,
+                        skipSkeletonOnCache = skipSkeletonOnCache
+                    )
+                }
+                ).apply {
+                if (swipeItemsOffset == 0 && isVisible) {
                     isInvisible = true
-                if (prevView == null || alpha == 0f)
-                    instantScrollToTop()
+                }
+                if (prevView == null || alpha == 0f) instantScrollToTop()
             }
         currentActivityListView =
-            (currentView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
+            (
+                currentView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
+                    configure(
+                        activeAccount.accountId,
+                        shouldLoadNewWallets,
+                        skipSkeletonOnCache = skipSkeletonOnCache
+                    )
+                }
+                ).apply {
+                isInvisible = false
+                if (currentView == null || alpha == 0f) instantScrollToTop(shouldLoadNewWallets)
+                if (swipeItemsOffset == 0) alpha = 1f
+            }
+        nextActivityListView = (
+            nextView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
                 configure(
-                    activeAccount.accountId,
+                    nextAccountId,
                     shouldLoadNewWallets,
                     skipSkeletonOnCache = skipSkeletonOnCache
                 )
-            }).apply {
-                isInvisible = false
-                if (currentView == null || alpha == 0f)
-                    instantScrollToTop(shouldLoadNewWallets)
-                if (swipeItemsOffset == 0)
-                    alpha = 1f
             }
-        nextActivityListView = (nextView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-            configure(
-                nextAccountId,
-                shouldLoadNewWallets,
-                skipSkeletonOnCache = skipSkeletonOnCache
-            )
-        }).apply {
-            if (swipeItemsOffset == 0)
+            ).apply {
+            if (swipeItemsOffset == 0 && isVisible) {
                 isInvisible = true
-            if (nextView == null || alpha == 0f)
-                instantScrollToTop()
+            }
+            if (nextView == null || alpha == 0f) instantScrollToTop()
         }
     }
 
@@ -1041,8 +1139,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         view.setConstraints {
             toTopPx(stickyHeaderView, navigationController?.getSystemBars()?.top ?: 0)
         }
-        if (!isWideHome && window?.isConfiguring != true)
-            phoneHeaderView.insetsUpdated()
+        if (!isWideHome && window?.isConfiguring != true) phoneHeaderView.insetsUpdated()
         minHeaderHeight =
             ((navigationController?.getSystemBars()?.top ?: 0) + HomeHeaderView.navDefaultHeight)
         allActivityListViews.forEach {
@@ -1056,8 +1153,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         val blurBottom = topBlurReversedCornerView.height
         val innerScrollOffset = listOfNotNull(
             _actionsView?.asCell to (_actionsView?.horizontalScrollOffset ?: 0),
-            currentActivityListView.assetsCell?.asCell to (currentActivityListView.assetsCell?.horizontalScrollOffset
-                ?: 0),
+            currentActivityListView.assetsCell?.asCell to
+                (
+                    currentActivityListView.assetsCell?.horizontalScrollOffset
+                        ?: 0
+                    )
         ).firstOrNull { (cell, _) ->
             cell != null && cell.parent != null && cell.top < blurBottom && cell.bottom > 0
         }?.second ?: 0
@@ -1067,7 +1167,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 0f
             )
         } else {
-            topBlurReversedCornerView.setHorizontalPadding(ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat())
+            topBlurReversedCornerView.setHorizontalPadding(
+                ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
+            )
         }
     }
 
@@ -1099,7 +1201,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 )
             } else {
                 transactionNav = WNavigationController(
-                    window, WNavigationController.PresentationConfig(
+                    window,
+                    WNavigationController.PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
@@ -1120,8 +1223,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         val accountNotLoadedYet = !homeVM.isGeneralDataAvailable &&
             state == UpdateStatusView.State.Updating &&
             stickyHeaderView.updateStatusView.state is UpdateStatusView.State.Updated
-        if (accountNotLoadedYet)
-            return
+        if (accountNotLoadedYet) return
         if (isWideHome) {
             return
         }
@@ -1146,8 +1248,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 phoneHeaderView.isExpandAllowed = true
                 phoneHeaderView.expand(animated = false, velocity = null)
                 pauseBlurViews()
-            } else
+            } else {
                 phoneHeaderView.layoutCardView()
+            }
         }
     }
 
@@ -1179,11 +1282,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     override fun loadStakingData() {
         if (!homeVM.isGeneralDataAvailable) return
 
-        if (homeVM.showingAccount?.isViewOnly == false)
+        if (homeVM.showingAccount?.isViewOnly == false) {
             executeWithLowPriority {
                 earnToncoinViewModel.loadOrRefreshStakingData()
                 earnMycoinViewModel.loadOrRefreshStakingData()
             }
+        }
     }
 
     override fun stakingDataUpdated() {
@@ -1245,8 +1349,13 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 (headerView.centerAccount ?: homeVM.showingAccount)?.name ?: "",
                 false
             )
-            currentActivityListView.updateHeaderHeights()
+            if (isWideHome || rvMode == phoneHeaderView.mode) {
+                currentActivityListView.updateHeaderHeights()
+            } else {
+                headerModeChanged()
+            }
             moveActionsViewToCell()
+            scheduleInitialContentRenderCallback()
         }
         loadStakingData()
     }
@@ -1258,8 +1367,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun accountRenamed(accountId: String, accountName: String) {
         phoneHeaderView.accountRenamed(accountId, accountName)
-        if (headerView.centerAccount?.accountId == accountId)
+        if (headerView.centerAccount?.accountId == accountId) {
             phoneHeaderView.updateAccountName(accountName)
+        }
     }
 
     override fun accountConfigChanged() {
@@ -1316,10 +1426,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         sortViews()
     }
 
-    override fun startSelectionMode(
-        selectedCount: Int,
-        shouldShowTransferActions: Boolean
-    ) {
+    override fun startSelectionMode(selectedCount: Int, shouldShowTransferActions: Boolean) {
         setHeaderActionModeClipEnabled(true)
         phoneHeaderView.setUpdateStatusHidden(true)
         stickyHeaderView.enterSelectionMode(
@@ -1408,21 +1515,18 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             if (rvMode == HomeHeaderView.Mode.Expanded) {
                 phoneHeaderView.expandedContentHeight.toInt().takeIf { it > 0 }
                     ?: HomeHeaderView.expandedContentHeight(view.width).toInt()
-            } else
+            } else {
                 phoneHeaderView.collapsedHeight
+            }
     }
 
-    override fun swipeItemsOffset(): Int {
-        return swipeItemsOffset
-    }
+    override fun swipeItemsOffset(): Int = swipeItemsOffset
 
-    override fun activityListReserveActionsCell(): Boolean {
-        return headerView.centerAccount?.isViewOnly != true
-    }
+    override fun activityListReserveActionsCell(): Boolean =
+        headerView.centerAccount?.isViewOnly != true
 
-    override fun activityListActionsCellHeight(): Int {
-        return if (isWideHome) TabletHeaderActionsView.HEIGHT.dp else HeaderActionsView.HEIGHT.dp
-    }
+    override fun activityListActionsCellHeight(): Int =
+        if (isWideHome) TabletHeaderActionsView.HEIGHT.dp else HeaderActionsView.HEIGHT.dp
 
     override fun activityListReserveAssetsCell(): Boolean = true
 

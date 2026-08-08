@@ -151,7 +151,7 @@ final class CustomizeAppTabsVC: SettingsBaseVC {
             let addLabel = UILabel()
             addLabel.translatesAutoresizingMaskIntoConstraints = false
             addLabel.text = lang("Add Tab")
-            addLabel.font = .systemFont(ofSize: 17, weight: .medium)
+            addLabel.applyTextStyle(.bodyEmphasized)
             addLabel.textColor = .secondaryLabel
             addLabel.textAlignment = .center
             newView.separatorView.addSubview(addLabel)
@@ -164,7 +164,7 @@ final class CustomizeAppTabsVC: SettingsBaseVC {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = lang("Tap or drag to add tabs.")
-        label.font = .systemFont(ofSize: 13, weight: .regular)
+        label.applyTextStyle(.footnote)
         label.textColor = .secondaryLabel
         label.textAlignment = .center
         view.addSubview(label)
@@ -214,7 +214,7 @@ private class PillTileView: UIView {
     }()
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .regular)
+        label.applyTextStyle(.body)
         label.numberOfLines = 1
         return label
     }()
@@ -286,7 +286,7 @@ private class TileView: UIView {
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = .systemFont(ofSize: 10, weight: .medium)
+        label.applyTextStyle(.badgeEmphasized)
         label.textAlignment = .center
         label.numberOfLines = 1
         label.adjustsFontSizeToFitWidth = true

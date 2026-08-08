@@ -18,9 +18,12 @@ const storages = {
 // Without this, split chunks each get their own module-local copies and storage context is lost.
 const STORAGE_GLOBALS_KEY = '__mtwStorageGlobals';
 
+type NodeFileStorageFactory = (config: NodeFileStorageConfig) => Storage;
+
 type StorageGlobals = {
   storageContext?: StorageContext | false;
   legacyStorage?: Storage;
+  nodeFileStorageFactory?: NodeFileStorageFactory;
 };
 
 function getStorageGlobals(): StorageGlobals {
@@ -31,6 +34,20 @@ function getStorageGlobals(): StorageGlobals {
   }
 
   return g[STORAGE_GLOBALS_KEY] as StorageGlobals;
+}
+
+const NODE_FILE_STORAGE_NOT_REGISTERED_ERROR = 'Node file storage was requested, but no factory is registered';
+
+/**
+ * Hands this module the Node-only file storage. The implementation pulls Node built-ins, so
+ * importing it from here would drag those into the module graph of every browser bundle and each
+ * bundler config would have to stub it back out. Keeping the import on the Node host instead means
+ * a browser build cannot reach the implementation by construction, and the storage stays
+ * unavailable rather than half-wired: an unregistered factory throws below. It is kept with the
+ * other globals so that registering through one copy of this module is visible to all of them.
+ */
+export function registerNodeFileStorageFactory(factory: NodeFileStorageFactory) {
+  getStorageGlobals().nodeFileStorageFactory = factory;
 }
 
 export const storage: Storage = createStorageFacade(() => getCurrentStorage());
@@ -161,10 +178,13 @@ function createNodeFileStorage(storageConfig: NodeFileStorageConfig) {
     return bundledNodeFileModule.createNodeFileStorage(storageConfig);
   }
 
-  const require = getRequire();
-  const nodeFileModule = require('./nodeFile') as typeof import('./nodeFile');
+  const { nodeFileStorageFactory } = getStorageGlobals();
 
-  return nodeFileModule.createNodeFileStorage(storageConfig);
+  if (!nodeFileStorageFactory) {
+    throw new Error(NODE_FILE_STORAGE_NOT_REGISTERED_ERROR);
+  }
+
+  return nodeFileStorageFactory(storageConfig);
 }
 
 function loadBundledNodeFileStorageModule() {
@@ -194,7 +214,7 @@ function getStorageContext() {
     return globals.storageContext || undefined;
   }
 
-  const require = getOptionalRequire();
+  const require = getNodeBuiltinRequire();
 
   if (!require) {
     globals.storageContext = false;
@@ -242,14 +262,19 @@ function getOptionalRequire() {
   return undefined;
 }
 
-function getRequire() {
-  const require = getOptionalRequire();
-
-  if (require) {
-    return require;
+// Webpack rewrites `require` references into its own runtime stub, which can't resolve Node
+// built-ins (e.g. `node:async_hooks`). When the bundle runs under Node, `process.mainModule.require`
+// is the real Node CommonJS require; prefer it so built-ins remain reachable.
+function getNodeBuiltinRequire() {
+  if (
+    typeof process !== 'undefined'
+    && process.mainModule
+    && typeof process.mainModule.require === 'function'
+  ) {
+    return process.mainModule.require.bind(process.mainModule) as NodeJS.Require;
   }
 
-  throw new Error('Node-compatible require is unavailable for node-file storage');
+  return getOptionalRequire();
 }
 
 function joinFilePath(directoryPath: string, fileName: string) {

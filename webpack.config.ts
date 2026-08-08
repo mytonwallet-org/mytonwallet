@@ -12,7 +12,7 @@ import HtmlPlugin from 'html-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import path from 'path';
 import type { Compiler, Configuration } from 'webpack';
-import { EnvironmentPlugin, IgnorePlugin, ProvidePlugin } from 'webpack';
+import { Compilation, EnvironmentPlugin, IgnorePlugin, ProvidePlugin, sources } from 'webpack';
 
 import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
 import {
@@ -26,6 +26,7 @@ import {
   EVM_TESTNET_RPC_URL,
   EXTENSION_DESCRIPTION,
   EXTENSION_NAME,
+  GLOBAL_STATE_CACHE_KEY,
   IFRAME_WHITELIST,
   IPFS_GATEWAY_BASE_URL,
   IS_CORE_WALLET,
@@ -34,10 +35,12 @@ import {
   IS_FEATURE_LIMITED,
   IS_FIREFOX_EXTENSION,
   IS_GRAM_WALLET,
+  IS_HEADLESS,
   IS_OPERA_EXTENSION,
   IS_PACKAGED_ELECTRON,
   IS_TELEGRAM_APP,
   IS_TON_BRAND,
+  LANG_LIST,
   MFA_API_BASE_URL,
   MW_STATIC_BASE_URL,
   PORTFOLIO_API_URL,
@@ -60,10 +63,24 @@ import {
   WALLET_CONNECT_PAY_FRAME_ORIGINS,
 } from './src/config';
 
+// `public/fallbackScript.js` runs before the bundle (pre-paint, CSP-external) so it hardcodes the RTL
+// language codes. Fail the build if they drift from LANG_LIST's `rtl: true` entries.
+const fallbackRtlCodes = (
+  fs.readFileSync(path.resolve(__dirname, 'public/fallbackScript.js'), 'utf8')
+    .match(/RTL_LANG_CODES\s*=\s*\[([^\]]*)]/)?.[1] ?? ''
+).split(',').map((code) => code.trim().replace(/['"]/g, '')).filter(Boolean);
+const langListRtlCodes = LANG_LIST.filter((lang) => lang.rtl).map((lang) => lang.langCode);
+if (JSON.stringify([...fallbackRtlCodes].sort()) !== JSON.stringify([...langListRtlCodes].sort())) {
+  throw new Error(
+    `public/fallbackScript.js RTL_LANG_CODES [${fallbackRtlCodes.join(', ')}] is out of sync with LANG_LIST `
+    + `rtl entries [${langListRtlCodes.join(', ')}] - update fallbackScript.js to match.`,
+  );
+}
+
 const destinationDir = path.resolve(__dirname, 'dist');
 const appCommitHash = APP_COMMIT_HASH || new GitRevisionPlugin().commithash();
 const isStatoscopeBuild = process.env.IS_STATOSCOPE === '1'; // "Statoscope build" is a special mode where all the entries are used. It is used for comprehensive code size comparison in PRs.
-const isWebApp = !(IS_EXTENSION || IS_PACKAGED_ELECTRON);
+const isWebApp = !(IS_EXTENSION || IS_PACKAGED_ELECTRON || IS_HEADLESS);
 const canUseStatoscope = isStatoscopeBuild || isWebApp;
 const cspConnectSrcExtra = APP_ENV === 'development'
   ? `http://localhost:3000 ${process.env.CSP_CONNECT_SRC_EXTRA_URL}`
@@ -155,6 +172,44 @@ const cspFrameAncestors = IS_TELEGRAM_APP ? '' : `${[
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const appVersion = require('./package.json').version;
+
+// `version.txt` moves only on a release bump, so it cannot tell which revision a host actually serves -
+// staging redeploys off every master commit and reports the same version for weeks. `build.txt` carries
+// the revision itself, alongside the rest of the build identity, and stays out of `version.txt` because
+// the in-app update check parses that file with a strict semver regex and silently treats anything else
+// as "no update available".
+const buildInfoFilename = 'build.txt';
+
+function getBuildBranch() {
+  const fromEnv = process.env.BRANCH || process.env.GITHUB_REF_NAME;
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  try {
+    // A detached HEAD, which is how CI checks out, makes git name the branch "HEAD" - identifies nothing.
+    const branch = new GitRevisionPlugin().branch();
+    return branch === 'HEAD' ? undefined : branch;
+  } catch {
+    return undefined;
+  }
+}
+
+// Resolved per compilation, so a watch session reports the build it has just produced rather than the
+// moment this config was loaded.
+function getBuildInfo() {
+  return `${([
+    ['version', appVersion],
+    ['commit', appCommitHash],
+    ['branch', getBuildBranch()],
+    ['env', APP_ENV],
+    ['built', new Date().toISOString()],
+    ['deploy', process.env.DEPLOY_ID], // Netlify only: links the served bundle to its deploy log.
+  ] as [string, string | undefined][])
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')}\n`;
+}
 
 const defaultI18nFilename = path.resolve(__dirname, './src/i18n/en.json');
 
@@ -265,7 +320,10 @@ export default function createConfig(
                   namedExport: false,
                   exportLocalsConvention: 'camelCase',
                   auto: true,
-                  localIdentName: APP_ENV === 'production' ? '[sha1:hash:base64:8]' : '[name]__[local]',
+                  // The dev name carries a path hash because same-named modules collide otherwise
+                  localIdentName: APP_ENV === 'production'
+                    ? '[sha1:hash:base64:8]'
+                    : '[name]__[local]__[sha1:hash:base64:5]',
                 },
               },
             },
@@ -368,6 +426,7 @@ export default function createConfig(
         template: 'src/index.html',
         chunks: ['main'],
         csp: CSP,
+        cache_key: GLOBAL_STATE_CACHE_KEY,
         title: APP_NAME,
         homepage: IS_CORE_WALLET
           ? 'https://wallet.ton.org'
@@ -440,6 +499,7 @@ export default function createConfig(
         IS_GRAM_WALLET: 'false',
         IS_TELEGRAM_APP: 'false',
         IS_EXPLORER: 'false',
+        IS_HEADLESS: '', // Empty string for the same reason as IS_EXTENSION above
         SWAP_FEE_ADDRESS: '',
         DIESEL_ADDRESS: '',
         GIVEAWAY_CHECKIN_URL: '',
@@ -531,6 +591,16 @@ export default function createConfig(
           },
         ],
       }),
+      {
+        apply: (compiler: Compiler) => {
+          compiler.hooks.thisCompilation.tap('BuildInfo', (compilation) => {
+            compilation.hooks.processAssets.tap(
+              { name: 'BuildInfo', stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL },
+              () => compilation.emitAsset(buildInfoFilename, new sources.RawSource(getBuildInfo())),
+            );
+          });
+        },
+      },
       ...(canUseStatoscope ? [new StatoscopeWebpackPlugin({
         statsOptions: {
           context: __dirname,

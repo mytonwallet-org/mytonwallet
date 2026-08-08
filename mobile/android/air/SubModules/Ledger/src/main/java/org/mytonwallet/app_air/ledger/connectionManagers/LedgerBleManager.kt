@@ -6,12 +6,12 @@ import android.os.Looper
 import com.ledger.live.ble.BleManager
 import com.ledger.live.ble.BleManagerFactory
 import com.ledger.live.ble.model.BleDeviceModel
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.ledger.LedgerDevice
 import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import java.lang.ref.WeakReference
 
 object LedgerBleManager : ILedgerConnectionManager {
     private var context: WeakReference<Context>? = null
@@ -32,13 +32,10 @@ object LedgerBleManager : ILedgerConnectionManager {
     private var triedDevices = mutableListOf<BleDeviceModel>()
     private var selectedDevice: BleDeviceModel? = null
 
-    fun isPermissionGranted(): Boolean {
-        return bleManager?.isPermissionGranted() == true
-    }
+    fun isPermissionGranted(): Boolean = bleManager?.isPermissionGranted() == true
 
     override fun startConnection(onUpdate: (ConnectionState) -> Unit) {
-        if (!isStopped)
-            stopConnection()
+        if (!isStopped) stopConnection()
         isStopped = false
         onUpdate(ConnectionState.Connecting)
         val started = bleManager?.startScanning { devices ->
@@ -63,8 +60,7 @@ object LedgerBleManager : ILedgerConnectionManager {
     override fun stopConnection() {
         try {
             bleManager?.stopScanning()
-            if (bleManager?.isConnected == true)
-                bleManager?.disconnect()
+            if (bleManager?.isConnected == true) bleManager?.disconnect()
         } catch (_: IllegalStateException) {
             // BT adapter was turned off; ignore and reset local state.
         }
@@ -77,14 +73,12 @@ object LedgerBleManager : ILedgerConnectionManager {
     private fun selectDevice(device: BleDeviceModel, onUpdate: (ConnectionState) -> Unit) {
         selectedDevice = device
         bleManager?.connect(device.id, onConnectSuccess = {
-            if (selectedDevice?.id != device.id)
-                return@connect
+            if (selectedDevice?.id != device.id) return@connect
             onUpdate(ConnectionState.ConnectingToTonApp(LedgerDevice.Ble(it)))
             waitForLedgerApp(device, onUpdate)
         }, onConnectError = {
-            if (selectedDevice?.id != device.id)
-                return@connect
-            triedDevices.add(selectedDevice!!)
+            if (selectedDevice?.id != device.id) return@connect
+            triedDevices.add(device)
             selectedDevice = null
             val nextDevice = devices.find { nextDeviceCandidate ->
                 triedDevices.find { triedDevice ->
@@ -105,10 +99,7 @@ object LedgerBleManager : ILedgerConnectionManager {
         })
     }
 
-    private fun waitForLedgerApp(
-        device: BleDeviceModel,
-        onUpdate: (ConnectionState) -> Unit,
-    ) {
+    private fun waitForLedgerApp(device: BleDeviceModel, onUpdate: (ConnectionState) -> Unit) {
         Handler(Looper.getMainLooper()).post {
             WalletCore.call(
                 ApiMethod.Other.WaitForLedgerApp(
@@ -131,11 +122,7 @@ object LedgerBleManager : ILedgerConnectionManager {
         }
     }
 
-    override fun write(
-        apdu: String,
-        onSuccess: (String) -> Unit,
-        onError: (String) -> Unit,
-    ) {
+    override fun write(apdu: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
         bleManager?.send(apdu, onSuccess, onError)
     }
 }

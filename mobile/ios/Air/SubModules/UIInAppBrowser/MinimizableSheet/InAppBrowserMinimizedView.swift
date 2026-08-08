@@ -76,7 +76,7 @@ private struct InAppBrowserMinimizedViewContent: View {
                         .padding(.leading, -2)
                 }
                 Text(viewModel.title?.nilIfEmpty ?? " ")
-                    .font(.system(size: 17, weight: .semibold))
+                    .textStyle(.bodyStrong)
                     .lineLimit(1)
             }
             .foregroundStyle(Color.air.primaryLabel)

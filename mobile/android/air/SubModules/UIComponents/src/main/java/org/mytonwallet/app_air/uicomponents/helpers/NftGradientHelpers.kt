@@ -5,6 +5,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import androidx.core.graphics.toColorInt
+import kotlin.math.atan2
 import org.mytonwallet.app_air.uicomponents.drawable.TiltGradientDrawable
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType.DOWN
@@ -15,18 +16,12 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType.UP
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.BLACK
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import kotlin.math.atan2
 
 class NftGradientHelpers(val nft: ApiNft?) {
     val tiltOffset = 0.25f
 
-    fun gradient(
-        width: Float,
-        tiltX: Float,
-        tiltY: Float
-    ): LayerDrawable? {
-        if (nft?.isMtwCard != true)
-            return null
+    fun gradient(width: Float, tiltX: Float, tiltY: Float): LayerDrawable? {
+        if (nft?.isMtwCard != true) return null
         val radius = width * 0.58f * 1.41f / 2
         return when (nft.metadata?.mtwCardBorderShineType ?: UP) {
             UP -> LayerDrawable(
@@ -87,16 +82,14 @@ class NftGradientHelpers(val nft: ApiNft?) {
         centerX: Float,
         centerY: Float,
         radius: Float
-    ): GradientDrawable {
-        return GradientDrawable().apply {
-            gradientType = GradientDrawable.RADIAL_GRADIENT
-            gradientRadius = radius
-            setGradientCenter(centerX, centerY)
-            colors = intArrayOf(
-                Color.WHITE,
-                Color.argb(0, 255, 255, 255)
-            )
-        }
+    ): GradientDrawable = GradientDrawable().apply {
+        gradientType = GradientDrawable.RADIAL_GRADIENT
+        gradientRadius = radius
+        setGradientCenter(centerX, centerY)
+        colors = intArrayOf(
+            Color.WHITE,
+            Color.argb(0, 255, 255, 255)
+        )
     }
 
     val gradientColors: IntArray?
@@ -109,21 +102,21 @@ class NftGradientHelpers(val nft: ApiNft?) {
                 ApiMtwCardType.SILVER -> {
                     intArrayOf(
                         Color.rgb(39, 39, 39),
-                        Color.rgb(152, 152, 152),
+                        Color.rgb(152, 152, 152)
                     )
                 }
 
                 ApiMtwCardType.GOLD -> {
                     intArrayOf(
                         Color.rgb(76, 52, 3),
-                        Color.rgb(176, 125, 29),
+                        Color.rgb(176, 125, 29)
                     )
                 }
 
                 ApiMtwCardType.PLATINUM -> {
                     intArrayOf(
                         Color.rgb(119, 119, 127),
-                        Color.rgb(255, 255, 255),
+                        Color.rgb(255, 255, 255)
                     )
                 }
 
@@ -131,12 +124,12 @@ class NftGradientHelpers(val nft: ApiNft?) {
                     if (ThemeManager.isDark) {
                         intArrayOf(
                             Color.argb(15, 255, 255, 255),
-                            Color.argb(31, 255, 255, 255),
+                            Color.argb(31, 255, 255, 255)
                         )
                     } else {
                         intArrayOf(
                             Color.argb(31, 255, 255, 255),
-                            Color.argb(61, 255, 255, 255),
+                            Color.argb(61, 255, 255, 255)
                         )
                     }
                 }
@@ -156,5 +149,4 @@ class NftGradientHelpers(val nft: ApiNft?) {
             }
         }
     }
-
 }

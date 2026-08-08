@@ -33,7 +33,8 @@ class WActionBar(
     context: Context,
     defaultHeight: Int = DEFAULT_HEIGHT,
     private val contentMarginTop: Int = 0
-) : WView(context), WThemedView {
+) : WView(context),
+    WThemedView {
 
     companion object {
         const val DEFAULT_HEIGHT = 64
@@ -76,14 +77,12 @@ class WActionBar(
 
     val calculatedMinHeight = defaultHeight.dp
 
-    private fun createTitleLabel(): WLabel {
-        return WLabel(context).apply {
-            setStyle(22F, WFont.Medium)
-            setSingleLine()
-            ellipsize = TextUtils.TruncateAt.MARQUEE
-            isSelected = true
-            isHorizontalFadingEdgeEnabled = true
-        }
+    private fun createTitleLabel(): WLabel = WLabel(context).apply {
+        setStyle(22F, WFont.Medium)
+        setSingleLine()
+        ellipsize = TextUtils.TruncateAt.MARQUEE
+        isSelected = true
+        isHorizontalFadingEdgeEnabled = true
     }
 
     val titleLabel: WLabel by lazy {
@@ -177,13 +176,8 @@ class WActionBar(
 
     private var animatingTitleLabel: WLabel? = null
 
-    fun setTitle(
-        title: String,
-        animated: Boolean,
-        animationMode: TitleAnimationMode
-    ) {
-        if (oldTitle == title)
-            return
+    fun setTitle(title: String, animated: Boolean, animationMode: TitleAnimationMode) {
+        if (oldTitle == title) return
         when {
             !animated -> {
                 clearTitleAnimations()
@@ -315,8 +309,7 @@ class WActionBar(
 
     private var oldTitleView: View? = null
     fun setTitleView(titleView: View?, animated: Boolean) {
-        if (oldTitleView == titleView)
-            return
+        if (oldTitleView == titleView) return
 
         val showNewView = {
             if (titleView != null) {
@@ -375,8 +368,7 @@ class WActionBar(
 
     private var oldSubtitle: String? = null
     fun setSubtitle(subtitle: String?, animated: Boolean) {
-        if (oldSubtitle == subtitle)
-            return
+        if (oldSubtitle == subtitle) return
         subtitleLabel.visibility = if (subtitle.isNullOrEmpty()) GONE else VISIBLE
         if (animated) {
             if (oldSubtitle.isNullOrEmpty()) {
@@ -615,7 +607,13 @@ class WActionBar(
             if (titleGravity == Gravity.CENTER) {
                 toCenterX(
                     titleLinearLayout,
-                    if (leadingAnchor != null || trailingAnchor != null) 24f else TITLE_SIDE_MARGIN_DP
+                    if (leadingAnchor != null ||
+                        trailingAnchor != null
+                    ) {
+                        24f
+                    } else {
+                        TITLE_SIDE_MARGIN_DP
+                    }
                 )
                 return@setConstraints
             }

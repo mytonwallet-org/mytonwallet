@@ -37,7 +37,6 @@ const rLottieApiPromise = new Promise<void>((resolve) => {
 
 const HIGH_PRIORITY_MAX_FPS = 60;
 const LOW_PRIORITY_MAX_FPS = 30;
-const DESTROY_REPEAT_DELAY = 1000;
 const LOTTIE_JSON_STUB = '{"tgs":1,"w":16,"h":16,"layers":[]}';
 
 const renderers = new Map<string, {
@@ -47,6 +46,29 @@ const renderers = new Map<string, {
   imageData: ImageData;
   customColor?: [number, number, number];
 }>();
+
+// Incoming messages are processed at the same time, so `changeData` or `destroy` can start
+// while `init` is still waiting for the network and has not saved its renderer yet.
+// Operations for one key run one by one, so each of them sees the renderer
+// that the previous one created.
+const operationQueues = new Map<string, Promise<unknown>>();
+
+function serialize<T extends (key: string, ...args: any[]) => any>(operation: T) {
+  return (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
+    const key: string = args[0];
+    const result = (operationQueues.get(key) ?? Promise.resolve())
+      .then(() => (operation as AnyFunction)(...args));
+    const tail = result.catch(() => undefined).then(() => {
+      if (operationQueues.get(key) === tail) {
+        operationQueues.delete(key);
+      }
+    });
+
+    operationQueues.set(key, tail);
+
+    return result;
+  };
+}
 
 async function init(
   key: string,
@@ -88,9 +110,16 @@ async function changeData(
   }
 
   const json = await extractJson(tgsUrl);
+  const renderer = renderers.get(key);
+  // The renderer is missing only if it was destroyed. An error here makes the request fail
+  // on the main thread, which clears `isChangingData`. While that flag is set, no new
+  // frames are requested.
+  if (!renderer) {
+    throw new Error(`[RLottie] No renderer for "${key}"`);
+  }
+
   const stringOnWasmHeap = allocate(intArrayFromString(json), 'i8', 0);
-  const { handle } = renderers.get(key)!;
-  const framesCount = rLottieApi.loadFromData(handle, stringOnWasmHeap);
+  const framesCount = rLottieApi.loadFromData(renderer.handle, stringOnWasmHeap);
 
   const { reduceFactor, msPerFrame, reducedFramesCount } = calcParams(json, isLowPriority, framesCount);
 
@@ -140,9 +169,12 @@ async function renderFrames(
     await rLottieApiPromise;
   }
 
+  const renderer = renderers.get(key);
+  if (!renderer) return;
+
   const {
     imgSize, reduceFactor, handle, imageData, customColor,
-  } = renderers.get(key)!;
+  } = renderer;
 
   const realIndex = frameIndex * reduceFactor;
 
@@ -178,25 +210,20 @@ function setColor(key: string, customColor: [number, number, number] | undefined
   renderer.customColor = customColor;
 }
 
-function destroy(key: string, isRepeated = false) {
-  try {
-    const renderer = renderers.get(key)!;
-    rLottieApi.destroy(renderer.handle);
-    renderers.delete(key);
-  } catch (err) {
-    // `destroy` sometimes can be called before the initialization is finished
-    if (!isRepeated) {
-      setTimeout(() => destroy(key, true), DESTROY_REPEAT_DELAY);
-    }
-  }
+function destroy(key: string) {
+  const renderer = renderers.get(key);
+  if (!renderer) return;
+
+  rLottieApi.destroy(renderer.handle);
+  renderers.delete(key);
 }
 
 const api = {
-  'rlottie:init': init,
-  'rlottie:changeData': changeData,
-  'rlottie:renderFrames': renderFrames,
+  'rlottie:init': serialize(init),
+  'rlottie:changeData': serialize(changeData),
+  'rlottie:renderFrames': serialize(renderFrames),
   'rlottie:setColor': setColor,
-  'rlottie:destroy': destroy,
+  'rlottie:destroy': serialize(destroy),
 };
 
 createPostMessageInterface(api);

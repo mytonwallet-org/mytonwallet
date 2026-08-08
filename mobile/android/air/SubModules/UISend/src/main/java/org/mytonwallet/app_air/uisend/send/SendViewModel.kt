@@ -1,7 +1,11 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uisend.send
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import java.math.BigDecimal
+import java.math.BigInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -28,6 +32,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.throttle
 import org.mytonwallet.app_air.uisend.send.helpers.TransferHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
@@ -35,38 +40,37 @@ import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.TokenAmount
 import org.mytonwallet.app_air.walletcore.helpers.TokenEquivalent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MExplainedTransferFee
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferPayload
+import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiAnyDisplayError
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
-import org.mytonwallet.app_air.walletcore.moshi.MTransferDiesel
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
+import org.mytonwallet.app_air.walletcore.moshi.MTransferDiesel
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MExplainedTransferFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigDecimal
-import java.math.BigInteger
 
-class SendViewModel : ViewModel(), WalletCore.EventObserver {
+class SendViewModel :
+    ViewModel(),
+    WalletCore.EventObserver {
 
     /* Wallet */
 
-    data class CurrentWalletState(
-        val accountId: String,
-        val balances: Map<String, BigInteger>
-    )
+    data class CurrentWalletState(val accountId: String, val balances: Map<String, BigInteger>)
 
     private val _walletStateFlow = combine(
         AccountStore.activeAccountIdFlow.filterNotNull(),
@@ -97,18 +101,38 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
     private val _inputStateFlow = MutableStateFlow(InputStateRaw())
     val inputStateFlow = _inputStateFlow.asStateFlow()
 
+    enum class AmountSource {
+        TOKEN,
+        BASE_CURRENCY
+    }
+
     data class InputStateRaw(
         val tokenSlug: String = TONCOIN_SLUG,
         val tokenCodeHash: String? = null,
         val destination: String = "",
+        val destinationAccountId: String? = null,
         val amount: String = "",
+        val amountInBaseCurrency: String = "",
         val comment: String = "",
         val shouldEncrypt: Boolean = false,
         val fiatMode: Boolean = false,
+        val amountSource: AmountSource = AmountSource.TOKEN,
         val isMax: Boolean = false,
         val binary: String? = null,
-        val stateInit: String? = null,
+        val stateInit: String? = null
     ) {
+        val displayedAmount: String
+            get() = if (fiatMode) amountInBaseCurrency else amount
+
+        internal val sourceInBaseCurrency: Boolean
+            get() = amountSource == AmountSource.BASE_CURRENCY
+
+        internal val sourceAmount: String
+            get() = if (sourceInBaseCurrency) amountInBaseCurrency else amount
+
+        internal val isAmountSourceDisplayed: Boolean
+            get() = fiatMode == sourceInBaseCurrency
+
         val payload: ApiTransferPayload? = when {
             binary != null -> {
                 ApiTransferPayload.Base64(binary)
@@ -117,7 +141,9 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             comment.isNotEmpty() -> {
                 ApiTransferPayload.Comment(
                     comment,
-                    shouldEncrypt && TokenStore.getToken(tokenSlug)?.mBlockchain?.isEncryptedCommentSupported == true
+                    shouldEncrypt &&
+                        TokenStore.getToken(tokenSlug)?.mBlockchain?.isEncryptedCommentSupported ==
+                        true
                 )
             }
 
@@ -125,24 +151,139 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 null
             }
         }
+
+        internal fun resolveAmountEquivalent(
+            tokenPrice: BigDecimal,
+            token: IApiToken,
+            baseCurrency: MBaseCurrency
+        ): TokenEquivalent {
+            val parsedTokenAmount = CoinUtils.fromDecimal(amount, token.decimals)
+            val parsedBaseCurrencyAmount = CoinUtils.fromDecimal(
+                amountInBaseCurrency,
+                baseCurrency.decimalsCount
+            )
+            if (
+                !isAmountSourceDisplayed &&
+                parsedTokenAmount != null &&
+                parsedBaseCurrencyAmount != null
+            ) {
+                return TokenEquivalent(
+                    price = tokenPrice,
+                    token = token,
+                    tokenAmount = TokenAmount.valueOf(
+                        token.decimals,
+                        parsedTokenAmount
+                    ),
+                    currency = baseCurrency,
+                    currencyAmount = TokenAmount.valueOf(
+                        baseCurrency.decimalsCount,
+                        parsedBaseCurrencyAmount
+                    )
+                )
+            }
+            return TokenEquivalent.from(
+                inFiatMode = sourceInBaseCurrency,
+                price = tokenPrice,
+                token = token,
+                amount = if (sourceInBaseCurrency) {
+                    parsedBaseCurrencyAmount ?: BigInteger.ZERO
+                } else {
+                    parsedTokenAmount ?: BigInteger.ZERO
+                },
+                currency = baseCurrency
+            )
+        }
+
+        internal fun updateOtherAmount(equivalent: TokenEquivalent?): InputStateRaw {
+            val otherAmount = if (displayedAmount.isEmpty()) {
+                ""
+            } else {
+                equivalent?.getRaw(!fiatMode) ?: ""
+            }
+            return if (fiatMode) {
+                copy(amount = otherAmount)
+            } else {
+                copy(amountInBaseCurrency = otherAmount)
+            }
+        }
     }
 
-    fun onInputToken(slug: String) {
-        _inputStateFlow.value = _inputStateFlow.value.copy(
-            tokenSlug = slug,
-            tokenCodeHash = TokenStore.getToken(slug)?.codeHash,
-            isMax = false
+    private fun resolveInputAmountEquivalent(input: InputStateRaw): TokenEquivalent? {
+        val token = TokenStore.getToken(input.tokenSlug) ?: return null
+        val tokenPrice = token.price?.takeIf { it.isFinite() }?.let {
+            BigDecimal.valueOf(it).stripTrailingZeros()
+        } ?: BigDecimal.ZERO
+        return input.resolveAmountEquivalent(
+            tokenPrice = tokenPrice,
+            token = token,
+            baseCurrency = WalletCore.baseCurrency
         )
     }
 
+    fun onInputToken(slug: String) {
+        val state = _inputStateFlow.value
+        val previousChain = TokenStore.getToken(state.tokenSlug)?.mBlockchain?.name
+        val nextChain = TokenStore.getToken(slug)?.mBlockchain?.name
+        var newState = state.copy(
+            tokenSlug = slug,
+            tokenCodeHash = TokenStore.getToken(slug)?.codeHash,
+            destination = resolveDestinationForChainChange(
+                destination = state.destination,
+                destinationAccountId = state.destinationAccountId,
+                previousChain = previousChain,
+                nextChain = nextChain,
+                accounts = WalletCore.getAllAccounts()
+            ),
+            amount = if (state.fiatMode) "" else state.amount,
+            amountInBaseCurrency = if (state.fiatMode) state.amountInBaseCurrency else "",
+            amountSource = if (state.fiatMode) {
+                AmountSource.BASE_CURRENCY
+            } else {
+                AmountSource.TOKEN
+            },
+            isMax = false
+        )
+        newState = newState.updateOtherAmount(resolveInputAmountEquivalent(newState))
+        _inputStateFlow.value = newState
+    }
+
     fun onInputDestination(destination: String) {
-        _inputStateFlow.value = _inputStateFlow.value.copy(destination = destination)
+        val state = _inputStateFlow.value
+        _inputStateFlow.value = state.copy(
+            destination = destination,
+            destinationAccountId = state.destinationAccountId.takeIf {
+                state.destination == destination
+            }
+        )
+    }
+
+    fun onDestinationAccountSelected(accountId: String, destination: String) {
+        _inputStateFlow.value = _inputStateFlow.value.copy(
+            destination = destination,
+            destinationAccountId = accountId
+        )
     }
 
     fun onInputAmount(amount: String) {
-        if (amount == _inputStateFlow.value.amount)
-            return
-        _inputStateFlow.value = _inputStateFlow.value.copy(amount = amount, isMax = false)
+        val state = _inputStateFlow.value
+        if (amount == state.displayedAmount) return
+        var newState = if (state.fiatMode) {
+            state.copy(
+                amount = "",
+                amountInBaseCurrency = amount,
+                amountSource = AmountSource.BASE_CURRENCY,
+                isMax = false
+            )
+        } else {
+            state.copy(
+                amount = amount,
+                amountInBaseCurrency = "",
+                amountSource = AmountSource.TOKEN,
+                isMax = false
+            )
+        }
+        newState = newState.updateOtherAmount(resolveInputAmountEquivalent(newState))
+        _inputStateFlow.value = newState
     }
 
     fun onInputComment(comment: String) {
@@ -158,27 +299,43 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
     }
 
     private fun onInputTokenAmount(equivalent: TokenEquivalent, isMax: Boolean) {
-        val state = _inputStateFlow.value
         _inputStateFlow.value = _inputStateFlow.value.copy(
-            amount = equivalent.getRaw(state.fiatMode),
+            amount = equivalent.getRaw(false),
+            amountInBaseCurrency = equivalent.getRaw(true),
+            amountSource = AmountSource.TOKEN,
             isMax = isMax
         )
     }
 
     fun onInputMaxButton() {
-        val equivalent = lastUiState?.draft?.maxToSend
-            ?: (lastUiState?.inputState as? InputStateFull.Complete)?.balanceEquivalent ?: return
+        val tokenSlug = _inputStateFlow.value.tokenSlug
+        val accountId = AccountStore.activeAccountId ?: return
+        val inputState = lastUiState?.inputState as? InputStateFull.Complete
+        val equivalent = if (
+            inputState?.token?.slug == tokenSlug && inputState.wallet.accountId == accountId
+        ) {
+            lastUiState?.draft?.takeIf {
+                it.request.token.slug == tokenSlug && it.request.wallet.accountId == accountId
+            }?.maxToSend ?: inputState.balanceEquivalent
+        } else {
+            val token = TokenStore.getToken(tokenSlug) ?: return
+            val amount = BalanceStore.getBalances(accountId)?.get(tokenSlug) ?: BigInteger.ZERO
+            val tokenPrice = token.price?.takeIf { it.isFinite() }?.let {
+                BigDecimal.valueOf(it).stripTrailingZeros()
+            } ?: BigDecimal.ZERO
+            TokenEquivalent.fromToken(tokenPrice, token, amount, WalletCore.baseCurrency)
+        }
         onInputTokenAmount(equivalent, true)
     }
 
     fun onInputToggleFiatMode() {
         val state = _inputStateFlow.value
-        val fiatMode = !state.fiatMode
-        val amount = (if (state.amount.isNotEmpty())
-            (lastUiState?.inputState as? InputStateFull.Complete)?.amountEquivalent?.getRaw(fiatMode)
-        else null) ?: ""
-
-        _inputStateFlow.value = _inputStateFlow.value.copy(amount = amount, fiatMode = fiatMode)
+        val updatedState = if (state.isAmountSourceDisplayed) {
+            state.updateOtherAmount(resolveInputAmountEquivalent(state))
+        } else {
+            state
+        }
+        _inputStateFlow.value = updatedState.copy(fiatMode = !state.fiatMode)
     }
 
     fun onShouldEncrypt(shouldEncrypt: Boolean) {
@@ -199,9 +356,10 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         val input: String,
         val resolvedAddress: String? = null,
         val addressName: String? = null,
+        val accountId: String? = null,
         val isMemoRequired: Boolean? = null,
         val isScam: Boolean? = null,
-        val error: MApiAnyDisplayError? = null,
+        val error: MApiAnyDisplayError? = null
     )
 
     private val _addressInfoFlow = MutableStateFlow<AddressInfo?>(null)
@@ -215,9 +373,19 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             return
         }
         val chain = TokenStore.getToken(getTokenSlug())?.mBlockchain ?: MBlockchain.ton
+        val destinationAccountId = _inputStateFlow.value.destinationAccountId
         addressInfoJob?.cancel()
         addressInfoJob = viewModelScope.launch {
-            _addressInfoFlow.emit(fetchAddressInfo(chain, destination))
+            val info = fetchAddressInfo(chain, destination, destinationAccountId)
+            val currentState = _inputStateFlow.value
+            if (currentState.destination.trim() == destination &&
+                TokenStore.getToken(currentState.tokenSlug)?.mBlockchain == chain
+            ) {
+                _inputStateFlow.value = currentState.copy(
+                    destinationAccountId = info?.accountId ?: currentState.destinationAccountId
+                )
+            }
+            _addressInfoFlow.emit(info)
         }
     }
 
@@ -226,8 +394,25 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    private suspend fun fetchAddressInfo(chain: MBlockchain, destination: String): AddressInfo? {
+    private suspend fun fetchAddressInfo(
+        chain: MBlockchain,
+        destination: String,
+        destinationAccountId: String?
+    ): AddressInfo? {
         if (destination.isEmpty()) return null
+        val selectedDestinationAccount = WalletCore.getAllAccounts().firstOrNull { account ->
+            account.accountId == destinationAccountId &&
+                account.byChain[chain.name]?.address == destination
+        }
+        if (selectedDestinationAccount != null) {
+            return AddressInfo(
+                chain = chain,
+                input = destination,
+                resolvedAddress = destination,
+                addressName = selectedDestinationAccount.name.trim().takeIf { it.isNotEmpty() },
+                accountId = selectedDestinationAccount.accountId
+            )
+        }
         val savedName = savedAddressesFlow.value.firstOrNull { savedAddress ->
             savedAddress.address == destination && savedAddress.chain == chain.name
         }?.name?.trim()?.takeIf { it.isNotEmpty() }
@@ -236,21 +421,27 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 chain = chain,
                 input = destination,
                 resolvedAddress = destination,
-                addressName = savedName,
+                addressName = savedName
             )
         }
 
-        val otherAccountName = otherAccountsFlow.value.firstOrNull { account ->
-            account.byChain[chain.name]?.address == destination
-        }?.name?.trim()?.takeIf { it.isNotEmpty() }
+        val otherAccount = findDestinationAccount(
+            destination = destination,
+            chain = chain.name,
+            preferredAccountId = null,
+            accounts = otherAccountsFlow.value
+        )
+        val otherAccountName = otherAccount?.name?.trim()?.takeIf { it.isNotEmpty() }
         if (otherAccountName != null) {
             return AddressInfo(
                 chain = chain,
                 input = destination,
                 resolvedAddress = destination,
                 addressName = otherAccountName,
+                accountId = otherAccount.accountId
             )
         }
+
         val isValid =
             chain.isValidAddress(destination) ||
                 (chain == MBlockchain.ton && DNSHelpers.isDnsDomain(destination))
@@ -273,9 +464,15 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 addressName = result?.addressName,
                 isMemoRequired = result?.isMemoRequired,
                 isScam = result?.isScam,
-                error = result?.error,
+                error = result?.error
             )
-        } catch (_: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.e(
+                Logger.LogTag.SEND,
+                "Address lookup failed chain=${chain.name} error=${e.javaClass.simpleName}"
+            )
             AddressInfo(chain, destination)
         }
     }
@@ -305,15 +502,13 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             )
 
             private val inputAmountParsed = CoinUtils.fromDecimal(
-                input.amount,
-                if (input.fiatMode) baseCurrency.decimalsCount else token.decimals
+                input.sourceAmount,
+                if (input.sourceInBaseCurrency) baseCurrency.decimalsCount else token.decimals
             )
-            val amountEquivalent = TokenEquivalent.from(
-                inFiatMode = input.fiatMode,
-                price = tokenPrice,
+            val amountEquivalent = input.resolveAmountEquivalent(
+                tokenPrice = tokenPrice,
                 token = token,
-                amount = inputAmountParsed ?: BigInteger.ZERO,
-                currency = baseCurrency
+                baseCurrency = baseCurrency
             )
 
             val amount = amountEquivalent.tokenAmount
@@ -322,7 +517,8 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             val inputSymbol = if (input.fiatMode) baseCurrency.sign else null
             val inputDecimal = if (input.fiatMode) baseCurrency.decimalsCount else token.decimals
             val inputError =
-                (inputAmountParsed == null && input.amount.isNotEmpty()) || (amount.amountInteger > balance.amountInteger)
+                (inputAmountParsed == null && input.sourceAmount.isNotEmpty()) ||
+                    (amount.amountInteger > balance.amountInteger)
 
             val key =
                 "${token.slug}_${input.destination}_${amount}_${balance}_${input.shouldEncrypt}_${input.comment}"
@@ -360,6 +556,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     token,
                     WalletCore.baseCurrency
                 )
+                val baseCurrency = WalletCore.baseCurrency
 
                 return Complete(
                     wallet = walletState,
@@ -367,12 +564,11 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     token = token,
                     chain = chain,
                     tokenNative = tokenNative,
-                    baseCurrency = WalletCore.baseCurrency!!
+                    baseCurrency = baseCurrency
                 )
             }
         }
     }
-
 
     /* Estimate */
 
@@ -394,6 +590,8 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         abstract val request: InputStateFull.Complete
         abstract val maxToSend: TokenEquivalent?
         abstract val dieselStatus: MDieselStatus?
+        abstract val explainedFee: MExplainedTransferFee?
+        abstract val showingFee: MFee?
 
         data class Error(
             override val request: InputStateFull.Complete,
@@ -401,6 +599,8 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             val anyError: MApiAnyDisplayError?,
             override val maxToSend: TokenEquivalent?,
             override val dieselStatus: MDieselStatus?,
+            override val explainedFee: MExplainedTransferFee?,
+            override val showingFee: MFee?
         ) : DraftResult()
 
         data class Result(
@@ -414,10 +614,10 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             val isMemoRequired: Boolean?,
             val diesel: MTransferDiesel?,
             val dieselAmount: BigInteger?,
-            val explainedFee: MExplainedTransferFee?,
-            val showingFee: MFee?,
+            override val explainedFee: MExplainedTransferFee?,
+            override val showingFee: MFee?,
             override val maxToSend: TokenEquivalent?,
-            override val dieselStatus: MDieselStatus?,
+            override val dieselStatus: MDieselStatus?
         ) : DraftResult()
     }
 
@@ -428,44 +628,51 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         val isNativeToken = req.token.slug == req.tokenNative.slug
         val explainedFee = draft.explainedFee
         val prevMaxToSendEquivalent =
-            if (req.input.tokenSlug == lastUiState?.draft?.request?.token?.slug)
-                lastUiState?.draft?.maxToSend else null
+            if (req.input.tokenSlug == lastUiState?.draft?.request?.token?.slug &&
+                req.wallet.accountId == lastUiState?.draft?.request?.wallet?.accountId
+            ) {
+                lastUiState?.draft?.maxToSend
+            } else {
+                null
+            }
         val maxToSend = TransferHelpers.getMaxTransferAmount(
             req.wallet.balances[req.token.slug],
             isNativeToken,
             explainedFee?.fullFee?.terms,
             explainedFee?.canTransferFullBalance ?: false
         )
-        val maxToSendEquivalent = (lastUiState?.inputState as? InputStateFull.Complete)?.let {
-            if (maxToSend == null)
-                return@let prevMaxToSendEquivalent
+        val maxToSendEquivalent = if (maxToSend == null) {
+            prevMaxToSendEquivalent
+        } else {
             TokenEquivalent.fromToken(
-                price = it.tokenPrice,
-                token = it.token,
+                price = req.tokenPrice,
+                token = req.token,
                 amount = maxToSend,
-                currency = it.baseCurrency
+                currency = req.baseCurrency
             )
         }
-        if (req.input.isMax && req.amount.amountInteger != maxToSend && maxToSendEquivalent != null) {
+        if (req.input.isMax && req.amount.amountInteger != maxToSend &&
+            maxToSendEquivalent != null
+        ) {
             onInputTokenAmount(maxToSendEquivalent, true)
         } else {
             val balance = req.wallet.balances[req.token.slug]
             val amount = req.amount.amountInteger
             val fullFee =
                 TransferHelpers.getFullTransferFee(explainedFee?.fullFee?.terms, isNativeToken)
-            if (balance != null && fullFee != null && fullFee < balance && amount <= balance && amount + fullFee > balance) {
+            if (balance != null && fullFee != null && fullFee < balance && amount <= balance &&
+                amount + fullFee > balance
+            ) {
                 val adjustedAmount = balance - fullFee
-                (lastUiState?.inputState as? InputStateFull.Complete)?.let { inputState ->
-                    onInputTokenAmount(
-                        TokenEquivalent.fromToken(
-                            price = inputState.tokenPrice,
-                            token = inputState.token,
-                            amount = adjustedAmount,
-                            currency = inputState.baseCurrency
-                        ),
-                        false
-                    )
-                }
+                onInputTokenAmount(
+                    TokenEquivalent.fromToken(
+                        price = req.tokenPrice,
+                        token = req.token,
+                        amount = adjustedAmount,
+                        currency = req.baseCurrency
+                    ),
+                    false
+                )
             }
         }
 
@@ -475,7 +682,9 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 error = null,
                 anyError = draft.error,
                 maxToSend = maxToSendEquivalent,
-                dieselStatus = draft.diesel?.status
+                dieselStatus = draft.diesel?.status,
+                explainedFee = explainedFee,
+                showingFee = showingFee(req, draft, explainedFee)
             )
         }
         return DraftResult.Result(
@@ -500,32 +709,42 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         try {
             val draft = WalletCore.call(
                 ApiMethod.Transfer.CheckTransactionDraft(
-                    chain = req.token.mBlockchain!!,
+                    chain = req.chain,
                     options = MApiCheckTransactionDraftOptions(
                         accountId = req.wallet.accountId,
                         toAddress = req.input.destination,
                         amount = req.amountEquivalent.tokenAmount.amountInteger,
-                        tokenAddress = if (!req.token.isBlockchainNative) req.token.tokenAddress else null,
+                        tokenAddress = if (!req.token.isBlockchainNative) {
+                            req.token.tokenAddress
+                        } else {
+                            null
+                        },
                         stateInit = req.input.stateInit,
 
                         allowGasless = true,
 
-                        payload = req.input.payload,
+                        payload = req.input.payload
                     )
                 )
             )
             return processEstimateResponse(req, draft)
-        } catch (e: Throwable) {
-            if (e is CancellationException) {
-                throw e
-            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             var maxToSend: TokenEquivalent? = null
             var dieselStatus: MDieselStatus? = null
+            var explainedFee: MExplainedTransferFee? = null
+            var showingFee: MFee? = null
             (e as? JSWebViewBridge.ApiError)?.parsedResult?.let { parsedResult ->
                 (parsedResult as? MApiCheckTransactionDraftResult)?.let { draft ->
                     draft.error?.toErrorDialogMessage?.let { errorMessage ->
+                        val lastDraftError =
+                            (
+                                (lastUiState?.draft as? DraftResult.Error)?.error?.parsedResult
+                                    as? MApiCheckTransactionDraftResult
+                                )?.error
                         val wasAlertShown =
-                            ((lastUiState?.draft as? DraftResult.Error)?.error?.parsedResult as? MApiCheckTransactionDraftResult)?.error == draft.error
+                            lastDraftError == draft.error
                         if (!wasAlertShown) {
                             _uiEventFlow.tryEmit(
                                 UiEvent.ShowAlert(
@@ -538,6 +757,8 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     val draft = processEstimateResponse(req, draft)
                     maxToSend = draft.maxToSend
                     dieselStatus = draft.dieselStatus
+                    explainedFee = draft.explainedFee
+                    showingFee = draft.showingFee
                 }
             }
             return DraftResult.Error(
@@ -545,91 +766,74 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 error = e as? JSWebViewBridge.ApiError,
                 anyError = null,
                 maxToSend = maxToSend,
-                dieselStatus = dieselStatus
+                dieselStatus = dieselStatus,
+                explainedFee = explainedFee,
+                showingFee = showingFee
             )
         }
     }
 
-    fun getTransferOptions(data: DraftResult.Result, passcode: String): MApiSubmitTransferOptions {
+    sealed interface TransferPreparation {
+        data class Ready(val chain: MBlockchain, val options: MApiSubmitTransferOptions) :
+            TransferPreparation
+
+        data object MissingResolvedAddress : TransferPreparation
+    }
+
+    fun prepareTransfer(data: DraftResult.Result, enclaveToken: String): TransferPreparation {
         val request = data.request
         val diesel = data.diesel
-        return MApiSubmitTransferOptions(
-            accountId = request.wallet.accountId,
-            toAddress = data.resolvedAddress!!,
-            comment = request.input.binary ?: request.input.comment,
-            payload = request.input.payload,
-            stateInit = request.input.stateInit,
-            tokenAddress = if (!request.token.isBlockchainNative) request.token.tokenAddress else null,
-            password = passcode,
-            amount = request.amount.amountInteger,
-            fee = data.explainedFee?.fullFee?.nativeSum ?: data.fee,
-            noFeeCheck = true,
-            realFee = data.explainedFee?.realFee?.nativeSum,
-            isGasless = data.explainedFee?.isGasless,
-            dieselAmount = data.dieselAmount,
-            isGaslessWithStars = diesel?.status == MDieselStatus.STARS_FEE,
-            gaslessTransaction = diesel?.transaction,
+        val resolvedAddress = data.resolvedAddress
+            ?: return TransferPreparation.MissingResolvedAddress
+        return TransferPreparation.Ready(
+            chain = request.chain,
+            options = MApiSubmitTransferOptions(
+                accountId = request.wallet.accountId,
+                toAddress = resolvedAddress,
+                comment = request.input.binary ?: request.input.comment,
+                payload = request.input.payload,
+                stateInit = request.input.stateInit,
+                tokenAddress = if (!request.token.isBlockchainNative) {
+                    request.token.tokenAddress
+                } else {
+                    null
+                },
+                enclaveToken = enclaveToken,
+                amount = request.amount.amountInteger,
+                fee = data.explainedFee?.fullFee?.nativeSum ?: data.fee,
+                noFeeCheck = true,
+                realFee = data.explainedFee?.realFee?.nativeSum,
+                isGasless = data.explainedFee?.isGasless,
+                dieselAmount = data.dieselAmount,
+                isGaslessWithStars = diesel?.status == MDieselStatus.STARS_FEE,
+                gaslessTransaction = diesel?.transaction
+            )
         )
     }
 
-    fun getTokenSlug(): String {
-        return _inputStateFlow.value.tokenSlug
-    }
+    fun getTokenSlug(): String = _inputStateFlow.value.tokenSlug
 
-    fun getShouldEncrypt(): Boolean {
-        return _inputStateFlow.value.shouldEncrypt && _inputStateFlow.value.binary == null
-    }
+    fun getShouldEncrypt(): Boolean =
+        _inputStateFlow.value.shouldEncrypt && _inputStateFlow.value.binary == null
 
-    suspend fun callSend(data: DraftResult.Result, passcode: String): ApiSubmitTransferResult {
-        val request = data.request
-
-        val options = getTransferOptions(data, passcode)
-        return WalletCore.call(
-            ApiMethod.Transfer.SubmitTransfer(request.chain, options)
+    suspend fun callSend(preparation: TransferPreparation.Ready): ApiSubmitTransferResult =
+        WalletCore.call(
+            ApiMethod.Transfer.SubmitTransfer(preparation.chain, preparation.options)
         )
-    }
 
     private fun showingFee(
         req: InputStateFull.Complete,
         draft: MApiCheckTransactionDraftResult,
         explainedFee: MExplainedTransferFee?
     ): MFee? {
-        val fee = explainedFee?.fullFee?.nativeSum
-        val isToncoin = req.token.slug == "toncoin"
-        val accountBalance = req.wallet.balances[req.token.slug]
-        val isToncoinFullBalance = isToncoin && req.amount.amountInteger == accountBalance
-        val nativeTokenBalance =
-            req.wallet.balances[req.tokenNative.slug] ?: BigInteger.ZERO
-        val isEnoughNativeCoin = if (isToncoinFullBalance) {
-            fee != null && fee < nativeTokenBalance
-        } else {
-            fee != null && (fee + (if (isToncoin) req.amount.amountInteger else BigInteger.ZERO)) <= nativeTokenBalance
-        }
-        val isGaslessWithStars = draft.diesel?.status == MDieselStatus.STARS_FEE
-        val isDieselAvailable =
-            draft.diesel?.status == MDieselStatus.AVAILABLE || isGaslessWithStars
-        val withDiesel = explainedFee?.isGasless == true
-        val dieselAmount = draft.diesel?.amount ?: BigInteger.ZERO
-        val isEnoughDiesel =
-            if (withDiesel &&
-                req.amount.amountInteger > BigInteger.ZERO &&
-                (accountBalance ?: BigInteger.ZERO) > BigInteger.ZERO &&
-                dieselAmount > BigInteger.ZERO
-            ) {
-                if (isGaslessWithStars) {
-                    true
-                } else {
-                    (accountBalance
-                        ?: BigInteger.ZERO) - req.amount.amountInteger >= dieselAmount
-                }
-            } else {
-                false
-            }
-        val isInsufficientFee =
-            (fee != null && !isEnoughNativeCoin && !isDieselAvailable) || (withDiesel && !isEnoughDiesel)
-        val isInsufficientBalance =
-            accountBalance != null && req.amount.amountInteger > accountBalance
-        val shouldShowFull = isInsufficientFee && !isInsufficientBalance
+        val shouldShowFull = TransferHelpers.shouldShowFullFee(
+            tokenBalance = req.wallet.balances[req.token.slug],
+            isNativeToken = req.token.slug == req.tokenNative.slug,
+            nativeTokenBalance = req.wallet.balances[req.tokenNative.slug],
+            transferAmount = req.amount.amountInteger,
+            explainedFee = explainedFee,
+            diesel = draft.diesel
+        )
         return if (shouldShowFull) explainedFee?.fullFee else explainedFee?.realFee
     }
 
@@ -660,14 +864,9 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             get() = this == Error
     }
 
-    data class ButtonState(
-        val status: ButtonStatus,
-        val title: String = ""
-    )
+    data class ButtonState(val status: ButtonStatus, val title: String = "")
 
-    data class AddressSearchState(
-        val enabled: Boolean
-    )
+    data class AddressSearchState(val enabled: Boolean)
 
     data class UiState(
         internal val inputState: InputStateFull,
@@ -694,14 +893,12 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         )
     }
 
-
     /* * */
 
     private var lastUiState: UiState? = null
 
-    fun shouldAuthorizeDiesel(): Boolean {
-        return lastUiState?.uiButton?.status == ButtonStatus.AuthorizeDiesel
-    }
+    fun shouldAuthorizeDiesel(): Boolean =
+        lastUiState?.uiButton?.status == ButtonStatus.AuthorizeDiesel
 
     init {
         WalletCore.registerObserver(this)
@@ -713,9 +910,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         super.onCleared()
     }
 
-    fun getConfirmationPageConfig(): DraftResult.Result? {
-        return lastUiState?.draft as? DraftResult.Result
-    }
+    fun getConfirmationPageConfig(): DraftResult.Result? = lastUiState?.draft as? DraftResult.Result
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
@@ -731,6 +926,43 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
     }
 
     companion object {
+        internal fun resolveDestinationForChainChange(
+            destination: String,
+            destinationAccountId: String? = null,
+            previousChain: String?,
+            nextChain: String?,
+            accounts: List<MAccount>
+        ): String {
+            if (destination.isEmpty() || previousChain == null || nextChain == null ||
+                previousChain == nextChain
+            ) {
+                return destination
+            }
+            val selectedAccount = findDestinationAccount(
+                destination = destination,
+                chain = previousChain,
+                preferredAccountId = destinationAccountId,
+                accounts = accounts
+            )
+            return selectedAccount?.byChain?.get(nextChain)?.address ?: destination
+        }
+
+        internal fun findDestinationAccount(
+            destination: String,
+            chain: String,
+            preferredAccountId: String?,
+            accounts: List<MAccount>
+        ): MAccount? = if (preferredAccountId != null) {
+            accounts.firstOrNull { account ->
+                account.accountId == preferredAccountId &&
+                    account.byChain[chain]?.address == destination
+            }
+        } else {
+            accounts.firstOrNull { account ->
+                account.byChain[chain]?.address == destination
+            }
+        }
+
         val INVALID_ADDRESS_ERRORS = setOf(
             MApiAnyDisplayError.DOMAIN_NOT_RESOLVED,
             MApiAnyDisplayError.INVALID_ADDRESS,
@@ -744,6 +976,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         ): TokenAmountInputView.State {
             val state: InputStateFull.Complete = when (input) {
                 is InputStateFull.Complete -> input
+
                 is InputStateFull.Incomplete -> return TokenAmountInputView.State(
                     title = LocaleController.getString("Amount"),
                     subtitle = null,
@@ -757,27 +990,59 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 )
             }
 
-            val draftResult = estimated as? DraftResult.Result
             val slugChanged = estimated?.request?.token?.slug != input.token.slug
-            val feeFmt = if (slugChanged) null else draftResult?.showingFee?.toString(
-                state.token,
-                appendNonNative = true
+            val canShowFee = !slugChanged &&
+                state.input.destination.isNotEmpty() &&
+                state.amount.amountInteger != BigInteger.ZERO &&
+                state.amount.amountInteger <= state.balance.amountInteger
+            val feeFmt = if (!canShowFee) {
+                null
+            } else {
+                estimated.showingFee?.toString(
+                    state.token,
+                    appendNonNative = true
+                )
+            }
+            val feeError = canShowFee && TransferHelpers.hasInsufficientFeeError(
+                tokenBalance = state.balance.amountInteger,
+                nativeTokenBalance = state.wallet.balances[state.tokenNative.slug]
+                    ?: BigInteger.ZERO,
+                transferAmount = state.amount.amountInteger,
+                fullFee = estimated.explainedFee?.fullFee?.terms,
+                canTransferFullBalance = estimated.explainedFee?.canTransferFullBalance ?: false,
+                dieselStatus = estimated.dieselStatus
             )
+            val maxToSend = if (slugChanged) {
+                state.balanceEquivalent
+            } else {
+                estimated.maxToSend ?: state.balanceEquivalent
+            }
+            val displayedMaxToSend = if (state.input.fiatMode) {
+                TokenEquivalent.fromToken(
+                    price = state.tokenPrice,
+                    token = state.token,
+                    amount = maxToSend.tokenAmount.amountInteger,
+                    currency = state.baseCurrency
+                )
+            } else {
+                maxToSend
+            }
             return TokenAmountInputView.State(
                 title = LocaleController.getString("Amount"),
-                subtitle = if (feeFmt != null)
+                subtitle = if (feeFmt != null) {
                     LocaleController.getString("\$fee_value_with_colon")
                         .replace("%fee%", feeFmt)
-                else
-                    null,
+                } else {
+                    null
+                },
                 token = state.token,
                 fiatMode = state.input.fiatMode,
                 inputDecimal = state.inputDecimal,
                 inputSymbol = state.inputSymbol,
                 inputError = state.inputError,
-                balance = (if (slugChanged) state.balanceEquivalent else (estimated.maxToSend
-                    ?: state.balanceEquivalent)).getFmt(state.input.fiatMode),
-                equivalent = state.amountEquivalent.getFmt(!state.input.fiatMode)
+                balance = displayedMaxToSend.getFmt(state.input.fiatMode),
+                equivalent = state.amountEquivalent.getFmt(!state.input.fiatMode),
+                feeError = feeError
             )
         }
 
@@ -814,7 +1079,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     LocaleController.getString("Invalid address")
                 )
             }
-            if (input.input.amount.isEmpty()) {
+            if (input.input.sourceAmount.isEmpty()) {
                 return ButtonState(
                     ButtonStatus.WaitAmount,
                     LocaleController.getString("Enter Amount")
@@ -830,7 +1095,9 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 )
             }
 
-            if (state.amount.amountInteger > state.balance.amountInteger || state.balance.amountInteger == BigInteger.ZERO) {
+            if (state.amount.amountInteger > state.balance.amountInteger ||
+                state.balance.amountInteger == BigInteger.ZERO
+            ) {
                 return ButtonState(
                     ButtonStatus.NotEnoughToken,
                     LocaleController.getString("Insufficient Balance")
@@ -844,10 +1111,13 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             }
 
             if (draft is DraftResult.Error) {
-                if (draft.error?.parsed == MBridgeError.INSUFFICIENT_BALANCE) {
+                if (draft.error?.parsed == MBridgeError.Type.INSUFFICIENT_BALANCE ||
+                    draft.anyError == MApiAnyDisplayError.INSUFFICIENT_BALANCE
+                ) {
                     if (draft.dieselStatus == MDieselStatus.NOT_AUTHORIZED) {
                         return ButtonState(
-                            ButtonStatus.AuthorizeDiesel, LocaleController.getFormattedString(
+                            ButtonStatus.AuthorizeDiesel,
+                            LocaleController.getFormattedString(
                                 "Authorize %1$@ fee",
                                 listOf(draft.request.token.symbol ?: "")
                             )
@@ -855,31 +1125,27 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     }
                     return ButtonState(
                         ButtonStatus.NotEnoughNativeToken,
-                        LocaleController.getFormattedString(
-                            "Insufficient %1$@ Balance",
-                            listOf(
-                                state.tokenNative.symbol ?: ""
-                            )
-                        )
+                        LocaleController.getString("Insufficient Fee")
                     )
                 }
                 val error = draft.anyError
                     ?: (draft.error?.parsedResult as? MApiCheckTransactionDraftResult)?.error
-                return if (INVALID_ADDRESS_ERRORS.contains(error))
+                return if (INVALID_ADDRESS_ERRORS.contains(error)) {
                     ButtonState(
                         ButtonStatus.Error,
                         LocaleController.getString("Invalid address")
                     )
-                else if (error?.toErrorDialogMessage != null)
+                } else if (error?.toErrorDialogMessage != null) {
                     ButtonState(
                         ButtonStatus.ErrorAlert,
                         LocaleController.getString("Continue")
                     )
-                else
+                } else {
                     ButtonState(
                         ButtonStatus.WaitNetwork,
                         LocaleController.getString("Waiting for Network")
                     )
+                }
             }
 
             if (draft is DraftResult.Result) {
@@ -892,15 +1158,17 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                         LocaleController.getString("Continue")
                     )
                 }
-                if (draft.explainedFee?.isGasless == true)
+                if (draft.explainedFee?.isGasless == true) {
                     if (draft.dieselStatus == MDieselStatus.NOT_AUTHORIZED) {
                         return ButtonState(
-                            ButtonStatus.AuthorizeDiesel, LocaleController.getFormattedString(
+                            ButtonStatus.AuthorizeDiesel,
+                            LocaleController.getFormattedString(
                                 "Authorize %1$@ fee",
                                 listOf(draft.request.token.symbol ?: "")
                             )
                         )
                     }
+                }
                 if (draft.dieselStatus == MDieselStatus.PENDING_PREVIOUS) {
                     return ButtonState(
                         ButtonStatus.PendingPreviousDiesel,

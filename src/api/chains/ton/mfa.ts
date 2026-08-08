@@ -11,9 +11,9 @@ import { withoutTransferConcurrency } from '../../common/preventTransferConcurre
 import { resolveTransactionError } from './transfer';
 import { getTonWallet, getWalletInfo } from './wallet';
 
-export async function createRemoveMfaExtensionPayload(accountId: string, password?: string) {
+export async function createRemoveMfaExtensionPayload(accountId: string, enclaveToken?: string) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
-  const signer = getSigner(accountId, account, password);
+  const signer = getSigner(accountId, account, enclaveToken);
   const wallet = getTonWallet(account.byChain.ton);
   const { network } = parseAccountId(accountId);
   const { mfa } = account.byChain.ton;
@@ -34,10 +34,10 @@ export async function createRemoveMfaExtensionPayload(accountId: string, passwor
 export async function installMfaExtension(
   accountId: string,
   telegramId: string,
-  password?: string,
+  enclaveToken?: string,
 ) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
-  const signer = getSigner(accountId, account, password);
+  const signer = getSigner(accountId, account, enclaveToken);
   const wallet = getTonWallet(account.byChain.ton);
   const { network } = parseAccountId(accountId);
   const { address: fromAddress } = account.byChain.ton;

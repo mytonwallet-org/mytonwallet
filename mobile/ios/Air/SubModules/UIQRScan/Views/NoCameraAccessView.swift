@@ -36,8 +36,8 @@ public class NoCameraAccessView: UIView {
         addSubview(bottomActionsView)
         NSLayoutConstraint.activate([
             bottomActionsView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -58),
-            bottomActionsView.leftAnchor.constraint(equalTo: safeAreaLayoutGuide.leftAnchor, constant: 48),
-            bottomActionsView.rightAnchor.constraint(equalTo: safeAreaLayoutGuide.rightAnchor, constant: -48),
+            bottomActionsView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 48),
+            bottomActionsView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -48),
         ])
 
         // top view
@@ -46,8 +46,8 @@ public class NoCameraAccessView: UIView {
         addSubview(topView)
         NSLayoutConstraint.activate([
             topView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
-            topView.leftAnchor.constraint(equalTo: safeAreaLayoutGuide.leftAnchor),
-            topView.rightAnchor.constraint(equalTo: safeAreaLayoutGuide.rightAnchor),
+            topView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
+            topView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
             topView.bottomAnchor.constraint(equalTo: bottomActionsView.topAnchor)
         ])
 
@@ -61,8 +61,8 @@ public class NoCameraAccessView: UIView {
         }
         topView.addSubview(headerView)
         NSLayoutConstraint.activate([
-            headerView.leftAnchor.constraint(equalTo: topView.leftAnchor, constant: 32),
-            headerView.rightAnchor.constraint(equalTo: topView.rightAnchor, constant: -32),
+            headerView.leadingAnchor.constraint(equalTo: topView.leadingAnchor, constant: 32),
+            headerView.trailingAnchor.constraint(equalTo: topView.trailingAnchor, constant: -32),
             headerView.centerYAnchor.constraint(equalTo: topView.centerYAnchor)
         ])
     }

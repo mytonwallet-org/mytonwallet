@@ -10,6 +10,7 @@ public final class IconAccessoryView: UIView {
     private var sizeConstraints: [NSLayoutConstraint] = []
     private var positionConstraints: [NSLayoutConstraint] = []
     private var imageSize: CGFloat = 0
+    private var appliedLayoutDirection: UIUserInterfaceLayoutDirection?
     
     @MainActor
     public struct LayoutGeometry: Equatable {
@@ -133,12 +134,12 @@ public final class IconAccessoryView: UIView {
         setShowsSoftLightOverlay(true)
     }
 
-    public func configurePercentBadge(backgroundColor: UIColor = .air.positiveAmount) {
+    public func configurePercentBadge(isActive: Bool = true) {
         setClockVisible(false)
         imageView.contentMode = .scaleToFill
         imageView.image = .airBundle("Percent")
         imageView.tintColor = .white
-        imageView.backgroundColor = backgroundColor
+        imageView.backgroundColor = isActive ? .air.positiveAmount : .airBundle("AccessoryGray")
         setShowsSoftLightOverlay(false)
     }
 
@@ -167,15 +168,33 @@ public final class IconAccessoryView: UIView {
             imageView.widthAnchor.constraint(equalToConstant: layoutGeometry.size),
             imageView.heightAnchor.constraint(equalToConstant: layoutGeometry.size)
         ]
-        positionConstraints = [
-            rightAnchor.constraint(equalTo: parent.rightAnchor, constant: layoutGeometry.horizontalOffset),
-            bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: layoutGeometry.verticalOffset)
-        ]
+        positionConstraints = makePositionConstraints(in: parent, layoutDirection: parent.effectiveUserInterfaceLayoutDirection)
         NSLayoutConstraint.activate(sizeConstraints + positionConstraints)
+        appliedLayoutDirection = parent.effectiveUserInterfaceLayoutDirection
         let cornerRadius = layoutGeometry.fullSize / 2
         layer.cornerRadius = cornerRadius
         imageView.layer.cornerRadius = layoutGeometry.size / 2
         overlayView.gradientLayer.cornerRadius = imageView.layer.cornerRadius
+    }
+
+    func updateLayoutDirection(in parent: UIView) {
+        let layoutDirection = parent.effectiveUserInterfaceLayoutDirection
+        guard appliedLayoutDirection != layoutDirection else { return }
+
+        NSLayoutConstraint.deactivate(positionConstraints)
+        positionConstraints = makePositionConstraints(in: parent, layoutDirection: layoutDirection)
+        NSLayoutConstraint.activate(positionConstraints)
+        appliedLayoutDirection = layoutDirection
+    }
+
+    private func makePositionConstraints(in parent: UIView, layoutDirection: UIUserInterfaceLayoutDirection) -> [NSLayoutConstraint] {
+        let horizontalConstraint = layoutDirection == .rightToLeft
+            ? leftAnchor.constraint(equalTo: parent.leftAnchor, constant: -layoutGeometry.horizontalOffset)
+            : rightAnchor.constraint(equalTo: parent.rightAnchor, constant: layoutGeometry.horizontalOffset)
+        return [
+            horizontalConstraint,
+            bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: layoutGeometry.verticalOffset)
+        ]
     }
 
     private func configureSymbol(name: String, backgroundColor: UIColor) {

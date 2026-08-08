@@ -52,8 +52,8 @@ final class WalletAssetsView: WTouchPassView {
         tabsContainer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(tabsContainer)
         NSLayoutConstraint.activate([
-            tabsContainer.leftAnchor.constraint(equalTo: leftAnchor),
-            tabsContainer.rightAnchor.constraint(equalTo: rightAnchor),
+            tabsContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
+            tabsContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
             tabsContainer.topAnchor.constraint(equalTo: topAnchor),
             tabsContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])

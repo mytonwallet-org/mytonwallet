@@ -16,9 +16,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
-class AppearanceAppThemeView(
-    context: Context,
-) : WView(context), WThemedView {
+class AppearanceAppThemeView(context: Context) :
+    WView(context),
+    WThemedView {
 
     private val titleLabel = HeaderCell(context).apply {
         configure(
@@ -36,15 +36,15 @@ class AppearanceAppThemeView(
 
     private val systemView = AppearanceAppThemeItemView(
         context,
-        ThemeManager.THEME_SYSTEM,
+        ThemeManager.THEME_SYSTEM
     )
     private val lightView = AppearanceAppThemeItemView(
         context,
-        ThemeManager.THEME_LIGHT,
+        ThemeManager.THEME_LIGHT
     )
     private val darkView = AppearanceAppThemeItemView(
         context,
-        ThemeManager.THEME_DARK,
+        ThemeManager.THEME_DARK
     )
 
     private val themeView: WView by lazy {
@@ -60,8 +60,10 @@ class AppearanceAppThemeView(
             toRight(darkView)
             toBottom(lightView)
             createHorizontalChain(
-                ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.LEFT,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.RIGHT,
                 intArrayOf(lightView.id, systemView.id, darkView.id),
                 null,
                 ConstraintSet.CHAIN_SPREAD
@@ -98,5 +100,4 @@ class AppearanceAppThemeView(
             it.isActive = theme == it.identifier
         }
     }
-
 }

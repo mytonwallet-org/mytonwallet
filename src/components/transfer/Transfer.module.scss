@@ -1,6 +1,7 @@
 @use "../../styles/mixins";
 
 .modalDialog {
+  overflow: hidden;
   height: 40.5rem;
 
   @supports (height: var(--safe-area-bottom)) {
@@ -60,7 +61,7 @@
   font-weight: 600;
   line-height: 1.25rem;
   color: var(--color-black);
-  text-align: left;
+  text-align: start;
   word-break: break-all;
 
   background: var(--color-background-first);
@@ -197,14 +198,14 @@
   position: absolute;
   z-index: 1;
   top: 50%;
-  right: 0.25rem;
+  inset-inline-end: 0.25rem;
   transform: translateY(-50%);
 
   width: 7rem;
   padding: 0.25rem;
 
   font-size: 0.8125rem;
-  text-align: right;
+  text-align: end;
 
   opacity: 0;
 
@@ -244,12 +245,12 @@
 }
 
 .chainIcon {
-  margin-right: 0.0625rem;
+  margin-inline-end: 0.0625rem;
   vertical-align: -0.1875rem;
 }
 
 .inputWithIcon {
-  padding-right: 3.625rem;
+  padding-inline-end: 3.625rem;
 }
 
 .footer {
@@ -344,7 +345,7 @@
 .formSlide {
   display: flex;
   flex-direction: column;
-  margin-top: 0.125rem;
+  padding-top: 0.125rem;
   background: var(--background-color); // To ensure a glitch-free "semiFade" transition
 }
 
@@ -352,7 +353,14 @@
   position: absolute;
   z-index: 3;
   top: 1rem;
-  right: 0;
+  inset-inline-end: 0;
+}
+
+.accountPill {
+  position: absolute;
+  z-index: 3;
+  top: 0.5625rem;
+  inset-inline-start: -0.4375rem;
 }
 
 .transferTitle {
@@ -363,4 +371,8 @@
   line-height: 1.0625rem;
   color: var(--color-black);
   text-align: center;
+}
+
+.sentTabsWithSwitcher {
+  margin-bottom: 1.375rem !important;
 }

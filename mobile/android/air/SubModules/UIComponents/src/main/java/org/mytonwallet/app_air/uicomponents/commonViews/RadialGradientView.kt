@@ -35,7 +35,7 @@ class RadialGradientView @JvmOverloads constructor(
             Color.argb(204, 255, 255, 255),
             Color.argb(128, 255, 255, 255),
             Color.argb(51, 255, 255, 255),
-            Color.argb(0, 255, 255, 255),
+            Color.argb(0, 255, 255, 255)
         )
     }
 
@@ -86,8 +86,12 @@ class RadialGradientView @JvmOverloads constructor(
 
         path.reset()
         path.addRoundRect(
-            0f, 0f, width.toFloat(), height.toFloat(),
-            cornerRadius, cornerRadius,
+            0f,
+            0f,
+            width.toFloat(),
+            height.toFloat(),
+            cornerRadius,
+            cornerRadius,
             Path.Direction.CW
         )
         path.close()

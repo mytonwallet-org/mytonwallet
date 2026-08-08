@@ -17,7 +17,6 @@ import Perception
 import SwiftUI
 import Dependencies
 
-private let log = Log("HomeVC")
 let homeBottomInset: CGFloat = 200
 
 @MainActor
@@ -26,11 +25,17 @@ public protocol HomeRootLayoutMigrating: AnyObject {
     func prepareForRootLayoutMigration()
 }
 
+public enum HomeRootNavigationStyle: Sendable {
+    case standard
+    case topTabsNavigationBar
+}
+
 @MainActor
 public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMDelegate, HomeRootLayoutMigrating, Sendable {
 
     let homeVM: HomeViewModel
     let headerViewModel: HomeHeaderViewModel
+    let rootNavigationStyle: HomeRootNavigationStyle
     private var removesTemporaryAccountOnDeinit = true
 
     private var calledReady = false
@@ -38,8 +43,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     var popRecognizer: InteractivePopRecognizer?
     /// `headerContainerView` is used to set colored background under safe area and also under the collection view when scrolling down. (bounce mode)
     private var headerContainerView = WTouchPassView()
-    /// `headerContainerViewHeightConstraint` is used to animate the header background on the first load's animation.
-    private var headerContainerViewHeightConstraint: NSLayoutConstraint? = nil
 
     private let headerContainer: HomeHeaderContainer = HomeHeaderContainer()
 
@@ -69,15 +72,35 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
                                                                 delegate: self)
     private var headerBlurView: UIView?
     private var titleMenuInteraction: ContextMenuInteraction?
-
     private var windowSafeAreaGuide = UILayoutGuide()
-    private var windowSafeAreaGuideContraint: NSLayoutConstraint!
+    private var windowSafeAreaGuideContraint: NSLayoutConstraint?
 
     private let actionsVC: ActionsVC
-    private var actionsBottomConstraint: NSLayoutConstraint!
-    private var walletAssetsVC: WalletAssetsVC!
+    private weak var actionsHostView: UIView?
+    private var actionsBottomConstraint: NSLayoutConstraint?
+    private var walletAssetsVC: WalletAssetsVC?
+    private weak var accountSelector: HomeAccountSelector?
 
-    private var headerBottomConstraint: NSLayoutConstraint!
+    public var drawerOpeningGesturePriorityRegions: [DrawerOpeningGesturePriorityRegion] {
+        var regions: [DrawerOpeningGesturePriorityRegion] = []
+        if let accountSelector {
+            regions.append(.init(view: accountSelector))
+        }
+        if let walletAssetsView = walletAssetsVC?.viewIfLoaded {
+            regions.append(.init(
+                view: walletAssetsView,
+                contentInsets: UIEdgeInsets(
+                    top: 0,
+                    left: 2 * compactInsetSectionHorizontalPadding,
+                    bottom: 0,
+                    right: 2 * compactInsetSectionHorizontalPadding
+                )
+            ))
+        }
+        return regions
+    }
+
+    private var headerBottomConstraint: NSLayoutConstraint?
     private var headerContainerHeightConstraint: NSLayoutConstraint?
     private var headerGradientLeading = EdgeGradientView()
     private var headerGradientTrailing = EdgeGradientView()
@@ -88,17 +111,23 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     var isExpandingProgrammatically: Bool = false
 
     private var appearedOneTime = false
+    private var hasCompletedInitialTopTabsAppearance = false
     private let multisigWalletWarningCustomSectionID = "multisig-wallet-warning"
     private let assetsCustomSectionID = "assets"
-    private var multisigWalletWarningCustomSectionCellRegistration: UICollectionView.CellRegistration<UICollectionViewCell, Row>!
-    private var multisigWalletWarningCustomSectionDescriptor: CustomSectionDescriptor!
-    private var assetsCustomSectionCellRegistration: UICollectionView.CellRegistration<HomeAssetsRowCell, Row>!
-    private var assetsCustomSectionDescriptor: CustomSectionDescriptor!
+    private var multisigWalletWarningCustomSectionDescriptor: CustomSectionDescriptor?
+    private var assetsCustomSectionDescriptor: CustomSectionDescriptor?
 
-    public init(accountSource: AccountSource = .current) {
+    public init(
+        accountSource: AccountSource = .current,
+        rootNavigationStyle: HomeRootNavigationStyle = .standard
+    ) {
         self.actionsVC = ActionsVC(accountSource: accountSource)
+        self.rootNavigationStyle = rootNavigationStyle
         homeVM = HomeViewModel(accountSource: accountSource)
-        headerViewModel = HomeHeaderViewModel(accountSource: accountSource)
+        headerViewModel = HomeHeaderViewModel(
+            accountSource: accountSource,
+            rootNavigationStyle: rootNavigationStyle
+        )
         super.init(nibName: nil, bundle: nil)
         configureCustomSections()
         homeVM.delegate = self
@@ -152,7 +181,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             topVC = parent
         }
         if topVC != self {
-            walletAssetsVC.editingNavigator.cancelEditing()
+            walletAssetsVC?.editingNavigator.cancelEditing()
         }
     }
 
@@ -161,47 +190,52 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private func setupViews() {
         view.backgroundColor = .air.headerBackground
 
-        navigationItem.titleView = {
-            let header = NavigationHeader2()
-            let g = UITapGestureRecognizer(target: self, action: #selector(onHeaderTap(_:)))
-            header.addGestureRecognizer(g)
-            let titleMenuInteraction = ContextMenuInteraction(
-                triggers: [.longPress],
-                pressAnimation: .default(transformMode: .sublayerTransform),
-                activationViewProvider: { [weak self] _ in
-                    self?.balanceHeaderView.updateStatusView
-                },
-                activationHitTestProvider: { [weak self] sourceView, point in
-                    self?.isPointInUpdateStatusView(point, from: sourceView) ?? false
+        if rootNavigationStyle.usesNavigationBarTopTabs {
+            navigationItem.titleView = nil
+        } else {
+            navigationItem.titleView = {
+                let header = NavigationHeader2()
+                let g = UITapGestureRecognizer(target: self, action: #selector(onHeaderTap(_:)))
+                header.addGestureRecognizer(g)
+                let titleMenuInteraction = ContextMenuInteraction(
+                    triggers: [.longPress],
+                    pressAnimation: .default(transformMode: .sublayerTransform),
+                    activationViewProvider: { [weak self] _ in
+                        self?.balanceHeaderView.updateStatusView
+                    },
+                    activationHitTestProvider: { [weak self] sourceView, point in
+                        self?.isPointInUpdateStatusView(point, from: sourceView) ?? false
+                    }
+                ) { [weak self] _ in
+                    self?.makeTitleMenuConfiguration()
                 }
-            ) { [weak self] _ in
-                self?.makeTitleMenuConfiguration()
-            }
-            titleMenuInteraction.attach(to: header)
-            self.titleMenuInteraction = titleMenuInteraction
-            return header
-        }()
+                titleMenuInteraction.attach(to: header)
+                self.titleMenuInteraction = titleMenuInteraction
+                return header
+            }()
+        }
 
         navigationController?.setNavigationBarHidden(false, animated: false)
 
         view.addLayoutGuide(windowSafeAreaGuide)
-        windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
+        let windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
+        self.windowSafeAreaGuideContraint = windowSafeAreaGuideContraint
         windowSafeAreaGuideContraint.isActive = true
 
         // Must be created before the collection view's data source, because the assets custom
         // section cell registration reads `walletAssetsVC.view` / `walletAssetsVC.computedHeight()`.
-        // Otherwise a dequeue/layout pass that runs before this assignment crashes on the implicitly
-        // unwrapped optional.
-        walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
+        // This keeps the first dequeue/layout pass consistent with the assets section.
+        let walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
+        self.walletAssetsVC = walletAssetsVC
         addChild(walletAssetsVC)
         walletAssetsVC.loadViewIfNeeded()
         walletAssetsVC.didMove(toParent: self)
         walletAssetsVC.editingNavigator.onStateChange = { [weak self] _, newState in
             guard let self else { return }
             if newState.editingState == .selection {
-                walletAssetsVC.editingNavigator.installToolbar(into: view)
+                self.walletAssetsVC?.editingNavigator.installToolbar(into: self.view)
             }
-            updateNavigationItem()
+            self.updateNavigationItem()
         }
 
         super.setupCollectionView(collectionViewBottomConstraint: homeBottomInset)
@@ -217,8 +251,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         view.addSubview(headerContainerView)
         NSLayoutConstraint.activate([
             headerContainerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerContainerView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            headerContainerView.rightAnchor.constraint(equalTo: view.rightAnchor)
+            headerContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
 
         // balance header view
@@ -226,8 +260,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         headerContainerView.addSubview(balanceHeaderView)
         NSLayoutConstraint.activate([
             balanceHeaderView.topAnchor.constraint(equalTo: windowSafeAreaGuide.topAnchor),
-            balanceHeaderView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            balanceHeaderView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            balanceHeaderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            balanceHeaderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             balanceHeaderView.bottomAnchor.constraint(equalTo: headerContainerView.bottomAnchor).withPriority(.defaultHigh)
         ])
 
@@ -258,7 +292,12 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             actionsHostView = actionsContainerView
         }
         collectionView.addSubview(actionsHostView)
-        actionsBottomConstraint = actionsHostView.bottomAnchor.constraint(equalTo: collectionView.contentLayoutGuide.topAnchor, constant: headerPlaceholderHeight).withPriority(.init(950))
+        self.actionsHostView = actionsHostView
+        actionsHostView.isHidden = rootNavigationStyle.usesTopTabs
+        actionsHostView.isUserInteractionEnabled = rootNavigationStyle == .standard
+        updateActionsHostViewTransform()
+        let actionsBottomConstraint = actionsHostView.bottomAnchor.constraint(equalTo: collectionView.contentLayoutGuide.topAnchor, constant: headerPlaceholderHeight).withPriority(.init(950))
+        self.actionsBottomConstraint = actionsBottomConstraint
         NSLayoutConstraint.activate([
             actionsHostView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: compactInsetSectionHorizontalPadding),
             actionsHostView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -compactInsetSectionHorizontalPadding),
@@ -285,10 +324,11 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         headerContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerContainer)
 
-        headerBottomConstraint = headerContainer.bottomAnchor.constraint(
+        let headerBottomConstraint = headerContainer.bottomAnchor.constraint(
             equalTo: actionsHostView.bottomAnchor,
             constant: 0
         ).withPriority(.defaultHigh)
+        self.headerBottomConstraint = headerBottomConstraint
         let headerContainerHeightConstraint = headerContainer.heightAnchor.constraint(equalToConstant: HomeCardLayoutMetrics.screen.itemHeight)
         self.headerContainerHeightConstraint = headerContainerHeightConstraint
 
@@ -298,10 +338,15 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             headerContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
             headerBottomConstraint,
-            headerContainer.bottomAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor),
+            rootNavigationStyle.usesNavigationBarTopTabs
+                ? headerContainer.bottomAnchor.constraint(greaterThanOrEqualTo: view.topAnchor)
+                : headerContainer.bottomAnchor.constraint(
+                    greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor
+                ),
         ])
 
         let accountSelector = HomeAccountSelector(viewModel: headerViewModel)
+        self.accountSelector = accountSelector
         headerContainer.addSubview(accountSelector)
         accountSelector.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -402,12 +447,17 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        if rootNavigationStyle.usesTopTabs, !hasCompletedInitialTopTabsAppearance {
+            updateSafeAreaInsets()
+            hasCompletedInitialTopTabsAppearance = true
+        }
         StartupTrace.markOnce("home.visible", details: "layout=tab")
         StartupTrace.endInterval("startup.toHomeVisible", details: "layout=tab")
     }
 
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        updateActionsHostViewTransform()
         updateHeaderCardLayout()
     }
 
@@ -418,10 +468,28 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     private func updateSafeAreaInsets() {
         collectionView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
-        let navBarHeight = navigationController!.navigationBar.frame.height
-        windowSafeAreaGuideContraint.constant = view.safeAreaInsets.top - navBarHeight
-        balanceHeaderView.updateStatusViewContainerTopConstraint.constant = (navBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
+        guard let navigationController else { return }
+        let navBarHeight = navigationController.navigationBar.frame.height
+        windowSafeAreaGuideContraint?.constant = view.safeAreaInsets.top - navBarHeight
+        let titleBarHeight = max(44, navBarHeight)
+        balanceHeaderView.updateStatusViewContainerTopConstraint.constant = (titleBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
+        if rootNavigationStyle.usesTopTabs, !hasCompletedInitialTopTabsAppearance {
+            headerViewModel.state = .expanded
+            collectionView.contentInset.top = expansionInset
+            collectionView.contentOffset.y = -collectionView.adjustedContentInset.top
+        }
         scrollViewDidScroll(collectionView)
+    }
+
+    private func updateActionsHostViewTransform() {
+        // UICollectionView compensates its cells when its content is mirrored for RTL, but
+        // Actions is a direct scrolling subview. Counter the inherited mirror at this Home-only
+        // host boundary so the shared Actions toolbar keeps its normal RTL layout and rendering.
+        let isRTL = collectionView.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let transform = isRTL ? CGAffineTransform(scaleX: -1, y: 1) : .identity
+        if actionsHostView?.transform != transform {
+            actionsHostView?.transform = transform
+        }
     }
 
     private func updateHeaderCardLayout() {
@@ -455,8 +523,13 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     private func updateHeaderBlur() {
+        if rootNavigationStyle.usesNavigationBarTopTabs {
+            headerBlurView?.alpha = 1
+            return
+        }
         var progress = 0.0
-        if let waFrame = walletAssetsVC?.view.convert(walletAssetsVC.view.bounds, to: view) {
+        if let walletAssetsVC {
+            let waFrame = walletAssetsVC.view.convert(walletAssetsVC.view.bounds, to: view)
             let y = view.safeAreaInsets.top - waFrame.origin.y + navigationBarProgressiveBlurDelta
             progress = calculateNavigationBarProgressiveBlurProgress(y)
         }
@@ -469,7 +542,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         balanceHeaderView.calculatedHeight
     }
     var actionsHeight: CGFloat {
-        actionsVC.calculatedHeight
+        rootNavigationStyle == .standard ? actionsVC.calculatedHeight : 0
     }
     var actionsHeightWithSpacer: CGFloat {
         let actionsHeight = self.actionsHeight
@@ -488,7 +561,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         return max(0, assetsHeight - sectionSpacing)
     }
     public override var customSections: [CustomSectionDescriptor] {
-        [multisigWalletWarningCustomSectionDescriptor, assetsCustomSectionDescriptor]
+        [multisigWalletWarningCustomSectionDescriptor, assetsCustomSectionDescriptor].compactMap { $0 }
     }
     private var displayedActivitiesAccountId: String {
         activityViewModel?.accountId ?? homeVM.account.id
@@ -510,7 +583,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         cell.configure(assetsView: walletAssetsVC.view, height: assetsCustomSectionHeight)
     }
     private func configureCustomSections() {
-        multisigWalletWarningCustomSectionCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Row> { cell, _, _ in
+        let multisigWalletWarningCustomSectionCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Row> { cell, _, _ in
             cell.backgroundColor = .clear
             cell.contentConfiguration = UIHostingConfiguration {
                 MultisigWalletWarning()
@@ -523,7 +596,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         multisigWalletWarningCustomSectionDescriptor = CustomSectionDescriptor(id: multisigWalletWarningCustomSectionID) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: multisigWalletWarningCustomSectionCellRegistration, for: indexPath, item: .custom(multisigWalletWarningCustomSectionID))
         }
-        assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<HomeAssetsRowCell, Row> { [unowned self] cell, _, _ in
+        let assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<HomeAssetsRowCell, Row> { [unowned self] cell, _, _ in
             cell.backgroundColor = .clear
             configureAssetsCustomSection(cell: cell)
         }
@@ -547,7 +620,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             appliedHeaderHeightWithoutAssets = bhvHeight
             appliedAssetsCustomSectionHeight = assetsCustomSectionHeight
             let updates = { [self] in
-                actionsBottomConstraint.constant = headerPlaceholderHeight
+                actionsBottomConstraint?.constant = headerPlaceholderHeight
                 updateHeaderBottomConstraint()
                 if let cell = visibleCustomSectionCell(id: assetsCustomSectionID) as? HomeAssetsRowCell {
                     configureAssetsCustomSection(cell: cell)
@@ -588,6 +661,10 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         AppActions.scanAndHandleQR(accountContext: actionsVC.$account)
     }
 
+    @objc private func settingsPressed() {
+        AppActions.showSettings(section: nil)
+    }
+
     @objc private func lockPressed() {
         AppActions.lockApp(animated: true)
     }
@@ -609,7 +686,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
                 skeletonViews.append(skeletonView)
             }
         }
-        for view in walletAssetsVC.skeletonViewCandidates {
+        for view in walletAssetsVC?.skeletonViewCandidates ?? [] {
             skeletonViews.append(view)
         }
         skeletonView.applyMask(with: skeletonViews)
@@ -637,10 +714,10 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     private func updateNavigationItem() {
+        guard let navigator = walletAssetsVC?.editingNavigator else { return }
         var leadingItemGroups: [UIBarButtonItemGroup] = []
         var trailingItemGroups: [UIBarButtonItemGroup] = []
 
-        let navigator = walletAssetsVC.editingNavigator
         switch navigator.state.editingState {
         case .reordering:
             leadingItemGroups += navigator.cancelEditingBarButtonItem.asSingleItemGroup()
@@ -650,15 +727,22 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             trailingItemGroups += navigator.cancelXEditingBarButtonItem.asSingleItemGroup()
         case nil:
             if navigationController?.viewControllers.count == 1 {
-                if let leadingItem = WNavigationBarIconGroup(items: [scanNavigationItem]).barButtonItem {
-                    leadingItemGroups += leadingItem.asSingleItemGroup()
+                switch rootNavigationStyle {
+                case .standard:
+                    if let leadingItem = WNavigationBarIconGroup(items: [scanNavigationItem]).barButtonItem {
+                        leadingItemGroups += leadingItem.asSingleItemGroup()
+                    }
+                case .topTabsNavigationBar:
+                    break
                 }
             }
-            let trailingItems = AuthSupport.accountsSupportAppLock
-                ? [lockNavigationItem, hideNavigationItem]
-                : [hideNavigationItem]
-            if let trailingItem = WNavigationBarIconGroup(items: trailingItems).barButtonItem {
-                trailingItemGroups += trailingItem.asSingleItemGroup()
+            if rootNavigationStyle != .topTabsNavigationBar {
+                let trailingItems = AuthSupport.accountsSupportAppLock
+                    ? [lockNavigationItem, hideNavigationItem]
+                    : [hideNavigationItem]
+                if let trailingItem = WNavigationBarIconGroup(items: trailingItems).barButtonItem {
+                    trailingItemGroups += trailingItem.asSingleItemGroup()
+                }
             }
         }
 
@@ -687,14 +771,13 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         updateNavigationItem()
     }
 
-    private var activateAccountTask: Task<Void, any Error>?
     private var switchActivitiesTask: Task<Void, any Error>?
 
     func interactivelySwitchAccountTo(accountId: String) {
 
         guard homeVM.isTrackingActiveAccount else { return }
 
-        walletAssetsVC.interactivelySwitchAccountTo(accountId: accountId)
+        walletAssetsVC?.interactivelySwitchAccountTo(accountId: accountId)
 
         switchActivitiesTask?.cancel()
         switchActivitiesTask = Task {
@@ -763,7 +846,6 @@ private final class HomeAssetsRowCell: FirstRowCell {
                 assetsView.topAnchor.constraint(equalTo: contentView.topAnchor),
                 assetsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: compactInsetSectionHorizontalPadding),
                 assetsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -compactInsetSectionHorizontalPadding),
-                assetsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
                 heightConstraint,
             ])
         }

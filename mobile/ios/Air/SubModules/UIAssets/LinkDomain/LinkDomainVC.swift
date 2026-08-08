@@ -1,4 +1,5 @@
 import UIKit
+import ProtectedAction
 import SwiftUI
 import UIComponents
 import WalletContext
@@ -41,66 +42,58 @@ public final class LinkDomainVC: WViewController {
     }
 
     private func linkPressed() {
-        guard viewModel.canLink, viewModel.nft != nil else { return }
         Task {
             do {
-                _ = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: viewModel.account,
-                    title: lang("Confirm Linking"),
-                    headerView: LinkDomainAuthHeader(viewModel: viewModel),
-                    passwordAction: { [weak self] passcode in
-                        guard let self else { return ApiMfaProtectedResult() }
-                        return try await self.viewModel.submit(password: passcode)
-                    },
-                    ledgerSignData: { [weak self] in
-                        guard let self else { throw CancellationError() }
-                        return try await self.viewModel.makeLedgerPayload()
-                    },
-                    ledgerFromAddress: viewModel.account.getAddress(chain: viewModel.nft?.chain ?? .ton),
-                    mfaTitle: lang("Confirm Linking")
-                )
-                self.dismiss(animated: true) {
-                    AppActions.showToast(message: lang("Domain Linked"))
+                guard let snapshot = try await viewModel.makeConfirmationSnapshot() else {
+                    return
                 }
-            } catch is CancellationError {
+                let protectedAction = ProtectedAction.linkDomain(
+                    snapshot: snapshot,
+                    onCommitted: { [weak self] in
+                        self?.dismiss(animated: true) {
+                            AppActions.showToast(message: lang("Domain Linked"))
+                        }
+                    }
+                )
+                _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
             } catch {
-                showAlert(error: error)
+                viewModel.errorMessage = (error as? LocalizedError)?.errorDescription
+                    ?? error.localizedDescription
             }
         }
     }
 }
 
-private struct LinkDomainAuthHeader: View {
-    var viewModel: LinkDomainViewModel
+struct LinkDomainAuthHeader: ConfirmationContent {
+    let snapshot: LinkDomainConfirmationSnapshot
 
     var body: some View {
-        WithPerceptionTracking {
-            VStack(spacing: 8) {
-                if let nft = viewModel.nft {
-                    NftPreviewRow(nft: nft, horizontalPadding: 12, verticalPadding: 8)
-                }
-                let display = viewModel.displayComponents()
-                VStack(spacing: 4) {
-                    Text(viewModel.addressLabel)
-                        .font13()
-                        .foregroundStyle(Color.air.secondaryLabel)
-                    HStack(spacing: 4) {
-                        if let primary = display.primary {
-                            Text(primary)
-                                .foregroundStyle(Color.air.primaryLabel)
-                                .truncationMode(.middle)
-                        }
-                        if let secondary = display.secondary {
-                            Text("·")
-                                .foregroundStyle(Color.air.secondaryLabel)
-                            Text(secondary)
-                                .foregroundStyle(Color.air.secondaryLabel)
-                        }
-                    }
-                }
+        VStack(spacing: 16) {
+            NftPreviewSection(nfts: [snapshot.nft], maxItems: 1, maxRows: 1)
+
+            CompactActionSummary {
+                Text(destination)
+                    .textStyle(.bodyEmphasized, content: destinationContent)
             }
-            .padding(.horizontal, 32)
         }
+    }
+
+    var compactRepresentation: some View {
+        CompactActionSummary {
+            NftImage(nft: snapshot.nft, animateIfPossible: false)
+                .clipShape(.rect(cornerRadius: 5))
+        } label: {
+            Text(snapshot.nft.name?.nilIfEmpty ?? lang("Domain")).textStyle(.bodyEmphasized)
+                + Text(" \(lang("to")) ").textStyle(.body)
+                + Text(destination).textStyle(.bodyEmphasized, content: destinationContent)
+        }
+    }
+
+    private var destination: String {
+        snapshot.destinationName?.nilIfEmpty ?? formatStartEndAddress(snapshot.destinationAddress)
+    }
+
+    private var destinationContent: WTextContent {
+        snapshot.destinationName?.nilIfEmpty == nil ? .technical : .default
     }
 }

@@ -92,106 +92,6 @@ public func getIsActivityPendingForUser(_ activity: ApiActivity) -> Bool {
     }
 }
 
-/**
- * Sometimes activity ids change. This function finds the new id withing `nextActivities` for each activity in
- * `prevActivities`. Currently only local and pending activity ids change, so it's enough to provide only such
- * activities in `prevActivities`.
- *
- * The ids should be unique within each input array. The returned map has previous activity ids as keys and next
- * activity ids as values. If the map has no value for a previous id, it means that there is no matching next activity.
- * The values may be not unique.
- */
-func getActivityIdReplacements(prevActivities: [ApiActivity], nextActivities: [ApiActivity]) -> [String: String] {
-    // Each previous activity must fall into either of the groups, otherwise the resulting map will falsely miss previous ids
-    var prevLocalActivities: [ApiActivity] = []
-    var prevChainActivities: [ApiActivity] = []
-    
-    for activity in prevActivities {
-        if getIsIdLocal(activity.id) {
-            prevLocalActivities.append(activity)
-        } else {
-            prevChainActivities.append(activity)
-        }
-    }
-    
-    let localReplacements = getLocalActivityIdReplacements(prevLocalActivities, nextActivities)
-    let chainReplacements = getChainActivityIdReplacements(prevChainActivities, nextActivities)
-    return localReplacements.merging(chainReplacements, uniquingKeysWith: { $1 })
-}
-
-/** Replaces local activity ids. See `getActivityIdReplacements` for more details. */
-func getLocalActivityIdReplacements(_ prevLocalActivities: [ApiActivity], _ nextActivities: [ApiActivity]) -> [String: String] {
-    if prevLocalActivities.isEmpty {
-        return [:]
-    }
-
-    var idReplacements: [String: String] = [:]
-
-    let nextActivityIds = Set(nextActivities.map(\.id))
-    let nextChainActivities = nextActivities.filter { !getIsIdLocal($0.id) }
-    
-    for localActivity in prevLocalActivities {
-        let prevId = localActivity.id
-        
-        // Try a direct id match
-        if nextActivityIds.contains(prevId) {
-            idReplacements[prevId] = prevId
-            continue
-        }
-        
-        // Otherwise, try to find a match by a heuristic
-        let chainActivity = nextChainActivities.first { chainActivity in
-            return doesLocalActivityMatch(localActivity: localActivity, chainActivity: chainActivity)
-        }
-        if let chainActivity {
-            idReplacements[prevId] = chainActivity.id
-        }
-        
-        // Otherwise, there is no match
-    }
-    
-    return idReplacements
-}
-
-/** Replaces chain (i.e. not local) activity ids. See `getActivityIdReplacements` for more details. */
-func getChainActivityIdReplacements(_ prevActivities: [ApiActivity], _ nextActivities: [ApiActivity]) -> [String: String] {
-    if prevActivities.isEmpty {
-        return [:]
-    }
-
-    var idReplacements: [String: String] = [:]
-    
-    let nextActivityIds = Set(nextActivities.map(\.id))
-    var nextActivitiesByMessageHash = Dictionary(grouping: nextActivities, by: \.externalMsgHashNorm);
-    
-    for activity in prevActivities {
-        let prevId = activity.id
-        let externalMsgHashNormNorm = activity.externalMsgHashNorm
-        
-        // Try a direct id match
-        if nextActivityIds.contains(prevId) {
-            idReplacements[prevId] = prevId
-            continue
-        }
-        
-        // Otherwise, match by the message hash
-        if let externalMsgHashNormNorm {
-            if let nextSubActivities = nextActivitiesByMessageHash[externalMsgHashNormNorm], !nextSubActivities.isEmpty {
-                idReplacements[prevId] = nextSubActivities[0].id
-                
-                // Leaving 1 activity in each group to ensure there is a match for the further prev activities with the same hash
-                if nextSubActivities.count > 1 {
-                    nextActivitiesByMessageHash[externalMsgHashNormNorm] = Array(nextSubActivities.dropFirst())
-                }
-            }
-        }
-        
-        // Otherwise, there is no match
-    }
-    
-    return idReplacements;
-}
-
 func getIsIdLocal(_ id: String) -> Bool {
     id.hasSuffix(":local")
 }
@@ -208,26 +108,50 @@ func compareActivityIds(_ idA: String, _ idB: String, byId: [String: ApiActivity
     return idA > idB
 }
 
-/** Decides whether the local activity matches the activity from the blockchain */
-public func doesLocalActivityMatch(localActivity: ApiActivity, chainActivity: ApiActivity) -> Bool {
-    
-    if localActivity.extra?.withW5Gasless == true {
-        if let localActivity = localActivity.transaction, let chainActivity = chainActivity.transaction {
-            return !chainActivity.isIncoming && localActivity.normalizedAddress == chainActivity.normalizedAddress
-            && localActivity.amount == chainActivity.amount
-            && localActivity.slug == chainActivity.slug
-        } else if let localActivity = localActivity.swap, let chainActivity = chainActivity.swap {
-            return localActivity.from == chainActivity.from
-            && localActivity.to == chainActivity.to
-            && localActivity.fromAmount == chainActivity.fromAmount
+func preserveActivityStatusProgress(existingActivity: ApiActivity?, incomingActivity: ApiActivity) -> ApiActivity {
+    guard let existingActivity,
+          existingActivity.kind == incomingActivity.kind,
+          activityStatusRank(existingActivity) > activityStatusRank(incomingActivity) else {
+        return incomingActivity
+    }
+
+    switch (existingActivity, incomingActivity) {
+    case (.transaction(let existingTransaction), .transaction(var incomingTransaction)):
+        incomingTransaction.status = existingTransaction.status
+        return .transaction(incomingTransaction)
+    case (.swap(let existingSwap), .swap(var incomingSwap)):
+        incomingSwap.status = existingSwap.status
+        return .swap(incomingSwap)
+    default:
+        return incomingActivity
+    }
+}
+
+private func activityStatusRank(_ activity: ApiActivity) -> Int {
+    switch activity {
+    case .transaction(let transaction):
+        switch transaction.status {
+        case .pending:
+            return 1
+        case .pendingTrusted:
+            return 2
+        case .confirmed:
+            return 3
+        case .completed, .failed:
+            return 4
+        }
+    case .swap(let swap):
+        switch swap.status {
+        case .pending:
+            return 1
+        case .pendingTrusted:
+            return 2
+        case .confirmed:
+            return 3
+        case .completed, .failed, .expired:
+            return 4
         }
     }
-    
-    if let localActivityexternalMsgHashNorm = localActivity.externalMsgHashNorm {
-        return localActivityexternalMsgHashNorm == chainActivity.externalMsgHashNorm && chainActivity.shouldHide != true
-    }
-    
-    return localActivity.parsedTxId.hash == chainActivity.parsedTxId.hash
 }
 
 func buildActivityIdsBySlug(_ activities: [ApiActivity]) -> [String: [String]] {

@@ -1,18 +1,15 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
-import java.math.BigInteger
 
 enum class SwapDetailsVisibility { VISIBLE, CEX, GONE }
 
-data class SwapUiInputState(
-    val wallet: SwapWalletState,
-    private val input: SwapInputState,
-) {
+data class SwapUiInputState(val wallet: SwapWalletState, private val input: SwapInputState) {
     val tokenToSend: IApiToken? = input.tokenToSend
     val tokenToSendMaxAmount: String
         get() {
@@ -26,8 +23,6 @@ data class SwapUiInputState(
     val tokenToReceiveIsSupported = wallet.isSupportedChain(tokenToReceive?.mBlockchain)
 
     val slippage = input.slippage
-    val selectedDex = input.selectedDex
-
     val isCex = input.isCex
     val canSwapByBuyAmount = input.canSwapByBuyAmount
     val reverse = input.reverse && !isCex
@@ -44,7 +39,8 @@ data class SwapUiInputState(
     }
 
     val key =
-        tokenToSend?.slug + "_" + tokenToReceive?.slug + "_" + amountInput + "_" + (reverse.toString())
+        tokenToSend?.slug + "_" + tokenToReceive?.slug + "_" + amountInput + "_" +
+            (reverse.toString())
 
     internal val tokenToSendBalance: BigInteger =
         tokenToSend?.let { token -> wallet.balances[token.slug] } ?: BigInteger.ZERO

@@ -12,9 +12,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 
-class WordListItemView(
-    context: Context,
-) : WView(context), WThemedView {
+class WordListItemView(context: Context) :
+    WView(context),
+    WThemedView {
 
     private val indexLabel: WLabel by lazy {
         val lbl = WLabel(context)

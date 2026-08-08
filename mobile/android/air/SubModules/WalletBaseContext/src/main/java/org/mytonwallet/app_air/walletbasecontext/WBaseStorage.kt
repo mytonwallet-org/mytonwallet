@@ -33,7 +33,7 @@ object WBaseStorage {
     private fun resolveSystemLanguageCode(): String? {
         val context = try {
             ApplicationContextHolder.applicationContext
-        } catch (_: Throwable) {
+        } catch (_: UninitializedPropertyAccessException) {
             return null
         }
         return LocaleController.resolveSystemLanguageCode(context)
@@ -48,7 +48,7 @@ object WBaseStorage {
         val resolvedLanguage =
             LocaleController.appSpecificLanguageCode()
                 ?: resolveSystemLanguageCode()
-                    ?: sharedPreferences.getString(
+                ?: sharedPreferences.getString(
                     CACHE_ACTIVE_LANGUAGE,
                     WLanguage.ENGLISH.langCode
                 ) ?: WLanguage.ENGLISH.langCode
@@ -57,14 +57,13 @@ object WBaseStorage {
     }
 
     fun setActiveLanguage(value: String) {
+        cachedLanguage = value
         sharedPreferences.edit { putString(CACHE_ACTIVE_LANGUAGE, value) }
     }
 
-    fun getBaseCurrency(): MBaseCurrency? {
-        return sharedPreferences.getString(CACHE_BASE_CURRENCY, null)
-            ?.let { MBaseCurrency.parse(it) }
-            ?: MBaseCurrency.USD
-    }
+    fun getBaseCurrency(): MBaseCurrency? = sharedPreferences.getString(CACHE_BASE_CURRENCY, null)
+        ?.let { MBaseCurrency.parse(it) }
+        ?: MBaseCurrency.USD
 
     fun setBaseCurrency(value: String) {
         sharedPreferences.edit { putString(CACHE_BASE_CURRENCY, value) }

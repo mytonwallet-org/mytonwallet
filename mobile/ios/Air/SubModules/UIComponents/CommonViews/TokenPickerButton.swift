@@ -27,7 +27,7 @@ public struct TokenPickerButton: View {
             HStack(spacing: 6) {
                 if inBaseCurrency {
                     Text(lang("in"))
-                        .font(.footnote)
+                        .textStyle(.footnote, scaling: .dynamic)
                         .foregroundStyle(.secondary)
                         .transition(.scale.combined(with: .opacity).combined(with: .offset(x: 20)))
                 }
@@ -45,11 +45,19 @@ public struct TokenPickerButton: View {
                     
                 HStack(spacing: 2) {
                     Text(token?.symbol ?? ApiToken.TONCOIN.symbol)
-                        .font(.body.weight(.semibold))
+                        .textStyle(
+                            .bodyStrong,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
                     
                     if onTap != nil {
                         Image("SendPickToken", bundle: AirBundle)
-                            .font(.footnote)
+                            .textStyle(
+                                .footnote,
+                                content: .technical,
+                                scaling: .dynamic
+                            )
                             .foregroundStyle(.secondary)
                     }
                 }

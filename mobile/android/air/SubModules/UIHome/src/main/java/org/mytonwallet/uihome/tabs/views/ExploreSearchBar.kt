@@ -7,18 +7,22 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
-import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import androidx.core.net.toUri
+import androidx.core.view.doOnPreDraw
 import androidx.core.widget.doOnTextChanged
+import kotlin.math.roundToInt
+import me.vkryl.android.animatorx.BoolAnimator
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
+import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
@@ -27,21 +31,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
-import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
-import me.vkryl.android.animatorx.BoolAnimator
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class ExploreSearchBar(
-    context: Context,
-    private val config: Config,
-) : WFrameLayout(context) {
+class ExploreSearchBar(context: Context, private val config: Config) : WFrameLayout(context) {
 
     class Config(
         /** Called whenever the search keyword changes; mirrors ExploreVC.search(query, focused). */
@@ -51,7 +48,7 @@ class ExploreSearchBar(
         /** Present the in-app browser navigation built for a search submit. */
         val presentBrowser: (config: InAppBrowserConfig) -> Unit,
         /** Notified when bounds change so a host can re-sync external shadow/blur if needed. */
-        val onLayoutChanged: () -> Unit = {},
+        val onLayoutChanged: () -> Unit = {}
     )
 
     companion object {
@@ -70,7 +67,7 @@ class ExploreSearchBar(
     }
 
     val editText by lazy {
-        object : SwapSearchEditText(context) {
+        object : WSearchEditText(context) {
             override fun onFocusChanged(
                 focused: Boolean,
                 direction: Int,
@@ -82,40 +79,49 @@ class ExploreSearchBar(
 
             override fun onSelectionChanged(selStart: Int, selEnd: Int) {
                 super.onSelectionChanged(selStart, selEnd)
-                if (isProcessingSearchKeyword || searchMatchedSite == null)
-                    return
-                isProcessingSearchKeyword = true
-                setTextKeepCursor(searchKeyword)
-                searchMatchedSite = null
-                isProcessingSearchKeyword = false
+                if (isProcessingSearchKeyword || searchMatchedSite == null) return
+
+                val keyword = searchKeyword
+                val autoCompleteText = text?.toString()
+                doOnPreDraw {
+                    if (isProcessingSearchKeyword ||
+                        searchMatchedSite == null ||
+                        searchKeyword != keyword ||
+                        text?.toString() != autoCompleteText
+                    ) {
+                        return@doOnPreDraw
+                    }
+                    isProcessingSearchKeyword = true
+                    setTextKeepCursor(keyword)
+                    searchMatchedSite = null
+                    isProcessingSearchKeyword = false
+                }
             }
         }.apply {
             hint = LocaleController.getString("Search app or enter address")
-            doOnTextChanged { text, start, _, count ->
-                if (text != null && text == searchKeyword)
-                    return@doOnTextChanged
-                if (isProcessingSearchKeyword)
-                    return@doOnTextChanged
+            doOnTextChanged { text, _, _, _ ->
+                if (text != null && text == searchKeyword) return@doOnTextChanged
+                if (isProcessingSearchKeyword) return@doOnTextChanged
                 isProcessingSearchKeyword = true
-                if ((text?.length ?: 0) > searchKeyword.length)
-                    checkForMatchingUrl(text?.toString() ?: "")
-                else {
-                    searchKeyword = text?.toString() ?: ""
-                    searchMatchedSite = null
-                }
-                if (searchMatchedSite == null) {
-                    val cursorPosition = start + count
-                    setText(searchKeyword)
-                    setSelection(cursorPosition.coerceAtMost(searchKeyword.length))
-                }
+                val keyword = text?.toString() ?: ""
+                val shouldCheckForMatchingUrl = keyword.length > searchKeyword.length
+                searchKeyword = keyword
+                searchMatchedSite = null
                 config.onSearch(searchKeyword, hasFocus())
-                post { isProcessingSearchKeyword = false }
+                post {
+                    if (shouldCheckForMatchingUrl && searchKeyword == keyword) {
+                        checkForMatchingUrl(keyword)
+                    }
+                    isProcessingSearchKeyword = false
+                }
             }
             onFocusChangeListener = OnFocusChangeListener { _, hasFocus ->
-                if (isProcessingSearchKeyword)
+                if (isProcessingSearchKeyword) return@OnFocusChangeListener
+                if (!hasFocus &&
+                    (context as? android.app.Activity)?.isChangingConfigurations == true
+                ) {
                     return@OnFocusChangeListener
-                if (!hasFocus && (context as? android.app.Activity)?.isChangingConfigurations == true)
-                    return@OnFocusChangeListener
+                }
                 isProcessingSearchKeyword = true
                 val query = if (hasFocus) text?.toString() else null
                 config.onSearch(query, hasFocus)
@@ -124,9 +130,14 @@ class ExploreSearchBar(
             }
             setOnEditorActionListener { _, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
-                    event?.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_ENTER
+                    (
+                        event?.action == KeyEvent.ACTION_DOWN &&
+                            event.keyCode == KeyEvent.KEYCODE_ENTER
+                        )
                 ) {
-                    if (WalletContextManager.delegate?.get()?.handleDeeplink(text.toString()) == true) {
+                    if (WalletContextManager.delegate?.get()?.handleDeeplink(text.toString()) ==
+                        true
+                    ) {
                         setText("")
                         clearFocus()
                         hideKeyboard()
@@ -140,8 +151,7 @@ class ExploreSearchBar(
                         )
                     } ?: run {
                         val (isValidUrl, uri) = InAppBrowserVC.convertToUri(text.toString())
-                        if (!isValidUrl)
-                            ExploreHistoryStore.saveSearchHistory(text.toString())
+                        if (!isValidUrl) ExploreHistoryStore.saveSearchHistory(text.toString())
                         InAppBrowserConfig(
                             url = uri.toString(),
                             injectDappConnect = true,
@@ -181,8 +191,7 @@ class ExploreSearchBar(
     }
 
     fun attachShadow() {
-        if (shadow == null)
-            shadow = PillShadowView.attachTo(this, 24f.dp)
+        if (shadow == null) shadow = PillShadowView.attachTo(this, 24f.dp)
     }
 
     fun setupBlurWith(target: android.view.ViewGroup) {
@@ -202,7 +211,7 @@ class ExploreSearchBar(
     }
 
     fun updateWidth() {
-        if (layoutParams != null)
+        if (layoutParams != null) {
             layoutParams = layoutParams.apply {
                 width = lerp(
                     collapsedWidth.toFloat(),
@@ -210,7 +219,8 @@ class ExploreSearchBar(
                     searchFocused.floatValue
                 ).roundToInt()
             }
-        editText.setPaddingDp(
+        }
+        editText.setPaddingDpLocalized(
             lerp(21f, 16f, searchFocused.floatValue).ceilToInt(),
             0,
             lerp(0f, 48f, searchFocused.floatValue).ceilToInt(),
@@ -230,9 +240,8 @@ class ExploreSearchBar(
         editText.setText(text)
     }
 
-    fun currentText(): String {
-        return if (searchMatchedSite != null) searchKeyword else (editText.text?.toString() ?: "")
-    }
+    fun currentText(): String =
+        if (searchMatchedSite != null) searchKeyword else (editText.text?.toString() ?: "")
 
     fun restoreText(text: String) {
         editText.setText(text)
@@ -240,16 +249,16 @@ class ExploreSearchBar(
 
     fun checkForMatchingUrl(keyword: String) {
         searchKeyword = keyword
-        if (keyword.isEmpty())
-            return
+        if (keyword.isEmpty()) return
         searchMatchedSite =
-            if (keyword.isEmpty() || !editText.hasFocus())
+            if (keyword.isEmpty() || !editText.hasFocus()) {
                 null
-            else
+            } else {
                 ExploreHistoryStore.exploreHistory?.visitedSites?.firstOrNull {
                     it.url.toUri().host?.startsWith(keyword) == true ||
                         it.url.startsWith(keyword)
                 }
+            }
         searchMatchedSite?.let { matchedSite ->
             val urlPart = matchedSite.url.toUri().let { uri ->
                 if (uri.host?.startsWith(keyword) == true) {
@@ -266,7 +275,7 @@ class ExploreSearchBar(
                 txt.length,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            editText.setText(spannable)
+            editText.setTextKeepCursor(spannable)
             val length = editText.length()
             editText.setSelection(
                 keyword.length.coerceAtMost(length),
@@ -277,7 +286,7 @@ class ExploreSearchBar(
     }
 
     fun clearSearchAutoComplete() {
-        editText.setText(searchKeyword)
+        editText.setTextKeepCursor(searchKeyword)
         checkForMatchingUrl(searchKeyword)
     }
 }

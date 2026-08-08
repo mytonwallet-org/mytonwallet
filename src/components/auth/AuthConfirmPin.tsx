@@ -112,6 +112,6 @@ const AuthConfirmPin = ({
 
 export default memo(withGlobal<OwnProps>((global) => {
   return {
-    pin: global.auth.password,
+    pin: global.auth.pin,
   };
 })(AuthConfirmPin));

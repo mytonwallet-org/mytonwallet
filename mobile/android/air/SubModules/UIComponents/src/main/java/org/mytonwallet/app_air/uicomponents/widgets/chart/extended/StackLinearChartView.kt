@@ -7,20 +7,19 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.abs
 import kotlin.math.atan
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToLong
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 
 @Suppress("UNCHECKED_CAST")
-open class StackLinearChartView<T : StackLinearViewData>(
-    context: Context
-) : BaseChartView<StackLinearChartData, T>(context) {
+open class StackLinearChartView<T : StackLinearViewData>(context: Context) :
+    BaseChartView<StackLinearChartData, T>(context) {
     enum class ValueMode {
         ABSOLUTE,
-        RELATIVE,
+        RELATIVE
     }
 
     private val matrix = Matrix()
@@ -132,7 +131,14 @@ open class StackLinearChartView<T : StackLinearViewData>(
 
                 var xPoint = data.xPercentage[i] * fullWidth - offset
                 val nextXPoint =
-                    if (i == localEnd) measuredWidth.toFloat() else data.xPercentage[i + 1] * fullWidth - offset
+                    if (i ==
+                        localEnd
+                    ) {
+                        measuredWidth.toFloat()
+                    } else {
+                        data.xPercentage[i + 1] * fullWidth -
+                            offset
+                    }
                 val height = yPercentage * chartHeight
                 var yPoint = measuredHeight - chartBottom - height - stackOffset
                 localStartFromY[k] = yPoint
@@ -162,8 +168,12 @@ open class StackLinearChartView<T : StackLinearViewData>(
                     yPointZero =
                         yPointZero * (1f - transitionProgressHalf) + yTo * transitionProgressHalf
                     val angleK = dY / dX
-                    angle = if (angleK > 0) Math.toDegrees(-atan(angleK.toDouble()))
-                        .toFloat() else Math.toDegrees(atan(abs(angleK).toDouble())).toFloat()
+                    angle = if (angleK > 0) {
+                        Math.toDegrees(-atan(angleK.toDouble()))
+                            .toFloat()
+                    } else {
+                        Math.toDegrees(atan(abs(angleK).toDouble())).toFloat()
+                    }
                     angle -= 90f
 
                     if (xPoint >= cX) {
@@ -204,7 +214,13 @@ open class StackLinearChartView<T : StackLinearViewData>(
                         yPoint = mapPoints[1]
 
                         mapPoints[0] =
-                            if (nextXPoint >= cX) xPointZero * (1f - params.progress) + cX * params.progress else xPointZero
+                            if (nextXPoint >=
+                                cX
+                            ) {
+                                xPointZero * (1f - params.progress) + cX * params.progress
+                            } else {
+                                xPointZero
+                            }
                         mapPoints[1] = yPointZero
                         matrix.reset()
                         matrix.postRotate(
@@ -249,26 +265,35 @@ open class StackLinearChartView<T : StackLinearViewData>(
                     transitionMode != TRANSITION_MODE_PARENT
                 ) {
                     if (!localSkipPoints[k]) {
-                        if (k == lastEnabled) line.chartPath.lineTo(
-                            xPointZero,
-                            yPointZero * (1f - transitionProgress)
-                        )
-                        else line.chartPath.lineTo(xPointZero, yPointZero)
+                        if (k == lastEnabled) {
+                            line.chartPath.lineTo(
+                                xPointZero,
+                                yPointZero * (1f - transitionProgress)
+                            )
+                        } else {
+                            line.chartPath.lineTo(xPointZero, yPointZero)
+                        }
                     }
                     localSkipPoints[k] = true
                 } else {
                     if (localSkipPoints[k]) {
-                        if (k == lastEnabled) line.chartPath.lineTo(
-                            xPointZero,
-                            yPointZero * (1f - transitionProgress)
-                        )
-                        else line.chartPath.lineTo(xPointZero, yPointZero)
+                        if (k == lastEnabled) {
+                            line.chartPath.lineTo(
+                                xPointZero,
+                                yPointZero * (1f - transitionProgress)
+                            )
+                        } else {
+                            line.chartPath.lineTo(xPointZero, yPointZero)
+                        }
                     }
-                    if (k == lastEnabled) line.chartPath.lineTo(
-                        xPoint,
-                        yPoint * (1f - transitionProgress)
-                    )
-                    else line.chartPath.lineTo(xPoint, yPoint)
+                    if (k == lastEnabled) {
+                        line.chartPath.lineTo(
+                            xPoint,
+                            yPoint * (1f - transitionProgress)
+                        )
+                    } else {
+                        line.chartPath.lineTo(xPoint, yPoint)
+                    }
                     localSkipPoints[k] = false
                 }
 
@@ -295,8 +320,12 @@ open class StackLinearChartView<T : StackLinearViewData>(
                         dX = cX - x1
                         dY = cY - y1
                         val angleK = dY / dX
-                        angle = if (angleK > 0) Math.toDegrees(-atan(angleK.toDouble()))
-                            .toFloat() else Math.toDegrees(atan(abs(angleK).toDouble())).toFloat()
+                        angle = if (angleK > 0) {
+                            Math.toDegrees(-atan(angleK.toDouble()))
+                                .toFloat()
+                        } else {
+                            Math.toDegrees(atan(abs(angleK).toDouble())).toFloat()
+                        }
                         angle -= 90f
 
                         localX = params.startX[k]
@@ -315,7 +344,9 @@ open class StackLinearChartView<T : StackLinearViewData>(
 
                         val endQuarter: Int
                         val startQuarter: Int
-                        if (abs(xPoint - localX) < 0.001f && ((localY < cY && yPoint < cY) || (localY > cY && yPoint > cY))) {
+                        if (abs(xPoint - localX) < 0.001f &&
+                            ((localY < cY && yPoint < cY) || (localY > cY && yPoint > cY))
+                        ) {
                             if (params.angle[k] == -180f) {
                                 endQuarter = 0
                                 startQuarter = 0
@@ -331,12 +362,14 @@ open class StackLinearChartView<T : StackLinearViewData>(
                         for (q in endQuarter..startQuarter) {
                             when (q) {
                                 0 -> line.chartPath.lineTo(measuredWidth.toFloat(), 0f)
+
                                 1 -> line.chartPath.lineTo(
                                     measuredWidth.toFloat(),
                                     measuredHeight.toFloat()
                                 )
 
                                 2 -> line.chartPath.lineTo(0f, measuredHeight.toFloat())
+
                                 else -> line.chartPath.lineTo(0f, 0f)
                             }
                         }
@@ -558,9 +591,13 @@ open class StackLinearChartView<T : StackLinearViewData>(
                     ) == 0L -> 0f
 
                     valueMode == ValueMode.RELATIVE && drawingLinesCount == 1 -> line.alpha
+
                     valueMode == ValueMode.RELATIVE && sum == 0f -> 0f
+
                     valueMode == ValueMode.RELATIVE -> getLineValue(line.line, i) * line.alpha / sum
+
                     currentMaxHeight <= 0f -> 0f
+
                     else -> getLineValue(line.line, i) * line.alpha / currentMaxHeight
                 }
                 val xPoint = data.xPercentage[i] * fullWidth - offset
@@ -592,11 +629,15 @@ open class StackLinearChartView<T : StackLinearViewData>(
             var sum = 0f
             for ((lineIndex, line) in lines.withIndex()) {
                 if (!line.enabled) continue
-                val value = if (simplified) getSimplifiedValue(
-                    data,
-                    lineIndex,
-                    i
-                ) else getLineValue(line.line, i)
+                val value = if (simplified) {
+                    getSimplifiedValue(
+                        data,
+                        lineIndex,
+                        i
+                    )
+                } else {
+                    getLineValue(line.line, i)
+                }
                 sum += value.toFloat()
             }
             if (sum > maxValue) {
@@ -606,9 +647,8 @@ open class StackLinearChartView<T : StackLinearViewData>(
         return maxValue.roundToLong()
     }
 
-    private fun getLineValue(line: ChartData.Line, index: Int): Long {
-        return if (index in line.y.indices) line.y[index] else 0L
-    }
+    private fun getLineValue(line: ChartData.Line, index: Int): Long =
+        if (index in line.y.indices) line.y[index] else 0L
 
     private fun getSimplifiedValue(data: StackLinearChartData, lineIndex: Int, index: Int): Long {
         if (lineIndex !in data.simplifiedY.indices) return 0L
@@ -622,14 +662,12 @@ open class StackLinearChartView<T : StackLinearViewData>(
         sum: Float,
         drawingLinesCount: Int,
         maxHeight: Float
-    ): Float {
-        return when {
-            valueMode == ValueMode.RELATIVE && drawingLinesCount == 1 && value == 0L -> 0f
-            valueMode == ValueMode.RELATIVE && drawingLinesCount == 1 -> alpha
-            valueMode == ValueMode.RELATIVE && sum == 0f -> 0f
-            valueMode == ValueMode.RELATIVE -> value * alpha / sum
-            maxHeight <= 0f -> 0f
-            else -> value * alpha / maxHeight
-        }
+    ): Float = when {
+        valueMode == ValueMode.RELATIVE && drawingLinesCount == 1 && value == 0L -> 0f
+        valueMode == ValueMode.RELATIVE && drawingLinesCount == 1 -> alpha
+        valueMode == ValueMode.RELATIVE && sum == 0f -> 0f
+        valueMode == ValueMode.RELATIVE -> value * alpha / sum
+        maxHeight <= 0f -> 0f
+        else -> value * alpha / maxHeight
     }
 }

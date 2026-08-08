@@ -8,6 +8,7 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.ledger.connectionManagers.ILedgerConnectionManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerBleManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerUsbManager
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
@@ -26,13 +27,12 @@ object LedgerManager : WalletCore.EventObserver {
         data class Error(
             val step: Step,
             val shortMessage: CharSequence?,
-            val bridgeError: MBridgeError? = null,
-        ) :
-            ConnectionState() {
+            val bridgeError: MBridgeError? = null
+        ) : ConnectionState() {
             enum class Step {
                 CONNECT,
                 TON_APP,
-                SIGN;
+                SIGN
             }
         }
     }
@@ -54,10 +54,7 @@ object LedgerManager : WalletCore.EventObserver {
         WalletCore.registerObserver(this)
     }
 
-    fun startConnection(
-        mode: ConnectionMode,
-        onUpdate: (ConnectionState) -> Unit
-    ) {
+    fun startConnection(mode: ConnectionMode, onUpdate: (ConnectionState) -> Unit) {
         this.onUpdate = onUpdate
         this.activeMode = mode
         when (mode) {
@@ -115,7 +112,11 @@ object LedgerManager : WalletCore.EventObserver {
                     }, onError = {
                         walletEvent.onResponse("")
                     })
-                } catch (_: Throwable) {
+                } catch (e: Exception) {
+                    Logger.e(
+                        Logger.LogTag.LEDGER,
+                        "Ledger write request failed error=${e.javaClass.simpleName}"
+                    )
                     walletEvent.onResponse("")
                 }
             }

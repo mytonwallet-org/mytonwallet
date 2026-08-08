@@ -6,7 +6,8 @@ import android.graphics.Paint
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ReplacementSpan
-import org.mytonwallet.app_air.uicomponents.R
+import androidx.core.graphics.withTranslation
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -36,7 +37,7 @@ fun buildConfirmWithTelegramTitle(context: Context): CharSequence {
             text: CharSequence?,
             start: Int,
             end: Int,
-            fm: Paint.FontMetricsInt?,
+            fm: Paint.FontMetricsInt?
         ): Int = iconSize + rightOffset
 
         override fun draw(
@@ -48,13 +49,12 @@ fun buildConfirmWithTelegramTitle(context: Context): CharSequence {
             top: Int,
             y: Int,
             bottom: Int,
-            paint: Paint,
+            paint: Paint
         ) {
             val centerY = (top + bottom) / 2f - iconSize / 2f
-            canvas.save()
-            canvas.translate(x, centerY)
-            drawable.draw(canvas)
-            canvas.restore()
+            canvas.withTranslation(x, centerY) {
+                drawable.draw(this)
+            }
         }
     }
 

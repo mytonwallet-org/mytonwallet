@@ -1,10 +1,10 @@
 package org.mytonwallet.app_air.walletcontext.utils
 
+import java.math.BigDecimal
+import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.math.BigDecimal
-import java.math.BigInteger
 
 class CoinUtilsTest {
 

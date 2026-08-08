@@ -37,7 +37,9 @@ function AgentMenu({ className, onClearChat }: OwnProps) {
 
   const handleOpenMenu = useLastCallback(() => {
     const btn = buttonRef.current!;
-    const { right: x, bottom: y } = btn.getBoundingClientRect();
+    const { left, right, bottom: y } = btn.getBoundingClientRect();
+    // RTL: mirror the anchor edge
+    const x = lang.isRtl ? left : right;
     setMenuAnchor({ x, y });
     openMenu();
   });

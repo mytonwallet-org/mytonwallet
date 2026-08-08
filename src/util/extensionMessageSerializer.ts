@@ -41,10 +41,14 @@ export function decodeExtensionMessage<T extends OriginMessageData | WorkerMessa
 
 export function encodeError(error: Error): WorkerMessageError {
   if (error instanceof Error) {
+    // `DOMException` and friends carry a numeric `code`, which would break branching on the string one
+    const { code } = error as Error & { code?: unknown };
+
     return {
       name: error.name,
       message: error.message,
       stack: error.stack,
+      code: typeof code === 'string' ? code : undefined,
     };
   }
 
@@ -55,11 +59,14 @@ export function encodeError(error: Error): WorkerMessageError {
   };
 }
 
-export function decodeError({ name, message, stack }: WorkerMessageError): Error {
+export function decodeError({ name, message, stack, code }: WorkerMessageError): Error {
   const error = new Error(message);
   error.name = name;
   if (stack) {
     error.stack = stack;
+  }
+  if (code !== undefined) {
+    (error as Error & { code?: string }).code = code;
   }
   return error;
 }

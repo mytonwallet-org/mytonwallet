@@ -7,38 +7,13 @@ import android.content.pm.PackageManager;
 
 import androidx.core.content.pm.PackageInfoCompat;
 
-import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage;
-
 public class LaunchConfig {
 
     private static final String LAUNCHER_PREF_NAME = "Launcher";
-    private static final String LAUNCHER_PREF_START_ON_AIR_KEY = "isOnAir";
     private static final String LAUNCHER_PREF_FIRST_LAUNCH_DATE_KEY = "firstLaunchDate";
     private static final String LAUNCHER_PREF_LAST_LAUNCH_DATE_KEY = "lastLaunchDate";
     private static final String LAUNCHER_PREF_FIRST_LAUNCH_VERSION_KEY = "firstLaunchVersion";
     private static final String LAUNCHER_PREF_LAST_LAUNCH_VERSION_KEY = "lastLaunchVersion";
-
-    public static boolean shouldStartOnAir(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(
-            LAUNCHER_PREF_NAME,
-            Context.MODE_PRIVATE
-        );
-        if (!prefs.contains(LAUNCHER_PREF_START_ON_AIR_KEY)) {
-            WSecureStorage.INSTANCE.init(context);
-            boolean isFreshInstall = WSecureStorage.INSTANCE.isFreshInstall();
-            setShouldStartOnAir(context, isFreshInstall);
-        }
-        return prefs.getBoolean(LAUNCHER_PREF_START_ON_AIR_KEY, false);
-    }
-
-    public static void setShouldStartOnAir(Context context, boolean newValue) {
-        SharedPreferences.Editor editor = context.getSharedPreferences(
-            LAUNCHER_PREF_NAME,
-            Context.MODE_PRIVATE
-        ).edit();
-        editor.putBoolean(LAUNCHER_PREF_START_ON_AIR_KEY, newValue);
-        editor.apply();
-    }
 
     public static void recordAppOpened(Context context) {
         long currentTime = System.currentTimeMillis();

@@ -39,7 +39,6 @@ struct SwapCexDetailsView: View {
             tokenIn: sellingToken,
             networkFee: swapEstimate.networkFee,
             realNetworkFee: swapEstimate.realNetworkFee,
-            ourFee: nil,
             dieselStatus: nil,
             dieselFee: nil,
             nativeTokenInBalance: inputModel.$account.balances[nativeToken.slug]
@@ -68,6 +67,11 @@ struct SwapCexDetailsView: View {
                         Spacer(minLength: 4)
                         let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
                         Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.compact))")
+                            .textStyle(
+                                .body,
+                                content: .technical,
+                                scaling: .dynamic
+                            )
                     }
                 }
             }
@@ -79,15 +83,15 @@ struct SwapCexDetailsView: View {
         let sellingToken = inputModel.sellingToken
         if let feeDetails, let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug] {
             InsetDetailCell {
-                Text(lang("Blockchain Fee"))
-                    .foregroundStyle(Color.air.secondaryLabel)
+                SwapBlockchainFeeLabel(nativeToken: nativeToken, feeDetails: feeDetails)
             } value: {
                 FeeView(
                     token: sellingToken,
                     nativeToken: nativeToken,
                     fee: feeDetails.realFee ?? feeDetails.fullFee,
                     explainedTransferFee: feeDetails,
-                    includeLabel: false
+                    includeLabel: false,
+                    showDetailsButton: false
                 )
             }
         }

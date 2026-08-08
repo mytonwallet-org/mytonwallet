@@ -13,20 +13,26 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.doOnLayout
+import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.CustomListAdapter
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.CustomListDecorator
-import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
@@ -35,36 +41,40 @@ import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.updateLayoutParamsIfExists
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.uitonconnect.viewControllers.TonConnectRequestSendViewModel
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.Adapter
+import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConnectItem
+import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.holder.CellHeaderSendRequest
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSendDetails.TonConnectRequestSendDetailsVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.signed.SignedVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlinx.coroutines.launch
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.DappDeeplinkReturnTracker
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.roundToInt
-import androidx.core.view.isVisible
 
 private const val NOT_RESPONDING_DELAY_MS = 7000L
+private const val BUTTONS_CONTENT_INSET_DP = 90
+private const val BUTTONS_BOTTOM_MARGIN_DP = 15
+private const val ERROR_CONTENT_INSET_DP = 26
 
 @SuppressLint("ViewConstructor")
 class TonConnectRequestSendVC(
@@ -73,11 +83,14 @@ class TonConnectRequestSendVC(
     private var update: ApiUpdate.ApiUpdateDappSignRequest? = null,
     // When opened as a placeholder by a wake deeplink: render no type-specific title and run the not-responding timer.
     private val isWaitingForRequest: Boolean = false,
-    private val returnUrl: String? = null,
-) : WViewControllerWithModelStore(context), CustomListAdapter.ItemClickListener, SkeletonContainer {
+    private val returnUrl: String? = null
+) : WViewControllerWithModelStore(context),
+    CustomListAdapter.ItemClickListener,
+    SkeletonContainer {
+    @Suppress("PropertyName")
     override val TAG = "TonConnectRequestSend"
 
-    override val shouldDisplayTopBar = true
+    override val shouldDisplayTopBar = false
 
     private var viewModel: TonConnectRequestSendViewModel? = null
 
@@ -86,6 +99,18 @@ class TonConnectRequestSendVC(
 
     private val notRespondingHandler = Handler(Looper.getMainLooper())
 
+    private val walletPillSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
+    private val dappPillSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
+    private val headerConnectionSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
+    private val walletIconSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
     private val headerIconSkeletonView = WBaseView(context).apply {
         visibility = View.GONE
     }
@@ -101,6 +126,16 @@ class TonConnectRequestSendVC(
     private val dappAddressSkeletonView = WBaseView(context).apply {
         visibility = View.GONE
     }
+    private val totalAmountSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
+    private val transferSkeletonContainer = WView(context).apply {
+        visibility = View.GONE
+    }
+    private val transferHeaderTitleSkeletonView = WBaseView(context)
+    private val transferIconSkeletonView = WBaseView(context)
+    private val transferTitleSkeletonView = WBaseView(context)
+    private val transferSubtitleSkeletonView = WBaseView(context)
     private val headerSkeletonContainer = WView(context).apply {
         visibility = View.GONE
     }
@@ -127,6 +162,7 @@ class TonConnectRequestSendVC(
         id = View.generateViewId()
         adapter = rvAdapter
         addItemDecoration(CustomListDecorator())
+        clipToPadding = false
         val layoutManager = LinearLayoutManager(context)
         layoutManager.isSmoothScrollbarEnabled = true
         setLayoutManager(layoutManager)
@@ -134,8 +170,7 @@ class TonConnectRequestSendVC(
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
         ReversedCornerViewUpsideDown(context, recyclerView).apply {
-            if (ignoreSideGuttering)
-                setHorizontalPadding(0f)
+            if (ignoreSideGuttering) setHorizontalPadding(0f)
         }
 
     override fun setupViews() {
@@ -148,19 +183,21 @@ class TonConnectRequestSendVC(
 
             title = if (isWaitingForRequest) {
                 null
-            } else when (connectionType) {
-                ApiConnectionType.SEND_TRANSACTION -> {
-                    LocaleController.getPluralWord(
-                        1,
-                        "Confirm Actions"
-                    )
-                }
+            } else {
+                when (connectionType) {
+                    ApiConnectionType.SEND_TRANSACTION -> {
+                        LocaleController.getPluralWord(
+                            1,
+                            "Confirm Actions"
+                        )
+                    }
 
-                ApiConnectionType.SIGN_DATA -> {
-                    LocaleController.getString("Sign Data")
-                }
+                    ApiConnectionType.SIGN_DATA -> {
+                        LocaleController.getString("Sign Data")
+                    }
 
-                else -> null
+                    else -> null
+                }
             }
 
             if (isWaitingForRequest) {
@@ -169,58 +206,118 @@ class TonConnectRequestSendVC(
         }
 
         rvAdapter.setOnItemClickListener(this)
+        rvAdapter.onPreviewFeeClick = ::showFeeDetails
 
-        setupNavBar(true)
-        navigationBar?.addCloseButton()
-        navigationBar?.setTitleGravity(Gravity.CENTER)
         recyclerView.setPadding(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            (navigationController?.getSystemBars()?.top ?: 0) +
-                WNavigationBar.DEFAULT_HEIGHT.dp,
+            navigationController?.getSystemBars()?.top ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
 
         view.addView(
-            recyclerView, ViewGroup.LayoutParams(
-                MATCH_PARENT, MATCH_PARENT
+            recyclerView,
+            ViewGroup.LayoutParams(
+                MATCH_PARENT,
+                MATCH_PARENT
             )
         )
         view.addView(
-            headerSkeletonContainer, ViewGroup.LayoutParams(
+            headerSkeletonContainer,
+            ViewGroup.LayoutParams(
                 0,
+                72.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            walletPillSkeletonView,
+            ViewGroup.LayoutParams(
+                142.dp,
+                CellHeaderSendRequest.PILL_HEIGHT.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            dappPillSkeletonView,
+            ViewGroup.LayoutParams(
+                142.dp,
+                CellHeaderSendRequest.PILL_HEIGHT.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            headerConnectionSkeletonView,
+            ViewGroup.LayoutParams(
+                0,
+                1.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            walletIconSkeletonView,
+            ViewGroup.LayoutParams(
+                CellHeaderSendRequest.ICON_SIZE.dp,
+                CellHeaderSendRequest.ICON_SIZE.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            headerIconSkeletonView,
+            ViewGroup.LayoutParams(
+                CellHeaderSendRequest.ICON_SIZE.dp,
+                CellHeaderSendRequest.ICON_SIZE.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            walletNameSkeletonView,
+            ViewGroup.LayoutParams(
                 72.dp,
+                14.dp
             )
         )
         headerSkeletonContainer.addView(
-            headerIconSkeletonView, ViewGroup.LayoutParams(
-                48.dp,
-                48.dp
+            walletBalanceSkeletonView,
+            ViewGroup.LayoutParams(
+                80.dp,
+                14.dp
             )
         )
         headerSkeletonContainer.addView(
-            walletNameSkeletonView, ViewGroup.LayoutParams(
-                88.dp,
-                20.dp
-            )
-        )
-        headerSkeletonContainer.addView(
-            walletBalanceSkeletonView, ViewGroup.LayoutParams(
+            dappNameSkeletonView,
+            ViewGroup.LayoutParams(
                 72.dp,
-                15.dp
+                14.dp
             )
         )
         headerSkeletonContainer.addView(
-            dappNameSkeletonView, ViewGroup.LayoutParams(
-                84.dp,
-                20.dp
+            dappAddressSkeletonView,
+            ViewGroup.LayoutParams(
+                80.dp,
+                14.dp
             )
         )
-        headerSkeletonContainer.addView(
-            dappAddressSkeletonView, ViewGroup.LayoutParams(
-                96.dp,
-                15.dp
+        view.addView(
+            totalAmountSkeletonView,
+            ViewGroup.LayoutParams(
+                120.dp,
+                36.dp
             )
+        )
+        view.addView(transferSkeletonContainer, ViewGroup.LayoutParams(0, 100.dp))
+        transferSkeletonContainer.addView(
+            transferHeaderTitleSkeletonView,
+            ViewGroup.LayoutParams(160.dp, 16.dp)
+        )
+        transferSkeletonContainer.addView(
+            transferIconSkeletonView,
+            ViewGroup.LayoutParams(
+                ApplicationContextHolder.adaptiveIconSize.dp,
+                ApplicationContextHolder.adaptiveIconSize.dp
+            )
+        )
+        transferSkeletonContainer.addView(
+            transferTitleSkeletonView,
+            ViewGroup.LayoutParams(SkeletonCell.TITLE_WIDTH.first().dp, 16.dp)
+        )
+        transferSkeletonContainer.addView(
+            transferSubtitleSkeletonView,
+            ViewGroup.LayoutParams(SkeletonCell.SUBTITLE_WIDTH.first().dp, 14.dp)
         )
         view.addView(skeletonView, ViewGroup.LayoutParams(0, 0))
 
@@ -228,7 +325,7 @@ class TonConnectRequestSendVC(
             bottomReversedCornerViewUpsideDown,
             ConstraintLayout.LayoutParams(
                 MATCH_PARENT,
-                MATCH_CONSTRAINT
+                (BUTTONS_CONTENT_INSET_DP + ViewConstants.BLOCK_RADIUS).dp.roundToInt()
             )
         )
         view.addView(cancelButtonView)
@@ -242,40 +339,78 @@ class TonConnectRequestSendVC(
         )
 
         view.setConstraints {
-            topToTop(
-                bottomReversedCornerViewUpsideDown,
-                cancelButtonView,
-                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
-            )
+            toCenterX(bottomReversedCornerViewUpsideDown)
             toBottom(bottomReversedCornerViewUpsideDown)
-            toLeft(cancelButtonView, 20f)
-            toRight(confirmButtonView, 20f)
+            toStart(cancelButtonView, 20f)
+            toEnd(confirmButtonView, 20f)
 
-            leftToRight(confirmButtonView, cancelButtonView, 6f)
-            rightToLeft(cancelButtonView, confirmButtonView, 6f)
+            startToEnd(confirmButtonView, cancelButtonView, 6f)
+            endToStart(cancelButtonView, confirmButtonView, 6f)
 
             toCenterX(errorLabel, 20f)
             bottomToTop(errorLabel, cancelButtonView, 12f)
 
-            topToBottom(headerSkeletonContainer, navigationBar!!)
+            toTopPx(
+                headerSkeletonContainer,
+                navigationController?.getSystemBars()?.top ?: 0
+            )
             toCenterX(headerSkeletonContainer, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            topToBottom(totalAmountSkeletonView, headerSkeletonContainer, 34f)
+            toCenterX(totalAmountSkeletonView)
+            topToBottom(transferSkeletonContainer, headerSkeletonContainer, 108f)
+            toCenterX(
+                transferSkeletonContainer,
+                ViewConstants.HORIZONTAL_PADDINGS.toFloat()
+            )
+            allEdges(skeletonView)
         }
 
         headerSkeletonContainer.setConstraints {
-            toEnd(headerIconSkeletonView, 12f)
+            toStart(walletPillSkeletonView)
+            toCenterY(walletPillSkeletonView)
+
+            startToEnd(headerConnectionSkeletonView, walletPillSkeletonView, 8f)
+            endToStart(headerConnectionSkeletonView, dappPillSkeletonView, 8f)
+            toCenterY(headerConnectionSkeletonView)
+
+            toEnd(dappPillSkeletonView)
+            toCenterY(dappPillSkeletonView)
+
+            toStart(walletIconSkeletonView, 8f)
+            toCenterY(walletIconSkeletonView)
+
+            toEnd(headerIconSkeletonView, 8f)
             toCenterY(headerIconSkeletonView)
 
-            toStart(walletNameSkeletonView, 16f)
-            toTop(walletNameSkeletonView, 14.5f)
-            toStart(walletBalanceSkeletonView, 16f)
-            toBottom(walletBalanceSkeletonView, 14.5f)
+            startToEnd(walletBalanceSkeletonView, walletIconSkeletonView, 6f)
+            toTop(walletBalanceSkeletonView, 19f)
+            startToEnd(walletNameSkeletonView, walletIconSkeletonView, 6f)
+            toBottom(walletNameSkeletonView, 19f)
 
-            toTop(dappNameSkeletonView, 14.5f)
-            endToStart(dappNameSkeletonView, headerIconSkeletonView, 12f)
-            toBottom(dappAddressSkeletonView, 14.5f)
-            endToStart(dappAddressSkeletonView, headerIconSkeletonView, 12f)
+            toTop(dappNameSkeletonView, 19f)
+            endToStart(dappNameSkeletonView, headerIconSkeletonView, 6f)
+            toBottom(dappAddressSkeletonView, 19f)
+            endToStart(dappAddressSkeletonView, headerIconSkeletonView, 6f)
+        }
 
-            edgeToEdge(skeletonView, headerSkeletonContainer)
+        transferSkeletonContainer.setConstraints {
+            toTop(transferHeaderTitleSkeletonView, 16f)
+            toStart(transferHeaderTitleSkeletonView, 20f)
+            toTop(
+                transferIconSkeletonView,
+                40f + (60f - ApplicationContextHolder.adaptiveIconSize) / 2f
+            )
+            toStart(transferIconSkeletonView, 12f)
+            toTop(transferTitleSkeletonView, 49f)
+            toStart(
+                transferTitleSkeletonView,
+                ApplicationContextHolder.adaptiveContentStart
+            )
+            toTop(transferSubtitleSkeletonView, 76f)
+            toStart(
+                transferSubtitleSkeletonView,
+                ApplicationContextHolder.adaptiveContentStart
+            )
         }
 
         cancelButtonView.setOnClickListener {
@@ -309,6 +444,19 @@ class TonConnectRequestSendVC(
 
         updateTheme()
         insetsUpdated()
+    }
+
+    private fun showFeeDetails(item: TonConnectItem.PreviewFee) {
+        val feeDetails = item.feeDetails ?: return
+        lateinit var dialogRef: WDialog
+        dialogRef = DappFeeDetailsDialog.create(
+            context,
+            item.token,
+            feeDetails
+        ) {
+            dialogRef.dismiss()
+        }
+        dialogRef.presentOn(this)
     }
 
     private fun initializeWithUpdate() {
@@ -352,8 +500,7 @@ class TonConnectRequestSendVC(
 
     private var insufficientTokens: String? = null
     private fun updateInsufficientTokens(symbols: String?) {
-        if (insufficientTokens == symbols)
-            return
+        if (insufficientTokens == symbols) return
         insufficientTokens = symbols
         errorLabel.text = symbols?.let {
             LocaleController.getStringWithKeyValues(
@@ -363,13 +510,6 @@ class TonConnectRequestSendVC(
         }
         errorLabel.visibility = if (symbols == null) View.GONE else View.VISIBLE
         confirmButtonView.isEnabled = symbols == null
-        view.setConstraints {
-            topToTop(
-                bottomReversedCornerViewUpsideDown,
-                if (symbols == null) cancelButtonView else errorLabel,
-                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
-            )
-        }
         insetsUpdated()
     }
 
@@ -385,7 +525,9 @@ class TonConnectRequestSendVC(
     fun setUpdate(newUpdate: ApiUpdate.ApiUpdateDappSignRequest) {
         notRespondingHandler.removeCallbacksAndMessages(null)
         this.update = newUpdate
-        initializeWithUpdate()
+        if (isViewConfigured) {
+            initializeWithUpdate()
+        }
     }
 
     // True once the user tapped Confirm; prevents onDestroy from reporting `declined` after an accepted
@@ -393,16 +535,30 @@ class TonConnectRequestSendVC(
     private var didAccept = false
 
     private val acceptedEventName: String
-        get() = if (connectionType == ApiConnectionType.SIGN_DATA) "wallet-sign-data-accepted" else "wallet-transaction-accepted"
+        get() = if (connectionType ==
+            ApiConnectionType.SIGN_DATA
+        ) {
+            "wallet-sign-data-accepted"
+        } else {
+            "wallet-transaction-accepted"
+        }
 
     private val declinedEventName: String
-        get() = if (connectionType == ApiConnectionType.SIGN_DATA) "wallet-sign-data-declined" else "wallet-transaction-declined"
+        get() = if (connectionType ==
+            ApiConnectionType.SIGN_DATA
+        ) {
+            "wallet-sign-data-declined"
+        } else {
+            "wallet-transaction-declined"
+        }
 
     private fun showNotResponding() {
         val url = returnUrl
         showAlert(
             title = LocaleController.getString("Dapp Not Responding"),
-            text = LocaleController.getString("You may need to reconnect your wallet from the dapp if this keeps happening."),
+            text = LocaleController.getString(
+                "You may need to reconnect your wallet from the dapp if this keeps happening."
+            ),
             button = LocaleController.getString("OK"),
             buttonPressed = {
                 // With a return URL ("OK"/"Cancel" pair), OK returns to the dapp and dismisses the skeleton;
@@ -413,7 +569,7 @@ class TonConnectRequestSendVC(
                     })
                 }
             },
-            secondaryButton = if (url != null) LocaleController.getString("Cancel") else null,
+            secondaryButton = if (url != null) LocaleController.getString("Cancel") else null
         )
     }
 
@@ -425,33 +581,79 @@ class TonConnectRequestSendVC(
         confirmButtonView.isEnabled = false
 
         headerSkeletonContainer.visibility = View.VISIBLE
+        walletPillSkeletonView.visibility = View.VISIBLE
+        dappPillSkeletonView.visibility = View.VISIBLE
+        headerConnectionSkeletonView.visibility = View.VISIBLE
+        walletIconSkeletonView.visibility = View.VISIBLE
         headerIconSkeletonView.visibility = View.VISIBLE
         walletNameSkeletonView.visibility = View.VISIBLE
         walletBalanceSkeletonView.visibility = View.VISIBLE
         dappNameSkeletonView.visibility = View.VISIBLE
         dappAddressSkeletonView.visibility = View.VISIBLE
+        totalAmountSkeletonView.visibility =
+            if (connectionType == ApiConnectionType.SEND_TRANSACTION) View.VISIBLE else View.GONE
+        transferSkeletonContainer.visibility =
+            if (connectionType == ApiConnectionType.SEND_TRANSACTION) View.VISIBLE else View.GONE
 
-        headerIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
-        walletNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
-        walletBalanceSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
-        dappNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
-        dappAddressSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
+        walletPillSkeletonView.setBackgroundColor(WColor.ThumbBackground.color, 24f.dp)
+        dappPillSkeletonView.setBackgroundColor(WColor.ThumbBackground.color, 24f.dp)
+        headerConnectionSkeletonView.setBackgroundColor(WColor.Thumb.color, 0.5f.dp)
+        walletIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 16f.dp)
+        headerIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 16f.dp)
+        walletNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+        walletBalanceSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+        dappNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+        dappAddressSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+        totalAmountSkeletonView.setBackgroundColor(WColor.GroupedBackground.color, 24f.dp)
+        transferSkeletonContainer.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BLOCK_RADIUS.dp
+        )
+        transferHeaderTitleSkeletonView.setBackgroundColor(
+            WColor.SecondaryBackground.color,
+            SkeletonHeaderCell.TITLE_SKELETON_RADIUS
+        )
+        transferIconSkeletonView.setBackgroundColor(
+            WColor.SecondaryBackground.color,
+            SkeletonCell.CIRCLE_SKELETON_RADIUS
+        )
+        transferTitleSkeletonView.setBackgroundColor(
+            WColor.SecondaryBackground.color,
+            SkeletonCell.TITLE_SKELETON_RADIUS
+        )
+        transferSubtitleSkeletonView.setBackgroundColor(
+            WColor.SecondaryBackground.color,
+            SkeletonCell.SUBTITLE_SKELETON_RADIUS
+        )
 
-        val skeletonViews = listOf(
+        val skeletonViews = mutableListOf(
+            walletIconSkeletonView,
             headerIconSkeletonView,
             walletNameSkeletonView,
             walletBalanceSkeletonView,
             dappNameSkeletonView,
-            dappAddressSkeletonView
+            dappAddressSkeletonView,
+            totalAmountSkeletonView,
+            transferHeaderTitleSkeletonView,
+            transferIconSkeletonView,
+            transferTitleSkeletonView,
+            transferSubtitleSkeletonView
         )
         val radiusMap = hashMapOf(
-            0 to 12f,
-            1 to 12f,
-            2 to 8f,
-            3 to 12f,
-            4 to 8f
+            0 to 16f,
+            1 to 16f,
+            2 to 7f,
+            3 to 7f,
+            4 to 7f,
+            5 to 7f,
+            6 to 24f.dp,
+            7 to SkeletonHeaderCell.TITLE_SKELETON_RADIUS,
+            8 to SkeletonCell.CIRCLE_SKELETON_RADIUS,
+            9 to SkeletonCell.TITLE_SKELETON_RADIUS,
+            10 to SkeletonCell.SUBTITLE_SKELETON_RADIUS
         )
         skeletonView.doOnLayout {
+            if (!isShowingSkeleton) return@doOnLayout
             skeletonView.applyMask(skeletonViews, radiusMap)
             skeletonView.startAnimating()
         }
@@ -463,6 +665,9 @@ class TonConnectRequestSendVC(
 
         skeletonView.stopAnimating()
 
+        walletIconSkeletonView.fadeOut(onCompletion = {
+            walletIconSkeletonView.visibility = View.GONE
+        })
         headerIconSkeletonView.fadeOut(onCompletion = {
             headerIconSkeletonView.visibility = View.GONE
         })
@@ -478,6 +683,16 @@ class TonConnectRequestSendVC(
         dappAddressSkeletonView.fadeOut(onCompletion = {
             dappAddressSkeletonView.visibility = View.GONE
         })
+        if (totalAmountSkeletonView.isVisible) {
+            totalAmountSkeletonView.fadeOut(onCompletion = {
+                totalAmountSkeletonView.visibility = View.GONE
+            })
+        }
+        if (transferSkeletonContainer.isVisible) {
+            transferSkeletonContainer.fadeOut(onCompletion = {
+                transferSkeletonContainer.visibility = View.GONE
+            })
+        }
         headerSkeletonContainer.fadeOut(onCompletion = {
             headerSkeletonContainer.visibility = View.GONE
         })
@@ -489,19 +704,26 @@ class TonConnectRequestSendVC(
     private fun onEvent(event: TonConnectRequestSendViewModel.Event) {
         when (event) {
             is TonConnectRequestSendViewModel.Event.Close -> pop()
+
             is TonConnectRequestSendViewModel.Event.Complete -> {
                 if (event.success) {
+                    val shouldReturnToDapp =
+                        DappDeeplinkReturnTracker.consumeCompletedRequest(update?.promiseId)
                     if (update is ApiUpdate.ApiUpdateDappSignData) {
                         navigationController?.push(SignedVC(context), onCompletion = {
                             navigationController?.removePrevViewControllers()
+                            if (shouldReturnToDapp) window?.moveTaskToBack(true)
                         })
                     } else {
-                        navigationController?.window?.dismissLastNav()
+                        navigationController?.window?.dismissLastNav {
+                            if (shouldReturnToDapp) window?.moveTaskToBack(true)
+                        }
                     }
-                } else
+                } else {
                     navigationController?.pop(true, onCompletion = {
                         showError(event.err)
                     })
+                }
             }
 
             is TonConnectRequestSendViewModel.Event.ShowWarningAlert -> {
@@ -517,28 +739,63 @@ class TonConnectRequestSendVC(
 
             is TonConnectRequestSendViewModel.Event.MfaRequested -> {
                 val promiseId = event.promiseId
+                val requestWindow = window
+                fun confirmMfaRequest() {
+                    WalletCore.scope.launch {
+                        try {
+                            WalletCore.call(
+                                ApiMethod.DApp.ConfirmDappRequestSendTransactionMfa(
+                                    promiseId,
+                                    event.requestHash
+                                )
+                            )
+                            if (DappDeeplinkReturnTracker.consumeCompletedRequest(promiseId)) {
+                                requestWindow?.moveTaskToBack(true)
+                            }
+                        } catch (t: Throwable) {
+                            Logger.e(
+                                Logger.LogTag.SEND,
+                                "confirmDappRequestSendTransaction MFA failed " +
+                                    "for promiseId=$promiseId: $t"
+                            )
+                        }
+                    }
+                }
                 val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers
                     .MfaActionConfirmVC(
                         context,
                         requestHash = event.requestHash,
                         onConfirmed = { _ ->
-                            WalletCore.scope.launch {
-                                try {
-                                    WalletCore.call(
-                                        ApiMethod.DApp.ConfirmDappRequestSendTransactionMfa(
-                                            promiseId,
-                                            event.requestHash,
+                            confirmMfaRequest()
+                        },
+                        onClosedBeforeFinish = { wasMfaConfirmed, _ ->
+                            if (wasMfaConfirmed) {
+                                confirmMfaRequest()
+                            } else {
+                                requestWindow?.lifecycleScope?.launch {
+                                    try {
+                                        WalletCore.call(
+                                            ApiMethod.DApp.CancelDappRequest(
+                                                promiseId = promiseId,
+                                                reason = "user reject"
+                                            )
                                         )
-                                    )
-                                } catch (t: Throwable) {
-                                    Logger.e(
-                                        Logger.LogTag.SEND,
-                                        "confirmDappRequestSendTransaction MFA failed " +
-                                            "for promiseId=$promiseId: $t",
-                                    )
+                                    } catch (t: Throwable) {
+                                        Logger.e(
+                                            Logger.LogTag.SEND,
+                                            "cancelDappRequestSendTransaction MFA failed " +
+                                                "for promiseId=$promiseId: $t"
+                                        )
+                                    }
+                                    val shouldReturnToDapp =
+                                        DappDeeplinkReturnTracker
+                                            .consumeCompletedRequest(promiseId)
+                                    if (shouldReturnToDapp) {
+                                        requestWindow.moveTaskToBack(true)
+                                    }
                                 }
                             }
-                        },
+                        }
                     )
                 navigationController?.push(mfaVC, onCompletion = {
                     navigationController?.removePrevViewControllerOnly()
@@ -548,14 +805,19 @@ class TonConnectRequestSendVC(
     }
 
     override fun onDestroy() {
+        isShowingSkeleton = false
+        skeletonView.onDestroy()
         super.onDestroy()
 
         notRespondingHandler.removeCallbacksAndMessages(null)
         update?.let {
+            val shouldReturnToDapp = viewModel?.isConfirmed != true &&
+                DappDeeplinkReturnTracker.consumeCompletedRequest(it.promiseId)
             if (viewModel?.isConfirmed != true && !didAccept) {
                 WalletCore.recordTonConnectEvent(declinedEventName, it.promiseId)
             }
             viewModel?.cancel(it.promiseId, null, window!!.lifecycleScope)
+            if (shouldReturnToDapp) window?.moveTaskToBack(true)
         }
     }
 
@@ -564,16 +826,36 @@ class TonConnectRequestSendVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
 
         if (isShowingSkeleton) {
-            headerSkeletonContainer.setBackgroundColor(
+            walletPillSkeletonView.setBackgroundColor(WColor.ThumbBackground.color, 24f.dp)
+            dappPillSkeletonView.setBackgroundColor(WColor.ThumbBackground.color, 24f.dp)
+            headerConnectionSkeletonView.setBackgroundColor(WColor.Thumb.color, 0.5f.dp)
+            walletIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 16f.dp)
+            headerIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 16f.dp)
+            walletNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+            walletBalanceSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+            dappNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+            dappAddressSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 7f.dp)
+            totalAmountSkeletonView.setBackgroundColor(WColor.GroupedBackground.color, 24f.dp)
+            transferSkeletonContainer.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.TOOLBAR_RADIUS.dp,
                 ViewConstants.BLOCK_RADIUS.dp
             )
-            headerIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
-            walletNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
-            walletBalanceSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
-            dappNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
-            dappAddressSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
+            transferHeaderTitleSkeletonView.setBackgroundColor(
+                WColor.SecondaryBackground.color,
+                SkeletonHeaderCell.TITLE_SKELETON_RADIUS
+            )
+            transferIconSkeletonView.setBackgroundColor(
+                WColor.SecondaryBackground.color,
+                SkeletonCell.CIRCLE_SKELETON_RADIUS
+            )
+            transferTitleSkeletonView.setBackgroundColor(
+                WColor.SecondaryBackground.color,
+                SkeletonCell.TITLE_SKELETON_RADIUS
+            )
+            transferSubtitleSkeletonView.setBackgroundColor(
+                WColor.SecondaryBackground.color,
+                SkeletonCell.SUBTITLE_SKELETON_RADIUS
+            )
         }
     }
 
@@ -588,22 +870,39 @@ class TonConnectRequestSendVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        val ime = (navigationController?.imeInsetBottom ?: 0)
-        val nav = (navigationController?.getSystemBars()?.bottom ?: 0)
+        val systemBottomInset = max(
+            navigationController?.imeInsetBottom ?: 0,
+            navigationController?.getSystemBars()?.bottom ?: 0
+        )
+        val errorContentInset =
+            if (errorLabel.isVisible) ERROR_CONTENT_INSET_DP.dp else 0
+        val contentBottomInset =
+            BUTTONS_CONTENT_INSET_DP.dp + errorContentInset + systemBottomInset
 
         recyclerView.setPaddingRelative(
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
-            (navigationController?.getSystemBars()?.top ?: 0) +
-                WNavigationBar.DEFAULT_HEIGHT.dp,
+            navigationController?.getSystemBars()?.top ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
-            0
+            contentBottomInset
         )
 
-        val errorExtra = if (errorLabel.isVisible) 26.dp else 0
+        bottomReversedCornerViewUpsideDown.updateLayoutParamsIfExists {
+            height = contentBottomInset + ViewConstants.BLOCK_RADIUS.dp.roundToInt()
+        }
         view.setConstraints {
-            toBottomPx(recyclerView, 90.dp + errorExtra + max(ime, nav))
-            toBottomPx(cancelButtonView, 20.dp + max(ime, nav))
-            toBottomPx(confirmButtonView, 20.dp + max(ime, nav))
+            toTopPx(
+                headerSkeletonContainer,
+                navigationController?.getSystemBars()?.top ?: 0
+            )
+            toBottom(recyclerView)
+            toBottomPx(
+                cancelButtonView,
+                BUTTONS_BOTTOM_MARGIN_DP.dp + systemBottomInset
+            )
+            toBottomPx(
+                confirmButtonView,
+                BUTTONS_BOTTOM_MARGIN_DP.dp + systemBottomInset
+            )
         }
     }
 
@@ -616,7 +915,8 @@ class TonConnectRequestSendVC(
                 signData = ledgerSignDataObject,
                 onDone = {
                     viewModel?.notifyDone(true, null)
-                }),
+                }
+            ),
             headerView = confirmHeaderView
         )
         navigationController?.push(ledgerConnectVC)
@@ -629,17 +929,22 @@ class TonConnectRequestSendVC(
             PasscodeViewState.CustomHeader(
                 confirmHeaderView,
                 showNavbarTitle = false
-            ), task = { passcode ->
+            ),
+            task = { passcode ->
                 viewModel?.accept(updateValue.promiseId, passcode)
-            })
+            }
+        )
         push(confirmActionVC)
     }
 
     private val confirmHeaderView: View
         get() {
+            val maximumHeight =
+                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO)
+                    .roundToInt()
             return PasscodeHeaderSendView(
                 WeakReference(this),
-                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
+                maximumHeight
             ).apply {
                 config(
                     Content.ofUrl(update?.dapp?.iconUrl ?: ""),
@@ -676,13 +981,17 @@ class TonConnectRequestSendVC(
             }
         }
 
-    override fun getChildViewMap(): HashMap<View, Float> {
-        return hashMapOf(
-            headerIconSkeletonView to 12f,
-            walletNameSkeletonView to 12f,
-            walletBalanceSkeletonView to 8f,
-            dappNameSkeletonView to 12f,
-            dappAddressSkeletonView to 8f
-        )
-    }
+    override fun getChildViewMap(): HashMap<View, Float> = hashMapOf(
+        walletIconSkeletonView to 16f,
+        headerIconSkeletonView to 16f,
+        walletNameSkeletonView to 7f,
+        walletBalanceSkeletonView to 7f,
+        dappNameSkeletonView to 7f,
+        dappAddressSkeletonView to 7f,
+        totalAmountSkeletonView to 24f.dp,
+        transferHeaderTitleSkeletonView to SkeletonHeaderCell.TITLE_SKELETON_RADIUS,
+        transferIconSkeletonView to SkeletonCell.CIRCLE_SKELETON_RADIUS,
+        transferTitleSkeletonView to SkeletonCell.TITLE_SKELETON_RADIUS,
+        transferSubtitleSkeletonView to SkeletonCell.SUBTITLE_SKELETON_RADIUS
+    )
 }

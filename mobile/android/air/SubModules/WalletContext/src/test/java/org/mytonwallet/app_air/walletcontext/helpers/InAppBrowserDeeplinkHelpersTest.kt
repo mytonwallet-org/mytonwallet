@@ -36,7 +36,9 @@ class InAppBrowserDeeplinkHelpersTest {
     @Test
     fun invalidUrlsAreIgnored() {
         assertFalse(InAppBrowserDeeplinkHelpers.checkIsInAppBrowserOfframpSelfDeeplink("not a uri"))
-        assertFalse(InAppBrowserDeeplinkHelpers.checkIsInAppBrowserOfframpSelfDeeplink("mtw:offramp"))
+        assertFalse(
+            InAppBrowserDeeplinkHelpers.checkIsInAppBrowserOfframpSelfDeeplink("mtw:offramp")
+        )
     }
 
     @Test

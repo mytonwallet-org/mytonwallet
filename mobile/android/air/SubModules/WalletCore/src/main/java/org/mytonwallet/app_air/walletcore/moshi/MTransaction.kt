@@ -3,19 +3,22 @@ package org.mytonwallet.app_air.walletcore.moshi
 import android.net.Uri
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import java.math.BigInteger
+import java.util.Date
 import org.json.JSONObject
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
-import org.mytonwallet.app_air.walletcontext.R
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
+import org.mytonwallet.app_air.walletcore.helpers.shouldHideNftActivity
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -24,18 +27,27 @@ import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
-import java.util.Date
 
 @JsonClass(generateAdapter = true)
 data class ActivityExtra(
     @Json(name = "withW5Gasless") val withW5Gasless: Boolean? = null, // Only for TON
-    @Json(name = "dex") val dex: MApiSwapDexLabel? = null, // Only for TON liquidity deposit and withdrawal
+    // Only for TON liquidity deposit and withdrawal
+    @Json(name = "dex") val dex: MApiSwapDexLabel? = null,
     @Json(name = "marketplace") val marketplace: String? = null,
     @Json(name = "queryId") val queryId: String? = null,
     @Json(name = "isOurSwapFee") val isOurSwapFee: Boolean? = null,
     @Json(name = "mtwAggregator") val mtwAggregator: ApiMtwAggregator? = null,
+    @Json(name = "reconciliation") val reconciliation: ApiActivityReconciliation? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiActivityReconciliation(
+    @Json(name = "operationId") val operationId: String? = null,
+    @Json(name = "sourceActionIds") val sourceActionIds: List<String>,
+    @Json(name = "hiddenSourceActionIds") val hiddenSourceActionIds: List<String>,
+    @Json(name = "reason") val reason: String
 )
 
 @JsonClass(generateAdapter = false)
@@ -191,7 +203,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         @Json(name = "type") val type: ApiTransactionType? = null,
         @Json(name = "metadata") val metadata: ApiTransactionMetadata? = null,
         @Json(name = "nft") val nft: ApiNft? = null,
-        @Json(name = "status") val status: ApiTransactionStatus = ApiTransactionStatus.COMPLETED,
+        @Json(name = "status") val status: ApiTransactionStatus = ApiTransactionStatus.COMPLETED
     ) : MApiTransaction() {
         val isStaking: Boolean
             get() {
@@ -206,21 +218,24 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                     isEmulation -> ApiTransactionType.TransactionTime.FUTURE
                     else -> ApiTransactionType.TransactionTime.PAST
                 }
-                return type?.getTitle(transactionTime, isIncoming) ?: (if (isNft) {
-                    when {
-                        isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Received"
-                        isIncoming -> "\$receive_action"
-                        !isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Sent"
-                        else -> "\$send_action"
+                val isPast = transactionTime == ApiTransactionType.TransactionTime.PAST
+                return type?.getTitle(transactionTime, isIncoming) ?: (
+                    if (isNft) {
+                        when {
+                            isIncoming && isPast -> "Received"
+                            isIncoming -> "\$receive_action"
+                            !isIncoming && isPast -> "Sent"
+                            else -> "\$send_action"
+                        }
+                    } else {
+                        when {
+                            isIncoming && isPast -> "Received"
+                            isIncoming -> "\$receive_action"
+                            !isIncoming && isPast -> "Sent"
+                            else -> "\$send_action"
+                        }
                     }
-                } else {
-                    when {
-                        isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Received"
-                        isIncoming -> "\$receive_action"
-                        !isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Sent"
-                        else -> "\$send_action"
-                    }
-                }).let { LocaleController.getString(it) }
+                    ).let { LocaleController.getString(it) }
             }
 
         val token: MToken?
@@ -237,15 +252,16 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
         val shouldShowTransactionAddress: Boolean
             get() {
-                val shouldHide = isStaking || type == ApiTransactionType.BURN
-                    || (!isIncoming && isNft && toAddress == nft?.address);
+                val shouldHide = isStaking || type == ApiTransactionType.BURN ||
+                    (!isIncoming && isNft && toAddress == nft?.address)
 
-                return !shouldHide;
+                return !shouldHide
             }
 
         val noAmountTransaction: Boolean
             get() {
-                return ApiTransactionType.noAmountTransactionTypes.contains(type) && amount.abs() <= BigInteger.ONE
+                return ApiTransactionType.noAmountTransactionTypes.contains(type) &&
+                    amount.abs() <= BigInteger.ONE
             }
     }
 
@@ -268,11 +284,11 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         @Json(name = "networkFee") val networkFee: Double? = null,
         @Json(name = "swapFee") val swapFee: Double? = null,
         @Json(name = "ourFee") val ourFee: Double? = null,
-        @Json(name = "ourFeeMode") val ourFeeMode: String? = null,
         @Json(name = "cexLabel") val cexLabel: String? = null,
         @Json(name = "status") val status: ApiSwapStatus,
-        @Json(name = "hashes") val hashes: List<String>?,
-        @Json(name = "transactionIds") val transactionIds: MApiSwapTransactionIds = MApiSwapTransactionIds(),
+        @Json(name = "hashes") val hashes: List<String> = emptyList(),
+        @Json(name = "transactionIds") val transactionIds: MApiSwapTransactionIds =
+            MApiSwapTransactionIds(),
         @Json(name = "isCanceled") val isCanceled: Boolean? = null,
         @Json(name = "cex") val cex: ApiSwapCexTransaction? = null
     ) : MApiTransaction() {
@@ -301,18 +317,26 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 return if ((ignoreInProgress && cex.status == SENDING) || cex.status.isFinished) {
                     null
                 } else {
-                    if (cex.status == MApiSwapCexTransactionStatus.WAITING && isInternalSwap)
+                    if (cex.status == MApiSwapCexTransactionStatus.WAITING && isInternalSwap) {
                         LocaleController.getString("In Progress")
-                    else
+                    } else {
                         cex.status.localized
+                    }
                 }
             }
-            return if ((ignoreInProgress && status == ApiSwapStatus.PENDING) || status == ApiSwapStatus.COMPLETED) null else status.localized
+            return if ((ignoreInProgress && status == ApiSwapStatus.PENDING) ||
+                status == ApiSwapStatus.COMPLETED || status == ApiSwapStatus.CONFIRMED
+            ) {
+                null
+            } else {
+                status.localized
+            }
         }
 
         val isInProgress: Boolean
             get() {
-                return isLocal() || status == ApiSwapStatus.PENDING || cex?.status?.isInProgress == true
+                return isLocal() || status == ApiSwapStatus.PENDING ||
+                    cex?.status?.isInProgress == true
             }
 
         val isInternalSwap: Boolean
@@ -321,12 +345,18 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 val fromToken = fromToken
                 val toToken = toToken
 
-                return (fromToken?.chain == MBlockchain.ton.name && toToken?.chain == MBlockchain.ton.name) ||
-                    (isMultichain &&
-                        fromToken != null &&
-                        toToken != null &&
-                        AccountStore.activeAccount?.addressByChain[fromToken.chain] != null &&
-                        AccountStore.activeAccount?.addressByChain[toToken.chain] == cex?.payoutAddress)
+                return (
+                    fromToken?.chain == MBlockchain.ton.name &&
+                        toToken?.chain == MBlockchain.ton.name
+                    ) ||
+                    (
+                        isMultichain &&
+                            fromToken != null &&
+                            toToken != null &&
+                            AccountStore.activeAccount?.addressByChain[fromToken.chain] != null &&
+                            AccountStore.activeAccount?.addressByChain[toToken.chain] ==
+                            cex?.payoutAddress
+                        )
             }
     }
 
@@ -345,7 +375,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         FAILED,
 
         @Json(name = "completed")
-        COMPLETED;
+        COMPLETED
     }
 
     companion object {
@@ -360,89 +390,89 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         return JSONObject(adapter.toJson(this))
     }
 
-    fun getTxIdentifier(): String? {
-        return when (this) {
-            is Swap -> {
-                if ((hashes?.size ?: 0) > 0) hashes?.first() else id.split(':').firstOrNull()
-            }
+    fun getTxIdentifier(): String? = when (this) {
+        is Swap -> {
+            hashes.firstOrNull() ?: id.split(':').firstOrNull()
+        }
 
-            is Transaction -> {
-                id
-            }
+        is Transaction -> {
+            id
         }
     }
 
     fun getTxHash(): String? {
-        if (getTxIdentifier().isNullOrEmpty())
-            return null
+        if (getTxIdentifier().isNullOrEmpty()) return null
         val token = TokenStore.getToken(getTxSlug())
         val chain =
-            if (token?.chain != null) MBlockchain.valueOfOrNull(
-                token.chain
-            ) ?: return null else if (this is Swap) MBlockchain.ton else return null
+            if (token?.chain != null) {
+                MBlockchain.valueOfOrNull(
+                    token.chain
+                ) ?: return null
+            } else if (this is Swap) {
+                MBlockchain.ton
+            } else {
+                return null
+            }
 
         return chain.idToTxHash(getTxIdentifier())
     }
 
-    fun getTxSlug(): String {
-        return when (this) {
-            is Swap -> {
-                from
-            }
+    fun getTxSlug(): String = when (this) {
+        is Swap -> {
+            from
+        }
 
-            is Transaction -> {
-                slug
-            }
+        is Transaction -> {
+            slug
         }
     }
 
     var replacedStableId: String? = null
-    fun getStableId(): String {
-        return replacedStableId ?: id
-    }
+    fun getStableId(): String = replacedStableId ?: id
 
-    fun isPending(): Boolean {
-        return when (this) {
-            is Swap -> {
-                status == ApiSwapStatus.PENDING || status == ApiSwapStatus.PENDING_TRUSTED
-            }
-
-            is Transaction -> {
-                status == ApiTransactionStatus.PENDING || status == ApiTransactionStatus.PENDING_TRUSTED
-            }
+    fun isPending(): Boolean = when (this) {
+        is Swap -> {
+            status == ApiSwapStatus.PENDING || status == ApiSwapStatus.PENDING_TRUSTED
         }
-    }
 
-    fun isTrustedPending(): Boolean {
-        return when (this) {
-            is Swap -> {
-                status == ApiSwapStatus.PENDING_TRUSTED
-            }
-
-            is Transaction -> {
+        is Transaction -> {
+            status == ApiTransactionStatus.PENDING ||
                 status == ApiTransactionStatus.PENDING_TRUSTED
-            }
         }
     }
 
-    fun isLocal(): Boolean {
-        return id.endsWith(":local") == true
+    fun isTrustedPending(): Boolean = when (this) {
+        is Swap -> {
+            status == ApiSwapStatus.PENDING_TRUSTED
+        }
+
+        is Transaction -> {
+            status == ApiTransactionStatus.PENDING_TRUSTED
+        }
     }
 
-    fun isBackendSwapId(): Boolean {
-        return id.endsWith(":backend-swap") == true
-    }
+    fun isLocal(): Boolean = id.endsWith(":local") == true
 
-    fun isPoisoning(accountId: String): Boolean {
-        return PoisoningCacheHelper.getIsTransactionWithPoisoning(accountId, this)
-    }
+    fun isBackendSwapId(): Boolean = id.endsWith(":backend-swap") == true
+
+    fun isPoisoning(accountId: String): Boolean =
+        PoisoningCacheHelper.getIsTransactionWithPoisoning(accountId, this)
 
     fun isHiddenNftActivity(accountId: String): Boolean {
-        val nft = (this as? Transaction)?.nft ?: return false
-        val isWhitelisted =
-            WGlobalStorage.getWhitelistedNftAddresses(accountId).contains(nft.address)
-        if (nft.isHidden == true && !isWhitelisted) return true
-        return WGlobalStorage.getBlacklistedNftAddresses(accountId).contains(nft.address)
+        val transaction = this as? Transaction ?: return false
+        val activityNft = transaction.nft ?: return false
+        val nft = NftStore.getCachedNft(accountId, activityNft.address) ?: activityNft
+        return shouldHideNftActivity(
+            isHiddenByUser = WGlobalStorage.getBlacklistedNftAddresses(accountId)
+                .contains(nft.address),
+            isWhitelisted = WGlobalStorage.getWhitelistedNftAddresses(accountId)
+                .contains(nft.address),
+            isHidden = nft.isHidden == true,
+            isUnverified = nft.isUnverified == true,
+            areUnverifiedNftsHidden = WGlobalStorage.getAreUnverifiedNftsHidden(),
+            isIncoming = transaction.isIncoming,
+            isNftTrade = transaction.type == ApiTransactionType.NFT_TRADE
+        )
     }
 
     val isScam: Boolean
@@ -460,8 +490,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         get() {
             return when (this) {
                 is Transaction -> {
-                    if (isScam)
-                        return true
+                    if (isScam) return true
                     val token = TokenStore.getToken(getTxSlug()) ?: return false
                     if (nft != null) {
                         return false
@@ -469,6 +498,12 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                     val isOutgoingBouncedSpam = type == ApiTransactionType.BOUNCED && !isIncoming
                     val isMint = type == ApiTransactionType.MINT
                     if (type != null && !isOutgoingBouncedSpam && !isMint) {
+                        return false
+                    }
+                    // A plain outgoing transfer is one the user signed themselves. Hiding it by value would make
+                    // their own transaction disappear right after it confirms, so the cost threshold only applies
+                    // to unsolicited activity.
+                    if (type == null && !isIncoming) {
                         return false
                     }
                     token.priceUsd * amount.doubleAbsRepresentation(
@@ -482,31 +517,22 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
         val comparingActivity = comparing as? MApiTransaction ?: return false
-        if (kind != comparingActivity.kind) return false
-
-        if (getTxHash() == comparingActivity.getTxHash())
-            return true
-
-        externalMsgHashNorm?.let { externalMsgHashNorm ->
-            return externalMsgHashNorm == comparingActivity.externalMsgHashNorm && comparingActivity.shouldHide != true
-        }
-
-        return parsedTxId.hash == comparingActivity.parsedTxId.hash
+        return kind == comparingActivity.kind && getStableId() == comparingActivity.getStableId()
     }
 
     override fun isChanged(comparing: WEquatable<*>): Boolean {
         if (comparing is MApiTransaction) {
-            if (id != comparing.id)
-                return true
-            if (shouldHide != comparing.shouldHide)
-                return true
-            if (tokenPrice != comparing.tokenPrice)
-                return true
+            if (id != comparing.id) return true
+            if (shouldHide != comparing.shouldHide) return true
+            if (tokenPrice != comparing.tokenPrice) return true
+            if (extra?.reconciliation != comparing.extra?.reconciliation) return true
             if (this is Swap && comparing is Swap) {
-                return status != comparing.status || cex?.status != comparing.cex?.status || hashes?.size != comparing.hashes?.size
+                return status != comparing.status || cex?.status != comparing.cex?.status ||
+                    hashes.size != comparing.hashes.size
             }
             if (this is Transaction) {
-                return isLocal() != comparing.isLocal() || status != (comparing as? Transaction)?.status
+                return isLocal() != comparing.isLocal() ||
+                    status != (comparing as? Transaction)?.status
             }
         }
         return false
@@ -531,72 +557,76 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
     val iconColors: IntArray
         get() {
-            return (when (this) {
-                is Transaction -> {
-                    val text =
-                        if (metadata?.name?.isNotEmpty() == true) metadata.name else (if (isIncoming) fromAddress else toAddress)
-                            ?: ""
-                    text
-                }
+            return (
+                when (this) {
+                    is Transaction -> {
+                        val text =
+                            if (metadata?.name?.isNotEmpty() ==
+                                true
+                            ) {
+                                metadata.name
+                            } else {
+                                (if (isIncoming) fromAddress else toAddress)
+                                    ?: ""
+                            }
+                        text
+                    }
 
-                else -> {
-                    ""
+                    else -> {
+                        ""
+                    }
                 }
-            }).gradientColors
+                ).gradientColors
         }
 
     val peerAddress: String
         get() {
-            return (when (this) {
-                is Transaction -> {
-                    if (isIncoming)
-                        fromAddress ?: ""
-                    else
-                        toAddress ?: ""
-                }
+            return (
+                when (this) {
+                    is Transaction -> {
+                        if (isIncoming) fromAddress ?: "" else toAddress ?: ""
+                    }
 
-                else -> {
-                    ""
+                    else -> {
+                        ""
+                    }
                 }
-            })
+                )
         }
 
-    fun addressName(): String? {
-        return if (this is Transaction) {
-            val peerChain = TokenStore.getToken(getTxSlug())?.chain
-            val localName = AddressStore.getAddress(peerAddress, peerChain)
-                ?.name
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-            val knownName = metadata?.name
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-            val domain = AddressStore.getDomain(peerAddress, peerChain)
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-            localName ?: knownName ?: domain
-        } else {
-            null
-        }
+    fun addressName(): String? = if (this is Transaction) {
+        val peerChain = TokenStore.getToken(getTxSlug())?.chain
+        val localName = AddressStore.getAddress(peerAddress, peerChain)
+            ?.name
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        val knownName = metadata?.name
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        val domain = AddressStore.getDomain(peerAddress, peerChain)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        localName ?: knownName ?: domain
+    } else {
+        null
     }
 
     fun addressToShow(
         addressPrefixCount: Int = 4,
         addressSuffixCount: Int = 4
-    ): Pair<String, Boolean>? {
-        return when (this) {
-            is Transaction -> {
-                addressName()?.let { name -> Pair(name, true) } ?: Pair(
-                    peerAddress.formatStartEndAddress(
-                        addressPrefixCount,
-                        addressSuffixCount
-                    ), false
-                )
-            }
+    ): Pair<String, Boolean>? = when (this) {
+        is Transaction -> {
+            addressName()?.let { name -> Pair(name, true) } ?: Pair(
+                peerAddress.formatStartEndAddress(
+                    addressPrefixCount,
+                    addressSuffixCount
+                ),
+                false
+            )
+        }
 
-            else -> {
-                null
-            }
+        else -> {
+            null
         }
     }
 
@@ -607,13 +637,18 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
     fun explorerUrl(network: MBlockchainNetwork): String? {
         val txHash = getTxHash()
-        if (txHash.isNullOrEmpty())
-            return null
+        if (txHash.isNullOrEmpty()) return null
         val token = TokenStore.getToken(getTxSlug())
         val chain =
-            if (token?.chain != null) MBlockchain.valueOfOrNull(
-                token.chain
-            ) ?: return null else if (this is Swap) MBlockchain.ton else return null
+            if (token?.chain != null) {
+                MBlockchain.valueOfOrNull(
+                    token.chain
+                ) ?: return null
+            } else if (this is Swap) {
+                MBlockchain.ton
+            } else {
+                return null
+            }
 
         val urlBuilder = Uri.Builder()
             .appendPath("tx")
@@ -763,8 +798,8 @@ enum class ApiTransactionType {
     }
 
     enum class TransactionTime {
-        PAST,        // e.g. "Received"
-        FUTURE       // e.g. "Receive"
+        PAST, // e.g. "Received"
+        FUTURE // e.g. "Receive"
     }
 
     private val titles: Map<ApiTransactionType, Triple<String, String, String>> by lazy {
@@ -780,7 +815,7 @@ enum class ApiTransactionType {
                 "\$unstake_action"
             ),
             UNSTAKE_REQUEST to Triple(
-                "Requested Unstake",
+                "Unstake Requested",
                 "Requesting Unstake",
                 "\$request_unstake_action"
             ),
@@ -862,15 +897,19 @@ enum class ApiTransactionType {
         )
     }
 
-    private val directionalTitles: Map<ApiTransactionType, Pair<Triple<String, String, String>, Triple<String, String, String>>> by lazy {
-        mapOf(
-            // (incoming past,present,future), (outgoing past,present,future)
-            NFT_TRADE to Pair(
-                Triple("NFT Sold", "Selling NFT", "Sell NFT"),
-                Triple("NFT Bought", "Buying NFT", "Buy NFT")
+    private val directionalTitles:
+        Map<
+            ApiTransactionType,
+            Pair<Triple<String, String, String>, Triple<String, String, String>>
+            > by lazy {
+            mapOf(
+                // (incoming past,present,future), (outgoing past,present,future)
+                NFT_TRADE to Pair(
+                    Triple("NFT Sold", "Selling NFT", "Sell NFT"),
+                    Triple("NFT Bought", "Buying NFT", "Buy NFT")
+                )
             )
-        )
-    }
+        }
 
     fun getTitle(time: TransactionTime, isIncoming: Boolean): String? {
         directionalTitles[this]?.let { (incomingTriple, outgoingTriple) ->
@@ -892,10 +931,7 @@ enum class ApiTransactionType {
         )
     }
 
-    fun getIcon(): Int? {
-        return icons[this]
-    }
-
+    fun getIcon(): Int? = icons[this]
 }
 
 @JsonClass(generateAdapter = true)
@@ -910,7 +946,7 @@ data class ApiMtwAggregator(
     @Json(name = "traceId") val traceId: String? = null,
     @Json(name = "swapIds") val swapIds: List<String>? = null,
     @Json(name = "from") val from: String? = null,
-    @Json(name = "to") val to: String? = null,
+    @Json(name = "to") val to: String? = null
 )
 
 data class LocalActivityParams(

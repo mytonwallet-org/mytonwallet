@@ -47,17 +47,23 @@ public struct AccountSwitcherConfiguration: Equatable, Sendable {
 }
 
 public enum AccountSwitcherAccountSupport: Equatable, Sendable {
+    case receive
     case send
     case swap
+    case earn
     case walletConnectPay
 
     @MainActor
     func isSupported(by account: MAccount) -> Bool {
         switch self {
+        case .receive:
+            !account.supportedChains.isEmpty
         case .send:
             account.supportsSend
         case .swap:
             account.supportsSwap
+        case .earn:
+            account.supportsEarn
         case .walletConnectPay:
             account.supportsWalletConnectPay
         }
@@ -86,6 +92,7 @@ public final class AccountSwitcher {
 
         let interaction = ContextMenuInteraction(
             triggers: [.tap, .longPress],
+            longPressDuration: 0.25,
             configurationProvider: { [weak self] _ in
                 self?.makeMenuConfiguration() ?? ContextMenuConfiguration(
                     rootPage: ContextMenuPage(items: []),
@@ -172,7 +179,7 @@ private struct AccountSwitcherMenuRow: View {
 
             if isSelected {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .semibold))
+                    .textStyle(.subheadlineStrong, content: .technical)
                     .foregroundStyle(Color.accentColor)
             }
         }
@@ -184,7 +191,9 @@ public final class AccountSwitcherButton: UIControl {
     private let chevronView = UIImageView(
         image: UIImage(
             systemName: "chevron.up.chevron.down",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+            withConfiguration: UIImage.SymbolConfiguration(
+                font: WTypography.uiFont(.caption2Strong, content: .technical)
+            )
         )
     )
     private var width: CGFloat = buttonChevronWidth

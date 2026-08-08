@@ -39,8 +39,8 @@
   }
 
   @include mixins.respond-above(xs) {
-    border-bottom-right-radius: var(--border-radius-default);
-    border-bottom-left-radius: var(--border-radius-default);
+    border-end-start-radius: var(--border-radius-default);
+    border-end-end-radius: var(--border-radius-default);
   }
 }
 
@@ -69,6 +69,18 @@
 
 .receiveHeader {
   padding-top: max(var(--safe-area-top), 1rem);
+}
+
+.headerWithSwitcher {
+  position: relative;
+}
+
+.accountPill {
+  position: absolute;
+  z-index: 1;
+  // Mirrors the 0.5625rem offset of other modals, shifted by the header's safe-area padding
+  top: calc(max(var(--safe-area-top), 1rem) - 0.4375rem);
+  inset-inline-start: 0.5625rem;
 }
 
 .tabs {
@@ -142,7 +154,7 @@
   canvas {
     position: absolute;
     top: 0.5rem;
-    left: 0.5rem;
+    inset-inline-start: 0.5rem;
 
     display: block;
 
@@ -152,7 +164,8 @@
 }
 
 .labelForInvoice {
-  margin: 0.3125rem 0 0.5rem 0.5rem;
+  margin-block: 0.3125rem 0.5rem;
+  margin-inline: 0.5rem 0;
 
   font-size: 0.8125rem;
   font-weight: 700;
@@ -162,10 +175,6 @@
 
 .addressWrapper {
   margin: 1rem 0;
-}
-
-.tokenButton {
-  margin-inline-end: 0.375rem;
 }
 
 .invoiceComment {

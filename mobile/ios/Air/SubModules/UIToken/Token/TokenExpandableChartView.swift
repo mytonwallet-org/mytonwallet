@@ -95,13 +95,13 @@ final class TokenExpandableChartView: UIView {
     }
 
     private var heightConstraint: NSLayoutConstraint!
-    private var arrowRightConstraint: NSLayoutConstraint!
+    private var arrowTrailingConstraint: NSLayoutConstraint!
 
     private var chartAnimationViewTopAnchor: NSLayoutConstraint!
-    private var chartAnimationViewRightAnchor: NSLayoutConstraint!
+    private var chartAnimationViewTrailingAnchor: NSLayoutConstraint!
     private var chartAnimationViewWidthAnchor: NSLayoutConstraint!
     private var chartAnimationViewHeightAnchor: NSLayoutConstraint!
-    private var expandedChartRightConstraint: NSLayoutConstraint!
+    private var expandedChartTrailingConstraint: NSLayoutConstraint!
     private var expandedChartWidthConstraint: NSLayoutConstraint!
 
     private var lastHighlight: Highlight?
@@ -109,13 +109,16 @@ final class TokenExpandableChartView: UIView {
     var height: CGFloat { heightConstraint.constant }
     private var isExpanded = false
     private var isTogglingChart = false
+    private var isRightToLeft: Bool {
+        effectiveUserInterfaceLayoutDirection == .rightToLeft
+    }
 
     // MARK: - Views
 
     private let priceTitleLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 14)
+        lbl.applyTextStyle(.supporting)
         lbl.text = lang("Price")
         return lbl
     }()
@@ -153,12 +156,12 @@ final class TokenExpandableChartView: UIView {
         v.addSubview(smallChartImageView)
         v.addSubview(largeChartImageView)
         NSLayoutConstraint.activate([
-            smallChartImageView.leftAnchor.constraint(equalTo: v.leftAnchor),
-            smallChartImageView.rightAnchor.constraint(equalTo: v.rightAnchor),
+            smallChartImageView.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            smallChartImageView.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             smallChartImageView.topAnchor.constraint(equalTo: v.topAnchor),
             smallChartImageView.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            largeChartImageView.leftAnchor.constraint(equalTo: v.leftAnchor),
-            largeChartImageView.rightAnchor.constraint(equalTo: v.rightAnchor),
+            largeChartImageView.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            largeChartImageView.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             largeChartImageView.topAnchor.constraint(equalTo: v.topAnchor),
             largeChartImageView.bottomAnchor.constraint(equalTo: v.bottomAnchor),
         ])
@@ -205,15 +208,16 @@ final class TokenExpandableChartView: UIView {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = lang("No price data")
         label.textColor = UIColor.air.secondaryLabel
-        label.font = .systemFont(ofSize: 13)
+        label.applyTextStyle(.footnote)
         label.alpha = 0
         return label
     }()
 
     private let arrowImageView: UIImageView = {
         let arrowImageView = UIImageView(image: UIImage(systemName: "chevron.down",
-                                                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 10,
-                                                                                                       weight: .bold))!
+                                                        withConfiguration: UIImage.SymbolConfiguration(
+                                                            font: WTypography.uiFont(.badgeBold, content: .technical)
+                                                        ))!
             .withRenderingMode(.alwaysTemplate))
         arrowImageView.tintColor = UIColor.label.withAlphaComponent(0.3)
         arrowImageView.translatesAutoresizingMaskIntoConstraints = false
@@ -262,13 +266,13 @@ final class TokenExpandableChartView: UIView {
             it.rawValue == AppStorageHelper.selectedCurrentTokenPeriod()
         }) ?? 0
         heightConstraint = heightAnchor.constraint(equalToConstant: AppStorageHelper.isTokenChartExpanded ? TokenExpandableChartView.expandedHeight : TokenExpandableChartView.collapsedHeight)
-        arrowRightConstraint = arrowImageView.rightAnchor.constraint(equalTo: rightAnchor, constant: -18)
-        chartAnimationViewRightAnchor = lineChartAnimationView.rightAnchor.constraint(equalTo: rightAnchor, constant: -33)
+        arrowTrailingConstraint = arrowImageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18)
+        chartAnimationViewTrailingAnchor = lineChartAnimationView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -33)
         chartAnimationViewTopAnchor = lineChartAnimationView.topAnchor.constraint(equalTo: topAnchor, constant: 11.33)
         chartAnimationViewWidthAnchor = lineChartAnimationView.widthAnchor.constraint(equalToConstant: 82)
         chartAnimationViewHeightAnchor = lineChartAnimationView.heightAnchor.constraint(equalToConstant: 40)
 
-        expandedChartRightConstraint = expandedChart.rightAnchor.constraint(equalTo: rightAnchor, constant: -16)
+        expandedChartTrailingConstraint = expandedChart.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16)
         expandedChartWidthConstraint = expandedChart.widthAnchor.constraint(equalTo: widthAnchor, constant: -6)
 
         let loadingIndicatorXConstraint = loadingIndicator.centerXAnchor.constraint(equalTo: lineChartAnimationView.centerXAnchor)
@@ -299,18 +303,18 @@ final class TokenExpandableChartView: UIView {
         addSubview(priceContainer)
 
         NSLayoutConstraint.activate([
-            topBarView.leftAnchor.constraint(equalTo: leftAnchor),
-            topBarView.rightAnchor.constraint(equalTo: rightAnchor),
+            topBarView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            topBarView.trailingAnchor.constraint(equalTo: trailingAnchor),
             topBarView.topAnchor.constraint(equalTo: topAnchor),
             topBarView.heightAnchor.constraint(equalToConstant: 60),
             
             priceContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
             priceContainer.topAnchor.constraint(equalTo: topAnchor),
 
-            priceTitleLabel.leftAnchor.constraint(equalTo: priceContainer.leftAnchor, constant: 16),
+            priceTitleLabel.leadingAnchor.constraint(equalTo: priceContainer.leadingAnchor, constant: 16),
             priceTitleLabel.topAnchor.constraint(equalTo: priceContainer.topAnchor, constant: 10),
 
-            priceValueLabel.leftAnchor.constraint(equalTo: priceContainer.leftAnchor, constant: 16),
+            priceValueLabel.leadingAnchor.constraint(equalTo: priceContainer.leadingAnchor, constant: 16),
             priceValueLabel.topAnchor.constraint(equalTo: priceTitleLabel.bottomAnchor, constant: 1),
             priceValueLabel.bottomAnchor.constraint(equalTo: priceContainer.bottomAnchor, constant: -10),
 
@@ -322,12 +326,12 @@ final class TokenExpandableChartView: UIView {
             priceContainer.trailingAnchor.constraint(equalTo: priceTitleLabel.trailingAnchor, constant: 16).withPriority(.defaultHigh),
             priceContainer.trailingAnchor.constraint(equalTo: priceChangeLabel.trailingAnchor, constant: 16).withPriority(.defaultHigh),
 
-            collapsedChart.rightAnchor.constraint(equalTo: rightAnchor, constant: -33),
+            collapsedChart.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -33),
             collapsedChart.topAnchor.constraint(equalTo: topAnchor, constant: 11.33),
             collapsedChart.widthAnchor.constraint(equalToConstant: 82),
             collapsedChart.heightAnchor.constraint(equalToConstant: 40),
 
-            expandedChartRightConstraint,
+            expandedChartTrailingConstraint,
             expandedChart.topAnchor.constraint(equalTo: topAnchor, constant: 35),
             expandedChartWidthConstraint,
             expandedChart.heightAnchor.constraint(equalToConstant: TokenExpandableChartView.expandedChartHeight),
@@ -340,12 +344,12 @@ final class TokenExpandableChartView: UIView {
             noPriceDataLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -46),
             noPriceDataLabel.centerYAnchor.constraint(equalTo: loadingIndicator.centerYAnchor),
 
-            chartAnimationViewRightAnchor,
+            chartAnimationViewTrailingAnchor,
             chartAnimationViewTopAnchor,
             chartAnimationViewWidthAnchor,
             chartAnimationViewHeightAnchor,
 
-            arrowRightConstraint,
+            arrowTrailingConstraint,
             arrowImageView.topAnchor.constraint(equalTo: topAnchor, constant: 25),
 
             rangeChart.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -354,8 +358,8 @@ final class TokenExpandableChartView: UIView {
             rangeChart.heightAnchor.constraint(equalToConstant: 30),
 
             timeFrameSwitcherView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
-            timeFrameSwitcherView.leftAnchor.constraint(equalTo: leftAnchor, constant: 16),
-            timeFrameSwitcherView.rightAnchor.constraint(equalTo: rightAnchor, constant: -16),
+            timeFrameSwitcherView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            timeFrameSwitcherView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             timeFrameSwitcherView.heightAnchor.constraint(equalToConstant: 28),
 
             heightConstraint
@@ -415,13 +419,13 @@ final class TokenExpandableChartView: UIView {
             let priceAmount = BaseCurrencyAmount.fromDouble(lastHighlight.y, TokenStore.baseCurrency)
             let priceString = priceAmount.formatted(.baseCurrencyHighPrecision, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
+                .font: WTypography.uiFont(.calloutEmphasized, content: .technical),
                 .foregroundColor: UIColor.label
             ])
             priceValueLabel.attributedText = attr
 
             let percent = NSAttributedString(string: "\(expandedChart.xAxis.valueFormatter?.stringForValue(lastHighlight.x, axis: collapsedChart.xAxis) ?? "")", attributes: [
-                .font: UIFont.systemFont(ofSize: 14),
+                .font: WTypography.uiFont(.supporting, content: .technical),
                 .foregroundColor: UIColor.air.secondaryLabel
             ])
             priceChangeLabel.attributedText = percent
@@ -433,7 +437,7 @@ final class TokenExpandableChartView: UIView {
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
+                .font: WTypography.uiFont(.calloutEmphasized, content: .technical),
                 .foregroundColor: UIColor.label
             ])
             priceValueLabel.attributedText = attr
@@ -443,7 +447,7 @@ final class TokenExpandableChartView: UIView {
             }
             if let percentChange {
                 let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
-                    .font: UIFont.systemFont(ofSize: 14),
+                    .font: WTypography.uiFont(.supporting, content: .technical),
                     .foregroundColor: percentChange > 0 ? UIColor.air.positiveAmount : (percentChange == 0 ? UIColor.air.secondaryLabel : UIColor.air.negativeAmount)
                 ])
                 priceChangeLabel.attributedText = percent
@@ -460,14 +464,14 @@ final class TokenExpandableChartView: UIView {
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
+                .font: WTypography.uiFont(.calloutEmphasized, content: .technical),
                 .foregroundColor: UIColor.label
             ])
             priceValueLabel.attributedText = attr
 
             if let percentChange {
                 let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
-                    .font: UIFont.systemFont(ofSize: 14),
+                    .font: WTypography.uiFont(.supporting, content: .technical),
                     .foregroundColor: percentChange > 0 ? UIColor.air.positiveAmount : (percentChange == 0 ? UIColor.air.secondaryLabel : UIColor.air.negativeAmount)
                 ])
                 priceChangeLabel.attributedText = percent
@@ -546,7 +550,10 @@ final class TokenExpandableChartView: UIView {
                 self.rangeChartData = rangeChartData
 
                 self.expandedChartWidthConstraint.constant = -16 + (self.expandedChart.frame.width - self.expandedChart.viewPortHandler.contentWidth)
-                self.expandedChartRightConstraint.constant = -16 + (self.expandedChart.frame.width - self.expandedChart.viewPortHandler.contentRight)
+                let expandedChartTrailingInset = self.isRightToLeft
+                    ? self.expandedChart.viewPortHandler.contentLeft
+                    : self.expandedChart.frame.width - self.expandedChart.viewPortHandler.contentRight
+                self.expandedChartTrailingConstraint.constant = -16 + expandedChartTrailingInset
 
                 if !rangeOnly {
                     self.collapsedChart.data = self.collapsedChartData
@@ -628,28 +635,32 @@ final class TokenExpandableChartView: UIView {
             let viewPortHandler = collapsedChart.viewPortHandler
             let contentLeft = viewPortHandler.contentLeft
             let contentTop = viewPortHandler.contentTop
-            let contentRight = collapsedChart.frame.width - viewPortHandler.contentWidth - viewPortHandler.contentLeft
+            let contentTrailing = isRightToLeft
+                ? viewPortHandler.contentLeft
+                : collapsedChart.frame.width - viewPortHandler.contentWidth - viewPortHandler.contentLeft
             let contentBottom = collapsedChart.frame.height - viewPortHandler.contentBottom
 
-            let endWidth = 82 - contentLeft - contentRight
+            let endWidth = 82 - contentLeft - contentTrailing
             let endHeight = 40 - contentTop - contentBottom
             let endTop = 11.33 + contentTop
-            let endRight = -33 - contentRight
+            let endTrailing = -33 - contentTrailing
 
-            return (endWidth, endHeight, endTop, endRight)
+            return (endWidth, endHeight, endTop, endTrailing)
         }()
 
         let expandedPoints: (CGFloat, CGFloat, CGFloat, CGFloat) = {
             let viewPortHandler = expandedChart.viewPortHandler
             let contentLeft = viewPortHandler.contentLeft - 4
             let contentTop = viewPortHandler.contentTop - 4
-            let contentRight = expandedChart.frame.width - viewPortHandler.contentWidth - viewPortHandler.contentLeft - 4
+            let contentTrailing = isRightToLeft
+                ? viewPortHandler.contentLeft - 4
+                : expandedChart.frame.width - viewPortHandler.contentWidth - viewPortHandler.contentLeft - 4
             let contentBottom = expandedChart.frame.height - viewPortHandler.contentBottom - 4
 
-            let endWidth = expandedChart.frame.width - contentLeft - contentRight
+            let endWidth = expandedChart.frame.width - contentLeft - contentTrailing
             let endHeight = expandedChart.frame.height - contentTop - contentBottom
             let endTop = 35 + contentTop
-            let endRight = expandedChartRightConstraint.constant - contentRight
+            let endTrailing = expandedChartTrailingConstraint.constant - contentTrailing
 
             if viewPortHandler.contentWidth < 0 {
                 return (
@@ -659,11 +670,11 @@ final class TokenExpandableChartView: UIView {
                     -22
                 )
             }
-            return (endWidth, endHeight, endTop, endRight)
+            return (endWidth, endHeight, endTop, endTrailing)
         }()
 
-        let (startWidth, startHeight, startTop, startRight) = isExpanded ? collapsedPoints : expandedPoints
-        let (endWidth, endHeight, endTop, endRight) = isExpanded ? expandedPoints : collapsedPoints
+        let (startWidth, startHeight, startTop, startTrailing) = isExpanded ? collapsedPoints : expandedPoints
+        let (endWidth, endHeight, endTop, endTrailing) = isExpanded ? expandedPoints : collapsedPoints
 
         let updateBlock: (CGFloat, CGFloat) -> () = { [self] progress, value in
             heightConstraint.constant = value
@@ -672,12 +683,12 @@ final class TokenExpandableChartView: UIView {
             let currentWidth = startWidth + (endWidth - startWidth) * CGFloat(progress)
             let currentHeight = startHeight + (endHeight - startHeight) * CGFloat(progress)
             let currentTop = startTop + (endTop - startTop) * CGFloat(progress)
-            let currentRight = startRight + (endRight - startRight) * CGFloat(progress)
+            let currentTrailing = startTrailing + (endTrailing - startTrailing) * CGFloat(progress)
 
             chartAnimationViewWidthAnchor.constant = max(1, currentWidth)
             chartAnimationViewHeightAnchor.constant = max(1, currentHeight)
             chartAnimationViewTopAnchor.constant = currentTop
-            chartAnimationViewRightAnchor.constant = currentRight
+            chartAnimationViewTrailingAnchor.constant = currentTrailing
 
             if isExpanded {
                 largeChartImageView.alpha = progress
@@ -714,7 +725,7 @@ final class TokenExpandableChartView: UIView {
                 chartAnimationViewWidthAnchor.constant = max(1, startWidth)
                 chartAnimationViewHeightAnchor.constant = max(1, startHeight)
                 chartAnimationViewTopAnchor.constant = startTop
-                chartAnimationViewRightAnchor.constant = startRight
+                chartAnimationViewTrailingAnchor.constant = startTrailing
                 layoutIfNeeded()
             }
 

@@ -19,7 +19,9 @@ public struct BottomAction {
 public class BottomActionsView: UIView {
 
     static let buttonsSpacing = CGFloat(16)
-    public static let reserveHeight = WButton.defaultHeight + BottomActionsView.buttonsSpacing
+    public static var reserveHeight: CGFloat {
+        WButton.height(for: .primary) + BottomActionsView.buttonsSpacing
+    }
 
     public init(primaryAction: BottomAction,
          secondaryAction: BottomAction? = nil,
@@ -58,8 +60,8 @@ public class BottomActionsView: UIView {
         addSubview(primaryButton)
         NSLayoutConstraint.activate([
             primaryButton.topAnchor.constraint(equalTo: topAnchor),
-            primaryButton.leftAnchor.constraint(equalTo: leftAnchor),
-            primaryButton.rightAnchor.constraint(equalTo: rightAnchor),
+            primaryButton.leadingAnchor.constraint(equalTo: leadingAnchor),
+            primaryButton.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
 
         // secondary button
@@ -67,13 +69,13 @@ public class BottomActionsView: UIView {
             secondaryButton = WButton(style: .clearBackground)
             secondaryButton.translatesAutoresizingMaskIntoConstraints = false
             secondaryButton.setTitle(secondaryAction.title, for: .normal)
-            secondaryButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+            secondaryButton.titleLabel?.applyTextStyle(.button)
             secondaryButton.addTarget(self, action: #selector(secondaryPressed(_:)), for: .touchUpInside)
             addSubview(secondaryButton)
             NSLayoutConstraint.activate([
                 secondaryButton.topAnchor.constraint(equalTo: primaryButton.bottomAnchor, constant: BottomActionsView.buttonsSpacing),
-                secondaryButton.leftAnchor.constraint(equalTo: leftAnchor),
-                secondaryButton.rightAnchor.constraint(equalTo: rightAnchor),
+                secondaryButton.leadingAnchor.constraint(equalTo: leadingAnchor),
+                secondaryButton.trailingAnchor.constraint(equalTo: trailingAnchor),
                 secondaryButton.bottomAnchor.constraint(equalTo: bottomAnchor)
             ])
         } else {

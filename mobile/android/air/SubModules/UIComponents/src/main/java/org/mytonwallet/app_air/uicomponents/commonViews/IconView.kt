@@ -25,11 +25,8 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 @Deprecated("use WCustomImageView")
 @SuppressLint("ViewConstructor")
-class IconView(
-    context: Context,
-    val viewSize: Int = 48.dp,
-    val chainSize: Int = 16.dp,
-) : WView(context) {
+class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int = 16.dp) :
+    WView(context) {
 
     private val activityImageView: WActivityImageView by lazy {
         WActivityImageView(context, viewSize).apply {
@@ -69,9 +66,9 @@ class IconView(
 
     fun config(transaction: MApiTransaction.Transaction) {
         val iconRes = transaction.type?.getIcon() ?: if (transaction.isIncoming) {
-            org.mytonwallet.app_air.walletcontext.R.drawable.ic_act_received
+            org.mytonwallet.app_air.icons.R.drawable.ic_act_received
         } else {
-            org.mytonwallet.app_air.walletcontext.R.drawable.ic_act_sent
+            org.mytonwallet.app_air.icons.R.drawable.ic_act_sent
         }
         val subImageAnimation =
             if ((transaction.isLocal() && transaction.status != ApiTransactionStatus.CONFIRMED) ||
@@ -85,19 +82,28 @@ class IconView(
                         if (ThemeManager.isDark) R.raw.clock_dark_gray else R.raw.clock_light_gray
 
                     else ->
-                        if (ThemeManager.isDark) R.raw.clock_dark_orange else R.raw.clock_light_orange
+                        if (ThemeManager.isDark) {
+                            R.raw.clock_dark_orange
+                        } else {
+                            R.raw.clock_light_orange
+                        }
                 }
-            } else 0
+            } else {
+                0
+            }
 
         activityImageView.set(
             Content(
                 image = Content.Image.Res(iconRes),
                 subImageRes = if (transaction.status == ApiTransactionStatus.FAILED) {
-                    if (ThemeManager.isDark)
-                        R.drawable.ic_failed_dark
-                    else
-                        R.drawable.ic_failed
-                } else 0,
+                    if (ThemeManager.isDark) {
+                        org.mytonwallet.app_air.icons.R.drawable.ic_failed_dark
+                    } else {
+                        org.mytonwallet.app_air.icons.R.drawable.ic_failed
+                    }
+                } else {
+                    0
+                },
                 subImageAnimation = subImageAnimation,
                 scaleType = ScalingUtils.ScaleType.FIT_X
             )
@@ -109,16 +115,15 @@ class IconView(
 
     fun config(swap: MApiTransaction.Swap) {
         val subImageAnimation = if (swap.isInProgress) {
-            if (ThemeManager.isDark)
-                R.raw.clock_dark_gray
-            else
-                R.raw.clock_light_gray
-        } else 0
+            if (ThemeManager.isDark) R.raw.clock_dark_gray else R.raw.clock_light_gray
+        } else {
+            0
+        }
 
         activityImageView.set(
             Content(
                 image = Content.Image.Res(
-                    org.mytonwallet.app_air.walletcontext.R.drawable.ic_act_swap
+                    org.mytonwallet.app_air.icons.R.drawable.ic_act_swap
                 ),
                 subImageRes = 0,
                 subImageAnimation = subImageAnimation
@@ -161,7 +166,7 @@ class IconView(
     fun config(
         @DrawableRes iconDrawableRes: Int?,
         gradientStartColor: String?,
-        gradientEndColor: String?,
+        gradientEndColor: String?
     ) {
         activityImageView.imageView.setPadding((viewSize - 14.dp) / 2)
 
@@ -192,7 +197,9 @@ class IconView(
         }
     }
 
-    private fun getCachedTransactionGradientDrawable(transaction: MApiTransaction.Transaction): GradientDrawable {
+    private fun getCachedTransactionGradientDrawable(
+        transaction: MApiTransaction.Transaction
+    ): GradientDrawable {
         if (transaction.status == ApiTransactionStatus.FAILED) {
             if (failedTransactionDrawable == null) {
                 failedTransactionDrawable = GradientDrawables.redDrawable
@@ -214,50 +221,48 @@ class IconView(
     private fun getTransactionGradientDrawable(
         type: ApiTransactionType?,
         isIncoming: Boolean
-    ): GradientDrawable {
-        return when (type) {
-            ApiTransactionType.STAKE -> GradientDrawables.purpleDrawable
+    ): GradientDrawable = when (type) {
+        ApiTransactionType.STAKE -> GradientDrawables.purpleDrawable
 
-            ApiTransactionType.UNSTAKE,
-            ApiTransactionType.LIQUIDITY_WITHDRAW,
-            ApiTransactionType.MINT,
-            ApiTransactionType.EXCESS,
-            ApiTransactionType.BOUNCED -> GradientDrawables.greenDrawable
+        ApiTransactionType.UNSTAKE,
+        ApiTransactionType.LIQUIDITY_WITHDRAW,
+        ApiTransactionType.MINT,
+        ApiTransactionType.EXCESS,
+        ApiTransactionType.BOUNCED -> GradientDrawables.greenDrawable
 
-            ApiTransactionType.CONTRACT_DEPLOY,
-            ApiTransactionType.CALL_CONTRACT,
-            ApiTransactionType.DNS_CHANGE_ADDRESS,
-            ApiTransactionType.DNS_CHANGE_SITE,
-            ApiTransactionType.DNS_CHANGE_SUBDOMAINS,
-            ApiTransactionType.DNS_CHANGE_STORAGE,
-            ApiTransactionType.DNS_DELETE,
-            ApiTransactionType.DNS_RENEW -> GradientDrawables.grayDrawable
+        ApiTransactionType.CONTRACT_DEPLOY,
+        ApiTransactionType.CALL_CONTRACT,
+        ApiTransactionType.DNS_CHANGE_ADDRESS,
+        ApiTransactionType.DNS_CHANGE_SITE,
+        ApiTransactionType.DNS_CHANGE_SUBDOMAINS,
+        ApiTransactionType.DNS_CHANGE_STORAGE,
+        ApiTransactionType.DNS_DELETE,
+        ApiTransactionType.DNS_RENEW -> GradientDrawables.grayDrawable
 
-            ApiTransactionType.BURN -> GradientDrawables.redDrawable
+        ApiTransactionType.BURN -> GradientDrawables.redDrawable
 
-            ApiTransactionType.UNSTAKE_REQUEST,
-            ApiTransactionType.LIQUIDITY_DEPOSIT,
-            ApiTransactionType.AUCTION_BID,
-            ApiTransactionType.NFT_TRADE -> GradientDrawables.blueDrawable
+        ApiTransactionType.UNSTAKE_REQUEST,
+        ApiTransactionType.LIQUIDITY_DEPOSIT,
+        ApiTransactionType.AUCTION_BID,
+        ApiTransactionType.NFT_TRADE -> GradientDrawables.blueDrawable
 
-            null -> if (isIncoming) {
-                GradientDrawables.greenDrawable
-            } else {
-                GradientDrawables.blueDrawable
-            }
+        null -> if (isIncoming) {
+            GradientDrawables.greenDrawable
+        } else {
+            GradientDrawables.blueDrawable
         }
     }
 
-    private fun getSwapGradientDrawable(uiStatus: MApiTransaction.UIStatus): GradientDrawable {
-        return when (uiStatus) {
+    private fun getSwapGradientDrawable(uiStatus: MApiTransaction.UIStatus): GradientDrawable =
+        when (uiStatus) {
             MApiTransaction.UIStatus.HOLD -> GradientDrawables.grayDrawable
+
             MApiTransaction.UIStatus.PENDING,
             MApiTransaction.UIStatus.COMPLETED -> GradientDrawables.blueDrawable
 
             MApiTransaction.UIStatus.EXPIRED,
             MApiTransaction.UIStatus.FAILED -> GradientDrawables.redDrawable
         }
-    }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()

@@ -1,20 +1,20 @@
 import type { DappProtocolType, DappSignDataResult, UnifiedSignDataPayload } from '../../dappProtocols';
-import type { ApiDappTransfer, ApiSignedTransfer } from '../../types';
+import type { ApiDappTransfer } from '../../types';
 
 import { fetchStoredChainAccount } from '../../common/accounts';
-import { signPayload, signTransfer } from './sign';
+import { signPayload, signTransfers } from './sign';
 
 export async function signDappData(
   accountId: string,
   dappUrl: string,
   payloadToSign: UnifiedSignDataPayload,
-  password?: string,
+  enclaveToken?: string,
 ) {
   const timestamp = Math.floor(Date.now() / 1000);
   const domain = new URL(dappUrl).host;
 
   const account = await fetchStoredChainAccount(accountId, 'solana');
-  const signature = await signPayload(accountId, payloadToSign, password);
+  const signature = await signPayload(accountId, payloadToSign, enclaveToken);
 
   if ('error' in signature) return signature;
 
@@ -35,25 +35,14 @@ export async function signDappTransfers(
   accountId: string,
   messages: ApiDappTransfer[],
   options: {
-    password?: string;
+    enclaveToken?: string;
     vestingAddress?: string;
     // Unix seconds
     validUntil?: number;
     // Deal with solana b58/b64 issues based on requested method
     isLegacyOutput?: boolean;
   } = {}) {
-  const { password, isLegacyOutput } = options;
-  const signedTransfers: ApiSignedTransfer<DappProtocolType.WalletConnect>[] = [];
+  const { enclaveToken, isLegacyOutput } = options;
 
-  for (const message of messages) {
-    const result = await signTransfer(accountId, message.rawPayload!, password, isLegacyOutput);
-
-    if ('error' in result) {
-      return result;
-    }
-
-    signedTransfers.push(...result);
-  }
-
-  return signedTransfers;
+  return signTransfers(accountId, messages.map((message) => message.rawPayload!), enclaveToken, isLegacyOutput);
 }

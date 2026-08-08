@@ -8,14 +8,14 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
+import kotlin.math.min
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
-import kotlin.math.min
 
 class TabletEdgeFadeDrawable(
     private val baseColor: Int = Color.BLACK,
-    private val dimWhenWide: Boolean = true,
+    private val dimWhenWide: Boolean = true
 ) : Drawable() {
 
     private val fadeWidthPx = (ViewConstants.TABLET_PANELS_OVERLAP_WIDTH * 2).dp
@@ -24,7 +24,13 @@ class TabletEdgeFadeDrawable(
         get() = ViewConstants.ADDITIONAL_TABLET_PADDING > 0
 
     private val color: Int
-        get() = if (isWide && dimWhenWide) (baseColor and 0x00FFFFFF) or 0x80000000.toInt() else baseColor
+        get() = if (isWide &&
+            dimWhenWide
+        ) {
+            (baseColor and 0x00FFFFFF) or 0x80000000.toInt()
+        } else {
+            baseColor
+        }
 
     private val paint = Paint()
     private var gradient: LinearGradient? = null
@@ -50,14 +56,20 @@ class TabletEdgeFadeDrawable(
         val fadeFraction = fadeWidth / bounds.width().toFloat()
         gradient = if (LocaleController.isRTL) {
             LinearGradient(
-                bounds.left.toFloat(), 0f, bounds.right.toFloat(), 0f,
+                bounds.left.toFloat(),
+                0f,
+                bounds.right.toFloat(),
+                0f,
                 intArrayOf(color, color, transparent),
                 floatArrayOf(0f, 1f - fadeFraction, 1f),
                 Shader.TileMode.CLAMP
             )
         } else {
             LinearGradient(
-                bounds.left.toFloat(), 0f, bounds.right.toFloat(), 0f,
+                bounds.left.toFloat(),
+                0f,
+                bounds.right.toFloat(),
+                0f,
                 intArrayOf(transparent, color, color),
                 floatArrayOf(0f, fadeFraction, 1f),
                 Shader.TileMode.CLAMP

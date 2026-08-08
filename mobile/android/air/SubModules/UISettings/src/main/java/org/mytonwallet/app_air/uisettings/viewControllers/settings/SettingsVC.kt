@@ -12,6 +12,7 @@ import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -79,12 +80,14 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
 
-class SettingsVC(context: Context) : WViewController(context),
+class SettingsVC(context: Context) :
+    WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
-    WalletCore.EventObserver, WalletCore.UpdatesObserver,
+    WalletCore.EventObserver,
+    WalletCore.UpdatesObserver,
     WProtectedView {
+    @Suppress("PropertyName")
     override val TAG = "Settings"
 
     private val moreButtonRipple = WRippleDrawable.create(20f.dp)
@@ -128,7 +131,15 @@ class SettingsVC(context: Context) : WViewController(context),
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
             updateBlurViews(recyclerView)
-            updateScroll(if ((recyclerView.layoutManager as LinearLayoutManagerAccurateOffset).findFirstVisibleItemPosition() < 2) recyclerView.computeVerticalScrollOffset() else 10000)
+            val layoutManager =
+                recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+            updateScroll(
+                if (layoutManager.findFirstVisibleItemPosition() < 2) {
+                    recyclerView.computeVerticalScrollOffset()
+                } else {
+                    10000
+                }
+            )
         }
 
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
@@ -163,10 +174,8 @@ class SettingsVC(context: Context) : WViewController(context),
         val btn = WImageButton(context)
         btn.setPadding(8.dp)
         btn.setOnClickListener {
-            val receiveVC = ReceiveVC.createIfAvailable(
-                context,
-                AccountStore.activeAccount?.firstChain
-            ) ?: return@setOnClickListener
+            val receiveVC =
+                ReceiveVC.createIfAvailable(context) ?: return@setOnClickListener
             val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
             navVC.setRoot(receiveVC)
             window?.present(navVC)
@@ -183,7 +192,7 @@ class SettingsVC(context: Context) : WViewController(context),
                 btn,
                 listOf(
                     WMenuPopup.Item(
-                        org.mytonwallet.app_air.uisettings.R.drawable.ic_edit,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_edit,
                         LocaleController.getString("Rename Wallet")
                     ) {
                         renameWalletPressed()
@@ -292,11 +301,10 @@ class SettingsVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
-        if (headerView.parent == headerCell)
-            headerView.updateTheme()
+        if (headerView.parent == headerCell) headerView.updateTheme()
 
         val moreDrawable = context.getDrawableCompat(
-            org.mytonwallet.app_air.uisettings.R.drawable.ic_more
+            org.mytonwallet.app_air.icons.R.drawable.ic_more
         )?.apply {
             setTint(WColor.SecondaryText.color)
         }
@@ -305,7 +313,7 @@ class SettingsVC(context: Context) : WViewController(context),
         moreButtonRipple.rippleColor = WColor.BackgroundRipple.color
 
         val qrDrawable = context.getDrawableCompat(
-            org.mytonwallet.app_air.uisettings.R.drawable.ic_qr
+            org.mytonwallet.app_air.icons.R.drawable.ic_qr
         )?.apply {
             setTint(WColor.SecondaryText.color)
         }
@@ -326,10 +334,11 @@ class SettingsVC(context: Context) : WViewController(context),
         headerView.updateTopInset(topInset)
         rvAdapter.notifyItemChanged(0)
         updatePadding()
-        if (headerView.parent == headerCell)
+        if (headerView.parent == headerCell) {
             headerCell?.setConstraints {
                 toCenterX(headerView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             }
+        }
     }
 
     override fun scrollToTop() {
@@ -391,8 +400,7 @@ class SettingsVC(context: Context) : WViewController(context),
         val scrollOffset = recyclerView.computeVerticalScrollOffset()
         if (scrollOffset in 0..px104) {
             val canGoDown = recyclerView.canScrollVertically(1)
-            if (!canGoDown)
-                return true
+            if (!canGoDown) return true
             val adjustment = if (scrollOffset < px52) -scrollOffset else px104 - scrollOffset
             if (adjustment != 0) {
                 recyclerView.smoothScrollBy(0, adjustment)
@@ -452,7 +460,8 @@ class SettingsVC(context: Context) : WViewController(context),
 
             SettingsItem.Identifier.SHOW_ALL_WALLETS -> {
                 val navVC = WNavigationController(
-                    window!!, PresentationConfig(
+                    window!!,
+                    PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
@@ -501,7 +510,9 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.SECURITY -> {
-                pushProtectedScreen("Security") { passcode -> SecurityVC(context, passcode) }
+                navigationController?.tabBarController?.mainNavigationController?.push(
+                    SecurityVC(context)
+                )
             }
 
             SettingsItem.Identifier.HELP_CENTER -> {
@@ -532,8 +543,11 @@ class SettingsVC(context: Context) : WViewController(context),
 
             SettingsItem.Identifier.MTW_FEATURES -> {
                 val lang = LocaleController.activeLanguage.langCode
-                val usernameRes = if (lang == "ru") BaseR.string.app_tips_telegram_username_ru
-                else BaseR.string.app_tips_telegram_username_en
+                val usernameRes = if (lang == "ru") {
+                    BaseR.string.app_tips_telegram_username_ru
+                } else {
+                    BaseR.string.app_tips_telegram_username_en
+                }
                 val username = context.getString(usernameRes)
                     .ifEmpty { context.getString(BaseR.string.app_tips_telegram_username_en) }
                 if (username.isNotEmpty()) openExternalUrl("https://t.me/$username")
@@ -565,10 +579,11 @@ class SettingsVC(context: Context) : WViewController(context),
 
     private fun computeVisibleSections(): List<SettingsSection> {
         val sections = settingsVM.settingsSections
-        return if (window?.isWideLayout == true)
+        return if (window?.isWideLayout == true) {
             sections.filter { it.section != SettingsSection.Section.ACCOUNTS }
-        else
+        } else {
             sections
+        }
     }
 
     private fun reloadData() {
@@ -591,10 +606,15 @@ class SettingsVC(context: Context) : WViewController(context),
             val recyclerViewPaddingBottom =
                 (view.height - contentHeight - topInset + additionalPadding)
                     .coerceAtLeast(bottomInset)
+            val startPadding =
+                ViewConstants.HORIZONTAL_PADDINGS.dp +
+                    additionalTabletPadding +
+                    systemBarStartInset
+            val endPadding = ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
             recyclerView.setPaddingLocalized(
-                ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
+                startPadding,
                 recyclerView.paddingTop,
-                ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
+                endPadding,
                 recyclerViewPaddingBottom
             )
         }
@@ -631,10 +651,13 @@ class SettingsVC(context: Context) : WViewController(context),
             Default(
                 LocaleController.getString("Locked"),
                 LocaleController.getString(
-                    if (WGlobalStorage.isBiometricActivated() &&
+                    if (WGlobalStorage.isAnyBiometricActivated() &&
                         BiometricHelpers.canAuthenticate(window!!)
-                    )
-                        "Enter passcode or use fingerprint" else "Enter Passcode"
+                    ) {
+                        "Enter passcode or use fingerprint"
+                    } else {
+                        "Enter Passcode"
+                    }
                 ),
                 LocaleController.getString(destinationTitle)
             ),
@@ -647,19 +670,17 @@ class SettingsVC(context: Context) : WViewController(context),
         nav?.push(passcodeConfirmVC)
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return visibleSections.size + 2
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = visibleSections.size + 2
 
-    private fun sectionHasHeader(section: SettingsSection): Boolean {
-        return section.title.isNotEmpty()
-    }
+    private fun sectionHasHeader(section: SettingsSection): Boolean = section.title.isNotEmpty()
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         val sections = visibleSections
         return when (section) {
             0 -> 1
+
             sections.size + 1 -> 1
+
             else -> {
                 val settingsSection = sections[section - 1]
                 val headerCount = if (sectionHasHeader(settingsSection)) 1 else 0
@@ -672,13 +693,15 @@ class SettingsVC(context: Context) : WViewController(context),
         val sections = visibleSections
         return when (indexPath.section) {
             0 -> HEADER_CELL
+
             sections.size + 1 -> VERSION_CELL
+
             else -> {
                 val settingsSection = sections[indexPath.section - 1]
                 val hasHeader = sectionHasHeader(settingsSection)
-                if (hasHeader && indexPath.row == 0)
+                if (hasHeader && indexPath.row == 0) {
                     SECTION_HEADER_CELL
-                else {
+                } else {
                     val itemIndex = if (hasHeader) indexPath.row - 1 else indexPath.row
                     when (settingsSection.children.getOrNull(itemIndex)?.identifier) {
                         SettingsItem.Identifier.ACCOUNT -> ACCOUNT_CELL
@@ -689,11 +712,10 @@ class SettingsVC(context: Context) : WViewController(context),
         }
     }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
-                if (headerCell == null)
-                    headerCell = SettingsSpaceCell(context)
+                if (headerCell == null) headerCell = SettingsSpaceCell(context)
                 headerCell!!
             }
 
@@ -721,7 +743,6 @@ class SettingsVC(context: Context) : WViewController(context),
                 throw Error()
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -755,8 +776,7 @@ class SettingsVC(context: Context) : WViewController(context),
                     return
                 }
                 val itemIndex = if (hasHeader) indexPath.row - 1 else indexPath.row
-                if (itemIndex > section.children.size - 1)
-                    return
+                if (itemIndex > section.children.size - 1) return
                 val item =
                     section.children[itemIndex]
                 val cell = (cellHolder.cell as ISettingsItemCell)
@@ -782,8 +802,7 @@ class SettingsVC(context: Context) : WViewController(context),
             else -> {
                 val section = sections.getOrNull(indexPath.section - 1)
                 val hasHeader = section != null && sectionHasHeader(section)
-                if (hasHeader && indexPath.row == 0)
-                    return section.title
+                if (hasHeader && indexPath.row == 0) return section.title
                 val itemIndex = if (hasHeader) indexPath.row - 1 else indexPath.row
                 val item = section?.children?.getOrNull(itemIndex)
                 when (item?.identifier) {
@@ -808,7 +827,8 @@ class SettingsVC(context: Context) : WViewController(context),
                     async = walletEvent.fromHome,
                     onComplete = {
                         reloadData()
-                    })
+                    }
+                )
                 settingsVM.updateSettingsSection()
             }
 
@@ -870,8 +890,7 @@ class SettingsVC(context: Context) : WViewController(context),
 
             WalletEvent.ConfigReceived -> {
                 val itemsChanged = settingsVM.updateHelpSection()
-                if (itemsChanged)
-                    reloadData()
+                if (itemsChanged) reloadData()
             }
 
             WalletEvent.WideLayoutChanged -> {

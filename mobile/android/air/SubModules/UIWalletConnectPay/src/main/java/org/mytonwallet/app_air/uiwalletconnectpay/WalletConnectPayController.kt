@@ -1,6 +1,8 @@
 package org.mytonwallet.app_air.uiwalletconnectpay
 
 import androidx.lifecycle.lifecycleScope
+import java.lang.ref.WeakReference
+import java.math.BigInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
@@ -29,8 +31,6 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappT
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
 
 class WalletConnectPayController(private val window: WWindow) : WalletCore.UpdatesObserver {
 
@@ -123,9 +123,13 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
                 LedgerConnectVC.Mode.ConnectToSubmitTransfer(
                     account.tonAddress!!,
                     signData = LedgerConnectVC.SignData.SignWalletConnectPayTransfers(
-                        update.accountId, update
+                        update.accountId,
+                        update
                     ),
-                    onDone = { confirmed = true; window.dismissToRoot() }
+                    onDone = {
+                        confirmed = true
+                        window.dismissToRoot()
+                    }
                 ),
                 headerView = header,
                 onCancel = onCancel
@@ -138,9 +142,11 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
         passcodeVC = PasscodeConfirmVC(
             window,
             PasscodeViewState.CustomHeader(header, navbarTitle = navTitle, showNavbarTitle = true),
-            task = { passcode ->
+            task = { enclaveToken ->
                 confirmed = true
-                signTransaction(update, passcode, passcodeVC, onSignFailed = { confirmed = false })
+                signTransaction(update, enclaveToken, passcodeVC, onSignFailed = {
+                    confirmed = false
+                })
             },
             onCancel = onCancel
         )
@@ -203,9 +209,13 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
                 LedgerConnectVC.Mode.ConnectToSubmitTransfer(
                     account.tonAddress!!,
                     signData = LedgerConnectVC.SignData.SignWalletConnectPaySignData(
-                        update.accountId, update
+                        update.accountId,
+                        update
                     ),
-                    onDone = { onConfirmed(); window.dismissToRoot() }
+                    onDone = {
+                        onConfirmed()
+                        window.dismissToRoot()
+                    }
                 ),
                 headerView = header(),
                 onCancel = {}
@@ -218,9 +228,9 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
         passcodeVC = PasscodeConfirmVC(
             window,
             PasscodeViewState.CustomHeader(header(), navbarTitle = title, showNavbarTitle = false),
-            task = { passcode ->
+            task = { enclaveToken ->
                 onConfirmed()
-                signData(update, passcode, passcodeVC, onSignFailed = onSignFailed)
+                signData(update, enclaveToken, passcodeVC, onSignFailed = onSignFailed)
             },
             onCancel = {}
         )
@@ -288,7 +298,7 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
             url = update.url,
             onComplete = { complete(update.promiseId) },
             onError = { cancel(update.promiseId) },
-            onClosed = { cancel(update.promiseId) },
+            onClosed = { cancel(update.promiseId) }
         )
         present(vc)
     }
@@ -398,7 +408,7 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
 
     private fun signTransaction(
         update: ApiUpdate.ApiUpdateWalletConnectPaySignTransaction,
-        passcode: String,
+        enclaveToken: String,
         passcodeVC: PasscodeConfirmVC,
         onSignFailed: () -> Unit
     ) {
@@ -412,7 +422,7 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
                         accountId = update.accountId,
                         transactions = update.transactions,
                         options = SignDappTransfers.Options(
-                            password = passcode,
+                            enclaveToken = enclaveToken,
                             validUntil = update.validUntil,
                             vestingAddress = null,
                             isLegacyOutput = update.isLegacyOutput ?: update.isSignOnly
@@ -441,7 +451,7 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
 
     private fun signData(
         update: ApiUpdate.ApiUpdateWalletConnectPaySignData,
-        passcode: String,
+        enclaveToken: String,
         passcodeVC: PasscodeConfirmVC,
         onSignFailed: () -> Unit
     ) {
@@ -455,7 +465,7 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
                         accountId = update.accountId,
                         dappUrl = WALLET_CONNECT_PAY_SIGN_URL,
                         payloadToSign = update.payloadToSign,
-                        password = passcode
+                        enclaveToken = enclaveToken
                     )
                 )
                 WalletCore.call(
@@ -475,62 +485,78 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
 
     private fun handleSignError(operation: String, t: Throwable, passcodeVC: PasscodeConfirmVC) {
         Logger.e(Logger.LogTag.WALLET_PAY, "WalletConnectPay $operation failed: ${t.message}")
-        val error = (t as? JSWebViewBridge.ApiError)?.parsed ?: MBridgeError.UNKNOWN
+        val error = (t as? JSWebViewBridge.ApiError)?.parsed ?: MBridgeError.Type.UNKNOWN
         passcodeVC.restartAuth()
         passcodeVC.showError(error)
     }
 
     fun onCreate() {
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayOptionSelection::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayOptionSelection::class.java,
+            this
         )
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignTransaction::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignTransaction::class.java,
+            this
         )
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignData::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignData::class.java,
+            this
         )
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayDataCollection::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayDataCollection::class.java,
+            this
         )
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayProcessing::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayProcessing::class.java,
+            this
         )
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayPaymentComplete::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayPaymentComplete::class.java,
+            this
         )
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignTransactionComplete::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignTransactionComplete::class.java,
+            this
         )
         WalletCore.subscribeToApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignDataComplete::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignDataComplete::class.java,
+            this
         )
     }
 
     fun onDestroy() {
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayOptionSelection::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayOptionSelection::class.java,
+            this
         )
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignTransaction::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignTransaction::class.java,
+            this
         )
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignData::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignData::class.java,
+            this
         )
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayDataCollection::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayDataCollection::class.java,
+            this
         )
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayProcessing::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayProcessing::class.java,
+            this
         )
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPayPaymentComplete::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPayPaymentComplete::class.java,
+            this
         )
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignTransactionComplete::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignTransactionComplete::class.java,
+            this
         )
         WalletCore.unsubscribeFromApiUpdates(
-            ApiUpdate.ApiUpdateWalletConnectPaySignDataComplete::class.java, this
+            ApiUpdate.ApiUpdateWalletConnectPaySignDataComplete::class.java,
+            this
         )
     }
 }

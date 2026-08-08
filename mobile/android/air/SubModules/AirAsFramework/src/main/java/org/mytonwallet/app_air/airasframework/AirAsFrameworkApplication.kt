@@ -8,10 +8,11 @@ import android.view.ViewGroup
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.core.ImagePipelineConfig
 import com.facebook.imagepipeline.decoder.ImageDecoderConfig
+import java.util.Date
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
+import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.uicomponents.image.svg.SvgDecoder
 import org.mytonwallet.app_air.uicomponents.image.svg.SvgImageFormat
-import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -19,19 +20,19 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
-import org.mytonwallet.app_air.walletcontext.sqlStorage.WSQLStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
-import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
+import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcontext.sqlStorage.WSQLStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.util.Date
 
 class AirAsFrameworkApplication {
 
@@ -66,6 +67,13 @@ class AirAsFrameworkApplication {
             Logger.i(
                 Logger.LogTag.AIR_APPLICATION,
                 "WSecureStorage.init: ${System.currentTimeMillis() - t}ms"
+            )
+
+            t = System.currentTimeMillis()
+            WSdkStorage.init(applicationContext)
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "WSdkStorage.init: ${System.currentTimeMillis() - t}ms"
             )
 
             t = System.currentTimeMillis()
@@ -187,8 +195,15 @@ class AirAsFrameworkApplication {
             )
 
             Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Setting up bridge")
-            WalletCore.setupBridge(applicationContext, bridgeHostView, forcedRecreation = true) {
-                Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Bridge ready")
+            WalletCore.setupBridge(
+                applicationContext,
+                bridgeHostView,
+                forcedRecreation = true
+            ) { isReady ->
+                Logger.i(
+                    Logger.LogTag.AIR_APPLICATION,
+                    "onCreate: Bridge setup completed isReady=$isReady"
+                )
             }
         }
 
@@ -218,7 +233,8 @@ class AirAsFrameworkApplication {
 
                 ThemeManager.THEME_SYSTEM -> {
                     val nightModeFlags =
-                        applicationContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                        applicationContext.resources.configuration.uiMode and
+                            Configuration.UI_MODE_NIGHT_MASK
                     when (nightModeFlags) {
                         Configuration.UI_MODE_NIGHT_YES -> ThemeManager.init(
                             theme = ThemeManager.THEME_DARK,
@@ -244,7 +260,7 @@ class AirAsFrameworkApplication {
                 }
             }
             val accountId = WalletCore.nextAccountId ?: AccountStore.activeAccountId
-            ?: WGlobalStorage.getActiveAccountId()
+                ?: WGlobalStorage.getActiveAccountId()
             updateAccentColor(accountId)
         }
 

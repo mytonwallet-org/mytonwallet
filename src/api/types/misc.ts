@@ -18,7 +18,8 @@ export type EVMChain =
   | 'arbitrum'
   | 'monad'
   | 'avalanche'
-  | 'hyperliquid';
+  | 'hyperliquid'
+  | 'robinhood';
 export type ApiChain = 'ton' | 'tron' | 'solana' | EVMChain;
 export type ApiNetwork = 'mainnet' | 'testnet';
 export type ApiLedgerDriver = 'HID' | 'USB';
@@ -42,6 +43,7 @@ export interface ApiInitArgs {
 
 export interface ApiToken {
   name: string;
+  localizedName?: string;
   symbol: string;
   slug: string;
   decimals: number;
@@ -62,7 +64,7 @@ export interface ApiToken {
   /** A small dim label to show in the UI right after the token name */
   label?: string;
   /* Means the token is fetched from the backend by default and already includes price
-  and other details (`ApiTokenDetails`), so no separate requests are needed. */
+  and other details (`ApiTokenPriceDetails`), so no separate requests are needed. */
   isFromBackend?: boolean;
 }
 
@@ -166,8 +168,9 @@ export interface ApiNft {
   ownerAddress?: string;
   name?: string;
   address: string;
-  thumbnail: string;
-  image: string;
+  /** Absent when the data source has no proxied preview, and then the UI shows a placeholder instead */
+  thumbnail?: string;
+  image?: string;
   description?: string;
   collectionName?: string;
   collectionAddress?: string;
@@ -176,6 +179,8 @@ export interface ApiNft {
   isOnFragment?: boolean;
   isTelegramGift?: boolean;
   isScam?: boolean;
+  /** Set when the collection matched no trust signal. Absent means the NFT is verified or was never checked (other chains) */
+  isUnverified?: true;
   metadata: ApiNftMetadata;
   interface: ApiNftInterface;
   compression?: {
@@ -189,6 +194,12 @@ export interface ApiNft {
 export interface ApiNftCollection {
   chain: ApiChain;
   address: string;
+}
+
+export interface ApiReportNftOptions {
+  chain: ApiChain;
+  network: ApiNetwork;
+  nftAddress: string;
 }
 
 export interface ApiDomainData {
@@ -464,7 +475,7 @@ export type ApiWalletPermission = ApiTokenApproval | ApiEvmDelegation;
 
 export type ApiRevokeWalletPermissionOptions = {
   accountId: string;
-  password?: string;
+  enclaveToken?: string;
 } & (
   | {
     kind: 'approval';
@@ -490,4 +501,16 @@ export interface ApiDerivation {
   path: string;
   index: number;
   label?: string;
+}
+
+/**
+ * Declarative description of how to derive a key from a BIP39 mnemonic for a specific chain.
+ * Used by `CHAIN_CONFIG` and by the Enclave's `derivePublicKey` capability.
+ * Contains only primitives, no chain names - Enclave stays chain-agnostic.
+ */
+export interface ApiDerivationSpec {
+  standard: 'bip39';
+  curve: 'ed25519' | 'secp256k1';
+  /** Fully expanded BIP32/SLIP-10 path. Must not contain `{index}` placeholders. */
+  path: string;
 }

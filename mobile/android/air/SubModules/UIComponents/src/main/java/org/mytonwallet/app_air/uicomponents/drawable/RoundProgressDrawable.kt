@@ -7,15 +7,13 @@ import android.graphics.Paint.Style
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.min
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 
-class RoundProgressDrawable(
-    private val sizeDp: Float = 16f,
-    strokeWidthDp: Float = 3f
-) : Drawable() {
+class RoundProgressDrawable(private val sizeDp: Float = 16f, strokeWidthDp: Float = 3f) :
+    Drawable() {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Style.STROKE
         strokeWidth = strokeWidthDp.dp
@@ -23,13 +21,9 @@ class RoundProgressDrawable(
         strokeCap = Paint.Cap.ROUND
     }
 
-    override fun getMinimumWidth(): Int {
-        return sizeDp.dp.roundToInt()
-    }
+    override fun getMinimumWidth(): Int = sizeDp.dp.roundToInt()
 
-    override fun getMinimumHeight(): Int {
-        return sizeDp.dp.roundToInt()
-    }
+    override fun getMinimumHeight(): Int = sizeDp.dp.roundToInt()
 
     private var angle = 0f
     private var angle2 = 60f
@@ -60,12 +54,9 @@ class RoundProgressDrawable(
         paint.alpha = alpha
     }
 
-    override fun getAlpha(): Int {
-        return paint.alpha
-    }
+    override fun getAlpha(): Int = paint.alpha
 
     override fun setColorFilter(colorFilter: ColorFilter?) {
-
     }
 
     var color = 0
@@ -79,7 +70,6 @@ class RoundProgressDrawable(
             field = value
             paint.strokeWidth = value
         }
-
 
     private var left = 0f
     private var top = 0f
@@ -102,7 +92,5 @@ class RoundProgressDrawable(
         r = min(right - left, bottom - top) / 2f - strokeWidth - 1
     }
 
-    override fun getOpacity(): Int {
-        return PixelFormat.UNKNOWN
-    }
+    override fun getOpacity(): Int = PixelFormat.UNKNOWN
 }

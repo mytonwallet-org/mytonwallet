@@ -26,7 +26,6 @@ public class SellVC: WViewController {
     private let tokenSlug: String
     private let webView = WKWebView()
     private let activityIndicator = WActivityIndicator()
-    private var hasCompletedInitialWebViewLoad = false
 
     @Dependency(\.balancesStore) private var balancesStore
     
@@ -68,8 +67,8 @@ public class SellVC: WViewController {
         view.addSubview(activityIndicator)
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor),
-            webView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            webView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)

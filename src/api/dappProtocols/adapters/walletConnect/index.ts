@@ -34,7 +34,7 @@ import type {
   EVMChain,
   OnApiUpdate,
 } from '../../../types';
-import type { StoredDappConnection } from '../../storage';
+import type { StoredDappConnection, StoredSessionChain } from '../../storage';
 import type {
   DappDisconnectRequest,
   UnifiedSignDataPayload } from '../../types';
@@ -84,6 +84,7 @@ import {
 import chains from '../../../chains';
 import { getEvmProvider } from '../../../chains/evm/util/client';
 import {
+  fetchStoredAccounts,
   fetchStoredChainAccount,
   getAccountIdByAddress,
   getCurrentAccountIdOrFail,
@@ -109,12 +110,15 @@ import {
   urlTrustStatusStatusFromWalletConnectVerify,
 } from './helpers';
 import {
+  resolveWalletConnectDappUrl,
+  resolveWalletConnectMethodDappUrl,
+} from './identity';
+import {
   authPayloadChainsToSessionChains,
   buildSessionAuthenticateProtocolData,
   caip2ToHexChainId,
   getAccountChains,
   getEip155Caip2ForEvmChain,
-  getRequestedChainsForApproval,
   hexToEip155Caip2,
   namespacesToSessionChains,
   normalizeEip155HexChainId,
@@ -855,8 +859,14 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       // Note: For WalletConnect, connections are initiated via handleSessionProposal
       // This method would be called if we want to programmatically initiate a connection
 
+      const dappUrl = resolveWalletConnectDappUrl({
+        requestUrl: request.url,
+        metadataUrl: message.protocolData.params.proposer.metadata.url,
+        transport: message.transport,
+      });
+
       logDebug('walletConnect:connect:enter', {
-        host: safeHost(message.protocolData.params.proposer.metadata.url),
+        host: safeHost(dappUrl),
         transport: message.transport,
       });
 
@@ -872,19 +882,66 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       const { promiseId, promise } = createDappPromise();
 
-      let chains = getRequestedChainsForApproval(message, network);
+      let chains: StoredSessionChain[] = [];
 
       const urlTrustStatus = request.urlTrustStatus
         ?? (message.transport === 'relay'
           ? urlTrustStatusStatusFromWalletConnectVerify(message.protocolData.verifyContext)
           : 'verified');
 
+      let multichainResolution: 'switched-account' | undefined = undefined;
+
+      try {
+        // If chains are not found, assume that we are trying to get multichain from TON-only wallet
+        chains = await getAccountChains(message, network, accountId, message.requestedChains);
+      } catch (error) {
+        const accounts = await fetchStoredAccounts();
+
+        const compatibleAccounts = Object.entries(accounts).filter(([id, account]) => account.type === 'bip39');
+
+        if (compatibleAccounts.length > 0) {
+          accountId = compatibleAccounts[0][0];
+
+          multichainResolution = 'switched-account';
+
+          chains = await getAccountChains(message, network, accountId, message.requestedChains);
+        } else {
+          const mockDapp: StoredDappConnection = {
+            name: message.protocolData.params.proposer.metadata.name,
+            iconUrl: message.protocolData.params.proposer.metadata.icons[0],
+            protocolType: this.protocolType,
+            chains: [],
+            url: dappUrl,
+            connectedAt: Date.now(),
+            wcPairingTopic: message.protocolData.params.pairingTopic,
+            urlTrustStatus,
+          };
+
+          this.onUpdate({
+            type: 'dappConnect',
+            identifier: String(requestId),
+            promiseId,
+            accountId,
+            dapp: mockDapp,
+            permissions: {
+              address: !!message.permissions?.isAddressRequired,
+              proof: !!message.permissions?.isPasswordRequired,
+            },
+            multichainResolution: 'needs-new-wallet',
+          });
+
+          // Promise will always reject due to createWallet logic
+          // so we use it as stopper of flow here to preserve current behavior
+          await promise;
+        }
+      }
+
       let dapp: StoredDappConnection = {
         name: message.protocolData.params.proposer.metadata.name,
         iconUrl: message.protocolData.params.proposer.metadata.icons[0],
         protocolType: this.protocolType,
         chains,
-        url: message.protocolData.params.proposer.metadata.url,
+        url: dappUrl,
         connectedAt: Date.now(),
         wcPairingTopic: message.protocolData.params.pairingTopic,
         urlTrustStatus,
@@ -902,6 +959,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           address: !!message.permissions?.isAddressRequired,
           proof: !!message.permissions?.isPasswordRequired,
         },
+        multichainResolution,
       });
 
       const promiseResult: Parameters<typeof confirmDappRequestConnect>[1] = await promise;
@@ -1148,6 +1206,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       } else {
         accountAddress = message.payload.address!;
         const uniqueId = getDappConnectionUniqueId(request);
+        const dappUrl = resolveWalletConnectMethodDappUrl(request.url);
 
         accountId = request.accountId
           ?? await getAccountIdByAddress(
@@ -1155,7 +1214,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             message.chain,
           );
 
-        dapp = (await getDapp(accountId, message.payload.url!, uniqueId))!;
+        dapp = (await getDapp(accountId, dappUrl, uniqueId))!;
       }
 
       logDebug('walletConnect:sendTransaction:enter', {
@@ -1362,6 +1421,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         accountId = byTopic.accountId;
       } else {
         const uniqueId = getDappConnectionUniqueId(request);
+        const dappUrl = resolveWalletConnectMethodDappUrl(request.url);
 
         // For inApp browser flow, accountId comes from the request (the wallet active in the browser session).
         // Falling back to getAccountIdByAddress would return the first wallet that owns the address, which
@@ -1373,14 +1433,13 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             message.chain,
           );
 
-        dapp = await getDapp(accountId, message.payload.url!, uniqueId);
+        dapp = await getDapp(accountId, dappUrl, uniqueId);
 
         if (!dapp) {
-          const url = message.payload.url || request.url || '';
           dapp = {
             protocolType: this.protocolType,
-            url,
-            name: safeHost(url),
+            url: dappUrl,
+            name: safeHost(dappUrl),
             iconUrl: '',
             connectedAt: Date.now(),
             chains: [],

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.nft.views
 
 import android.animation.ValueAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -20,13 +19,21 @@ import androidx.core.animation.doOnEnd
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftPalette
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.extensions.animateTintColor
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -43,15 +50,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 open class NftHeaderView(
@@ -60,8 +63,9 @@ open class NftHeaderView(
     val collectionNFTs: List<ApiNft>,
     safeAreaPadding: Int,
     val viewWidth: Int,
-    val delegate: WeakReference<Delegate>,
-) : WFrameLayout(context), WThemedView {
+    val delegate: WeakReference<Delegate>
+) : WFrameLayout(context),
+    WThemedView {
 
     interface Delegate {
         fun onNftChanged(nft: ApiNft)
@@ -126,21 +130,25 @@ open class NftHeaderView(
     private var offsetAnimator: ValueAnimator? = null
 
     val avatarCoverFlowView = WCoverFlowView(context).apply {
-        setCovers(collectionNFTs.map {
-            WCoverFlowView.CoverItem(it.thumbnail)
-        })
+        setCovers(
+            collectionNFTs.map {
+                WCoverFlowView.CoverItem(it.thumbnail)
+            }
+        )
         setSelectedIndex(collectionNFTs.indexOf(nft))
     }
 
     val avatarImageView = WNftImageView(context, 60.dp, 4.dp, 12f.dp).apply {
         setOnClickListener {
-            if (isTracking || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE)
+            if (isTracking || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE) {
                 return@setOnClickListener
+            }
             delegate.get()?.onExpandTapped()
         }
         setOnLongClickListener {
-            if (isTracking || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE)
+            if (isTracking || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE) {
                 return@setOnLongClickListener true
+            }
             delegate.get()?.onPreviewTapped()
             return@setOnLongClickListener true
         }
@@ -215,6 +223,16 @@ open class NftHeaderView(
     private val bottomGradientView = WBaseView(context).apply {
         alpha = 0f
     }
+    private val backgroundFadeView = WBaseView(context).apply {
+        alpha = 0f
+    }
+
+    var palette: NftPalette? = null
+        private set
+    private val collapsedTitleColor: Int
+        get() = palette?.contentColor ?: WColor.PrimaryText.color
+    private val collapsedSubtitleColor: Int
+        get() = palette?.secondaryContentColor ?: WColor.PrimaryLightText.color
 
     var isTracking: Boolean = false
         set(value) {
@@ -231,12 +249,24 @@ open class NftHeaderView(
                 marginEnd = (-10).dp
             }
         )
-        addView(avatarImageView, LayoutParams(imageSize, imageSize).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        })
-        addView(animationView, LayoutParams(imageSize, imageSize).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        })
+        addView(
+            avatarImageView,
+            LayoutParams(imageSize, imageSize).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            animationView,
+            LayoutParams(imageSize, imageSize).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            backgroundFadeView,
+            LayoutParams(LayoutParams.MATCH_PARENT, 96.dp).apply {
+                gravity = Gravity.BOTTOM
+            }
+        )
         addView(
             topGradientView,
             LayoutParams(LayoutParams.MATCH_PARENT, 80.dp)
@@ -254,7 +284,8 @@ open class NftHeaderView(
                     if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
                 marginStart = 16.dp
                 marginEnd = 16.dp
-            })
+            }
+        )
         addView(
             subtitleLabel,
             LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
@@ -262,7 +293,8 @@ open class NftHeaderView(
                     if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
                 marginStart = 16.dp
                 marginEnd = 16.dp
-            })
+            }
+        )
         // Start MARQUEE ellipsize after a second, if is not tracking.
         Handler(Looper.getMainLooper()).postDelayed({
             if (!isTracking) {
@@ -302,8 +334,7 @@ open class NftHeaderView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (currentScrollOffset == 0)
-            currentScrollOffset = expandPercentToOffset(0f)
+        if (currentScrollOffset == 0) currentScrollOffset = expandPercentToOffset(0f)
     }
 
     fun configNft() {
@@ -330,11 +361,14 @@ open class NftHeaderView(
             this.targetScrollOffset = offset
         } else {
             this.targetScrollOffset =
-                if (targetIsCollapsed)
+                if (targetIsCollapsed) {
                     offset
-                else {
+                } else {
                     val expandPercent = if (isAnimatingImageToExpand) 0f else EXPAND_PERCENT
-                    expandPercentToOffset(EXPANDED_PERCENT + (percent - expandPercent) * (1 - EXPANDED_PERCENT) / (1 - expandPercent))
+                    expandPercentToOffset(
+                        EXPANDED_PERCENT +
+                            (percent - expandPercent) * (1 - EXPANDED_PERCENT) / (1 - expandPercent)
+                    )
                 }
         }
         if (wasCollapsed == targetIsCollapsed) {
@@ -348,16 +382,16 @@ open class NftHeaderView(
                 delegate.get()?.onHeaderExpanded()
             }
             titleLabel.animateTextColor(
-                if (targetIsCollapsed) WColor.PrimaryText.color else Color.WHITE,
+                if (targetIsCollapsed) collapsedTitleColor else Color.WHITE,
                 AnimationConstants.QUICK_ANIMATION
             )
             subtitleLabel.animateTextColor(
-                if (targetIsCollapsed) WColor.PrimaryLightText.color else Color.WHITE,
+                if (targetIsCollapsed) collapsedSubtitleColor else Color.WHITE,
                 AnimationConstants.QUICK_ANIMATION
             )
             subtitleArrowDrawable.animateTintColor(
                 subtitleLabel.currentTextColor,
-                if (targetIsCollapsed) WColor.PrimaryLightText.color else Color.WHITE,
+                if (targetIsCollapsed) collapsedSubtitleColor else Color.WHITE,
                 AnimationConstants.QUICK_ANIMATION
             )
 
@@ -368,7 +402,11 @@ open class NftHeaderView(
                 interpolator = AccelerateDecelerateInterpolator()
                 addUpdateListener { animator ->
                     currentScrollOffset =
-                        startOffset + ((this@NftHeaderView.targetScrollOffset - startOffset) * animator.animatedFraction).roundToInt()
+                        startOffset +
+                        (
+                            (this@NftHeaderView.targetScrollOffset - startOffset) *
+                                animator.animatedFraction
+                            ).roundToInt()
                 }
                 doOnEnd {
                     offsetAnimator = null
@@ -401,9 +439,8 @@ open class NftHeaderView(
         }
     }
 
-    fun expandPercentToOffset(percent: Float): Int {
-        return (OVERSCROLL_OFFSET.dp + (1 - percent) * (viewWidth.toFloat() - normalHeight)).toInt()
-    }
+    fun expandPercentToOffset(percent: Float): Int =
+        (OVERSCROLL_OFFSET.dp + (1 - percent) * (viewWidth.toFloat() - normalHeight)).toInt()
 
     fun onDestroy() {
         avatarCoverFlowView.onDestroy()
@@ -416,9 +453,13 @@ open class NftHeaderView(
 
     fun onPreviewEnded() {
         if (animationView.parent != this) {
-            addView(animationView, 2, LayoutParams(imageSize, imageSize).apply {
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            })
+            addView(
+                animationView,
+                2,
+                LayoutParams(imageSize, imageSize).apply {
+                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                }
+            )
             renderAnimatedNft()
         }
         avatarImageView.visibility = VISIBLE
@@ -439,12 +480,11 @@ open class NftHeaderView(
         subtitleLabel.fadeOut()
     }
 
-    private fun offsetToExpandPercent(offset: Int): Float {
-        return 1 - (offset - OVERSCROLL_OFFSET.dp) / (viewWidth.toFloat() - normalHeight)
-    }
+    private fun offsetToExpandPercent(offset: Int): Float =
+        1 - (offset - OVERSCROLL_OFFSET.dp) / (viewWidth.toFloat() - normalHeight)
 
-    private fun scrollStateForOffset(offset: Int): ScrollState {
-        return if (offset < OVERSCROLL_OFFSET.dp) {
+    private fun scrollStateForOffset(offset: Int): ScrollState =
+        if (offset < OVERSCROLL_OFFSET.dp) {
             ScrollState.OverScroll(
                 headerView = this,
                 overscroll = OVERSCROLL_OFFSET.dp - offset
@@ -475,21 +515,20 @@ open class NftHeaderView(
                 (offset - (OVERSCROLL_OFFSET.dp + viewWidth.toFloat() - normalHeight)) / diff
             ScrollState.NormalToCompact(headerView = this, percent = min(1f, percent))
         }
-    }
 
     private var isShowingActions = true
 
     private fun lerpProperty(a: Float, b: Float): Float {
         if (offsetAnimator == null ||
             (scrollState is ScrollState.Expanded && targetState is ScrollState.Expanded)
-        )
+        ) {
             return a
+        }
         return lerp(a, b, offsetAnimator!!.animatedFraction)
     }
 
-    private inline fun lerpProperty(selector: (ScrollState) -> Float): Float {
-        return lerpProperty(selector(scrollState), selector(targetState))
-    }
+    private inline fun lerpProperty(selector: (ScrollState) -> Float): Float =
+        lerpProperty(selector(scrollState), selector(targetState))
 
     private fun render() {
         val avatarWidth = lerpProperty { it.avatarWidth.toFloat() }.roundToInt()
@@ -530,14 +569,18 @@ open class NftHeaderView(
         subtitleLabel.pivotX = subtitlePivotX
         subtitleLabel.scaleX = subtitleScale
         subtitleLabel.scaleY = subtitleLabel.scaleX
-        subtitleLabel.translationX = subtitleTranslationX - subtitleLabel.paddingLeft
+        val subtitleLeadingPadding =
+            if (LocaleController.isRTL) subtitleLabel.paddingRight else subtitleLabel.paddingLeft
+        subtitleLabel.translationX =
+            subtitleTranslationX - subtitleLeadingPadding * LocaleController.rtlMultiplier
         subtitleLabel.translationY = subtitleTranslationY - subtitleLabel.paddingTop
         subtitleLabel.alpha = 1f
 
-        if (scrollState !is ScrollState.NormalToCompact || (scrollState as ScrollState.NormalToCompact).percent > 0f) {
+        if (scrollState !is ScrollState.NormalToCompact ||
+            (scrollState as ScrollState.NormalToCompact).percent > 0f
+        ) {
             avatarImageView.visibility = VISIBLE
-            if (isAnimatedNft)
-                animationView.visibility = VISIBLE
+            if (isAnimatedNft) animationView.visibility = VISIBLE
         }
 
         when (scrollState) {
@@ -545,13 +588,12 @@ open class NftHeaderView(
                 val percent = (scrollState as ScrollState.NormalToCompact).percent
                 avatarCoverFlowView.setCollapsed(percent)
 
-                if (!isShowingActions && percent <= 0.8)
-                    showActions()
-                if (isShowingActions && percent > 0.8)
-                    hideActions()
+                if (!isShowingActions && percent <= 0.8) showActions()
+                if (isShowingActions && percent > 0.8) hideActions()
 
                 topGradientView.alpha = 0f
                 bottomGradientView.alpha = 0f
+                backgroundFadeView.alpha = 0f
 
                 titleLabel.maxWidth =
                     lerp(viewWidth.toFloat(), viewWidth - 56f.dp, percent).roundToInt()
@@ -560,23 +602,21 @@ open class NftHeaderView(
 
             is ScrollState.NormalToExpand -> {
                 var percent = (scrollState as ScrollState.NormalToExpand).percent
-                if (!isShowingActions)
-                    showActions()
+                if (!isShowingActions) showActions()
                 if (!isAnimatingImageToExpand) {
                     avatarCoverFlowView.setExpanded((percent * EXPAND_PERCENT).pow(2f))
                 }
-                if (!isShowingActions)
-                    showActions()
+                if (!isShowingActions) showActions()
                 topGradientView.alpha = 0f
                 bottomGradientView.alpha = 0f
+                backgroundFadeView.alpha = 0f
 
                 titleLabel.maxWidth = viewWidth
                 subtitleLabel.maxWidth = titleLabel.maxWidth
             }
 
             is ScrollState.Expanded -> {
-                if (!isShowingActions)
-                    showActions()
+                if (!isShowingActions) showActions()
                 val percent = (scrollState as ScrollState.Expanded).percent
                 avatarCoverFlowView.setExpanded(
                     lerp(
@@ -585,35 +625,33 @@ open class NftHeaderView(
                         (scrollState as ScrollState.Expanded).percent
                     )
                 )
-                if (percent == 1f)
-                    isAnimatingImageToExpand = false
+                if (percent == 1f) isAnimatingImageToExpand = false
                 topGradientView.alpha = percent
                 bottomGradientView.alpha = percent
+                backgroundFadeView.alpha = percent
 
                 titleLabel.maxWidth = viewWidth
                 subtitleLabel.maxWidth = titleLabel.maxWidth
             }
 
             is ScrollState.OverScroll -> {
-                if (!isShowingActions)
-                    showActions()
+                if (!isShowingActions) showActions()
                 avatarCoverFlowView.setExpanded(1f)
                 topGradientView.alpha = 1f
                 bottomGradientView.alpha = 1f
+                backgroundFadeView.alpha = 1f
 
                 titleLabel.maxWidth = viewWidth
                 subtitleLabel.maxWidth = titleLabel.maxWidth
             }
         }
-        if (isAnimatedNft)
-            renderAnimatedNft()
+        if (isAnimatedNft) renderAnimatedNft()
         avatarCoverFlowView.translationX = avatarImageView.translationX
         avatarCoverFlowView.translationY = avatarImageView.translationY - 18.dp
     }
 
     private fun renderAnimatedNft() {
-        if (animationView.parent != this)
-            return
+        if (animationView.parent != this) return
         animationView.apply {
             updateLayoutParams {
                 width = avatarImageView.width
@@ -631,10 +669,68 @@ open class NftHeaderView(
         }
     }
 
+    fun applyPalette(newPalette: NftPalette?, animated: Boolean) {
+        val prevBaseColor = palette?.baseColor
+        palette = newPalette
+        updateBackgroundFadeDrawable(prevBaseColor, animated)
+        if (!targetIsCollapsed) return
+        if (animated) {
+            titleLabel.animateTextColor(collapsedTitleColor, AnimationConstants.QUICK_ANIMATION)
+            subtitleLabel.animateTextColor(
+                collapsedSubtitleColor,
+                AnimationConstants.QUICK_ANIMATION
+            )
+            subtitleArrowDrawable.animateTintColor(
+                subtitleLabel.currentTextColor,
+                collapsedSubtitleColor,
+                AnimationConstants.QUICK_ANIMATION
+            )
+        } else {
+            titleLabel.setTextColor(collapsedTitleColor)
+            subtitleLabel.setTextColor(collapsedSubtitleColor)
+            subtitleArrowDrawable.setTint(collapsedSubtitleColor)
+        }
+    }
+
+    private var backgroundFadeAnimator: ValueAnimator? = null
+    private fun makeFadeDrawable(color: Int) = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(color.colorWithAlpha(0), color)
+    ).apply {
+        gradientType = GradientDrawable.LINEAR_GRADIENT
+    }
+
+    private fun updateBackgroundFadeDrawable(prevBaseColor: Int?, animated: Boolean) {
+        backgroundFadeAnimator?.cancel()
+        backgroundFadeAnimator = null
+        val baseColor = palette?.baseColor
+        if (!animated || prevBaseColor == baseColor || !WGlobalStorage.getAreAnimationsActive()) {
+            backgroundFadeView.background = baseColor?.let { makeFadeDrawable(it) }
+            return
+        }
+        // Appearing fades in from a transparent gradient; disappearing dissolves out
+        val fromColor = prevBaseColor ?: baseColor!!.colorWithAlpha(0)
+        val toColor = baseColor ?: prevBaseColor!!.colorWithAlpha(0)
+        val fadeDrawable = makeFadeDrawable(fromColor)
+        backgroundFadeView.background = fadeDrawable
+        backgroundFadeAnimator = ValueAnimator.ofArgb(fromColor, toColor).apply {
+            duration = AnimationConstants.QUICK_ANIMATION
+            addUpdateListener {
+                val color = it.animatedValue as Int
+                fadeDrawable.colors = intArrayOf(color.colorWithAlpha(0), color)
+            }
+            doOnEnd {
+                backgroundFadeAnimator = null
+                if (baseColor == null) backgroundFadeView.background = null
+            }
+            start()
+        }
+    }
+
     override fun updateTheme() {
         avatarImageView.updateTheme()
-        titleLabel.setTextColor(if (targetIsCollapsed) WColor.PrimaryText.color else Color.WHITE)
-        subtitleLabel.setTextColor(if (targetIsCollapsed) WColor.PrimaryLightText.color else Color.WHITE)
+        titleLabel.setTextColor(if (targetIsCollapsed) collapsedTitleColor else Color.WHITE)
+        subtitleLabel.setTextColor(if (targetIsCollapsed) collapsedSubtitleColor else Color.WHITE)
         subtitleLabel.background = null
         subtitleLabel.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
         topGradientView.background = GradientDrawable(
@@ -663,13 +759,23 @@ open class NftHeaderView(
 
     private fun updateSubtitleText() {
         subtitleLabel.text =
-            if (nft.collectionName.isNullOrBlank())
+            if (nft.collectionName.isNullOrBlank()) {
                 LocaleController.getString("Standalone NFT")
-            else {
+            } else {
                 val attr = SpannableStringBuilder()
-                attr.append(SpannableString(nft.collectionName))
-                val imageSpan = VerticalImageSpan(subtitleArrowDrawable, LocaleController.isRTL)
-                attr.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                val imageSpan = VerticalImageSpan(
+                    subtitleArrowDrawable,
+                    shouldFlipForRTL = LocaleController.isRTL,
+                    verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm,
+                    isRTL = LocaleController.isRTL
+                )
+                if (LocaleController.isRTL) {
+                    attr.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    attr.append(SpannableString(nft.collectionName))
+                } else {
+                    attr.append(SpannableString(nft.collectionName))
+                    attr.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
                 attr
             }
         subtitleLabel.isClickable = !nft.collectionName.isNullOrBlank()
@@ -687,10 +793,11 @@ open class NftHeaderView(
             subtitleLabel.calcWidth()
         val translationX =
             (viewWidth - labelWidth) / 2f - 16.dp
+        // The subtitle padding is subtracted later during rendering.
         subtitleCompactTranslationX = max(
             0f,
             translationX
-        ) + subtitleLabel.paddingLeft // subtitle paddingLeft is later subtracted during the render()
+        ) + subtitleLabel.paddingLeft
     }
 
     private fun showActions() {
@@ -702,5 +809,4 @@ open class NftHeaderView(
         isShowingActions = false
         delegate.get()?.hideActions()
     }
-
 }

@@ -11,6 +11,8 @@ import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.text.buildSpannedString
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import java.math.BigInteger
+import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
@@ -46,10 +48,11 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
-import java.math.BigInteger
-import kotlin.math.abs
 
-class ActivityMainContentView(context: Context) : WView(context), WProtectedView, WThemedView {
+class ActivityMainContentView(context: Context) :
+    WView(context),
+    WProtectedView,
+    WThemedView {
 
     init {
         id = generateViewId()
@@ -110,12 +113,12 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         val lbl = WLabel(context).apply {
             setStyle(13f)
             setSingleLine()
-            gravity = Gravity.RIGHT
+            gravity = Gravity.END
             setTextColor(WColor.PrimaryLightText)
         }
         WSensitiveDataContainer(
             lbl,
-            WSensitiveDataContainer.MaskConfig(0, 2, Gravity.RIGHT or Gravity.CENTER_VERTICAL)
+            WSensitiveDataContainer.MaskConfig(0, 2, Gravity.END or Gravity.CENTER_VERTICAL)
         )
     }
 
@@ -234,9 +237,13 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     fun configureTransactionTopRight(transaction: MApiTransaction.Transaction) {
         topRightLabel.contentView.setStyle(adaptiveFontSize())
 
-        val amountCols = if (transaction.isNft || transaction.noAmountTransaction) 0 else 4 + abs(
-            transaction.id.hashCode() % 8
-        )
+        val amountCols = if (transaction.isNft || transaction.noAmountTransaction) {
+            0
+        } else {
+            4 + abs(
+                transaction.id.hashCode() % 8
+            )
+        }
         topRightLabel.setMaskCols(amountCols)
 
         val token = transaction.token
@@ -255,7 +262,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
             token.decimals,
             true,
             !isStake,
-            forceCurrencyToRight = true,
+            forceCurrencyToRight = true
         )
         topRightLabel.maskView.skin = if (transaction.type == null && transaction.isIncoming) {
             SensitiveDataMaskView.Skin.GREEN
@@ -380,10 +387,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         if (transaction.shouldShowTransactionAddress) {
             builder.append(
                 LocaleController.getString(
-                    if (transaction.isIncoming)
-                        "from"
-                    else
-                        "to"
+                    if (transaction.isIncoming) "from" else "to"
                 ).lowercase()
             )
             builder.append(" ")
@@ -408,8 +412,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
                 builder.length,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            if (addressToShow?.second == false)
-                builder.styleDots(startIndex = addressStart)
+            if (addressToShow?.second == false) builder.styleDots(startIndex = addressStart)
         } else if (transaction.type == ApiTransactionType.STAKE) {
             val stakingState =
                 StakingStore.getStakingState(accountId)?.states?.firstOrNull {
@@ -517,7 +520,12 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
 
     private fun updateBottomRightLabelMaskCols() {
         val amountCols =
-            if (bottomRightLabel.contentView.text.isNullOrEmpty()) 0 else 4 + abs(bottomRightLabel.contentView.text.hashCode() % 4)
+            if (bottomRightLabel.contentView.text.isNullOrEmpty()) {
+                0
+            } else {
+                4 +
+                    abs(bottomRightLabel.contentView.text.hashCode() % 4)
+            }
         bottomRightLabel.setMaskCols(amountCols)
     }
 

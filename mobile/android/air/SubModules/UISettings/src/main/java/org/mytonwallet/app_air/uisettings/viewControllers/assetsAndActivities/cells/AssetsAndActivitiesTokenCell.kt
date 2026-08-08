@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup
@@ -12,6 +11,7 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.isGone
 import androidx.customview.widget.ViewDragHelper
 import androidx.recyclerview.widget.RecyclerView
+import kotlin.math.abs
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.TokenNameHelper
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.SwipeRevealLayout
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -37,12 +38,10 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
-class AssetsAndActivitiesTokenCell(
-    recyclerView: RecyclerView,
-) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 60.dp)),
+class AssetsAndActivitiesTokenCell(recyclerView: RecyclerView) :
+    WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 60.dp)),
     WThemedView {
 
     companion object {
@@ -100,8 +99,7 @@ class AssetsAndActivitiesTokenCell(
     private val switchView: WSwitch by lazy {
         val sw = WSwitch(context)
         sw.setOnCheckedChangeListener { _, isChecked ->
-            if (skipSwitchChangeListener)
-                return@setOnCheckedChangeListener
+            if (skipSwitchChangeListener) return@setOnCheckedChangeListener
             setTokenVisibility(isChecked)
         }
         sw
@@ -153,10 +151,14 @@ class AssetsAndActivitiesTokenCell(
                     WColor.Background.color,
                     0f,
                     MAIN_VIEW_RADIUS,
-                    if (isLast) maxOf(
-                        MAIN_VIEW_RADIUS,
-                        lastItemRadius
-                    ) else MAIN_VIEW_RADIUS,
+                    if (isLast) {
+                        maxOf(
+                            MAIN_VIEW_RADIUS,
+                            lastItemRadius
+                        )
+                    } else {
+                        MAIN_VIEW_RADIUS
+                    },
                     0f
                 )
             }
@@ -179,7 +181,6 @@ class AssetsAndActivitiesTokenCell(
                     bottomRadius
                 )
             }
-
         })
         setViewDragHelperStateChangeListener {
             when (it) {
@@ -343,7 +344,8 @@ class AssetsAndActivitiesTokenCell(
             }
             if (!data.visibleTokens.any { hiddenSlug ->
                     hiddenSlug == slug
-                }) {
+                }
+            ) {
                 data.visibleTokens.add(slug)
             }
         } else {
@@ -352,12 +354,12 @@ class AssetsAndActivitiesTokenCell(
             }
             if (!data.hiddenTokens.any { hiddenSlug ->
                     hiddenSlug == slug
-                }) {
+                }
+            ) {
                 data.hiddenTokens.add(slug)
             }
         }
 
         AccountStore.updateAssetsAndActivityData(data, notify = true, saveToStorage = true)
     }
-
 }

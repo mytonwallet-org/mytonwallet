@@ -25,6 +25,17 @@ open class WNavigationController: UINavigationController {
     
     private let log = Log("WNavigationController")
     private let sheetDimmingController = SheetDimmingController()
+    public var onWillShowViewController: ((UIViewController) -> Void)?
+    public var pushViewControllerInterceptor: ((UIViewController, Bool) -> Bool)?
+    public var popViewControllerInterceptor: ((Bool) -> Bool)?
+    public var navigationTransitionAnimationController: ((
+        UINavigationController.Operation,
+        UIViewController,
+        UIViewController
+    ) -> UIViewControllerAnimatedTransitioning?)?
+    public var navigationTransitionInteractionController: ((
+        UIViewControllerAnimatedTransitioning
+    ) -> UIViewControllerInteractiveTransitioning?)?
     
     public var isExtraSheetDimmingEnabled: Bool = false {
         didSet {
@@ -76,6 +87,9 @@ open class WNavigationController: UINavigationController {
     }
     
     public override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+        if pushViewControllerInterceptor?(viewController, animated) == true {
+            return
+        }
         if viewControllers.count > 0, (viewController as? WViewController)?.hideBottomBar != false {
             viewController.hidesBottomBarWhenPushed = true
         }
@@ -87,14 +101,34 @@ open class WNavigationController: UINavigationController {
             log.error("Dismissing a modal view controller. Will not pop to prevent freeze")
             return nil
         }
+        if popViewControllerInterceptor?(animated) == true {
+            return nil
+        }
         return super.popViewController(animated: animated)
     }
     
 }
 
 extension WNavigationController: UINavigationControllerDelegate {
+    public func navigationController(
+        _ navigationController: UINavigationController,
+        animationControllerFor operation: UINavigationController.Operation,
+        from fromViewController: UIViewController,
+        to toViewController: UIViewController
+    ) -> UIViewControllerAnimatedTransitioning? {
+        navigationTransitionAnimationController?(operation, fromViewController, toViewController)
+    }
+
+    public func navigationController(
+        _ navigationController: UINavigationController,
+        interactionControllerFor animationController: UIViewControllerAnimatedTransitioning
+    ) -> UIViewControllerInteractiveTransitioning? {
+        navigationTransitionInteractionController?(animationController)
+    }
+
     public func navigationController(_ navigationController: UINavigationController,
                                      willShow viewController: UIViewController, animated: Bool) {
+        onWillShowViewController?(viewController)
         guard let vc = viewController as? WViewController else {return}
         setNavigationBarHidden(vc.hideNavigationBar,
                                animated: animated)
@@ -124,15 +158,28 @@ extension WNavigationController: UIGestureRecognizerDelegate {
 }
 
 extension UINavigationController {
+
+    public var isBackSwipeToDismissAllowed: Bool {
+        if let navigationController = self as? WNavigationController,
+           !IOS_26_MODE_ENABLED {
+            return navigationController.fullWidthBackGestureRecognizer.isEnabled
+        }
+        if #available(iOS 26.0, *) {
+            return interactiveContentPopGestureRecognizer?.isEnabled ?? true
+        }
+        return interactivePopGestureRecognizer?.isEnabled ?? true
+    }
     
     /// A temporary solution to disable backswipe for a navigation controller stack
     /// Should be revised with full navigation management refactoring
     public func allowBackSwipeToDismiss(_ allow: Bool) {
+        if let navigationController = self as? WNavigationController,
+           !IOS_26_MODE_ENABLED {
+            navigationController.fullWidthBackGestureRecognizer.isEnabled = allow
+            return
+        }
         if #available(iOS 26.0, *) {
             self.interactiveContentPopGestureRecognizer?.isEnabled = allow
-        }
-        if let nc = self as?  WNavigationController {
-            nc.fullWidthBackGestureRecognizer.isEnabled = allow
             return
         }
         self.interactivePopGestureRecognizer?.isEnabled = allow

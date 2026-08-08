@@ -52,7 +52,7 @@
 
   width: 100%;
   max-width: v.$landscapeMainContentMaxWidth;
-  padding-right: 1rem;
+  padding-inline-end: 1rem;
 }
 
 .hiddenCheck {
@@ -63,12 +63,12 @@
   flex: 1 1 auto;
   width: 100% !important;
   max-width: v.$landscapeMainContentMaxWidth;
-  padding-right: 1rem;
+  padding-inline-end: 1rem;
 }
 
 .gifIconFix {
   margin-top: -0.0625rem;
-  margin-right: 1rem !important;
-  margin-left: -0.125rem;
+  margin-inline-start: -0.125rem;
+  margin-inline-end: 1rem !important;
   font-size: 1.75rem !important;
 }

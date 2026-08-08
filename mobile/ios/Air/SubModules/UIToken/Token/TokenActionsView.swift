@@ -11,7 +11,7 @@ import WalletContext
 import WalletCore
 
 class TokenActionsView: WTouchPassStackView {
-    private static let splitStyleActionCount: CGFloat = 4
+    private static let splitStyleActionCount: CGFloat = 3
     private static let splitStyleSpacing: CGFloat = 16
     private static let splitStyleHorizontalPadding: CGFloat = 16
     private static var splitStyleMinimumWidth: CGFloat {
@@ -47,7 +47,6 @@ class TokenActionsView: WTouchPassStackView {
     }
 
     private var addButton: UIView!
-    private var swapButton: UIView!
     private var earnButton: UIView!
     private var sendButton: UIView!
     private var heightConstraint: NSLayoutConstraint!
@@ -80,13 +79,6 @@ class TokenActionsView: WTouchPassStackView {
             onTap: { [weak self] in self?.sendPressed() },
         )
         buttons += sendButton
-
-        swapButton = makeButton(
-            title: lang("Swap"),
-            image: .airBundle(usesSplitHomeActionStyle ? "SwapIconLarge" : "SwapIconBold"),
-            onTap: { [weak self] in self?.swapPressed() },
-        )
-        buttons += swapButton
 
         earnButton = makeButton(
             title: lang("Earn"),
@@ -143,15 +135,6 @@ class TokenActionsView: WTouchPassStackView {
             updateSpacing()
         }
     }
-    var swapAvailable: Bool {
-        get {
-            return !swapButton.isHidden
-        }
-        set {
-            swapButton.isHidden = !newValue
-            updateSpacing()
-        }
-    }
     var sendAvailable: Bool {
         get {
             return !sendButton.isHidden
@@ -172,7 +155,7 @@ class TokenActionsView: WTouchPassStackView {
     }
 
     var hasVisibleActions: Bool {
-        fundAvailable || sendAvailable || swapAvailable || earnAvailable
+        fundAvailable || sendAvailable || earnAvailable
     }
     
     func addPressed() {
@@ -183,16 +166,6 @@ class TokenActionsView: WTouchPassStackView {
         AppActions.showSend(accountContext: accountContext, prefilledValues: .init(
             token: token?.slug
         ))
-    }
-
-    func swapPressed() {
-        AppActions.showSwap(
-            accountContext: accountContext,
-            defaultSellingToken: token?.slug,
-            defaultBuyingToken: token?.slug == "toncoin" ? nil : "toncoin",
-            defaultSellingAmount: nil,
-            push: nil
-        )
     }
 
     func earnPressed() {

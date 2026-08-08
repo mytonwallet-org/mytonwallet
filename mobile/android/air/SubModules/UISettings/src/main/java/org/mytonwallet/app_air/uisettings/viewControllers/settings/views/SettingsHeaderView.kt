@@ -3,6 +3,9 @@ package org.mytonwallet.app_air.uisettings.viewControllers.settings.views
 import android.annotation.SuppressLint
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -24,16 +27,12 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
-
 
 @SuppressLint("ViewConstructor")
-class SettingsHeaderView(
-    private val viewController: SettingsVC,
-    private var topInset: Int,
-) : WView(viewController.context), WThemedView, WProtectedView {
+class SettingsHeaderView(private val viewController: SettingsVC, private var topInset: Int) :
+    WView(viewController.context),
+    WThemedView,
+    WProtectedView {
 
     companion object {
         const val HEIGHT_NORMAL = 168
@@ -93,7 +92,6 @@ class SettingsHeaderView(
         addView(walletBalanceLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(addressLabel, LayoutParams(LayoutParams.MATCH_CONSTRAINT, WRAP_CONTENT))
 
-
         setConstraints {
             toStart(walletIcon, 16f)
             toTopPx(walletIcon, topInset + 64.dp)
@@ -142,8 +140,7 @@ class SettingsHeaderView(
 
     @SuppressLint("SetTextI18n")
     fun configure() {
-        if (parent == null)
-            return
+        if (parent == null) return
 
         configureDescriptionLabel(updateUILayoutParamsIfRequired = false)
         updateScroll(
@@ -153,22 +150,22 @@ class SettingsHeaderView(
     }
 
     fun configureDescriptionLabel(updateUILayoutParamsIfRequired: Boolean = true) {
-        if (parent == null)
-            return
+        if (parent == null) return
 
         val account = AccountStore.activeAccount
         account?.let {
             walletIcon.config(it)
         }
         account?.name?.let {
-            if (walletNameLabel.text != it)
-                walletNameLabel.text = it
+            if (walletNameLabel.text != it) walletNameLabel.text = it
         }
         updateBalanceLabel(account)
         updateAddressLabel(account)
 
-        if (updateUILayoutParamsIfRequired && lastY != 0)
-            updateWalletDataLayoutParams() // Force update to prevent any ui glitches after label resizes!
+        if (updateUILayoutParamsIfRequired && lastY != 0) {
+            // Force an update to prevent glitches after label resizes.
+            updateWalletDataLayoutParams()
+        }
     }
 
     private fun updateBalanceLabel(account: MAccount?) {
@@ -195,12 +192,14 @@ class SettingsHeaderView(
     private fun updateAddressLabel(account: MAccount?) {
         val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.settingsHeaderWalletViewStyle
-            MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.settingsHeaderWalletHardwareStyle
+
+            MAccount.AccountType.HARDWARE ->
+                WMultichainAddressLabel.settingsHeaderWalletHardwareStyle
+
             else -> WMultichainAddressLabel.settingsHeaderWalletStyle
         }
         addressLabel.displayAddresses(account, style)
     }
-
 
     override fun updateTheme() {
         updateBackgroundColor()
@@ -232,8 +231,7 @@ class SettingsHeaderView(
 
     private var isFullyCollapsed = false
         set(value) {
-            if (field == value)
-                return
+            if (field == value) return
             field = value
             isClickable = isFullyCollapsed
         }
@@ -241,15 +239,13 @@ class SettingsHeaderView(
     private var expandPercentage = 1f
     private var contentHeight = normalHeight
     fun updateScroll(dy: Int, forceUpdate: Boolean = false) {
-        if (lastY == dy && !forceUpdate)
-            return
+        if (lastY == dy && !forceUpdate) return
         lastY = dy
         contentHeight =
             (normalHeight - dy).coerceAtLeast(minHeight)
         expandPercentage = (contentHeight - minHeight.toFloat()) / (normalHeight - minHeight)
         val newIsCollapsed = expandPercentage == 0f
-        if (isFullyCollapsed && newIsCollapsed && !forceUpdate)
-            return
+        if (isFullyCollapsed && newIsCollapsed && !forceUpdate) return
         isFullyCollapsed = newIsCollapsed
 
         // Update wallet icon view
@@ -267,15 +263,21 @@ class SettingsHeaderView(
 
         // Update wallet name and detail view
         walletNameLabel.y =
-            topInset + px20 + px56 * expandPercentage - (walletNameLabel.height / 2 * (1 - walletNameLabel.scaleY))
+            topInset + px20 + px56 * expandPercentage -
+            (walletNameLabel.height / 2 * (1 - walletNameLabel.scaleY))
 
         if (LocaleController.isRTL) {
             val labelX =
-                width - walletNameLabel.width - (walletIcon.height * walletIcon.scaleY + px32 - (walletNameLabel.width / 2 * (1 - walletNameLabel.scaleX)))
+                width - walletNameLabel.width -
+                    (
+                        walletIcon.height * walletIcon.scaleY + px32 -
+                            (walletNameLabel.width / 2 * (1 - walletNameLabel.scaleX))
+                        )
             walletNameLabel.x = labelX
         } else {
             walletNameLabel.x =
-                walletIcon.height * walletIcon.scaleY + px32 - (walletNameLabel.width / 2 * (1 - walletNameLabel.scaleX))
+                walletIcon.height * walletIcon.scaleY + px32 -
+                (walletNameLabel.width / 2 * (1 - walletNameLabel.scaleX))
         }
         updateWalletDataLayoutParams()
         updateWalletNamePadding()
@@ -300,19 +302,23 @@ class SettingsHeaderView(
         walletBalanceLabel.alpha = alpha
 
         addressLabel.y =
-            topInset + px34 + px74 * expandPercentage - (addressLabel.height / 2 * (1 - addressLabel.scaleY))
+            topInset + px34 + px74 * expandPercentage -
+            (addressLabel.height / 2 * (1 - addressLabel.scaleY))
         walletBalanceLabel.translationY = -(1 - expandPercentage) * px74
 
         if (LocaleController.isRTL) {
             val addressLabelX =
-                width - addressLabel.width - (walletIcon.height * walletIcon.scaleY + px32 - (addressLabel.width / 2 * (1 - addressLabel.scaleX)))
+                width - addressLabel.width -
+                    (
+                        walletIcon.height * walletIcon.scaleY + px32 -
+                            (addressLabel.width / 2 * (1 - addressLabel.scaleX))
+                        )
             addressLabel.x = addressLabelX
-            val walletBalanceLabelX =
-                width - walletBalanceLabel.width - (walletIcon.height * walletIcon.scaleY + px32 - (walletBalanceLabel.width / 2 * (1 - walletBalanceLabel.scaleX)))
-            walletBalanceLabel.x = walletBalanceLabelX
+            walletBalanceLabel.translationX = (1 - expandPercentage) * px98
         } else {
             addressLabel.x =
-                walletIcon.height * walletIcon.scaleY + px32 - (addressLabel.width / 2 * (1 - addressLabel.scaleX))
+                walletIcon.height * walletIcon.scaleY + px32 -
+                (addressLabel.width / 2 * (1 - addressLabel.scaleX))
             walletBalanceLabel.translationX = -(1 - expandPercentage) * px98
         }
     }
@@ -322,9 +328,13 @@ class SettingsHeaderView(
         // - Collapsed: 68dp = 108dp (right-side icons) − 40dp (reduced wallet icon size)
         // - Expanded: walletBalanceLabel.width + 32dp (spacing)
         // The interpolation factor is walletBalanceLabel.alpha (0 = collapsed, 1 = expanded).
-        val rightPadding =
+        val endPadding =
             lerp(68f.dp, walletBalanceLabel.width + 32f.dp, walletBalanceLabel.alpha).roundToInt()
-        walletNameLabel.setPadding(0, 0, rightPadding, 0)
+        if (LocaleController.isRTL) {
+            walletNameLabel.setPadding(endPadding, 0, 0, 0)
+        } else {
+            walletNameLabel.setPadding(0, 0, endPadding, 0)
+        }
         walletNameLabel.isSelected = expandPercentage % 1 == 0f
     }
 }

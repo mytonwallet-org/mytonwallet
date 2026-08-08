@@ -5,7 +5,7 @@ data class PortfolioCacheKey(
     val methodName: String,
     val periodValue: String,
     val currencyCode: String,
-    val bucket: Long,
+    val bucket: Long
 ) {
     override fun toString(): String =
         listOf(accountId, methodName, periodValue, currencyCode, bucket).joinToString(SEPARATOR)
@@ -28,7 +28,7 @@ data class PortfolioCacheKey(
                 methodName = segments[1],
                 periodValue = segments[2],
                 currencyCode = segments[3],
-                bucket = bucket,
+                bucket = bucket
             )
         }
     }

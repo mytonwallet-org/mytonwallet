@@ -8,9 +8,9 @@ enum SwapCexSupport {
         sellingToken: ApiToken,
         params: ApiSwapCexCreateTransactionParams,
         shouldTransfer: Bool,
-        passcode: String
+        enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
-        let createResult = try await Api.swapCexCreateTransaction(accountId: accountId, password: passcode, params: params)
+        let createResult = try await Api.swapCexCreateTransaction(accountId: accountId, enclaveToken: enclaveToken, params: params)
         if shouldTransfer {
             
             let amount = createResult.swap.fromAmount.bigintAmount(decimals: sellingToken.decimals)
@@ -43,7 +43,7 @@ enum SwapCexSupport {
                 dieselAmount: nil,
                 isGaslessWithStars: nil,
                 gaslessTransaction: nil,
-                password: passcode,
+                enclaveToken: enclaveToken,
                 fee: fee,
                 noFeeCheck: nil
             )

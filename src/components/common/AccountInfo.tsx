@@ -1,12 +1,18 @@
 import React, { memo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
-import type { ApiNft } from '../../api/types';
+import type { ApiChain, ApiNft } from '../../api/types';
 import type { Account } from '../../global/types';
 import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
-import { selectAccountSettings, selectCurrentAccount, selectCurrentAccountId } from '../../global/selectors';
+import {
+  selectAccountSettings,
+  selectCurrentAccount,
+  selectCurrentAccountChainDisplay,
+  selectCurrentAccountId,
+} from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getOrderedAccountChains } from '../../util/chain';
 import { getTelegramAvatarUrlFromDomain } from '../../util/dns';
 import { formatAccountAddresses } from '../../util/formatAccountAddress';
 import { formatCurrency } from '../../util/formatNumber';
@@ -21,6 +27,7 @@ import styles from './AccountInfo.module.scss';
 interface StateProps {
   currentAccount?: Account;
   currentAccountId?: string;
+  visibleChains?: ApiChain[];
   cardBackgroundNft?: ApiNft;
   isSensitiveDataHidden?: boolean;
   isTestnet?: boolean;
@@ -34,6 +41,7 @@ interface OwnProps {
 function AccountInfo({
   currentAccount,
   currentAccountId,
+  visibleChains,
   cardBackgroundNft,
   isSensitiveDataHidden,
   isTestnet,
@@ -44,7 +52,10 @@ function AccountInfo({
 
   const isHardware = currentAccount.type === 'hardware';
   const isView = isViewAccount(currentAccount.type);
-  const formattedAddress = formatAccountAddresses(currentAccount.byChain);
+  const formattedAddress = formatAccountAddresses(
+    currentAccount.byChain,
+    visibleChains ?? getOrderedAccountChains(currentAccount.byChain),
+  );
 
   return (
     <div className={styles.info}>
@@ -99,6 +110,7 @@ export default memo(withGlobal((global): StateProps => {
   return {
     currentAccount,
     currentAccountId,
+    visibleChains: selectCurrentAccountChainDisplay(global)?.addressLineChains,
     cardBackgroundNft: accountSettings?.cardBackgroundNft,
     isSensitiveDataHidden,
     isTestnet,

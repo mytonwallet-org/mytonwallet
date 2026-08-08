@@ -20,8 +20,9 @@ import buildClassName from '../util/buildClassName';
 import { MINUTE } from '../util/dateFormat';
 import { closeThisTab } from '../util/ledger/tab';
 import { resolveRender } from '../util/renderPromise';
+import resolveSlideTransitionName from '../util/resolveSlideTransitionName';
 import {
-  IS_ANDROID, IS_ELECTRON, IS_IOS, IS_LEDGER_EXTENSION_TAB, IS_LINUX,
+  IS_ELECTRON, IS_LEDGER_EXTENSION_TAB, IS_LINUX,
 } from '../util/windowEnvironment';
 import { updateSizes } from '../util/windowSize';
 import { callApi } from '../api';
@@ -66,6 +67,7 @@ import MintCardModal from './mintCard/MintCardModal';
 import Portfolio from './portfolio/Portfolio';
 import Settings from './settings/Settings';
 import SwapModal from './swap/SwapModal';
+import TokenInfo from './tokenInfo/TokenInfo';
 import TransferModal from './transfer/TransferModal';
 import ConfettiContainer from './ui/ConfettiContainer';
 import LoadingOverlay from './ui/LoadingOverlay';
@@ -86,6 +88,7 @@ interface StateProps {
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isPortfolioOpen?: boolean;
+  currentTokenSlug?: string;
   isFullscreen: boolean;
   areSettingsOpen?: boolean;
   theme: Theme;
@@ -93,7 +96,9 @@ interface StateProps {
   isAppReady?: boolean;
 }
 
-const APP_STATES_WITH_BOTTOM_BAR = new Set([AppState.Main, AppState.Agent, AppState.Settings, AppState.Explore]);
+const APP_STATES_WITH_BOTTOM_BAR = new Set([
+  AppState.Main, AppState.Agent, AppState.Settings, AppState.Explore, AppState.TokenInfo,
+]);
 const APP_UPDATE_INTERVAL = (IS_ELECTRON && !IS_LINUX) || IS_ANDROID_DIRECT
   ? 5 * MINUTE
   : undefined;
@@ -111,6 +116,7 @@ function App({
   isAgentOpen,
   isExploreOpen,
   isPortfolioOpen,
+  currentTokenSlug,
   isFullscreen,
   areSettingsOpen,
   theme,
@@ -131,14 +137,13 @@ function App({
   const [canPrerenderMain, prerenderMain] = useFlag();
 
   const renderingKey = resolveRenderingKey({
-    isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, isPortrait, appState,
+    isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, currentTokenSlug, isPortrait, appState,
   });
   const withBottomBar = isPortrait && (!IS_EXPLORER || isAppReady) && APP_STATES_WITH_BOTTOM_BAR.has(renderingKey);
-  const transitionName = withBottomBar
-    ? 'semiFade'
-    : isPortrait
-      ? (IS_ANDROID ? 'slideFadeAndroid' : IS_IOS ? 'slideLayers' : 'slideFade')
-      : 'semiFade';
+  // Screens sharing the bottom bar are sibling tabs, so they cross-fade into each other. The token
+  // screen is the exception: the bar stays visible, but the transition slides in.
+  const withSlide = isPortrait && (!withBottomBar || renderingKey === AppState.TokenInfo);
+  const transitionName = withSlide ? resolveSlideTransitionName() : 'semiFade';
 
   useTimeout(
     prerenderMain,
@@ -223,6 +228,8 @@ function App({
         return <Settings isActive={isActive} />;
       case AppState.Portfolio:
         return <Portfolio isActive={isActive} />;
+      case AppState.TokenInfo:
+        return <TokenInfo isActive={isActive} />;
       case AppState.Ledger:
         return <LedgerModal isOpen noBackdropClose onClose={closeThisTab} />;
       case AppState.Inactive:
@@ -305,6 +312,7 @@ export default memo(withGlobal((global): StateProps => {
     isAgentOpen: global.isAgentOpen,
     isExploreOpen: global.isExploreOpen,
     isPortfolioOpen: global.isPortfolioOpen,
+    currentTokenSlug: selectCurrentAccountState(global)?.currentTokenSlug,
     areSettingsOpen: global.areSettingsOpen,
     isFullscreen: Boolean(global.isFullscreen),
     theme: global.settings.theme,
@@ -314,13 +322,14 @@ export default memo(withGlobal((global): StateProps => {
 })(App));
 
 function resolveRenderingKey({
-  isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, isPortrait, appState,
+  isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, currentTokenSlug, isPortrait, appState,
 }: {
   isInactive: boolean;
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isPortfolioOpen?: boolean;
+  currentTokenSlug?: string;
   isPortrait: boolean;
   appState: AppState;
 }) {
@@ -329,5 +338,7 @@ function resolveRenderingKey({
   if (isAgentOpen && isPortrait) return AppState.Agent;
   if (isExploreOpen && isPortrait) return AppState.Explore;
   if (isPortfolioOpen && isPortrait) return AppState.Portfolio;
+  // In landscape the token screen lives inside the main content, next to the wallet overview
+  if (currentTokenSlug && isPortrait && appState === AppState.Main) return AppState.TokenInfo;
   return appState;
 }

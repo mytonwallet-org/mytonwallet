@@ -38,7 +38,8 @@
   gap: 0.5rem;
   align-items: center;
 
-  padding: 0.8125rem 0.75rem 0.8125rem 0.625rem;
+  padding-block: 0.8125rem;
+  padding-inline: 0.625rem 0.75rem;
 
   font-size: 0.9375rem;
   font-weight: 600;
@@ -51,9 +52,9 @@
     content: '';
 
     position: absolute;
-    right: 0;
     bottom: 0;
-    left: 3rem;
+    inset-inline-start: 3rem;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -91,4 +92,6 @@
 
 .iconChevronRight {
   color: var(--color-gray-3);
+
+  @include mixins.rtl-mirror();
 }

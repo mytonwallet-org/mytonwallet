@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -11,12 +12,16 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
+import java.math.BigInteger
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.measureWidth
 import org.mytonwallet.app_air.uicomponents.extensions.setBoundsFit
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -36,9 +41,6 @@ import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) {
 
@@ -46,8 +48,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
 
     private var displayDataList: List<DisplayData> = emptyList()
     private var keyword: String = ""
-    private var currentDisplayWidth: Int = 0
-    private var currentDisplayData: SpannedString = SpannedString("")
+    private var displayMeasurement: DisplayMeasurement? = null
 
     private var style: Style = walletStyle
 
@@ -58,19 +59,24 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     private var longPressHandled = false
 
     private val gestureDetector =
-        GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onLongPress(e: MotionEvent) {
-                val callback = onLongPressChain ?: return
-                val data = findChainAtPosition(e.x, e.y) ?: return
-                longPressHandled = true
-                callback(data.chainName, data.original, data.isDomain)
+        GestureDetector(
+            context,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onLongPress(e: MotionEvent) {
+                    val callback = onLongPressChain ?: return
+                    val data = findChainAtPosition(e.x, e.y) ?: return
+                    longPressHandled = true
+                    callback(data.chainName, data.original, data.isDomain)
+                }
             }
-        })
+        )
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         if (onLongPressChain != null && event != null) {
             gestureDetector.onTouchEvent(event)
-            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+            if (event.action == MotionEvent.ACTION_UP ||
+                event.action == MotionEvent.ACTION_CANCEL
+            ) {
                 if (longPressHandled) {
                     longPressHandled = false
                     isPressed = false
@@ -98,30 +104,39 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         setHighlightColor(WColor.Tint)
     }
 
-    private fun loadDrawable(resId: Int): Drawable? {
-        return drawableCache[resId] ?: let {
-            context.getDrawableCompat(resId)?.mutate()?.let { drawable ->
-                drawableCache[resId] = drawable
-                drawable
-            }
+    override fun setTypeface(tf: Typeface?) {
+        super.setTypeface(FontManager.ltrVariant(tf))
+    }
+
+    private fun loadDrawable(resId: Int): Drawable? = drawableCache[resId] ?: let {
+        context.getDrawableCompat(resId)?.mutate()?.let { drawable ->
+            drawableCache[resId] = drawable
+            drawable
         }
     }
 
     fun displayAddresses(
         account: MAccount?,
         style: Style,
-        keyword: String = ""
+        keyword: String = "",
+        onlyDisplayedChains: Boolean = true
     ) {
         if (account == null) {
             displayAddresses(emptyList(), style, keyword)
             return
         }
+        val byChain = if (onlyDisplayedChains) {
+            account.displayedChains().associate { it.key to it.value }
+        } else {
+            account.byChain
+        }
         displayAddresses(
             account.network,
             account.accountId,
-            account.byChain.appAddressLineChains(account.accountId),
+            byChain.appAddressLineChains(account.accountId),
             style,
-            keyword
+            keyword,
+            shouldSortByBalance = false
         )
     }
 
@@ -133,8 +148,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val tonChain = this[MBlockchain.ton.name] ?: return this
         val balances = BalanceStore.getBalances(accountId) ?: return this
         val hasNonTonToken = balances.keys.any { slug ->
-            if (balances[slug] == BigInteger.ZERO)
-                return@any false
+            if (balances[slug] == BigInteger.ZERO) return@any false
             val chain = TokenStore.getToken(slug)?.mBlockchain ?: return@any false
             return@any chain != MBlockchain.ton
         }
@@ -146,17 +160,20 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         accountId: String?,
         byChain: Map<String, AccountChain>,
         style: Style,
-        keyword: String = ""
+        keyword: String = "",
+        shouldSortByBalance: Boolean = true
     ) {
         val style = if (network.isTestnet) {
             style.copy(
-                prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_testnet) + style.prefixIconResList
+                prefixIconResList =
+                    listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_testnet) +
+                        style.prefixIconResList
             )
         } else {
             style
         }
         val addresses = byChain.entries.let { entries ->
-            if (entries.size > 1) {
+            if (shouldSortByBalance && entries.size > 1) {
                 val perChainBalance =
                     accountId?.let { BalanceStore.totalBalanceInBaseCurrencyPerChain(accountId) }
                 entries.sortedWith(
@@ -209,6 +226,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             )
         }
         this.keyword = keyword
+        displayMeasurement = null
         untrimDisplayDataList()
         requestLayout()
     }
@@ -254,33 +272,62 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
             return
         }
-        untrimDisplayDataList()
-
         val paddingSize = paddingLeft + paddingRight
         val widthSize = MeasureSpec.getSize(widthMeasureSpec).takeIf { it > 0 } ?: Int.MAX_VALUE
         val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+        val displayMeasurement = displayMeasurement
+        if (displayMeasurement != null &&
+            displayMeasurement.width <= widthSize &&
+            displayMeasurement.textColor == currentTextColor &&
+            displayMeasurement.textSize == paint.textSize &&
+            displayMeasurement.typeface == paint.typeface &&
+            displayMeasurement.letterSpacing == paint.letterSpacing &&
+            displayMeasurement.paddingSize == paddingSize
+        ) {
+            if (widthMode == MeasureSpec.EXACTLY) {
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            } else {
+                super.onMeasure(displayMeasurement.width.exactly, heightMeasureSpec)
+            }
+            return
+        }
 
-        var needRemeasure = true
+        untrimDisplayDataList()
+
         var displayData = buildDisplayData(displayDataList, keyword)
         var displayWidth = displayData.measureWidth(paint)
         val availableWidth = widthSize - paddingSize
+        var wasTrimmed = false
         // trim until fit available width
+        var needRemeasure = true
         while (needRemeasure) {
             if (displayWidth <= availableWidth || !canTrim(displayDataList)) {
                 needRemeasure = false
             } else {
+                wasTrimmed = true
                 displayDataList = trim(displayDataList)
                 displayData = buildDisplayData(displayDataList, keyword)
                 displayWidth = displayData.measureWidth(paint)
             }
         }
-        currentDisplayWidth = displayWidth.ceilToInt() + paddingSize
-        currentDisplayData = displayData
+        val measuredDisplayWidth = displayWidth.ceilToInt() + paddingSize
+        this.displayMeasurement = if (wasTrimmed) {
+            null
+        } else {
+            DisplayMeasurement(
+                width = measuredDisplayWidth,
+                textColor = currentTextColor,
+                textSize = paint.textSize,
+                typeface = paint.typeface,
+                letterSpacing = paint.letterSpacing,
+                paddingSize = paddingSize
+            )
+        }
         text = displayData
         if (widthMode == MeasureSpec.EXACTLY) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         } else {
-            super.onMeasure(currentDisplayWidth.exactly, heightMeasureSpec)
+            super.onMeasure(measuredDisplayWidth.exactly, heightMeasureSpec)
         }
     }
 
@@ -297,13 +344,13 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 it.setBoundsFit(style.prefixIconSize)
                 inSpans(
                     VerticalImageSpan(
-                        it, verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                        it,
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
                     )
                 ) {
                     append(" ")
                 }
-                if (index + 1 < style.prefixIconResList.size)
-                    append(" ")
+                if (index + 1 < style.prefixIconResList.size) append(" ")
             }
             // Margin between last prefix icon and first chain
             if (style.prefixIconResList.isNotEmpty() && style.prefixIconMargin > 0) {
@@ -401,7 +448,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 )
                 inSpans(
                     VerticalImageSpan(
-                        it, verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                        it,
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
                     )
                 ) {
                     append(" ")
@@ -449,28 +497,26 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         }
     }
 
-    private fun trim(displayDataList: List<DisplayData>): List<DisplayData> {
-        return displayDataList.map {
-            if (it.canTrim) {
-                val keepCharCount = it.keepCharCount - 1
-                val toDisplay = trimDisplayValue(it.original, keepCharCount, it.isDomain)
-                if (it.toDisplay == toDisplay) {
-                    it.copy(canTrim = false)
-                } else {
-                    it.copy(
-                        toDisplay = toDisplay,
-                        keepCharCount = keepCharCount,
-                        canTrim = keepCharCount > 3
-                    )
-                }
+    private fun trim(displayDataList: List<DisplayData>): List<DisplayData> = displayDataList.map {
+        if (it.canTrim) {
+            val keepCharCount = it.keepCharCount - 1
+            val toDisplay = trimDisplayValue(it.original, keepCharCount, it.isDomain)
+            if (it.toDisplay == toDisplay) {
+                it.copy(canTrim = false)
             } else {
-                it
+                it.copy(
+                    toDisplay = toDisplay,
+                    keepCharCount = keepCharCount,
+                    canTrim = keepCharCount > 3
+                )
             }
+        } else {
+            it
         }
     }
 
-    private fun canTrim(displayDataList: List<DisplayData>): Boolean {
-        return displayDataList.any { it.canTrim }
+    private fun canTrim(displayDataList: List<DisplayData>): Boolean = displayDataList.any {
+        it.canTrim
     }
 
     private fun trimDisplayValue(value: String, keepCount: Int, isDomain: Boolean) = if (isDomain) {
@@ -486,6 +532,15 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val isDomain: Boolean,
         val keepCharCount: Int,
         val canTrim: Boolean
+    )
+
+    private data class DisplayMeasurement(
+        val width: Int,
+        val textColor: Int,
+        val textSize: Float,
+        val typeface: Typeface?,
+        val letterSpacing: Float,
+        val paddingSize: Int
     )
 
     data class Style(
@@ -517,7 +572,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     )
 
     enum class DomainTrimRule {
-        KEEP_TOP_LEVEL_DOMAIN, SYMMETRIC
+        KEEP_TOP_LEVEL_DOMAIN,
+        SYMMETRIC
     }
 
     companion object {
@@ -563,15 +619,15 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             multipleChainStyle = walletStyle.multipleChainStyle.copy(
                 addressKeepCount = 4
             ),
-            prefixIconMargin = 6.dp,
+            prefixIconMargin = 6.dp
         )
 
         val walletCustomizationViewStyle: Style = walletCustomizationStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_eye)
         )
 
         val walletCustomizationHardwareStyle: Style = walletCustomizationStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_ledger)
         )
 
         // Select wallet card screen styles
@@ -609,11 +665,11 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val miniCardWalletSelectedStyle: Style = miniCardWalletStyle
 
         val miniCardWalletViewStyle: Style = miniCardWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_eye)
         )
 
         val miniCardWalletHardwareStyle: Style = miniCardWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_ledger)
         )
 
         // Select wallet card row screen styles
@@ -650,11 +706,11 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         )
 
         val cardRowWalletViewStyle: Style = cardRowWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_eye)
         )
 
         val cardRowWalletHardwareStyle: Style = cardRowWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_ledger)
         )
 
         // Select wallet card row screen styles
@@ -691,11 +747,11 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         )
 
         val settingsHeaderWalletViewStyle: Style = settingsHeaderWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_eye)
         )
 
         val settingsHeaderWalletHardwareStyle: Style = settingsHeaderWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger)
+            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_ledger)
         )
     }
 }

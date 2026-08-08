@@ -9,6 +9,7 @@ public struct MAccountAssetsAndActivityData: Equatable, Hashable, Codable, Senda
     public var pinnedSlugs: [String]?
     public var didAutoPinStaking: Bool
     public var ownedMtwCardAddresses: [String]
+    public var chainDisplayConfiguration: MChainDisplayConfiguration?
 
     public init(
         accountId: String,
@@ -16,7 +17,8 @@ public struct MAccountAssetsAndActivityData: Equatable, Hashable, Codable, Senda
         importedSlugs: [String],
         pinnedSlugs: [String]?,
         didAutoPinStaking: Bool,
-        ownedMtwCardAddresses: [String] = []
+        ownedMtwCardAddresses: [String] = [],
+        chainDisplayConfiguration: MChainDisplayConfiguration? = nil
     ) {
         self.accountId = accountId
         self.alwaysHiddenSlugs = alwaysHiddenSlugs
@@ -24,6 +26,7 @@ public struct MAccountAssetsAndActivityData: Equatable, Hashable, Codable, Senda
         self.pinnedSlugs = pinnedSlugs
         self.didAutoPinStaking = didAutoPinStaking
         self.ownedMtwCardAddresses = ownedMtwCardAddresses
+        self.chainDisplayConfiguration = chainDisplayConfiguration
     }
 
     public init(
@@ -39,7 +42,8 @@ public struct MAccountAssetsAndActivityData: Equatable, Hashable, Codable, Senda
             importedSlugs: dict["importedSlugs"] as? [String] ?? [],
             pinnedSlugs: dict["pinnedSlugs"] as? [String],
             didAutoPinStaking: didAutoPinStaking,
-            ownedMtwCardAddresses: ownedMtwCardAddresses
+            ownedMtwCardAddresses: ownedMtwCardAddresses,
+            chainDisplayConfiguration: dict["chainDisplayConfiguration"] as? MChainDisplayConfiguration
         )
     }
 
@@ -55,6 +59,9 @@ extension MAccountAssetsAndActivityData {
         if let pinnedSlugs {
             dict["pinnedSlugs"] = pinnedSlugs
         }
+        if let chainDisplayConfiguration {
+            dict["chainDisplayConfiguration"] = chainDisplayConfiguration
+        }
         return MAssetsAndActivityData(dictionary: dict)
     }
 
@@ -63,5 +70,6 @@ extension MAccountAssetsAndActivityData {
             || !importedSlugs.isEmpty
             || (pinnedSlugs?.isEmpty == false)
             || !ownedMtwCardAddresses.isEmpty
+            || chainDisplayConfiguration != nil
     }
 }

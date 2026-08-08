@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class PermissionsVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Permissions"
 
     override val shouldDisplayTopBar = false
@@ -40,20 +41,23 @@ class PermissionsVC(context: Context) : WViewController(context) {
     // Null when there are no eligible chains — don't fall back to TON.
     private val singleChainVC: PermissionsListVC? by lazy {
         val chain = chains.firstOrNull()
-        if (isSingleChain && chain != null)
+        if (isSingleChain && chain != null) {
             PermissionsListVC(
                 context,
                 accountId,
                 chain,
                 standalone = true
             )
-        else null
+        } else {
+            null
+        }
     }
 
     // Multi-chain: one tab per chain in a segmented controller.
     private val segmentedController: WSegmentedController? by lazy {
-        if (isSingleChain) null
-        else {
+        if (isSingleChain) {
+            null
+        } else {
             val items = chains.map { chain ->
                 WSegmentedControllerItem(
                     PermissionsListVC(context, accountId, chain),
@@ -72,14 +76,16 @@ class PermissionsVC(context: Context) : WViewController(context) {
 
     // Shown only when the account has no eligible chains.
     private val emptyView: WEmptyIconTitleSubtitleView? by lazy {
-        if (singleChainVC == null && segmentedController == null)
+        if (singleChainVC == null && segmentedController == null) {
             WEmptyIconTitleSubtitleView(
                 context,
                 animation = R.raw.animation_empty,
                 title = LocaleController.getString("No Permissions"),
                 subtitle = LocaleController.getString("Nothing to revoke on this chain")
             )
-        else null
+        } else {
+            null
+        }
     }
 
     override fun setupViews() {
@@ -87,6 +93,7 @@ class PermissionsVC(context: Context) : WViewController(context) {
 
         singleChainVC?.let { listVC ->
             listVC.navigationController = navigationController
+            listVC.isDisappeared = false
             view.addView(
                 listVC.view,
                 ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
@@ -120,6 +127,7 @@ class PermissionsVC(context: Context) : WViewController(context) {
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+        singleChainVC?.updateTheme()
     }
 
     override fun insetsUpdated() {

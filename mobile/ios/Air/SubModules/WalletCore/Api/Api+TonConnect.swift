@@ -33,8 +33,8 @@ extension Api {
         )
     }
     
-    public static func signDappProof(dappChains: [ApiDappSessionChain], accountId: String, proof: ApiTonConnectProof, password: String?) async throws -> ApiSignDappProofResult {
-        let response = try await bridge.callApi("signDappProof", dappChains, accountId, proof, password, decoding: ApiSignDappProofResponse.self)
+    public static func signDappProof(dappChains: [ApiDappSessionChain], accountId: String, proof: ApiTonConnectProof, enclaveToken: EnclaveToken?) async throws -> ApiSignDappProofResult {
+        let response = try await bridge.callApi("signDappProof", dappChains, accountId, proof, enclaveToken, decoding: ApiSignDappProofResponse.self)
         if let signatures = response.signatures {
             return ApiSignDappProofResult(signatures: signatures)
         }
@@ -70,21 +70,21 @@ extension Api {
     /**
      * See https://docs.tonconsole.com/academy/sign-data for more details
      */
-    public static func signDappData(dappChain: ApiDappSessionChain, accountId: String, dappUrl: String, payloadToSign: SignDataPayload, password: String?) async throws -> ApiDappSignDataResult {
-        try await bridge.callApi("signDappData", dappChain, accountId, dappUrl, payloadToSign, password, decoding: ApiDappSignDataResult.self)
+    public static func signDappData(dappChain: ApiDappSessionChain, accountId: String, dappUrl: String, payloadToSign: SignDataPayload, enclaveToken: EnclaveToken?) async throws -> ApiDappSignDataResult {
+        return try await bridge.callApi("signDappData", dappChain, accountId, dappUrl, payloadToSign, enclaveToken, decoding: ApiDappSignDataResult.self)
     }
 }
 
 
 public struct ApiSignTransfersOptions: Encodable, Sendable {
-    public var password: String?
+    public var enclaveToken: EnclaveToken?
     public var vestingAddress: String?
     /** Unix seconds */
     public var validUntil: Int?
     public var isLegacyOutput: Bool?
     
-    public init(password: String?, vestingAddress: String?, validUntil: Int?, isLegacyOutput: Bool?) {
-        self.password = password
+    public init(enclaveToken: EnclaveToken?, vestingAddress: String?, validUntil: Int?, isLegacyOutput: Bool?) {
+        self.enclaveToken = enclaveToken
         self.vestingAddress = vestingAddress
         self.validUntil = validUntil
         self.isLegacyOutput = isLegacyOutput

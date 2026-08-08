@@ -4,10 +4,10 @@ import android.net.Uri
 import androidx.core.net.toUri
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
-import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
-import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
+import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 
 @JsonClass(generateAdapter = true)
 data class DeviceInfo(
@@ -19,10 +19,7 @@ data class DeviceInfo(
 ) {
     object Feature {
         @JsonClass(generateAdapter = true)
-        data class SendTransaction(
-            val name: String = "SendTransaction",
-            val maxMessages: Int
-        )
+        data class SendTransaction(val name: String = "SendTransaction", val maxMessages: Int)
     }
 }
 
@@ -39,9 +36,8 @@ enum class ApiDappUrlTrustStatus(val rawValue: String) {
     DANGEROUS("dangerous");
 
     companion object {
-        fun from(rawValue: String?): ApiDappUrlTrustStatus {
-            return entries.firstOrNull { it.rawValue == rawValue } ?: UNKNOWN
-        }
+        fun from(rawValue: String?): ApiDappUrlTrustStatus =
+            entries.firstOrNull { it.rawValue == rawValue } ?: UNKNOWN
     }
 }
 
@@ -57,6 +53,8 @@ data class ApiDapp(
     val legacyUrlEnsured: Boolean? = null,
     val sse: ApiSseOptions? = null,
     val protocolType: String? = null,
+    val wcTopic: String? = null,
+    val wcPairingTopic: String? = null,
     val chains: List<ApiDappSessionChain>? = null
 ) : IDapp {
     val host: String? = try {
@@ -74,9 +72,8 @@ data class ApiDapp(
             return ApiDappUrlTrustStatus.from(resolved)
         }
 
-    fun shouldShowurlTrustStatusWarning(): Boolean {
-        return resolvedUrlTrustStatus != ApiDappUrlTrustStatus.VERIFIED
-    }
+    fun shouldShowurlTrustStatusWarning(): Boolean =
+        resolvedUrlTrustStatus != ApiDappUrlTrustStatus.VERIFIED
 }
 
 @JsonClass(generateAdapter = true)
@@ -93,7 +90,7 @@ data class ApiTransferToSign(
     val amount: BigInteger,
     val rawPayload: String? = null,
     val payload: ApiParsedPayload? = null,
-    val stateInit: String? = null,
+    val stateInit: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -111,11 +108,7 @@ data class ApiDappTransfer(
 )
 
 @JsonClass(generateAdapter = true)
-data class ApiTonConnectProof(
-    val timestamp: Long,
-    val domain: String,
-    val payload: String
-)
+data class ApiTonConnectProof(val timestamp: Long, val domain: String, val payload: String)
 
 @JsonClass(generateAdapter = false)
 enum class ApiConnectionType {
@@ -140,6 +133,15 @@ sealed class ReturnStrategy {
                 return@lazy null
             }
             url.decodeUrlOrNull()?.toUriOrNull() ?: url.toUriOrNull()
+        }
+    }
+
+    companion object {
+        fun fromDeeplinkValue(value: String?): ReturnStrategy = when (value) {
+            null, "", "back" -> Back
+            "none" -> None
+            "empty" -> Empty
+            else -> Url(value)
         }
     }
 }

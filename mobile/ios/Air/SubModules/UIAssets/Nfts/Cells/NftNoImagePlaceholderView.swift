@@ -1,4 +1,5 @@
 import UIKit
+import UIComponents
 import WalletContext
 
 final class NftNoImagePlaceholderView: UIView {
@@ -21,12 +22,12 @@ final class NftNoImagePlaceholderView: UIView {
             }
         }
 
-        var labelFont: UIFont {
+        var textStyle: WTextStyle {
             switch self {
             case .regular:
-                .systemFont(ofSize: 20, weight: .bold)
+                .emptyStateTitle
             case .compact:
-                .systemFont(ofSize: 12, weight: .bold)
+                .captionBold
             }
         }
     }
@@ -52,7 +53,7 @@ final class NftNoImagePlaceholderView: UIView {
         stackView.spacing = style.spacing
         imageWidthConstraint.constant = style.imageSize
         imageHeightConstraint.constant = style.imageSize
-        titleLabel.font = style.labelFont
+        titleLabel.applyTextStyle(style.textStyle)
     }
 
     private func setupViews() {
@@ -66,7 +67,7 @@ final class NftNoImagePlaceholderView: UIView {
         imageView.alpha = 0.5
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        titleLabel.applyTextStyle(.emptyStateTitle)
         titleLabel.text = lang("No Image")
         titleLabel.textColor = .air.secondaryLabel
         titleLabel.textAlignment = .center

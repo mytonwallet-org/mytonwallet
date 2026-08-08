@@ -6,6 +6,11 @@ import { CHAIN_ORDER } from '../../util/chain';
 import { getMaxTransferAmount } from '../../util/fee/transferFee';
 import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { orderByPattern } from '../../util/iteratees';
+import {
+  getOffRampBaselineCurrencies,
+  getOnRampBaselineCurrencies,
+  hasEffectiveRampCurrency,
+} from '../../util/ramp-currencies';
 import { getChainBySlug, getIsNativeToken } from '../../util/tokens';
 import { selectCurrentAccount } from './accounts';
 import {
@@ -104,11 +109,48 @@ function selectBestChainTokenSlow(global: GlobalState, chain: ApiChain, currentT
   return selectChainTokenWithMaxBalanceSlow(global, chain);
 }
 
-export function selectIsOffRampAllowed(global: GlobalState, chain?: ApiChain) {
-  const { settings: { isTestnet }, restrictions: { isOffRampDisabled } } = global;
+export function selectAllowedOnOffRampCurrencies(global: GlobalState) {
+  return global.restrictions.allowedOnOffRampCurrencies;
+}
+
+/**
+ * Both gates take the chain rather than defaulting to "any chain": an entry point that carries no chain of its own
+ * still opens one, and a union answer is how a button ends up offered on an account whose click then declines.
+ * Chainless callers ask `selectDefaultOnRampChain` first, which is that question asked about the actual account.
+ */
+export function selectIsOnRampAllowed(global: GlobalState, chain: ApiChain) {
+  const { settings: { isTestnet }, restrictions: { isOnRampDisabled, allowedOnOffRampCurrencies } } = global;
+
+  if (isTestnet || isOnRampDisabled) return false;
+  if (!getChainConfig(chain).isOnRampSupported) return false;
+
+  return hasEffectiveRampCurrency(getOnRampBaselineCurrencies(chain), allowedOnOffRampCurrencies);
+}
+
+export function selectIsOffRampAllowed(global: GlobalState, chain: ApiChain) {
+  const { settings: { isTestnet }, restrictions: { isOffRampDisabled, allowedOnOffRampCurrencies } } = global;
 
   if (isTestnet || isOffRampDisabled) return false;
-  if (chain && !getChainConfig(chain).isOffRampSupported) return false;
+  if (!getChainConfig(chain).isOffRampSupported) return false;
 
-  return true;
+  return hasEffectiveRampCurrency(getOffRampBaselineCurrencies(chain), allowedOnOffRampCurrencies);
+}
+
+/**
+ * The chain an entry point that carries no chain of its own ends up buying on: the account's first chain the ramp
+ * actually serves. Answering with the first chain outright would hide the button on an account whose leading chain
+ * is unserved while a servable one sits further down. Absent means the account has nothing to buy on, which is the
+ * only thing such an entry point has to check - it cannot disagree with the click it opens.
+ */
+export function selectDefaultOnRampChain(global: GlobalState) {
+  const byChain = selectCurrentAccount(global)?.byChain;
+
+  return byChain && CHAIN_ORDER.find((chain) => byChain[chain] && selectIsOnRampAllowed(global, chain));
+}
+
+/** Off-ramp counterpart of `selectDefaultOnRampChain`, which sells whatever the last transfer was denominated in */
+export function selectDefaultOffRampChain(global: GlobalState): ApiChain {
+  const { tokenSlug } = global.currentTransfer;
+
+  return tokenSlug ? getChainBySlug(tokenSlug) : 'ton';
 }

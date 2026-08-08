@@ -2,7 +2,7 @@ import type { TeactNode } from '../../../../lib/teact/teact';
 import React, { memo, useMemo } from '../../../../lib/teact/teact';
 
 import type { ApiChain } from '../../../../api/types';
-import type { AccountChain } from '../../../../global/types';
+import type { Account } from '../../../../global/types';
 
 import buildClassName from '../../../../util/buildClassName';
 import { shortenAddress } from '../../../../util/shortenAddress';
@@ -16,13 +16,11 @@ import styles from './Card.module.scss';
 
 interface OwnProps {
   chains: ApiChain[];
-  byChain: Map<ApiChain, AccountChain & {
-    balance: number;
-  }>;
+  byChain: Account['byChain'];
   withTextGradient?: boolean;
   isMinimized?: boolean;
   isTinyFormat?: boolean;
-  openMenu: NoneToVoidFunction;
+  toggleMenu: NoneToVoidFunction;
   onLongPress?: (chain: ApiChain, address: string, domain?: string) => void;
   onMouseEnter?: NoneToVoidFunction;
   onMouseLeave?: NoneToVoidFunction;
@@ -40,7 +38,7 @@ function AddressMenuButton({
   withTextGradient,
   isMinimized,
   isTinyFormat,
-  openMenu,
+  toggleMenu,
   onLongPress,
   onMouseEnter,
   onMouseLeave,
@@ -50,7 +48,7 @@ function AddressMenuButton({
   if (!chain) return undefined;
 
   const isMultiChain = chains.length > 1;
-  const { domain, address } = byChain.get(chain) ?? {};
+  const { domain, address } = byChain[chain] ?? {};
 
   const handleLongPressStart = useLastCallback((target: HTMLElement) => {
     const el = target.closest<HTMLElement>('[data-chain]');
@@ -60,13 +58,13 @@ function AddressMenuButton({
   });
 
   const longPressHandlers = useLongPress({
-    onClick: openMenu,
+    onClick: toggleMenu,
     onStart: handleLongPressStart,
   });
 
-  const handleMouseLeave = useLastCallback((e: React.MouseEvent) => {
+  const handleMouseLeave = useLastCallback(() => {
     onMouseLeave?.();
-    longPressHandlers.onMouseLeave(e);
+    longPressHandlers.onMouseLeave();
   });
 
   const multiChainButtonContent = useMemo(() => {
@@ -77,7 +75,7 @@ function AddressMenuButton({
     const chainsLength = renderedChains.length;
 
     renderedChains.forEach((chainItem, index) => {
-      const { domain: chainDomain, address: chainAddress } = byChain.get(chainItem)!;
+      const { domain: chainDomain, address: chainAddress } = byChain[chainItem]!;
       const shouldRenderAddress = index < ADDRESS_CHAINS_COUNT;
       const domainLength = isTinyFormat ? MULTICHAIN_DOMAIN_LENGTH_TINY : MULTICHAIN_DOMAIN_LENGTH;
       const addressLength = isTinyFormat

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uistake.staking.views
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.text.TextUtils
@@ -11,6 +10,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.HighlightGradientBackground
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -21,12 +21,13 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
+import org.mytonwallet.app_air.walletcore.moshi.StakingState
 
 @SuppressLint("ViewConstructor")
-class StakeDetailView(
-    context: Context,
-    onWhySafeClick: (() -> Unit)? = null
-) : WLinearLayout(context), WThemedView {
+class StakeDetailView(context: Context, onWhySafeClick: (() -> Unit)? = null) :
+    WLinearLayout(context),
+    WThemedView {
 
     private val apyRow: WView by lazy {
         val wView = WView(
@@ -59,7 +60,8 @@ class StakeDetailView(
 
     private val earningRow: WView by lazy {
         val wView = WView(
-            context, layoutParams = ConstraintLayout.LayoutParams(
+            context,
+            layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
                 50.dp
             )
@@ -102,7 +104,8 @@ class StakeDetailView(
 
     private val tvlRow: WView by lazy {
         WView(
-            context, layoutParams = ConstraintLayout.LayoutParams(
+            context,
+            layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
                 50.dp
             )
@@ -127,7 +130,8 @@ class StakeDetailView(
 
     private val stakersRow: WView by lazy {
         WView(
-            context, layoutParams = ConstraintLayout.LayoutParams(
+            context,
+            layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
                 50.dp
             )
@@ -152,7 +156,8 @@ class StakeDetailView(
 
     private val whySafeRow: WView by lazy {
         val wView = WView(
-            context, layoutParams = ConstraintLayout.LayoutParams(
+            context,
+            layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
                 50.dp
             )
@@ -268,7 +273,7 @@ class StakeDetailView(
             decimals = 0,
             currency = "GRAM",
             currencyDecimals = 0,
-            smartDecimals = false,
+            smartDecimals = false
         )
     }
 
@@ -282,22 +287,23 @@ class StakeDetailView(
             decimals = 0,
             currency = "",
             currencyDecimals = 0,
-            smartDecimals = false,
+            smartDecimals = false
         )
     }
 
     @SuppressLint("SetTextI18n")
-    fun setApy(apyAmount: String) {
+    fun setApy(apyAmount: String, yieldType: StakingState.YieldType?) {
+        apyStartLabel.text = LocaleController.getString(
+            if (yieldType == StakingState.YieldType.APR) "Current APR" else "Current APY"
+        )
         if (apyAmount.isBlank()) {
             apyEndLabel.text = ""
             apyEndLabel.visibility = GONE
             return
         }
 
-        apyEndLabel.text = "$apyAmount%"
+        apyEndLabel.text = "‭$apyAmount%".withLocalizedNumbers
         apyEndLabel.background = HighlightGradientBackgroundDrawable(isHighlighted = true)
         apyEndLabel.visibility = VISIBLE
     }
-
-
 }

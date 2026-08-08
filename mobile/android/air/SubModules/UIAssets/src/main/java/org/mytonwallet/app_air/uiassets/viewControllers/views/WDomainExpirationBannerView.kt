@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uiassets.viewControllers.views
 
 import android.annotation.SuppressLint
@@ -9,7 +11,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isInvisible
-import org.mytonwallet.app_air.uicomponents.R
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
@@ -26,11 +29,11 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WDomainExpirationBannerView(context: Context) :
-    WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     companion object {
         private const val IMAGE_SIZE = 28
@@ -65,7 +68,7 @@ class WDomainExpirationBannerView(context: Context) :
         setLineHeight(18f)
         setTextColor(WColor.White)
         val arrow = context.getDrawableCompat(
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_16_24
+            R.drawable.ic_arrow_right_16_24
         )?.mutate()?.resize(context, 12.dp, 18.dp, WColor.White.color)
         setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, arrow, null)
         compoundDrawablePadding = (-2).dp
@@ -125,8 +128,7 @@ class WDomainExpirationBannerView(context: Context) :
     }
 
     fun configure(iconNfts: List<ApiNft>, count: Int, minDays: Int) {
-        if (count == 0)
-            return
+        if (count == 0) return
 
         ripple.backgroundColor = WColor.Red.color.colorWithAlpha(204)
 
@@ -181,8 +183,7 @@ class WDomainExpirationBannerView(context: Context) :
     private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
+        if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
 
         val foregroundBorderDrawable = GradientDrawable().apply {

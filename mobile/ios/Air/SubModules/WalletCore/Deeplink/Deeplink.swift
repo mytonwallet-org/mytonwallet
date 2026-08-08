@@ -9,6 +9,7 @@ public enum Deeplink {
     case send(chain: ApiChain, address: String, amount: BigInt?, comment: String?, binaryPayload: String?, tokenSlug: String?, stateInit: String?)
     case swap(from: String?, to: String?, amountIn: Double?)
     case buyWithCard
+    case sellOnCard
     case sell(Sell)
     case stake
     case portfolio

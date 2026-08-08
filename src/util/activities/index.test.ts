@@ -58,4 +58,46 @@ describe('getIsHiddenNftActivity', () => {
     const activity = makeMockTransactionActivity({ nft: undefined });
     expect(getIsHiddenNftActivity(activity, [BLACKLISTED_ADDRESS], [])).toBe(false);
   });
+
+  it('hides an incoming unverified NFT when the setting is on', () => {
+    const activity = makeMockTransactionActivity({ isIncoming: true, nft: makeNft({ isUnverified: true }) });
+    expect(getIsHiddenNftActivity(activity, [], [], true)).toBe(true);
+  });
+
+  it('keeps an outgoing unverified NFT, because the user authored the transfer', () => {
+    const activity = makeMockTransactionActivity({ isIncoming: false, nft: makeNft({ isUnverified: true }) });
+    expect(getIsHiddenNftActivity(activity, [], [], true)).toBe(false);
+  });
+
+  // For `nftTrade` the `isIncoming` flag shows the TONCOIN direction, so a sale looks like an incoming transfer
+  it('keeps an unverified NFT sold on a marketplace', () => {
+    const activity = makeMockTransactionActivity({
+      isIncoming: true,
+      type: 'nftTrade',
+      nft: makeNft({ isUnverified: true }),
+    });
+    expect(getIsHiddenNftActivity(activity, [], [], true)).toBe(false);
+  });
+
+  it('keeps an unverified NFT bought on a marketplace', () => {
+    const activity = makeMockTransactionActivity({
+      isIncoming: false,
+      type: 'nftTrade',
+      nft: makeNft({ isUnverified: true }),
+    });
+    expect(getIsHiddenNftActivity(activity, [], [], true)).toBe(false);
+  });
+
+  it('keeps an unverified NFT when the setting is off', () => {
+    const activity = makeMockTransactionActivity({ isIncoming: true, nft: makeNft({ isUnverified: true }) });
+    expect(getIsHiddenNftActivity(activity, [], [], false)).toBe(false);
+  });
+
+  it('keeps an unverified NFT that the user whitelisted', () => {
+    const activity = makeMockTransactionActivity({
+      isIncoming: true,
+      nft: makeNft({ address: WHITELISTED_ADDRESS, isUnverified: true }),
+    });
+    expect(getIsHiddenNftActivity(activity, [], [WHITELISTED_ADDRESS], true)).toBe(false);
+  });
 });

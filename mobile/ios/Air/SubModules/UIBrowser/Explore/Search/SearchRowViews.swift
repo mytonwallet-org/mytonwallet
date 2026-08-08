@@ -13,14 +13,14 @@ struct SearchSectionHeaderView: View {
     var body: some View {
         HStack(spacing: 0) {
             Text(header.title)
-                .font(.system(size: 15, weight: .semibold))
+                .textStyle(.subheadlineStrong)
                 .foregroundStyle(Color.air.secondaryLabel)
 
             if let action = header.action {
                 Spacer(minLength: 8)
                 Button(action: action.handler) {
                     Text(action.title)
-                        .font(.system(size: 15, weight: .regular))
+                        .textStyle(.subheadline)
                         .foregroundStyle(Color.air.secondaryLabel)
                 }
                 .buttonStyle(.plain)
@@ -127,10 +127,10 @@ struct SuggestedSiteRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .medium))
+                    .textStyle(.bodyEmphasized)
                     .lineLimit(1)
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .textStyle(.caption)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
             }
@@ -202,30 +202,23 @@ struct WalletTopMatchRow: View {
         VStack(alignment: .leading, spacing: 3) {
             if let name = name?.nilIfEmpty {
                 Text(name)
-                    .font(.system(size: 17, weight: .medium))
+                    .textStyle(.bodyEmphasized)
                     .lineLimit(1)
                     .truncationMode(.middle)
             } else {
                 MiddleTruncatedText(
                     address,
-                    font: .systemFont(ofSize: 17, weight: .medium),
+                    font: WTypography.uiFont(.bodyEmphasized, content: .technical),
                     separatorColor: .air.secondaryLabel
                 )
             }
 
             Text(subtitle)
-                .font(.system(size: 12))
+                .textStyle(.caption, content: hasFullInfo ? .technical : .default)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-    }
-
-    private var title: String {
-        if let name = name?.nilIfEmpty {
-            return name
-        }
-        return address
     }
 
     private var subtitle: String {
@@ -309,7 +302,7 @@ struct MyWalletRow: View {
     private var labels: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(size: 17, weight: .medium))
+                .textStyle(.bodyEmphasized, content: name?.nilIfEmpty == nil ? .technical : .default)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
@@ -352,7 +345,7 @@ private struct SearchResultItemLabels: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 2) {
                 Text(item.name)
-                    .font(.system(size: 17, weight: .medium))
+                    .textStyle(.bodyEmphasized)
                     .lineLimit(1)
                 if item.shouldOpenExternally {
                     Image.airBundle("TelegramLogo20")
@@ -364,7 +357,7 @@ private struct SearchResultItemLabels: View {
             }
 
             Text(item.subtitle)
-                .font(.system(size: 12))
+                .textStyle(.caption, content: item.subtitleUsesTechnicalFont ? .technical : .default)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
         }
@@ -380,7 +373,7 @@ private struct SearchResultItemIcon: View {
     var body: some View {
         if case .history = item.source, !item.showFavicon {
             Image(systemName: "clock")
-                .font(.system(size: 18, weight: .regular))
+                .textStyle(.symbol, content: .technical)
                 .foregroundStyle(Color.air.primaryLabel)
                 .frame(width: iconSize, height: iconSize)
         } else {
@@ -414,12 +407,12 @@ struct RecentSearchItemRow: View {
 
         HStack(spacing: 8) {
             Image(systemName: iconName)
-                .font(.system(size: 16, weight: .regular))
+                .textStyle(.callout, content: .technical)
                 .foregroundStyle(Color.air.primaryLabel)
                 .frame(width: iconSize, height: iconSize)
 
             Text(text)
-                .font(.system(size: 17, weight: .regular))
+                .textStyle(.body)
                 .foregroundStyle(Color.air.primaryLabel)
                 .lineLimit(1)
 
@@ -448,18 +441,18 @@ struct SuggestedSearchItemRow: View {
         
         HStack(spacing: 8) {
             Image(systemName: "clock")
-                .font(.system(size: 18, weight: .regular))
+                .textStyle(.symbol, content: .technical)
                 .foregroundStyle(Color.air.primaryLabel)
                 .frame(width: iconSize, height: iconSize)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(text)
-                    .font(.system(size: 17, weight: .regular))
+                    .textStyle(.body)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
 
                 Text(SearchDateFormatting.relativeString(for: visitDate))
-                    .font(.system(size: 12))
+                    .textStyle(.caption)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
             }

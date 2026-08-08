@@ -30,4 +30,8 @@
   --translate-x: -50%;
 
   overflow: visible !important;
+
+  :global(html[dir="rtl"]) & {
+    --translate-x: 50%;
+  }
 }

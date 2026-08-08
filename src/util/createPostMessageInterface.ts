@@ -32,15 +32,16 @@ bindGlobalErrorListeners();
 export function createPostMessageInterface(
   api: ApiConfig,
   channel?: string,
-  target: DedicatedWorkerGlobalScope | Worker = self as DedicatedWorkerGlobalScope,
+  target: DedicatedWorkerGlobalScope | Worker | Window = self as DedicatedWorkerGlobalScope,
   shouldIgnoreErrors?: boolean,
+  allowedOrigin?: string,
 ) {
   let unsubscribeErrorHandler: VoidFunction | undefined;
 
   function sendToOrigin(data: WorkerMessageData, transferables?: Transferable[]) {
     data.channel = channel;
 
-    if (transferables) {
+    if (transferables && !('open' in target)) {
       target.postMessage(data, transferables);
     } else {
       target.postMessage(data);
@@ -52,6 +53,10 @@ export function createPostMessageInterface(
   }
 
   function handleMessage(e: OriginMessageEvent) {
+    // When listening on a shared Window (e.g. the Enclave), only same-origin callers are trusted;
+    // a cross-origin dApp iframe reaching `window.parent` posts with its own origin and is rejected
+    if (allowedOrigin && e.origin !== allowedOrigin) return;
+
     if (e.data?.channel === channel) {
       void onMessage(api, e.data, sendToOrigin);
     }

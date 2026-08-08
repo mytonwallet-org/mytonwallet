@@ -2,6 +2,7 @@ import type { ElementRef } from '../../lib/teact/teact';
 import React, { memo, useState } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
+import { toNativeDigits } from '../../util/nativeDigits';
 import { REM } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from '../main/helpers/calcSafeAreaTop';
 
@@ -82,7 +83,7 @@ function Header({
           aria-hidden={!isTitleAlwaysVisible}
           className={buildClassName(styles.title, (isTitleAlwaysVisible || isTitleVisible) && styles.titleVisible)}
         >
-          {title}
+          {toNativeDigits(title)}
         </div>
       )}
     </div>

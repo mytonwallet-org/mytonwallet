@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisend.send
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -20,6 +19,9 @@ import androidx.core.text.inSpans
 import androidx.core.view.isGone
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
@@ -32,6 +34,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
@@ -62,26 +65,26 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class SellVC(
     context: Context,
     private val initialTokenSlug: String? = null,
-    private val initialValues: InitialValues? = null,
-) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
+    private val initialValues: InitialValues? = null
+) : WViewControllerWithModelStore(context),
+    WalletCore.EventObserver {
 
     data class InitialValues(
         val address: String?,
         val amount: String? = null,
-        val comment: String? = null,
+        val comment: String? = null
     )
 
+    @Suppress("PropertyName")
     override val TAG = "Sell"
 
     override val displayedAccount =
@@ -227,7 +230,8 @@ class SellVC(
             topToBottom(scrollView, navigationBar!!)
             bottomToTop(scrollView, confirmButton, 20f)
             toBottomPx(
-                confirmButton, 20.dp + max(
+                confirmButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -376,7 +380,16 @@ class SellVC(
             Logger.LogTag.SEND,
             "confirmHardware: Confirming sell with hardware wallet slug=${viewModel.getTokenSlug()}"
         )
-        val transferOptions = viewModel.getTransferOptions(config, "")
+        val preparation = viewModel.prepareTransfer(config, "")
+        if (preparation !is SendViewModel.TransferPreparation.Ready) {
+            Logger.e(
+                Logger.LogTag.SEND,
+                "Hardware sell blocked: resolved destination is missing"
+            )
+            showError(null)
+            return
+        }
+        val transferOptions = preparation.options
         confirmButton.lockView()
         val account = AccountStore.activeAccount ?: run {
             confirmButton.unlockView()
@@ -393,7 +406,8 @@ class SellVC(
                 ),
                 onDone = {
                     onTransferConfirmed(config, null)
-                }),
+                }
+            ),
             headerView = PasscodeHeaderSendView(
                 WeakReference(this),
                 (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
@@ -447,15 +461,36 @@ class SellVC(
             }
             val password = passcode ?: return@launch
             try {
-                val id = viewModel.callSend(config, password).activityId
+                val preparation = viewModel.prepareTransfer(config, password)
+                if (preparation !is SendViewModel.TransferPreparation.Ready) {
+                    Logger.e(
+                        Logger.LogTag.SEND,
+                        "Sell submission blocked: resolved destination is missing"
+                    )
+                    showSubmissionError(null)
+                    return@launch
+                }
+                val id = viewModel.callSend(preparation).activityId
                 sentActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
                 receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }?.let {
                     checkReceivedActivity(it)
                 }
             } catch (e: JSWebViewBridge.ApiError) {
-                showError(e.parsed)
+                showSubmissionError(e.parsed)
             }
         }
+    }
+
+    private fun showSubmissionError(error: MBridgeError?) {
+        val navigationController = navigationController
+        val previousViewController = navigationController?.viewControllers
+            ?.getOrNull(navigationController.viewControllers.size - 2)
+        if (previousViewController == null) {
+            showError(error)
+            return
+        }
+        previousViewController.showError(error)
+        navigationController.pop(true)
     }
 
     override fun updateTheme() {
@@ -463,13 +498,18 @@ class SellVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
 
         val topRoundedItems = listOf(
-            title1, title2, title3
+            title1,
+            title2,
+            title3
         )
         val bottomRoundedItems = listOf(
-            addressInputView, amountInfoView, commentInputView
+            addressInputView,
+            amountInfoView,
+            commentInputView
         )
         val primaryTextColored = listOf(
-            addressInputView, commentInputView
+            addressInputView,
+            commentInputView
         )
 
         topRoundedItems.forEach {
@@ -505,7 +545,8 @@ class SellVC(
             setMargin(confirmButton.id, ConstraintSet.START, 20.dp + systemBarStartInset)
             setMargin(confirmButton.id, ConstraintSet.END, 20.dp + systemBarEndInset)
             toBottomPx(
-                confirmButton, 20.dp + max(
+                confirmButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -634,7 +675,8 @@ class SellVC(
         }
 
         val txMatch =
-            receivedActivity is MApiTransaction.Transaction && sentActivityId == receivedActivity.getTxHash()
+            receivedActivity is MApiTransaction.Transaction &&
+                sentActivityId == receivedActivity.getTxHash()
         if (!txMatch) {
             return
         }

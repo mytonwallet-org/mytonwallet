@@ -28,7 +28,7 @@ struct UseResponsiblyView: View {
             WUIAnimatedSticker("animation_snitch", size: 96, loop: false)
                 .frame(width: 96, height: 96)
             Text(lang("Use Responsibly"))
-                .font(.system(size: 28, weight: .semibold))
+                .textStyle(.screenTitle)
                 .accessibilityAddTraits(.isHeader)
         }
         .environment(\.openURL, OpenURLAction { url in

@@ -34,7 +34,7 @@ public class WAddressInput: UIView {
     public lazy var textView: UITextView = {
         let tv = UITextView()
         tv.translatesAutoresizingMaskIntoConstraints = false
-        tv.font = .systemFont(ofSize: 17)
+        tv.applyTextStyle(.body, content: .technical)
         tv.textContainerInset = UIEdgeInsets(top: 11, left: 16, bottom: 11, right: 16)
         tv.textContainer.lineBreakMode = .byCharWrapping
         return tv
@@ -45,7 +45,7 @@ public class WAddressInput: UIView {
         v.translatesAutoresizingMaskIntoConstraints = false
         let pasteButton = UIButton(type: .system)
         pasteButton.setTitle("Paste", for: .normal)
-        pasteButton.titleLabel?.font = .systemFont(ofSize: 17)
+        pasteButton.titleLabel?.applyTextStyle(.body)
         pasteButton.addTarget(self, action: #selector(pastePressed), for: .touchUpInside)
         pasteButton.translatesAutoresizingMaskIntoConstraints = false
         v.addSubview(pasteButton)
@@ -90,7 +90,7 @@ public class WAddressInput: UIView {
 
         addSubview(textFieldOptionsView)
         NSLayoutConstraint.activate([
-            textFieldOptionsView.rightAnchor.constraint(equalTo: rightAnchor, constant: -10),
+            textFieldOptionsView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             textFieldOptionsView.centerYAnchor.constraint(equalTo: textView.centerYAnchor)
         ])
         
@@ -140,4 +140,3 @@ extension WAddressInput: UITextViewDelegate {
         onFocusChange?(false)
     }
 }
-

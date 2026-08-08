@@ -26,7 +26,7 @@ class HomeAssetsVCPool(
     private val context: Context,
     private val window: WWindow,
     private val navigationController: WNavigationController,
-    private var accountId: String,
+    private var accountId: String
 ) {
     var host: IHomeAssetsHost? = null
 
@@ -37,7 +37,7 @@ class HomeAssetsVCPool(
             TokensVC.Mode.HOME,
             onHeightChanged = { host?.onVcHeightChanged() },
             onAssetsShown = { host?.onVcAssetsShown(tokensVC) },
-            onScroll = { host?.onVcScroll(tokensVC) },
+            onScroll = { host?.onVcScroll(tokensVC) }
         ).apply {
             navigationController = this@HomeAssetsVCPool.navigationController
         }
@@ -55,7 +55,7 @@ class HomeAssetsVCPool(
             onScroll = { host?.onVcScroll(collectiblesVC) },
             onReorderingRequested = { host?.requestReordering(true) },
             onNftsShown = { host?.onVcNftsShown(collectiblesVC) },
-            shouldAnimateHeight = { host?.areAssetsShown == true },
+            shouldAnimateHeight = { host?.areAssetsShown == true }
         ).apply {
             navigationController = this@HomeAssetsVCPool.navigationController
         }
@@ -79,7 +79,7 @@ class HomeAssetsVCPool(
             onScroll = { host?.onVcScroll(vc) },
             onReorderingRequested = { host?.requestReordering(true) },
             onNftsShown = { host?.onVcNftsShown(vc) },
-            shouldAnimateHeight = { host?.areAssetsShown == true },
+            shouldAnimateHeight = { host?.areAssetsShown == true }
         ).apply {
             navigationController = this@HomeAssetsVCPool.navigationController
         }

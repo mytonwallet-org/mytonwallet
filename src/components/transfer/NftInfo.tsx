@@ -90,7 +90,7 @@ function NftInfo({
             {
               withTonExplorer && (
                 <i
-                  className={buildClassName(styles.icon, 'icon-tonexplorer-small')}
+                  className={buildClassName(styles.icon, 'icon-explorer-small')}
                   onClick={handleClickInfo}
                   title={tonExplorerTitle}
                   aria-label={tonExplorerTitle}

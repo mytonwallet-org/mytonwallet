@@ -10,9 +10,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 
-class PieLegendView(
-    context: Context
-) : LegendSignatureView(context) {
+class PieLegendView(context: Context) : LegendSignatureView(context) {
     private val root: LinearLayout
     private var signature: TextView? = null
     private var value: TextView? = null
@@ -69,7 +67,8 @@ class PieLegendView(
         } else {
             "$percentagePrefix $name"
         }
-        this.value?.text = valueFormatter?.formatLegendValue(value, this.value!!.paint) ?: value.toString()
+        this.value?.text =
+            valueFormatter?.formatLegendValue(value, this.value!!.paint) ?: value.toString()
         this.value?.setTextColor(color)
     }
 

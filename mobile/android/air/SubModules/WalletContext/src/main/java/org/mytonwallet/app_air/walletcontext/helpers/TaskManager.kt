@@ -9,8 +9,7 @@ class TaskManager {
     private var workRunnable: Runnable? = null
 
     fun startTaskIfEmpty(task: () -> Unit, delayMillis: Long) {
-        if (workRunnable != null)
-            return
+        if (workRunnable != null) return
         startTask(task, delayMillis)
     }
 

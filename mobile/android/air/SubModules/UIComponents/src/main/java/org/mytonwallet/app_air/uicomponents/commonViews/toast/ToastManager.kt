@@ -1,6 +1,8 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.toast
 
 import androidx.annotation.DrawableRes
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -9,8 +11,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 object ToastManager {
 

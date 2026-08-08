@@ -34,10 +34,10 @@ extension Api {
     public static func installMfaFromRequest(
         accountId: String,
         user: AccountMfa.User,
-        password: String?
+        enclaveToken: EnclaveToken?
     ) async throws -> String {
         do {
-            return try await bridge.callApi("installMfaFromRequest", accountId, user, password, decoding: String.self)
+            return try await bridge.callApi("installMfaFromRequest", accountId, user, enclaveToken, decoding: String.self)
         } catch {
             log.error("installMfaFromRequest failed: \(error, .public)")
             throw error
@@ -46,10 +46,10 @@ extension Api {
 
     public static func publishRemoveMfaRequest(
         accountId: String,
-        password: String?
+        enclaveToken: EnclaveToken?
     ) async throws -> ApiMfaRequestCreated {
         do {
-            return try await bridge.callApi("publishRemoveMfaRequest", accountId, password, decoding: ApiMfaRequestCreated.self)
+            return try await bridge.callApi("publishRemoveMfaRequest", accountId, enclaveToken, decoding: ApiMfaRequestCreated.self)
         } catch {
             log.error("publishRemoveMfaRequest failed: \(error, .public)")
             throw error
@@ -65,18 +65,18 @@ extension Api {
         }
     }
 
-    public static func createDappConnectMfaRequest(accountId: String, password: String?) async throws -> ApiMfaProtectedResult {
+    public static func createDappConnectMfaRequest(accountId: String, enclaveToken: EnclaveToken?) async throws -> ApiMfaProtectedResult {
         do {
-            return try await bridge.callApi("createDappConnectMfaRequest", accountId, password, decoding: ApiMfaProtectedResult.self)
+            return try await bridge.callApi("createDappConnectMfaRequest", accountId, enclaveToken, decoding: ApiMfaProtectedResult.self)
         } catch {
             log.error("createDappConnectMfaRequest failed: \(error, .public)")
             throw error
         }
     }
 
-    public static func refreshMfaState(accountId: String, password: String?) async throws -> ApiRefreshMfaStateResult {
+    public static func refreshMfaState(accountId: String, enclaveToken: EnclaveToken?) async throws -> ApiRefreshMfaStateResult {
         do {
-            let result = try await bridge.callApi("refreshMfaState", accountId, password, decoding: ApiRefreshMfaStateResult.self)
+            let result = try await bridge.callApi("refreshMfaState", accountId, enclaveToken, decoding: ApiRefreshMfaStateResult.self)
             log.info("[mfa] refreshMfaState \(result.mfa != nil ? "set" : "delete", .public) changed: \(result.changed, .public)")
             return result
         } catch {

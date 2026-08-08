@@ -1,4 +1,5 @@
 import { TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../config';
+import { getIsNftVisible } from '../../helpers/nfts';
 import { addActionHandler, setGlobal } from '../../index';
 import {
   addToSelectedNfts,
@@ -46,17 +47,18 @@ addActionHandler('selectAllNfts', (global, actions, { collectionAddress }) => {
   const {
     blacklistedNftAddresses,
     whitelistedNftAddresses,
-  } = selectAccountState(global, accountId) || {};
+    nfts: accountNfts,
+  } = selectAccountState(global, accountId)!;
+  const { areUnverifiedNftsHidden } = global.settings;
 
-  const whitelistedNftAddressesSet = new Set(whitelistedNftAddresses);
-  const blacklistedNftAddressesSet = new Set(blacklistedNftAddresses);
-  const { nfts: accountNfts } = selectAccountState(global, accountId)!;
+  const blacklistedSet = new Set(blacklistedNftAddresses);
+  const whitelistedSet = new Set(whitelistedNftAddresses);
 
-  const nfts = Object.values(accountNfts!.byAddress!).filter((nft) => (
-    !nft.isHidden || whitelistedNftAddressesSet.has(nft.address)
-  ) && !blacklistedNftAddressesSet.has(nft.address) && (
-    collectionAddress === undefined || (nft.collectionAddress === collectionAddress)
-  ));
+  const nfts = Object.values(accountNfts!.byAddress!).filter((nft) => {
+    if (collectionAddress !== undefined && nft.collectionAddress !== collectionAddress) return false;
+
+    return getIsNftVisible(nft, blacklistedSet, whitelistedSet, areUnverifiedNftsHidden);
+  });
 
   global = updateAccountState(global, accountId, {
     nfts: {

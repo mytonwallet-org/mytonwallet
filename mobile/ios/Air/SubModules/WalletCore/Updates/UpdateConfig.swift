@@ -30,6 +30,7 @@ extension ApiUpdate {
         public var seasonalTheme: SeasonalTheme?
         public var knowledgeBaseVersion: String?
         public var preferredAgent: PreferredAgent?
+        public var allowedOnOffRampCurrencies: [String]?
 
         private enum CodingKeys: String, CodingKey {
             case type
@@ -41,6 +42,7 @@ extension ApiUpdate {
             case seasonalTheme
             case knowledgeBaseVersion
             case preferredAgent
+            case allowedOnOffRampCurrencies
         }
 
         public init(from decoder: Decoder) throws {
@@ -54,6 +56,8 @@ extension ApiUpdate {
             seasonalTheme = try? container.decodeIfPresent(SeasonalTheme.self, forKey: .seasonalTheme)
             knowledgeBaseVersion = try? container.decodeIfPresent(String.self, forKey: .knowledgeBaseVersion)
             preferredAgent = try? container.decodeIfPresent(PreferredAgent.self, forKey: .preferredAgent)
+            // A malformed value must read as an absent field: on iOS that is the fail-closed branch.
+            allowedOnOffRampCurrencies = try? container.decodeIfPresent([String].self, forKey: .allowedOnOffRampCurrencies)
         }
     }
 }

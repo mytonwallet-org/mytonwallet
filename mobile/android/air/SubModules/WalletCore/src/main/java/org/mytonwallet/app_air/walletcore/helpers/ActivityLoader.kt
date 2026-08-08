@@ -3,6 +3,8 @@ package org.mytonwallet.app_air.walletcore.helpers
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
+import java.util.concurrent.Executors
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.utils.isChanged
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -10,8 +12,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
-import java.lang.ref.WeakReference
-import java.util.concurrent.Executors
 
 // Interface ///////////////////////////////////////////////////////////////////////////////////
 interface IActivityLoader {
@@ -29,6 +29,12 @@ interface IActivityLoader {
     fun useBudgetTransactions()
     fun clean()
 }
+
+internal fun <T> mergeUniqueActivitySources(
+    indexedActivities: List<T>,
+    temporaryActivities: List<T>,
+    getId: (T) -> String
+): List<T> = (indexedActivities + temporaryActivities).distinctBy(getId)
 
 /**
  * ActivityLoader manages the pagination and display of activities for a specific account/token.
@@ -54,7 +60,8 @@ class ActivityLoader(
     override val accountId: String,
     private val selectedSlug: String?,
     private var delegate: WeakReference<IActivityLoader.Delegate>?
-) : IActivityLoader, WalletCore.EventObserver {
+) : IActivityLoader,
+    WalletCore.EventObserver {
 
     companion object {
         private const val MIN_BUDGET_SIZE = 60
@@ -63,7 +70,7 @@ class ActivityLoader(
     // State ///////////////////////////////////////////////////////////////////////////////////////
     // Current state of budget (pre-fetch) operations
     private sealed class BudgetState {
-        data object Idle : BudgetState()      // No budget operation in progress
+        data object Idle : BudgetState() // No budget operation in progress
         data object Preparing : BudgetState() // Currently fetching budget transactions
         data object Consuming : BudgetState() // Currently moving budget to showing list
     }
@@ -174,6 +181,7 @@ class ActivityLoader(
     }
 
     // Budget (Pre-fetch) Management ///////////////////////////////////////////////////////////////
+
     /**
      * Pre-fetch the next page of activities for smooth scrolling.
      *
@@ -187,8 +195,7 @@ class ActivityLoader(
         // Guard: Don't prepare if already in progress
         if (budgetState == BudgetState.Preparing) return false
 
-        if (!shouldFetchMoreBudget())
-            return false
+        if (!shouldFetchMoreBudget()) return false
 
         // Find the activity to paginate from
         val lastActivity = findLastPaginationActivity() ?: return false
@@ -363,6 +370,7 @@ class ActivityLoader(
     }
 
     // Activity Processing /////////////////////////////////////////////////////////////////////////
+
     /**
      * Process newly received activities (from cache, network, or real-time events).
      *
@@ -390,12 +398,14 @@ class ActivityLoader(
                 handleAccountInitialize(newActivities.isEmpty())
             } else {
                 allTransactionIds =
-                    (newActivities.filter {
-                        ActivityHelpers.activityBelongsToSlug(
-                            it,
-                            selectedSlug
-                        )
-                    }.map { it.id } + allTransactionIds).distinct()
+                    (
+                        newActivities.filter {
+                            ActivityHelpers.activityBelongsToSlug(
+                                it,
+                                selectedSlug
+                            )
+                        }.map { it.id } + allTransactionIds
+                        ).distinct()
                 // Handle loadedAll flag
                 handleLoadedAllFlag(loadedAll)
             }
@@ -427,10 +437,10 @@ class ActivityLoader(
         }
     }
 
-    private fun isAccountInitializeEvent(eventType: WalletEvent.ReceivedNewActivities.EventType): Boolean {
-        return eventType == WalletEvent.ReceivedNewActivities.EventType.ACCOUNT_INITIALIZE &&
-            selectedSlug == null
-    }
+    private fun isAccountInitializeEvent(
+        eventType: WalletEvent.ReceivedNewActivities.EventType
+    ): Boolean = eventType == WalletEvent.ReceivedNewActivities.EventType.ACCOUNT_INITIALIZE &&
+        selectedSlug == null
 
     /**
      * Reset loader state for account initialization.
@@ -461,11 +471,10 @@ class ActivityLoader(
     private fun shouldPersist(
         isFromCache: Boolean,
         eventType: WalletEvent.ReceivedNewActivities.EventType
-    ): Boolean {
-        return !isFromCache && eventType == WalletEvent.ReceivedNewActivities.EventType.PAGINATE
-    }
+    ): Boolean = !isFromCache && eventType == WalletEvent.ReceivedNewActivities.EventType.PAGINATE
 
     // Persistence /////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Persist the current transaction list to storage via ActivityStore.
      *
@@ -497,6 +506,7 @@ class ActivityLoader(
     }
 
     // UI Update ///////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Refresh the showingTransactions list and notify the delegate.
      *
@@ -506,15 +516,19 @@ class ActivityLoader(
      * @param isUpdateEvent true if this is a real-time update (not pagination)
      */
     private fun updateShowingTransactions(isUpdateEvent: Boolean) {
-        val allTransactions =
-            allTransactionIds
-                .mapNotNull { ActivityStore.getTransaction(accountId, it) } +
-                ActivityStore.getLocalAndPendingActivities(accountId, selectedSlug).orEmpty()
+        val allTransactions = mergeUniqueActivitySources(
+            indexedActivities = allTransactionIds.mapNotNull {
+                ActivityStore.getTransaction(accountId, it)
+            },
+            temporaryActivities =
+                ActivityStore.getLocalAndPendingActivities(accountId, selectedSlug).orEmpty(),
+            getId = { it.getStableId() }
+        )
         val filtered = ActivityHelpers.filter(
             accountId = accountId,
             array = allTransactions,
             hideTinyIfRequired = true,
-            checkSlug = null,
+            checkSlug = null
         )?.sortedWith(ActivityHelpers::sorter)
         if (this.showingTransactions?.isChanged(filtered) == false) {
             this.showingTransactions = filtered

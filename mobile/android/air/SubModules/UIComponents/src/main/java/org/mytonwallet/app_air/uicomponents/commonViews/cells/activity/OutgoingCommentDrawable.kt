@@ -11,7 +11,9 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class OutgoingCommentDrawable : Drawable(), ICommentDrawable {
+class OutgoingCommentDrawable :
+    Drawable(),
+    ICommentDrawable {
 
     private val paint = Paint().apply {
         color = WColor.OutgoingComment.color
@@ -32,15 +34,21 @@ class OutgoingCommentDrawable : Drawable(), ICommentDrawable {
         val path1 = Path().apply {
             moveTo(bounds.width() - 6f.dp, bounds.height() - 10f.dp)
             cubicTo(
-                bounds.width() - 6f.dp, bounds.height() - 6.78571f.dp,
-                bounds.width() - 4.23529f.dp, bounds.height() - 2.32143f.dp,
-                bounds.width() - 0.705882f.dp, bounds.height() - 1.42857f.dp
+                bounds.width() - 6f.dp,
+                bounds.height() - 6.78571f.dp,
+                bounds.width() - 4.23529f.dp,
+                bounds.height() - 2.32143f.dp,
+                bounds.width() - 0.705882f.dp,
+                bounds.height() - 1.42857f.dp
             )
             lineTo(bounds.width().toFloat(), bounds.height() - 1.42857f.dp)
             cubicTo(
-                bounds.width().toFloat(), bounds.height() - 0.714284f.dp,
-                bounds.width() - 0.705882f.dp, bounds.height().toFloat(),
-                bounds.width() - 0.705882f.dp, bounds.height().toFloat()
+                bounds.width().toFloat(),
+                bounds.height() - 0.714284f.dp,
+                bounds.width() - 0.705882f.dp,
+                bounds.height().toFloat(),
+                bounds.width() - 0.705882f.dp,
+                bounds.height().toFloat()
             )
             lineTo(bounds.width() - 6f.dp, bounds.height().toFloat())
             lineTo(bounds.width() - 6f.dp, bounds.height() - 10f.dp)
@@ -51,21 +59,30 @@ class OutgoingCommentDrawable : Drawable(), ICommentDrawable {
             moveTo(bounds.width() - 6f.dp, bounds.height().toFloat())
             lineTo(18f.dp, bounds.height().toFloat())
             cubicTo(
-                8f.dp, bounds.height().toFloat(),
-                0f, bounds.height() - 8f.dp,
-                0f, bounds.height() - 18f.dp
+                8f.dp,
+                bounds.height().toFloat(),
+                0f,
+                bounds.height() - 8f.dp,
+                0f,
+                bounds.height() - 18f.dp
             )
             lineTo(0f, 18f.dp)
             cubicTo(
-                0f, 8f.dp,
-                8f.dp, 0f,
-                18f.dp, 0f
+                0f,
+                8f.dp,
+                8f.dp,
+                0f,
+                18f.dp,
+                0f
             )
             lineTo(bounds.width() - 24f.dp, 0f)
             cubicTo(
-                bounds.width() - 14f.dp, 0f,
-                bounds.width() - 6f.dp, 8f.dp,
-                bounds.width() - 6f.dp, 18f.dp
+                bounds.width() - 14f.dp,
+                0f,
+                bounds.width() - 6f.dp,
+                8f.dp,
+                bounds.width() - 6f.dp,
+                18f.dp
             )
             lineTo(bounds.width() - 6f.dp, bounds.height().toFloat())
             close()
@@ -91,5 +108,4 @@ class OutgoingCommentDrawable : Drawable(), ICommentDrawable {
         paint.color = bubbleColor
         invalidateSelf()
     }
-
 }

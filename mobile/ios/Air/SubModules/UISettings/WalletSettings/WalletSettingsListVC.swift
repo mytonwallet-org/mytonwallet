@@ -48,8 +48,6 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, R
         }
     }
     
-    private var layoutStyle: WalletListLayout = .grid
-    
     init(viewModel: WalletSettingsViewModel, filter: WalletFilter) {
         self.viewModel = viewModel
         self.filter = filter

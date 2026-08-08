@@ -59,6 +59,7 @@ struct DepositLinkView: View {
                             text: $model.comment,
                             axis: .vertical
                         )
+                        .textStyle(.body, scaling: .dynamic)
                         .writingToolsDisabled()
                         .focused($commentIsFocused)
                     }
@@ -99,6 +100,11 @@ struct TappableDepositLink: View {
             .baselineOffset(-1)
 
         Text("\(link) \(more)")
+            .textStyle(
+                .body,
+                content: .technical,
+                scaling: .dynamic
+            )
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
             .contextMenuSource {

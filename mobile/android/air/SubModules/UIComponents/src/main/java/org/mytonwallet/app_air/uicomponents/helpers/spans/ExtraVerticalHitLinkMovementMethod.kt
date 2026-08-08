@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.uicomponents.helpers.spans
 
 import android.text.Spannable
@@ -7,19 +9,12 @@ import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.widget.TextView
 
-class ExtraHitLinkMovementMethod(
-    private val extraXPx: Int,
-    private val extraYPx: Int
-) : LinkMovementMethod() {
+class ExtraHitLinkMovementMethod(private val extraXPx: Int, private val extraYPx: Int) :
+    LinkMovementMethod() {
 
     private var downTime = 0L
 
-    override fun onTouchEvent(
-        widget: TextView,
-        buffer: Spannable,
-        event: MotionEvent
-    ): Boolean {
-
+    override fun onTouchEvent(widget: TextView, buffer: Spannable, event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
             downTime = event.eventTime
         }

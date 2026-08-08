@@ -12,10 +12,12 @@ import { ScamWarningType, TransferState } from '../../global/types';
 import { DEFAULT_PRICE_CURRENCY, UNKNOWN_TOKEN } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
+  selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokenBalance,
   selectCurrentAccountTokens,
+  selectHasMultipleAccounts,
   selectIsAllowSuspiciousActions,
   selectIsHardwareAccount,
   selectIsMultisigWallet,
@@ -39,6 +41,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 import { useTransitionActiveKey } from '../../hooks/useTransitionActiveKey';
 import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
 import FeeDetailsModal from '../common/FeeDetailsModal';
 import AddressInput from '../ui/AddressInput';
 import AmountInput from '../ui/AmountInput';
@@ -82,6 +85,9 @@ interface StateProps {
   isAllowSuspiciousActions: boolean;
   isTransferReadonly?: boolean;
   explainedFee?: ExplainedTransferFee;
+  accountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
 }
 
 const COMMENT_MAX_SIZE_BYTES = 5000;
@@ -118,6 +124,9 @@ function TransferInitial({
   isAllowSuspiciousActions,
   isTransferReadonly,
   explainedFee,
+  accountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
   const {
     submitTransferInitial,
@@ -134,6 +143,7 @@ function TransferInitial({
     fetchTransferDieselState,
     checkTransferAddress,
     dismissTransferScamWarning,
+    setTransferScreen,
   } = getActions();
 
   const isNftTransfer = Boolean(nfts?.length);
@@ -298,6 +308,10 @@ function TransferInitial({
 
   const handleCloseClick = useLastCallback(() => {
     cancelTransfer({ shouldReset: true });
+  });
+
+  const handleOpenAccountSelector = useLastCallback(() => {
+    setTransferScreen({ state: TransferState.SelectAccount });
   });
 
   const handleScamWarningModalClose = useLastCallback(() => {
@@ -472,6 +486,15 @@ function TransferInitial({
           shouldCleanup
           slideClassName={styles.formSlide}
         >
+          {hasMultipleAccounts && !isNftTransfer && accountId && (
+            <AccountSwitcherPill
+              accountId={accountId}
+              title={accountTitle}
+              className={styles.accountPill}
+              onClick={handleOpenAccountSelector}
+            />
+          )}
+
           <Button
             isRound
             className={buildClassName(modalStyles.closeButton, styles.closeButton)}
@@ -486,7 +509,7 @@ function TransferInitial({
               {lang(nfts.length > 1 ? 'Send Collectibles' : 'Send Collectible')}
             </div>
           ) : (
-            <SentTabs />
+            <SentTabs className={buildClassName(hasMultipleAccounts && styles.sentTabsWithSwitcher)} />
           )}
 
           {nfts?.length === 1 && <NftInfo nft={nfts[0]} withMediaViewer />}
@@ -635,6 +658,7 @@ export default memo(
 
       const isLedger = selectIsHardwareAccount(global);
       const currentAccountId = selectCurrentAccountId(global)!;
+      const currentAccount = selectCurrentAccount(global);
       const accountState = selectCurrentAccountState(global);
       const { baseCurrency = DEFAULT_PRICE_CURRENCY, isSensitiveDataHidden } = global.settings;
       const isActive = ACTIVE_STATES.has(state);
@@ -668,6 +692,9 @@ export default memo(
         isAllowSuspiciousActions: selectIsAllowSuspiciousActions(global, currentAccountId),
         isTransferReadonly,
         explainedFee,
+        accountId: currentAccountId,
+        accountTitle: currentAccount?.title,
+        hasMultipleAccounts: selectHasMultipleAccounts(global),
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

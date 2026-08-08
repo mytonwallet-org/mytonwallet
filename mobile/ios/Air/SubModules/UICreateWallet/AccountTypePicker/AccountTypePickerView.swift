@@ -43,7 +43,7 @@ struct AccountTypePickerView: View {
                         WalletPickerOptionRow(
                             icon: "KeyIcon30",
                             title: lang("$secret_words"),
-                            subtitle: lang("Restore wallet from 12 or 24 words"),
+                            subtitle: localizedIntegerDigits(in: lang("Restore wallet from 12 or 24 words")),
                             showsDivider: network == .mainnet,
                             onTap: onImport
                         )
@@ -91,11 +91,11 @@ struct AccountTypePickerView: View {
     private func onCreate() {
         dismiss()
         if let vc = topViewController() {
-            UnlockVC.presentAuth(on: vc, onDone: { passcode in
+            UnlockVC.presentAuth(on: vc, onDone: { enclaveToken in
                 Task { @MainActor in
                     do {
                         let words = try await Api.generateMnemonic()
-                        let introModel = IntroModel(network: network, password: passcode, words: words)
+                        let introModel = IntroModel(network: network, authMode: IntroAuthMode(enclaveToken: enclaveToken), words: words)
                         let addAccountVC = WordDisplayVC(introModel: introModel, wordList: words)
                         let navVC = WNavigationController(rootViewController: addAccountVC)
                         topViewController()?.present(navVC, animated: true)
@@ -110,11 +110,11 @@ struct AccountTypePickerView: View {
     private func onCreateSubwallet() {
         dismiss()
         if let vc = topViewController() {
-            UnlockVC.presentAuth(on: vc, onDone: { passcode in
+            UnlockVC.presentAuth(on: vc, onDone: { enclaveToken in
                 Task { @MainActor in
-                    guard let passcode else { return }
+                    guard let enclaveToken else { return }
                     do {
-                        let account = try await AccountStore.createSubWallet(password: passcode)
+                        let account = try await AccountStore.createSubWallet(enclaveToken: enclaveToken)
                         AppActions.showHome(popToRoot: true)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                             AppActions.showToast(
@@ -137,9 +137,9 @@ struct AccountTypePickerView: View {
     private func onImport() {
         dismiss()
         if let vc = topViewController() {
-            UnlockVC.presentAuth(on: vc, onDone: { passcode in
+            UnlockVC.presentAuth(on: vc, onDone: { enclaveToken in
                 Task { @MainActor in
-                    let introModel = IntroModel(network: network, password: passcode)
+                    let introModel = IntroModel(network: network, authMode: IntroAuthMode(enclaveToken: enclaveToken))
                     let importWalletVC = ImportWalletVC(introModel: introModel)
                     let navVC = WNavigationController(rootViewController: importWalletVC)
                     topViewController()?.present(navVC, animated: true)

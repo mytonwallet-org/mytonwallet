@@ -25,16 +25,18 @@ export default function useNftCollectionMenuItems({
   nfts,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
+  areUnverifiedNftsHidden,
 }: {
   nfts?: Record<string, ApiNft>;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
+  areUnverifiedNftsHidden?: boolean;
 }) {
   const lang = useLang();
 
   return useMemo(() => {
     const { byKey, totalVisibleCount } = buildNftCollectionIndex(
-      nfts, blacklistedNftAddresses, whitelistedNftAddresses,
+      nfts, blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden,
     );
 
     const hasTelegramGifts = byKey.has(TELEGRAM_GIFTS_KEY);
@@ -80,9 +82,9 @@ export default function useNftCollectionMenuItems({
 
     const blacklistedSet = new Set(blacklistedNftAddresses);
     const shouldRenderHiddenNftsSection = !IS_FEATURE_LIMITED && Object.values(nfts ?? {}).some(
-      (nft) => blacklistedSet.has(nft.address) || nft.isHidden,
+      (nft) => blacklistedSet.has(nft.address) || nft.isHidden || (areUnverifiedNftsHidden && nft.isUnverified),
     );
 
     return { items, nameByKey, shouldRenderHiddenNftsSection, byKey, totalVisibleCount };
-  }, [lang, nfts, blacklistedNftAddresses, whitelistedNftAddresses]);
+  }, [lang, nfts, blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden]);
 }

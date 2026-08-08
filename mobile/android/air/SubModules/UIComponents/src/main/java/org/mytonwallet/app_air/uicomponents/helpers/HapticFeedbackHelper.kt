@@ -14,7 +14,10 @@ import android.os.Vibrator
  */
 @Deprecated("Use Haptics object instead", ReplaceWith("Haptics.play(view, HapticType.LIGHT_TAP)"))
 class HapticFeedbackHelper(val context: Context) {
-    @Deprecated("Use Haptics.play(view, HapticType.LIGHT_TAP)", ReplaceWith("Haptics.play(view, HapticType.LIGHT_TAP)"))
+    @Deprecated(
+        "Use Haptics.play(view, HapticType.LIGHT_TAP)",
+        ReplaceWith("Haptics.play(view, HapticType.LIGHT_TAP)")
+    )
     fun provideHapticFeedback(duration: Long = 35) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -29,7 +32,10 @@ class HapticFeedbackHelper(val context: Context) {
         }
     }
 
-    @Deprecated("Use Haptics.play(view, HapticType.ERROR)", ReplaceWith("Haptics.play(view, HapticType.ERROR)"))
+    @Deprecated(
+        "Use Haptics.play(view, HapticType.ERROR)",
+        ReplaceWith("Haptics.play(view, HapticType.ERROR)")
+    )
     fun provideErrorFeedback() {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator

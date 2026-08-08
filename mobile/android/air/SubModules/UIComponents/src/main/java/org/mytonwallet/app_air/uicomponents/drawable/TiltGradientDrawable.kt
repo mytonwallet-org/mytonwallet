@@ -11,9 +11,7 @@ import android.graphics.drawable.Drawable
 import kotlin.math.cos
 import kotlin.math.sin
 
-class TiltGradientDrawable(
-    private val colors: IntArray
-) : Drawable() {
+class TiltGradientDrawable(private val colors: IntArray) : Drawable() {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
@@ -40,7 +38,10 @@ class TiltGradientDrawable(
         val y1 = (y0 - sin(rad) * h * 0.1)
 
         paint.shader = LinearGradient(
-            x0, y0, x1.toFloat(), y1.toFloat(),
+            x0,
+            y0,
+            x1.toFloat(),
+            y1.toFloat(),
             colors,
             null,
             Shader.TileMode.CLAMP

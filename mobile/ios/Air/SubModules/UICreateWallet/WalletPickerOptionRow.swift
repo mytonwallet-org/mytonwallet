@@ -19,12 +19,12 @@ struct WalletPickerOptionRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 17))
+                        .textStyle(.body)
                         .foregroundStyle(Color.air.primaryLabel)
                         .lineLimit(1)
 
                     Text(subtitle)
-                        .font(.system(size: 15))
+                        .textStyle(.subheadline)
                         .foregroundStyle(Color.air.secondaryLabel)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -89,7 +89,7 @@ struct WalletPickerSectionTitle: View {
             Text(lang("or import from"))
             WalletPickerDivider()
         }
-        .font(.system(size: 17))
+        .textStyle(.body)
         .frame(height: 22)
         .padding(.vertical, 24)
         .foregroundStyle(Color.air.secondaryLabel)

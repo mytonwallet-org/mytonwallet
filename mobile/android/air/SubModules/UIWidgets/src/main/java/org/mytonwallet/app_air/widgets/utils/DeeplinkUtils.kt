@@ -11,12 +11,7 @@ object DeeplinkUtils {
     const val ACTION_UPDATE = "UPDATE"
     const val MTW_DEEPLINK = "MTW_DEEPLINK"
 
-    fun setOnClickDeeplink(
-        context: Context,
-        remoteViews: RemoteViews,
-        viewId: Int,
-        link: String
-    ) {
+    fun setOnClickDeeplink(context: Context, remoteViews: RemoteViews, viewId: Int, link: String) {
         val intent = Intent(Intent.ACTION_VIEW, link.toUri())
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pendingIntent = PendingIntent.getActivity(

@@ -78,10 +78,22 @@ struct CrosschainToWalletPayment: Equatable {
 
 struct CrosschainToWalletView: View {
     let payment: CrosschainToWalletPayment
-    var onExpired: () -> Void = {}
+    let onExpired: () -> Void
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    @State private var now = Date()
+    private let keepsTimeFrozen: Bool
+    @State private var now: Date
+
+    init(
+        payment: CrosschainToWalletPayment,
+        fixedNow: Date? = nil,
+        onExpired: @escaping () -> Void = {}
+    ) {
+        self.payment = payment
+        self.onExpired = onExpired
+        self.keepsTimeFrozen = fixedNow != nil
+        _now = State(initialValue: fixedNow ?? Date())
+    }
 
     var body: some View {
         section
@@ -89,6 +101,7 @@ struct CrosschainToWalletView: View {
                 notifyIfExpired()
             }
             .onReceive(timer) { date in
+                guard !keepsTimeFrozen else { return }
                 now = date
                 notifyIfExpired()
             }
@@ -167,7 +180,7 @@ struct CrosschainToWalletView: View {
         VStack(alignment: .leading, spacing: 16) {
             Label {
                 Text(lang("The time for sending coins is over."))
-                    .font(.system(size: 17, weight: .semibold))
+                    .textStyle(.bodyStrong, scaling: .dynamic)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(Color.air.error)
@@ -183,6 +196,7 @@ struct CrosschainToWalletView: View {
     private var internalSwapContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(lang("Please note that it may take up to a few hours for tokens to appear in your wallet."))
+                .textStyle(.body, scaling: .dynamic)
                 .foregroundStyle(Color.air.secondaryLabel)
             transactionID
         }
@@ -192,6 +206,7 @@ struct CrosschainToWalletView: View {
     private var inProgressContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(lang("Please note that it may take up to a few hours for tokens to appear in your wallet."))
+                .textStyle(.body, scaling: .dynamic)
                 .foregroundStyle(Color.air.secondaryLabel)
             transactionID
         }
@@ -202,14 +217,14 @@ struct CrosschainToWalletView: View {
         HStack(spacing: 2) {
             Image(systemName: "clock.fill")
                 .imageScale(.small)
-                .font(.system(size: 17, weight: .semibold))
+                .textStyle(.bodyStrong, content: .technical)
                 .foregroundColor(.air.secondaryLabel)
             AmountText(
                 amount: DecimalAmount.fromDouble(payment.amount, payment.sellingToken),
                 format: .init(),
-                integerFont: .systemFont(ofSize: 17, weight: .semibold),
-                fractionFont: .systemFont(ofSize: 17, weight: .semibold),
-                symbolFont: .systemFont(ofSize: 17, weight: .semibold),
+                integerFont: WTypography.uiFont(.bodyStrong, content: .technical),
+                fractionFont: WTypography.uiFont(.bodyStrong, content: .technical),
+                symbolFont: WTypography.uiFont(.bodyStrong, content: .technical),
                 integerColor: UIColor.label,
                 fractionColor: UIColor.label,
                 symbolColor: .air.secondaryLabel
@@ -232,6 +247,7 @@ struct CrosschainToWalletView: View {
     private var footer: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(lang("Please note that it may take up to a few hours for tokens to appear in your wallet."))
+                .textStyle(.body, scaling: .dynamic)
                 .padding(.top, 13)
             transactionID
         }
@@ -270,7 +286,7 @@ struct CrosschainToWalletView: View {
                 Text(LocalizedStringKey(markdownLink(text: emailLink.email, url: emailLink.url)))
             }
         }
-        .font(.system(size: 13))
+        .textStyle(.footnote)
         .foregroundStyle(Color.air.secondaryLabel)
     }
 
@@ -304,14 +320,14 @@ struct CrosschainToWalletView: View {
         let alignment: HorizontalAlignment = isCentered ? .center : .leading
         return VStack(alignment: alignment, spacing: 6) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .textStyle(.footnoteStrong)
                 .foregroundStyle(Color.air.secondaryLabel)
             Button {
                 copy(value, message: copyMessage)
             } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(address: value)
-                        .font(.system(size: 17, weight: .regular))
+                        .textStyle(.body, content: .technical)
                         .lineSpacing(2)
                     Image("HomeCopy", bundle: AirBundle)
                         .foregroundColor(.air.secondaryLabel)

@@ -7,19 +7,21 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.views.Eip712ObjectView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.views.Eip712ObjectView
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload.SignDataPayloadEip712.TypeField
 
 @SuppressLint("ViewConstructor")
-class WalletConnectPaySignDataEip712Cell(context: Context) : WCell(
-    context,
-    android.view.ViewGroup.LayoutParams(
-        LayoutParams.MATCH_PARENT,
-        WRAP_CONTENT
-    )
-), WThemedView {
+class WalletConnectPaySignDataEip712Cell(context: Context) :
+    WCell(
+        context,
+        android.view.ViewGroup.LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            WRAP_CONTENT
+        )
+    ),
+    WThemedView {
 
     private var topRadius = 0f
     private var bottomRadius = 0f
@@ -34,7 +36,7 @@ class WalletConnectPaySignDataEip712Cell(context: Context) : WCell(
         typeName: String,
         types: Map<String, List<TypeField>>,
         topRadius: Float,
-        bottomRadius: Float,
+        bottomRadius: Float
     ) {
         this.topRadius = topRadius
         this.bottomRadius = bottomRadius

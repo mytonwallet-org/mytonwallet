@@ -10,17 +10,9 @@ import android.util.TypedValue
 import androidx.core.graphics.createBitmap
 
 object TextUtils {
-    data class DrawableText(
-        val text: String,
-        val size: Int,
-        val color: Int,
-        val typeface: Typeface
-    )
+    data class DrawableText(val text: String, val size: Int, val color: Int, val typeface: Typeface)
 
-    fun textToBitmap(
-        context: Context,
-        drawableText: DrawableText,
-    ): Bitmap? {
+    fun textToBitmap(context: Context, drawableText: DrawableText): Bitmap? {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = drawableText.color
             textSize = TypedValue.applyDimension(

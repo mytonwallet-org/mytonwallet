@@ -1,3 +1,12 @@
+pluginManagement {
+  includeBuild('build-logic')
+  repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal()
+  }
+}
+
 plugins {
   id 'org.gradle.toolchains.foojay-resolver-convention' version '0.10.0'
 }
@@ -35,6 +44,7 @@ def subModules = [
   "UIWidgets",
   "UIWidgetsConfigurations",
   "WalletBaseContext",
+  "NativeEnclave",
 ]
 include(airSubModulePath)
 project(airSubModulePath).projectDir = file('air/SubModules')

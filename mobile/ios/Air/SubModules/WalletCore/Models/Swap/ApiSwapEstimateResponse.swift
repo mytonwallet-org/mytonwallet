@@ -23,9 +23,8 @@ public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
     public var toMinAmount: MDouble
     public var impact: Double
     public var dexLabel: ApiSwapDexLabel?
+    public var dexRouterLabel: String?
     public var dieselStatus: DieselStatus
-    /// only in v2
-    public var other: [ApiSwapEstimateVariant]?
     /// only in v3
     public var routes: [[ApiSwapRoute]]?
     // Fees
@@ -53,6 +52,7 @@ public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
         lhs.toMinAmount == rhs.toMinAmount &&
         lhs.impact == rhs.impact &&
         lhs.dexLabel == rhs.dexLabel &&
+        lhs.dexRouterLabel == rhs.dexRouterLabel &&
         lhs.dieselStatus == rhs.dieselStatus &&
         lhs.networkFee == rhs.networkFee &&
         lhs.realNetworkFee == rhs.realNetworkFee &&

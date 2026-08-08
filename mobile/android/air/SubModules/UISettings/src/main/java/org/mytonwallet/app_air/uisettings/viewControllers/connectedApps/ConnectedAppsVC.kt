@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 
 class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context) {
+    @Suppress("PropertyName")
     override val TAG = "ConnectedApps"
 
     private val connectedAppsViewModel by lazy {
@@ -54,8 +55,7 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
 
@@ -144,7 +144,8 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
 
         view.addView(noItemView)
         view.addView(
-            recyclerView, ConstraintLayout.LayoutParams(
+            recyclerView,
+            ConstraintLayout.LayoutParams(
                 MATCH_CONSTRAINT,
                 MATCH_CONSTRAINT
             )

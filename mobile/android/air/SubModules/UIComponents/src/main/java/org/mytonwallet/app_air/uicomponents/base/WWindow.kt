@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.base
 
 import android.animation.Animator
@@ -16,6 +18,7 @@ import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
@@ -31,7 +34,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.children
 import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
+import androidx.core.view.updateLayoutParams
 import com.facebook.drawee.backends.pipeline.Fresco
+import java.util.function.Consumer
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
@@ -45,8 +52,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WPopupHost
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import android.view.ViewOutlineProvider
-import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -59,11 +64,11 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import java.util.function.Consumer
-import kotlin.math.min
-import kotlin.math.roundToInt
 
-abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
+abstract class WWindow :
+    AppCompatActivity(),
+    WThemedView,
+    WProtectedView {
 
     companion object {
         const val PROTECT_PAUSED_APP_VIEW = false
@@ -139,10 +144,12 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     fun calcWideLayout(): Boolean {
         val widthPx = windowView.width.takeIf { it > 0 }
-            ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+            ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 windowManager.currentWindowMetrics.bounds.width()
-            else
-                @Suppress("DEPRECATION") resources.displayMetrics.widthPixels
+            } else {
+                @Suppress("DEPRECATION")
+                resources.displayMetrics.widthPixels
+            }
         val widthDp = widthPx / resources.displayMetrics.density
         return widthDp > WIDE_LAYOUT_MIN_WIDTH_DP
     }
@@ -168,7 +175,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             x = ((w - width) / 2).coerceAtLeast(0),
             y = (topInset + (safeHeight - height) / 2).coerceAtLeast(topInset),
             width = width,
-            height = height,
+            height = height
         )
     }
 
@@ -221,7 +228,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             overlay?.setOnClickListener(
                 if (i == navigationControllers.size - 1) {
                     { dismissLastNav() }
-                } else null
+                } else {
+                    null
+                }
             )
 
             // Frame.
@@ -299,8 +308,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    if (PopupHelpers.onBackPressed())
-                        return
+                    if (PopupHelpers.onBackPressed()) return
                     topViewController?.topActiveDialog?.let { dialog ->
                         dialog.dismiss()
                         return
@@ -313,7 +321,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         // Set padding for navigation controllers
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { v, insets ->
             systemBars =
-                insets.getInsets(WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars())
+                insets.getInsets(
+                    WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
+                )
             imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             notifyInsetsUpdated()
             WindowInsetsCompat.CONSUMED
@@ -341,8 +351,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     }
 
     public override fun onPause() {
-        if (PROTECT_PAUSED_APP_VIEW)
-            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (PROTECT_PAUSED_APP_VIEW) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         TiltSensorManager.onAppPause()
         super.onPause()
         isPaused = true
@@ -351,8 +360,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     public override fun onResume() {
         super.onResume()
-        if (PROTECT_PAUSED_APP_VIEW)
-            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (PROTECT_PAUSED_APP_VIEW) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         TiltSensorManager.onAppResume()
         if (isPaused) {
             isPaused = false
@@ -378,8 +386,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         popupHost.updateTheme()
 
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
+        if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
         updateStatusBarColors()
         updateBottomBarColors()
@@ -396,10 +403,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     override fun updateProtectedView() {
         fun updateProtectedViewForChildren(parentView: ViewGroup) {
             for (child in parentView.children) {
-                if (child is WProtectedView)
-                    child.updateProtectedView()
-                if (child is ViewGroup)
-                    updateProtectedViewForChildren(child)
+                if (child is WProtectedView) child.updateProtectedView()
+                if (child is ViewGroup) updateProtectedViewForChildren(child)
                 if (child is WSegmentedController) {
                     child.items.forEach {
                         updateProtectedViewForChildren(it.viewController.view)
@@ -453,16 +458,13 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         NONE,
         PRESENT_WAITING_FOR_LAYOUT,
         PRESENTING,
-        DISMISSING,
+        DISMISSING
     }
 
     var navAnimation: NavAnimation = NavAnimation.NONE
         private set(value) {
             field = value
-            if (value == NavAnimation.NONE)
-                unblockTouches()
-            else
-                blockTouches()
+            if (value == NavAnimation.NONE) unblockTouches() else blockTouches()
         }
     val isAnimating: Boolean
         get() = navAnimation != NavAnimation.NONE
@@ -491,12 +493,13 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         val navigationControllersExist = navigationControllers.isNotEmpty()
         detachAllNavigationControllers(animated = animated, onCompletion = {
             present(navigationController, animated = false)
-            if (navigationControllersExist)
+            if (navigationControllersExist) {
                 windowView.fadeIn(onCompletion = {
                     window.decorView.background = null
                 })
-            else
+            } else {
                 window.decorView.background = null
+            }
             onCompletion?.invoke()
         })
     }
@@ -504,9 +507,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     var pendingPresentationNav: WNavigationController? = null
         private set
 
-    fun presentOnWalletReady(
-        navigationController: WNavigationController
-    ): Boolean {
+    fun presentOnWalletReady(navigationController: WNavigationController): Boolean {
         if (WalletContextManager.delegate?.get()?.isWalletReady() != true ||
             WalletContextManager.delegate?.get()?.isAppUnlocked() != true
         ) {
@@ -523,8 +524,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         if (WalletContextManager.delegate?.get()?.isWalletReady() != true ||
             WalletContextManager.delegate?.get()?.isAppUnlocked() != true
         ) {
-            if (pendingTasks == null)
-                pendingTasks = mutableListOf()
+            if (pendingTasks == null) pendingTasks = mutableListOf()
             pendingTasks?.add(task)
             return
         }
@@ -586,8 +586,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             }
             return
         }
-        if (navAnimation != NavAnimation.NONE)
-            activeAnimator?.end()
+        if (navAnimation != NavAnimation.NONE) activeAnimator?.end()
         Logger.d(
             Logger.LogTag.SCREEN,
             "presentNav: rootVC=${navigationController.viewControllers.firstOrNull()?.TAG} navHash=${navigationController.hashCode()}"
@@ -631,11 +630,16 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             val shouldPresentFullScreen = !navigationController.isBottomSheet ||
                 navigationController.viewControllers.firstOrNull()?.isExpandable == true
             val finalY =
-                if (navigationController.isCenteredWindow) centeredWindowFrame(navigationController.centeredWindowWidth).y
-                else if (shouldPresentFullScreen) 0 else windowView.bottom - min(
-                    navigationController.height,
-                    windowView.height - (systemBars?.top ?: 0) - 20.dp
-                )
+                if (navigationController.isCenteredWindow) {
+                    centeredWindowFrame(navigationController.centeredWindowWidth).y
+                } else if (shouldPresentFullScreen) {
+                    0
+                } else {
+                    windowView.bottom - min(
+                        navigationController.height,
+                        windowView.height - (systemBars?.top ?: 0) - 20.dp
+                    )
+                }
             if (!animated || !WGlobalStorage.getAreAnimationsActive() || wasAnimating) {
                 overlayView?.alpha = 1f
                 navigationController.alpha = 1f
@@ -666,7 +670,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                             doOnCancel {
                                 removeAllListeners()
                                 WGlobalStorage.decDoNotSynchronize()
-                                navigationController.viewDidAppear()
+                                if (!navigationController.isDismissed) {
+                                    navigationController.viewDidAppear()
+                                }
                                 activeAnimator = null
                                 navAnimation = NavAnimation.NONE
                             }
@@ -704,7 +710,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                         doOnCancel {
                             removeAllListeners()
                             WGlobalStorage.decDoNotSynchronize()
-                            navigationController.viewDidAppear()
+                            if (!navigationController.isDismissed) {
+                                navigationController.viewDidAppear()
+                            }
                             activeAnimator = null
                             navAnimation = NavAnimation.NONE
                         }
@@ -732,8 +740,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     // Dismiss a specific nav from the memory and hierarchy
     fun dismissNav(navigationController: WNavigationController?) {
         navigationControllers.indexOf(navigationController).let { it ->
-            if (it == -1)
-                return@let
+            if (it == -1) return@let
             dismissNav(it)
         }
     }
@@ -780,8 +787,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             return false
         }
         val navigationController = navigationControllers.lastOrNull()
-        if (navigationController?.isDismissed == true)
-            return true
+        if (navigationController?.isDismissed == true) return true
         navigationController?.willBeDismissed()
         val prevNavigationController =
             navigationControllers.getOrNull(navigationControllers.size - 2)
@@ -797,6 +803,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             }
 
             NavAnimation.NONE -> {}
+
             NavAnimation.PRESENT_WAITING_FOR_LAYOUT -> {}
         }
         addPrevNavigationControllersToHierarchy()
@@ -807,17 +814,19 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             navigationController?.visibility = View.GONE
             navigationController?.onDestroy()
             navigationControllers.removeAt(navigationControllers.lastIndex)
-            if (navigationControllerOverlays.isNotEmpty())
+            if (navigationControllerOverlays.isNotEmpty()) {
                 navigationControllerOverlays.removeAt(navigationControllerOverlays.lastIndex)
+            }
             windowView.removeView(lastOverlay)
             windowView.removeView(navigationController)
             activeAnimator = null
             navAnimation = NavAnimation.NONE
             onCompletion?.invoke()
-            if (navigationController?.overFullScreen == true)
+            if (navigationController?.overFullScreen == true) {
                 navigationControllers.lastOrNull()?.viewDidAppear()
-            else
+            } else {
                 navigationControllers.lastOrNull()?.viewDidEnterForeground()
+            }
         }
 
         if (!animated || !WGlobalStorage.getAreAnimationsActive()) {
@@ -905,17 +914,15 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         val prevNavigationControllers = ArrayList(navigationControllers)
         for (i in 1 until prevNavigationControllers.size - 1) {
             val nav = prevNavigationControllers[i]
-            if (nav.parent == null)
-                dismissNav(i)
-            else
-                break
+            if (nav.parent == null) dismissNav(i) else break
         }
-        if (navigationControllers.size > 1)
+        if (navigationControllers.size > 1) {
             dismissLastNav {
                 dismissToRoot(onCompletion)
             }
-        else
+        } else {
             onCompletion?.invoke()
+        }
     }
 
     // Detach a navigation controller from the window, to use somewhere else!
@@ -997,8 +1004,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         if (navigationController.overFullScreen) {
             if (navigationControllers.size >= 2) {
                 fun removePrevNav(i: Int) {
-                    if (i < 0)
-                        return
+                    if (i < 0) return
                     navigationControllers[i].let {
                         navigationControllers[i].viewWillDisappear()
                         it.visibility = View.GONE
@@ -1023,14 +1029,13 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         if (navigationController?.overFullScreen == true) {
             fun presentPrevScreen(i: Int) {
                 navigationControllers[i].let {
-                    if (it.parent == null)
-                        windowView.addView(it, 0)
+                    val wasHidden = it.parent == null || it.visibility != View.VISIBLE
+                    if (it.parent == null) windowView.addView(it, 0)
                     it.visibility = View.VISIBLE
-                    it.viewWillAppear()
+                    if (wasHidden) it.viewWillAppear()
                     if (!it.overFullScreen) {
                         navigationControllerOverlays[i]?.let { overlay ->
-                            if (overlay.parent == null)
-                                windowView.addView(overlay, 0)
+                            if (overlay.parent == null) windowView.addView(overlay, 0)
                             overlay.visibility = View.VISIBLE
                         }
                         presentPrevScreen(i - 1)
@@ -1039,6 +1044,31 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             }
             presentPrevScreen(navigationControllers.size - 2)
         }
+    }
+
+    fun preparePreviousNavigationControllerForDisplay() {
+        if (navigationControllers.size < 2) return
+        when (navAnimation) {
+            NavAnimation.PRESENT_WAITING_FOR_LAYOUT -> {
+                windowView.doOnLayout {
+                    windowView.post { preparePreviousNavigationControllerForDisplay() }
+                }
+                return
+            }
+
+            NavAnimation.PRESENTING -> {
+                val animator = activeAnimator
+                if (animator == null) {
+                    windowView.post { preparePreviousNavigationControllerForDisplay() }
+                    return
+                }
+                animator.end()
+            }
+
+            NavAnimation.NONE,
+            NavAnimation.DISMISSING -> {}
+        }
+        addPrevNavigationControllersToHierarchy()
     }
 
     private fun blockTouches() {
@@ -1116,8 +1146,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         private set
     private val screenRecordCallback = Consumer<Int> { state ->
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            val newState = state == WindowManager.SCREEN_RECORDING_STATE_VISIBLE
-                && !WGlobalStorage.getIsScreenRecordWarningDisabled()
+            val newState = state == WindowManager.SCREEN_RECORDING_STATE_VISIBLE &&
+                !WGlobalStorage.getIsScreenRecordWarningDisabled()
             if (isScreenRecordInProgress != newState) {
                 isScreenRecordInProgress = newState
                 navigationControllers.forEach {

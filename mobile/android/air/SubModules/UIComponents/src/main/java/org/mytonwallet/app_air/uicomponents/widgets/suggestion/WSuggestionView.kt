@@ -9,6 +9,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.ceil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,14 +30,12 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
 import org.mytonwallet.app_air.walletcore.helpers.findMnemonicMatches
-import java.lang.ref.WeakReference
-import kotlin.math.ceil
 
 @SuppressLint("ViewConstructor")
-class WSuggestionView(
-    context: Context,
-    val onSuggest: (String) -> Unit
-) : WView(context), WRecyclerViewAdapter.WRecyclerViewDataSource, WThemedView {
+class WSuggestionView(context: Context, val onSuggest: (String) -> Unit) :
+    WView(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
+    WThemedView {
 
     companion object {
         val SUGGEST_CELL = WCell.Type(1)
@@ -213,17 +213,12 @@ class WSuggestionView(
 
     private var suggestions = emptyList<String>()
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 1
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return suggestions.size
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = suggestions.size
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return SUGGEST_CELL
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        SUGGEST_CELL
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
         val cell = WSuggestionCell(context)
@@ -241,5 +236,4 @@ class WSuggestionView(
         val cell = cellHolder.cell as WSuggestionCell
         cell.configure(suggestions[indexPath.row], indexPath.row == 0, suggestions.size)
     }
-
 }

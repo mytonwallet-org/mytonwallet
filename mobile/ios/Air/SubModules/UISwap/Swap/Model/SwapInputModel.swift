@@ -70,8 +70,6 @@ enum SwapCommand {
     @PerceptionIgnored
     private var fullNetworkFee: MFee.FeeTerms?
     @PerceptionIgnored
-    private var ourFeePercent: Double?
-    @PerceptionIgnored
     private var backendMaxAmount: BigInt?
     @PerceptionIgnored
     @AccountContext var account: MAccount
@@ -173,10 +171,9 @@ enum SwapCommand {
         recalculateMaxAmount()
     }
 
-    func updateMaxAmountContext(swapType: SwapType, fullNetworkFee: MFee.FeeTerms?, ourFeePercent: Double?, notifyAmountChange: Bool = true) {
+    func updateMaxAmountContext(swapType: SwapType, fullNetworkFee: MFee.FeeTerms?, notifyAmountChange: Bool = true) {
         self.swapType = swapType
         self.fullNetworkFee = fullNetworkFee
-        self.ourFeePercent = ourFeePercent
         recalculateMaxAmount(notifyAmountChange: notifyAmountChange)
     }
 
@@ -196,7 +193,6 @@ enum SwapCommand {
             tokenBalance: tokenBalance,
             tokenIn: sellingToken,
             fullNetworkFee: fullNetworkFee,
-            ourFeePercent: ourFeePercent,
             maxAmountFromBackend: backendMaxAmount
         ))
         if isUsingMax, let targetAmount = maxAmount ?? tokenBalance, sellingAmount != targetAmount {

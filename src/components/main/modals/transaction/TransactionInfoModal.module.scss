@@ -66,7 +66,7 @@
   display: flex;
   align-items: center;
 
-  padding-right: 2rem;
+  padding-inline-end: 2rem;
 
   transition: background-color 150ms;
 
@@ -83,7 +83,7 @@
 }
 
 .activity {
-  padding-right: 0.25rem;
+  padding-inline-end: 0.25rem;
 }
 
 .activityItem + .activityItem {
@@ -92,8 +92,8 @@
 
     position: absolute;
     top: 0;
-    right: 0;
-    left: 3.75rem;
+    inset-inline-start: 3.75rem;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -104,7 +104,7 @@
 .activityArrow {
   position: absolute;
   top: 50%;
-  right: 0.5rem;
+  inset-inline-end: 0.5rem;
   transform: translateY(-50%);
 
   display: flex;

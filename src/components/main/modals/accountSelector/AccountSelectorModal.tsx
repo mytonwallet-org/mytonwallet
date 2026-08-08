@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../../global';
+import { getActions, getGlobal, withGlobal } from '../../../../global';
 
 import type {
   ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiWalletWithVersionInfo,
@@ -10,12 +10,13 @@ import { SettingsState } from '../../../../global/types';
 
 import {
   selectCurrentAccountId,
+  selectEnclaveToken,
+  selectHasPassword,
+  selectIsEnclaveSessionValid,
   selectIsMnemonicAccount,
-  selectIsPasswordPresent,
   selectNetworkAccounts,
   selectOrderedAccounts,
 } from '../../../../global/selectors';
-import { getHasInMemoryPassword, getInMemoryPassword } from '../../../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../../../util/captureEvents';
 import { getChainsSupportingLedger } from '../../../../util/chain';
@@ -31,9 +32,9 @@ import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import { useMultipleAccountsBalances } from '../../../../hooks/useMultipleAccountsBalances';
 import useScrolledState from '../../../../hooks/useScrolledState';
+import useSortableList from '../../../../hooks/useSortableList';
 import useSyncEffect from '../../../../hooks/useSyncEffect';
 import { useFilteredAccounts } from './hooks/useFilteredAccounts';
-import { useSortableAccounts } from './hooks/useSortableAccounts';
 
 import AuthImportViewAccount from '../../../auth/AuthImportViewAccount';
 import LedgerConnect from '../../../ledger/LedgerConnect';
@@ -45,7 +46,7 @@ import LogOutModal from '../LogOutModal';
 import AccountSelectorFooter from './AccountSelectorFooter';
 import AccountSelectorHeader from './AccountSelectorHeader';
 import AccountsGridView from './AccountsGridView';
-import AccountsListView from './AccountsListView';
+import AccountsListView, { ACCOUNT_HEIGHT_PX } from './AccountsListView';
 import AddAccountPasswordModal from './AddAccountPasswordModal';
 import AddAccountSelector from './AddAccountSelector';
 
@@ -70,7 +71,7 @@ interface AccountSelectorOpenProps {
   isTestnet?: boolean;
   isLoading?: boolean;
   error?: string;
-  isPasswordPresent: boolean;
+  hasPassword: boolean;
   accountWalletVersions?: ApiWalletWithVersionInfo[];
   canAddSubwallet: boolean;
   forceAddingTonOnlyAccount?: boolean;
@@ -99,7 +100,7 @@ function AccountSelectorModal({
   isTestnet,
   isLoading,
   error,
-  isPasswordPresent = false,
+  hasPassword,
   accountWalletVersions,
   canAddSubwallet = false,
   forceAddingTonOnlyAccount,
@@ -112,6 +113,7 @@ function AccountSelectorModal({
     setAccountSelectorTab,
     setAccountSelectorViewMode,
     rebuildOrderedAccountIds,
+    updateOrderedAccountIds,
     addAccount,
     createSubWallet,
     clearAccountError,
@@ -144,7 +146,7 @@ function AccountSelectorModal({
   const currentTabIndex = useMemo(() => getCurrentTabIndex(tabs, activeTab), [activeTab, tabs]);
   const selectedTab = tabs[currentTabIndex]?.id ?? DEFAULT_TAB;
   const filteredAccounts = useFilteredAccounts(orderedAccounts, selectedTab);
-  const { balancesByAccountId, totalBalance, displayedAccounts } = useMultipleAccountsBalances({
+  const { balancesByAccountId, totalBalance, addressLineChainsByAccountId } = useMultipleAccountsBalances({
     filteredAccounts,
     sourceAccounts: networkAccounts,
     byAccountId,
@@ -155,7 +157,18 @@ function AccountSelectorModal({
     currencyRates,
     stakingDefault,
   });
-  const { sortState, handleDrag, handleDragEnd } = useSortableAccounts(filteredAccounts);
+  const orderedAccountIds = useMemo(
+    () => filteredAccounts.map(([accountId]) => accountId),
+    [filteredAccounts],
+  );
+  const handleAccountsOrderChange = useLastCallback((newOrder: string[]) => {
+    updateOrderedAccountIds({ orderedAccountIds: newOrder });
+  });
+  const { sortState, handleDrag, handleDragEnd } = useSortableList(
+    orderedAccountIds,
+    ACCOUNT_HEIGHT_PX,
+    handleAccountsOrderChange,
+  );
 
   const {
     isScrolled,
@@ -291,31 +304,31 @@ function AccountSelectorModal({
     }
   });
 
-  const handleAddAccountAction = useLastCallback((method: 'createAccount' | 'importMnemonic') => {
-    if (!isPasswordPresent) {
-      addAccount({ method, password: '' });
+  const handleNewAccountClick = useLastCallback(() => {
+    if (!hasPassword || selectIsEnclaveSessionValid(getGlobal())) {
+      addAccount({ method: 'createAccount' });
+
       return;
     }
-
-    if (getHasInMemoryPassword()) {
-      void getInMemoryPassword()
-        .then((password) => addAccount({
-          method,
-          password: password!,
-        }));
-      return;
-    }
-
-    setIsNewAccountImporting(method === 'importMnemonic');
+    setIsNewAccountImporting(false);
     setRenderingKey(AccountSelectorState.AddAccountPassword);
   });
 
-  const handleNewAccountClick = useLastCallback(() => {
-    handleAddAccountAction('createAccount');
-  });
-
   const handleImportAccountClick = useLastCallback(() => {
-    handleAddAccountAction('importMnemonic');
+    if (!hasPassword) {
+      addAccount({ method: 'importMnemonic' });
+
+      return;
+    }
+
+    setIsNewAccountImporting(true);
+
+    if (selectIsEnclaveSessionValid(getGlobal())) {
+      addAccount({ method: 'importMnemonic' });
+
+      return;
+    }
+    setRenderingKey(AccountSelectorState.AddAccountPassword);
   });
 
   const handleImportHardwareWalletClick = useLastCallback(() => {
@@ -331,14 +344,14 @@ function AccountSelectorModal({
     setRenderingKey(AccountSelectorState.AddAccountViewMode);
   });
 
-  const handleSubmitPassword = useLastCallback((password: string) => {
+  const handleSubmit = useLastCallback((enclaveToken: string) => {
     if (isAddingSubwallet) {
-      createSubWallet({ password });
+      createSubWallet({ enclaveToken });
       handleCloseAccountSelectorForced();
       return;
     }
 
-    addAccount({ method: isNewAccountImporting ? 'importMnemonic' : 'createAccount', password });
+    addAccount({ method: isNewAccountImporting ? 'importMnemonic' : 'createAccount', enclaveToken });
   });
 
   const handleHardwareWalletConnected = useLastCallback(() => {
@@ -415,11 +428,17 @@ function AccountSelectorModal({
   });
 
   const handleNewSubwalletClick = useLastCallback(() => {
-    if (getHasInMemoryPassword()) {
-      void getInMemoryPassword().then((password) => {
-        createSubWallet({ password: password! });
+    if (selectIsEnclaveSessionValid(getGlobal())) {
+      const enclaveToken = selectEnclaveToken(getGlobal());
+      if (enclaveToken) {
+        createSubWallet({ enclaveToken });
         handleCloseAccountSelectorForced();
-      });
+        return;
+      }
+    }
+
+    if (!hasPassword) {
+      addAccount({ method: 'createAccount' });
       return;
     }
 
@@ -469,10 +488,11 @@ function AccountSelectorModal({
     const commonAccountsViewProps = {
       isActive,
       isTestnet,
-      filteredAccounts: displayedAccounts ?? filteredAccounts,
+      filteredAccounts,
       activeTab: selectedTab,
       balancesByAccountId,
       settingsByAccountId,
+      addressLineChainsByAccountId,
       currentAccountId,
       isSensitiveDataHidden,
       onScrollInitialize: handleScrollInitialize,
@@ -544,7 +564,7 @@ function AccountSelectorModal({
             isLoading={isLoading}
             error={error}
             onClearError={clearAccountError}
-            onSubmit={handleSubmitPassword}
+            onAuthorize={handleSubmit}
             onBack={handleBackFromAddAccount}
             onClose={handleCloseAccountSelectorForced}
           />
@@ -660,7 +680,7 @@ export default memo(withGlobal(
     const orderedAccounts = selectOrderedAccounts(global);
     const currentAccountId = selectCurrentAccountId(global)!;
     const networkAccounts = selectNetworkAccounts(global);
-    const isPasswordPresent = selectIsPasswordPresent(global);
+    const hasPassword = selectHasPassword(global);
     const canAddSubwallet = selectIsMnemonicAccount(global);
     const accountWalletVersions = walletVersions?.byId?.[currentAccountId];
     const { isLoading, error } = accounts ?? {};
@@ -683,7 +703,7 @@ export default memo(withGlobal(
       isTestnet,
       isLoading,
       error,
-      isPasswordPresent,
+      hasPassword,
       accountWalletVersions,
       canAddSubwallet,
       forceAddingTonOnlyAccount,

@@ -68,13 +68,12 @@ function BackupModal({
     setNextKey(SLIDES.mnemonic);
   });
 
-  const handlePasswordSubmit = useLastCallback(async (password: string) => {
+  const handleAuthorize = useLastCallback(async (enclaveToken: string) => {
     setIsLoading(true);
-    mnemonicRef.current = await callApi('fetchMnemonic', currentAccountId!, password);
+    mnemonicRef.current = await callApi('fetchMnemonic', currentAccountId!, enclaveToken);
 
     if (!mnemonicRef.current) {
-      const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
-      setError(error);
+      setError('Failed to fetch recovery phrase.');
       setIsLoading(false);
       vibrateOnError();
       return;
@@ -143,7 +142,7 @@ function BackupModal({
               submitLabel={lang('$back_up_auth')}
               cancelLabel={lang('Cancel')}
               noAutoConfirm
-              onSubmit={handlePasswordSubmit}
+              onAuthorize={handleAuthorize}
               onCancel={onClose}
               onUpdate={handleBackupErrorUpdate}
             />

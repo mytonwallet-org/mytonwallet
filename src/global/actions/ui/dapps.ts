@@ -1,9 +1,8 @@
 import { SignDataState, TransferState } from '../../types';
 
 import { BROWSER_HISTORY_LIMIT } from '../../../config';
-import { getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { unique } from '../../../util/iteratees';
-import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { addActionHandler, setGlobal } from '../../index';
 import {
   clearDappConnectRequestError,
   resetHardware,
@@ -11,7 +10,12 @@ import {
   updateCurrentDappSignData,
   updateCurrentDappTransfer,
 } from '../../reducers';
-import { selectCurrentAccountState, selectIsHardwareAccount } from '../../selectors';
+import {
+  selectCurrentAccountState,
+  selectEnclaveToken,
+  selectIsEnclaveSessionValid,
+  selectIsHardwareAccount,
+} from '../../selectors';
 
 addActionHandler('clearDappConnectRequestError', (global) => {
   global = clearDappConnectRequestError(global);
@@ -35,23 +39,18 @@ addActionHandler('setDappTransferScreen', (global, actions, payload) => {
   setGlobal(global);
 });
 
-addActionHandler('submitDappTransferConfirm', async (global, actions) => {
-  const inMemoryPassword = await getInMemoryPassword();
-
-  global = getGlobal();
-
+addActionHandler('submitDappTransferConfirm', (global, actions) => {
   if (selectIsHardwareAccount(global)) {
     global = resetHardware(global, 'ton');
     global = updateCurrentDappTransfer(global, { state: TransferState.ConnectHardware });
-    setGlobal(global);
-  } else if (inMemoryPassword) {
+  } else if (selectIsEnclaveSessionValid(global)) {
     global = updateCurrentDappTransfer(global, { isLoading: true });
-    setGlobal(global);
-    actions.submitDappTransfer({ password: inMemoryPassword });
+    actions.submitDappTransfer({ enclaveToken: selectEnclaveToken(global) });
   } else {
     global = updateCurrentDappTransfer(global, { state: TransferState.Password });
-    setGlobal(global);
   }
+
+  return global;
 });
 
 addActionHandler('clearDappTransferError', (global) => {
@@ -135,19 +134,15 @@ addActionHandler('setDappSignDataScreen', (global, actions, payload) => {
   return updateCurrentDappSignData(global, { state });
 });
 
-addActionHandler('submitDappSignDataConfirm', async (global, actions) => {
-  const inMemoryPassword = await getInMemoryPassword();
-
-  global = getGlobal();
-
-  if (inMemoryPassword) {
+addActionHandler('submitDappSignDataConfirm', (global, actions) => {
+  if (selectIsEnclaveSessionValid(global)) {
     global = updateCurrentDappSignData(global, { isLoading: true });
-    setGlobal(global);
-    actions.submitDappSignData({ password: inMemoryPassword });
+    actions.submitDappSignData({ enclaveToken: selectEnclaveToken(global) });
   } else {
     global = updateCurrentDappSignData(global, { state: SignDataState.Password });
-    setGlobal(global);
   }
+
+  return global;
 });
 
 addActionHandler('clearDappSignDataError', (global) => {

@@ -2,9 +2,9 @@ package org.mytonwallet.app_air.walletcontext.helpers
 
 import android.os.Handler
 import android.os.Looper
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import java.util.Timer
 import java.util.TimerTask
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 
 class AutoLockHelper {
     companion object {
@@ -23,13 +23,16 @@ class AutoLockHelper {
             period?.let { period ->
                 timer = Timer()
                 timerStartAt = System.currentTimeMillis()
-                timer?.schedule(object : TimerTask() {
-                    override fun run() {
-                        Handler(Looper.getMainLooper()).post {
-                            WalletContextManager.delegate?.get()?.lockScreen()
+                timer?.schedule(
+                    object : TimerTask() {
+                        override fun run() {
+                            Handler(Looper.getMainLooper()).post {
+                                WalletContextManager.delegate?.get()?.lockScreen()
+                            }
                         }
-                    }
-                }, remainingTimeMs ?: (period * 1000L))
+                    },
+                    remainingTimeMs ?: (period * 1000L)
+                )
             }
         }
 

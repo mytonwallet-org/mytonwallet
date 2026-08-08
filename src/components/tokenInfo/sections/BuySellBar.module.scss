@@ -1,0 +1,44 @@
+.root {
+  display: flex;
+  gap: 0.25rem;
+  height: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.segment {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+
+  // Each side owns its share of the row minus its half of the gap
+  width: calc(var(--segment-share) * 100% - 0.125rem);
+  min-width: 0;
+  padding: 0 0.5rem;
+  border-radius: 0.1875rem;
+
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-white);
+
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
+}
+
+.buy {
+  justify-content: flex-start;
+  border-start-start-radius: 0.75rem;
+  border-end-start-radius: 0.75rem;
+  background-color: var(--color-activity-green-text);
+}
+
+.sell {
+  justify-content: flex-end;
+  border-start-end-radius: 0.75rem;
+  border-end-end-radius: 0.75rem;
+  background-color: var(--color-activity-red-text);
+}
+
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

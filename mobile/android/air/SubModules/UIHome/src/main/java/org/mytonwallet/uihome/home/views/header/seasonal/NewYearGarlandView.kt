@@ -13,11 +13,7 @@ import org.mytonwallet.uihome.R
 
 class NewYearGarlandView(context: Context) : View(context) {
 
-    private data class Bulb(
-        val x: Float,
-        val y: Float,
-        val color: Int
-    )
+    private data class Bulb(val x: Float, val y: Float, val color: Int)
 
     companion object {
         private const val VIEWBOX_WIDTH = 378f
@@ -41,11 +37,14 @@ class NewYearGarlandView(context: Context) : View(context) {
             Bulb(280f, 32f, Color.rgb(254, 251, 13)),
             Bulb(310f, 38f, Color.rgb(255, 179, 179)),
             Bulb(342f, 36f, Color.rgb(237, 163, 255)),
-            Bulb(370f, 26f, Color.rgb(255, 255, 174)),
+            Bulb(370f, 26f, Color.rgb(255, 255, 174))
         )
     }
 
-    private val garlandDrawable = context.resources.getDrawable(R.drawable.img_newyear_garland, null)
+    private val garlandDrawable = context.resources.getDrawable(
+        R.drawable.img_newyear_garland,
+        null
+    )
     private val bulbOpacities = FloatArray(BULBS.size) { 0f }
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var isOn = false
@@ -122,7 +121,8 @@ class NewYearGarlandView(context: Context) : View(context) {
 
             glowPaint.color = bulb.color
             glowPaint.alpha = (opacity * 255).toInt()
-            glowPaint.maskFilter = BlurMaskFilter(blur.coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+            glowPaint.maskFilter =
+                BlurMaskFilter(blur.coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
 
             canvas.drawCircle(cx, cy, bulbSize / 2f, glowPaint)
         }

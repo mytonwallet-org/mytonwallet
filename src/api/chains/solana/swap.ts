@@ -16,6 +16,7 @@ import type {
   ApiBuildOnchainSwapTransferOptions,
   ApiBuildOnchainSwapTransferResult,
   ApiSubmitOnchainSwapTransferOptions,
+  ApiSubmitOnchainSwapTransferResult,
 } from '../../types/swap';
 import type { SolanaTransactionEmulationResult } from './types';
 import { ApiCommonError, ApiSwapError } from '../../types';
@@ -99,18 +100,12 @@ export async function buildOnchainSwapTransfer(
   }
 }
 
-async function validateSwapTransaction(
+export async function validateSwapTransaction(
   transaction: string,
   walletAddress: string,
   network: ApiNetwork,
   expected: ApiSwapHistoryItem,
 ): Promise<ApiAnyDisplayError | undefined> {
-  if (expected.fromAddress !== walletAddress) {
-    throw new Error(
-      `Swap fromAddress ${expected.fromAddress} does not match wallet address ${walletAddress}`,
-    );
-  }
-
   const txBytes = getBase64Encoder().encode(transaction);
   const decoded = getTransactionDecoder().decode(txBytes);
   const compiled = getCompiledTransactionMessageDecoder().decode(decoded.messageBytes);
@@ -162,10 +157,10 @@ async function validateSwapTransaction(
 export async function submitOnchainSwapTransfer(
   options: ApiSubmitOnchainSwapTransferOptions,
   onUpdate: OnApiUpdate,
-): Promise<{ activityId: string } | { error: string }> {
+): Promise<ApiSubmitOnchainSwapTransferResult> {
   const {
     accountId,
-    password,
+    enclaveToken,
     transaction,
     authToken,
     localSwap,
@@ -192,7 +187,7 @@ export async function submitOnchainSwapTransfer(
   });
 
   try {
-    const privateKey = await fetchPrivateKeyString(accountId, password);
+    const privateKey = await fetchPrivateKeyString(accountId, enclaveToken);
 
     if (!privateKey) {
       return { error: ApiCommonError.InvalidPassword };
@@ -258,7 +253,10 @@ export async function submitOnchainSwapTransfer(
 
     void callHook('onSwapCreated', accountId, updatedSwap.timestamp - 1);
 
-    return { activityId: updatedSwap.id };
+    return {
+      activityId: updatedSwap.id,
+      submittedHashes: [executeResult.signature],
+    };
   } catch (err: any) {
     onUpdate({
       type: 'newLocalActivities',

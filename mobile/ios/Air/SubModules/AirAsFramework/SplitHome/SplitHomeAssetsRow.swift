@@ -342,7 +342,7 @@ private final class SplitHomeAssetSectionCollectionCell: UICollectionViewCell {
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.applyTextStyle(.captionEmphasized)
         label.textAlignment = .center
         label.lineBreakMode = .byTruncatingTail
         return label

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -19,10 +18,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.view.isGone
 import androidx.core.widget.NestedScrollView
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -43,10 +46,12 @@ import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers.Companion.presentMenu
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -67,7 +72,6 @@ import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
-import org.mytonwallet.app_air.uitransaction.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -88,9 +92,7 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
-import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
@@ -98,7 +100,6 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapTransactionRef
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction.Swap
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
@@ -106,19 +107,17 @@ import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.absoluteValue
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TransactionVC(
     context: Context,
     private val showingAccountId: String,
     tx: MApiTransaction,
-    private val isInBottomSheet: Boolean = true
+    private val isInBottomSheet: Boolean = true,
+    private val titleOverride: String? = null
 ) : WViewController(context),
     WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "Transaction"
 
     override val isSwipeBackAllowed = !isInBottomSheet
@@ -149,8 +148,9 @@ class TransactionVC(
             }
 
             is MApiTransaction.Transaction -> {
-                if (!transaction.isIncoming && (transaction.isPending() || transaction.isLocal()))
+                if (!transaction.isIncoming && (transaction.isPending() || transaction.isLocal())) {
                     return transaction.copy(status = ApiTransactionStatus.CONFIRMED)
+                }
                 return transaction
             }
         }
@@ -177,13 +177,19 @@ class TransactionVC(
 
     private val titleView: FrameLayout by lazy {
         FrameLayout(context).apply {
-            addView(titleLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            })
-            addView(tagLabel, FrameLayout.LayoutParams(WRAP_CONTENT, 20.dp).apply {
-                topMargin = 0.5f.dp.roundToInt()
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            })
+            addView(
+                titleLabel,
+                FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                }
+            )
+            addView(
+                tagLabel,
+                FrameLayout.LayoutParams(WRAP_CONTENT, 20.dp).apply {
+                    topMargin = 0.5f.dp.roundToInt()
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                }
+            )
         }
     }
 
@@ -241,8 +247,10 @@ class TransactionVC(
                 val token = TokenStore.getToken(transaction.slug)
                 token?.let {
                     lbl.setAmount(
-                        (token.price
-                            ?: 0.0) * transaction.amount.doubleAbsRepresentation(token.decimals),
+                        (
+                            token.price
+                                ?: 0.0
+                            ) * transaction.amount.doubleAbsRepresentation(token.decimals),
                         token.decimals,
                         WalletCore.baseCurrency.sign,
                         token.decimals,
@@ -282,8 +290,7 @@ class TransactionVC(
         }
     }
     private val decryptButton: WLabel by lazy {
-        if (transaction !is MApiTransaction.Transaction)
-            throw Exception()
+        if (transaction !is MApiTransaction.Transaction) throw Exception()
         val btn = WLabel(context)
         btn.text = LocaleController.getString("Decrypt")
         btn.background = decryptButtonBackground
@@ -300,10 +307,13 @@ class TransactionVC(
                     PasscodeViewState.Default(
                         LocaleController.getString("Message is encrypted"),
                         LocaleController.getString(
-                            if (WGlobalStorage.isBiometricActivated() &&
+                            if (WGlobalStorage.isAnyBiometricActivated() &&
                                 BiometricHelpers.canAuthenticate(window!!)
-                            )
-                                "Enter passcode or use fingerprint" else "Enter Passcode"
+                            ) {
+                                "Enter passcode or use fingerprint"
+                            } else {
+                                "Enter Passcode"
+                            }
                         ),
                         LocaleController.getString("Decrypt"),
                         showNavigationSeparator = false,
@@ -317,8 +327,7 @@ class TransactionVC(
                                 passcode
                             )
                         ) { res, err ->
-                            if (err != null)
-                                return@call
+                            if (err != null) return@call
                             commentLabel.text = res
                             commentView.removeView(decryptButton)
                             commentView.setConstraints {
@@ -331,7 +340,8 @@ class TransactionVC(
                             window?.dismissLastNav()
                         }
                     }
-                ))
+                )
+            )
             window?.present(nav)
         }
         btn
@@ -351,15 +361,22 @@ class TransactionVC(
                         decryptButton,
                         ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
                     )
-                    decryptButton.setTextColor((if (transaction.isIncoming) WColor.IncomingComment else WColor.OutgoingComment).color)
+                    decryptButton.setTextColor(
+                        if (transaction.isIncoming) {
+                            WColor.IncomingComment.color
+                        } else {
+                            WColor.OutgoingComment.color
+                        }
+                    )
                 }
             } else {
                 commentLabel.text = transaction.comment
             }
-            if (transaction.isIncoming)
+            if (transaction.isIncoming) {
                 v.setPaddingDpLocalized(18, 6, 12, 6)
-            else
+            } else {
                 v.setPaddingDpLocalized(12, 6, 18, 6)
+            }
         }
         v.minimumHeight = 36.dp
         v.setConstraints {
@@ -367,7 +384,10 @@ class TransactionVC(
             toTop(commentLabel)
             toStart(commentLabel)
             toBottom(commentLabel)
-            if (transaction is MApiTransaction.Transaction && !transaction.encryptedComment.isNullOrEmpty() && canDecrypt) {
+            if (transaction is MApiTransaction.Transaction &&
+                !transaction.encryptedComment.isNullOrEmpty() &&
+                canDecrypt
+            ) {
                 setHorizontalBias(decryptButton.id, 1f)
                 toCenterY(decryptButton)
                 endToStart(commentLabel, decryptButton, 8f)
@@ -483,26 +503,35 @@ class TransactionVC(
         }
     }
 
-    private fun generateActions(): List<HeaderActionsView.Item> {
-        return listOfNotNull(
-            if (isInBottomSheet && !isDetailsExpandedByDefault) HeaderActionsView.Item(
+    private fun generateActions(): List<HeaderActionsView.Item> = listOfNotNull(
+        if (isInBottomSheet && !isDetailsExpandedByDefault) {
+            HeaderActionsView.Item(
                 HeaderActionsView.Identifier.DETAILS,
                 context.requireDrawableCompat(R.drawable.ic_act_details_outline),
                 LocaleController.getString("Details")
-            ) else null,
-            if (shouldShowRepeatAction()) HeaderActionsView.Item(
+            )
+        } else {
+            null
+        },
+        if (shouldShowRepeatAction()) {
+            HeaderActionsView.Item(
                 HeaderActionsView.Identifier.REPEAT,
                 context.requireDrawableCompat(R.drawable.ic_act_repeat_outline),
                 LocaleController.getString("Repeat")
-            ) else null,
-            if (!transaction.getTxHash().isNullOrEmpty())
-                HeaderActionsView.Item(
-                    HeaderActionsView.Identifier.SHARE,
-                    context.requireDrawableCompat(R.drawable.ic_act_share_outline),
-                    LocaleController.getString("Share")
-                ) else null
-        )
-    }
+            )
+        } else {
+            null
+        },
+        if (!transaction.getTxHash().isNullOrEmpty()) {
+            HeaderActionsView.Item(
+                HeaderActionsView.Identifier.SHARE,
+                context.requireDrawableCompat(R.drawable.ic_act_share_outline),
+                LocaleController.getString("Share")
+            )
+        } else {
+            null
+        }
+    )
 
     private val actionsView = HeaderActionsView(
         context,
@@ -525,7 +554,7 @@ class TransactionVC(
                     throw Error()
                 }
             }
-        },
+        }
     )
 
     private val transactionDetailsLabel: WLabel by lazy {
@@ -574,28 +603,40 @@ class TransactionVC(
                             KeyValueRowView.Mode.SECONDARY,
                             false
                         ).apply {
-                            setValueView(WLabel(context).apply {
-                                setStyle(adaptiveFontSize())
-                                setTextColor(WColor.Tint)
-                                isTinted = true
-                                setOnClickListener {
-                                    val url =
-                                        transaction.nft?.collectionUrl ?: return@setOnClickListener
-                                    WalletCore.notifyEvent(
-                                        WalletEvent.OpenUrl(url)
-                                    )
+                            setValueView(
+                                WLabel(context).apply {
+                                    setStyle(adaptiveFontSize())
+                                    setTextColor(WColor.Tint)
+                                    isTinted = true
+                                    setOnClickListener {
+                                        val url =
+                                            transaction.nft?.collectionUrl
+                                                ?: return@setOnClickListener
+                                        WalletCore.notifyEvent(
+                                            WalletEvent.OpenUrl(url)
+                                        )
+                                    }
+                                    text =
+                                        if (transaction.nft!!.isStandalone()) {
+                                            LocaleController.getString(
+                                                "Standalone"
+                                            )
+                                        } else {
+                                            transaction.nft!!.collectionName ?: ""
+                                        }
                                 }
-                                text =
-                                    if (transaction.nft!!.isStandalone()) LocaleController.getString(
-                                        "Standalone"
-                                    ) else transaction.nft!!.collectionName ?: ""
-                            })
+                            )
                         }
                     )
                 } else {
                     TokenStore.getToken(transaction.slug)?.let { token ->
                         val equivalent = token.price?.let { price ->
-                            (price * transaction.amount.doubleAbsRepresentation(decimals = token.decimals)).toString(
+                            (
+                                price *
+                                    transaction.amount.doubleAbsRepresentation(
+                                        decimals = token.decimals
+                                    )
+                                ).toString(
                                 token.decimals,
                                 WalletCore.baseCurrency.sign,
                                 WalletCore.baseCurrency.decimalsCount,
@@ -623,10 +664,13 @@ class TransactionVC(
                     }
                 }
                 if (
-                    (transaction.fee > BigInteger.ZERO ||
-                        transaction.shouldLoadDetails == true) && feeRow != null
-                )
+                    (
+                        transaction.fee > BigInteger.ZERO ||
+                            transaction.shouldLoadDetails == true
+                        ) && feeRow != null
+                ) {
                     detailsRowViews.add(feeRow!!)
+                }
                 if (detailsRowViews.isEmpty()) {
                     transactionDetailsLabel.visibility = View.GONE
                 }
@@ -676,13 +720,13 @@ class TransactionVC(
                 )
                 val shouldShowFeeRow =
                     (transaction.networkFee ?: 0.0) > 0 ||
-                        (transaction.ourFeeMode != "included" && (transaction.ourFee
-                            ?: 0.0) > 0 && transaction.ourFee!!.isFinite()) ||
                         transaction.shouldLoadDetails == true
                 detailsRowViews.add(
                     KeyValueRowView(
                         context,
-                        "${LocaleController.getString("Price per")} 1 ${toToken?.symbol ?: ""}",
+                        "${LocaleController.getString(
+                            "Price per"
+                        )}\u202D 1 ${toToken?.symbol ?: ""}",
                         (transaction.fromAmount.absoluteValue / transaction.toAmount).toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
@@ -743,10 +787,11 @@ class TransactionVC(
         v.setConstraints {
             toTop(transactionDetailsLabel, 16f)
             detailsRowViews.forEachIndexed { index, rowView ->
-                if (index == 0)
+                if (index == 0) {
                     topToBottom(rowView, transactionDetailsLabel, 0f)
-                else
+                } else {
                     topToBottom(rowView, detailsRowViews[index - 1])
+                }
                 toCenterX(rowView)
             }
             toBottom(detailsRowViews.last())
@@ -795,13 +840,16 @@ class TransactionVC(
             addView(innerContentView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
             setConstraints {
                 toTopPx(
-                    innerContentView, (navigationController?.getSystemBars()?.top ?: 0) +
+                    innerContentView,
+                    (navigationController?.getSystemBars()?.top ?: 0) +
                         WNavigationBar.DEFAULT_HEIGHT.dp
                 )
                 constrainMinHeight(
                     innerContentView.id,
-                    window!!.windowView.height - (navigationController?.getSystemBars()?.top
-                        ?: 0) - WNavigationBar.DEFAULT_HEIGHT.dp
+                    window!!.windowView.height - (
+                        navigationController?.getSystemBars()?.top
+                            ?: 0
+                        ) - WNavigationBar.DEFAULT_HEIGHT.dp
                 )
             }
         }
@@ -814,9 +862,9 @@ class TransactionVC(
         }
     }
 
-    private fun shouldShowTransactionAddress(transaction: MApiTransaction.Transaction): Boolean {
-        return transaction.shouldShowTransactionAddress || transaction.type == ApiTransactionType.STAKE
-    }
+    private fun shouldShowTransactionAddress(transaction: MApiTransaction.Transaction): Boolean =
+        transaction.shouldShowTransactionAddress ||
+            transaction.type == ApiTransactionType.STAKE
 
     private fun initTransactionAddress(transaction: MApiTransaction.Transaction) {
         val addressDetailsLabel = HeaderCell(context).apply {
@@ -833,15 +881,18 @@ class TransactionVC(
         WView(context).apply {
             addView(addressDetailsLabel)
             addView(
-                addressView, ConstraintLayout.LayoutParams(
-                    MATCH_CONSTRAINT, WRAP_CONTENT
+                addressView,
+                ConstraintLayout.LayoutParams(
+                    WRAP_CONTENT,
+                    WRAP_CONTENT
                 )
             )
             setConstraints {
                 toTop(addressDetailsLabel)
                 toStart(addressDetailsLabel)
-                toStart(addressView, 12f)
-                toEnd(addressView, 12f)
+                constrainedWidth(addressView.id, true)
+                toCenterX(addressView, 12f)
+                setHorizontalBias(addressView.id, if (LocaleController.isRTL) 1f else 0f)
                 topToBottom(addressView, addressDetailsLabel, 4f)
                 toBottom(addressView, 12f)
             }
@@ -946,8 +997,7 @@ class TransactionVC(
         updateTheme()
         applyExpandPresentation()
 
-        if (transaction.shouldLoadDetails == true)
-            loadActivityDetails()
+        if (transaction.shouldLoadDetails == true) loadActivityDetails()
     }
 
     override fun onDestroy() {
@@ -975,13 +1025,16 @@ class TransactionVC(
         }
         scrollingContentView.setConstraints {
             toTopPx(
-                innerContentView, (navigationController?.getSystemBars()?.top ?: 0) +
+                innerContentView,
+                (navigationController?.getSystemBars()?.top ?: 0) +
                     WNavigationBar.DEFAULT_HEIGHT.dp
             )
             constrainMinHeight(
                 innerContentView.id,
-                window!!.windowView.height - (navigationController?.getSystemBars()?.top
-                    ?: 0) - WNavigationBar.DEFAULT_HEIGHT.dp
+                window!!.windowView.height - (
+                    navigationController?.getSystemBars()?.top
+                        ?: 0
+                    ) - WNavigationBar.DEFAULT_HEIGHT.dp
             )
         }
         if (appliedDetailsExpandedByDefault != isDetailsExpandedByDefault) {
@@ -1007,7 +1060,13 @@ class TransactionVC(
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 firstLabel.contentView.setTextColor(
-                    if (transaction.amount >= BigInteger.ZERO) WColor.Green.color else WColor.PrimaryText.color
+                    if (transaction.amount >=
+                        BigInteger.ZERO
+                    ) {
+                        WColor.Green.color
+                    } else {
+                        WColor.PrimaryText.color
+                    }
                 )
                 secondLabel.contentView.setTextColor(WColor.SecondaryText.color)
             }
@@ -1054,9 +1113,8 @@ class TransactionVC(
         }
     }
 
-    override fun getModalHalfExpandedHeight(): Int {
-        return innerContentView.top + actionsView.bottom + 36.dp
-    }
+    override fun getModalHalfExpandedHeight(): Int =
+        innerContentView.top + actionsView.bottom + 36.dp
 
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         super.onModalSlide(expandOffset, expandProgress)
@@ -1089,7 +1147,7 @@ class TransactionVC(
     }
 
     private fun updateTitleIfNeeded(animated: Boolean) {
-        val newTitle = transaction.title
+        val newTitle = titleOverride ?: transaction.title
         if (title == newTitle) return
 
         title = newTitle
@@ -1131,10 +1189,11 @@ class TransactionVC(
         if (animated) {
             tagLabel.animate().cancel()
             val duration =
-                if (tagText.isNullOrEmpty())
+                if (tagText.isNullOrEmpty()) {
                     AnimationConstants.QUICK_ANIMATION
-                else
+                } else {
                     AnimationConstants.QUICK_ANIMATION / 2
+                }
             tagLabel.fadeOut(duration = duration) {
                 tagLabel.fadeIn(duration = duration)
                 tagText = transaction.tagText
@@ -1181,12 +1240,16 @@ class TransactionVC(
 
     private fun reloadCommentView() {
         (transaction as? MApiTransaction.Transaction)?.let { transaction ->
-            if (!transaction.hasComment)
-                return@let
+            if (!transaction.hasComment) return@let
             commentView.background =
-                (if (transaction.isIncoming) IncomingCommentDrawable() else OutgoingCommentDrawable()).apply {
-                    if (transaction.status == ApiTransactionStatus.FAILED)
+                if (transaction.isIncoming) {
+                    IncomingCommentDrawable()
+                } else {
+                    OutgoingCommentDrawable()
+                }.apply {
+                    if (transaction.status == ApiTransactionStatus.FAILED) {
                         setBubbleColor(WColor.Red.color.colorWithAlpha(38))
+                    }
                 }
             commentLabel.setTextColor(
                 if (transaction.status == ApiTransactionStatus.FAILED) WColor.Red else WColor.White
@@ -1201,22 +1264,24 @@ class TransactionVC(
         }
     }
 
-    private fun shouldShowRepeatAction() = {
-        val transaction = transaction
-        AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW &&
-            (
-                transaction is MApiTransaction.Swap ||
-                    (
-                        transaction is MApiTransaction.Transaction &&
-                            !transaction.isPending() &&
-                            (transaction.isStaking || (!transaction.isIncoming && transaction.nft == null))
-                        )
-                )
-    }()
+    private fun shouldShowRepeatAction(): Boolean {
+        if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) return false
+        return when (val transaction = transaction) {
+            is MApiTransaction.Swap -> true
+
+            is MApiTransaction.Transaction -> {
+                !transaction.isPending() && if (transaction.isStaking) {
+                    transaction.type != ApiTransactionType.STAKE ||
+                        TokenStore.getToken(transaction.slug)?.isEarnAvailable == true
+                } else {
+                    !transaction.isIncoming && transaction.nft == null
+                }
+            }
+        }
+    }
 
     private fun calcFee(transaction: MApiTransaction): String? {
-        if (transaction.shouldLoadDetails == true)
-            return null
+        if (transaction.shouldLoadDetails == true) return null
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 val token = TokenStore.getToken(transaction.slug)
@@ -1235,21 +1300,22 @@ class TransactionVC(
 
             is MApiTransaction.Swap -> {
                 val fromToken = transaction.fromToken ?: return null
-                val isNative = fromToken.isBlockchainNative
                 val nativeDecimals = fromToken.nativeToken?.decimals ?: fromToken.decimals
-                val isOurFeeIncluded = transaction.ourFeeMode == "included"
                 val feeTerms = MFeeTerms(
-                    token = if (!isOurFeeIncluded && !isNative && transaction.ourFee != null && transaction.ourFee!!.isFinite()) transaction.ourFee!!.toBigInteger(
-                        fromToken.decimals
-                    ) else BigInteger.ZERO,
-                    native = (
-                        (transaction.networkFee?.absoluteValue ?: 0.0) +
-                            (if (!isOurFeeIncluded && isNative && transaction.ourFee?.isFinite() == true) transaction.ourFee!! else 0.0)
-                        ).toBigInteger(nativeDecimals),
+                    token = BigInteger.ZERO,
+                    native = (transaction.networkFee?.absoluteValue ?: 0.0).toBigInteger(
+                        nativeDecimals
+                    ),
                     stars = null
                 )
                 return MFee(
-                    if (transaction.status.uiStatus == MApiTransaction.UIStatus.PENDING) MFeePrecision.APPROXIMATE else MFeePrecision.EXACT,
+                    if (transaction.status.uiStatus ==
+                        MApiTransaction.UIStatus.PENDING
+                    ) {
+                        MFeePrecision.APPROXIMATE
+                    } else {
+                        MFeePrecision.EXACT
+                    },
                     feeTerms,
                     nativeSum = null
                 ).toString(
@@ -1259,7 +1325,6 @@ class TransactionVC(
             }
         }
     }
-
 
     private data class SwapTransactionIdItem(
         val label: String,
@@ -1271,7 +1336,9 @@ class TransactionVC(
         val item: SwapTransactionIdItem
     )
 
-    private fun getSwapTransactionIdItems(swapTransaction: Swap?): List<SwapTransactionIdItem> {
+    private fun getSwapTransactionIdItems(
+        swapTransaction: MApiTransaction.Swap?
+    ): List<SwapTransactionIdItem> {
         val swap = swapTransaction ?: return emptyList()
         val outgoing = swap.transactionIds.outgoing
         val incoming = swap.transactionIds.incoming
@@ -1282,7 +1349,9 @@ class TransactionVC(
             )
 
             outgoing != null -> listOf(SwapTransactionIdItem("Transaction ID", outgoing))
+
             incoming != null -> listOf(SwapTransactionIdItem("Transaction ID", incoming))
+
             else -> emptyList()
         }
     }
@@ -1301,9 +1370,13 @@ class TransactionVC(
                 drawable.alpha = 204
                 val width = 7.dp
                 val height = 14.dp
-                val leftPadding = 3.5f.dp.roundToInt()
-                drawable.setBounds(leftPadding, 0, leftPadding + width, height)
-                val imageSpan = VerticalImageSpan(drawable)
+                drawable.setBounds(0, 0, width, height)
+                val imageSpan = VerticalImageSpan(
+                    drawable,
+                    startPadding = 3.5f.dp.roundToInt(),
+                    verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm,
+                    isRTL = false
+                )
                 spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             spannedString.setSpan(
@@ -1315,7 +1388,7 @@ class TransactionVC(
                             listOf(
                                 WMenuPopup.Item(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
-                                    LocaleController.getString("Copy Transaction ID"),
+                                    LocaleController.getString("Copy Transaction ID")
                                 ) {
                                     if (ClipboardHelpers.copyToClipboard(
                                             context,
@@ -1333,24 +1406,33 @@ class TransactionVC(
                                 },
                                 WMenuPopup.Item(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
-                                    LocaleController.getString("View on Explorer"),
+                                    LocaleController.getString("View on Explorer")
                                 ) {
                                     val network = MBlockchainNetwork.ofAccountId(showingAccountId)
                                     val token = TokenStore.getToken(transaction.getTxSlug())
                                     val chain =
-                                        if (token?.chain != null) MBlockchain.valueOfOrNull(token.chain)
-                                            ?: return@Item
-                                        else if (transaction is Swap) MBlockchain.ton
-                                        else return@Item
+                                        if (token?.chain !=
+                                            null
+                                        ) {
+                                            MBlockchain.valueOfOrNull(token.chain)
+                                                ?: return@Item
+                                        } else if (transaction is MApiTransaction.Swap) {
+                                            MBlockchain.ton
+                                        } else {
+                                            return@Item
+                                        }
                                     val txHash = transaction.getTxHash() ?: return@Item
                                     val config = ExplorerHelpers.createTransactionExplorerConfig(
-                                        chain, network, txHash
+                                        chain,
+                                        network,
+                                        txHash
                                     ) ?: return@Item
                                     val browserVC = InAppBrowserVC(context, null, config)
                                     val nav = WNavigationController(window!!)
                                     nav.setRoot(browserVC)
                                     window?.present(nav)
-                                }),
+                                }
+                            ),
                             yOffset = 0,
                             popupWidth = WRAP_CONTENT,
                             positioning = WMenuPopup.Positioning.BELOW,
@@ -1388,9 +1470,13 @@ class TransactionVC(
             drawable.alpha = 204
             val width = 7.dp
             val height = 14.dp
-            val leftPadding = 3.5f.dp.roundToInt()
-            drawable.setBounds(leftPadding, 0, leftPadding + width, height)
-            val imageSpan = VerticalImageSpan(drawable)
+            drawable.setBounds(0, 0, width, height)
+            val imageSpan = VerticalImageSpan(
+                drawable,
+                startPadding = 3.5f.dp.roundToInt(),
+                verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm,
+                isRTL = false
+            )
             spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         spannedString.setSpan(
@@ -1402,7 +1488,7 @@ class TransactionVC(
                         listOf(
                             WMenuPopup.Item(
                                 org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
-                                LocaleController.getString("Copy Transaction ID"),
+                                LocaleController.getString("Copy Transaction ID")
                             ) {
                                 if (ClipboardHelpers.copyToClipboard(
                                         context,
@@ -1420,18 +1506,22 @@ class TransactionVC(
                             },
                             WMenuPopup.Item(
                                 org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
-                                LocaleController.getString("View on Explorer"),
+                                LocaleController.getString("View on Explorer")
                             ) {
                                 val network = MBlockchainNetwork.ofAccountId(showingAccountId)
-                                val chain = MBlockchain.valueOfOrNull(transactionId.chain) ?: return@Item
+                                val chain =
+                                    MBlockchain.valueOfOrNull(transactionId.chain) ?: return@Item
                                 val config = ExplorerHelpers.createTransactionExplorerConfig(
-                                    chain, network, transactionId.hash
+                                    chain,
+                                    network,
+                                    transactionId.hash
                                 ) ?: return@Item
                                 val browserVC = InAppBrowserVC(context, null, config)
                                 val nav = WNavigationController(window!!)
                                 nav.setRoot(browserVC)
                                 window?.present(nav)
-                            }),
+                            }
+                        ),
                         yOffset = 0,
                         popupWidth = WRAP_CONTENT,
                         positioning = WMenuPopup.Positioning.BELOW,
@@ -1457,7 +1547,7 @@ class TransactionVC(
 
     private val swapProviderIdValue: CharSequence
         get() {
-            val cexSwap = transaction as? Swap
+            val cexSwap = transaction as? MApiTransaction.Swap
             val swapProviderId = cexSwap?.cex?.transactionId
             val spannedString = SpannableStringBuilder(swapProviderId ?: "")
             spannedString.styleDots()
@@ -1469,9 +1559,13 @@ class TransactionVC(
                 drawable.alpha = 204
                 val width = 7.dp
                 val height = 14.dp
-                val leftPadding = 3.5f.dp.roundToInt()
-                drawable.setBounds(leftPadding, 0, leftPadding + width, height)
-                val imageSpan = VerticalImageSpan(drawable)
+                drawable.setBounds(0, 0, width, height)
+                val imageSpan = VerticalImageSpan(
+                    drawable,
+                    startPadding = 3.5f.dp.roundToInt(),
+                    verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm,
+                    isRTL = false
+                )
                 spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             spannedString.setSpan(
@@ -1481,7 +1575,7 @@ class TransactionVC(
                         val items = mutableListOf(
                             WMenuPopup.Item(
                                 org.mytonwallet.app_air.icons.R.drawable.ic_copy,
-                                LocaleController.getString("Copy Swap ID"),
+                                LocaleController.getString("Copy Swap ID")
                             ) {
                                 if (ClipboardHelpers.copyToClipboard(
                                         context,
@@ -1526,8 +1620,7 @@ class TransactionVC(
     private fun loadActivityDetails() {
         val accountId = AccountStore.activeAccountId ?: return
         val activityId = transaction.id
-        if (loadingDetailsActivityId == activityId)
-            return
+        if (loadingDetailsActivityId == activityId) return
         loadingDetailsActivityId = activityId
         WalletCore.call(
             ApiMethod.WalletData.FetchActivityDetails(
@@ -1535,13 +1628,11 @@ class TransactionVC(
                 transaction
             ),
             callback = { res, err ->
-                if (loadingDetailsActivityId != activityId)
-                    return@call
+                if (loadingDetailsActivityId != activityId) return@call
                 loadingDetailsActivityId = null
                 if (err != null) {
                     Handler(Looper.getMainLooper()).postDelayed({
-                        if (view.parent == null || transaction.id != activityId)
-                            return@postDelayed
+                        if (view.parent == null || transaction.id != activityId) return@postDelayed
                         loadActivityDetails()
                     }, 3000)
                     return@call
@@ -1554,7 +1645,8 @@ class TransactionVC(
                     )
                     feeRow?.isLoading = false
                 }
-            })
+            }
+        )
     }
 
     private fun repeatPressed() {
@@ -1568,20 +1660,31 @@ class TransactionVC(
             is MApiTransaction.Transaction -> {
                 val token = TokenStore.getToken(transaction.slug) ?: return
                 if (transaction.isStaking) {
+                    if (transaction.type == ApiTransactionType.STAKE && !token.isEarnAvailable) {
+                        return
+                    }
                     navVC.setRoot(EarnRootVC(context))
-                    if (transaction.type != ApiTransactionType.UNSTAKE_REQUEST)
+                    if (transaction.type != ApiTransactionType.UNSTAKE_REQUEST) {
                         navVC.push(
                             StakingVC(
                                 context,
                                 transaction.slug,
-                                if (transaction.type == ApiTransactionType.STAKE) StakingViewModel.Mode.STAKE else StakingViewModel.Mode.UNSTAKE
+                                if (transaction.type ==
+                                    ApiTransactionType.STAKE
+                                ) {
+                                    StakingViewModel.Mode.STAKE
+                                } else {
+                                    StakingViewModel.Mode.UNSTAKE
+                                }
                             ),
                             animated = false
                         )
+                    }
                 } else {
                     navVC.setRoot(
                         SendVC(
-                            context, transaction.slug,
+                            context,
+                            transaction.slug,
                             SendVC.InitialValues(
                                 transaction.toAddress,
                                 CoinUtils.toBigDecimal(
@@ -1646,10 +1749,7 @@ class TransactionVC(
 
             is WalletEvent.ReceivedNewActivities -> {
                 walletEvent.newActivities?.find {
-                    return@find if (it.isLocal())
-                        ActivityHelpers.localActivityMatches(this.transaction, it)
-                    else
-                        this.transaction.isSame(it)
+                    this.transaction.isSame(it)
                 }?.let {
                     this.transaction = adjustTransactionStatusForUi(it)
                     reloadData()

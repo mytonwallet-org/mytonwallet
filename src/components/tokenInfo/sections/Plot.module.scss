@@ -1,0 +1,17 @@
+.root {
+  height: 5.875rem;
+}
+
+.line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 0.125rem;
+}
+
+.dot {
+  fill: var(--color-accent);
+  stroke: var(--color-background-first);
+  stroke-width: 0.125rem;
+}

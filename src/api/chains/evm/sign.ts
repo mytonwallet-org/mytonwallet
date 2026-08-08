@@ -11,13 +11,13 @@ export async function signPayload(
   chain: EVMChain,
   accountId: string,
   payloadToSign: UnifiedSignDataPayload,
-  password?: string,
+  enclaveToken?: string,
 ): Promise<{ result: string } | { error: ApiAnyDisplayError }> {
-  if (password === undefined) return { error: ApiCommonError.InvalidPassword };
+  if (enclaveToken === undefined) return { error: ApiCommonError.InvalidPassword };
 
   const { network } = parseAccountId(accountId);
 
-  const privateKey = await fetchPrivateKeyString(chain, accountId, password);
+  const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken);
   if (!privateKey) return { error: ApiCommonError.InvalidPassword };
 
   const signer = getSignerFromPrivateKey(network, privateKey);
@@ -49,14 +49,14 @@ export async function signTransfer(
   chain: EVMChain,
   accountId: string,
   transaction: string,
-  password?: string,
+  enclaveToken?: string,
   isLegacyOutput?: boolean,
 ): Promise<ApiSignedTransfer<DappProtocolType.WalletConnect>[] | { error: ApiAnyDisplayError }> {
-  if (password === undefined) return { error: ApiCommonError.InvalidPassword };
+  if (enclaveToken === undefined) return { error: ApiCommonError.InvalidPassword };
 
   const { network } = parseAccountId(accountId);
 
-  const privateKey = await fetchPrivateKeyString(chain, accountId, password);
+  const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken);
   if (!privateKey) return { error: ApiCommonError.InvalidPassword };
 
   const signer = getSignerFromPrivateKey(network, privateKey);

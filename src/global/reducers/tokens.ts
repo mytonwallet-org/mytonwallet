@@ -1,5 +1,5 @@
 import type { ApiTokenWithPrice } from '../../api/types';
-import type { GlobalState, PriceHistoryPeriods } from '../types';
+import type { GlobalState, PriceHistoryPeriods, TokenDetailsState } from '../types';
 
 import { updateAccountState } from './misc';
 
@@ -15,6 +15,20 @@ export function updateTokenPriceHistory(global: GlobalState, slug: string, parti
           ...bySlug[slug],
           ...partial,
         },
+      },
+    },
+  };
+}
+
+export function updateTokenDetails(global: GlobalState, slug: string, partial: TokenDetailsState): GlobalState {
+  const { bySlug } = global.tokenDetails;
+
+  return {
+    ...global,
+    tokenDetails: {
+      bySlug: {
+        ...bySlug,
+        [slug]: { ...bySlug[slug], ...partial },
       },
     },
   };

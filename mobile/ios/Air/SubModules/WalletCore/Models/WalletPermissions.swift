@@ -130,15 +130,15 @@ public struct ApiEvmDelegation: Equatable, Hashable, Sendable, Decodable {
 
 public struct ApiRevokeWalletPermissionOptions: Encodable, Sendable {
     public let accountId: String
-    public let password: String?
+    public let enclaveToken: EnclaveToken?
     public let kind: String
     public let tokenAddress: String?
     public let spenderAddress: String?
     public let delegateAddress: String?
 
-    public init(accountId: String, password: String?, permission: ApiWalletPermission) {
+    public init(accountId: String, enclaveToken: EnclaveToken?, permission: ApiWalletPermission) {
         self.accountId = accountId
-        self.password = password
+        self.enclaveToken = enclaveToken
 
         switch permission {
         case .approval(let approval):

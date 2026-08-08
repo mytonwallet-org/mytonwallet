@@ -2,6 +2,8 @@ package org.mytonwallet.app_air.ledger.screens.ledgerWallets
 
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,7 +22,6 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
-import java.lang.ref.WeakReference
 
 class LedgerWalletsVM(delegate: Delegate) {
     interface Delegate {
@@ -31,19 +32,17 @@ class LedgerWalletsVM(delegate: Delegate) {
 
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
-    fun finalizeImport(
-        network: MBlockchainNetwork,
-        newWallets: List<MLedgerWalletInfo>
-    ) {
+    fun finalizeImport(network: MBlockchainNetwork, newWallets: List<MLedgerWalletInfo>) {
         CoroutineScope(Dispatchers.IO).launch {
             val finalizedWallets = mutableListOf<String>()
-            newWallets.forEach { newWallet ->
+            newWallets.forEachIndexed { index, newWallet ->
                 try {
                     val result = WalletCore.call(
                         ApiMethod.Auth.ImportLedgerWallet(
-                            network, MApiLedgerAccountInfo(
+                            network,
+                            MApiLedgerAccountInfo(
                                 byChain = mapOf(
-                                    TON_CHAIN to newWallet.wallet,
+                                    TON_CHAIN to newWallet.wallet
                                 ),
                                 driver = MApiLedgerDriver.HID,
                                 deviceId = newWallet.deviceId,
@@ -71,11 +70,18 @@ class LedgerWalletsVM(delegate: Delegate) {
                         accountId = result.accountId,
                         accountType = MAccount.AccountType.HARDWARE.value,
                         byChain = result.byChain.jsonObject,
-                        importedAt = null,
+                        importedAt = null
                     )
                     finalizedWallets.add(result.accountId)
                     AirPushNotifications.subscribe(result.accountId, ignoreIfLimitReached = true)
-                } catch (_: Throwable) {
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logger.e(
+                        Logger.LogTag.LEDGER,
+                        "Ledger account import failed walletIndex=$index " +
+                            "error=${e.javaClass.simpleName}"
+                    )
                 }
             }
             Handler(Looper.getMainLooper()).post {
@@ -113,8 +119,7 @@ class LedgerWalletsVM(delegate: Delegate) {
 
     private var isLoadingMore = false
     fun loadMore(network: MBlockchainNetwork, index: Int) {
-        if (isLoadingMore)
-            return
+        if (isLoadingMore) return
         isLoadingMore = true
         WalletCore.call(
             ApiMethod.Auth.GetLedgerWallets(
@@ -132,5 +137,4 @@ class LedgerWalletsVM(delegate: Delegate) {
             isLoadingMore = false
         }
     }
-
 }

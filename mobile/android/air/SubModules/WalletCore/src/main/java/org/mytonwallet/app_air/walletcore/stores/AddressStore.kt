@@ -2,13 +2,13 @@ package org.mytonwallet.app_air.walletcore.stores
 
 import android.os.Handler
 import android.os.Looper
+import java.util.concurrent.Executors
 import org.json.JSONArray
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
-import java.util.concurrent.Executors
 
 object AddressStore : IStore {
     private var executor = Executors.newSingleThreadExecutor()
@@ -16,7 +16,7 @@ object AddressStore : IStore {
     data class AddressData(
         val accountId: String,
         var savedAddresses: MutableList<MSavedAddress>? = null,
-        var otherAccountAddresses: MutableList<MSavedAddress>? = null,
+        var otherAccountAddresses: MutableList<MSavedAddress>? = null
     )
 
     @Volatile
@@ -27,15 +27,14 @@ object AddressStore : IStore {
         addressData = AddressData(
             accountId = accountId,
             savedAddresses = mutableListOf(),
-            otherAccountAddresses = mutableListOf(),
+            otherAccountAddresses = mutableListOf()
         )
         executor.execute {
             val savedAddresses = buildSavedAddresses(accountId)
             val otherAccountAddresses = buildOtherAccountAddresses(accountId)
 
             Handler(Looper.getMainLooper()).post {
-                if (AccountStore.activeAccountId != accountId)
-                    return@post
+                if (AccountStore.activeAccountId != accountId) return@post
                 addressData = AddressData(accountId, savedAddresses, otherAccountAddresses)
                 WalletCore.notifyEvent(WalletEvent.AccountSavedAddressesChanged)
             }
@@ -67,7 +66,7 @@ object AddressStore : IStore {
                         name = account.name,
                         chain = chain,
                         domain = chainData.domain?.trim()?.takeIf { it.isNotEmpty() },
-                        accountId = account.accountId,
+                        accountId = account.accountId
                     )
                 )
             }
@@ -100,7 +99,7 @@ object AddressStore : IStore {
                         name = accountName,
                         chain = chain,
                         domain = chainData.domain?.trim()?.takeIf { it.isNotEmpty() },
-                        accountId = accountId,
+                        accountId = accountId
                     )
                 )
             }
@@ -118,21 +117,20 @@ object AddressStore : IStore {
         addressData = null
     }
 
-    fun getSavedAddress(address: String, chain: String? = null): MSavedAddress? {
-        return addressData?.savedAddresses?.firstOrNull {
+    fun getSavedAddress(address: String, chain: String? = null): MSavedAddress? =
+        addressData?.savedAddresses?.firstOrNull {
             it.address == address && (chain == null || it.chain == chain)
         }
-    }
 
-    fun getAddress(address: String, chain: String? = null): MSavedAddress? {
-        return addressData?.otherAccountAddresses?.firstOrNull {
+    fun getAddress(address: String, chain: String? = null): MSavedAddress? =
+        addressData?.otherAccountAddresses?.firstOrNull {
             it.address == address && (chain == null || it.chain == chain)
         } ?: getSavedAddress(address, chain)
-    }
 
-    fun getDomain(address: String, chain: String? = null): String? {
-        return getAddress(address, chain)?.domain?.trim()?.takeIf { it.isNotEmpty() }
-    }
+    fun getDomain(address: String, chain: String? = null): String? =
+        getAddress(address, chain)?.domain?.trim()?.takeIf {
+            it.isNotEmpty()
+        }
 
     fun addAddress(address: MSavedAddress) {
         val addressData = this.addressData ?: return

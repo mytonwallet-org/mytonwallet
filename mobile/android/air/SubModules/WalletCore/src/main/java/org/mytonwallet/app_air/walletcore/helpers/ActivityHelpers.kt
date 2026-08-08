@@ -1,55 +1,72 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import kotlin.math.absoluteValue
 
 class ActivityHelpers {
     companion object {
-        fun getTxIdFromId(id: String): String? {
-            return id.split(":").firstOrNull()
+        fun getTxIdFromId(id: String): String? = id.split(":").firstOrNull()
+
+        fun isSuitableToGetTimestamp(activity: MApiTransaction): Boolean =
+            !activity.isLocal() && !activity.isBackendSwapId() && !activity.isPending()
+
+        fun activityBelongsToSlug(activity: MApiTransaction, slug: String?): Boolean =
+            slug == null || slug == activity.getTxSlug() ||
+                (
+                    activity is MApiTransaction.Swap &&
+                        (activity.from == slug || activity.to == slug)
+                    )
+
+        fun getActivityTokenSlugs(activity: MApiTransaction): List<String> = when (activity) {
+            is MApiTransaction.Swap -> listOf(activity.from, activity.to).distinct()
+            is MApiTransaction.Transaction -> listOf(activity.slug)
         }
 
-        fun isSuitableToGetTimestamp(activity: MApiTransaction): Boolean {
-            return !activity.isLocal() && !activity.isBackendSwapId() && !activity.isPending()
-        }
+        fun preserveStatusProgress(
+            existingActivity: MApiTransaction?,
+            incomingActivity: MApiTransaction
+        ): MApiTransaction {
+            val adjustedActivity = when {
+                existingActivity == null || existingActivity.kind != incomingActivity.kind ->
+                    incomingActivity
 
-        fun activityBelongsToSlug(activity: MApiTransaction, slug: String?): Boolean {
-            return slug == null || slug == activity.getTxSlug() ||
-                (activity is MApiTransaction.Swap &&
-                    (activity.from == slug || activity.to == slug))
-        }
+                statusRank(existingActivity) <= statusRank(incomingActivity) ->
+                    incomingActivity
 
-        fun localActivityMatches(
-            it: MApiTransaction,
-            newActivity: MApiTransaction
-        ): Boolean {
-            if (it.extra?.withW5Gasless == true) {
-                when (it) {
-                    is MApiTransaction.Swap -> {
-                        if (newActivity is MApiTransaction.Swap) {
-                            return it.from == newActivity.from &&
-                                it.to == newActivity.to &&
-                                it.fromAmount.absoluteValue == newActivity.fromAmount.absoluteValue
-                        }
-                    }
+                existingActivity is MApiTransaction.Transaction &&
+                    incomingActivity is MApiTransaction.Transaction ->
+                    incomingActivity.copy(status = existingActivity.status)
 
-                    is MApiTransaction.Transaction -> {
-                        if (newActivity is MApiTransaction.Transaction) {
-                            return !newActivity.isIncoming &&
-                                it.normalizedAddress == newActivity.normalizedAddress &&
-                                it.amount == newActivity.amount &&
-                                it.slug == newActivity.slug
-                        }
-                    }
-                }
+                existingActivity is MApiTransaction.Swap &&
+                    incomingActivity is MApiTransaction.Swap ->
+                    incomingActivity.copy(status = existingActivity.status)
+
+                else -> incomingActivity
             }
 
-            it.externalMsgHashNorm?.let { localHash ->
-                return localHash == newActivity.externalMsgHashNorm && newActivity.shouldHide != true
+            adjustedActivity.replacedStableId = incomingActivity.replacedStableId
+                ?: existingActivity?.takeIf {
+                    it.id == incomingActivity.id && it.kind == incomingActivity.kind
+                }?.replacedStableId
+            return adjustedActivity
+        }
+
+        private fun statusRank(activity: MApiTransaction): Int = when (activity) {
+            is MApiTransaction.Transaction -> when (activity.status) {
+                ApiTransactionStatus.PENDING -> 1
+                ApiTransactionStatus.PENDING_TRUSTED -> 2
+                ApiTransactionStatus.CONFIRMED -> 3
+                ApiTransactionStatus.COMPLETED, ApiTransactionStatus.FAILED -> 4
             }
 
-            return it.parsedTxId.hash == newActivity.parsedTxId.hash
+            is MApiTransaction.Swap -> when (activity.status) {
+                ApiSwapStatus.PENDING -> 1
+                ApiSwapStatus.PENDING_TRUSTED -> 2
+                ApiSwapStatus.CONFIRMED -> 3
+                ApiSwapStatus.COMPLETED, ApiSwapStatus.FAILED, ApiSwapStatus.EXPIRED -> 4
+            }
         }
 
         @JvmName("filterNullable")
@@ -57,16 +74,16 @@ class ActivityHelpers {
             accountId: String,
             array: List<MApiTransaction>?,
             hideTinyIfRequired: Boolean,
-            checkSlug: String?,
-        ): List<MApiTransaction>? {
-            return array?.let { filter(accountId, it, hideTinyIfRequired, checkSlug) }
+            checkSlug: String?
+        ): List<MApiTransaction>? = array?.let {
+            filter(accountId, it, hideTinyIfRequired, checkSlug)
         }
 
         fun filter(
             accountId: String,
             array: List<MApiTransaction>,
             hideTinyIfRequired: Boolean,
-            checkSlug: String?,
+            checkSlug: String?
         ): List<MApiTransaction> {
             val hideTiny = hideTinyIfRequired && WGlobalStorage.getAreTinyTransfersHidden()
             return array.filter { transaction ->
@@ -78,12 +95,11 @@ class ActivityHelpers {
             }
         }
 
-        fun sorter(t1: MApiTransaction, t2: MApiTransaction): Int {
-            return when {
-                t1.timestamp != t2.timestamp -> t2.timestamp.compareTo(t1.timestamp)
-                else -> t2.id.compareTo(t1.id)
-            }
+        fun sorter(t1: MApiTransaction, t2: MApiTransaction): Int = when {
+            t1.timestamp != t2.timestamp -> t2.timestamp.compareTo(t1.timestamp)
+            else -> t2.id.compareTo(t1.id)
         }
+
         /**
          * Merge activity IDs for initial activities, applying a cutoff timestamp.
          * The cutoff is the max of the last timestamps from both arrays.
@@ -142,11 +158,9 @@ class ActivityHelpers {
             existingIds: List<String>,
             byId: Map<String, MApiTransaction>,
             fallback: List<MApiTransaction> = emptyList()
-        ): List<String> {
-            return (newIds + existingIds)
-                .distinct()
-                .sortedWith { id1, id2 -> compareActivityIds(id1, id2, byId, fallback) }
-        }
+        ): List<String> = (newIds + existingIds)
+            .distinct()
+            .sortedWith { id1, id2 -> compareActivityIds(id1, id2, byId, fallback) }
 
         /**
          * Compare activity IDs by their transaction timestamp (newest first), then by ID.
@@ -173,51 +187,18 @@ class ActivityHelpers {
             id: String,
             byId: Map<String, MApiTransaction>,
             fallback: List<MApiTransaction>
-        ): MApiTransaction? {
-            return byId[id] ?: fallback.firstOrNull { it.id == id }
-        }
+        ): MApiTransaction? = byId[id] ?: fallback.firstOrNull { it.id == id }
 
         /**
          * Hashes of CEX swap activities that are still pending (mid-flight on the
          * exchange side). Used to drive `fetchSwaps` reconciliation polling.
          */
-        fun pendingCexSwapHashes(activities: Collection<MApiTransaction>): List<String> {
-            return activities.asSequence()
+        fun pendingCexSwapHashes(activities: Collection<MApiTransaction>): List<String> =
+            activities.asSequence()
                 .filter { it is MApiTransaction.Swap && it.cex != null && it.isPending() }
                 .map { it.parsedTxId.hash }
                 .filter { it.isNotEmpty() }
                 .distinct()
                 .toList()
-        }
-
-        /**
-         * Collect the on-chain tx hashes referenced by any CEX swap's `hashes`
-         * field. Transactions matching one of these hashes are owned by the swap
-         * row and should be hidden in the activity list.
-         */
-        fun cexSwapTxHashes(activities: Collection<MApiTransaction>): Set<String> {
-            val hashes = HashSet<String>()
-            for (a in activities) {
-                if (a is MApiTransaction.Swap && a.cex != null) {
-                    a.hashes?.forEach { if (it.isNotEmpty()) hashes.add(it) }
-                }
-            }
-            return hashes
-        }
-
-        /**
-         * True when this activity's on-chain hash (or `externalMsgHashNorm`) is
-         * present in `cexSwapHashes`, meaning a CEX swap row already represents it.
-         */
-        fun isActivityCoveredByCexSwapHashes(
-            activity: MApiTransaction,
-            cexSwapHashes: Set<String>,
-        ): Boolean {
-            if (cexSwapHashes.contains(activity.parsedTxId.hash)) return true
-            activity.externalMsgHashNorm?.let {
-                if (cexSwapHashes.contains(it)) return true
-            }
-            return false
-        }
     }
 }

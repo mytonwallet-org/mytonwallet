@@ -61,12 +61,12 @@ public final class NftPreviewLarge: UIView {
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         labelsStack.addSubview(nameLabel)
-        nameLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        nameLabel.textAlignment = .left
+        nameLabel.applyTextStyle(.calloutStrong)
+        nameLabel.textAlignment = .natural
 
         collectionLabel.translatesAutoresizingMaskIntoConstraints = false
         labelsStack.addSubview(collectionLabel)
-        collectionLabel.font = UIFont.systemFont(ofSize: 14)
+        collectionLabel.applyTextStyle(.supporting)
 
         NSLayoutConstraint.activate([
             nameLabel.topAnchor.constraint(equalTo: labelsStack.topAnchor),

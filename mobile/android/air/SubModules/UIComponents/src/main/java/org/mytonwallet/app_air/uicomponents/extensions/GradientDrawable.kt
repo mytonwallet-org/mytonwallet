@@ -29,13 +29,11 @@ fun GradientDrawable.setRounding(rounding: Content.Rounding) {
 }
 
 object GradientDrawables {
-    private fun gradientDrawable(colors: IntArray): GradientDrawable {
-        return GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            colors
-        ).apply {
-            shape = GradientDrawable.OVAL
-        }
+    private fun gradientDrawable(colors: IntArray): GradientDrawable = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        colors
+    ).apply {
+        shape = GradientDrawable.OVAL
     }
 
     val greenDrawable: GradientDrawable
@@ -88,5 +86,4 @@ object GradientDrawables {
                 )
             )
         }
-
 }

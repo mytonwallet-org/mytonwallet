@@ -8,7 +8,7 @@ import WalletCore
         buyingToken: ApiToken,
         account: SwapAccountSnapshot,
         payoutAddress: String? = nil,
-        passcode: String
+        enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let swapEstimate else {
             throw SdkError.unexpected(message: "Missing swap estimate")
@@ -21,7 +21,7 @@ import WalletCore
                 buyingToken: buyingToken,
                 account: account,
                 payoutAddress: payoutAddress,
-                passcode: passcode
+                enclaveToken: enclaveToken
             )
         case .crosschainInsideWallet, .crosschainToWallet:
             return try await performToWalletSwap(
@@ -29,7 +29,7 @@ import WalletCore
                 sellingToken: sellingToken,
                 buyingToken: buyingToken,
                 account: account,
-                passcode: passcode
+                enclaveToken: enclaveToken
             )
         case .onChain:
             throw SdkError.unexpected(message: "Invalid cross-chain swap type")
@@ -41,7 +41,7 @@ import WalletCore
         sellingToken: ApiToken,
         buyingToken: ApiToken,
         account: SwapAccountSnapshot,
-        passcode: String
+        enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let toAddress = account.getAddress(chain: buyingToken.chain) else {
             throw SdkError.unexpected(message: "Missing payout address")
@@ -53,7 +53,7 @@ import WalletCore
             toAddress: toAddress,
             account: account,
             shouldTransfer: account.supports(chain: sellingToken.chain),
-            passcode: passcode
+            enclaveToken: enclaveToken
         )
     }
 
@@ -63,7 +63,7 @@ import WalletCore
         buyingToken: ApiToken,
         account: SwapAccountSnapshot,
         payoutAddress: String?,
-        passcode: String
+        enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let payoutAddress, !payoutAddress.isEmpty else {
             throw SdkError.unexpected(message: "Missing payout address")
@@ -75,7 +75,7 @@ import WalletCore
             toAddress: payoutAddress,
             account: account,
             shouldTransfer: true,
-            passcode: passcode
+            enclaveToken: enclaveToken
         )
     }
 
@@ -86,7 +86,7 @@ import WalletCore
         toAddress: String,
         account: SwapAccountSnapshot,
         shouldTransfer: Bool,
-        passcode: String
+        enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let historyAddress = account.crosschainIdentifyingFromAddress else {
             throw SdkError.unexpected(message: "Missing account address")
@@ -119,7 +119,7 @@ import WalletCore
             sellingToken: sellingToken,
             params: params,
             shouldTransfer: shouldTransfer,
-            passcode: passcode
+            enclaveToken: enclaveToken
         )
         if shouldTransfer,
            sellingToken.chain == .ton,

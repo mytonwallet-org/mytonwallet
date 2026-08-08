@@ -8,11 +8,7 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
-class InAppBrowserUrlSpan(
-    url: String,
-    private val tabBarController: ITabsVC?
-) :
-    URLSpan(url) {
+class InAppBrowserUrlSpan(url: String, private val tabBarController: ITabsVC?) : URLSpan(url) {
     override fun onClick(widget: View) {
         val context = widget.context
         val parentWindow = context as? WWindow

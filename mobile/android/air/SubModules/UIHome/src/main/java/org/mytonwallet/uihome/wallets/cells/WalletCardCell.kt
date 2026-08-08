@@ -1,5 +1,6 @@
 package org.mytonwallet.uihome.wallets.cells
 
+import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -11,6 +12,9 @@ import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.LinearInterpolator
+import kotlin.math.abs
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -23,7 +27,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.uihome.wallets.MiniCardView
-import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
 class WalletCardCell(
@@ -31,11 +34,13 @@ class WalletCardCell(
     cellWidth: Int,
     private val onTouchStart: (view: WView) -> Unit,
     private val onClick: (accountId: MAccount) -> Unit,
-    private val onLongClick: (cell: WalletCardCell, view: WView, account: MAccount) -> Unit,
-) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView, IWalletCardCell {
+    private val onLongClick: (cell: WalletCardCell, view: WView, account: MAccount) -> Unit
+) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView,
+    IWalletCardCell {
 
     private var account: MAccount? = null
+    private var reordering = false
     private val miniCardView = MiniCardView(context, cellWidth)
 
     private val walletName = WLabel(context).apply {
@@ -62,18 +67,20 @@ class WalletCardCell(
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.x
                     downY = event.y
-                    isPressed = true
+                    isPressed = !reordering
                     hasPerformedLongClick = false
 
-                    handler.postDelayed({
-                        if (isPressed) {
-                            hasPerformedLongClick = performLongClick()
-                            if (hasPerformedLongClick) {
-                                isShowingPopup = true
-                                isPressed = false
+                    if (!reordering) {
+                        handler.postDelayed({
+                            if (isPressed && !reordering) {
+                                hasPerformedLongClick = performLongClick()
+                                if (hasPerformedLongClick) {
+                                    isShowingPopup = true
+                                    isPressed = false
+                                }
                             }
-                        }
-                    }, longPressTimeout)
+                        }, longPressTimeout)
+                    }
 
                     onTouchStart(this)
                     requestDisallowInterceptTouchEvent(true)
@@ -101,7 +108,6 @@ class WalletCardCell(
             }
             return false
         }
-
     }.apply {
         addView(miniCardView, LayoutParams(MATCH_PARENT, 0))
         addView(walletName, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -114,10 +120,11 @@ class WalletCardCell(
         setPadding(1.dp, 1.dp, 1.dp, 0)
 
         setOnClickListener {
-            account?.let { onClick(it) }
+            if (!reordering) account?.let { onClick(it) }
         }
 
         setOnLongClickListener {
+            if (reordering) return@setOnLongClickListener true
             account?.let { onLongClick(this@WalletCardCell, this, it) }
             true
         }
@@ -145,19 +152,51 @@ class WalletCardCell(
     }
 
     override fun updateTheme() {
-        if (isShowingPopup)
+        if (isShowingPopup) {
             containerView.setBackgroundColor(WColor.BackgroundRipple.color, 12f.dp)
-        else {
+        } else {
             containerView.background = null
             containerView.addRippleEffect(WColor.BackgroundRipple.color, 12f.dp)
         }
     }
 
-    fun configure(account: MAccount) {
+    fun configure(account: MAccount, reordering: Boolean) {
         this.account = account
+        setReordering(reordering)
         miniCardView.configure(account)
         walletName.text = account.name
         updateTheme()
+    }
+
+    fun setReordering(reordering: Boolean) {
+        this.reordering = reordering
+        if (reordering) {
+            if (shakeAnimator == null) startShake()
+        } else {
+            stopShake()
+        }
+    }
+
+    private var shakeAnimator: ObjectAnimator? = null
+    private fun startShake() {
+        stopShake()
+        shakeAnimator = ObjectAnimator.ofFloat(this, "rotation", 0f, -1f, 2f, -1f, 2f, 0f).apply {
+            duration = AnimationConstants.SLOW_ANIMATION
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            start()
+        }
+    }
+
+    private fun stopShake() {
+        shakeAnimator?.cancel()
+        shakeAnimator = null
+        rotation = 0f
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        stopShake()
     }
 
     override fun notifyBalanceChange() {

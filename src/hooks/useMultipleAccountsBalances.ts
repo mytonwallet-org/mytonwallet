@@ -5,12 +5,11 @@ import type {
 } from '../api/types';
 import type { Account, AccountSettings, GlobalState } from '../global/types';
 
-import { IS_GRAM_WALLET } from '../config';
 import {
+  selectMultipleAccountsAddressLineChainsSlow,
   selectMultipleAccountsStakingStatesSlow,
   selectMultipleAccountsTokensSlow,
 } from '../global/selectors';
-import { getAddressDisplayByChain } from '../util/formatAccountAddress';
 import { useAccountsBalances } from './useAccountsBalances';
 
 interface OwnProps {
@@ -66,26 +65,18 @@ export function useMultipleAccountsBalances({
     return selectMultipleAccountsStakingStatesSlow(sourceAccounts, byAccountId, stakingDefault);
   }, [sourceAccounts, byAccountId, stakingDefault]);
 
-  // The same accounts with `byChain` narrowed for address display (see `getAddressDisplayByChain`).
-  // While no account is narrowed, the `filteredAccounts` identity survives so memoized consumers keep their cache.
-  const displayedAccounts = useMemo(() => {
-    if (!IS_GRAM_WALLET || !filteredAccounts) return filteredAccounts;
+  const addressLineChainsByAccountId = useMemo(() => {
+    if (!sourceAccounts || !settingsByAccountId || !allAccountsTokens || !allAccountsStakingStates) {
+      return undefined;
+    }
 
-    let isNarrowed = false;
-    const narrowed = filteredAccounts.map(([accountId, account]): [string, Account] => {
-      const byChain = getAddressDisplayByChain(
-        account.byChain,
-        allAccountsTokens?.[accountId],
-        allAccountsStakingStates?.[accountId],
-      );
-      if (byChain === account.byChain) return [accountId, account];
-
-      isNarrowed = true;
-      return [accountId, { ...account, byChain }];
-    });
-
-    return isNarrowed ? narrowed : filteredAccounts;
-  }, [filteredAccounts, allAccountsTokens, allAccountsStakingStates]);
+    return selectMultipleAccountsAddressLineChainsSlow(
+      sourceAccounts,
+      settingsByAccountId,
+      allAccountsTokens,
+      allAccountsStakingStates,
+    );
+  }, [sourceAccounts, settingsByAccountId, allAccountsTokens, allAccountsStakingStates]);
 
   const balances = useAccountsBalances(
     filteredAccounts,
@@ -95,5 +86,5 @@ export function useMultipleAccountsBalances({
     currencyRates,
   );
 
-  return { ...balances, displayedAccounts };
+  return { ...balances, addressLineChainsByAccountId };
 }

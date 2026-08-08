@@ -15,6 +15,8 @@ import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.animation.doOnCancel
 import androidx.core.view.isVisible
+import java.lang.Float.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -32,8 +34,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import java.lang.Float.max
-import kotlin.math.roundToInt
 
 open class WClearSegmentedControlItemView(context: Context) :
     WCell(context, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)),
@@ -177,8 +177,7 @@ open class WClearSegmentedControlItemView(context: Context) :
     }
 
     fun setBadge(text: String?) {
-        if (badgeLabel.text == text)
-            return
+        if (badgeLabel.text == text) return
 
         if (!text.isNullOrEmpty()) {
             badgeLabel.text = text
@@ -192,8 +191,7 @@ open class WClearSegmentedControlItemView(context: Context) :
 
         if (targetWidth == badgeCurrentWidth) return
 
-        if (targetWidth > 0)
-            badgeTargetWidth = targetWidth
+        if (targetWidth > 0) badgeTargetWidth = targetWidth
 
         val startWidth = badgeCurrentWidth
         val wasHidden = startWidth == 0
@@ -252,8 +250,7 @@ open class WClearSegmentedControlItemView(context: Context) :
     var arrowVisibility: Float? = null
         set(value) {
             val value = value ?: 0f
-            if (field == value)
-                return
+            if (field == value) return
             field = value
 
             trailingImageView.apply {
@@ -281,7 +278,8 @@ open class WClearSegmentedControlItemView(context: Context) :
                         onRemove?.invoke()
                     }
                 }
-            })
+            }
+        )
 
         val startEndPadding = selectedEndPadding
         val targetEndPadding = when (button) {
@@ -299,10 +297,11 @@ open class WClearSegmentedControlItemView(context: Context) :
 
         crossfadeAnimator =
             ValueAnimator.ofFloat(trailingImageView.alpha, 0f).apply {
-                duration = if ((arrowVisibility ?: 0f) > 0f)
+                duration = if ((arrowVisibility ?: 0f) > 0f) {
                     AnimationConstants.VERY_QUICK_ANIMATION / 2
-                else
+                } else {
                     0
+                }
                 interpolator = AccelerateDecelerateInterpolator()
                 doOnCancel {
                     removeAllListeners()
@@ -342,10 +341,11 @@ open class WClearSegmentedControlItemView(context: Context) :
         arrowDrawable?.setTint(WColor.PrimaryText.color)
         (badgeView.background as? GradientDrawable)?.setColor(WColor.Red.color)
         badgeLabel.setTextColor(Color.WHITE)
-        if (shouldShowBackground)
+        if (shouldShowBackground) {
             setBackgroundColor(paintColor ?: WColor.SecondaryBackground.color, 16f.dp)
-        else
+        } else {
             background = null
+        }
     }
 
     private fun updatePaddings() {
@@ -359,12 +359,9 @@ open class WClearSegmentedControlItemView(context: Context) :
         badgeView.translationX = (badgeTargetWidth - badgeCurrentWidth) - endPadding.toFloat()
 
         val endGap =
-            if (badgeCurrentWidth == 0)
-                0
-            else (badgeView.alpha * 5.dp).roundToInt()
+            if (badgeCurrentWidth == 0) 0 else (badgeView.alpha * 5.dp).roundToInt()
         val textViewEndPadding = endPadding + endGap + badgeCurrentWidth
-        if (textView.paddingEnd == textViewEndPadding)
-            return
+        if (textView.paddingEnd == textViewEndPadding) return
 
         textView.setPaddingLocalized(16.dp, 5.dp, textViewEndPadding, 5.dp)
         trailingImageView.setPadding(
@@ -375,5 +372,4 @@ open class WClearSegmentedControlItemView(context: Context) :
         )
         ((parent as? ViewGroup)?.parent as? WClearSegmentedControl)?.updateItemsTrailingViews()
     }
-
 }

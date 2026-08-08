@@ -37,7 +37,7 @@ struct SwapDetailsContainer<Content: View>: View {
                         .renderingMode(.template)
                         .rotationEffect(isExpanded ? .radians(-0.5 * .pi) : .radians(0.5 * .pi))
                 }
-                .font(IOS_26_MODE_ENABLED ? .system(size: 17, weight: .semibold) : .system(size: 13))
+                .textStyle(.sectionHeader)
                 .tint(.air.secondaryLabel)
                 .foregroundStyle(Color.air.secondaryLabel)
             }

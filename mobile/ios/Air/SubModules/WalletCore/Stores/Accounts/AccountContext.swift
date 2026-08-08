@@ -118,15 +118,11 @@ public final class AccountContext: Sendable {
     public var stakingData: MStakingData? {
         stakingStore.stakingData(accountId: accountId)
     }
-    public func getStakingBadgeContent(tokenSlug: String, isStaking: Bool) -> StakingBadgeContent? {
-        guard let stakingState = stakingData?.bySlug(tokenSlug),
-              getHasPositiveStakingYield(state: stakingState) else { return nil }
-        if isStaking, stakingState.balance > 0 {
-            return StakingBadgeContent(isActive: true, yieldType: stakingState.yieldType, yieldValue: stakingState.apy)
-        } else if !isStaking, stakingState.balance == 0 {
-            return StakingBadgeContent(isActive: false, yieldType: stakingState.yieldType, yieldValue: stakingState.apy)
-        }
-        return nil
+    public func getStakingTokenPresentation(tokenSlug: String, isStaking: Bool) -> StakingTokenPresentation? {
+        stakingData?.stakingTokenPresentation(tokenSlug: tokenSlug, isStaking: isStaking)
+    }
+    public func isEarnAvailable(forTokenSlug tokenSlug: String) -> Bool {
+        account.supportsEarn && stakingData?.isEarnAvailable(forTokenSlug: tokenSlug) == true
     }
     public var savedAddresses: SavedAddresses {
         savedAddressesStore.for(accountId: accountId)

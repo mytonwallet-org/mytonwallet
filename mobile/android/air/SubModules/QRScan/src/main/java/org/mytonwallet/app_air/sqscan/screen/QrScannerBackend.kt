@@ -4,8 +4,8 @@ import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
@@ -15,6 +15,8 @@ import com.google.zxing.MultiFormatReader
 import com.google.zxing.NotFoundException
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
+import java.util.concurrent.Executors
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 data class DecodedBarcode(val displayValue: String, val boundingBox: Rect)
 
@@ -23,20 +25,82 @@ interface QrScannerBackend {
         image: InputImage,
         onResult: (List<DecodedBarcode>) -> Unit,
         onError: (Throwable) -> Unit,
-        onComplete: () -> Unit,
+        onComplete: () -> Unit
     )
 
     fun close()
 }
 
-class MlKitBackend : QrScannerBackend {
-    private val scanner = BarcodeScanning.getClient()
+class ChainedBackend(
+    private val primary: QrScannerBackend,
+    private val fallback: QrScannerBackend
+) : QrScannerBackend {
+    private val fallbackExecutor = Executors.newSingleThreadExecutor()
+
+    private var missStreak = 0
 
     override fun process(
         image: InputImage,
         onResult: (List<DecodedBarcode>) -> Unit,
         onError: (Throwable) -> Unit,
-        onComplete: () -> Unit,
+        onComplete: () -> Unit
+    ) {
+        var primaryFound = false
+        primary.process(
+            image,
+            onResult = { barcodes ->
+                if (barcodes.isNotEmpty()) {
+                    primaryFound = true
+                    missStreak = 0
+                    onResult(barcodes)
+                }
+            },
+            onError = onError,
+            onComplete = {
+                if (primaryFound) {
+                    onComplete()
+                } else if (!shouldRunFallback()) {
+                    onComplete()
+                } else {
+                    val submitted = runCatching {
+                        fallbackExecutor.execute {
+                            fallback.process(image, onResult, onError, onComplete)
+                        }
+                    }.isSuccess
+                    if (!submitted) onComplete()
+                }
+            }
+        )
+    }
+
+    private fun shouldRunFallback(): Boolean {
+        missStreak++
+        return missStreak % FALLBACK_FRAME_STRIDE == 0
+    }
+
+    override fun close() {
+        fallbackExecutor.shutdown()
+        primary.close()
+        fallback.close()
+    }
+
+    companion object {
+        private const val FALLBACK_FRAME_STRIDE = 3
+    }
+}
+
+class MlKitBackend : QrScannerBackend {
+    private val scanner = BarcodeScanning.getClient(
+        BarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .build()
+    )
+
+    override fun process(
+        image: InputImage,
+        onResult: (List<DecodedBarcode>) -> Unit,
+        onError: (Throwable) -> Unit,
+        onComplete: () -> Unit
     ) {
         scanner.process(image)
             .addOnSuccessListener { barcodes ->
@@ -57,7 +121,13 @@ class MlKitBackend : QrScannerBackend {
 
 class ZXingBackend : QrScannerBackend {
     private val reader = MultiFormatReader().apply {
-        setHints(mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE)))
+        setHints(
+            mapOf(
+                DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+                DecodeHintType.TRY_HARDER to true,
+                DecodeHintType.ALSO_INVERTED to true
+            )
+        )
     }
 
     // Decode runs on CameraX's analyzer background thread; downstream view code touches
@@ -69,7 +139,7 @@ class ZXingBackend : QrScannerBackend {
         image: InputImage,
         onResult: (List<DecodedBarcode>) -> Unit,
         onError: (Throwable) -> Unit,
-        onComplete: () -> Unit,
+        onComplete: () -> Unit
     ) {
         val mainResult: (List<DecodedBarcode>) -> Unit = { res ->
             mainHandler.post { onResult(res) }
@@ -104,8 +174,11 @@ class ZXingBackend : QrScannerBackend {
                 src.get(rowBuffer, 0, bytesThisRow)
                 if (pixelStride == 1) {
                     System.arraycopy(
-                        rowBuffer, 0, yBytes, row * srcWidth,
-                        minOf(srcWidth, bytesThisRow),
+                        rowBuffer,
+                        0,
+                        yBytes,
+                        row * srcWidth,
+                        minOf(srcWidth, bytesThisRow)
                     )
                 } else {
                     val maxPixels = minOf(bytesThisRow / pixelStride, srcWidth)
@@ -117,11 +190,21 @@ class ZXingBackend : QrScannerBackend {
 
             // Rotate so the camera stream is upright (portrait) before binarizing.
             val (rotatedBytes, width, height) = rotateY(
-                yBytes, srcWidth, srcHeight, image.rotationDegrees,
+                yBytes,
+                srcWidth,
+                srcHeight,
+                image.rotationDegrees
             )
 
             val source = PlanarYUVLuminanceSource(
-                rotatedBytes, width, height, 0, 0, width, height, false,
+                rotatedBytes,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                false
             )
             val bitmap = BinaryBitmap(HybridBinarizer(source))
             val result = try {
@@ -131,7 +214,7 @@ class ZXingBackend : QrScannerBackend {
             } catch (t: Throwable) {
                 Logger.d(
                     Logger.LogTag.QR_SCAN,
-                    "Unexpected decode error: ${Log.getStackTraceString(t)}",
+                    "Unexpected decode error: ${Log.getStackTraceString(t)}"
                 )
                 null
             } finally {
@@ -155,41 +238,40 @@ class ZXingBackend : QrScannerBackend {
         src: ByteArray,
         width: Int,
         height: Int,
-        rotationDegrees: Int,
-    ): Triple<ByteArray, Int, Int> {
-        return when (rotationDegrees % 360) {
-            0 -> Triple(src, width, height)
-            90 -> {
-                val out = ByteArray(src.size)
-                for (y in 0 until height) {
-                    for (x in 0 until width) {
-                        out[x * height + (height - 1 - y)] = src[y * width + x]
-                    }
-                }
-                Triple(out, height, width)
-            }
+        rotationDegrees: Int
+    ): Triple<ByteArray, Int, Int> = when (rotationDegrees % 360) {
+        0 -> Triple(src, width, height)
 
-            180 -> {
-                val out = ByteArray(src.size)
-                val total = width * height
-                for (i in 0 until total) {
-                    out[i] = src[total - 1 - i]
+        90 -> {
+            val out = ByteArray(src.size)
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    out[x * height + (height - 1 - y)] = src[y * width + x]
                 }
-                Triple(out, width, height)
             }
-
-            270 -> {
-                val out = ByteArray(src.size)
-                for (y in 0 until height) {
-                    for (x in 0 until width) {
-                        out[(width - 1 - x) * height + y] = src[y * width + x]
-                    }
-                }
-                Triple(out, height, width)
-            }
-
-            else -> Triple(src, width, height)
+            Triple(out, height, width)
         }
+
+        180 -> {
+            val out = ByteArray(src.size)
+            val total = width * height
+            for (i in 0 until total) {
+                out[i] = src[total - 1 - i]
+            }
+            Triple(out, width, height)
+        }
+
+        270 -> {
+            val out = ByteArray(src.size)
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    out[(width - 1 - x) * height + y] = src[y * width + x]
+                }
+            }
+            Triple(out, height, width)
+        }
+
+        else -> Triple(src, width, height)
     }
 
     override fun close() {}
@@ -197,7 +279,7 @@ class ZXingBackend : QrScannerBackend {
     private fun boundingBoxFromPoints(
         points: Array<com.google.zxing.ResultPoint>?,
         imageWidth: Int,
-        imageHeight: Int,
+        imageHeight: Int
     ): Rect {
         if (points.isNullOrEmpty()) {
             return Rect(0, 0, imageWidth, imageHeight)
@@ -217,7 +299,7 @@ class ZXingBackend : QrScannerBackend {
             (minX - pad).toInt().coerceAtLeast(0),
             (minY - pad).toInt().coerceAtLeast(0),
             (maxX + pad).toInt().coerceAtMost(imageWidth),
-            (maxY + pad).toInt().coerceAtMost(imageHeight),
+            (maxY + pad).toInt().coerceAtMost(imageHeight)
         )
     }
 }

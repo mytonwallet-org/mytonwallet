@@ -10,19 +10,21 @@ import {
   MYCOIN_TESTNET,
 } from '../../../config';
 import { callApi } from '../../../api';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { handleTransferResult } from '../../helpers/transfer';
 import { prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateVesting } from '../../reducers';
 import { selectCurrentAccountId, selectVestingPartsReadyToUnfreeze } from '../../selectors';
 
-addActionHandler('submitClaimingVesting', async (global, actions, { password } = {}) => {
+addActionHandler('submitClaimingVesting', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
   const accountId = selectCurrentAccountId(global)!;
   const updateVestingState: FormReducer<VestingUnfreezeState> = (global, update) => {
     return updateVesting(global, accountId, update);
   };
 
-  if (!await prepareTransfer(VestingUnfreezeState.ConfirmHardware, updateVestingState, password)) {
+  if (!prepareTransfer(VestingUnfreezeState.ConfirmHardware, updateVestingState)) {
     return;
   }
 
@@ -33,7 +35,7 @@ addActionHandler('submitClaimingVesting', async (global, actions, { password } =
     // This may be different from the `accountId` if the user switched accounts
     // while the transfer is preparing
     accountId: selectCurrentAccountId(global)!,
-    password,
+    enclaveToken,
     toAddress: CLAIM_ADDRESS,
     amount: CLAIM_AMOUNT,
     payload: { type: 'comment', text: CLAIM_COMMENT },
@@ -52,7 +54,7 @@ addActionHandler('submitClaimingVesting', async (global, actions, { password } =
   setGlobal(global);
 
   actions.openVestingModal();
-});
+}));
 
 addActionHandler('loadMycoin', (global, actions) => {
   const { isTestnet } = global.settings;

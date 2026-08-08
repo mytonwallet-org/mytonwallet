@@ -38,14 +38,14 @@ final class StartupFailureVC: WViewController {
         iconView.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
+        titleLabel.applyTextStyle(.startupTitle)
         titleLabel.textColor = .label
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 0
         titleLabel.text = failure.title
 
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
-        messageLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        messageLabel.applyTextStyle(.body)
         messageLabel.textColor = .secondaryLabel
         messageLabel.textAlignment = .center
         messageLabel.numberOfLines = 0
@@ -142,7 +142,7 @@ final class StartupFailureVC: WViewController {
                 let vc = UIActivityViewController(activityItems: [logs], applicationActivities: nil)
                 self.presentActivityViewController(vc, sourceView: self.exportLogsButton)
             } catch {
-                self.log.fault("startup log export failed \(error, .public)")
+                self.log.error("startup log export failed \(error, .public)")
                 self.showAlert(
                     title: lang("Error"),
                     text: lang("Couldn't prepare logs for export. Please try again."),

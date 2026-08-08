@@ -1,7 +1,8 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -9,6 +10,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -34,18 +37,18 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import kotlin.math.abs
 
-class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell, WThemedView {
+class SettingsAccountCell(context: Context) :
+    WCell(context),
+    ISettingsItemCell,
+    WThemedView {
     private var account: MAccount? = null
     private var accountAvatarUrl: String? = null
     private var isFirst = false
     private var isLast = false
 
     companion object {
-        fun heightForItem(isLast: Boolean): Int {
-            return (60 + if (isLast) ViewConstants.GAP else 0).dp
-        }
+        fun heightForItem(isLast: Boolean): Int = (60 + if (isLast) ViewConstants.GAP else 0).dp
     }
 
     private val iconView: AccountIconView by lazy {
@@ -87,9 +90,12 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
     private val trailingContainerView: WFrameLayout by lazy {
         WFrameLayout(context).apply {
-            addView(valueLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            })
+            addView(
+                valueLabel,
+                FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                }
+            )
         }
     }
 
@@ -192,8 +198,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         }
 
         heightForItem(isLast).let {
-            if (layoutParams.height != it)
-                layoutParams.height = it
+            if (layoutParams.height != it) layoutParams.height = it
         }
 
         setContentAlpha(if (isEnabled) 1f else 0.4f)
@@ -227,8 +232,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         )
 
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
+        if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
 
         titleLabel.setTextColor(WColor.PrimaryText.color)
@@ -260,19 +264,16 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             val balanceDouble = withContext(Dispatchers.Default) {
                 BalanceStore.totalBalanceInBaseCurrency(accountId)
             } ?: run {
-                if (valueLabel.contentView.text != "")
-                    valueLabel.contentView.text = ""
+                if (valueLabel.contentView.text != "") valueLabel.contentView.text = ""
                 return@launch
             }
             val newValue = balanceDouble.toString(
                 baseCurrency.decimalsCount,
                 baseCurrency.sign,
                 baseCurrency.decimalsCount,
-                true,
+                true
             )
-            if (valueLabel.contentView.text != newValue)
-                valueLabel.contentView.text = newValue
+            if (valueLabel.contentView.text != newValue) valueLabel.contentView.text = newValue
         }
     }
-
 }

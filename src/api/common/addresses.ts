@@ -69,6 +69,11 @@ export function checkIsTrustedCollection(address: string) {
   return trustedCollections.has(address);
 }
 
+/** The set is empty until `/known-addresses` responds, and stays empty when the request fails */
+export function getHasTrustedCollections() {
+  return trustedCollections.size > 0;
+}
+
 export function checkHasScamLink(text: string) {
   const matches = cleanText(text).matchAll(RE_LINK_TEMPLATE);
 

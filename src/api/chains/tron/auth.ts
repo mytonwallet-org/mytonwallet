@@ -12,10 +12,9 @@ import { bytesToHex, hexToBytes } from '../../common/utils';
 import { isValidAddress } from './address';
 import { TRON_BIP39_PATH } from './constants';
 
-export async function fetchPrivateKeyString(accountId: string, password: string, account?: ApiAccountWithMnemonic) {
+export async function fetchPrivateKeyString(accountId: string, enclaveToken: string, account?: ApiAccountWithMnemonic) {
   try {
-    account = account ?? await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
-    const mnemonic = await getMnemonic(accountId, password, account);
+    const mnemonic = await getMnemonic(accountId, enclaveToken);
     if (!mnemonic) {
       return undefined;
     }
@@ -24,6 +23,7 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
       return mnemonic[0];
     } else {
       const { network } = parseAccountId(accountId);
+      account = account ?? await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
       const derivation = account.byChain.tron?.derivation;
       const raw = getRawWalletFromBip39Mnemonic(network, mnemonic, derivation);
 
@@ -40,6 +40,7 @@ export function getWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
   derivation?: ApiDerivation,
+  shouldSkipDiscovery?: boolean,
 ): ApiTronWallet[] {
   const raw = getRawWalletFromBip39Mnemonic(network, mnemonic, derivation);
 

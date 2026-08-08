@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.os.Build
 import android.util.TypedValue
 import androidx.appcompat.widget.AppCompatEditText
+import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
@@ -21,14 +22,14 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WAmountEditText(
     context: Context,
     val isLeadingSymbol: Boolean = true,
     val scaleSymbolWithFraction: Boolean = false
-) : AppCompatEditText(context), WThemedView {
+) : AppCompatEditText(context),
+    WThemedView {
     val amountTextWatcher = AmountTextWatcher()
 
     val isLoading = BoolAnimator(
@@ -52,7 +53,7 @@ class WAmountEditText(
     private val symbolIsVisible = BoolAnimator(
         duration = 220L,
         interpolator = AnimatorUtils.DECELERATE_INTERPOLATOR,
-        initialValue = false,
+        initialValue = false
     ) { _, _, _, _ ->
         updateInputColor()
     }
@@ -61,18 +62,14 @@ class WAmountEditText(
         updatePadding(it.roundToInt())
     }
 
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         currentSymbolLastNonNull?.let { symbol ->
             if (symbolIsVisible.floatValue > 0f) {
                 val currentColor = paint.color
                 paint.color = alphaColor(
-                    symbolIsVisible.floatValue, if (text.isNullOrBlank()) {
-                        WColor.SecondaryText.color
-                    } else {
-                        currentColor
-                    }
+                    symbolIsVisible.floatValue,
+                    if (text.isNullOrBlank()) WColor.SecondaryText.color else currentColor
                 )
                 val fullMeasured = paint.measureText(symbol)
                 val originalSize =
@@ -80,16 +77,19 @@ class WAmountEditText(
                         val size = paint.textSize
                         paint.textSize = size * (additional.toFloat() / fullMeasured)
                         size
-                    } else null
-                if (isLeadingSymbol)
+                    } else {
+                        null
+                    }
+                if (isLeadingSymbol) {
                     canvas.drawText(symbol, scrollX.toFloat(), baseline.toFloat(), paint)
-                else
+                } else {
                     canvas.drawText(
                         symbol,
                         width + scrollX.toFloat() - additional,
                         baseline.toFloat(),
                         paint
                     )
+                }
                 if (originalSize != null) {
                     paint.textSize = originalSize
                 }
@@ -169,32 +169,31 @@ class WAmountEditText(
         post { updateSymbolWidth(false) }
     }
 
-
     /* Padding Animation */
     private var additional = 0
 
     private fun updatePadding(additional: Int) {
-        if (isLeadingSymbol)
+        if (isLeadingSymbol) {
             super.setPadding(paddingLeft + additional, paddingTop, paddingRight, paddingBottom)
-        else
+        } else {
             super.setPadding(paddingLeft, paddingTop, paddingRight + additional, paddingBottom)
+        }
         this.additional = additional
     }
 
     override fun setPadding(left: Int, top: Int, right: Int, bottom: Int) {
-        if (isLeadingSymbol)
+        if (isLeadingSymbol) {
             super.setPadding(left + additional, top, right, bottom)
-        else
+        } else {
             super.setPadding(left, top, right + additional, bottom)
+        }
     }
 
-    override fun getPaddingLeft(): Int {
-        return if (isLeadingSymbol) super.getPaddingLeft() - additional else super.getPaddingLeft()
-    }
+    override fun getPaddingLeft(): Int =
+        if (isLeadingSymbol) super.getPaddingLeft() - additional else super.getPaddingLeft()
 
-    override fun getPaddingRight(): Int {
-        return if (!isLeadingSymbol) super.getPaddingRight() - additional else super.getPaddingRight()
-    }
+    override fun getPaddingRight(): Int =
+        if (!isLeadingSymbol) super.getPaddingRight() - additional else super.getPaddingRight()
 
     /* Init */
 

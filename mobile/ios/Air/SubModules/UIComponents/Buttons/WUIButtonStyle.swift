@@ -140,7 +140,7 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
         if style == .compactCapsule {
             return WButton.compactHeight
         } else {
-            return IOS_26_MODE_ENABLED ? 52 : WButton.defaultHeight
+            return IOS_26_MODE_ENABLED ? WButton.glassHeight : WButton.defaultHeight
         }
     }
 
@@ -184,7 +184,7 @@ private struct WUICompactButtonLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 6) {
             configuration.icon
-                .font(.system(size: 16, weight: .medium))
+                .textStyle(.calloutEmphasized, content: .technical)
                 .frame(width: 24, height: 22)
             configuration.title
         }
@@ -249,7 +249,7 @@ public extension EnvironmentValues {
             ForEach(styles, id: \.0) { name, style in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(name)
-                        .font(.caption)
+                        .textStyle(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
 

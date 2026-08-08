@@ -1,38 +1,68 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.helpers
 
-import org.mytonwallet.app_air.uiswap.screens.swap.DEFAULT_OUR_SWAP_FEE
-import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
-import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
-import org.mytonwallet.app_air.walletcore.models.SwapType
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.ExplainedSwapFee
-import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
+import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
+import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
+import org.mytonwallet.app_air.walletcore.models.SwapType
+import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
+import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.ExplainedSwapFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
+
+internal data class SwapDefaultTokens(
+    val tokenToSend: MApiSwapAsset?,
+    val tokenToReceive: MApiSwapAsset?
+)
 
 class SwapHelpers {
     companion object {
+        internal fun resolveDefaultTokens(
+            assets: List<MApiSwapAsset>,
+            defaultSendingToken: MApiSwapAsset?,
+            defaultReceivingToken: MApiSwapAsset?
+        ): SwapDefaultTokens {
+            val tokenToSend = defaultSendingToken ?: run {
+                val slug = if (defaultReceivingToken?.slug == TONCOIN_SLUG) {
+                    TON_USDT_SLUG
+                } else {
+                    TONCOIN_SLUG
+                }
+                assets.firstOrNull { it.slug == slug }
+            }
+            val tokenToReceive = defaultReceivingToken ?: run {
+                val slug = if (tokenToSend?.slug == TON_USDT_SLUG) {
+                    TONCOIN_SLUG
+                } else {
+                    TON_USDT_SLUG
+                }
+                assets.firstOrNull { it.slug == slug }
+            }
+
+            return SwapDefaultTokens(tokenToSend, tokenToReceive)
+        }
+
         fun swapType(
             tokenToSend: IApiToken,
             tokenToReceive: IApiToken?,
             walletAddressByChain: Map<String, String>
-        ): SwapType {
-            return if (tokenToReceive == null) SwapType.ON_CHAIN else SwapType.from(
+        ): SwapType = if (tokenToReceive == null) {
+            SwapType.ON_CHAIN
+        } else {
+            SwapType.from(
                 tokenToSend,
                 tokenToReceive,
                 walletAddressByChain = walletAddressByChain
             )
         }
 
-        fun isCex(
-            tokenToSend: IApiToken?,
-            tokenToReceive: IApiToken?
-        ): Boolean {
+        fun isCex(tokenToSend: IApiToken?, tokenToReceive: IApiToken?): Boolean {
             val token1 = tokenToSend ?: return false
             val token2 = tokenToReceive ?: return false
 
@@ -59,11 +89,40 @@ class SwapHelpers {
                 addressByChain ?: emptyMap()
             )
 
-            val maxAmountFromBackend = if (lastSwapEstimateResponse?.request?.isFromAmountMax == true) {
-                CoinUtils.fromDecimal(lastSwapEstimateResponse.dex?.fromAmount, tokenToSend.decimals)
+            val maxAmountFromBackend = if (lastSwapEstimateResponse?.request?.isFromAmountMax ==
+                true
+            ) {
+                CoinUtils.fromDecimal(
+                    lastSwapEstimateResponse.dex?.fromAmount,
+                    tokenToSend.decimals
+                )
             } else {
                 null
             }
+            val networkTerms = lastSwapEstimateResponse?.explainedFee?.fullFee?.networkTerms
+
+            return calcSwapMaxBalanceFromInputs(
+                swapType = swapType,
+                tokenBalance = tokenBalance,
+                isNativeToken = tokenToSend.isBlockchainNative,
+                networkTerms = networkTerms,
+                isCex = lastSwapEstimateResponse?.request?.isCex == true,
+                cexNativeFee = lastSwapEstimateResponse?.fee,
+                maxAmountFromBackend = maxAmountFromBackend,
+                fallbackToMax = fallbackToMax
+            )
+        }
+
+        internal fun calcSwapMaxBalanceFromInputs(
+            swapType: SwapType,
+            tokenBalance: BigInteger,
+            isNativeToken: Boolean,
+            networkTerms: MFeeTerms?,
+            isCex: Boolean,
+            cexNativeFee: BigInteger?,
+            maxAmountFromBackend: BigInteger?,
+            fallbackToMax: Boolean = false
+        ): BigInteger {
             if (maxAmountFromBackend != null) {
                 return maxAmountFromBackend
             }
@@ -74,62 +133,56 @@ class SwapHelpers {
 
             var maxAmount = tokenBalance
 
-            val networkTerms = lastSwapEstimateResponse?.explainedFee?.fullFee?.networkTerms
             networkTerms?.let {
-                maxAmount -= it.token ?: BigInteger.ZERO
+                if (swapType != SwapType.ON_CHAIN) {
+                    maxAmount -= it.token ?: BigInteger.ZERO
+                }
 
-                if (tokenToSend.isBlockchainNative) {
+                if (isNativeToken) {
                     maxAmount -= it.native ?: BigInteger.ZERO
                 }
             }
 
-            val shouldUseCexNativeFee = lastSwapEstimateResponse?.request?.isCex == true &&
-                tokenToSend.isBlockchainNative &&
-                networkTerms == null
+            val shouldUseCexNativeFee = isCex && isNativeToken && networkTerms == null
             if (shouldUseCexNativeFee) {
-                maxAmount -= lastSwapEstimateResponse?.fee ?: BigInteger.ZERO
+                maxAmount -= cexNativeFee ?: BigInteger.ZERO
             }
 
-            val ourFeePercent = lastSwapEstimateResponse?.dex?.ourFeePercent
-                ?: if (swapType == SwapType.ON_CHAIN) DEFAULT_OUR_SWAP_FEE else 0.0
-            maxAmount = maxAmount.multiply(BigInteger.TEN.pow(9))
-                .divide((1 + (ourFeePercent / 100)).toBigInteger(9))
-
             if (maxAmount <= BigInteger.ZERO) {
-                return if (fallbackToMax && !shouldUseCexNativeFee) tokenBalance else BigInteger.ZERO
+                return if (fallbackToMax &&
+                    !shouldUseCexNativeFee
+                ) {
+                    tokenBalance
+                } else {
+                    BigInteger.ZERO
+                }
             }
 
             return maxAmount
         }
 
-        fun explainApiSwapFee(
-            swapEstimateResponse: SwapEstimateResponse
-        ): ExplainedSwapFee {
-            return if (swapEstimateResponse.request.isDiesel) {
+        fun explainApiSwapFee(swapEstimateResponse: SwapEstimateResponse): ExplainedSwapFee =
+            if (swapEstimateResponse.request.isDiesel) {
                 explainGaslessSwapFee(swapEstimateResponse)
             } else {
                 explainGasfullSwapFee(swapEstimateResponse)
             }
-        }
 
         private fun explainGaslessSwapFee(
             swapEstimateResponse: SwapEstimateResponse
         ): ExplainedSwapFee {
-            val dex = swapEstimateResponse.dex ?: return ExplainedSwapFee(
-                isGasless = true,
-                shouldShowOurFee = swapEstimateResponse.request.tokenToSendIsSupported
-            )
+            val dex = swapEstimateResponse.dex ?: return ExplainedSwapFee(isGasless = true)
 
             val nativeBalance =
                 swapEstimateResponse.request.nativeTokenToSendBalance.toBigDecimalOrNull()
-                    ?: return ExplainedSwapFee(isGasless = true, shouldShowOurFee = true)
+                    ?: return ExplainedSwapFee(isGasless = true)
             val nativeBalanceBigInt = CoinUtils.fromDecimal(
                 nativeBalance,
                 swapEstimateResponse.request.nativeTokenToSend.decimals
             )
 
             val dieselFeeBigDecimal = dex.dieselFee?.toBigDecimalOrNull()
-                ?: return ExplainedSwapFee(isGasless = true, shouldShowOurFee = true)
+                ?: return ExplainedSwapFee(isGasless = true)
             val dieselFeeBigInt = CoinUtils.fromDecimal(
                 dieselFeeBigDecimal,
                 swapEstimateResponse.request.tokenToSend.decimals
@@ -198,22 +251,17 @@ class SwapHelpers {
                     )
                 } ?: BigInteger.ZERO,
                 fullFee = fullFee,
-                realFee = realFee,
-                shouldShowOurFee = swapEstimateResponse.request.tokenToSendIsSupported
+                realFee = realFee
             )
         }
 
         private fun explainGasfullSwapFee(
             swapEstimateResponse: SwapEstimateResponse
         ): ExplainedSwapFee {
-            val dex = swapEstimateResponse.dex ?: return ExplainedSwapFee(
-                isGasless = false,
-                shouldShowOurFee = swapEstimateResponse.request.tokenToSendIsSupported
-            )
+            val dex = swapEstimateResponse.dex ?: return ExplainedSwapFee(isGasless = false)
 
             val networkFee = BigDecimal(dex.networkFee)
-            val realNetworkFee =
-                if (dex.realNetworkFee != null) BigDecimal(dex.realNetworkFee!!) else null
+            val realNetworkFee = dex.realNetworkFee?.let(::BigDecimal)
             val isExact =
                 realNetworkFee?.let { networkFee.subtract(it).compareTo(BigDecimal.ZERO) == 0 }
                     ?: false
@@ -228,8 +276,6 @@ class SwapHelpers {
                 CoinUtils.fromDecimal(it, swapEstimateResponse.request.nativeTokenToSend.decimals)
             }
 
-            val isNative = swapEstimateResponse.request.tokenToSend.isBlockchainNative
-
             val networkTerms = MFeeTerms(
                 token = null,
                 native = nativeFeeBigInt,
@@ -237,15 +283,8 @@ class SwapHelpers {
             )
 
             val fullTerms = MFeeTerms(
-                token = if (!isNative) dex.ourFee?.toBigDecimalOrNull()?.let {
-                    CoinUtils.fromDecimal(it, swapEstimateResponse.request.tokenToSend.decimals)
-                } else null,
-                native = if (isNative) dex.ourFee?.toBigDecimalOrNull()?.let {
-                    nativeFeeBigInt + (CoinUtils.fromDecimal(
-                        it,
-                        swapEstimateResponse.request.nativeTokenToSend.decimals
-                    ) ?: BigInteger.ZERO)
-                } ?: nativeFeeBigInt else nativeFeeBigInt,
+                token = null,
+                native = nativeFeeBigInt,
                 stars = null
             )
 
@@ -285,8 +324,7 @@ class SwapHelpers {
                 isGasless = false,
                 excessFee = realNativeFeeBigInt?.let { (nativeFeeBigInt - it) } ?: BigInteger.ZERO,
                 fullFee = fullFee,
-                realFee = realFee,
-                shouldShowOurFee = swapEstimateResponse.request.tokenToSendIsSupported
+                realFee = realFee
             )
         }
     }

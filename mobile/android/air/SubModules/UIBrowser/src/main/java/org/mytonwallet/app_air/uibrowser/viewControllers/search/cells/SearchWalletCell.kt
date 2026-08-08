@@ -5,6 +5,7 @@ import android.content.Context
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVM
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -17,14 +18,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVM
 
 @SuppressLint("ViewConstructor")
 class SearchWalletCell(
     context: Context,
     private val onTapOwnWallet: (match: ExploreVM.MyWalletMatch) -> Unit,
-    private val onTapWalletInfo: (match: ExploreVM.WalletInfoMatch) -> Unit,
-) : WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
+    private val onTapWalletInfo: (match: ExploreVM.WalletInfoMatch) -> Unit
+) : WCell(context, LayoutParams(MATCH_PARENT, 60.dp)),
+    WThemedView {
 
     private val iconView: AccountIconView by lazy {
         AccountIconView(context, AccountIconView.Usage.ViewItem(10f.dp))

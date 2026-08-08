@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.models
 
 import android.net.Uri
 import com.squareup.moshi.JsonClass
+import java.math.BigInteger
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -10,7 +11,10 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDerivation
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.utils.sortedByBalance
 
 @JsonClass(generateAdapter = true)
@@ -20,12 +24,11 @@ class MAccount(
     var name: String,
     var accountType: AccountType,
     var importedAt: Long?,
-    var isTemporary: Boolean,
+    var isTemporary: Boolean
 ) {
 
-    override fun equals(other: Any?): Boolean {
-        return other is MAccount && other.accountId == this.accountId
-    }
+    override fun equals(other: Any?): Boolean =
+        other is MAccount && other.accountId == this.accountId
 
     override fun hashCode(): Int = accountId.hashCode()
 
@@ -35,7 +38,7 @@ class MAccount(
         val domain: String? = null,
         val isMultisig: Boolean? = null,
         val derivation: ApiDerivation? = null,
-        val mfa: AccountMfa? = null,
+        val mfa: AccountMfa? = null
     ) {
         val jsonObject: JSONObject
             get() {
@@ -60,6 +63,11 @@ class MAccount(
         }
     }
 
+    data class ChainDisplaySnapshot(
+        val visibleChains: List<Map.Entry<String, AccountChain>>,
+        val orderedChains: List<Map.Entry<String, AccountChain>>
+    )
+
     val isViewOnly: Boolean
         get() {
             return accountType == AccountType.VIEW
@@ -69,7 +77,7 @@ class MAccount(
     data class Ledger(val driver: Driver, val index: Int) {
         @JsonClass(generateAdapter = false)
         enum class Driver(val value: String) {
-            HID("HID"),
+            HID("HID")
         }
 
         constructor(json: JSONObject) : this(
@@ -92,7 +100,7 @@ class MAccount(
         globalJSON.optString("title"),
         AccountType.fromValue(globalJSON.optString("type")) ?: AccountType.MNEMONIC,
         globalJSON.optLong("importedAt"),
-        globalJSON.optBoolean("isTemporary"),
+        globalJSON.optBoolean("isTemporary")
     )
 
     companion object {
@@ -108,7 +116,7 @@ class MAccount(
                     derivation = chainData.optJSONObject("derivation")?.let {
                         ApiDerivation.fromJSONObject(it)
                     },
-                    mfa = chainData.optJSONObject("mfa")?.let { AccountMfa.fromJson(it) },
+                    mfa = chainData.optJSONObject("mfa")?.let { AccountMfa.fromJson(it) }
                 )
             }
             return result
@@ -154,9 +162,9 @@ class MAccount(
 
     val firstAddress: String?
         get() {
-            return if (tonAddress != null)
+            return if (tonAddress != null) {
                 tonAddress
-            else {
+            } else {
                 try {
                     byChain.entries.first().value.address
                 } catch (_: Exception) {
@@ -193,12 +201,22 @@ class MAccount(
             return isMainnet && accountType == AccountType.MNEMONIC
         }
 
+    val supportsEarn: Boolean
+        get() {
+            return isMainnet && accountType != AccountType.VIEW
+        }
+
     val supportsWalletConnectPay: Boolean
         get() {
             return accountType == AccountType.MNEMONIC && isMultichain
         }
 
     val supportsBuyWithCard: Boolean
+        get() {
+            return isMainnet && accountType != AccountType.VIEW
+        }
+
+    val supportsSellOnCard: Boolean
         get() {
             return isMainnet && accountType != AccountType.VIEW
         }
@@ -224,8 +242,9 @@ class MAccount(
 
     val shareLink: String
         get() {
-            val sortedChains = sortedChains()
-            val evmAddress = collapsedEvmAddress(sortedChains)
+            val chainDisplay = chainDisplaySnapshot()
+            val visibleChains = chainDisplay.visibleChains.map { it.key }.toSet()
+            val evmAddress = collapsedEvmAddress(chainDisplay.orderedChains)
             var didAddEvm = false
 
             return Uri.Builder()
@@ -233,7 +252,9 @@ class MAccount(
                 .authority(ApplicationContextHolder.universalShortUrlHost)
                 .path("view/")
                 .apply {
-                    sortedChains.forEach { (chain, chainAccount) ->
+                    chainDisplay.orderedChains.forEach { (chain, chainAccount) ->
+                        if (!visibleChains.contains(chain)) return@forEach
+
                         if (evmAddress != null && MBlockchain.isEvmChain(chain)) {
                             if (!didAddEvm) {
                                 appendQueryParameter(MBlockchain.VIEW_ACCOUNT_EVM_PARAM, evmAddress)
@@ -253,16 +274,14 @@ class MAccount(
                 .toString()
         }
 
-    private fun collapsedEvmAddress(sortedChains: List<Map.Entry<String, AccountChain>>): String? {
-        val addressByChain = sortedChains.associate { it.key to it.value.address }
+    private fun collapsedEvmAddress(chains: List<Map.Entry<String, AccountChain>>): String? {
+        val addressByChain = chains.associate { it.key to it.value.address }
         val evmAddresses = MBlockchain.evmChains.map { addressByChain[it.name] }
         val firstAddress = evmAddresses.firstOrNull() ?: return null
         return if (evmAddresses.all { it == firstAddress }) firstAddress else null
     }
 
-    fun isChainSupported(chain: String): Boolean {
-        return byChain.containsKey(chain)
-    }
+    fun isChainSupported(chain: String): Boolean = byChain.containsKey(chain)
 
     fun supports(requiredChains: List<ApiDappSessionChain>): Boolean {
         if (requiredChains.isEmpty()) return true
@@ -281,5 +300,83 @@ class MAccount(
     fun sortedChains(): List<Map.Entry<String, AccountChain>> {
         val perChainBalance = BalanceStore.totalBalanceInBaseCurrencyPerChain(accountId)
         return byChain.sortedByBalance(perChainBalance)
+    }
+
+    fun defaultChains(): List<Map.Entry<String, AccountChain>> =
+        byChain.entries.sortedBy { (chainName, _) ->
+            MBlockchain.supportedChainIndexes[chainName] ?: Int.MAX_VALUE
+        }
+
+    private fun calculateChainsShownInValueMode(accountChainOrder: List<String>): Set<String> {
+        var hasTokenBalance = false
+        val chainsWithBalance = mutableSetOf<String>()
+
+        BalanceStore.getBalances(accountId)?.forEach { (slug, balance) ->
+            if (balance > BigInteger.ZERO) {
+                hasTokenBalance = true
+                TokenStore.getToken(slug)?.chain?.let { chainsWithBalance.add(it) }
+            }
+        }
+
+        val stakingState = StakingStore.getStakingState(accountId)
+        val hasStakingBalance = listOfNotNull(
+            stakingState?.totalTonBalance,
+            stakingState?.totalMycoinBalance,
+            stakingState?.totalUSDeBalance
+        ).any { it > BigInteger.ZERO }
+        if (hasStakingBalance) {
+            hasTokenBalance = true
+            chainsWithBalance.add(MBlockchain.ton.name)
+        }
+
+        return MChainDisplayConfiguration.chainsShownInValueMode(
+            accountChainOrder = accountChainOrder,
+            chainsWithBalance = chainsWithBalance,
+            hasTokenBalance = hasTokenBalance,
+            isGramWallet = ApplicationContextHolder.isGramApp
+        )
+    }
+
+    fun displayedChains(
+        includingChain: MBlockchain? = null
+    ): List<Map.Entry<String, AccountChain>> = chainDisplaySnapshot(includingChain).visibleChains
+
+    fun chainDisplaySnapshot(includingChain: MBlockchain? = null): ChainDisplaySnapshot {
+        val defaultChains = defaultChains()
+        if (defaultChains.size <= 1) return ChainDisplaySnapshot(defaultChains, defaultChains)
+
+        val accountChainOrder = defaultChains.map { it.key }
+        val chainsByName = defaultChains.associateBy { it.key }
+        val configuration = if (AccountStore.activeAccountId == accountId) {
+            AccountStore.assetsAndActivityData.chainDisplayConfiguration
+        } else {
+            MAssetsAndActivityData(accountId).chainDisplayConfiguration
+        } ?: MChainDisplayConfiguration()
+        val isValueMode = configuration.displayMode == MChainDisplayMode.VALUE
+        val chainsSortedByValue = if (isValueMode || configuration.manualOrder.isEmpty()) {
+            sortedChains().map { it.key }
+        } else {
+            emptyList()
+        }
+        val chainsShownInValueMode = if (isValueMode) {
+            calculateChainsShownInValueMode(accountChainOrder)
+        } else {
+            emptySet()
+        }
+        val orderedChains = configuration.orderedChains(
+            accountChainOrder = accountChainOrder,
+            chainsSortedByValue = chainsSortedByValue,
+            chainsShownInValueMode = chainsShownInValueMode
+        )
+        val visibleChains = configuration.visibleChains(
+            accountChainOrder = accountChainOrder,
+            orderedChains = orderedChains,
+            chainsShownInValueMode = chainsShownInValueMode,
+            includingChain = includingChain?.name
+        )
+        return ChainDisplaySnapshot(
+            visibleChains = visibleChains.mapNotNull { chainsByName[it] },
+            orderedChains = orderedChains.mapNotNull { chainsByName[it] }
+        )
     }
 }

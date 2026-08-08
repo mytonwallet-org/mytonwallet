@@ -19,9 +19,9 @@ extension Api {
 
     internal static func createSubWallet(
         accountId: String,
-        password: String
+        enclaveToken: EnclaveToken
     ) async throws -> ApiCreateSubWalletResult {
-        try await bridge.callApi("createSubWallet", accountId, password, decoding: ApiCreateSubWalletResult.self)
+        try await bridge.callApi("createSubWallet", accountId, enclaveToken, decoding: ApiCreateSubWalletResult.self)
     }
 
     internal static func addSubWallet(

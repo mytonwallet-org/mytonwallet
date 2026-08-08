@@ -31,6 +31,7 @@ interface OwnProps {
   comment?: string;
   decimals?: number;
   nfts?: ApiNft[];
+  isNftBurn?: boolean;
   onInfoClick: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 }
@@ -45,6 +46,7 @@ function TransferComplete({
   comment,
   decimals,
   nfts,
+  isNftBurn,
   onInfoClick,
   onClose,
 }: OwnProps) {
@@ -52,6 +54,9 @@ function TransferComplete({
 
   const lang = useLang();
   const isNftTransfer = Boolean(nfts?.length);
+  const title = isNftBurn && nfts?.length
+    ? lang('$nfts_burned', nfts.length) as string
+    : lang('Sent');
 
   useHistoryBack({
     isActive,
@@ -75,7 +80,7 @@ function TransferComplete({
 
   return (
     <>
-      <ModalHeader title={lang('Sent!')} onClose={onClose} />
+      <ModalHeader title={title} onClose={onClose} />
 
       <div className={modalStyles.transitionContent}>
         {isNftTransfer ? (

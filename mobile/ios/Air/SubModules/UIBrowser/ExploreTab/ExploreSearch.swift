@@ -14,12 +14,16 @@ import WalletContext
 final class ExploreSearch: HostingView {
     let viewModel: ExploreSearchViewModel
 
-    init() {
-        let viewModel = ExploreSearchViewModel()
+    init(focusOnAppear: Bool = false) {
+        let viewModel = ExploreSearchViewModel(focusOnAppear: focusOnAppear)
         self.viewModel = viewModel
         super.init(ignoreSafeArea: false) {
             ExploreSearchView(viewModel: viewModel)
         }
+    }
+
+    func focus() {
+        viewModel.focusRequestID += 1
     }
 
     override func hitTest(_ point: CGPoint, with _: UIEvent?) -> UIView? {
@@ -40,6 +44,12 @@ final class ExploreSearch: HostingView {
 final class ExploreSearchViewModel {
     var string: String = ""
     var isActive: Bool = false
+    var focusRequestID: Int = 0
+    let focusOnAppear: Bool
+
+    init(focusOnAppear: Bool = false) {
+        self.focusOnAppear = focusOnAppear
+    }
 
     @PerceptionIgnored
     var frame: CGRect?
@@ -55,6 +65,9 @@ final class ExploreSearchViewModel {
 
     @PerceptionIgnored
     var onActiveChange: (Bool) -> () = { _ in }
+
+    @PerceptionIgnored
+    var onCancel: () -> () = {}
 }
 
 private struct ExploreSearchView: View {
@@ -86,8 +99,10 @@ private struct ExploreSearchView: View {
         WithPerceptionTracking {
             HStack(spacing: 6) {
                 searchField
+                    .frame(maxWidth: viewModel.isActive ? .infinity : nil)
                 if viewModel.isActive {
                     cancelButton
+                        .fixedSize()
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -95,6 +110,15 @@ private struct ExploreSearchView: View {
             .animation(.smooth(duration: 0.2), value: viewModel.string.isEmpty)
             .frame(maxWidth: .infinity, alignment: viewModel.isActive ? .leading : .center)
             .padding(Metrics.outerPadding)
+            .onAppear {
+                guard viewModel.focusOnAppear else { return }
+                DispatchQueue.main.async {
+                    isFocused = true
+                }
+            }
+            .onChange(of: viewModel.focusRequestID) { _ in
+                isFocused = true
+            }
             .onChange(of: isFocused) { _ in
                 updateActiveState()
             }
@@ -134,7 +158,7 @@ private struct ExploreSearchView: View {
         WithPerceptionTracking {
             let isActive = viewModel.isActive
             let prompt = Text(lang("Search app or enter address"))
-                .font(isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
+                .textStyle(isActive ? .body : .subheadlineEmphasized)
                 .foregroundColor(isActive ? .secondary : .air.primaryLabel)
 
             @Perception.Bindable var vm = viewModel
@@ -147,6 +171,7 @@ private struct ExploreSearchView: View {
                     prompt: prompt,
                     label: { EmptyView() }
                 )
+                    .textStyle(.body)
                     .fixedSize(horizontal: !isActive, vertical: true)
                     .lineLimit(1)
                     .focused($isFocused)
@@ -190,9 +215,10 @@ private struct ExploreSearchView: View {
             let buttonContent = Button {
                 viewModel.string = ""
                 isFocused = false
+                viewModel.onCancel()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 17, weight: .medium))
+                    .textStyle(.bodyEmphasized, content: .technical)
                     .foregroundStyle(.secondary)
                     .frame(width: size, height: size)
             }
@@ -222,7 +248,7 @@ private struct ExploreSearchView: View {
                 viewModel.string = ""
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 17))
+                    .textStyle(.body, content: .technical)
                     .foregroundStyle(.primary)
                     .padding(10)
                     .contentShape(Circle())

@@ -7,6 +7,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.ledger.LedgerManager
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerLoadMoreCell
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerWalletCell
@@ -29,23 +30,23 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
 
 class LedgerWalletsVC(
     context: Context,
     private val network: MBlockchainNetwork,
     discoveredWallets: List<MLedgerWalletInfo>
-) :
-    WViewController(context),
-    WRecyclerViewAdapter.WRecyclerViewDataSource, LedgerWalletsVM.Delegate {
+) : WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
+    LedgerWalletsVM.Delegate {
+    @Suppress("ktlint:standard:property-naming")
     override val TAG = "LedgerWallets"
 
     override val shouldDisplayBottomBar = !WGlobalStorage.isGradientNavigationBarActive()
@@ -69,10 +70,11 @@ class LedgerWalletsVC(
 
     val accounts = WGlobalStorage.accountIds().mapNotNull { accountId ->
         val account = AccountStore.accountById(accountId)
-        if (account?.accountType != MAccount.AccountType.VIEW)
+        if (account?.accountType != MAccount.AccountType.VIEW) {
             return@mapNotNull account
-        else
+        } else {
             return@mapNotNull null
+        }
     }
 
     companion object {
@@ -117,15 +119,15 @@ class LedgerWalletsVC(
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
 
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
-                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE)
+                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
                     updateBlurViews(recyclerView)
+                }
             }
         })
         rv
@@ -176,7 +178,8 @@ class LedgerWalletsVC(
             toBottom(recyclerView)
             toCenterX(continueButton, 20f)
             toBottomPx(
-                continueButton, 20.dp +
+                continueButton,
+                20.dp +
                     (navigationController?.getSystemBars()?.bottom ?: 0)
             )
             toStart(bottomGradientView)
@@ -205,7 +208,8 @@ class LedgerWalletsVC(
         )
         view.setConstraints {
             toBottomPx(
-                continueButton, 20.dp +
+                continueButton,
+                20.dp +
                     (navigationController?.getSystemBars()?.bottom ?: 0)
             )
         }
@@ -257,53 +261,42 @@ class LedgerWalletsVC(
 
     override fun loaded(wallets: List<MLedgerWalletInfo>) {
         animatedBatchStart = if (isLoadingMore) items.size else Int.MAX_VALUE
-        items.addAll(wallets.map { discoveredWallet ->
-            val title = accounts.find { it.tonAddress == discoveredWallet.wallet.address }?.name
-            return@map Item(
-                title = title,
-                wallet = discoveredWallet,
-                isSelected = title != null,
-                isAlreadyImported = title != null
-            )
-        })
+        items.addAll(
+            wallets.map { discoveredWallet ->
+                val title = accounts.find { it.tonAddress == discoveredWallet.wallet.address }?.name
+                return@map Item(
+                    title = title,
+                    wallet = discoveredWallet,
+                    isSelected = title != null,
+                    isAlreadyImported = title != null
+                )
+            }
+        )
         isLoadingMore = false
         rvAdapter.reloadData()
     }
 
     override fun finalizeFailed() {
-        showError(MBridgeError.UNKNOWN)
+        showError(MBridgeError.Type.UNKNOWN)
         continueButton.isLoading = false
         continueButton.isEnabled = newlySelectedItems.isNotEmpty()
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 2
 
-    override fun recyclerViewNumberOfItems(
-        rv: RecyclerView,
-        section: Int
-    ): Int {
-        if (section == 1)
-            return 1
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
+        if (section == 1) return 1
         return items.size
     }
 
-    override fun recyclerViewCellType(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             0 -> WALLET_CELL
             else -> LOAD_MORE_CELL
         }
-    }
 
-    override fun recyclerViewCellView(
-        rv: RecyclerView,
-        cellType: WCell.Type
-    ): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             WALLET_CELL -> {
                 LedgerWalletCell(context).apply {
                     onTap = { item ->
@@ -324,7 +317,6 @@ class LedgerWalletsVC(
                 }
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -347,12 +339,15 @@ class LedgerWalletsVC(
     private fun selectionsUpdated() {
         val newlySelectedItems = newlySelectedItems
         navigationBar?.setSubtitle(
-            if (newlySelectedItems.isNotEmpty())
+            if (newlySelectedItems.isNotEmpty()) {
                 LocaleController.getPlural(
                     newlySelectedItems.size,
                     "\$n_wallets_selected"
                 )
-            else null, false
+            } else {
+                null
+            },
+            false
         )
         continueButton.isEnabled = newlySelectedItems.isNotEmpty()
     }

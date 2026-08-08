@@ -4,9 +4,7 @@ import android.graphics.Color
 
 class AnimUtils {
     companion object {
-        fun lerp(a: Float, b: Float, f: Float): Float {
-            return a + f * (b - a)
-        }
+        fun lerp(a: Float, b: Float, f: Float): Float = a + f * (b - a)
 
         fun getOffsetColor(color1: Int, color2: Int, offset: Float, alpha: Float): Int {
             val rF = Color.red(color2)

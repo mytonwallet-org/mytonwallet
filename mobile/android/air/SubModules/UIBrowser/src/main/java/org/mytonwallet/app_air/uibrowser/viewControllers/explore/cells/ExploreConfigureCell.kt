@@ -11,12 +11,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
-
 @SuppressLint("ViewConstructor")
-class ExploreConfigureCell(
-    context: Context,
-    private val onTap: () -> Unit,
-) :
+class ExploreConfigureCell(context: Context, private val onTap: () -> Unit) :
     WCell(context, LayoutParams(36.dp, 36.dp)),
     WThemedView {
 

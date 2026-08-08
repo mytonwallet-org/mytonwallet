@@ -65,7 +65,7 @@ function WalletConnectPayDataCollectionModal({ promiseId, url, isCompleting }: S
 
     const requestId = ++electronCollectRequestRef.current;
 
-    void window.electron?.openWalletConnectPayCollect(url, {
+    void window.electron?.openWalletConnectPayCollect?.(url, {
       message: lang('Are you sure you want to cancel the payment?'),
       continueText: lang('Continue'),
       // Not a plain "Cancel": macOS auto-binds Esc to buttons with the system cancel title,
@@ -91,7 +91,7 @@ function WalletConnectPayDataCollectionModal({ promiseId, url, isCompleting }: S
 
     return () => {
       electronCollectRequestRef.current += 1;
-      void window.electron?.closeWalletConnectPayCollect();
+      void window.electron?.closeWalletConnectPayCollect?.();
     };
   }, [
     isOpen,

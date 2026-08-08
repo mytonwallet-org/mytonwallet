@@ -58,7 +58,9 @@ function ModalHeader<T extends string>({
     if (isMenuOpen) {
       closeMenu();
     } else {
-      const { right: x, y, height } = menuButtonRef.current!.getBoundingClientRect();
+      const { left, right, y, height } = menuButtonRef.current!.getBoundingClientRect();
+      // RTL: mirror the anchor edge
+      const x = lang.isRtl ? left : right;
       setMenuAnchor({ x, y: y + height });
     }
   });

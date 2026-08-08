@@ -1,6 +1,16 @@
 {
   "images" : [
     {
+      "filename" : "chain_base_light.svg",
+      "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
       "filename" : "chain_base.svg",
       "idiom" : "universal"
     }

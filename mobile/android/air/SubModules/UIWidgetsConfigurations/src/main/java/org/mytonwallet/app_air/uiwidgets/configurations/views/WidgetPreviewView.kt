@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiwidgets.configurations.views
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
@@ -10,6 +9,7 @@ import android.widget.RemoteViews
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -22,7 +22,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class WidgetPreviewView(context: Context) : WView(context), WThemedView {
+class WidgetPreviewView(context: Context) :
+    WView(context),
+    WThemedView {
 
     companion object {
         const val WIDTH = 250

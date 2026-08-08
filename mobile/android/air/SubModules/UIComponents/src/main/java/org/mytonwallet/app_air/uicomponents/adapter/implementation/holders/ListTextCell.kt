@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.adapter.implementation.holders
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
@@ -9,10 +8,11 @@ import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 
 class ListTextCell(context: Context) : WLabel(context) {
     init {
@@ -26,10 +26,7 @@ class ListTextCell(context: Context) : WLabel(context) {
         setPaddingDp(20f, 16f, 20f, 8f)
         setStyle(adaptiveFontSize(), WFont.Medium)
         gravity =
-            if (LocaleController.isRTL)
-                Gravity.RIGHT
-            else
-                Gravity.LEFT
+            if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
         useCustomEmoji = true
         setTextColor(WColor.PrimaryText)
     }
@@ -42,10 +39,11 @@ class ListTextCell(context: Context) : WLabel(context) {
             val paddingDp = item.paddingDp
             view.setPaddingDp(paddingDp.left, paddingDp.top, paddingDp.right, paddingDp.bottom)
             view.gravity =
-                item.gravity ?: if (LocaleController.isRTL)
+                item.gravity ?: if (LocaleController.isRTL) {
                     Gravity.RIGHT
-                else
+                } else {
                     Gravity.LEFT
+                }
             view.setTextSize(TypedValue.COMPLEX_UNIT_SP, item.textSize ?: adaptiveFontSize())
             view.setTextColor(item.textColor ?: WColor.PrimaryText)
             view.typeface = item.font ?: WFont.Medium.typeface

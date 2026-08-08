@@ -27,7 +27,7 @@ struct SwapCexProviderInfoView: View {
                 }
             }
         } header: {} footer: {}
-            .font(.footnote)
+            .textStyle(.footnote, scaling: .dynamic)
             .multilineTextAlignment(.leading)
             .padding(.horizontal, -16)
     }
@@ -43,7 +43,7 @@ struct SwapCexProviderInfoView: View {
             Text(LocalizedStringKey(legalDisclaimer))
                 .lineSpacing(3)
                 .foregroundStyle(Color.air.secondaryLabel)
-                .font(.footnote)
+                .textStyle(.footnote, scaling: .dynamic)
                 .padding(.top, 2)
         }
     }

@@ -46,8 +46,8 @@ $signSizeDiff: 0.375rem;
 .center {
   top: 33%;
   transform: translate(0, -50%);
-  margin-right: auto;
-  margin-left: auto
+  margin-inline-start: auto;
+  margin-inline-end: auto
 }
 
 .promoLayer {
@@ -55,9 +55,9 @@ $signSizeDiff: 0.375rem;
 
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
 
   overflow: visible;
 }
@@ -67,7 +67,7 @@ $signSizeDiff: 0.375rem;
   pointer-events: none;
   position: absolute;
   top: 0;
-  right: 0;
+  inset-inline-end: 0;
 
   &_img {
     width: 100%;
@@ -116,8 +116,8 @@ $signSizeDiff: 0.375rem;
   position: absolute;
   z-index: var(--z-card-decoration);
   top: 0;
-  right: 0;
-  left: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
 
   overflow: visible;
 
@@ -144,7 +144,7 @@ $signSizeDiff: 0.375rem;
 
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   display: flex;
   flex-direction: column;
@@ -194,25 +194,6 @@ $signSizeDiff: 0.375rem;
     @include mixins.card-image("../../../../assets/cards/", "card_pink", v.$pinkCardGradient);
   }
 
-  &.backstage {
-    transform: translateY(-0.5625rem) scale(0.9);
-    filter: brightness(65%);
-  }
-
-  &.chartCard {
-    z-index: 10;
-    transform: translateY(0.625rem) scale(1.05);
-
-    height: calc(100% - 0.375rem);
-    margin-top: 0.375rem;
-    padding: 1rem;
-
-    @include mixins.transition(transform var(--slide-transition));
-
-    &:global(.open) {
-      transform: translateY(0) scale(1);
-    }
-  }
 }
 
 .containerInner {
@@ -221,7 +202,7 @@ $signSizeDiff: 0.375rem;
   position: absolute;
   z-index: var(--z-card-content);
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   display: flex;
   flex-direction: column;
@@ -299,22 +280,15 @@ $signSizeDiff: 0.375rem;
 .iconCaret {
   position: relative;
   top: -0.1875rem;
-  left: -0.0625rem;
+  inset-inline-start: -0.0625rem;
   font-size: calc(1.25rem * var(--font-size-scale, 1));
-}
-
-.iconCaretSmall {
-  margin-inline-start: 0.1875rem;
-  font-size: 0.5rem;
-  line-height: 1;
-  vertical-align: 0.0625rem;
 }
 
 .iconCaretFraction {
   position: relative;
   top: -0.125rem;
 
-  margin-inline-start: 0.125rem;
+  margin-left: 0.125rem; // Language-agnostic value - correct as-is
 
   font-size: calc(1rem * var(--font-size-scale, 1));
   color: var(--second-text);
@@ -324,7 +298,13 @@ $signSizeDiff: 0.375rem;
 
 .currencySwitcher {
   cursor: var(--custom-cursor, pointer);
+
   position: relative;
+
+  direction: ltr;
+  unicode-bidi: plaintext;
+
+  white-space: nowrap;
 
   @include mixins.transition(opacity 200ms);
 
@@ -375,8 +355,8 @@ $signSizeDiff: 0.375rem;
 
   height: 1.75rem;
   margin-top: -0.375rem;
-  margin-right: 0.5rem;
   margin-bottom: -0.375rem;
+  margin-inline-end: 0.5rem;
   padding: 0.25rem 0.5rem;
   border: 0.0625rem solid var(--color-card-button-border);
   border-radius: var(--border-radius-buttons);
@@ -414,7 +394,8 @@ $signSizeDiff: 0.375rem;
   align-items: center;
 
   height: 1.25rem;
-  margin: -0.125rem 0.5rem -0.125rem 0;
+  margin-block: -0.125rem;
+  margin-inline: 0 0.5rem;
   padding: 0 0.25rem;
   border-radius: 1.5rem;
 
@@ -430,7 +411,8 @@ $signSizeDiff: 0.375rem;
   @include mixins.transition('#{$color-transition}, background-color 300ms');
 
   > .icon {
-    margin: 0 0.25rem 0 0.125rem;
+    margin-block: 0;
+    margin-inline: 0.125rem 0.25rem;
     font-size: 0.75rem;
   }
 }
@@ -438,6 +420,7 @@ $signSizeDiff: 0.375rem;
 .address {
   cursor: var(--custom-cursor, pointer);
 
+  direction: ltr;
   display: inline-flex;
   align-items: center;
 
@@ -484,7 +467,7 @@ $signSizeDiff: 0.375rem;
   }
 
   .icon {
-    margin-left: 0.125rem;
+    margin-inline-start: 0.125rem;
   }
 }
 
@@ -501,19 +484,32 @@ $signSizeDiff: 0.375rem;
 }
 
 .menuItem {
-  --copy-icon-color: var(--color-gray-3);
-
   position: relative;
+
   display: flex;
+
   width: 100%;
-  padding: 0.6875rem 0.9375rem 0.6875rem 0.75rem !important;
+  padding-block: 0.6875rem !important;
+  padding-inline: 0.75rem 0.9375rem !important;
 
   @media (pointer: coarse) {
-    padding: 0.5625rem 0.9375rem 0.5625rem 0.625rem !important;
+    padding-block: 0.5625rem !important;
+    padding-inline: 0.625rem 0.9375rem !important;
   }
 }
 
-.menuIcon {
+.chainItem {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0.625rem !important;
+
+  @media (pointer: coarse) {
+    padding: 0.5625rem 0.625rem !important;
+  }
+}
+
+.chainItemLogo {
   width: 1.625rem;
   height: 1.625rem;
 
@@ -523,49 +519,78 @@ $signSizeDiff: 0.375rem;
   }
 }
 
-.menuItemContent {
+.chainItemContent {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 0.125rem;
+
+  min-width: 0;
 }
 
-.menuItemName {
-  cursor: var(--custom-cursor, pointer);
-  display: inline-flex;
+.chainItemTitle {
+  overflow: hidden;
 
-  @media (hover: hover) {
-    &:hover,
-    &:focus {
-      --copy-icon-color: var(--color-accent);
-    }
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @media (pointer: coarse) {
+    font-size: 1rem;
   }
 }
 
-.menuFontIcon {
-  margin-top: -0.0625rem;
-  margin-inline-start: 0.25rem;
-  margin-inline-end: 0;
+.chainItemSubtitle {
+  overflow: hidden;
 
-  font-size: 1rem !important;
-  color: var(--copy-icon-color);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
-  @include mixins.transition($color-transition);
+  @media (pointer: coarse) {
+    font-size: 0.8125rem;
+  }
 }
 
-.menuExplorerIcon {
+.itemActionIcon {
+  flex: none;
+  font-size: 1.375rem;
+  line-height: 1.375rem;
+  color: var(--color-gray-3);
+
+  @media (pointer: coarse) {
+    font-size: 1.5rem;
+    line-height: 1.5rem;
+  }
+}
+
+.itemChevronIcon {
+  @include mixins.rtl-mirror();
+}
+
+.itemExplorerIcon {
   cursor: var(--custom-cursor, pointer);
 
-  order: 3;
+  flex: none;
 
-  margin-right: -0.375rem;
-  margin-left: auto;
-  padding-left: 1rem;
-
-  font-size: 1.5rem;
-  line-height: 1.5rem;
+  font-size: 1.375rem;
+  line-height: 1.375rem;
   color: var(--color-accent);
 
+  @media (pointer: coarse) {
+    font-size: 1.5rem;
+    line-height: 1.5rem;
+  }
+
   @include mixins.transition(color 150ms);
+
+  @include mixins.active-transition-optimization();
 
   &:active {
     color: var(--color-accent-button-background-hover);
@@ -579,12 +604,100 @@ $signSizeDiff: 0.375rem;
   }
 }
 
+.shareItem {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.6875rem 0.75rem !important;
+
+  @media (pointer: coarse) {
+    padding: 0.75rem !important;
+  }
+}
+
+.shareItemIcon {
+  font-size: 1.375rem;
+  line-height: 1.375rem;
+  color: var(--color-gray-3);
+
+  @media (pointer: coarse) {
+    font-size: 1.5rem;
+    line-height: 1.5rem;
+  }
+}
+
+.shareItemName {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+
+  @media (pointer: coarse) {
+    font-size: 1rem;
+  }
+}
+
+.allChainsItem {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6875rem 0.625rem !important;
+
+  @media (pointer: coarse) {
+    padding: 0.75rem 0.625rem !important;
+  }
+}
+
+// Matches the chain logo column width so the label aligns with the chain titles
+.allChainsLogos {
+  display: flex;
+  flex: none;
+  align-items: center;
+  width: 1.625rem;
+
+  @media (pointer: coarse) {
+    width: 1.75rem;
+  }
+}
+
+.allChainsLogo {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.0625rem var(--color-background-drop-down);
+
+  // The overlap packs three logos exactly into the `.allChainsLogos` column width
+  &:not(:first-child) {
+    margin-inline-start: -0.5rem;
+
+    @media (pointer: coarse) {
+      margin-inline-start: -0.4375rem;
+    }
+  }
+}
+
+.allChainsName {
+  flex: 1;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+
+  @media (pointer: coarse) {
+    font-size: 1rem;
+  }
+}
+
 .addressMenuBubble {
   --offset-x-value: calc(var(--menu-width) / -2);
 
+  width: 16rem;
+
   @include mixins.respond-below(xs) {
     right: auto !important;
-    left: auto !important;
+    // Physical - JS positions the bubble by physical left; static position flips in RTL
+    left: 0 !important;
   }
 
   @include mixins.respond-above(xs) {
@@ -596,45 +709,43 @@ $signSizeDiff: 0.375rem;
   }
 }
 
-.domainText {
-  cursor: var(--custom-cursor, pointer);
+.subMenuBubble {
+  --offset-x-value: 0;
+  --offset-y-value: 0;
 
-  overflow: hidden;
-
-  max-width: 11rem;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.addressText {
-  cursor: var(--custom-cursor, pointer);
-
-  @include mixins.transition(color 200ms);
-
-  @media (hover: hover) {
-    &:hover,
-    &:focus {
-      color: var(--color-gray-1);
-    }
+  &.notActive {
+    pointer-events: none;
   }
 }
 
-.separator {
-  margin: 0 4px;
-  color: var(--color-gray-2);
+// Sized, positioned and clipped to a triangle inline by `SafeTriangle`
+.safeTriangle {
+  position: fixed;
+  z-index: var(--z-portal-menu);
 }
 
-.chainRow {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1rem;
-  color: var(--color-gray-2);
-  white-space: nowrap;
+// Covers the app under the whole address menu system, right below the portaled menu wrappers
+.menuBackdrop {
+  position: fixed;
+  z-index: calc(var(--z-portal-menu) - 1);
+  inset: 0;
+}
 
-  @media (pointer: coarse) {
-    font-size: 0.8125rem;
-  }
+// The width and max-height match `CHAINS_MENU_WIDTH_PX` and `ALL_CHAINS_MENU_MAX_HEIGHT_PX` in `AddressMenu`
+.allChainsMenuBubble {
+  width: 16rem;
+  max-height: min(60vh, 26.25rem);
+}
+
+// The width grows to fit wide addresses; the max-width matches `DOMAIN_MENU_MAX_WIDTH_PX` in `AddressMenu`
+.domainMenuBubble {
+  width: max-content;
+  min-width: 11.75rem;
+  max-width: 16rem;
+}
+
+.domainItem {
+  padding-inline: 1rem 0.625rem !important;
 }
 
 .changeSpoiler {
@@ -692,22 +803,25 @@ $signSizeDiff: 0.375rem;
 }
 
 .changeValue {
+  unicode-bidi: plaintext;
   display: inline-flex;
   gap: 0.25rem;
   align-items: center;
 }
 
 .changeChevron {
-  margin-left: -0.125rem;
+  margin-inline-start: -0.125rem;
   font-size: 0.875rem;
 
   :global(.glare-text) & {
     color: transparent;
   }
+
+  @include mixins.rtl-mirror();
 }
 
 .changePrefix {
-  margin-right: -0.125rem;
+  margin-inline-end: -0.125rem;
   font-size: 1.25rem;
   line-height: 1rem;
 
@@ -724,7 +838,7 @@ $signSizeDiff: 0.375rem;
 }
 
 .iconExpand {
-  margin-inline-start: 0.25rem;
+  margin-left: 0.25rem; // Language-agnostic value - correct as-is
   font-size: 0.5rem;
 }
 
@@ -751,270 +865,6 @@ $signSizeDiff: 0.375rem;
   display: inline-flex;
 }
 
-.tokenInfo {
-  display: grid;
-  grid-template-areas: "icon header" "icon subheader";
-  grid-template-columns: min-content minmax(0, 1fr); // `minmax` forces the column to stay within the grid boundaries and to cut the content with ellipsis
-  align-items: center;
-}
-
-.tokenLogo {
-  --fallback-token-color: var(--color-card-text);
-
-  grid-area: icon;
-  margin-right: 0.5rem;
-}
-
-.tokenInfoHeader,
-.tokenInfoSubheader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.tokenInfoHeader {
-  grid-area: header;
-  align-self: flex-end;
-
-  font-size: 0.9375rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--color-card-text);
-}
-
-.tokenInfoSubheader {
-  grid-area: subheader;
-  align-self: flex-start;
-
-  margin-top: 0.25rem;
-
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--color-card-second-text);
-}
-
-.tokenAmount,
-.tokenName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tokenValue,
-.tokenAmount {
-  display: inline-block;
-  height: 1rem;
-  line-height: 1rem;
-}
-
-.tokenValue,
-.tokenChange {
-  flex: none;
-  margin-inline-start: 0.25rem;
-  text-align: right;
-}
-
-.tokenChange {
-  line-height: 0.875rem;
-}
-
-.tokenChangeSensitiveData {
-  min-height: 0.875rem !important;
-  margin-left: 0.1875rem;
-}
-
-.tokenChangeSpoiler {
-  top: -0.0625rem !important;
-  right: -0.1875rem !important;
-}
-
-.tokenValue {
-  --offset-x-value: -0.3125rem;
-  --offset-y-value: 0.1875rem;
-
-  margin-inline-end: -0.1875rem;
-}
-
-.tokenTitle {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  line-height: 0.875rem;
-}
-
-.tokenHistoryPrice {
-  bottom: 0;
-}
-
-.tokenCurrentPrice {
-  right: 1rem;
-  bottom: 1rem;
-  line-height: 1;
-  text-align: right;
-}
-
-.tokenHistoryPrice,
-.tokenCurrentPrice {
-  position: absolute;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--color-card-text);
-}
-
-.tokenPriceDate {
-  margin-top: 0.125rem;
-
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--color-card-second-text);
-}
-
-.apy {
-  flex: none;
-
-  height: 0.9375rem;
-  margin-block: -0.125rem -0.0625rem;
-  margin-inline-start: 0.25rem;
-  padding: 0.1875rem;
-  border-radius: 0.25rem;
-
-  font-size: 0.625rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--color-card-apy-text);
-
-  background-color: var(--color-card-apy-background);
-}
-
-.interactive {
-  cursor: var(--custom-cursor, pointer);
-}
-
-.tokenExplorerButton {
-  position: relative;
-  top: 0.25rem;
-
-  font-size: 1rem;
-  line-height: 0.625rem;
-  color: var(--color-card-second-text) !important;
-  text-decoration: none !important;
-
-  @include mixins.transition($color-transition);
-
-  @include mixins.active-transition-optimization();
-
-  &:hover,
-  &:focus-visible {
-    color: var(--color-card-text) !important;
-  }
-}
-
-.chart {
-  touch-action: none;
-  cursor: var(--custom-cursor, pointer);
-  user-select: none;
-
-  position: relative;
-
-  width: 100%;
-  height: auto;
-  padding: 0.75rem 0 0.875rem 0;
-
-  // Following pseudo-elements are used to enlarge interactive area without affecting bounding box
-
-  &::before {
-    content: "";
-
-    position: absolute;
-    top: 0;
-    left: -0.5rem;
-
-    width: 0.5rem;
-    height: 100%;
-  }
-
-  &::after {
-    content: "";
-
-    position: absolute;
-    top: 0;
-    right: -0.5rem;
-
-    width: 0.5rem;
-    height: 100%;
-  }
-}
-
-.chartImg {
-  pointer-events: none;
-  width: 100%;
-  height: auto;
-}
-
-.periodChooser {
-  cursor: var(--custom-cursor, pointer);
-
-  position: absolute;
-  bottom: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-
-  display: flex;
-  align-items: center;
-
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--color-card-text);
-
-  transition: opacity 0.15s ease;
-}
-
-.periodChooserHidden {
-  pointer-events: none;
-  opacity: 0;
-}
-
-.periodItem {
-  cursor: var(--custom-cursor, pointer);
-
-  position: relative;
-
-  overflow: hidden;
-
-  margin: 0;
-  padding: 0.3125rem 0.3125rem 0.375rem;
-  border-radius: var(--border-radius-tiny);
-
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 0.8125rem;
-  color: var(--color-card-text);
-
-  @include mixins.transition(background-color 200ms);
-
-  &:hover {
-    background-color: var(--color-card-button);
-  }
-
-  &_active {
-    background-color: var(--color-card-toggle) !important;
-  }
-}
-
-.periodInput {
-  position: absolute;
-  top: -2rem;
-  left: -2rem;
-
-  width: 0.0625rem;
-  height: 0.0625rem;
-
-  opacity: 0;
-  clip: rect(0 0 0 0);
-}
-
 .loadingDotsContainer {
   position: absolute;
   z-index: 1;
@@ -1035,7 +885,7 @@ $signSizeDiff: 0.375rem;
   // For gradient border positioning
   z-index: 1;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   width: 100%;
   height: 100%;
@@ -1059,9 +909,9 @@ $signSizeDiff: 0.375rem;
     position: absolute;
     z-index: -1;
     top: 0;
-    right: 0;
     bottom: 0;
-    left: 0;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
 
     padding: 0.125rem;
     border-radius: var(--border-radius-card);

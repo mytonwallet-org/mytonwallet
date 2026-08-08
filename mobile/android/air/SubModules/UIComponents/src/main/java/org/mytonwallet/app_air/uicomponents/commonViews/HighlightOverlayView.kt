@@ -25,7 +25,7 @@ class HighlightOverlayView(
     private val holeRect: RectF?,
     private val cornerRadius: Float,
     private val topReversedCornerView: ReversedCornerView?,
-    private val bottomReversedCornerView: ReversedCornerViewUpsideDown?,
+    private val bottomReversedCornerView: ReversedCornerViewUpsideDown?
 ) : View(context) {
 
     init {
@@ -48,16 +48,24 @@ class HighlightOverlayView(
     private val viewRect = RectF()
     private val cutoutRect = RectF()
     private val radiiTop = floatArrayOf(
-        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp,
-        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp,
-        0f, 0f,
-        0f, 0f
+        ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp,
+        0f,
+        0f,
+        0f,
+        0f
     )
     private val radiiBottom = floatArrayOf(
-        0f, 0f,
-        0f, 0f,
-        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp,
-        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp
+        0f,
+        0f,
+        0f,
+        0f,
+        ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp
     )
 
     override fun onDraw(canvas: Canvas) {
@@ -89,8 +97,6 @@ class HighlightOverlayView(
         val width = view.width.toFloat()
         val height = view.height.toFloat()
         val radius = ViewConstants.TOOLBAR_RADIUS.dp
-        val startPadding = view.startHorizontalPadding
-        val endPadding = view.endHorizontalPadding
 
         viewRect.set(left, top, left + width, top + height)
 
@@ -103,12 +109,8 @@ class HighlightOverlayView(
         val cutoutBottom = if (isTop) top + height else top + radius
         val radii = if (isTop) radiiTop else radiiBottom
 
-        cutoutRect.set(
-            left + startPadding,
-            cutoutTop,
-            left + width - endPadding,
-            cutoutBottom
-        )
+        view.setCutoutRect(cutoutRect, cutoutTop - top, cutoutBottom - top)
+        cutoutRect.offset(left, top)
 
         val cutoutPath = Path().apply {
             addRoundRect(cutoutRect, radii, Path.Direction.CCW)

@@ -11,7 +11,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
-class WCutoutDrawable() : Drawable() {
+class WCutoutDrawable : Drawable() {
     private var alpha: Int = 255
 
     var color: Int = WColor.PopupWindow.color

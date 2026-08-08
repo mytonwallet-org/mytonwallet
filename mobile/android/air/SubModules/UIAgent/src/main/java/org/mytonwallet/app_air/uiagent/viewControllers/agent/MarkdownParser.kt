@@ -69,7 +69,8 @@ object MarkdownParser {
                         result.append(parseInline(text.substring(i + 2, end), codeColor))
                         result.setSpan(
                             StyleSpan(Typeface.BOLD),
-                            spanStart, result.length,
+                            spanStart,
+                            result.length,
                             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                         )
                         i = end + 2
@@ -87,7 +88,8 @@ object MarkdownParser {
                         result.append(parseInline(text.substring(i + 1, end), codeColor))
                         result.setSpan(
                             StyleSpan(Typeface.ITALIC),
-                            spanStart, result.length,
+                            spanStart,
+                            result.length,
                             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                         )
                         i = end + 1
@@ -133,7 +135,8 @@ object MarkdownParser {
             }
             sb.setSpan(
                 WClickableSpan(url, linkColor, onClick),
-                matchStart, matchEnd,
+                matchStart,
+                matchEnd,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
@@ -168,17 +171,20 @@ object MarkdownParser {
     private fun applyCodeSpan(sb: SpannableStringBuilder, start: Int, end: Int, color: Int) {
         sb.setSpan(
             TypefaceSpan("monospace"),
-            start, end,
+            start,
+            end,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         sb.setSpan(
             RelativeSizeSpan(0.9f),
-            start, end,
+            start,
+            end,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         sb.setSpan(
             ForegroundColorSpan(color),
-            start, end,
+            start,
+            end,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
     }

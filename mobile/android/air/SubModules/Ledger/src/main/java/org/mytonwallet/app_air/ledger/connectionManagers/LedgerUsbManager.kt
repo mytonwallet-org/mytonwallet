@@ -6,6 +6,7 @@ import org.mytonwallet.app_air.ledger.LedgerDevice
 import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
 import org.mytonwallet.app_air.ledger.usb.HIDDevice
 import org.mytonwallet.app_air.ledger.usb.USBManager
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -29,28 +30,27 @@ object LedgerUsbManager : ILedgerConnectionManager {
     private var selectedDevice: UsbDevice? = null
 
     override fun startConnection(onUpdate: (ConnectionState) -> Unit) {
-        if (!isStopped)
-            stopConnection()
+        if (!isStopped) stopConnection()
         usbManager.start()
         isStopped = false
         onUpdate(ConnectionState.Connecting)
         this.devices =
             usbManager.getDeviceList().toList().filterNotNull()
                 .filter { it.vendorId == LEDGER_VENDOR_ID }
-        if (selectedDevice == null && this.devices.isNotEmpty())
+        if (selectedDevice == null && this.devices.isNotEmpty()) {
             selectDevice(devices.first(), onUpdate)
-        else
+        } else {
             onUpdate(
                 ConnectionState.Error(
                     step = ConnectionState.Error.Step.CONNECT,
                     shortMessage = null
                 )
             )
+        }
     }
 
     override fun stopConnection() {
-        if (usbManager.hidDevice != null)
-            usbManager.hidDevice?.close()
+        if (usbManager.hidDevice != null) usbManager.hidDevice?.close()
         usbManager.stop()
         devices = emptyList()
         triedDevices = mutableListOf()
@@ -71,13 +71,19 @@ object LedgerUsbManager : ILedgerConnectionManager {
                     )
                     return@openDevice
                 }
-                if (selectedDevice?.deviceId != device.deviceId || it.deviceId != device.deviceId)
+                if (selectedDevice?.deviceId != device.deviceId || it.deviceId != device.deviceId) {
                     return@openDevice
+                }
                 onUpdate(ConnectionState.ConnectingToTonApp(LedgerDevice.Usb(it)))
                 connectToTonApp(it, onUpdate)
             })
-        } catch (_: Throwable) {
-            triedDevices.add(selectedDevice!!)
+        } catch (e: Exception) {
+            Logger.e(
+                Logger.LogTag.LEDGER,
+                "USB device selection failed deviceId=${device.deviceId} " +
+                    "error=${e.javaClass.simpleName}"
+            )
+            triedDevices.add(device)
             selectedDevice = null
             val nextDevice = devices.find { nextDeviceCandidate ->
                 triedDevices.find { triedDevice ->
@@ -98,10 +104,7 @@ object LedgerUsbManager : ILedgerConnectionManager {
         }
     }
 
-    private fun connectToTonApp(
-        device: HIDDevice,
-        onUpdate: (ConnectionState) -> Unit,
-    ) {
+    private fun connectToTonApp(device: HIDDevice, onUpdate: (ConnectionState) -> Unit) {
         WalletCore.call(
             ApiMethod.Other.WaitForLedgerApp(
                 chain = MBlockchain.ton,
@@ -122,20 +125,25 @@ object LedgerUsbManager : ILedgerConnectionManager {
         )
     }
 
-    override fun write(
-        apdu: String,
-        onSuccess: (String) -> Unit,
-        onError: (String) -> Unit,
-    ) {
+    override fun write(apdu: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        val device = selectedDevice ?: run {
+            Logger.e(Logger.LogTag.LEDGER, "USB write blocked: no selected device")
+            onError("NotConnected")
+            return
+        }
         try {
-            usbManager.exchange(selectedDevice!!.deviceId, apdu) {
+            usbManager.exchange(device.deviceId, apdu) {
                 it?.let {
                     onSuccess(it)
                 } ?: run {
                     onError("")
                 }
             }
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
+            Logger.e(
+                Logger.LogTag.LEDGER,
+                "USB write failed deviceId=${device.deviceId} error=${e.javaClass.simpleName}"
+            )
             onError(e.message ?: "")
         }
     }

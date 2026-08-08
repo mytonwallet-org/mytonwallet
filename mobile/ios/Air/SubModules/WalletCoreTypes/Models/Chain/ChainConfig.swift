@@ -132,8 +132,6 @@ public struct ChainConfig: Sendable {
     public var explorer: Explorer
     /// Whether the chain supports NFTs
     public var isNftSupported: Bool = false
-    /// Whether burn activities should display the burn address in UI
-    public var shouldShowBurnAddress: Bool = false
     /// Whether the chain supports native NFT burn operations
     public var isNftBurnSupported: Bool = false
     /// Max number of NFTs to request per pagination batch
@@ -154,12 +152,13 @@ private let DEFAULT_CHAIN_ORDER: [ApiChain] = [
     .hyperliquid,
     .ton,
     .tron,
-    .base,
     .bnb,
+    .base,
+    .robinhood,
+    .monad,
+    .arbitrum,
     .polygon,
     .avalanche,
-    .arbitrum,
-    .monad,
 ]
 private let GRAM_CHAIN_ORDER: [ApiChain] = [
     .ton,
@@ -168,6 +167,7 @@ private let GRAM_CHAIN_ORDER: [ApiChain] = [
     .tron,
     .bnb,
     .hyperliquid,
+    .robinhood,
     .base,
     .arbitrum,
    .monad,
@@ -346,6 +346,7 @@ private func makeOpenSeaMarketplace() -> ChainConfig.Marketplace {
 private func makeEvmChainConfig(
     title: String,
     nativeToken: ApiToken,
+    buySwapTokenInSlug: String? = nil,
     buySwapAmountIn: String,
     isOnRampSupported: Bool = true,
     isOffRampSupported: Bool = true,
@@ -382,7 +383,7 @@ private func makeEvmChainConfig(
         shouldShowScamWarningIfNotEnoughGas: false,
         doesSupportPushNotifications: false,
         feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-        buySwap: .init(tokenInSlug: nativeToken.slug, amountIn: buySwapAmountIn),
+        buySwap: .init(tokenInSlug: buySwapTokenInSlug ?? nativeToken.slug, amountIn: buySwapAmountIn),
         usdtSlug: [
             .mainnet: usdtSlug,
             .testnet: usdtSlug,
@@ -499,7 +500,6 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             doConvertHashFromBase64: true
         ),
         isNftSupported: true,
-        shouldShowBurnAddress: true,
         isNftBurnSupported: true,
         nftBatchLimit: 500,
         nftBatchPauseMs: 1000,
@@ -882,6 +882,26 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         walletConnectChainIds: [
             .mainnet: 999,
             .testnet: 998,
+        ]
+    ),
+    .robinhood: makeEvmChainConfig(
+        title: "Robinhood",
+        nativeToken: .ROBINHOOD,
+        buySwapTokenInSlug: TON_USDT_SLUG,
+        buySwapAmountIn: "50",
+        defaultEnabledSlugs: [ROBINHOOD_SLUG],
+        crosschainSwapSlugs: [ROBINHOOD_SLUG],
+        tokenInfo: [
+            .ROBINHOOD,
+        ],
+        explorerId: "robinscan",
+        explorerName: "Robinscan",
+        explorerMainnetUrl: "https://robinscan.io/",
+        explorerTestnetUrl: "https://robinscan.io/",
+        isNftSupported: false,
+        walletConnectChainIds: [
+            .mainnet: 4663,
+            .testnet: 46630,
         ]
     ),
 ]

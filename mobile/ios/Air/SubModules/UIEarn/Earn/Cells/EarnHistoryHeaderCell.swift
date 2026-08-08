@@ -31,14 +31,14 @@ final class EarnHistoryHeaderCell: UICollectionViewCell {
         contentView.backgroundColor = .clear
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.applyTextStyle(.bodyStrong)
         titleLabel.textColor = .air.secondaryLabel
         titleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         titleLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         contentView.addSubview(titleLabel)
 
         earnedLabel.translatesAutoresizingMaskIntoConstraints = false
-        earnedLabel.font = .systemFont(ofSize: 16, weight: .regular)
+        earnedLabel.applyTextStyle(.callout)
         earnedLabel.textColor = .air.secondaryLabel
         earnedLabel.textAlignment = .right
         earnedLabel.setContentCompressionResistancePriority(.required, for: .horizontal)

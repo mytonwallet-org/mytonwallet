@@ -64,7 +64,7 @@ import { fixIpfsUrl, getProxiedLottieUrl } from '../../../../util/fetch';
 import { omitUndefined } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
 import safeExec from '../../../../util/safeExec';
-import { buildMwCardsNftMetadata, getIsFragmentGift, readComment } from '../util/metadata';
+import { buildMwCardsNftMetadata, getIsFragmentGift, getIsNftUnverified, readComment } from '../util/metadata';
 import { toBase64Address } from '../util/tonCore';
 import {
   checkHasScamLink,
@@ -988,7 +988,7 @@ function parseToncenterNft(
         address: nftAddress,
 
         thumbnail: extra?._image_medium ?? image!,
-        image: image!,
+        image: extra?._image_big ?? image!,
         description,
         isOnSale: false, // TODO (actions) Replace with real value when Toncenter supports it
         collectionAddress: collectionAddress ?? domainZone.resolver,
@@ -1013,10 +1013,12 @@ function parseToncenterNft(
     const isScam = hasScamLink; // TODO (actions) Replace with real value when Toncenter supports it
     const isHidden = extra?.render_type === 'hidden' || isScam;
     const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
+    const isOnFragment = isFragmentGift || NFT_FRAGMENT_COLLECTIONS.includes(rawCollectionAddress!);
     const isMwCard = collectionAddress === MW_CARDS_COLLECTION;
     const fixedImage = image ? fixIpfsUrl(image) : undefined;
 
-    const thumbnail = extra?._image_medium ?? fixedImage!;
+    const thumbnail = extra?._image_medium ?? fixedImage;
+    const fullImage = extra?._image_big ?? fixedImage;
 
     const nft: ApiNft = omitUndefined<ApiNft>({
       chain: 'ton',
@@ -1025,10 +1027,11 @@ function parseToncenterNft(
       name: name!,
       address: nftAddress,
       thumbnail,
-      image: fixedImage!,
+      image: fullImage,
       description,
       isOnSale: false, // TODO (actions) Replace with real value when Toncenter supports it
       isHidden,
+      isUnverified: getIsNftUnverified({ collectionAddress, isOnFragment }),
       metadata: {
         ...(isFragmentGift && {
           fragmentUrl: image!.replace(NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX, 'https://$1'),
@@ -1042,7 +1045,7 @@ function parseToncenterNft(
       ...(collectionAddress && {
         collectionAddress,
         collectionName: collectionMetadata?.name,
-        isOnFragment: isFragmentGift || NFT_FRAGMENT_COLLECTIONS.includes(rawCollectionAddress!),
+        isOnFragment,
         isTelegramGift: isFragmentGift,
       }),
     });

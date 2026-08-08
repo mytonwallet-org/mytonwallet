@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.cells.HiddenNFTsItemCell
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -19,13 +20,15 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.NftStore
-import java.lang.ref.WeakReference
 
 class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "HiddenNFTs"
 
     companion object {
@@ -35,10 +38,33 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
 
     override val shouldDisplayBottomBar = true
 
-    val blacklistedNFTs = NftStore.nftData?.blacklistedNftAddresses?.mapNotNull { blacklistItem ->
-        NftStore.nftData?.cachedNfts?.find { it.address == blacklistItem }
+    private val blacklistedNFTs = NftStore.nftData?.cachedNfts?.filter {
+        NftStore.isHiddenByUser(showingAccountId, it)
     } ?: emptyList()
-    val hiddenNFTs = NftStore.nftData?.cachedNfts?.filter { it.isHidden == true } ?: emptyList()
+    private val unverifiedNFTs = if (WGlobalStorage.getAreUnverifiedNftsHidden()) {
+        NftStore.nftData?.cachedNfts?.filter {
+            !NftStore.isHiddenByUser(showingAccountId, it) &&
+                it.isHidden != true &&
+                it.isUnverified == true
+        } ?: emptyList()
+    } else {
+        emptyList()
+    }
+    private val hiddenNFTs = NftStore.nftData?.cachedNfts?.filter {
+        it.isHidden == true && !NftStore.isHiddenByUser(showingAccountId, it)
+    } ?: emptyList()
+
+    private fun nftsForSection(section: Int): List<ApiNft> = when (section) {
+        0 -> blacklistedNFTs
+        1 -> unverifiedNFTs
+        else -> hiddenNFTs
+    }
+
+    private fun titleForSection(section: Int): String = when (section) {
+        0 -> "Hidden By Me"
+        1 -> "Unverified"
+        else -> "Probably Scam"
+    }
 
     private val rvAdapter =
         WRecyclerViewAdapter(WeakReference(this), arrayOf(HEADER_CELL, NFT_CELL))
@@ -46,8 +72,7 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
     private val scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
-            if (dx == 0 && dy == 0)
-                return
+            if (dx == 0 && dy == 0) return
             updateBlurViews(recyclerView)
         }
 
@@ -110,38 +135,15 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
         )
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 3
+
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
+        val nfts = nftsForSection(section)
+        return if (nfts.isEmpty()) 0 else 1 + nfts.size
     }
 
-    override fun recyclerViewNumberOfItems(
-        rv: RecyclerView,
-        section: Int
-    ): Int {
-        return when (section) {
-            0 -> {
-                if (blacklistedNFTs.isEmpty()) {
-                    0
-                } else {
-                    1 + blacklistedNFTs.size
-                }
-            }
-
-            else -> {
-                if (hiddenNFTs.isEmpty()) {
-                    0
-                } else {
-                    1 + hiddenNFTs.size
-                }
-            }
-        }
-    }
-
-    override fun recyclerViewCellType(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): WCell.Type {
-        return when (indexPath.row) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.row) {
             0 -> {
                 HEADER_CELL
             }
@@ -150,24 +152,30 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
                 NFT_CELL
             }
         }
-    }
 
-    override fun recyclerViewCellView(
-        rv: RecyclerView,
-        cellType: WCell.Type
-    ): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
                 HeaderCell(context, startMargin = 16f)
             }
 
             else -> {
-                HiddenNFTsItemCell(recyclerView, onSelect = { nft ->
-                    push(NftVC(context, showingAccountId, nft, blacklistedNFTs + hiddenNFTs))
-                })
+                HiddenNFTsItemCell(
+                    recyclerView,
+                    showingAccountId,
+                    onSelect = { nft ->
+                        push(
+                            NftVC(
+                                context,
+                                showingAccountId,
+                                nft,
+                                blacklistedNFTs + unverifiedNFTs + hiddenNFTs
+                            )
+                        )
+                    }
+                )
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -177,21 +185,29 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
         when (cellHolder.cell) {
             is HeaderCell -> {
                 (cellHolder.cell as HeaderCell).configure(
-                    LocaleController.getString(if (indexPath.section == 0) "Hidden By Me" else "Probably Scam"),
+                    LocaleController.getString(titleForSection(indexPath.section)),
                     WColor.Tint,
-                    topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.ZERO
+                    topRounding = if (rvAdapter.indexPathToPosition(indexPath) ==
+                        0
+                    ) {
+                        HeaderCell.TopRounding.FIRST_ITEM
+                    } else {
+                        HeaderCell.TopRounding.ZERO
+                    }
                 )
             }
 
             is HiddenNFTsItemCell -> {
-                val list = if (indexPath.section == 0) blacklistedNFTs else hiddenNFTs
+                val list = nftsForSection(indexPath.section)
                 (cellHolder.cell as HiddenNFTsItemCell).configure(
                     list[indexPath.row - 1],
-                    indexPath.row == list.size && (hiddenNFTs.isEmpty() || indexPath.section == 1),
+                    indexPath.row == list.size &&
+                        ((indexPath.section + 1) until 3).all {
+                            nftsForSection(it).isEmpty()
+                        },
                     showSeparator = indexPath.row < list.size
                 )
             }
         }
     }
-
 }

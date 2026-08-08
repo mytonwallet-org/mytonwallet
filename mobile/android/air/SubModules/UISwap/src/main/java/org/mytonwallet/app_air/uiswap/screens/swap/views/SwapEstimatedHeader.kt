@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Paint.Style
@@ -9,25 +8,29 @@ import android.graphics.Path
 import android.util.AttributeSet
 import android.util.TypedValue
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.graphics.withTranslation
+import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-
 class SwapEstimatedHeader @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0,
-) : AppCompatTextView(context, attrs, defStyle), WThemedView {
+    defStyle: Int = 0
+) : AppCompatTextView(context, attrs, defStyle),
+    WThemedView {
     companion object {
         private const val DURATION = AnimationConstants.VERY_QUICK_ANIMATION
     }
@@ -49,7 +52,8 @@ class SwapEstimatedHeader @JvmOverloads constructor(
     }
 
     val isExpanded = BoolAnimator(
-        DURATION, AnimatorUtils.DECELERATE_INTERPOLATOR,
+        DURATION,
+        AnimatorUtils.DECELERATE_INTERPOLATOR,
         initialValue = false
     ) { _, _, _, _ ->
         invalidate()
@@ -58,7 +62,7 @@ class SwapEstimatedHeader @JvmOverloads constructor(
     init {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setPaddingDpLocalized(20, 16, 48, 16)
+        setPaddingLocalized(20.dp, 17.5f.dp.roundToInt(), 48.dp, 17.5f.dp.roundToInt())
         typeface = WFont.Medium.typeface
         text = LocaleController.getString("Swap Details")
 
@@ -75,11 +79,10 @@ class SwapEstimatedHeader @JvmOverloads constructor(
         }
         val cy = measuredHeight / 2f
 
-        canvas.save()
-        canvas.translate(cx, cy)
-        canvas.rotate(180 * isExpanded.floatValue)
-        canvas.drawPath(path, paint)
-        canvas.restore()
+        canvas.withTranslation(cx, cy) {
+            rotate(180 * isExpanded.floatValue)
+            drawPath(path, paint)
+        }
     }
 
     override fun updateTheme() {

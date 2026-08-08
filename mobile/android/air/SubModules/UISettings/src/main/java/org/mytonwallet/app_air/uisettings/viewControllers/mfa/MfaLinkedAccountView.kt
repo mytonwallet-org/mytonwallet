@@ -22,7 +22,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
 
 @SuppressLint("ViewConstructor")
-class MfaLinkedAccountView(context: Context) : WView(context), WThemedView {
+class MfaLinkedAccountView(context: Context) :
+    WView(context),
+    WThemedView {
 
     companion object {
         private const val AVATAR_SIZE = 40
@@ -59,7 +61,7 @@ class MfaLinkedAccountView(context: Context) : WView(context), WThemedView {
     init {
         avatarSlot.addView(
             imageAvatar,
-            FrameLayout.LayoutParams(AVATAR_SIZE.dp, AVATAR_SIZE.dp),
+            FrameLayout.LayoutParams(AVATAR_SIZE.dp, AVATAR_SIZE.dp)
         )
         addView(avatarSlot, LayoutParams(AVATAR_SIZE.dp, AVATAR_SIZE.dp))
         addView(textColumn, LayoutParams(0, WRAP_CONTENT))
@@ -86,7 +88,7 @@ class MfaLinkedAccountView(context: Context) : WView(context), WThemedView {
         avatarSlot.addView(
             tg,
             0,
-            FrameLayout.LayoutParams(AVATAR_SIZE.dp, AVATAR_SIZE.dp),
+            FrameLayout.LayoutParams(AVATAR_SIZE.dp, AVATAR_SIZE.dp)
         )
         initialsAvatar = tg
 

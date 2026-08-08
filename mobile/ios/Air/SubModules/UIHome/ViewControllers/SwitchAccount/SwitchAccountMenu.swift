@@ -99,7 +99,7 @@ enum SwitchAccountMenu {
             interaction: .contentHandlesTouches
         ) { _ in
             Text(lang("Current Wallet"))
-                .font(.system(size: 13, weight: .medium))
+                .textStyle(.footnoteEmphasized)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, switchAccountSectionLabelTopPadding)

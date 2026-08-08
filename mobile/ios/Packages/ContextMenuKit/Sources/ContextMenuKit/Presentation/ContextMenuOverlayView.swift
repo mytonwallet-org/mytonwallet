@@ -3,6 +3,7 @@ import UIKit
 @MainActor
 final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
     private static let externalSelectionActivationDistance: CGFloat = 4.0
+    private static let panelDismissalSafetyMargin: CGFloat = 8.0
 
     private enum VerticalDirection {
         case above
@@ -22,7 +23,9 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
     private let portalMaskRectInWindow: CGRect?
     private let portalMask: ContextMenuSourcePortalMask?
     private let portalShowsBackdropCutout: Bool
+    private let portalAppliesRightToLeftTransformCorrection: Bool
     private var sourceUserInterfaceStyle: UIUserInterfaceStyle
+    private let sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection
 
     private let dimmingView = UIView()
     private var blurView: UIVisualEffectView?
@@ -42,6 +45,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         rootPage: self.configuration.rootPage,
         style: self.configuration.style,
         sourceUserInterfaceStyle: self.sourceUserInterfaceStyle,
+        sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection,
         customRowContext: self.customRowContext
     )
 
@@ -55,7 +59,9 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         portalMaskRectInWindow: CGRect?,
         portalMask: ContextMenuSourcePortalMask?,
         portalShowsBackdropCutout: Bool,
-        sourceUserInterfaceStyle: UIUserInterfaceStyle
+        portalAppliesRightToLeftTransformCorrection: Bool,
+        sourceUserInterfaceStyle: UIUserInterfaceStyle,
+        sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection
     ) {
         self.configuration = configuration
         self.sourceRectInWindow = sourceRectInWindow
@@ -64,11 +70,14 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         self.portalMaskRectInWindow = portalMaskRectInWindow
         self.portalMask = portalMask
         self.portalShowsBackdropCutout = portalShowsBackdropCutout
+        self.portalAppliesRightToLeftTransformCorrection = portalAppliesRightToLeftTransformCorrection
         self.sourceUserInterfaceStyle = sourceUserInterfaceStyle
+        self.sourceUserInterfaceLayoutDirection = sourceUserInterfaceLayoutDirection
 
         super.init(frame: .zero)
 
         self.overrideUserInterfaceStyle = sourceUserInterfaceStyle
+        self.semanticContentAttribute = sourceUserInterfaceLayoutDirection.contextMenuSemanticContentAttribute
 
         self.navigationView.delegate = self
         self.navigationView.requestLayout = { [weak self] in
@@ -106,7 +115,12 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         self.dimmingView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         self.addSubview(self.dimmingView)
 
-        if let portalSourceView, let portalView = ContextMenuPortalView(sourceView: portalSourceView) {
+        if let portalSourceView,
+           let portalView = ContextMenuPortalView(
+               sourceView: portalSourceView,
+               sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection,
+               appliesRightToLeftTransformCorrection: self.portalAppliesRightToLeftTransformCorrection
+           ) {
             portalView.alpha = 0.0
             self.portalView = portalView
             self.addSubview(portalView)
@@ -222,10 +236,19 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
 
     @objc private func handleOutsideTap(_ recognizer: UITapGestureRecognizer) {
         let point = recognizer.location(in: self)
-        if self.navigationView.frame.contains(point) {
+        if !self.shouldDismissMenu(at: point) {
             return
         }
         self.dismissMenu()
+    }
+
+    func shouldDismissMenu(at point: CGPoint) -> Bool {
+        guard let currentPanelPlacement else {
+            return true
+        }
+        let panelFrame = CGRect(origin: currentPanelPlacement.panelOrigin, size: currentPanelPlacement.panelSize)
+            .insetBy(dx: -Self.panelDismissalSafetyMargin, dy: -Self.panelDismissalSafetyMargin)
+        return !panelFrame.contains(point)
     }
 
     private func layoutMenu() {

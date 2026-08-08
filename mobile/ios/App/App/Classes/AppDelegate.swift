@@ -5,6 +5,9 @@ import UIComponents
 import WalletCore
 import FirebaseCore
 import FirebaseMessaging
+#if canImport(FirebaseCrashlytics)
+import FirebaseCrashlytics
+#endif
 
 private let log = Log("AppDelegate")
 
@@ -28,7 +31,21 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         )
         
         FirebaseApp.configure()
+        installCrashlyticsReporter()
         StartupTrace.mark("appDelegate.firebase.configure")
+
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-testCrashlyticsFault") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                log.fault("Crashlytics test fault")
+            }
+        }
+        if ProcessInfo.processInfo.arguments.contains("-testCrashlyticsFatalCrash") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                fatalError("Crashlytics test fatal crash")
+            }
+        }
+        #endif
         
         guard application.isProtectedDataAvailable else {
             log.error("application.isProtectedDataAvailable = false")
@@ -101,4 +118,29 @@ private func logAppStart() {
 
 private var appVersion: String {
     Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+}
+
+private func installCrashlyticsReporter() {
+    #if canImport(FirebaseCrashlytics)
+    Log.setFaultReporter { event in
+        let source = "\(event.fileID):\(event.line)"
+        let message = String(event.message.prefix(1_024))
+        let crashlytics = Crashlytics.crashlytics()
+        crashlytics.log("[\(event.category)] \(source) \(message)")
+        crashlytics.record(
+            error: NSError(
+                domain: "org.mytonwallet.air.log.fault",
+                code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "\(event.category) fault at \(source)",
+                    "category": event.category,
+                    "file": event.fileID,
+                    "function": event.function,
+                    "line": event.line,
+                    "message": message,
+                ]
+            )
+        )
+    }
+    #endif
 }

@@ -13,5 +13,4 @@ open class WCell(
 ) : WView(context, layoutParams) {
     class Holder(val cell: WCell) : RecyclerView.ViewHolder(cell)
     class Type(val value: Int)
-
 }

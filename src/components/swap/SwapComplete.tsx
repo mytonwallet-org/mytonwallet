@@ -1,7 +1,8 @@
 import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiSwapCexLabel } from '../../api/types';
-import type { SwapType, UserSwapToken } from '../../global/types';
+import type { UserSwapToken } from '../../global/types';
+import { SwapType } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
 
@@ -45,6 +46,7 @@ function SwapComplete({
   isDetailsDisabled,
 }: OwnProps) {
   const lang = useLang();
+  const title = lang(swapType === SwapType.OnChain ? 'Swapped' : 'Swap Placed');
 
   useHistoryBack({
     isActive,
@@ -53,7 +55,7 @@ function SwapComplete({
 
   return (
     <>
-      <ModalHeader title={lang('Swap Placed')} onClose={onClose} />
+      <ModalHeader title={title} onClose={onClose} />
 
       <div className={buildClassName(styles.scrollContent, 'custom-scroll')}>
         <SwapResult

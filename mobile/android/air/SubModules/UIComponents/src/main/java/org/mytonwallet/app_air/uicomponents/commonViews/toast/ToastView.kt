@@ -22,7 +22,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
-class ToastView(context: Context) : WView(context), WThemedView {
+class ToastView(context: Context) :
+    WView(context),
+    WThemedView {
 
     companion object {
         const val HEIGHT_DP = 56

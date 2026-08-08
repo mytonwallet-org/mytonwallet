@@ -136,11 +136,11 @@ private final class PortfolioRangeSegmentedControl: UISegmentedControl {
         apportionsSegmentWidthsByContent = false
         setDividerImage(UIImage(), forLeftSegmentState: .normal, rightSegmentState: .normal, barMetrics: .default)
         setTitleTextAttributes([
-            .font: UIFont.systemFont(ofSize: 14, weight: .medium),
+            .font: WTypography.uiFont(.supportingEmphasized),
             .foregroundColor: UIColor.label,
         ], for: .normal)
         setTitleTextAttributes([
-            .font: UIFont.systemFont(ofSize: 14, weight: .semibold),
+            .font: WTypography.uiFont(.supportingStrong),
             .foregroundColor: UIColor.label,
         ], for: .selected)
     }
@@ -308,13 +308,13 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     private var preparedChartDataToken = -1
     private var preparingChartDataToken: Int?
     private var chartPreparationTask: Task<Void, Never>?
-    private var languageObserver: NSObjectProtocol?
     private lazy var collectionView = makeCollectionView()
     private lazy var bottomControlBackgroundView = PortfolioBottomControlBackgroundView()
     private lazy var rangeSegmentedControl = makeRangeSegmentedControl()
     private lazy var dataSource = makeDataSource()
 
     public init(accountContext: AccountContext) {
+        PortfolioGraphKitAdapter.configureTypography()
         let viewModel = PortfolioVM(accountContext: accountContext)
         self.viewModel = viewModel
         self.overview = viewModel.overview
@@ -327,9 +327,6 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
     isolated deinit {
         chartPreparationTask?.cancel()
-        if let languageObserver {
-            NotificationCenter.default.removeObserver(languageObserver)
-        }
     }
 
     public override func viewDidLoad() {
@@ -351,7 +348,6 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         localInsightCards = viewModel.localInsightCards
         overview = viewModel.overview
         applySnapshot(animated: false)
-        observeLanguageChanges()
         bindViewModel()
     }
 
@@ -503,12 +499,6 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             return
         }
         rangeSegmentedControl.selectedSegmentIndex = index
-    }
-
-    private func updateRangeSegmentedControlTitles() {
-        for (index, range) in PortfolioTimeRange.displayOrder.enumerated() {
-            rangeSegmentedControl.setTitle(range.title, forSegmentAt: index)
-        }
     }
 
     @objc
@@ -974,26 +964,6 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
     private func showLimitedHistoryToast() {
         AppActions.showToast(message: lang("Deep history analysis will be available in upcoming updates."))
-    }
-
-    private func observeLanguageChanges() {
-        languageObserver = NotificationCenter.default.addObserver(
-            forName: .languageDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.handleLanguageDidChange()
-            }
-        }
-    }
-
-    private func handleLanguageDidChange() {
-        navigationItem.title = lang("Portfolio")
-        updateRangeSegmentedControlTitles()
-        localInsightCards = viewModel.localInsightCards
-        overview = viewModel.overview
-        refreshVisibleCells(refreshSummary: true, refreshLocalInsights: true, refreshCharts: true)
     }
 
     private func invalidateChartLayoutImmediately() {

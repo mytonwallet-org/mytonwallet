@@ -11,6 +11,7 @@ import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.MotionEvent
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.graphics.drawable.toDrawable
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder
 import com.facebook.drawee.generic.RoundingParams
@@ -30,14 +31,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MToken
-import androidx.core.graphics.drawable.toDrawable
 
 // TODO:: Merge with WCustomImageView
 open class WZoomableImageView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0,
-) : ZoomableDraweeView(context, attrs, defStyle), WThemedView {
+    defStyle: Int = 0
+) : ZoomableDraweeView(context, attrs, defStyle),
+    WThemedView {
 
     companion object {
         const val CHAIN_SIZE = 16
@@ -144,9 +145,11 @@ open class WZoomableImageView @JvmOverloads constructor(
     fun set(content: Content, lowResUrl: String? = null) {
         this.hierarchy = buildHierarchy(content)
         this.controller = buildController(content, lowResUrl = lowResUrl)
-        this.chainDrawable = if (content.subImageRes != 0)
+        this.chainDrawable = if (content.subImageRes != 0) {
             AppCompatResources.getDrawable(context, content.subImageRes)
-        else null
+        } else {
+            null
+        }
 
         this.content = content
         invalidate()
@@ -174,8 +177,8 @@ open class WZoomableImageView @JvmOverloads constructor(
 
     /* Private */
 
-    private fun buildController(content: Content?, lowResUrl: String?): DraweeController {
-        return when (val image = content?.image) {
+    private fun buildController(content: Content?, lowResUrl: String?): DraweeController =
+        when (val image = content?.image) {
             is Content.Image.Empty,
             is Content.Image.Res,
             is Content.Image.Gradient,
@@ -190,7 +193,6 @@ open class WZoomableImageView @JvmOverloads constructor(
                 .setLowResImageRequest(ImageRequest.fromUri(lowResUrl))
                 .build()
         }
-    }
 
     private fun buildHierarchy(content: Content) = GenericDraweeHierarchyBuilder(resources).apply {
         setPlaceholderImage(getPlaceholderDrawable(content))
@@ -200,50 +202,57 @@ open class WZoomableImageView @JvmOverloads constructor(
     }.build()
 
     private fun getRoundingMode(content: Content) =
-        if (content.rounding !is Content.Rounding.Default)
-            content.rounding else defaultRounding
+        if (content.rounding !is Content.Rounding.Default) content.rounding else defaultRounding
 
     private fun getPlaceholderMode(content: Content) =
-        if (content.placeholder !is Content.Placeholder.Default)
-            content.placeholder else defaultPlaceholder
+        if (content.placeholder !is Content.Placeholder.Default) {
+            content.placeholder
+        } else {
+            defaultPlaceholder
+        }
 
-    private fun getRoundingParams(content: Content): RoundingParams {
-        return when (val rounding = getRoundingMode(content)) {
+    private fun getRoundingParams(content: Content): RoundingParams =
+        when (val rounding = getRoundingMode(content)) {
             is Content.Rounding.Default -> throw IllegalArgumentException()
+
             is Content.Rounding.Round -> RoundingParams.asCircle()
+
             is Content.Rounding.Radius -> RoundingParams.fromCornersRadius(rounding.radius)
+
             is Content.Rounding.RadiusRatio -> {
                 val size = minOf(measuredWidth, measuredHeight).toFloat()
                 RoundingParams.fromCornersRadius(size * rounding.ratio)
             }
         }
-    }
 
-    private fun getPlaceholderDrawable(content: Content): Drawable? {
-        return when (content.image) {
-            is Content.Image.Res -> context.getDrawableCompat(content.image.res)
-            is Content.Image.Gradient -> {
-                val res = content.image.icon
-                val drawable = if (res != 0) {
-                    context.getDrawableCompat(res)?.apply {
-                        setTint(Color.WHITE)
-                    }
-                } else null
-                ContentGradientDrawable(
-                    GradientDrawable.Orientation.TOP_BOTTOM,
-                    content.image.key.gradientColors,
-                    drawable
-                ).apply {
-                    setContentRounding(getRoundingMode(content))
+    private fun getPlaceholderDrawable(content: Content): Drawable? = when (content.image) {
+        is Content.Image.Res -> context.getDrawableCompat(content.image.res)
+
+        is Content.Image.Gradient -> {
+            val res = content.image.icon
+            val drawable = if (res != 0) {
+                context.getDrawableCompat(res)?.apply {
+                    setTint(Color.WHITE)
                 }
+            } else {
+                null
             }
+            ContentGradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                content.image.key.gradientColors,
+                drawable
+            ).apply {
+                setContentRounding(getRoundingMode(content))
+            }
+        }
 
-            else -> when (val placeholder = getPlaceholderMode(content)) {
-                is Content.Placeholder.Default -> throw IllegalArgumentException()
-                is Content.Placeholder.Color -> placeholder.color.color.toDrawable()
-                is Content.Placeholder.Initials ->
-                    InitialsDrawable(placeholder.text, getRoundingMode(content))
-            }
+        else -> when (val placeholder = getPlaceholderMode(content)) {
+            is Content.Placeholder.Default -> throw IllegalArgumentException()
+
+            is Content.Placeholder.Color -> placeholder.color.color.toDrawable()
+
+            is Content.Placeholder.Initials ->
+                InitialsDrawable(placeholder.text, getRoundingMode(content))
         }
     }
 }

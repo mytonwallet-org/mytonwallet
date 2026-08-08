@@ -8,7 +8,17 @@ struct SwapExecutionContext {
     let slippage: Double
     let payoutAddress: String?
     let account: SwapAccountSnapshot
-    let passcode: String
+    let enclaveToken: EnclaveToken
+}
+
+struct SwapConfirmationSnapshot {
+    let swapType: SwapType
+    let confirmation: SwapConfirmationAmounts
+    let maxAmount: BigInt?
+    let slippage: Double
+    let payoutAddress: String?
+    let account: SwapAccountSnapshot
+    let flowState: SwapFlowState
 }
 
 struct SwapExecutionResult: Sendable, MfaProtectedActionResult {
@@ -32,7 +42,6 @@ struct SwapExecutionResult: Sendable, MfaProtectedActionResult {
 struct SwapMaxAmountContext {
     let swapType: SwapType
     let fullNetworkFee: MFee.FeeTerms?
-    let ourFeePercent: Double?
 }
 
 struct SwapFlowState {

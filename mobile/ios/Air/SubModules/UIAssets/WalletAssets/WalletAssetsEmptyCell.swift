@@ -23,13 +23,13 @@ final class WalletAssetsEmptyCell: UICollectionViewCell {
 
     private let titleLabel = configured(object: UILabel()) {
         $0.translatesAutoresizingMaskIntoConstraints = false
-        $0.font = .systemFont(ofSize: 17, weight: .medium)
+        $0.applyTextStyle(.bodyEmphasized)
         $0.numberOfLines = 1
     }
 
     private let descriptionLabel = configured(object: UILabel()) {
         $0.translatesAutoresizingMaskIntoConstraints = false
-        $0.font = .systemFont(ofSize: 14, weight: .regular)
+        $0.applyTextStyle(.supporting)
         $0.numberOfLines = 4
     }
 
@@ -39,13 +39,15 @@ final class WalletAssetsEmptyCell: UICollectionViewCell {
         configuration.contentInsets = .zero
         configuration.image = UIImage(
             systemName: "chevron.forward",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .regular)
+            withConfiguration: UIImage.SymbolConfiguration(
+                font: WTypography.uiFont(.micro, content: .technical)
+            )
         )
         configuration.imagePlacement = .trailing
         configuration.imagePadding = 4
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
-            outgoing.font = .systemFont(ofSize: 14, weight: .regular)
+            outgoing.font = WTypography.uiFont(.supporting)
             return outgoing
         }
         $0.configuration = configuration

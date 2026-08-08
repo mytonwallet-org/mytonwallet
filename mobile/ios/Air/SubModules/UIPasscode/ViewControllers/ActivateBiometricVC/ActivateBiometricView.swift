@@ -85,12 +85,12 @@ struct ActivateBiometricView: View {
     
     var title: some View {
         Text(titleText)
-            .style(.header28)
+            .textStyle(.screenTitle)
     }
         
     var shortDescription: some View {
         Text(langMd("$auth_biometric_info"))
-            .style(.body17)
+            .textStyle(.body)
             .multilineTextAlignment(.center)
     }
     

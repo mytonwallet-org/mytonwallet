@@ -7,20 +7,22 @@ import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.moshi.IDapp
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
-class MExploreSite(json: JSONObject) : WEquatable<MExploreSite>, IDapp {
+class MExploreSite(json: JSONObject) :
+    WEquatable<MExploreSite>,
+    IDapp {
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
-        if (comparing is MExploreSite)
-            return url == comparing.url
+        if (comparing is MExploreSite) return url == comparing.url
         return false
     }
 
     override fun isChanged(comparing: WEquatable<*>): Boolean {
-        if (comparing is MExploreSite)
+        if (comparing is MExploreSite) {
             return canBeRestricted != comparing.canBeRestricted ||
                 isExternal != comparing.isExternal ||
                 manifestUrl != comparing.manifestUrl ||
                 url != comparing.url
+        }
         return true
     }
 

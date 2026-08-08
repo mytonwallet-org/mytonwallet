@@ -35,7 +35,7 @@ import { getTokenInfo } from '../util/chain';
 import { buildCollectionByKey, mapValues } from '../util/iteratees';
 import { USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
-export const STATE_VERSION = 59;
+export const STATE_VERSION = 61;
 
 export const INITIAL_STATE: GlobalState = {
   appState: IS_EXPLORER ? AppState.Main : AppState.Auth,
@@ -103,11 +103,17 @@ export const INITIAL_STATE: GlobalState = {
     bySlug: {},
   },
 
+  tokenDetails: {
+    bySlug: {},
+  },
+
   settings: {
     state: SettingsState.Initial,
     theme: THEME_DEFAULT,
     animationLevel: ANIMATION_LEVEL_DEFAULT,
     areTinyTransfersHidden: !SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
+    areUnverifiedNftsHidden: !SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
+    areTokenNamesLocalized: true,
     canPlaySounds: true,
     langCode: USER_AGENT_LANG_CODE,
     langSource: 'system',

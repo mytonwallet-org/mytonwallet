@@ -22,6 +22,7 @@ private struct ContentView: View {
     let sensitiveCols: Int
     var onMaskStateChanged: ((Bool) -> Void)? = nil
     
+    @Environment(\.layoutDirection) private var layoutDirection
     @Dependency(\.accountStore.accountsById.values) private var accounts
     @Dependency(\.balanceDataStore) private var balanceDataStore
     
@@ -31,7 +32,11 @@ private struct ContentView: View {
                 Text(viewModel.navigationHeaderTitle(in: accounts))
                     .fixedSize()
             } subtitle: {
-                Text(viewModel.navigationHeaderBalance(from: balanceDataStore))
+                Text(viewModel.navigationHeaderBalance(
+                    from: balanceDataStore,
+                    layoutDirection: layoutDirection.userInterfaceLayoutDirection
+                ))
+                    .textStyle(.footnote, content: .technical)
                     .fixedSize()
                     .id(viewModel.currentFilter)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
@@ -62,13 +67,13 @@ class WalletSettingsNavigationHeader: UIView {
     
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .semibold)
+        label.applyTextStyle(.bodyStrong)
         return label
     }()
     
     private let balanceLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 13, weight: .regular)
+        label.applyTextStyle(.footnote, content: .technical)
         return label
     }()
     
@@ -137,7 +142,10 @@ class WalletSettingsNavigationHeader: UIView {
     private func updateContent() {
         update(
             title: viewModel.navigationHeaderTitle(in: accounts),
-            balance: viewModel.navigationHeaderBalance(from: balanceDataStore)
+            balance: viewModel.navigationHeaderBalance(
+                from: balanceDataStore,
+                layoutDirection: effectiveUserInterfaceLayoutDirection
+            )
         )
     }
     
@@ -175,5 +183,11 @@ class WalletSettingsNavigationHeader: UIView {
             width: ceil(max(titleSize.width, subtitleSize.width)),
             height: ceil(titleSize.height + 3 + subtitleSize.height)
         )
+    }
+}
+
+private extension LayoutDirection {
+    var userInterfaceLayoutDirection: UIUserInterfaceLayoutDirection {
+        self == .rightToLeft ? .rightToLeft : .leftToRight
     }
 }

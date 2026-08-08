@@ -1,6 +1,6 @@
-# MyTonWallet Air iOS
+# My Wallet Air iOS
 
-Air is the native iOS UI for MyTonWallet. It lives in the monorepo and uses the shared TypeScript SDK through a hidden WebView bridge.
+Air is the native iOS UI for My Wallet. It lives in the monorepo and uses the shared TypeScript SDK through a hidden WebView bridge.
 
 The iOS app shell always launches Air; the former Capacitor/Classic switching path is no longer part of the native app.
 

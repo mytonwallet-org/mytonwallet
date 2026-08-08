@@ -1,68 +1,36 @@
 import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiChain, ApiStakingState } from '../../../../api/types';
-import type { AccountChain, AccountType, UserToken } from '../../../../global/types';
+import type { ApiChain } from '../../../../api/types';
+import type { Account, AccountType } from '../../../../global/types';
+import type { LangFn } from '../../../../hooks/useLang';
+import type { AddressMenuItem } from './addressMenu/MenuItem';
 
-import { STAKED_TOKEN_SLUGS } from '../../../../config';
-import { Big } from '../../../../lib/big.js';
 import {
   selectAccount,
-  selectAccountStakingStates,
+  selectCurrentAccountChainDisplay,
   selectCurrentAccountId,
-  selectCurrentAccountTokens,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
-import { CHAIN_DISPLAY_ORDER, getChainTitle } from '../../../../util/chain';
+import { getChainTitle } from '../../../../util/chain';
 import { copyTextToClipboard } from '../../../../util/clipboard';
-import { toBig } from '../../../../util/decimals';
-import { getAddressDisplayByChain } from '../../../../util/formatAccountAddress';
-import { buildArrayCollectionByKey } from '../../../../util/iteratees';
 import { openUrl } from '../../../../util/openUrl';
 import { shortenAddress } from '../../../../util/shortenAddress';
-import { getFullStakingBalance } from '../../../../util/staking';
 import getChainNetworkIcon from '../../../../util/swap/getChainNetworkIcon';
 import { getExplorerAddressUrl, getExplorerName } from '../../../../util/url';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
+import useAddressMenu from './addressMenu/useAddressMenu';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useWindowSize from '../../../../hooks/useWindowSize';
-import useAddressMenu from './hooks/useAddressMenu';
 
-import AddressMenu from './AddressMenu';
+import AddressMenu from './addressMenu/AddressMenu';
 import AddressMenuButton from './AddressMenuButton';
 import ViewModeIcon from './ViewModeIcon';
 
 import styles from './Card.module.scss';
-
-const CHAIN_ORDER = new Map<ApiChain, number>(
-  CHAIN_DISPLAY_ORDER.map((chain, index) => [chain, index]),
-);
-
-function calculateChainBalanceUsd(
-  chain: ApiChain,
-  tokens?: UserToken[],
-  stakingStates?: ApiStakingState[],
-) {
-  const stakingStateBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
-
-  return (tokens ?? []).reduce((acc, token) => {
-    if (token.chain !== chain || STAKED_TOKEN_SLUGS.has(token.slug)) {
-      return acc;
-    }
-
-    const tokenStakingStates = stakingStateBySlug[token.slug] ?? [];
-    for (const stakingState of tokenStakingStates) {
-      const stakingAmount = toBig(getFullStakingBalance(stakingState), token.decimals);
-
-      acc = acc.plus(stakingAmount.mul(token.priceUsd));
-    }
-
-    return acc.plus(toBig(token.amount, token.decimals).mul(token.priceUsd));
-  }, Big(0)).toNumber();
-}
 
 interface OwnProps {
   isMinimized?: boolean;
@@ -70,9 +38,10 @@ interface OwnProps {
 
 interface StateProps {
   accountType?: AccountType;
-  byChain: Map<ApiChain, AccountChain & {
-    balance: number;
-  }>;
+  accountByChain?: Account['byChain'];
+  visibleChains?: ApiChain[];
+  orderedChains?: ApiChain[];
+  addressLineChains?: ApiChain[];
   isTestnet?: boolean;
   isTemporary?: boolean;
   withTextGradient?: boolean;
@@ -80,9 +49,14 @@ interface StateProps {
 }
 
 const TINY_WINDOW_SIZE_PX = 374;
+const EMPTY_BY_CHAIN: Account['byChain'] = {};
+const EMPTY_CHAINS: ApiChain[] = [];
 
 function CardAddress({
-  byChain,
+  accountByChain,
+  visibleChains,
+  orderedChains,
+  addressLineChains,
   isTestnet,
   accountType,
   withTextGradient,
@@ -100,7 +74,7 @@ function CardAddress({
   const {
     menuAnchor,
     isMenuOpen,
-    openMenu,
+    toggleMenu,
     closeMenu,
     getTriggerElement,
     getRootElement,
@@ -110,31 +84,23 @@ function CardAddress({
     handleMouseLeave,
   } = useAddressMenu(ref, menuRef);
 
-  const chains = useMemo(() => {
-    return [...byChain.keys()];
-  }, [byChain]);
+  const byChain = accountByChain ?? EMPTY_BY_CHAIN;
+  const chains = visibleChains ?? EMPTY_CHAINS;
+  // The address line collapses under the Gram Wallet gate while the menu keeps every visible chain,
+  // matching Air (`AddressesMenu` renders un-gated `displayedChains` on iOS)
+  const lineChains = addressLineChains ?? EMPTY_CHAINS;
 
   const isHardwareAccount = accountType === 'hardware';
   const isViewAccount = accountType === 'view';
   const isTinyFormat = isViewAccount && (isLandscape || windowWidth < TINY_WINDOW_SIZE_PX);
-  const menuItems = useMemo(() => {
-    return chains.map((chain) => {
-      const accountChain = byChain.get(chain)!;
+  const { menuItems, hiddenMenuItems } = useMemo(() => {
+    const hiddenChains = (orderedChains ?? EMPTY_CHAINS).filter((chain) => !chains.includes(chain));
 
-      return {
-        value: accountChain.address,
-        address: shortenAddress(accountChain.address)!,
-        ...(accountChain.domain && { domain: accountChain.domain }),
-        icon: getChainNetworkIcon(chain),
-        fontIcon: 'copy',
-        chain,
-        label: (lang('View address on %explorer_name%', {
-          explorer_name: getExplorerName(chain),
-        }) as string[]
-        ).join(''),
-      };
-    });
-  }, [byChain, chains, lang]);
+    return {
+      menuItems: chains.map((chain) => buildMenuItem(lang, chain, byChain[chain]!)),
+      hiddenMenuItems: hiddenChains.map((chain) => buildMenuItem(lang, chain, byChain[chain]!)),
+    };
+  }, [byChain, chains, orderedChains, lang]);
 
   const handleExplorerClick = useLastCallback((chain: ApiChain, address: string) => {
     void openUrl(getExplorerAddressUrl(chain, address, isTestnet, selectedExplorerIds?.[chain])!);
@@ -156,12 +122,12 @@ function CardAddress({
       {isViewAccount && <ViewModeIcon isTemporary={isTemporary} isMinimized={isMinimized} />}
       {isHardwareAccount && <i className={buildClassName(styles.icon, 'icon-ledger')} aria-hidden />}
       <AddressMenuButton
-        chains={chains}
+        chains={lineChains}
         byChain={byChain}
         withTextGradient={withTextGradient}
         isMinimized={isMinimized}
         isTinyFormat={isTinyFormat}
-        openMenu={openMenu}
+        toggleMenu={toggleMenu}
         onLongPress={handleLongPress}
         onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
         onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
@@ -171,6 +137,7 @@ function CardAddress({
           isOpen={isMenuOpen}
           anchor={menuAnchor}
           items={menuItems}
+          hiddenItems={hiddenMenuItems}
           menuRef={menuRef}
           isTestnet={isTestnet}
           onClose={closeMenu}
@@ -191,39 +158,35 @@ export default memo(withGlobal((global): StateProps => {
   const accountId = selectCurrentAccountId(global);
   const account = accountId ? selectAccount(global, accountId) : undefined;
   const { type: accountType, byChain, isTemporary } = account || {};
-
-  const accountTokens = selectCurrentAccountTokens(global);
-  const stakingStates = accountId ? selectAccountStakingStates(global, accountId) : undefined;
-
-  const displayByChain = getAddressDisplayByChain(byChain || {}, accountTokens, stakingStates);
-
-  // Maps preserve an order
-  const byChainWithBalances = new Map(Object.entries(displayByChain).map(([chainKey, account]) => {
-    const chain = chainKey as ApiChain;
-
-    const balance = calculateChainBalanceUsd(chain, accountTokens, stakingStates);
-
-    return [
-      chain,
-      {
-        ...account,
-        balance,
-      }] as [ApiChain, AccountChain & { balance: number }];
-  }).sort((a, b) => {
-    const balanceDiff = b[1].balance - a[1].balance;
-
-    if (balanceDiff !== 0) {
-      return balanceDiff;
-    }
-
-    return (CHAIN_ORDER.get(a[0]) ?? Infinity) - (CHAIN_ORDER.get(b[0]) ?? Infinity);
-  }));
+  const chainDisplay = selectCurrentAccountChainDisplay(global);
 
   return {
-    byChain: byChainWithBalances,
+    accountByChain: byChain,
+    visibleChains: chainDisplay?.visibleChains,
+    orderedChains: chainDisplay?.orderedChains,
+    addressLineChains: chainDisplay?.addressLineChains,
     isTestnet: global.settings.isTestnet,
     accountType,
     isTemporary,
     selectedExplorerIds: global.settings.selectedExplorerIds,
   };
 })(CardAddress));
+
+function buildMenuItem(
+  lang: LangFn,
+  chain: ApiChain,
+  wallet: NonNullable<Account['byChain'][ApiChain]>,
+): AddressMenuItem {
+  return {
+    chain,
+    address: wallet.address,
+    shortAddress: shortenAddress(wallet.address)!,
+    ...(wallet.domain && { domain: wallet.domain }),
+    icon: getChainNetworkIcon(chain),
+    title: getChainTitle(chain),
+    label: (lang('View address on %explorer_name%', {
+      explorer_name: getExplorerName(chain),
+    }) as string[]
+    ).join(''),
+  };
+}

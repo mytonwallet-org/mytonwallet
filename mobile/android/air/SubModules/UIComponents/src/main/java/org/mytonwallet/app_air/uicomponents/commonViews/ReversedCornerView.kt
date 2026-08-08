@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.animation.Animator
@@ -16,9 +18,9 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -29,13 +31,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class ReversedCornerView(
-    context: Context,
-    private val initialConfig: Config,
-) : BaseReversedCornerView(context), WThemedView {
+class ReversedCornerView(context: Context, private val initialConfig: Config) :
+    BaseReversedCornerView(context),
+    WThemedView {
+
+    override val appliesAdditionalTabletPadding: Boolean
+        get() = initialConfig.additionalTabletPadding
 
     data class Config(
         val shouldBlur: Boolean = true,
@@ -87,7 +90,7 @@ class ReversedCornerView(
     fun setBlurOverlayColor(color: Int?) {
         overlayColor = color
 
-        blurryBackgroundView?.setOverlayColor(color ?: Color.TRANSPARENT)
+        blurryBackgroundView?.setTintOverlayColor(color)
         backgroundView.setBackgroundColor(color ?: WColor.SecondaryBackground.color)
         postInvalidateOnAnimation()
     }
@@ -95,17 +98,20 @@ class ReversedCornerView(
     fun setBlurOverlayColor(overlayColor: WColor, alpha: Int? = null) {
         val alpha = alpha ?: if (ThemeManager.isDark) 204 else 140
         blurryBackgroundView?.setOverlayColor(overlayColor, alpha)
-        setBlurOverlayColor(overlayColor.color.colorWithAlpha(alpha))
+        this.overlayColor = overlayColor.color.colorWithAlpha(alpha)
+        backgroundView.setBackgroundColor(this.overlayColor!!)
+        postInvalidateOnAnimation()
     }
 
     fun setBackgroundVisible(visible: Boolean, animated: Boolean = true) {
         if (visible == isBackgroundVisible) return
         isBackgroundVisible = visible
         if (animated) {
-            if (visible)
+            if (visible) {
                 fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
-            else
+            } else {
                 fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
+            }
         } else {
             alpha = if (visible) 1f else 0f
         }
@@ -156,14 +162,7 @@ class ReversedCornerView(
         path.lineTo(0f, height)
         path.close()
 
-        val tabletPadding =
-            if (initialConfig.additionalTabletPadding) ViewConstants.ADDITIONAL_TABLET_PADDING.toFloat() else 0f
-        rectF.setLocalized(
-            cutoutStart(width, tabletPadding),
-            height - cornerRadius + 0.5f,
-            cutoutEnd(width),
-            height
-        )
+        setCutoutRect(rectF, height - cornerRadius + 0.5f, height)
         cornerPath.addRoundRect(rectF, radii, Path.Direction.CCW)
 
         path.op(cornerPath, Path.Op.DIFFERENCE)
@@ -186,8 +185,14 @@ class ReversedCornerView(
             addUpdateListener { animator ->
                 cornerRadius = animator.animatedValue as Float
                 radii = floatArrayOf(
-                    cornerRadius, cornerRadius, cornerRadius, cornerRadius,
-                    0f, 0f, 0f, 0f
+                    cornerRadius,
+                    cornerRadius,
+                    cornerRadius,
+                    cornerRadius,
+                    0f,
+                    0f,
+                    0f,
+                    0f
                 )
                 pathDirty = true
                 translationY =
@@ -208,7 +213,8 @@ class ReversedCornerView(
 
     private fun syncBlurView() {
         val blurEnabled =
-            WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur && initialConfig.blurRootView != null
+            WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur &&
+                initialConfig.blurRootView != null
         if (blurEnabled && blurryBackgroundView == null) {
             blurryBackgroundView =
                 WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
@@ -254,8 +260,7 @@ class ReversedCornerView(
     }
 
     private fun updateRadius() {
-        if (cornerRadius == (overrideRadius ?: ViewConstants.TOOLBAR_RADIUS.dp))
-            return
+        if (cornerRadius == (overrideRadius ?: ViewConstants.TOOLBAR_RADIUS.dp)) return
         cornerRadius = overrideRadius ?: ViewConstants.TOOLBAR_RADIUS.dp
         radii = floatArrayOf(cornerRadius, cornerRadius, cornerRadius, cornerRadius, 0f, 0f, 0f, 0f)
         pathDirty = true

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.Gravity
 import android.view.View
@@ -9,8 +8,9 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.R
-import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -27,16 +28,16 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import java.lang.ref.WeakReference
-import kotlin.math.max
 
 class UserResponsibilityVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "UserResponsibility"
 
     override val isContentWidthCapped = true
@@ -51,7 +52,8 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             true,
             onStart = {
                 fadeIn()
-            })
+            }
+        )
     }
 
     private val titleLabel = WLabel(context).apply {
@@ -64,10 +66,14 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
     private val descriptionLabel = WLabel(context).apply {
         setPaddingDp(24, 16, 24, 16)
         setStyle(adaptiveFontSize())
-        text = ("${LocaleController.getString("\$auth_responsibly_description1")}\n" +
-            "${LocaleController.getString("\$auth_responsibly_description2")}\n" +
-            "${LocaleController.getString("\$auth_responsibly_description3")}\n" +
-            LocaleController.getString("\$auth_responsibly_description4"))
+        textDirection =
+            if (LocaleController.isRTL) View.TEXT_DIRECTION_RTL else View.TEXT_DIRECTION_LTR
+        text = (
+            "${LocaleController.getString("\$auth_responsibly_description1")}\n" +
+                "${LocaleController.getString("\$auth_responsibly_description2")}\n" +
+                "${LocaleController.getString("\$auth_responsibly_description3")}\n" +
+                LocaleController.getString("\$auth_responsibly_description4")
+            )
             .trim()
             .replace("%app_name%", context.getString(BaseR.string.app_name))
             .toProcessedSpannableStringBuilder()
@@ -79,7 +85,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             configure(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.USE_RESPONSIBILITY,
-                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_responsibility_terms,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_responsibility_terms,
                     title = title,
                     value = null,
                     hasTintColor = false
@@ -100,7 +106,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             configure(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.NONE,
-                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_responsibility_policy,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_responsibility_policy,
                     title = title,
                     value = null,
                     hasTintColor = false
@@ -117,7 +123,6 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
-        v.layoutDirection = View.LAYOUT_DIRECTION_LTR
         v.setPaddingLocalized(
             ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding,
             0,
@@ -230,5 +235,4 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
         )
         window?.present(nav)
     }
-
 }

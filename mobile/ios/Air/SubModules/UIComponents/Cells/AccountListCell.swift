@@ -51,7 +51,7 @@ public struct AccountListCell: View {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(alignment: .center, spacing: 6) {
                             Text(accountContext.account.displayName)
-                                .font(.system(size: 16, weight: .medium))
+                                .textStyle(.calloutEmphasized)
                                 .lineLimit(1)
                                 .allowsTightening(true)
                                 .foregroundStyle(Color.air.primaryLabel)
@@ -125,7 +125,7 @@ private struct ListBalanceView: View {
                 Text(balance.formatted(.baseCurrencyEquivalent, roundHalfUp: true))
                     .lineLimit(1)
                     .foregroundStyle(Color.air.secondaryLabel)
-                    .font(.system(size: 16, weight: .regular))
+                    .textStyle(.callout, content: .technical)
                     .sensitiveDataInPlace(cols: cols, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
                     .id(viewModel.accountId)
             }

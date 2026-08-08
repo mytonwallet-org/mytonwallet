@@ -5,6 +5,9 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import java.math.BigInteger
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
@@ -21,11 +24,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
-import java.math.BigInteger
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
-class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView {
+class ListIconDualLineCell(context: Context) :
+    FrameLayout(context),
+    WThemedView {
     companion object {
         const val HEIGHT = 60
     }
@@ -80,14 +82,16 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         addView(tokenImage)
         addView(tokenTitle)
         addView(
-            tokenSubtitle, LayoutParams(
+            tokenSubtitle,
+            LayoutParams(
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = Gravity.START or Gravity.BOTTOM
                 marginStart = ApplicationContextHolder.adaptiveContentStart.dp.roundToInt()
                 bottomMargin = 10.dp
-            })
+            }
+        )
 
         updateTheme()
     }
@@ -97,10 +101,11 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         title: CharSequence?,
         subtitle: CharSequence?,
         isSensitiveData: Boolean,
-        imageRounding: Float? = null,
+        imageRounding: Float? = null
     ) {
-        if (imageRounding != null)
+        if (imageRounding != null) {
             tokenImage.defaultRounding = Content.Rounding.Radius(imageRounding)
+        }
 
         image?.let {
             tokenImage.set(image)
@@ -109,7 +114,15 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         }
 
         val margin =
-            (if (image != null) ApplicationContextHolder.adaptiveContentStart else 20f).dp.roundToInt()
+            (
+                if (image !=
+                    null
+                ) {
+                    ApplicationContextHolder.adaptiveContentStart
+                } else {
+                    20f
+                }
+                ).dp.roundToInt()
         listOf(tokenTitle, tokenSubtitle).forEach { view ->
             (view.layoutParams as? MarginLayoutParams)?.apply {
                 marginStart = margin
@@ -129,7 +142,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
 
     fun configure(asset: MApiSwapAsset, balance: BigInteger, separator: Boolean) {
         tokenImage.set(Content.of(asset, showChain = false))
-        tokenTitle.text = asset.name ?: asset.symbol
+        tokenTitle.text = asset.displayName ?: asset.symbol
 
         if (balance > BigInteger.ZERO) {
             tokenSubtitle.contentView.setAmount(
@@ -151,7 +164,6 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         ripple.rippleColor = WColor.BackgroundRipple.color
         separatorDrawable.invalidateSelf()
     }
-
 
     class Holder(parent: ViewGroup) :
         BaseListHolder<Item.IconDualLine>(ListIconDualLineCell(parent.context)) {

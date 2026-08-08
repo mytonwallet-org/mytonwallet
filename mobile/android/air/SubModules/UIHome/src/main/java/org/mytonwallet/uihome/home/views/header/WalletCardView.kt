@@ -1,8 +1,14 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.uihome.home.views.header
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.drawable.BitmapDrawable
 import android.view.Gravity
 import android.view.TouchDelegate
 import android.view.View
@@ -13,13 +19,16 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.text.buildSpannedString
-import androidx.core.text.inSpans
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
-import com.facebook.drawee.generic.RoundingParams
 import com.facebook.fresco.ui.common.OnFadeListener
+import java.math.BigInteger
+import kotlin.math.absoluteValue
+import kotlin.math.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
@@ -29,9 +38,6 @@ import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
-import org.mytonwallet.app_air.uicomponents.extensions.setOnLongHoldListener
-import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -39,8 +45,6 @@ import org.mytonwallet.app_air.uicomponents.helpers.NftGradientHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.TiltSensorManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -60,10 +64,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopupExpandableTrailingView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
+import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVC
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
@@ -75,14 +81,12 @@ import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
-import org.mytonwallet.app_air.walletbasecontext.utils.trimDomain
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -93,21 +97,16 @@ import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import org.mytonwallet.app_air.walletcore.stores.NftStore
-import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVC
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import org.mytonwallet.uihome.home.views.header.seasonal.SeasonalOverlayView
-import java.math.BigInteger
-import kotlin.math.absoluteValue
-import kotlin.math.max
-import kotlin.math.roundToInt
-import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 
 @SuppressLint("ViewConstructor")
-class WalletCardView(
-    val window: WWindow
-) : WView(window), WThemedView, TiltSensorManager.TiltObserver {
+class WalletCardView(val window: WWindow) :
+    WView(window),
+    WThemedView,
+    TiltSensorManager.TiltObserver {
 
     companion object {
         const val EXPANDED_RADIUS = 26
@@ -174,7 +173,6 @@ class WalletCardView(
                     onFadeFinished()
                 }
             }
-
         }
     }
 
@@ -223,14 +221,16 @@ class WalletCardView(
         }
         balanceViewMaskWrapper = WGradientMaskView(balanceView)
         linearLayout.addView(balanceViewMaskWrapper, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        linearLayout.addView(arrowImageView, LayoutParams(18.dp, 24.dp).apply {
-            leftMargin = 2.dp
-            topMargin = 3.dp
-            rightMargin = 2.dp
-        })
+        linearLayout.addView(
+            arrowImageView,
+            LayoutParams(18.dp, 24.dp).apply {
+                leftMargin = 2.dp
+                topMargin = 3.dp
+                rightMargin = 2.dp
+            }
+        )
         linearLayout.setOnClickListener {
-            if (mode == HomeHeaderView.Mode.Collapsed)
-                return@setOnClickListener
+            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
             balanceViewContainerTapped()
         }
         WSensitiveDataContainer(
@@ -241,7 +241,9 @@ class WalletCardView(
                 minPadding = 16.dp
             },
             WSensitiveDataContainer.MaskConfig(
-                9, 4, Gravity.CENTER,
+                9,
+                4,
+                Gravity.CENTER,
                 skin = SensitiveDataMaskView.Skin.DARK_THEME,
                 cellSize = 14.dp,
                 protectContentLayoutSize = false
@@ -264,14 +266,20 @@ class WalletCardView(
         lbl.setPadding(8.dp, 3.dp, 8.dp, 3.dp)
         lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl.compoundDrawablePadding = 0
-        lbl.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, balanceChangeChevron, null)
+        lbl.setCompoundDrawablesRelativeWithIntrinsicBounds(
+            null,
+            null,
+            balanceChangeChevron,
+            null
+        )
         lbl.foreground = WRippleDrawable.create(14f.dp).apply {
             rippleColor = Color.WHITE.colorWithAlpha(25)
         }
         lbl.setOnClickListener {
             if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
             val tabNav =
-                (window.topNavigationController?.viewControllers?.firstOrNull() as? ITabsVC)?.mainNavigationController
+                (window.topNavigationController?.viewControllers?.firstOrNull() as? ITabsVC)
+                    ?.mainNavigationController
             if (tabNav != null) {
                 tabNav.push(PortfolioVC(context))
             } else {
@@ -322,10 +330,13 @@ class WalletCardView(
                 addressLabel.gradientOffset = -w
             }
         }
-        addView(walletTypeView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            marginStart = 2.dp
-            marginEnd = 1.dp
-        })
+        addView(
+            walletTypeView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                marginStart = 2.dp
+                marginEnd = 1.dp
+            }
+        )
         addView(addressLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
     }
 
@@ -336,8 +347,7 @@ class WalletCardView(
         id = generateViewId()
         scaleType = ImageView.ScaleType.CENTER
         setOnClickListener {
-            if (mode == HomeHeaderView.Mode.Collapsed)
-                return@setOnClickListener
+            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
             window.navigationControllers.lastOrNull()?.let {
                 MintCardVC.present(it)
             }
@@ -351,7 +361,7 @@ class WalletCardView(
     }
 
     private val balanceChangeBlurView: WBlurryBackgroundView? =
-        if (DevicePerformanceClassifier.isHighClass)
+        if (DevicePerformanceClassifier.isHighClass) {
             WBlurryBackgroundView(
                 context,
                 fadeSide = null
@@ -359,8 +369,9 @@ class WalletCardView(
                 setOverlayColor(WColor.Transparent)
                 setBackgroundColor(Color.TRANSPARENT, 14f.dp, clipToBounds = true)
             }
-        else
+        } else {
             null
+        }
 
     private val seasonalOverlayView = SeasonalOverlayView(context).apply {
         id = generateViewId()
@@ -467,8 +478,7 @@ class WalletCardView(
             )
         }
         addressLabel.setOnClickListener {
-            if (mode == HomeHeaderView.Mode.Collapsed)
-                return@setOnClickListener
+            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
             openAddressMenu()
         }
 
@@ -505,10 +515,7 @@ class WalletCardView(
     }
 
     override fun updateTheme() {
-        if (ThemeManager.isDark)
-            startSensorListening()
-        else
-            stopSensorListening()
+        if (ThemeManager.isDark) startSensorListening() else stopSensorListening()
         cardNft?.let {
             startSensorListening()
             shiningView.background =
@@ -526,11 +533,12 @@ class WalletCardView(
         }
         setLabelColors(Color.WHITE, Color.WHITE.colorWithAlpha(191), drawGradient = false)
 
-        if (balanceChangeBlurView == null)
+        if (balanceChangeBlurView == null) {
             balanceChangeLabel.contentView.setBackgroundColor(
                 Color.WHITE.colorWithAlpha(25),
                 14f.dp
             )
+        }
         if (isShowingSkeletons) {
             updateSkeletonViewColors()
         }
@@ -539,8 +547,7 @@ class WalletCardView(
     fun onDestroy() {
         stopSensorListening()
         balanceView.onTotalWidthChanged = null
-        if (this::balanceViewMaskWrapper.isInitialized)
-            balanceViewMaskWrapper.onDestroy()
+        if (this::balanceViewMaskWrapper.isInitialized) balanceViewMaskWrapper.onDestroy()
     }
 
     fun startSensorListening() {
@@ -549,7 +556,9 @@ class WalletCardView(
             !ThemeManager.isDark ||
             !isAttachedToWindow ||
             headerMode != HomeHeaderView.Mode.Expanded
-        ) return
+        ) {
+            return
+        }
         isSensorListening = true
         TiltSensorManager.addObserver(this)
     }
@@ -611,7 +620,7 @@ class WalletCardView(
     fun updateBalanceChange(balance: Double?, balance24h: Double?, animated: Boolean) {
         isBalanceChangePositive =
             balance != null && balance24h != null &&
-                balance > 0 && balance24h > 0 && balance > balance24h
+            balance > 0 && balance24h > 0 && balance > balance24h
         var balanceChangeString: String? = null
         balance?.let {
             balance24h?.let {
@@ -624,14 +633,23 @@ class WalletCardView(
                             WalletCore.baseCurrency.decimalsCount,
                             true
                         )
+                        val balanceChangeSign =
+                            if (balance - balance24h >= 0) "+$signSpace" else "-$signSpace"
                         val balanceChangePercentString =
-                            if (balance24h == 0.0) "" else "${if (balance - balance24h >= 0) "+$signSpace" else "-$signSpace"}${
-                                kotlin.math.abs(
-                                    ((balance - balance24h) / balance24h * 10000).roundToInt() / 100f
-                                )
-                            }% · "
+                            if (balance24h ==
+                                0.0
+                            ) {
+                                ""
+                            } else {
+                                val balanceChangePercent =
+                                    kotlin.math.abs(
+                                        ((balance - balance24h) / balance24h * 10000)
+                                            .roundToInt() / 100f
+                                    ).withLocalizedNumbers
+                                "$balanceChangeSign$balanceChangePercent% · "
+                            }
                         balanceChangeString =
-                            "$balanceChangePercentString$balanceChangeValueString"
+                            "\u202D$balanceChangePercentString$balanceChangeValueString"
                     }
                 }
             }
@@ -667,8 +685,7 @@ class WalletCardView(
     }
 
     fun showSkeletons() {
-        if (isShowingSkeletons)
-            return
+        if (isShowingSkeletons) return
         isShowingSkeletons = true
         balanceViewContainer.visibility = INVISIBLE
         balanceSkeletonView.visibility = VISIBLE
@@ -681,8 +698,7 @@ class WalletCardView(
     }
 
     fun hideSkeletons() {
-        if (!isShowingSkeletons)
-            return
+        if (!isShowingSkeletons) return
         isShowingSkeletons = false
         balanceViewContainer.visibility = VISIBLE
         balanceSkeletonView.fadeOut(onCompletion = {
@@ -691,23 +707,21 @@ class WalletCardView(
                 balanceChangeSkeletonView.visibility = GONE
             }
         })
-        if (balanceChangeSkeletonView.isVisible)
-            balanceChangeSkeletonView.fadeOut()
+        if (balanceChangeSkeletonView.isVisible) balanceChangeSkeletonView.fadeOut()
     }
 
-    fun getSkeletonViews(): List<View> {
-        return listOf(
-            balanceSkeletonView,
-            balanceChangeSkeletonView
-        )
-    }
+    fun getSkeletonViews(): List<View> = listOf(
+        balanceSkeletonView,
+        balanceChangeSkeletonView
+    )
 
     fun setStatusViewState(value: UpdateStatusView.State, animated: Boolean) {
         if (statusViewState == value) return
         statusViewState = value
         updateContentAlpha(animated)
-        if (::balanceViewMaskWrapper.isInitialized)
+        if (::balanceViewMaskWrapper.isInitialized) {
             balanceViewMaskWrapper.isLoading = value == UpdateStatusView.State.Updating
+        }
     }
 
     // Called to update account
@@ -754,7 +768,9 @@ class WalletCardView(
         updateTheme()
 
         if (cardNft == null) {
-            img.set(Content(Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)))
+            img.set(
+                Content(Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card))
+            )
             clippedContainer.setConstraints {
                 allEdges(img)
             }
@@ -771,7 +787,10 @@ class WalletCardView(
     }
 
     fun updateAddressLabel() {
-        addressLabel.displayAddresses(account, WMultichainAddressLabel.walletExpandStyle)
+        addressLabel.displayAddresses(
+            account,
+            WMultichainAddressLabel.walletExpandStyle
+        )
     }
 
     fun updateSeasonalTheme() {
@@ -781,23 +800,24 @@ class WalletCardView(
     var headerMode = HomeHeaderView.DEFAULT_MODE
         set(value) {
             field = value
-            if (value == HomeHeaderView.Mode.Expanded)
+            if (value == HomeHeaderView.Mode.Expanded) {
                 startSensorListening()
-            else
+            } else {
                 stopSensorListening()
+            }
         }
     var mode = HomeHeaderView.DEFAULT_MODE
     fun expand(animated: Boolean) {
-        if (mode == HomeHeaderView.Mode.Expanded)
-            return
+        if (mode == HomeHeaderView.Mode.Expanded) return
         mode = HomeHeaderView.Mode.Expanded
         updateContentAlpha(animated)
         if (animated) {
             miniPlaceholders.fadeOut(AnimationConstants.INSTANT_ANIMATION)
             shiningView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
             seasonalOverlayView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
-            if (promoOverlayView.isVisible)
+            if (promoOverlayView.isVisible) {
                 promoOverlayView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+            }
         } else {
             miniPlaceholders.alpha = 0f
             shiningView.alpha = 1f
@@ -808,8 +828,7 @@ class WalletCardView(
     }
 
     fun collapse(animated: Boolean) {
-        if (mode == HomeHeaderView.Mode.Collapsed)
-            return
+        if (mode == HomeHeaderView.Mode.Collapsed) return
         stopSensorListening()
         mode = HomeHeaderView.Mode.Collapsed
         updateContentAlpha(animated)
@@ -818,8 +837,9 @@ class WalletCardView(
             miniPlaceholders.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
             shiningView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
             seasonalOverlayView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
-            if (promoOverlayView.isVisible)
+            if (promoOverlayView.isVisible) {
                 promoOverlayView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
+            }
         } else {
             miniPlaceholders.alpha = 1f
             shiningView.alpha = 0f
@@ -830,8 +850,7 @@ class WalletCardView(
 
     var currentRadius = -1f
     fun setRoundingParam(radius: Float) {
-        if (this.currentRadius == radius)
-            return
+        if (this.currentRadius == radius) return
         this.currentRadius = radius
         clippedContainer.setBackgroundColor(Color.TRANSPARENT, radius, true)
         img.setBackgroundColor(Color.TRANSPARENT, radius, true)
@@ -878,12 +897,13 @@ class WalletCardView(
         if (_primaryColor == primaryColor &&
             _secondaryColor == secondaryColor &&
             _drawGradient == drawGradient
-        )
+        ) {
             return
+        }
         _primaryColor = primaryColor
         _secondaryColor = secondaryColor
         _drawGradient = drawGradient
-        if (::balanceViewMaskWrapper.isInitialized)
+        if (::balanceViewMaskWrapper.isInitialized) {
             balanceViewMaskWrapper.setupColors(
                 intArrayOf(
                     primaryColor.colorWithAlpha(191),
@@ -891,6 +911,7 @@ class WalletCardView(
                     primaryColor.colorWithAlpha(191)
                 )
             )
+        }
         balanceView.alpha = 1f
         balanceView.updateColors(primaryColor, secondaryColor, drawGradient)
         arrowDownDrawable?.setTint(secondaryColor)
@@ -899,7 +920,7 @@ class WalletCardView(
         miniPlaceholders.setColor(primaryColor)
         mintIcon.setImageDrawable(
             context.requireDrawableCompat(
-                org.mytonwallet.app_air.walletcontext.R.drawable.ic_mint
+                R.drawable.ic_mint
             ).apply {
                 setTint(secondaryColor.colorWithAlpha(191))
             }
@@ -931,7 +952,13 @@ class WalletCardView(
             balanceChangeLabel.contentView.setTextColor(secondaryColor.colorWithAlpha(191))
             balanceChangeChevron?.setTint(secondaryColor.colorWithAlpha(191))
             balanceChangeLabel.contentView.setBackgroundColor(
-                if (balanceChangeBlurView == null) secondaryColor.colorWithAlpha(41) else Color.TRANSPARENT,
+                if (balanceChangeBlurView ==
+                    null
+                ) {
+                    secondaryColor.colorWithAlpha(41)
+                } else {
+                    Color.TRANSPARENT
+                },
                 13f.dp
             )
         }
@@ -961,8 +988,7 @@ class WalletCardView(
     fun showBalanceArrow(animated: Boolean) {
         if (arrowImageView.isInvisible) {
             arrowImageView.visibility = VISIBLE
-            if (animated)
-                arrowImageView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+            if (animated) arrowImageView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
         }
     }
 
@@ -1030,7 +1056,7 @@ class WalletCardView(
                         ),
                         isSelected = WalletCore.baseCurrency.currencySymbol == it.currencySymbol
                     ),
-                    false,
+                    false
                 ) {
                     WalletCore.setBaseCurrency(newBaseCurrency = it.currencyCode) { _, _ -> }
                     WidgetsConfigurations.reloadWidgets(context)
@@ -1049,7 +1075,7 @@ class WalletCardView(
     }
 
     fun copyFirstAddress() {
-        account?.sortedChains()?.firstOrNull()?.let {
+        account?.displayedChains()?.firstOrNull()?.let {
             val chain = MBlockchain.valueOfOrNull(it.key) ?: return
             copyAccountToClipboard(it.value, chain)
         }
@@ -1070,135 +1096,291 @@ class WalletCardView(
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     }
 
+    private fun copyAddressToClipboard(address: String, chain: MBlockchain) {
+        if (!ClipboardHelpers.copyToClipboard(context, "", address)) {
+            return
+        }
+        val text = LocaleController.getString("%chain% Address Copied")
+            .replace("%chain%", chain.displayName)
+        Haptics.play(this, HapticType.LIGHT_TAP)
+        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun makeChainIconStackDrawable(chains: List<MBlockchain>): BitmapDrawable {
+        val width = 36.dp
+        val outerIconSize = 19.dp
+        val innerIconSize = 17.dp
+        val iconInset = (outerIconSize - innerIconSize) / 2f
+        val spacing = (width - outerIconSize) / 2f
+        val stackWidth = outerIconSize + spacing * (chains.size - 1).coerceAtLeast(0)
+        val startX = (width - stackWidth) / 2f
+        val bitmap = createBitmap(width, outerIconSize).apply {
+            density = resources.displayMetrics.densityDpi
+        }
+        val canvas = Canvas(bitmap)
+        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = WColor.ThumbBackground.color
+        }
+        chains.forEachIndexed { index, chain ->
+            val left = startX + index * spacing
+            canvas.drawCircle(
+                left + outerIconSize / 2f,
+                outerIconSize / 2f,
+                outerIconSize / 2f,
+                borderPaint
+            )
+            context.getDrawableCompat(chain.icon)?.apply {
+                val checkpoint = canvas.save()
+                canvas.translate(left + iconInset, iconInset)
+                setBounds(0, 0, innerIconSize, innerIconSize)
+                draw(canvas)
+                canvas.restoreToCount(checkpoint)
+            }
+        }
+        return bitmap.toDrawable(resources)
+    }
+
     fun openAddressMenu(anchorView: View? = null) {
+        val currentAccount = account ?: return
         val anchor = anchorView ?: addressLabel
         val location = anchor.getLocationInWindow()
 
         lateinit var popup: IPopup
         val menuWidth = 276.dp
-        val copyDrawable = context.getDrawableCompat(R.drawable.ic_copy)?.apply {
-            mutate()
-            setTint(WColor.SecondaryText.color)
-            val width = 16.dp
-            val height = 16.dp
-            setBounds(0, 0, width, height)
+        val trailingDirection = if (LocaleController.isRTL) -1f else 1f
+        val trailingLayoutDirection = if (LocaleController.isRTL) {
+            LAYOUT_DIRECTION_RTL
+        } else {
+            LAYOUT_DIRECTION_LTR
         }
-        val items =
-            account?.sortedChains()?.mapNotNull { accountChain ->
-                val chain = MBlockchain.valueOfOrNull(accountChain.key) ?: return@mapNotNull null
-                val accountChainValue = accountChain.value
-                val fullAddress = accountChainValue.address
-                val domain = accountChainValue.domain?.trimDomain(16)
-                val shortAddress = fullAddress.trimAddress(12)
-                val titleText = domain ?: buildSpannedString {
-                    inSpans(WLetterSpacingSpan(0.014f)) {
-                        append(shortAddress)
+
+        fun makeAddressActionButton(icon: Int, tintColor: WColor, onClick: (() -> Unit)? = null) =
+            object : AppCompatImageView(contentView.context), WThemedView {
+                init {
+                    updateTheme()
+                    onClick?.let { action ->
+                        setOnClickListener { action() }
                     }
                 }
-                val title: CharSequence = buildSpannedString {
-                    val imageSpan = copyDrawable?.let { VerticalImageSpan(it) }
-                    if (LocaleController.isRTL) {
-                        imageSpan?.let {
-                            inSpans(WSpacingSpan(2.dp)) { append(" ") }
-                            inSpans(it) { append(" ") }
-                            inSpans(WSpacingSpan(2.dp)) { append(" ") }
-                        }
-                        append(titleText)
-                    } else {
-                        append(titleText)
-                        imageSpan?.let {
-                            inSpans(WSpacingSpan(2.dp)) { append(" ") }
-                            inSpans(it) { append(" ") }
-                            inSpans(WSpacingSpan(2.dp)) { append(" ") }
-                        }
-                    }
-                    styleDots()
-                }
-                val subtitle: CharSequence = if (domain != null) {
-                    buildSpannedString {
-                        inSpans(WLetterSpacingSpan(0.034f)) {
-                            append(shortAddress)
-                            append(" · ")
-                            append(chain.displayName)
-                        }
-                        styleDots()
-                    }
-                } else {
-                    buildSpannedString {
-                        inSpans(WLetterSpacingSpan(0.034f)) {
-                            append(chain.displayName)
+
+                override val isTinted = true
+                override fun updateTheme() {
+                    val drw = context.getDrawableCompat(icon)
+                    drw?.setTint(tintColor.color)
+                    setImageDrawable(drw)
+                    background = onClick?.let {
+                        WRippleDrawable.create(14f.dp).apply {
+                            rippleColor = WColor.SecondaryBackground.color
                         }
                     }
                 }
 
-                WMenuPopup.Item(
-                    WMenuPopup.Item.Config.Item(
-                        icon = Icon(
-                            chain.icon,
-                            tintColor = null,
-                            iconSize = 36.dp,
-                            iconMargin = 10.dp
-                        ),
-                        title = title,
-                        subtitle = subtitle,
-                        trailingView = object : AppCompatImageView(contentView.context),
-                            WThemedView {
-                            init {
-                                updateTheme()
-                                setOnClickListener {
-                                    val network = account?.network ?: return@setOnClickListener
-                                    val config = ExplorerHelpers.createAddressExplorerConfig(
-                                        chain, network, fullAddress
-                                    ) ?: return@setOnClickListener
-                                    WalletCore.notifyEvent(WalletEvent.OpenUrlWithConfig(config))
-                                    popup.dismiss()
-                                }
-                                translationX = 4f.dp
-                            }
+                override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                    super.onMeasure(28.dp.exactly, 28.dp.exactly)
+                }
+            }
 
-                            override val isTinted = true
-                            override fun updateTheme() {
-                                val drw = context.getDrawableCompat(R.drawable.ic_world)
-                                drw?.setTint(WColor.Tint.color)
-                                setImageDrawable(drw)
-                                addRippleEffect(WColor.SecondaryBackground.color)
-                            }
+        fun makeAddressActionsView(chain: MBlockchain, accountChain: AccountChain) =
+            WLinearLayout(contentView.context, LinearLayout.HORIZONTAL).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                layoutDirection = trailingLayoutDirection
+                addView(
+                    makeAddressActionButton(R.drawable.ic_copy, WColor.SecondaryText) {
+                        copyAddressToClipboard(accountChain.address, chain)
+                        popup.dismiss()
+                    }
+                )
+                addView(
+                    makeAddressActionButton(R.drawable.ic_world, WColor.Tint) {
+                        val config = ExplorerHelpers.createAddressExplorerConfig(
+                            chain,
+                            currentAccount.network,
+                            accountChain.address
+                        ) ?: return@makeAddressActionButton
+                        WalletCore.notifyEvent(WalletEvent.OpenUrlWithConfig(config))
+                        popup.dismiss()
+                    },
+                    LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                        marginStart = 8.dp
+                    }
+                )
+                translationX = trailingDirection * 4f.dp
+            }
 
-                            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-                                super.onMeasure(28.dp.exactly, 28.dp.exactly)
-                            }
-                        },
-                        textMargin = 58.dp
+        fun makeDomainAddressActionsView(chain: MBlockchain, accountChain: AccountChain): View {
+            val arrowView = makeAddressActionButton(
+                R.drawable.ic_menu_arrow_right,
+                WColor.PrimaryLightText
+            ).apply {
+                scaleX = trailingDirection
+            }
+            val worldView = makeAddressActionButton(R.drawable.ic_world, WColor.Tint) {
+                val config = ExplorerHelpers.createAddressExplorerConfig(
+                    chain,
+                    currentAccount.network,
+                    accountChain.address
+                ) ?: return@makeAddressActionButton
+                WalletCore.notifyEvent(WalletEvent.OpenUrlWithConfig(config))
+                popup.dismiss()
+            }
+            return object :
+                WLinearLayout(contentView.context, LinearLayout.HORIZONTAL),
+                WMenuPopupExpandableTrailingView {
+                init {
+                    gravity = Gravity.CENTER_VERTICAL
+                    layoutDirection = trailingLayoutDirection
+                    clipChildren = false
+                    clipToPadding = false
+                    addView(arrowView)
+                    addView(
+                        worldView,
+                        LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                            marginStart = 8.dp
+                        }
+                    )
+                    translationX = trailingDirection * 4f.dp
+                    setSubmenuExpansionProgress(0f)
+                }
+
+                override fun setSubmenuExpansionProgress(progress: Float) {
+                    val safeProgress = progress.coerceIn(0f, 1f)
+                    arrowView.rotation = trailingDirection * 90f * safeProgress
+                    arrowView.translationX = trailingDirection * 36f.dp * safeProgress
+                    worldView.alpha = 1f - safeProgress
+                    worldView.translationX = trailingDirection * 4f.dp * safeProgress
+                    worldView.isClickable = safeProgress == 0f
+                }
+            }
+        }
+
+        fun makeCopyActionView(onCopy: () -> Unit) =
+            WLinearLayout(contentView.context, LinearLayout.HORIZONTAL).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                layoutDirection = trailingLayoutDirection
+                addView(
+                    makeAddressActionButton(R.drawable.ic_copy, WColor.SecondaryText) {
+                        onCopy()
+                        popup.dismiss()
+                    }
+                )
+                translationX = trailingDirection * 4f.dp
+            }
+
+        fun makeCopyItem(value: String, type: String, onCopy: () -> Unit) = WMenuPopup.Item(
+            WMenuPopup.Item.Config.Item(
+                icon = null,
+                title = value,
+                subtitle = LocaleController.getString(type),
+                trailingViewProvider = { makeCopyActionView(onCopy) }
+            ),
+            false
+        ) {
+            onCopy()
+        }
+
+        fun makeAddressItem(chain: MBlockchain, accountChain: AccountChain): WMenuPopup.Item {
+            val domain = accountChain.domain?.trim()?.takeIf { it.isNotEmpty() }
+            val subItems = domain?.let {
+                listOf(
+                    makeCopyItem(it, "Domain") {
+                        copyAccountToClipboard(accountChain.copy(domain = it), chain)
+                    },
+                    makeCopyItem(accountChain.address.trimAddress(12), "Address") {
+                        copyAddressToClipboard(accountChain.address, chain)
+                    }
+                )
+            }
+            return WMenuPopup.Item(
+                WMenuPopup.Item.Config.Item(
+                    icon = Icon(
+                        chain.icon,
+                        tintColor = null,
+                        iconSize = 36.dp,
+                        iconMargin = 10.dp
                     ),
-                    false,
-                ) {
-                    account?.byChain[chain.name]?.let { accountChain ->
-                        copyAccountToClipboard(accountChain, chain)
+                    title = chain.displayName,
+                    subtitle = accountChain.address.trimAddress(12),
+                    textMargin = 58.dp,
+                    subItems = subItems,
+                    trailingViewProvider = if (subItems == null) {
+                        { makeAddressActionsView(chain, accountChain) }
+                    } else {
+                        { makeDomainAddressActionsView(chain, accountChain) }
+                    },
+                    submenuTransition = if (subItems == null) {
+                        WMenuPopup.SubmenuTransition.PAGE
+                    } else {
+                        WMenuPopup.SubmenuTransition.EXPAND_FROM_ITEM
                     }
+                ),
+                false
+            ) {
+                copyAddressToClipboard(accountChain.address, chain)
+            }
+        }
+
+        fun makeShareItem(hasSeparator: Boolean) = WMenuPopup.Item(
+            WMenuPopup.Item.Config.Item(
+                icon = Icon(
+                    R.drawable.ic_share,
+                    tintColor = WColor.SecondaryText,
+                    iconSize = 30.dp,
+                    iconMargin = 16.dp
+                ),
+                title = LocaleController.getString("Share Wallet Link"),
+                textMargin = 58.dp
+            ),
+            hasSeparator
+        ) {
+            ShareHelpers.shareText(
+                context,
+                currentAccount.shareLink,
+                LocaleController.getString("Share Wallet Link")
+            )
+        }
+
+        val chainDisplaySnapshot = currentAccount.chainDisplaySnapshot()
+        val visibleAddressChains = chainDisplaySnapshot.visibleChains.mapNotNull { accountChain ->
+            val chain = MBlockchain.valueOfOrNull(accountChain.key) ?: return@mapNotNull null
+            chain to accountChain.value
+        }
+        val allAddressChains = chainDisplaySnapshot.orderedChains.mapNotNull { accountChain ->
+            val chain = MBlockchain.valueOfOrNull(accountChain.key) ?: return@mapNotNull null
+            chain to accountChain.value
+        }
+        val items = mutableListOf(makeShareItem(visibleAddressChains.isNotEmpty())).apply {
+            addAll(
+                visibleAddressChains.map { (chain, chainAccount) ->
+                    makeAddressItem(chain, chainAccount)
                 }
-            }?.toMutableList() ?: mutableListOf()
-        account?.shareLink?.let { shareLink ->
-            items.lastOrNull()?.also { it.hasSeparator = true }
+            )
+        }
+        if (allAddressChains.size > visibleAddressChains.size) {
+            items.last().hasSeparator = true
+            val allChainItems = allAddressChains.map { (chain, chainAccount) ->
+                makeAddressItem(chain, chainAccount)
+            }
+            val visibleChains = visibleAddressChains.map { it.first }.toSet()
+            val hiddenChains = allAddressChains.filterNot { visibleChains.contains(it.first) }
             items.add(
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = Icon(
-                            R.drawable.ic_share,
-                            tintColor = WColor.SecondaryText,
-                            iconSize = 30.dp,
-                            iconMargin = 16.dp
+                            iconResId = null,
+                            tintColor = null,
+                            iconSize = 36.dp,
+                            iconMargin = 10.dp,
+                            drawable = makeChainIconStackDrawable(
+                                hiddenChains.take(3).map { it.first }
+                            )
                         ),
-                        title = LocaleController.getString("Share Wallet Link"),
-                        textMargin = 58.dp
+                        title = LocaleController.getString("All Chains"),
+                        subItems = allChainItems,
+                        textMargin = 58.dp,
+                        submenuTransition = WMenuPopup.SubmenuTransition.EXPAND_FROM_ITEM
                     ),
-                    false,
-                ) {
-                    ShareHelpers.shareText(
-                        context,
-                        shareLink,
-                        LocaleController.getString("Share Wallet Link")
-                    )
-                }
+                    false
+                )
             )
         }
 

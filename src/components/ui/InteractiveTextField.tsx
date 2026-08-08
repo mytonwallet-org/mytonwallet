@@ -56,7 +56,7 @@ interface OwnProps {
   text?: string;
   spoiler?: string;
   spoilerRevealText?: string;
-  spoilerCallback?: NoneToVoidFunction;
+  onSpoilerReveal?: NoneToVoidFunction;
   copyNotification?: string;
   className?: string;
   textClassName?: string;
@@ -90,7 +90,7 @@ function InteractiveTextField({
   text = '',
   spoiler,
   spoilerRevealText,
-  spoilerCallback,
+  onSpoilerReveal,
   copyNotification,
   noSavedAddress,
   noExplorer,
@@ -221,7 +221,7 @@ function InteractiveTextField({
 
   const handleRevealSpoiler = useLastCallback(() => {
     revealSpoiler();
-    spoilerCallback?.();
+    onSpoilerReveal?.();
   });
 
   function renderContentOrSpoiler() {
@@ -384,7 +384,7 @@ function InteractiveTextField({
             role="button"
             onClick={handleExplorerOpen}
           >
-            <i className={buildClassName(styles.icon, 'icon-tonexplorer-small')} aria-hidden />
+            <i className={buildClassName(styles.icon, 'icon-explorer-small')} aria-hidden />
           </span>
         )}
       </>
@@ -535,7 +535,7 @@ function useDropdownMenu(
     if (withExplorer) {
       items.push({
         name: 'View on Explorer',
-        fontIcon: 'tonexplorer',
+        fontIcon: 'explorer',
         value: 'explorer',
       });
     }

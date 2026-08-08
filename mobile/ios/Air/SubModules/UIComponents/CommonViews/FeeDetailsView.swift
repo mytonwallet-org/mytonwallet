@@ -48,14 +48,14 @@ public struct FeeDetailsView: View {
         VStack(spacing: 3) {
             HStack {
                 Text(lang("Final Fee"))
-                    .font(.system(size: 13, weight: .semibold))
+                    .textStyle(.footnoteStrong)
                     .foregroundStyle(.tint)
                 
                 Spacer()
                 
                 if showExcess {
                     Text(lang("Excess"))
-                        .font(.system(size: 13, weight: .semibold))
+                        .textStyle(.footnoteStrong)
                         .foregroundColor(.green)
                 }
             }
@@ -86,7 +86,7 @@ public struct FeeDetailsView: View {
                 }
             }
             .clipShape(.rect(cornerRadius: 8))
-            .font(.system(size: 17, weight: .semibold))
+            .textStyle(.bodyStrong, content: .technical)
             .foregroundColor(.white)
         }
     }
@@ -109,6 +109,7 @@ public struct FeeDetailsView: View {
                 extraContent
             }
         }
+        .textStyle(.body, scaling: .dynamic)
         .padding(.horizontal, 12)
     }
 

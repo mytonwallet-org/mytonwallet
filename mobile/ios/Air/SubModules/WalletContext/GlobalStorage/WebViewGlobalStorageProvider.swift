@@ -228,7 +228,7 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
     }
     
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        log.fault("webViewWebContentProcessDidTerminate")
+        log.error("webViewWebContentProcessDidTerminate")
         log.error("trying to reload")
         Task {
             await _retryReload(count: 3)
@@ -241,11 +241,12 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
             _ = try await loadFromWebView()
             log.error("loadFromWebView returned value")
         } catch {
-            log.fault("loadFromWebView error \(error, .public). local")
-            LogStore.shared.syncronize()
             if count > 0 {
+                log.error("loadFromWebView retry failed \(error, .public). attemptsRemaining=\(count)")
                 await _retryReload(count: count - 1)
             } else {
+                log.fault("loadFromWebView failed after retries \(error, .public)")
+                LogStore.shared.syncronize()
                 fatalError("loadFromWebView continues to fail \(error)")
             }
         }

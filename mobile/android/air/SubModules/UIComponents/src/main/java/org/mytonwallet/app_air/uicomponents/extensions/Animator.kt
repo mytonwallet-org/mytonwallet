@@ -29,16 +29,14 @@ private interface IConfigurable {
 data class Configuration(
     val duration: Long? = null,
     val startDelay: Long? = null,
-    val interpolator: TimeInterpolator? = null,
+    val interpolator: TimeInterpolator? = null
 ) {
 
-    fun mergeFromParent(parent: Configuration): Configuration {
-        return Configuration(
-            duration = duration ?: parent.duration,
-            startDelay = startDelay ?: parent.startDelay,
-            interpolator = interpolator ?: parent.interpolator
-        )
-    }
+    fun mergeFromParent(parent: Configuration): Configuration = Configuration(
+        duration = duration ?: parent.duration,
+        startDelay = startDelay ?: parent.startDelay,
+        interpolator = interpolator ?: parent.interpolator
+    )
 
     companion object {
 
@@ -49,17 +47,13 @@ data class Configuration(
 }
 
 @AnimatorDsl
-class WAnimatorSet(
-    private val inherited: Configuration = Configuration()
-) : IConfigurable {
+class WAnimatorSet(private val inherited: Configuration = Configuration()) : IConfigurable {
 
     private var configuration: Configuration = Configuration()
     private val nodes: MutableList<Node> = mutableListOf()
     private var endAction: (() -> Unit)? = null
 
-    private fun buildConfiguration(): Configuration {
-        return configuration.mergeFromParent(inherited)
-    }
+    private fun buildConfiguration(): Configuration = configuration.mergeFromParent(inherited)
 
     override fun duration(duration: Long) {
         configuration = configuration.copy(duration = duration)
@@ -118,6 +112,7 @@ class WAnimatorSet(
 
     private fun buildNode(node: Node): Animator = when (node) {
         is Node.Single -> node.animator
+
         is Node.Together -> AnimatorSet().apply {
             val kids = node.children.map { buildNode(it) }
             if (kids.isNotEmpty()) playTogether(kids)
@@ -131,10 +126,8 @@ class WAnimatorSet(
 }
 
 @AnimatorDsl
-class ViewAnimatorDsl(
-    private val view: View,
-    private val inherited: Configuration
-) : IConfigurable {
+class ViewAnimatorDsl(private val view: View, private val inherited: Configuration) :
+    IConfigurable {
 
     private var configuration: Configuration = Configuration()
     private val holders = mutableListOf<PropertyValuesHolder>()
@@ -255,6 +248,5 @@ class FloatAnimatorDsl(private val inherited: Configuration) : IConfigurable {
     }
 }
 
-inline fun animatorSet(block: WAnimatorSet.() -> Unit): Animator {
-    return WAnimatorSet().apply(block).build()
-}
+inline fun animatorSet(block: WAnimatorSet.() -> Unit): Animator =
+    WAnimatorSet().apply(block).build()

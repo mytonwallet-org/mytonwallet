@@ -1,6 +1,20 @@
 import type { ApiSwapDexLabel, ApiSwapHistoryItem } from './backend';
 import type { ApiNetwork, ApiNftMarketplace, ApiTransaction } from './misc';
 
+export type ApiActivityReconciliationReason =
+  | 'raw'
+  | 'local-intent'
+  | 'cex-swap'
+  | 'ton-aggregated-swap'
+  | 'ton-partial-failure-deaggregated';
+
+export type ApiActivityReconciliationMetadata = {
+  operationId?: string;
+  sourceActionIds: string[];
+  hiddenSourceActionIds: string[];
+  reason: ApiActivityReconciliationReason;
+};
+
 type BaseActivity = {
   id: string;
   shouldHide?: boolean;
@@ -29,6 +43,8 @@ type BaseActivity = {
       from: string;
       to: string;
     };
+    /** SDK-owned source/projection metadata for activity reconciliation. Optional for backwards compatibility. */
+    reconciliation?: ApiActivityReconciliationMetadata;
     // TODO Move other extra fields here (externalMsgHash, ...)
   };
 };
@@ -55,7 +71,7 @@ export type ApiFetchActivitySliceOptions = {
 export type ApiDecryptCommentOptions = {
   accountId: string;
   activity: ApiTransactionActivity & Required<Pick<ApiTransactionActivity, 'encryptedComment'>>;
-  password?: string;
+  enclaveToken?: string;
 };
 
 export type ApiFetchTransactionByIdOptions = {

@@ -5,8 +5,7 @@ import WalletCore
 import WalletContext
 import Perception
 
-private let slippageFont = UIFont.systemFont(ofSize: 20, weight: .semibold)
-let DEFAULT_OUR_SWAP_FEE = 0.875
+@MainActor private let slippageFont = WTypography.uiFont(.amountSecondary, content: .technical)
 
 @MainActor struct SwapDetailsVM {
     var fromToken: ApiToken { inputModel.sellingToken }
@@ -52,7 +51,6 @@ let DEFAULT_OUR_SWAP_FEE = 0.875
             tokenIn: fromToken,
             networkFee: displayEstimate.networkFee,
             realNetworkFee: displayEstimate.realNetworkFee,
-            ourFee: displayEstimate.ourFee,
             dieselStatus: displayEstimate.dieselStatus,
             dieselFee: displayEstimate.dieselFee,
             nativeTokenInBalance: inputModel.$account.balances[nativeToken.slug]
@@ -88,7 +86,6 @@ struct SwapDetailsView: View {
                 pricePerCoinRow
                 slippageRow
                 blockchainFeeRow
-                routingFeesRow
                 priceImpactRow
                 minimumReceivedRow
             }
@@ -108,6 +105,11 @@ struct SwapDetailsView: View {
                         Spacer(minLength: 4)
                         let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
                         Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.compact))")
+                            .textStyle(
+                                .body,
+                                content: .technical,
+                                scaling: .dynamic
+                            )
                     }
                 }
             }
@@ -144,7 +146,7 @@ struct SwapDetailsView: View {
                         slippageExpanded = false
                     }) {
                         Text(lang("Done"))
-                            .fontWeight(.semibold)
+                            .textStyle(.bodyStrong, scaling: .dynamic)
                     }
                     .transition(.scale.combined(with: .opacity))
                 }
@@ -155,7 +157,7 @@ struct SwapDetailsView: View {
                         WUIAmountInput(amount: $draftSlippage, maximumFractionDigits: SLIPPAGE_DECIMALS, font: slippageFont, fractionFont: slippageFont, alignment: .right, isFocused: $slippageFocused, error: slippageError)
                             .frame(width: 68)
                         Text("%")
-                            .font(Font(slippageFont))
+                            .textStyle(.amountSecondary, content: .technical)
                     }
                     .padding(8)
                     .contentShape(.rect)
@@ -175,7 +177,7 @@ struct SwapDetailsView: View {
                         slippageChoice(value: BigInt(100))
                     }
                     .fixedSize()
-                    .font(.system(size: 13, weight: .medium))
+                    .textStyle(.footnoteEmphasized, content: .technical)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 2)
@@ -197,45 +199,30 @@ struct SwapDetailsView: View {
     @ViewBuilder
     var blockchainFeeRow: some View {
         if let displayEstimate {
+            let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug]
+            let feeDetails = model.feeDetails
             InsetDetailCell {
-                Text(lang("Blockchain Fee"))
-                    .foregroundStyle(Color.air.secondaryLabel)
+                SwapBlockchainFeeLabel(nativeToken: nativeToken, feeDetails: feeDetails)
             } value: {
-                if let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug],
-                   let feeDetails = model.feeDetails {
+                if let nativeToken,
+                   let feeDetails {
                     FeeView(
                         token: sellingToken,
                         nativeToken: nativeToken,
                         fee: nil,
                         explainedTransferFee: feeDetails,
-                        includeLabel: false
+                        includeLabel: false,
+                        showDetailsButton: false
                     )
                 } else if let tonToken = TokenStore.tokens[TONCOIN_SLUG] {
                     let fee = sellingToken.chain == .ton ? displayEstimate.realNetworkFee : displayEstimate.networkFee
                     let feeAmountString = DecimalAmount.fromDouble(fee.value, tonToken).formatted(.fee)
                     Text("~\(feeAmountString)")
-                }
-            }
-        }
-    }
-    
-    @ViewBuilder
-    var routingFeesRow: some View {
-        if displayEstimate != nil {
-            InsetDetailCell {
-                Text(lang("Aggregator Fee"))
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .overlay(alignment: .trailingFirstTextBaseline) {
-                        let feePercent = displayEstimate?.ourFeePercent ?? DEFAULT_OUR_SWAP_FEE
-                        let formattedFeePercent = formatPercent(feePercent / 100, decimals: 5, showPlus: false)
-                        InfoButton(title: lang("Aggregator Fee"), message: lang("$swap_aggregator_fee_tooltip", arg1: formattedFeePercent))
-                    }
-            } value: {
-                if let ourFee = displayEstimate?.ourFee {
-                    let amount = DecimalAmount.fromDouble(ourFee.value, sellingToken)
-                    Text(amount.formatted(.defaultAdaptive))
-                } else {
-                    Text(lang("Included"))
+                        .textStyle(
+                            .body,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
                 }
             }
         }
@@ -253,8 +240,18 @@ struct SwapDetailsView: View {
             } value: {
                 HStack(spacing: 3) {
                     Text(formatPercent(displayEstimate.impact / 100, decimals: 1, showPlus: false))
+                        .textStyle(
+                            .body,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
                     if model.displayImpactWarning != nil {
                         Text(Image(systemName: "exclamationmark.triangle.fill"))
+                            .textStyle(
+                                .body,
+                                content: .technical,
+                                scaling: .dynamic
+                            )
                             .foregroundStyle(.red)
                     }
                 }
@@ -273,7 +270,12 @@ struct SwapDetailsView: View {
                     }
             } value: {
                 let minAmount = DecimalAmount.fromDouble(displayEstimate.toMinAmount.value, buyingToken)
-                Text(minAmount.formatted(.defaultAdaptive))
+                Text(minAmount.formatted(.baseCurrencyHighPrecision, roundHalfUp: false))
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
             }
         }
     }
@@ -288,10 +290,10 @@ private struct SlippagePickerButton: View {
         Button(action: onTap) {
             HStack(spacing: 2) {
                 Text("\(formatBigIntText(value, tokenDecimals: 1))%")
-                    .font(.system(size: 17, weight: .medium))
+                    .textStyle(.bodyEmphasized, content: .technical)
                 
                 Image("SendPickToken", bundle: AirBundle)
-                    .font(.footnote)
+                    .textStyle(.footnote, content: .technical)
                     .foregroundStyle(.secondary)
             }
             .fixedSize()
@@ -304,27 +306,50 @@ private struct SlippagePickerButton: View {
     }
 }
 
-private struct InfoButton: View {
-    
-    var title: String
-    var message: String
-    
+struct SwapBlockchainFeeLabel: View {
+
+    var nativeToken: ApiToken?
+    var feeDetails: ExplainedTransferFee?
+
     var body: some View {
-        Button(action: onTap) {
-            Image.airBundle("InfoIcon")
-                .renderingMode(.template)
-                .foregroundStyle(Color(.air.secondaryLabel.withAlphaComponent(0.3)))
-                .padding(4)
-                .contentShape(.circle)
-        }
-        .padding(-4)
-        .buttonStyle(.plain)
-        .offset(x: 22, y: 1.333)
+        Text(lang("Blockchain Fee"))
+            .foregroundStyle(Color.air.secondaryLabel)
+            .overlay(alignment: .trailingFirstTextBaseline) {
+                if let nativeToken, let feeDetails {
+                    SwapFeeDetailsInfoButton(nativeToken: nativeToken, feeDetails: feeDetails)
+                }
+            }
     }
-    
-    func onTap() {
-        topWViewController()?.showTip(title: title) {
-            Text(langMd(message))
+}
+
+private struct SwapFeeDetailsInfoButton: View {
+
+    var nativeToken: ApiToken
+    var feeDetails: ExplainedTransferFee
+
+    var body: some View {
+        if feeDetails.supportsLegacyDetailsView {
+            Button(action: showFeeDetails) {
+                Image.airBundle("InfoIcon")
+                    .renderingMode(.template)
+                    .foregroundStyle(Color(.air.secondaryLabel.withAlphaComponent(0.3)))
+                    .padding(4)
+                    .contentShape(.circle)
+            }
+            .padding(-4)
+            .buttonStyle(.plain)
+            .offset(x: 22, y: 1.333)
+            .accessibilityLabel(lang("Blockchain Fee Details"))
+            .accessibilityHint(lang("Shows more information"))
+        }
+    }
+
+    func showFeeDetails() {
+        if let vc = topWViewController() {
+            vc.view.endEditing(true)
+            vc.showTip(title: "Blockchain Fee Details", wide: true) {
+                FeeDetailsView(nativeToken: nativeToken, fee: feeDetails)
+            }
         }
     }
 }

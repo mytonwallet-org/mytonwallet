@@ -124,7 +124,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             snapshot.appendSections([.buyCrypto])
 
             var buyCryptoItems: [ReceiveItem] = []
-            if chain.isOnrampSupported {
+            if chain.isOnrampSupported && !OnRampCurrencyPolicy.supportedCurrencies(for: chain).isEmpty {
                 buyCryptoItems.append(.buyWithCard)
             }
             if !account.isHardware {

@@ -60,6 +60,7 @@ sealed class Deeplink {
 
     data class Receive(override val accountAddress: String?) : Deeplink()
     data class BuyWithCard(override val accountAddress: String?) : Deeplink()
+    data class SellOnCard(override val accountAddress: String?) : Deeplink()
     data class Offramp(
         override val accountAddress: String?,
         val transactionId: String?,
@@ -71,19 +72,12 @@ sealed class Deeplink {
 
     data class Stake(override val accountAddress: String?) : Deeplink()
     data class Portfolio(override val accountAddress: String?) : Deeplink()
-    data class Explore(
-        override val accountAddress: String?,
-        val targetUri: Uri?
-    ) : Deeplink()
+    data class Explore(override val accountAddress: String?, val targetUri: Uri?) : Deeplink()
 
-    data class Agent(
-        override val accountAddress: String?
-    ) : Deeplink()
+    data class Agent(override val accountAddress: String?) : Deeplink()
 
-    data class Url(
-        override val accountAddress: String?,
-        val config: InAppBrowserConfig
-    ) : Deeplink()
+    data class Url(override val accountAddress: String?, val config: InAppBrowserConfig) :
+        Deeplink()
 
     data class NotificationUrl(
         override val accountAddress: String?,
@@ -112,9 +106,13 @@ sealed class Deeplink {
 
     data class Settings(override val accountAddress: String?, val page: String?) : Deeplink()
     data class WalletConnect(override val accountAddress: String?, val requestUri: Uri) : Deeplink()
+    data class WalletConnectSessionRequest(
+        override val accountAddress: String?,
+        val sessionTopic: String
+    ) : Deeplink()
     data class WalletConnectPay(override val accountAddress: String?, val requestUri: Uri) :
         Deeplink()
-    data class SwitchToLegacy(override val accountAddress: String?) : Deeplink()
+
     data class View(
         override val accountAddress: String?,
         val network: MBlockchainNetwork,
@@ -139,23 +137,26 @@ class DeeplinkParser {
         private val WC_WRAPPER_UNIVERSAL_HOSTS = setOf(
             "connect.mywallet.io",
             "connect.mytonwallet.org",
-            "connect.gramwallet.io",
+            "connect.gramwallet.io"
         )
 
-        fun parse(intent: Intent): Deeplink? {
-            return parse(intent.data) ?: parse(intent.extras)
-        }
+        fun parse(intent: Intent): Deeplink? = parse(intent.data) ?: parse(intent.extras)
 
         fun parse(uri: Uri?): Deeplink? {
-            if (uri == null)
-                return null
+            if (uri == null) return null
             return when (uri.scheme) {
                 "ton" -> handleTonInvoice(uri)
+
                 "tc", APP_TC_SCHEME -> handleTonConnect(uri)
+
                 "wc" -> handleWalletConnect(uri)
+
                 APP_SCHEME -> handleMTW(uri)
+
                 "https" -> handleHttpsDeeplinks(uri)
+
                 in WC_WRAPPER_SCHEMES -> handleWalletConnectWrapper(uri)
+
                 else -> {
                     null
                 }
@@ -163,23 +164,23 @@ class DeeplinkParser {
         }
 
         private fun parse(bundle: Bundle?): Deeplink? {
-            if (bundle == null)
-                return null
+            if (bundle == null) return null
             val address = bundle.getString("address")
             val action = bundle.getString("action")
-            if (address == null && action != "openUrl")
-                return null
+            if (address == null && action != "openUrl") return null
             return when (action) {
                 "openUrl" -> {
                     val url = bundle.getString("url") ?: return null
                     Deeplink.NotificationUrl(
-                        address, InAppBrowserConfig(
+                        address,
+                        InAppBrowserConfig(
                             url = url,
                             title = bundle.getString("title"),
                             injectDappConnect = true
                         ),
-                        isExternal = bundle.getString("isExternal")?.equals("true", ignoreCase = true)
-                            ?: false
+                        isExternal =
+                            bundle.getString("isExternal")?.equals("true", ignoreCase = true)
+                                ?: false
                     )
                 }
 
@@ -213,19 +214,31 @@ class DeeplinkParser {
             }
         }
 
-        private fun handleTonConnect(uri: Uri): Deeplink {
-            return Deeplink.TonConnect2(accountAddress = null, requestUri = uri)
-        }
+        private fun handleTonConnect(uri: Uri): Deeplink =
+            Deeplink.TonConnect2(accountAddress = null, requestUri = uri)
 
-        private fun handleWalletConnect(uri: Uri): Deeplink {
-            return Deeplink.WalletConnect(accountAddress = null, requestUri = uri)
-        }
+        private fun handleWalletConnect(uri: Uri): Deeplink =
+            Deeplink.WalletConnect(accountAddress = null, requestUri = uri)
 
         private fun handleWalletConnectWrapper(uri: Uri): Deeplink? {
+            val requestId = uri.getQueryParameter("requestId")
+            val sessionTopic = uri.getQueryParameter("sessionTopic")
+            walletConnectSessionRequest(requestId, sessionTopic)?.let { return it }
             val requestLink = walletConnectRequestLink(uri) ?: return null
             return Deeplink.WalletConnect(
                 accountAddress = null,
                 requestUri = Uri.parse(requestLink)
+            )
+        }
+
+        internal fun walletConnectSessionRequest(
+            requestId: String?,
+            sessionTopic: String?
+        ): Deeplink.WalletConnectSessionRequest? {
+            if (requestId.isNullOrBlank() || sessionTopic.isNullOrBlank()) return null
+            return Deeplink.WalletConnectSessionRequest(
+                accountAddress = null,
+                sessionTopic = sessionTopic
             )
         }
 
@@ -268,20 +281,22 @@ class DeeplinkParser {
                 init = parsedWalletURL.init,
                 jetton = parsedWalletURL.jetton,
                 token = parsedWalletURL.token,
-                hasUnsupportedParams = parsedWalletURL.hasUnsupportedParams,
+                hasUnsupportedParams = parsedWalletURL.hasUnsupportedParams
             )
         }
 
         private fun handleHttpsDeeplinks(uri: Uri): Deeplink? {
             val isGram = ApplicationContextHolder.isGramApp
-            val universalHosts = if (isGram)
+            val universalHosts = if (isGram) {
                 setOf("go.gramwallet.io", "my.tt", "go.mytonwallet.org")
-            else
+            } else {
                 setOf("my.tt", "go.mytonwallet.org")
-            val tonconnectHosts = if (isGram)
+            }
+            val tonconnectHosts = if (isGram) {
                 setOf("connect.gramwallet.io", "connect.mytonwallet.org")
-            else
+            } else {
                 setOf("connect.mytonwallet.org")
+            }
             val host = uri.host
             when {
                 host != null && host.lowercase() in WC_WRAPPER_UNIVERSAL_HOSTS &&
@@ -317,17 +332,21 @@ class DeeplinkParser {
                 }
 
                 host == "walletconnect.com" -> {
-                    if (uri.path == "/pay" || uri.path?.startsWith("/pay/") == true)
+                    if (uri.path == "/pay" || uri.path?.startsWith("/pay/") == true) {
                         return handleWalletConnectPay(uri)
-                    if (uri.path == "/wc") handleWalletConnectWrapper(uri) ?: handleWalletConnect(uri)
+                    }
+                    if (uri.path ==
+                        "/wc"
+                    ) {
+                        handleWalletConnectWrapper(uri) ?: handleWalletConnect(uri)
+                    }
                 }
             }
             return null
         }
 
-        private fun handleWalletConnectPay(uri: Uri): Deeplink {
-            return Deeplink.WalletConnectPay(accountAddress = null, requestUri = uri)
-        }
+        private fun handleWalletConnectPay(uri: Uri): Deeplink =
+            Deeplink.WalletConnectPay(accountAddress = null, requestUri = uri)
 
         private fun handleMTW(uri: Uri): Deeplink? {
             return when (uri.host) {
@@ -339,7 +358,15 @@ class DeeplinkParser {
                     uri.query?.let { query ->
                         val components = query.decodeUrlOrNull()?.split("&")?.mapNotNull {
                             it.split("=")
-                                .let { parts -> if (parts.size == 2) parts[0] to parts[1] else null }
+                                .let { parts ->
+                                    if (parts.size ==
+                                        2
+                                    ) {
+                                        parts[0] to parts[1]
+                                    } else {
+                                        null
+                                    }
+                                }
                         }?.toMap() ?: emptyMap()
 
                         components["amountIn"]?.toDoubleOrNull()?.let { amountIn = it }
@@ -356,10 +383,17 @@ class DeeplinkParser {
                 }
 
                 "wc" -> handleWalletConnectWrapper(uri)
+
                 "transfer" -> handleTonInvoice(uri)
+
                 "send" -> handleSend(uri)
+
                 "receive" -> Deeplink.Receive(accountAddress = null)
+
                 "buy-with-card" -> Deeplink.BuyWithCard(accountAddress = null)
+
+                "sell-on-card" -> Deeplink.SellOnCard(accountAddress = null)
+
                 "offramp" -> Deeplink.Offramp(
                     accountAddress = null,
                     transactionId = uri.getQueryParameter("transactionId"),
@@ -370,14 +404,16 @@ class DeeplinkParser {
                 )
 
                 "stake" -> Deeplink.Stake(accountAddress = null)
+
                 "portfolio" -> Deeplink.Portfolio(accountAddress = null)
+
                 "explore" -> Deeplink.Explore(
                     accountAddress = null,
                     targetUri = uri.extractSubUri()
                 )
 
                 "agent" -> Deeplink.Agent(
-                    accountAddress = null,
+                    accountAddress = null
                 )
 
                 "settings" -> {
@@ -412,11 +448,6 @@ class DeeplinkParser {
                     Deeplink.Url(accountAddress = null, config)
                 }
 
-                "classic" -> {
-                    if (ApplicationContextHolder.isGramApp) null
-                    else Deeplink.SwitchToLegacy(null)
-                }
-
                 "token" -> {
                     val pathParts = uri.pathSegments
 
@@ -443,7 +474,7 @@ class DeeplinkParser {
                             chain = chain,
                             txId = txId,
                             txHash = null,
-                            isPushNotification = false,
+                            isPushNotification = false
                         )
                     } else {
                         return null
@@ -455,7 +486,9 @@ class DeeplinkParser {
                     MBlockchain.supportedChains.forEach { blockchain ->
                         val address = uri.getQueryParameter(blockchain.name)
                         if (!address.isNullOrBlank()) {
-                            if (blockchain.isValidAddress(address) || blockchain.isValidDNS(address)) {
+                            if (blockchain.isValidAddress(address) ||
+                                blockchain.isValidDNS(address)
+                            ) {
                                 addressByChain[blockchain.name] = address
                             }
                         }
@@ -472,7 +505,13 @@ class DeeplinkParser {
                         }
                     }
                     val network =
-                        if (uri.getQueryParameter("testnet") == "true") MBlockchainNetwork.TESTNET else MBlockchainNetwork.MAINNET
+                        if (uri.getQueryParameter("testnet") ==
+                            "true"
+                        ) {
+                            MBlockchainNetwork.TESTNET
+                        } else {
+                            MBlockchainNetwork.MAINNET
+                        }
                     return Deeplink.View(
                         accountAddress = null,
                         network = network,
@@ -484,7 +523,13 @@ class DeeplinkParser {
                     val nftAddress =
                         uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() } ?: return null
                     val network =
-                        if (uri.getQueryParameter("testnet") == "true") MBlockchainNetwork.TESTNET else MBlockchainNetwork.MAINNET
+                        if (uri.getQueryParameter("testnet") ==
+                            "true"
+                        ) {
+                            MBlockchainNetwork.TESTNET
+                        } else {
+                            MBlockchainNetwork.MAINNET
+                        }
                     return Deeplink.Nft(
                         accountAddress = null,
                         network = network,
@@ -528,11 +573,7 @@ class DeeplinkParser {
                         "bin" -> binary = value
                         "token" -> tokenSlug = value
                         "init", "stateInit" -> init = value
-                        "exp" -> try {
-                            expiry = value.toLong()
-                        } catch (_: NumberFormatException) {
-                        }
-
+                        "exp" -> expiry = value.toLongOrNull()
                         else -> hasUnsupportedParams = true
                     }
                 }
@@ -599,12 +640,7 @@ fun parseWalletUrl(uri: Uri): ParsedWalletUrl? {
             when (paramName) {
                 "amount" -> amount = value
                 "bin" -> binary = value
-                "exp" -> try {
-                    expiry = value.toLong()
-                } catch (e: NumberFormatException) {
-                    // Handle invalid amount format
-                }
-
+                "exp" -> expiry = value.toLongOrNull()
                 "init", "stateInit" -> init = value
                 "jetton" -> jetton = value
                 "text" -> comment = value

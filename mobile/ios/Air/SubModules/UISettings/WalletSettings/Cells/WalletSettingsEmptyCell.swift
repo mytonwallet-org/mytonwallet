@@ -26,9 +26,9 @@ struct WalletSettingsEmptyCell: View {
                 WUIAnimatedSticker("duck_no-data", size: 100, loop: false, playTrigger: playTrigger)
                 VStack(spacing: 20) {
                     Text(filter.emptyTitle)
-                        .font(.system(size: 17, weight: .semibold))
+                        .textStyle(.bodyStrong)
                     Text(filter.emptySubtitle)
-                        .font(.system(size: 17, weight: .regular))
+                        .textStyle(.body)
                         .foregroundStyle(.secondary)
                 }
                 .multilineTextAlignment(.center)

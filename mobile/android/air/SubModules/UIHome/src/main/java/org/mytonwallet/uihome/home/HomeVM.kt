@@ -2,6 +2,7 @@ package org.mytonwallet.uihome.home
 
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -16,12 +17,8 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.status.HomeStatusController
 import org.mytonwallet.uihome.home.views.UpdateStatusView
-import java.lang.ref.WeakReference
 
-class HomeVM(
-    private val mode: MScreenMode,
-    delegate: Delegate
-) : WalletCore.EventObserver {
+class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.EventObserver {
 
     interface Delegate {
         fun update(state: UpdateStatusView.State, animated: Boolean)
@@ -71,9 +68,11 @@ class HomeVM(
             return TokenStore.swapAssetsLoaded &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                (showingAccount?.isMainnet != true ||
-                    StakingStore.getStakingState(showingAccountId ?: "") != null ||
-                    WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null)
+                (
+                    showingAccount?.isMainnet != true ||
+                        StakingStore.getStakingState(showingAccountId ?: "") != null ||
+                        WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null
+                    )
         }
 
     // Called on bridge ready to setup the observer
@@ -93,8 +92,7 @@ class HomeVM(
         val removingAccountId = showingAccountId ?: return
         val shouldRemoveCurrentAccount =
             WGlobalStorage.temporaryAddedAccountIds.contains(removingAccountId)
-        if (!shouldRemoveCurrentAccount)
-            return
+        if (!shouldRemoveCurrentAccount) return
         Logger.d(Logger.LogTag.ACCOUNT, "removeTemporaryAccount: accountId=$removingAccountId")
         AccountStore.removeAccount(removingAccountId, null, null) { _, _ ->
             WGlobalStorage.temporaryAddedAccountIds.remove(removingAccountId)
@@ -130,10 +128,11 @@ class HomeVM(
         get() {
             return when (mode) {
                 MScreenMode.Default -> {
-                    if (loadedAccountId == AccountStore.activeAccountId)
+                    if (loadedAccountId == AccountStore.activeAccountId) {
                         AccountStore.activeAccount
-                    else
+                    } else {
                         AccountStore.accountById(loadedAccountId)
+                    }
                 }
 
                 is MScreenMode.SingleWallet -> {
@@ -221,15 +220,13 @@ class HomeVM(
             }
 
             is WalletEvent.AccountWillChange -> {
-                if (!mode.isScreenActive || loadedAccountId == WalletCore.nextAccountId)
-                    return
+                if (!mode.isScreenActive || loadedAccountId == WalletCore.nextAccountId) return
                 delegate.get()?.accountWillChange(walletEvent.fromHome)
                 updateBalanceView(!walletEvent.fromHome)
             }
 
             is WalletEvent.AccountChanged -> {
-                if (!mode.isScreenActive || loadedAccountId == AccountStore.activeAccountId)
-                    return
+                if (!mode.isScreenActive || loadedAccountId == AccountStore.activeAccountId) return
                 accountChanged(walletEvent.fromHome, walletEvent.isSavingTemporaryAccount)
             }
 
@@ -268,21 +265,18 @@ class HomeVM(
             }
 
             WalletEvent.NftCardUpdated -> {
-                if (!mode.isScreenActive)
-                    return
+                if (!mode.isScreenActive) return
                 delegate.get()?.reloadCard()
             }
 
             WalletEvent.NftsUpdated -> {
-                if (!mode.isScreenActive)
-                    return
+                if (!mode.isScreenActive) return
                 delegate.get()?.reloadTabs()
                 dataUpdated()
             }
 
             WalletEvent.HomeNftCollectionsUpdated -> {
-                if (!mode.isScreenActive)
-                    return
+                if (!mode.isScreenActive) return
                 delegate.get()?.reloadTabs()
             }
 
@@ -314,8 +308,9 @@ class HomeVM(
                     }
 
                     is MScreenMode.SingleWallet -> {
-                        if (walletEvent.accountId == loadedAccountId)
+                        if (walletEvent.accountId == loadedAccountId) {
                             delegate.get()?.removeScreenFromStack()
+                        }
                         // else: doesn't matter
                     }
                 }
@@ -338,5 +333,4 @@ class HomeVM(
             else -> {}
         }
     }
-
 }

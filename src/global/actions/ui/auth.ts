@@ -1,7 +1,8 @@
-import { AuthState } from '../../types';
+import { AppState, AuthState } from '../../types';
 
 import { addActionHandler, setGlobal } from '../../index';
 import { resetAuthToStartScreen, resetHardware, updateAuth } from '../../reducers';
+import { selectCurrentAccountId } from '../../selectors';
 
 addActionHandler('openAbout', (global) => {
   setGlobal(updateAuth(global, { state: AuthState.about, error: undefined }));
@@ -28,7 +29,13 @@ addActionHandler('closeImportViewAccount', (global) => {
 });
 
 addActionHandler('cancelCheckPassword', (global) => {
-  return resetAuthToStartScreen(global);
+  global = resetAuthToStartScreen(global);
+
+  // The screen is shown inside the auth flow even for a signed-in user adding a wallet, so backing out
+  // of it has to return them to their wallet rather than to the sign-in intro
+  return selectCurrentAccountId(global)
+    ? { ...global, appState: AppState.Main }
+    : global;
 });
 
 addActionHandler('openAuthImportWalletModal', (global) => {

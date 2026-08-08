@@ -9,8 +9,6 @@ import Foundation
 import WalletContext
 import WalletCoreTypes
 
-let DEFAULT_OUR_SWAP_FEE = 0.875
-
 public struct NetworkFeeData {
     public let chain: ApiChain?
     public let isNativeIn: Bool
@@ -31,7 +29,6 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
     public let swapFee: MDouble
     public let ourFee: MDouble?
     public let ourFeePercent: Double?
-    public let ourFeeMode: String?
     public var networkFee: MDouble? = nil
     public var realNetworkFee: MDouble? = nil
     // additional

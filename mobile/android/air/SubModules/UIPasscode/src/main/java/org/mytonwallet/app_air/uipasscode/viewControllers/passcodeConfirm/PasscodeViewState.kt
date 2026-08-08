@@ -25,5 +25,4 @@ sealed class PasscodeViewState {
         val showNavbarTitle: Boolean = true,
         val startWithBiometrics: Boolean = true
     ) : PasscodeViewState()
-
 }

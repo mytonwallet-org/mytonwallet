@@ -36,9 +36,12 @@ interface OwnProps<T extends string> {
   className?: string;
   labelClassName?: string;
   itemClassName?: string;
+  buttonClassName?: string;
+  buttonIconClassName?: string;
+  buttonIconOverlayClassName?: string;
   menuClassName?: string;
   theme?: 'light' | 'inherit';
-  arrow?: 'caret' | 'chevron';
+  arrow?: 'caret' | 'chevron' | 'expand';
   menuPositionX?: 'right' | 'left';
   menuPositionY?: 'top' | 'bottom';
   disabled?: boolean;
@@ -47,6 +50,12 @@ interface OwnProps<T extends string> {
   isLoading?: boolean;
   buttonPrefix?: TeactNode;
 }
+
+const ARROW_ICONS = {
+  caret: 'icon-caret-down',
+  chevron: 'icon-chevron-down',
+  expand: 'icon-expand',
+};
 
 const DEFAULT_ARROW = 'caret';
 const DEFAULT_MENU_POSITION_X = 'right';
@@ -58,6 +67,9 @@ function Dropdown<T extends string>({
   className,
   labelClassName,
   itemClassName,
+  buttonClassName,
+  buttonIconClassName,
+  buttonIconOverlayClassName,
   menuClassName,
   theme,
   arrow = DEFAULT_ARROW,
@@ -104,15 +116,13 @@ function Dropdown<T extends string>({
     withMenu && menuClassName,
     theme && styles[theme],
     itemClassName,
+    buttonClassName,
   );
 
   const buttonSuffix = useMemo(() => {
     return withMenu && (
       <i
-        className={buildClassName(
-          styles.buttonIcon,
-          arrow === 'chevron' ? 'icon-chevron-down' : 'icon-caret-down',
-        )}
+        className={buildClassName(styles.buttonIcon, ARROW_ICONS[arrow])}
         aria-hidden
       />
     );
@@ -135,6 +145,8 @@ function Dropdown<T extends string>({
           shouldTranslate={shouldTranslateOptions}
           shouldUseSelectedName
           className={buttonFullClassName}
+          iconClassName={buttonIconClassName}
+          iconOverlayClassName={buttonIconOverlayClassName}
           itemClassName={buildClassName('itemName', itemClassName)}
           onClick={!isFullyInteractive && withMenu ? openMenu : undefined}
         />

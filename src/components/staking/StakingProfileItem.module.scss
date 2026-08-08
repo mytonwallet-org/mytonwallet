@@ -4,7 +4,7 @@
   position: relative;
 
   display: grid;
-  grid-template-areas: "icon left right" "useless bottom bottom";
+  grid-template-areas: "icon startSide endSide" "useless bottom bottom";
   grid-template-columns: 2.875rem auto 1fr;
   grid-template-rows: 2.25rem auto;
   align-items: center;
@@ -14,16 +14,16 @@
   padding: 0.75rem 1rem;
 
   color: var(--color-black);
-  text-align: left;
+  text-align: start;
 
   &:not(:last-of-type) {
     &::after {
       content: '';
 
       position: absolute;
-      right: 1rem;
       bottom: 0;
-      left: 3.875rem;
+      inset-inline-start: 3.875rem;
+      inset-inline-end: 1rem;
 
       height: 0.0625rem;
 
@@ -37,7 +37,8 @@
 
   width: 2.25rem;
   height: 2.25rem;
-  margin: 0 0.625rem 0 0;
+  margin-block: 0;
+  margin-inline: 0 0.625rem;
   border-radius: 50%;
 
   font-size: 1.5rem;
@@ -53,11 +54,12 @@
 }
 
 .leftBlock {
-  grid-area: left;
+  grid-area: startSide;
 }
 
 .amount,
 .operationName {
+  unicode-bidi: plaintext;
   padding-bottom: 0.0625rem;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -69,9 +71,8 @@
 }
 
 .amount {
-  grid-area: right;
-  margin-left: auto;
+  grid-area: endSide;
+  margin-inline-start: auto;
   color: var(--color-green);
-  text-align: right;
-
+  text-align: end;
 }

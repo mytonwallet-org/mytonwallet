@@ -59,7 +59,6 @@ object NetworkUtils {
                     lines.forEach { response.append(it) }
                 }
                 return response.toString()
-
             } catch (e: Exception) {
                 e.printStackTrace()
                 attempt++

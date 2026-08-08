@@ -26,7 +26,7 @@ import buildStyle from '../../../../util/buildStyle';
 import { toDecimal } from '../../../../util/decimals';
 import { buildCollectionByKey } from '../../../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../../../util/memo';
-import { getIsActiveStakingState, getStakingStateStatus } from '../../../../util/staking';
+import { getIsActiveStakingState, getIsNewStakeAllowed, getStakingStateStatus } from '../../../../util/staking';
 import { REM } from '../../../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 import { getScrollContainerClosestSelector } from '../../helpers/scrollableContainer';
@@ -69,6 +69,7 @@ interface StateProps {
   theme: Theme;
   mycoin?: ApiTokenWithPrice;
   isSensitiveDataHidden?: true;
+  areTokenNamesLocalized?: boolean;
   states?: ApiStakingState[];
   isViewMode?: boolean;
   isSwapDisabled?: boolean;
@@ -93,6 +94,7 @@ function Assets({
   baseCurrency,
   mycoin,
   isSensitiveDataHidden,
+  areTokenNamesLocalized,
   theme,
   states,
   isMultichainAccount,
@@ -289,6 +291,7 @@ function Assets({
           baseCurrency={baseCurrency}
           appTheme={appTheme}
           isSensitiveDataHidden={isSensitiveDataHidden}
+          areTokenNamesLocalized={areTokenNamesLocalized}
           tokenClassName={isWidget ? styles.tokenInWidget : undefined}
           onClick={onVestingTokenClick}
         />
@@ -307,9 +310,10 @@ function Assets({
       ? stateByTokenSlug[slug]
       : undefined;
 
-    const { annualYield, yieldType } = stakingState || baseTokenState || {};
     const stakingStatus = stakingState ? getStakingStateStatus(stakingState) : undefined;
-    const isStakingAvailable = Boolean(baseTokenState && !isStakingDisabled);
+    const isStakingAvailable = Boolean(baseTokenState && !isStakingDisabled && getIsNewStakeAllowed(slug));
+    const yieldSource = stakingState || (isStakingAvailable ? baseTokenState : undefined);
+    const { annualYield, yieldType } = yieldSource || {};
     const isSwapAvailable = Boolean(swapTokensBySlug[slug]);
     const isPinned = pinnedSlugsSet.has(slug);
     const amountDecimal = isStaking ? toDecimal(amount, decimals) : undefined;
@@ -336,6 +340,7 @@ function Assets({
           withChainIcon={isMultichainAccount}
           appTheme={appTheme}
           isSensitiveDataHidden={isSensitiveDataHidden}
+          areTokenNamesLocalized={areTokenNamesLocalized}
           withContextMenu
           tokenClassName={isWidget ? styles.tokenInWidget : undefined}
           isViewMode={isViewMode}
@@ -425,7 +430,7 @@ export default memo(
       const swapTokens = selectSwapTokens(global);
       const accountState = selectCurrentAccountState(global);
       const accountSettings = selectCurrentAccountSettings(global);
-      const { isInvestorViewEnabled } = global.settings;
+      const { isInvestorViewEnabled, areTokenNamesLocalized } = global.settings;
 
       const states = selectAccountStakingStates(global, currentAccountId);
       const isViewMode = selectIsCurrentAccountViewMode(global);
@@ -439,6 +444,7 @@ export default memo(
         baseCurrency: global.settings.baseCurrency,
         mycoin: selectMycoin(global),
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
+        areTokenNamesLocalized,
         theme: global.settings.theme,
         states,
         isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),

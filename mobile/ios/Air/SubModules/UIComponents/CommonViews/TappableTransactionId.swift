@@ -139,7 +139,7 @@ public struct CopyableAddressText: View {
     }
 
     public var body: some View {
-        let addressFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+        let addressFont = WTypography.uiFont(.body, content: .technical)
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             Text(formatAddressAttributed(
                 address,

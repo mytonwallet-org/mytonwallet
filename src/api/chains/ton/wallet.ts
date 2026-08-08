@@ -56,6 +56,14 @@ export function publicKeyToAddress(
   return toBase64Address(wallet.address, false, network);
 }
 
+/**
+ * W5 stores the network id inside its wallet ID, so one key gives different addresses on mainnet and testnet.
+ * This picks the one a wallet being created now needs; other versions ignore the network, hence `undefined`.
+ */
+export function getIsTestnetSubwalletId(network: ApiNetwork, version: ApiTonWalletVersion) {
+  return version === 'W5' && network === 'testnet' ? true : undefined;
+}
+
 export function buildWallet(
   publicKey: Uint8Array | string,
   walletVersion: ApiTonWalletVersion,
@@ -164,7 +172,20 @@ type BestWalletVersion = {
 export async function pickBestWalletVersion(
   network: ApiNetwork,
   publicKey: Uint8Array,
+  shouldSkipDiscovery?: boolean,
 ): Promise<BestWalletVersion> {
+  if (shouldSkipDiscovery) {
+    return {
+      wallet: buildWallet(
+        publicKey,
+        DEFAULT_WALLET_VERSION,
+        getIsTestnetSubwalletId(network, DEFAULT_WALLET_VERSION),
+      ),
+      version: DEFAULT_WALLET_VERSION,
+      balance: 0n,
+    };
+  }
+
   const allWallets = await getWalletVersionInfos(network, publicKey);
   const defaultWallets = allWallets.filter(({ version }) => version === DEFAULT_WALLET_VERSION);
   const defaultWallet = defaultWallets.find(

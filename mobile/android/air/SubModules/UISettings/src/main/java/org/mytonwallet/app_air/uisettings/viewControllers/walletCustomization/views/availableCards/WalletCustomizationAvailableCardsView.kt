@@ -15,6 +15,11 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
@@ -41,40 +46,32 @@ import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.ceil
-import kotlin.math.max
-import kotlin.math.roundToInt
-
 
 @SuppressLint("ViewConstructor")
-open class WalletCustomizationAvailableCardsView(
-    context: Context,
-) : FrameLayout(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
+open class WalletCustomizationAvailableCardsView(context: Context) :
+    FrameLayout(context),
+    WThemedView,
+    WRecyclerViewAdapter.WRecyclerViewDataSource {
 
     private var totalWidth: Int = 0
 
     companion object {
         val AVAILABLE_CARD_CELL = WCell.Type(1)
 
-        private fun calculateNoOfColumns(totalWidth: Int): Int {
-            return max(
-                2,
-                ((totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp) - 16.dp) / 100.dp
-            )
-        }
+        private fun calculateNoOfColumns(totalWidth: Int): Int = max(
+            2,
+            ((totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp) - 16.dp) / 100.dp
+        )
 
-        private fun cellWidth(totalWidth: Int): Int {
-            return ((totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp) - 16.dp) /
+        private fun cellWidth(totalWidth: Int): Int =
+            ((totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp) - 16.dp) /
                 calculateNoOfColumns(totalWidth)
-        }
 
-        fun calculateHeight(totalWidth: Int, itemsCount: Int): Int {
-            return 67.dp +
-                (ceil(itemsCount / calculateNoOfColumns(totalWidth).toFloat()) *
-                    (cellWidth(totalWidth) / WalletCustomizationAvailableCardCell.RATIO + 4.dp)).roundToInt()
-        }
+        fun calculateHeight(totalWidth: Int, itemsCount: Int): Int = 67.dp +
+            (
+                ceil(itemsCount / calculateNoOfColumns(totalWidth).toFloat()) *
+                    (cellWidth(totalWidth) / WalletCustomizationAvailableCardCell.RATIO + 4.dp)
+                ).roundToInt()
 
         const val DEFAULT_HEIGHT = 242
     }
@@ -83,7 +80,7 @@ open class WalletCustomizationAvailableCardsView(
     var tintColor = 0
 
     private val topDrawable = context.getDrawableCompat(
-        org.mytonwallet.app_air.uisettings.R.drawable.ic_arrow_tooltip_top
+        org.mytonwallet.app_air.icons.R.drawable.ic_arrow_tooltip_top
     )
     private val topImageView = AppCompatImageView(context).apply {
         setImageDrawable(topDrawable)
@@ -103,9 +100,7 @@ open class WalletCustomizationAvailableCardsView(
             adapter = rvAdapter
             val layoutManager = GridLayoutManager(context, spanSize())
             layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
-                override fun getSpanSize(position: Int): Int {
-                    return cellWidth()
-                }
+                override fun getSpanSize(position: Int): Int = cellWidth()
             }
             layoutManager.isSmoothScrollbarEnabled = true
             setLayoutManager(layoutManager)
@@ -149,7 +144,9 @@ open class WalletCustomizationAvailableCardsView(
             setTextColor(WColor.SecondaryText)
             gravity = Gravity.CENTER
             text =
-                LocaleController.getString("My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.")
+                LocaleController.getString(
+                    "My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list."
+                )
             alpha = 0f
         }
         WView(context).apply {
@@ -185,17 +182,12 @@ open class WalletCustomizationAvailableCardsView(
     private var cards: List<ApiNft?>? = null
     private var selectedCardAddress: String? = null
 
-    private fun calculateNoOfColumns(): Int {
-        return calculateNoOfColumns(totalWidth)
-    }
+    private fun calculateNoOfColumns(): Int = calculateNoOfColumns(totalWidth)
 
-    private fun cellWidth(): Int {
-        return cellWidth(totalWidth)
-    }
+    private fun cellWidth(): Int = cellWidth(totalWidth)
 
-    private fun spanSize(): Int {
-        return max(1, totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp)
-    }
+    private fun spanSize(): Int =
+        max(1, totalWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp)
 
     fun setLayoutWidth(width: Int) {
         if (width <= 0 || width == totalWidth) return
@@ -208,8 +200,8 @@ open class WalletCustomizationAvailableCardsView(
         }
         cards?.let {
             val rows = ceil(it.size / calculateNoOfColumns().toFloat())
-            val itemsHeight =
-                (rows * (cellWidth() / WalletCustomizationAvailableCardCell.RATIO + 4.dp)).roundToInt()
+            val cellHeight = cellWidth() / WalletCustomizationAvailableCardCell.RATIO + 4.dp
+            val itemsHeight = (rows * cellHeight).roundToInt()
             recyclerView.updateLayoutParams {
                 height = itemsHeight
             }
@@ -219,19 +211,31 @@ open class WalletCustomizationAvailableCardsView(
 
     private val contentView: FrameLayout by lazy {
         FrameLayout(context).apply {
-            addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                topMargin = 14.dp
-            })
-            addView(recyclerView, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                topMargin = 47.dp
-            })
-            addView(progressView, LayoutParams(24.dp, 24.dp).apply {
-                gravity = Gravity.CENTER
-            })
-            addView(emptyView, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            })
+            addView(
+                titleLabel,
+                LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    topMargin = 14.dp
+                }
+            )
+            addView(
+                recyclerView,
+                LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    topMargin = 47.dp
+                }
+            )
+            addView(
+                progressView,
+                LayoutParams(24.dp, 24.dp).apply {
+                    gravity = Gravity.CENTER
+                }
+            )
+            addView(
+                emptyView,
+                LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                }
+            )
         }
     }
 
@@ -242,20 +246,25 @@ open class WalletCustomizationAvailableCardsView(
     }
 
     init {
-        addView(topImageView, LayoutParams(32.dp, 16.dp).apply {
-            topMargin = 3.dp
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-        addView(containerView, LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
-            topMargin = 18.dp
-        })
+        addView(
+            topImageView,
+            LayoutParams(32.dp, 16.dp).apply {
+                topMargin = 3.dp
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            containerView,
+            LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
+                topMargin = 18.dp
+            }
+        )
         updateTheme()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w != oldw)
-            setLayoutWidth(w + 2 * ViewConstants.HORIZONTAL_PADDINGS.dp)
+        if (w != oldw) setLayoutWidth(w + 2 * ViewConstants.HORIZONTAL_PADDINGS.dp)
     }
 
     override fun updateTheme() {
@@ -275,8 +284,8 @@ open class WalletCustomizationAvailableCardsView(
         progressView.animate().cancel()
         cards?.let {
             val rows = ceil(cards.size / calculateNoOfColumns().toFloat())
-            val itemsHeight =
-                (rows * (cellWidth() / WalletCustomizationAvailableCardCell.RATIO + 4.dp)).roundToInt()
+            val cellHeight = cellWidth() / WalletCustomizationAvailableCardCell.RATIO + 4.dp
+            val itemsHeight = (rows * cellHeight).roundToInt()
             recyclerView.updateLayoutParams {
                 height = itemsHeight
             }
@@ -322,8 +331,7 @@ open class WalletCustomizationAvailableCardsView(
 
     fun reloadSelectedItem() {
         cards?.indexOfFirst { it?.address == selectedCardAddress }?.let {
-            if (it > -1)
-                rvAdapter.notifyItemChanged(it)
+            if (it > -1) rvAdapter.notifyItemChanged(it)
         }
     }
 
@@ -331,23 +339,15 @@ open class WalletCustomizationAvailableCardsView(
         recyclerView.onDestroy()
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 1
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return cards?.size ?: 0
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = cards?.size ?: 0
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return AVAILABLE_CARD_CELL
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        AVAILABLE_CARD_CELL
 
-    override fun recyclerViewCellView(
-        rv: RecyclerView,
-        cellType: WCell.Type
-    ): WCell {
-        return WalletCustomizationAvailableCardCell(context, cellWidth()).apply {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        WalletCustomizationAvailableCardCell(context, cellWidth()).apply {
             onTap = { accountId, nft ->
                 WGlobalStorage.setCardBackgroundNft(accountId, nft?.toDictionary())
                 selectedCardAddress = nft?.address
@@ -355,7 +355,6 @@ open class WalletCustomizationAvailableCardsView(
                 onCardChanged?.invoke(accountId, nft)
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -374,5 +373,4 @@ open class WalletCustomizationAvailableCardsView(
             )
         }
     }
-
 }

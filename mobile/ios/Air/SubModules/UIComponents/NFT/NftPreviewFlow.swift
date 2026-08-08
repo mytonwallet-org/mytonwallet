@@ -58,7 +58,7 @@ public final class NftPreviewFlow: WrappingFlowView {
             let label = UILabel()
             label.semanticContentAttribute = .forceLeftToRight
             label.text = lang("$more_nfts", arg1: count)
-            label.font = .systemFont(ofSize: 14)
+            label.applyTextStyle(.supporting)
             label.textColor = .air.secondaryLabel
             label.numberOfLines = 1
             return label
@@ -83,7 +83,7 @@ private final class _NftView: UIView {
         thumbnailView.clipsToBounds = true
         thumbnailView.backgroundColor = .air.thumbBackground
 
-        titleLabel.font = .systemFont(ofSize: 14)
+        titleLabel.applyTextStyle(.supporting)
         titleLabel.textColor = .label
         titleLabel.numberOfLines = 1
         titleLabel.lineBreakMode = .byTruncatingTail

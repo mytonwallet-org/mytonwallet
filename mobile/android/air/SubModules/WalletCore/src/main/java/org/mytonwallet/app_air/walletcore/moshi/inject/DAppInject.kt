@@ -5,11 +5,7 @@ import org.json.JSONArray
 
 object DAppInject {
     @JsonClass(generateAdapter = true)
-    data class FunctionInvoke(
-        val invocationId: String,
-        val name: String,
-        val args: JSONArray?
-    )
+    data class FunctionInvoke(val invocationId: String, val name: String, val args: JSONArray?)
 
     @JsonClass(generateAdapter = true)
     data class FunctionInvokeInvokeResult(

@@ -11,6 +11,8 @@ import android.os.SystemClock
 import android.text.TextPaint
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.graphics.withTranslation
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -23,14 +25,14 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WCounterButton(
     context: Context,
     val drawable: Drawable,
     private val isTrailingButton: Boolean
-) : View(context), Counter.Callback,
+) : View(context),
+    Counter.Callback,
     WThemedView {
     private val textPaintSecondary = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Regular.typeface
@@ -43,6 +45,18 @@ class WCounterButton(
             field = value
             requestLayout()
         }
+    var isDrawableBeforeTextInRtl: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+    var isError: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            updateTheme()
+            invalidate()
+        }
 
     init {
         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, HEIGHT.dp)
@@ -53,8 +67,12 @@ class WCounterButton(
 
     override fun dispatchDraw(canvas: Canvas) {
         if (isTrailingButton && !LocaleController.isRTL) {
-            val leftPadding =
-                PADDING_HORIZONTAL.dp + (counter.targetWidth - counter.getVisibleWidth()).toInt()
+            val leftPadding = PADDING_HORIZONTAL.dp +
+                if (text.isNullOrEmpty()) {
+                    0
+                } else {
+                    (counter.targetWidth - counter.getVisibleWidth()).toInt()
+                }
             setPadding(leftPadding, paddingTop, paddingRight, paddingBottom)
         }
         super.dispatchDraw(canvas)
@@ -63,23 +81,27 @@ class WCounterButton(
             // Draw text normally without animation for RTL
             text?.let {
                 val textWidth = textPaintSecondary.measureText(it)
+                val drawableBeforeText = shouldShowDrawable && isDrawableBeforeTextInRtl
                 canvas.drawText(
                     it,
-                    paddingLeft.toFloat(),
+                    paddingLeft + if (drawableBeforeText) ICON.dp.toFloat() else 0f,
                     measuredHeight / 2f + 5.dp,
                     textPaintSecondary
                 )
 
                 if (shouldShowDrawable) {
                     drawable.let { drawable ->
-                        canvas.save()
-                        canvas.translate(
-                            paddingLeft + textWidth,
+                        canvas.withTranslation(
+                            if (drawableBeforeText) {
+                                paddingLeft.toFloat()
+                            } else {
+                                paddingLeft + textWidth
+                            },
                             measuredHeight / 2f - 8f.dp
-                        )
-                        drawable.alpha = 255
-                        drawable.draw(canvas)
-                        canvas.restore()
+                        ) {
+                            drawable.alpha = 255
+                            drawable.draw(this)
+                        }
                     }
                 }
             }
@@ -93,11 +115,13 @@ class WCounterButton(
                         paddingLeft + counter.getVisibleWidth(),
                         measuredHeight / 2f - 8f.dp
                     )
+                    val hiddenWidth = counter.targetWidth - counter.getVisibleWidth()
+                    val hiddenFraction = (hiddenWidth / 10).coerceIn(0f, 1f)
                     it.alpha =
-                        (255 * if (isTrailingButton) 1f - ((counter.targetWidth - counter.getVisibleWidth()) / 10).coerceIn(
-                            0f,
-                            1f
-                        ) else 1f).roundToInt()
+                        (
+                            255 *
+                                if (isTrailingButton) 1f - hiddenFraction else 1f
+                            ).roundToInt()
                     it.draw(canvas)
                     canvas.restore()
                 }
@@ -145,9 +169,10 @@ class WCounterButton(
     }
 
     override fun updateTheme() {
-        textPaintSecondary.color = WColor.SecondaryText.color
+        val contentColor = if (isError) WColor.Error.color else WColor.SecondaryText.color
+        textPaintSecondary.color = contentColor
         ripple.rippleColor = WColor.BackgroundRipple.color
-        drawable.setTint(WColor.SecondaryText.color)
+        drawable.setTint(contentColor)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -157,12 +182,12 @@ class WCounterButton(
             textWidth + paddingLeft + paddingRight + (if (shouldShowDrawable) ICON.dp else 0)
         } else {
             // For non-RTL, use counter's required width
-            counter.requiredWidth + paddingLeft + paddingRight + (if (shouldShowDrawable) ICON.dp else 0)
+            counter.requiredWidth + paddingLeft + paddingRight +
+                (if (shouldShowDrawable) ICON.dp else 0)
         }
 
         super.onMeasure(width.exactly, heightMeasureSpec)
-        if (shouldShowDrawable)
-            drawable.setBounds(0, 0, 16.dp, 16.dp)
+        if (shouldShowDrawable) drawable.setBounds(0, 0, 16.dp, 16.dp)
     }
 
     override fun onCounterAppearanceChanged(counter: Counter, sizeChanged: Boolean) {

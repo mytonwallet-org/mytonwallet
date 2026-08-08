@@ -11,12 +11,12 @@ object ToastHelper {
     fun notifyViewWalletAdded(
         viewController: WViewController,
         account: MAccount? = null,
-        accountId: String? = account?.accountId,
+        accountId: String? = account?.accountId
     ) {
         notifyWalletAction(
             viewController = viewController,
             accountId = accountId,
-            iconResId = org.mytonwallet.app_air.walletcontext.R.drawable.ic_plus_thick,
+            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_plus_thick,
             text = LocaleController.getString("View Wallet Added")
         )
     }
@@ -24,12 +24,12 @@ object ToastHelper {
     fun notifyWalletImported(
         viewController: WViewController,
         account: MAccount? = null,
-        accountId: String? = account?.accountId,
+        accountId: String? = account?.accountId
     ) {
         notifyWalletAction(
             viewController = viewController,
             accountId = accountId,
-            iconResId = org.mytonwallet.app_air.walletcontext.R.drawable.ic_plus_thick,
+            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_plus_thick,
             text = LocaleController.getString("Wallet Imported")
         )
     }
@@ -37,12 +37,12 @@ object ToastHelper {
     fun notifyWalletCreated(
         viewController: WViewController,
         account: MAccount? = null,
-        accountId: String? = account?.accountId,
+        accountId: String? = account?.accountId
     ) {
         notifyWalletAction(
             viewController = viewController,
             accountId = accountId,
-            iconResId = org.mytonwallet.app_air.walletcontext.R.drawable.ic_plus_thick,
+            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_plus_thick,
             text = LocaleController.getString("Wallet Created")
         )
     }
@@ -50,12 +50,12 @@ object ToastHelper {
     fun notifySubwalletAdded(
         viewController: WViewController,
         account: MAccount? = null,
-        accountId: String? = account?.accountId,
+        accountId: String? = account?.accountId
     ) {
         notifyWalletAction(
             viewController = viewController,
             accountId = accountId,
-            iconResId = org.mytonwallet.app_air.walletcontext.R.drawable.ic_plus_thick,
+            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_plus_thick,
             text = LocaleController.getString("Subwallet Added")
         )
     }
@@ -63,12 +63,12 @@ object ToastHelper {
     fun notifySubwalletCreated(
         viewController: WViewController,
         account: MAccount? = null,
-        accountId: String? = account?.accountId,
+        accountId: String? = account?.accountId
     ) {
         notifyWalletAction(
             viewController = viewController,
             accountId = accountId,
-            iconResId = org.mytonwallet.app_air.walletcontext.R.drawable.ic_plus_thick,
+            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_plus_thick,
             text = LocaleController.getString("Subwallet Created")
         )
     }
@@ -76,7 +76,7 @@ object ToastHelper {
     fun notifySubwalletSwitched(
         viewController: WViewController,
         account: MAccount? = null,
-        accountId: String? = account?.accountId,
+        accountId: String? = account?.accountId
     ) {
         notifyWalletAction(
             viewController = viewController,
@@ -90,7 +90,7 @@ object ToastHelper {
         viewController: WViewController,
         accountId: String?,
         @DrawableRes iconResId: Int,
-        text: CharSequence,
+        text: CharSequence
     ) {
         val window = viewController.window
         ToastManager.show(

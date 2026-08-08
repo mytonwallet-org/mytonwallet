@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.uicomponents.helpers;
+package org.mytonwallet.app_air.uicomponents.helpers
 
 import android.content.Context
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -29,7 +29,5 @@ open class LinearLayoutManagerAccurateOffset(context: Context?) : LinearLayoutMa
         return scrolledY
     }
 
-    fun getItemHeight(position: Int): Int? {
-        return mChildSizesMap[position]
-    }
+    fun getItemHeight(position: Int): Int? = mChildSizesMap[position]
 }

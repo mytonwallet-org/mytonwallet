@@ -16,6 +16,7 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
     case monad
     case avalanche
     case hyperliquid
+    case robinhood
     case other(String)
 
     public init?(rawValue: String) {
@@ -44,6 +45,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
            self = .avalanche
         case "hyperliquid":
             self = .hyperliquid
+        case "robinhood":
+            self = .robinhood
         default:
             self = .other(rawValue)
         }
@@ -73,6 +76,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
            "avalanche"
         case .hyperliquid:
             "hyperliquid"
+        case .robinhood:
+            "robinhood"
         case .other(let rawValue):
             rawValue
         }
@@ -162,7 +167,7 @@ public extension ApiChain {
             "BEP-20"
         case .ethereum, .base:
             "ERC-20"
-        case .polygon, .arbitrum, .monad, .avalanche, .hyperliquid:
+        case .polygon, .arbitrum, .monad, .avalanche, .hyperliquid, .robinhood:
             "ERC-20"
         case .other(let chain):
             chain.uppercased()

@@ -21,18 +21,19 @@ $subheaderReleaseHeight: 1.25rem;
   justify-content: center;
 
   width: 100%;
-  padding: 0.625rem 1rem 0.625rem $leftPadding;
+  padding-block: 0.625rem;
+  padding-inline: $leftPadding 1rem;
 
   color: var(--color-black);
-  text-align: left;
+  text-align: start;
 
   &::after {
     content: '';
 
     position: absolute;
-    right: 0;
     bottom: 0;
-    left: $leftPadding + $iconColumnWidth;
+    inset-inline-start: $leftPadding + $iconColumnWidth;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -45,7 +46,7 @@ $subheaderReleaseHeight: 1.25rem;
     grid-template-columns: $iconColumnWidth 1fr;
 
     &::after {
-      left: $leftPadding + $iconColumnWidth;
+      inset-inline-start: $leftPadding + $iconColumnWidth;
     }
   }
 
@@ -157,7 +158,7 @@ $subheaderReleaseHeight: 1.25rem;
 .iconFromToken {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 }
 
 .iconWaiting,
@@ -266,12 +267,14 @@ $subheaderReleaseHeight: 1.25rem;
 }
 
 .amount {
+  unicode-bidi: plaintext;
   display: flex;
   align-items: center;
   background: none !important;
 
   &TokenIcon {
-    margin: -0.1875rem 0 -0.0625rem 0.25rem;
+    margin-block: -0.1875rem -0.0625rem;
+    margin-inline: 0.25rem 0;
 
     @include mixins.respond-below(xs) {
       margin-top: -0.125rem;
@@ -280,8 +283,13 @@ $subheaderReleaseHeight: 1.25rem;
   }
 }
 
+.baseCurrencyAmount {
+  unicode-bidi: plaintext;
+}
+
 .swapFromIcon {
-  margin: 0 0 -0.375rem 0.25rem;
+  margin-block: 0 -0.375rem;
+  margin-inline: 0.25rem 0;
 }
 
 .swapToIcon {
@@ -296,6 +304,7 @@ $subheaderReleaseHeight: 1.25rem;
 }
 
 .comment {
+  unicode-bidi: plaintext;
   overflow: hidden;
   grid-area: comment;
 
@@ -313,20 +322,22 @@ $subheaderReleaseHeight: 1.25rem;
   }
 
   &.outgoing {
-    border-bottom-right-radius: var(--border-radius-mini); // Yes, it's intended to be the bottom corner
+    border-end-end-radius: var(--border-radius-mini); // Yes, it's intended to be the bottom corner
   }
 
   &:not(.outgoing) {
-    border-top-left-radius: var(--border-radius-mini);
+    border-start-start-radius: var(--border-radius-mini);
   }
 }
 
 .scamImage {
   width: 2.4375rem;
-  margin-left: 0.3125rem;
+  margin-inline-start: 0.3125rem;
 }
 
 .swapSell {
+  unicode-bidi: plaintext;
+
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.25rem;
@@ -338,6 +349,8 @@ $subheaderReleaseHeight: 1.25rem;
 }
 
 .swapBuy {
+  unicode-bidi: plaintext;
+
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.25rem;
@@ -375,15 +388,17 @@ $subheaderReleaseHeight: 1.25rem;
 .nftImage {
   width: 3.5rem;
   height: 3.5rem;
-  border-top-right-radius: var(--border-radius-normal);
-  border-bottom-right-radius: var(--border-radius-normal);
+  border-start-end-radius: var(--border-radius-normal);
+  border-end-end-radius: var(--border-radius-normal);
 
   object-fit: cover;
+  background-color: var(--color-background-second);
 }
 
 .nftData {
   min-width: 0;
-  padding: 0 0.75rem 0 0.625rem;
+  padding-block: 0;
+  padding-inline: 0.625rem 0.75rem;
 }
 
 .nftName,

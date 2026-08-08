@@ -12,12 +12,29 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let log = Log("TokenVC")
-
 @MainActor
 public class TokenVC: ActivityListViewController {
 
-    private var tokenVM: TokenVM!
+    @MainActor
+    private enum TradeActionsLayout {
+        static var buttonHeight: CGFloat {
+            WButton.height(for: .primary)
+        }
+        static let buttonSpacing: CGFloat = 12
+        static let bottomSpacing: CGFloat = 10
+        static let horizontalMargin: CGFloat = 36
+        static let maxWidth: CGFloat = 500
+
+        static var reservedHeight: CGFloat {
+            buttonHeight + bottomSpacing
+        }
+    }
+
+    private lazy var tokenVM = TokenVM(
+        accountId: $account.accountId,
+        selectedToken: token,
+        tokenVMDelegate: self
+    )
 
     @AccountContext private var account: MAccount
     private let token: ApiToken
@@ -26,6 +43,12 @@ public class TokenVC: ActivityListViewController {
     private var isLpToken: Bool { token.type == .lp_token }
     private var currentToken: ApiToken {
         TokenStore.getToken(slug: token.slug) ?? token
+    }
+    private var areTradeActionsAvailable: Bool {
+        account.supportsSwap && !isLpToken
+    }
+    private var hasSellableBalance: Bool {
+        ($account.balances[token.slug] ?? 0) > 0
     }
 
     public init(accountSource: AccountSource, token: ApiToken, isInModal: Bool) async {
@@ -36,13 +59,9 @@ public class TokenVC: ActivityListViewController {
         configureCustomSections()
         let accountId = $account.accountId
         self.activityViewModel = await ActivityListViewModel(accountId: accountId, token: token, customSectionIDs: customSectionIDs, delegate: self)
-        tokenVM = TokenVM(accountId: accountId,
-                                           selectedToken: token,
-                                           tokenVMDelegate: self)
         WalletCoreData.add(eventObserver: self)
-        tokenVM.refreshTransactions()
     }
-    
+
     public override var hideBottomBar: Bool {
         false
     }
@@ -53,15 +72,67 @@ public class TokenVC: ActivityListViewController {
 
     private let navigationHeader = NavigationHeader2()
 
+    private lazy var buyButton: WButton = {
+        let button = WButton(style: .primary)
+        button.customTintColor = .air.positiveAmount
+        button.customTitleFont = WButton.capsuleFont
+        button.setTitle(lang("Buy"), for: .normal)
+        button.addAction(UIAction { [weak self] _ in
+            self?.presentSwap(isBuying: true)
+        }, for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var sellButton: WButton = {
+        let button = WButton(style: .primary)
+        button.customTintColor = .air.negativeAmount
+        button.customTitleFont = WButton.capsuleFont
+        button.setTitle(lang("Sell"), for: .normal)
+        button.addAction(UIAction { [weak self] _ in
+            self?.presentSwap(isBuying: false)
+        }, for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var tradeActionsView: UIStackView = {
+        let stackView = UIStackView(arrangedSubviews: [buyButton, sellButton])
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = .horizontal
+        stackView.spacing = TradeActionsLayout.buttonSpacing
+        stackView.distribution = .fillEqually
+        return stackView
+    }()
+
+    private lazy var tradeActionsHostView: UIView = {
+        guard #available(iOS 26, *) else {
+            return tradeActionsView
+        }
+
+        let effect = UIGlassContainerEffect()
+        effect.spacing = 0
+        let effectView = UIVisualEffectView(effect: effect)
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        effectView.contentView.addSubview(tradeActionsView)
+        NSLayoutConstraint.activate([
+            tradeActionsView.topAnchor.constraint(equalTo: effectView.contentView.topAnchor),
+            tradeActionsView.leadingAnchor.constraint(equalTo: effectView.contentView.leadingAnchor),
+            tradeActionsView.trailingAnchor.constraint(equalTo: effectView.contentView.trailingAnchor),
+            tradeActionsView.bottomAnchor.constraint(equalTo: effectView.contentView.bottomAnchor),
+        ])
+        return effectView
+    }()
+
     private lazy var expandableContentView = TokenExpandableContentView(accountContext: accountContext)
-    
+
     private let actionsCustomSectionID = "actions"
-    private var actionsCustomSectionCellRegistration: UICollectionView.CellRegistration<TokenActionsCell, Row>!
-    private var actionsCustomSectionDescriptor: CustomSectionDescriptor!
+    private var actionsCustomSectionDescriptor: CustomSectionDescriptor?
 
     private let chartCustomSectionID = "chart"
-    private var chartCustomSectionCellRegistration: UICollectionView.CellRegistration<TokenChartCell, Row>!
-    private var chartCustomSectionDescriptor: CustomSectionDescriptor!
+    private var chartCustomSectionDescriptor: CustomSectionDescriptor?
+
+    private let infoCustomSectionID = "info"
+    private lazy var tokenInfoModel = TokenInfoModel(state: tokenVM.tokenInfoState)
+    private var infoCustomSectionDescriptor: CustomSectionDescriptor?
 
     private var suppressScrollUpdates = false
 
@@ -73,16 +144,19 @@ public class TokenVC: ActivityListViewController {
 
     private var navigationHeaderSnapshot: NavigationHeaderSnapshot?
 
-    private func updateHeaderHeight() {
+    private func updateCustomSectionHeight(id: String) {
         suppressScrollUpdates = true
-        defer { suppressScrollUpdates = false }
+        defer {
+            suppressScrollUpdates = false
+            updateNavigationBarChrome(scrollOffset: scrollOffset(for: collectionView))
+        }
 
         let savedOffset = collectionView.contentOffset
         UIView.performWithoutAnimation {
-            invalidateCustomSectionLayout(id: chartCustomSectionID)
-            collectionView.layoutIfNeeded()
-            if collectionView.contentOffset.y != savedOffset.y {
-                collectionView.contentOffset = savedOffset
+            self.invalidateCustomSectionLayout(id: id)
+            self.collectionView.layoutIfNeeded()
+            if self.collectionView.contentOffset.y != savedOffset.y {
+                self.collectionView.contentOffset = savedOffset
             }
         }
     }
@@ -93,25 +167,37 @@ public class TokenVC: ActivityListViewController {
 
     public override var customSections: [CustomSectionDescriptor] {
         if isLpToken {
-            return [actionsCustomSectionDescriptor]
+            return [actionsCustomSectionDescriptor, infoCustomSectionDescriptor].compactMap { $0 }
         }
-        return [actionsCustomSectionDescriptor, chartCustomSectionDescriptor]
+        return [actionsCustomSectionDescriptor, chartCustomSectionDescriptor, infoCustomSectionDescriptor].compactMap { $0 }
     }
-    
+
+    public override var activeCustomSectionIDs: [String] {
+        if isLpToken {
+            return tokenVM.tokenInfoState.isSectionVisible
+                ? [actionsCustomSectionID, infoCustomSectionID]
+                : [actionsCustomSectionID]
+        }
+        if tokenVM.tokenInfoState.isSectionVisible {
+            return [actionsCustomSectionID, chartCustomSectionID, infoCustomSectionID]
+        }
+        return [actionsCustomSectionID, chartCustomSectionID]
+    }
+
     private func configureActionsCustomSection(cell: TokenActionsCell) {
         let token = currentToken
         cell.setup(accountContext: accountContext, token: token)
         cell.configure(
             token: token,
             sendAvailable: account.supportsSend,
-            swapAvailable: account.supportsSwap && !isLpToken,
-            earnAvailable: account.supportsEarn && token.earnAvailable
+            earnAvailable: accountContext.isEarnAvailable(forTokenSlug: token.slug)
         )
     }
     private func configureChartCustomSection(cell: TokenChartCell) {
         let token = currentToken
         cell.setup(onHeightChange: { [weak self] in
-            self?.updateHeaderHeight()
+            guard let self else { return }
+            updateCustomSectionHeight(id: chartCustomSectionID)
         })
         cell.configure(token: token,
                        historyData: tokenVM.historyData) { [weak self] period in
@@ -119,8 +205,15 @@ public class TokenVC: ActivityListViewController {
             tokenVM.selectedPeriod = period
         }
     }
+    private func configureInfoCustomSection(cell: TokenInfoCell) {
+        tokenInfoModel.configure(state: tokenVM.tokenInfoState)
+        cell.configure(model: tokenInfoModel, onHeightChange: { [weak self] in
+            guard let self else { return }
+            updateCustomSectionHeight(id: infoCustomSectionID)
+        })
+    }
     private func configureCustomSections() {
-        actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenActionsCell, Row> { [unowned self] cell, _, _ in
+        let actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenActionsCell, Row> { [unowned self] cell, _, _ in
             cell.backgroundColor = .clear
             configureActionsCustomSection(cell: cell)
         }
@@ -128,12 +221,20 @@ public class TokenVC: ActivityListViewController {
             collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
         }
 
-        chartCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenChartCell, Row> { [unowned self] cell, _, _ in
+        let chartCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenChartCell, Row> { [unowned self] cell, _, _ in
             cell.backgroundColor = .clear
             configureChartCustomSection(cell: cell)
         }
         chartCustomSectionDescriptor = CustomSectionDescriptor(id: chartCustomSectionID) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: chartCustomSectionCellRegistration, for: indexPath, item: .custom(chartCustomSectionID))
+        }
+
+        let infoCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenInfoCell, Row> { [unowned self] cell, _, _ in
+            cell.backgroundColor = .clear
+            configureInfoCustomSection(cell: cell)
+        }
+        infoCustomSectionDescriptor = CustomSectionDescriptor(id: infoCustomSectionID) { [unowned self] collectionView, indexPath in
+            collectionView.dequeueConfiguredReusableCell(using: infoCustomSectionCellRegistration, for: indexPath, item: .custom(infoCustomSectionID))
         }
     }
 
@@ -155,16 +256,16 @@ public class TokenVC: ActivityListViewController {
             }
         }
         navigationItem.titleView = navigationHeader
-        
+
         updateNavigationMenu()
         navigationController?.setNavigationBarHidden(false, animated: false)
 
         super.setupCollectionView(collectionViewBottomConstraint: 0)
-        
+
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             collectionView.topEdgeEffect.isHidden = true
         }
-        
+
         UIView.performWithoutAnimation {
             applySnapshot(makeSnapshot(), animatingDifferences: false)
             updateSkeletonState()
@@ -174,12 +275,49 @@ public class TokenVC: ActivityListViewController {
         addCustomNavigationBarBackground(color: view.backgroundColor)
 
         view.addSubview(expandableContentView)
+        view.addSubview(tradeActionsHostView)
+
+        let preferredWidthConstraint = tradeActionsHostView.widthAnchor.constraint(
+            equalTo: view.safeAreaLayoutGuide.widthAnchor,
+            constant: -2 * TradeActionsLayout.horizontalMargin
+        )
+        preferredWidthConstraint.priority = .defaultHigh
+
+        let maxWidthConstraint = tradeActionsHostView.widthAnchor.constraint(
+            equalToConstant: TradeActionsLayout.maxWidth
+        )
+        maxWidthConstraint.priority = .defaultLow
+
         NSLayoutConstraint.activate([
             expandableContentView.topAnchor.constraint(equalTo: view.topAnchor),
             expandableContentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             expandableContentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+
+            tradeActionsHostView.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
+            tradeActionsHostView.leadingAnchor.constraint(
+                greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor,
+                constant: TradeActionsLayout.horizontalMargin
+            ),
+            tradeActionsHostView.trailingAnchor.constraint(
+                lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor,
+                constant: -TradeActionsLayout.horizontalMargin
+            ),
+            tradeActionsHostView.widthAnchor.constraint(lessThanOrEqualToConstant: TradeActionsLayout.maxWidth),
+            tradeActionsHostView.heightAnchor.constraint(equalToConstant: TradeActionsLayout.buttonHeight),
+            tradeActionsHostView.bottomAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.bottomAnchor,
+                constant: -TradeActionsLayout.bottomSpacing
+            ),
+            preferredWidthConstraint,
+            maxWidthConstraint,
         ])
         expandableContentView.configure(token: currentToken)
+        updateTradeActions()
+    }
+
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        tokenVM.refreshTransactions()
     }
 
     public override func viewIsAppearing(_ animated: Bool) {
@@ -194,8 +332,10 @@ public class TokenVC: ActivityListViewController {
     }
 
     private func updateSafeAreaInsets() {
-        collectionView.contentInset.bottom = view.safeAreaInsets.bottom + 16
-        
+        collectionView.contentInset.bottom = view.safeAreaInsets.bottom
+            + 16
+            + (areTradeActionsAvailable ? TradeActionsLayout.reservedHeight : 0)
+
         if !IOS_26_MODE_ENABLED {
             scrollViewDidScroll(collectionView)
         }
@@ -225,14 +365,17 @@ public class TokenVC: ActivityListViewController {
             + collectionView.frame.height
             - automaticTopInset
             - safeBottom
-        collectionView.contentInset.bottom = max(safeBottom + 16, requiredBottomInset)
+        let minimumBottomInset = safeBottom
+            + 16
+            + (areTradeActionsAvailable ? TradeActionsLayout.reservedHeight : 0)
+        collectionView.contentInset.bottom = max(minimumBottomInset, requiredBottomInset)
     }
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard !suppressScrollUpdates else { return }
         updateScroll()
     }
-    
+
     private func updateScroll() {
         let scrollOffset = scrollOffset(for: collectionView)
 
@@ -240,7 +383,7 @@ public class TokenVC: ActivityListViewController {
             let navBarShift = navigationHeader.distanceFromNavigationBarBottomToContentCenter
             expandableContentView.update(scrollOffset: scrollOffset, navBarShift: navBarShift)
         }
-        
+
         updateNavigationBarChrome(scrollOffset: scrollOffset)
         updateVisibleActivityNftAnimationPlayback()
     }
@@ -278,6 +421,27 @@ public class TokenVC: ActivityListViewController {
         navigationHeader.visibilityAlpha = min(1, max(0, (30 - scrollOffset) / 14 + 1))
     }
 
+    private func updateTradeActions() {
+        guard isViewLoaded else { return }
+
+        let actionsAvailable = areTradeActionsAvailable
+        tradeActionsHostView.isHidden = !actionsAvailable
+        sellButton.isHidden = !hasSellableBalance
+
+        updateSafeAreaInsets()
+    }
+
+    private func presentSwap(isBuying: Bool) {
+        let counterTokenSlug = currentToken.slug == TONCOIN_SLUG ? TON_USDT_SLUG : TONCOIN_SLUG
+        AppActions.showSwap(
+            accountContext: accountContext,
+            defaultSellingToken: isBuying ? counterTokenSlug : currentToken.slug,
+            defaultBuyingToken: isBuying ? currentToken.slug : counterTokenSlug,
+            defaultSellingAmount: nil,
+            push: nil
+        )
+    }
+
     private func updateNavigationHeader() {
         let token = currentToken
         let badgeLabel = token.label?.nilIfEmpty
@@ -303,31 +467,69 @@ public class TokenVC: ActivityListViewController {
     }
 
     private func updateNavigationMenu() {
-        navigationItem.rightBarButtonItem = ConfigStore.shared.shouldRestrictSwapsAndOnRamp
+        if ConfigStore.shared.shouldRestrictSwapsAndOnRamp {
+            navigationItem.rightBarButtonItem = nil
+            return
+        }
+
+        let menu = makeMenu()
+        navigationItem.rightBarButtonItem = menu.children.isEmpty
             ? nil
-            : UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: makeMenu())
+            : UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: menu)
     }
 
     private func makeMenu() -> UIMenu {
-
         let openUrl: (URL) -> () = { url in
             AppActions.openInBrowser(url)
         }
-        let token = self.token
+        let token = currentToken
+        let details = tokenVM.tokenInfoState.details
+        var sections: [UIMenu] = []
 
-        let openInExplorer = UIAction(title: lang("Open in Explorer"), image: UIImage(named: "SendGlobe", in: AirBundle, with: nil)) { _ in
-            openUrl(ExplorerHelper.tokenUrl(token: token))
+        let aggregatorActions = details?.links?
+            .filter { $0.kind == .aggregator && $0.url.isValidTokenMenuUrl }
+            .map { link in
+                UIAction(title: link.title) { _ in
+                    openUrl(link.url)
+                }
+            } ?? []
+        if !aggregatorActions.isEmpty {
+            sections.append(UIMenu(options: .displayInline, children: aggregatorActions))
         }
-        let explorerSection = UIMenu(options: .displayInline, children: [openInExplorer])
 
-        let websiteActions = ExplorerHelper.websitesForToken(token).map { website in
-            UIAction(title: website.title) { _ in
-                openUrl(website.address)
+        let tokenInfoActions = details?.links?
+            .filter { [.documentation, .sourceCode].contains($0.kind) && $0.url.isValidTokenMenuUrl }
+            .map { link in
+                UIAction(title: lang(link.title)) { _ in
+                    openUrl(link.url)
+                }
+            } ?? []
+        if !tokenInfoActions.isEmpty {
+            sections.append(UIMenu(options: .displayInline, children: tokenInfoActions))
+        }
+
+        if let explorerUrl = ExplorerHelper.tokenUrl(token: token) {
+            let openInExplorer = UIAction(
+                title: lang("Open in Explorer"),
+                image: UIImage(named: "SendGlobe", in: AirBundle, with: nil)
+            ) { _ in
+                openUrl(explorerUrl)
             }
+            sections.append(UIMenu(options: .displayInline, children: [openInExplorer]))
         }
-        let websiteSection = UIMenu(options: .displayInline, children: websiteActions)
 
-        return UIMenu(children: [explorerSection, websiteSection])
+        return UIMenu(children: sections)
+    }
+}
+
+private extension URL {
+    var isValidTokenMenuUrl: Bool {
+        guard let scheme = scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              host?.nilIfEmpty != nil else {
+            return false
+        }
+        return true
     }
 }
 
@@ -336,8 +538,15 @@ extension TokenVC: WalletCoreData.EventsObserver {
         switch event {
         case .configChanged:
             updateNavigationMenu()
+            applySnapshot(makeSnapshot(), animatingDifferences: true)
+            updateTradeActions()
+            tokenVM.refreshTokenDetails()
         case .tokensChanged:
             updateNavigationHeader()
+        case .stakingAccountData(let data):
+            if data.accountId == accountContext.accountId {
+                reconfigureCustomSection(id: actionsCustomSectionID)
+            }
         default:
             break
         }
@@ -350,6 +559,7 @@ extension TokenVC: TokenVMDelegate {
         updateNavigationHeader()
         reconfigureCustomSection(id: actionsCustomSectionID)
         reconfigureCustomSection(id: chartCustomSectionID)
+        updateTradeActions()
         super.transactionsUpdated(accountChanged: false, isUpdateEvent: isUpdateEvent)
     }
     func priceDataUpdated() {
@@ -361,15 +571,23 @@ extension TokenVC: TokenVMDelegate {
         updateNavigationHeader()
         reconfigureCustomSection(id: actionsCustomSectionID)
         reconfigureCustomSection(id: chartCustomSectionID)
+        updateTradeActions()
+    }
+    func tokenDetailsUpdated() {
+        tokenInfoModel.configure(state: tokenVM.tokenInfoState)
+        updateNavigationMenu()
+        applySnapshot(makeSnapshot(), animatingDifferences: true)
+        (visibleCustomSectionCell(id: infoCustomSectionID) as? TokenInfoCell)?.modelStateDidChange()
     }
     func accountChanged() {
         guard accountContext.source == .current else { return }
         let newAccountId = accountContext.accountId
         Task {
-            self.activityViewModel = await ActivityListViewModel(accountId: newAccountId, token: token, customSectionIDs: customSectionIDs, delegate: self)
             self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
+            self.activityViewModel = await ActivityListViewModel(accountId: newAccountId, token: token, customSectionIDs: customSectionIDs, delegate: self)
             self.tokenVM.refreshTransactions()
             self.updateNavigationHeader()
+            self.updateTradeActions()
         }
     }
 }

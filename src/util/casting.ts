@@ -14,6 +14,10 @@ export function bufferFromBigInt(bi: bigint) {
   return bufferFromHex(hexFromBigInt(bi));
 }
 
+export function bufferFromString(s: string) {
+  return Buffer.from(s, 'utf-8');
+}
+
 export function hexFromBuffer(b: Buffer) {
   return b.toString('hex');
 }
@@ -24,6 +28,10 @@ export function bigIntFromBuffer(b: Buffer) {
 
 export function base64FromBuffer(b: Buffer) {
   return b.toString('base64');
+}
+
+export function base64FromArrayBuffer(ab: ArrayBuffer) {
+  return Buffer.from(ab).toString('base64');
 }
 
 export function asciiFromBuffer(b: Buffer) {
@@ -88,6 +96,14 @@ export function arrayBufferFromBase64(base64: string) {
   return bufferFromBase64(base64).buffer;
 }
 
+export function stringFromBuffer(b: Buffer) {
+  return b.toString('utf8');
+}
+
+export function stringFromArrayBuffer(ab: ArrayBuffer) {
+  return stringFromBuffer(bufferFromArrayBuffer(ab));
+}
+
 export function stringFromBase64(base64: string) {
   return bufferFromBase64(base64).toString('utf8');
 }
@@ -98,6 +114,10 @@ export function asciiFromBase64(base64: string) {
 
 export function bufferFromBase64Url(base64Url: string) {
   return bufferFromBase64(base64FromBase64Url(base64Url));
+}
+
+export function bufferFromArrayBuffer(ab: ArrayBuffer) {
+  return Buffer.from(ab);
 }
 
 export function stringFromBase64Url(base64Url: string) {

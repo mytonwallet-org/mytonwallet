@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
 object ArbitrumConfig : MBlockchainConfig {
 
@@ -20,7 +21,7 @@ object ArbitrumConfig : MBlockchainConfig {
     override val displayColor = "#28A0F0".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#436378".toColorInt(),
-        "#0F567D".toColorInt(),
+        "#0F567D".toColorInt()
     )
 
     override val feeCheckAddress = "0x0000000000000000000000000000000000000000"
@@ -33,22 +34,21 @@ object ArbitrumConfig : MBlockchainConfig {
 
     override val chainStandard = "ethereum"
     override val defaultDerivationPath = "m/44'/60'/0'/0/{index}"
+    override val walletConnectChainIds = mapOf(
+        MBlockchainNetwork.MAINNET to 42161,
+        MBlockchainNetwork.TESTNET to 421614
+    )
 
     override fun isValidAddress(address: String): Boolean =
         Regex("""^0x[a-fA-F0-9]{40}$""").matches(address)
 
-    override fun idToTxHash(id: String?): String? =
-        id?.substringBefore(":")
+    override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
-    override fun transactionExplorers() =
-        listOf(MBlockchainExplorer.ARBISCAN)
+    override fun transactionExplorers() = listOf(MBlockchainExplorer.ARBISCAN)
 
-    override fun addressExplorers() =
-        listOf(MBlockchainExplorer.ARBISCAN)
+    override fun addressExplorers() = listOf(MBlockchainExplorer.ARBISCAN)
 
-    override fun tokenExplorer() =
-        MBlockchainExplorer.ARBISCAN
+    override fun tokenExplorer() = MBlockchainExplorer.ARBISCAN
 
-    override fun nftExplorer() =
-        MBlockchainExplorer.ARBISCAN
+    override fun nftExplorer() = MBlockchainExplorer.ARBISCAN
 }

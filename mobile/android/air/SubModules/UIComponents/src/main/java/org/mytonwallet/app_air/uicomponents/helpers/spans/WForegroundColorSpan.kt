@@ -7,7 +7,9 @@ import android.text.style.UpdateAppearance
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class WForegroundColorSpan() : CharacterStyle(), UpdateAppearance {
+class WForegroundColorSpan() :
+    CharacterStyle(),
+    UpdateAppearance {
     constructor(wColor: WColor) : this() {
         this.wColor = wColor
     }

@@ -17,20 +17,20 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Locale
 
-open class LegendSignatureView(
-    context: Context
-) : FrameLayout(context) {
+open class LegendSignatureView(context: Context) : FrameLayout(context) {
 
     var style: ChartStyle = ChartStyle.default()
 
@@ -52,7 +52,9 @@ open class LegendSignatureView(
 
         private fun updateParentTouchInterception(event: MotionEvent) {
             if (!canScrollVertically(1) && !canScrollVertically(-1)) {
-                if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                if (event.actionMasked == MotionEvent.ACTION_UP ||
+                    event.actionMasked == MotionEvent.ACTION_CANCEL
+                ) {
                     parent?.requestDisallowInterceptTouchEvent(false)
                 }
                 return
@@ -287,7 +289,7 @@ open class LegendSignatureView(
         lines: ArrayList<LineViewData>,
         animateChanges: Boolean,
         formatter: Int,
-        k: Float,
+        k: Float
     ) {
         val n = holders.size
         if (animateChanges && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
@@ -306,7 +308,7 @@ open class LegendSignatureView(
                 String.format(
                     "%s — %s",
                     ChartFormatters.formatDate("d MMM", date),
-                    ChartFormatters.formatDate("d MMM yyyy", date + 86400000L * 7),
+                    ChartFormatters.formatDate("d MMM yyyy", date + 86400000L * 7)
                 )
             } else {
                 formatData(date)
@@ -327,7 +329,15 @@ open class LegendSignatureView(
             val holder = holders[i]
             val formatterIndex = i % 2
             val line =
-                lines[if (formatter == ChartData.FORMATTER_TON || formatter == ChartData.FORMATTER_XTR) i / 2 else i]
+                lines[
+                    if (formatter == ChartData.FORMATTER_TON ||
+                        formatter == ChartData.FORMATTER_XTR
+                    ) {
+                        i / 2
+                    } else {
+                        i
+                    }
+                ]
             if (!line.enabled) {
                 holder.root.visibility = GONE
                 continue
@@ -426,11 +436,12 @@ open class LegendSignatureView(
         var requiredHeight = maxOf(headerHeight, contentHeight) + footerHeight
 
         val availableHeight = maxChartHeight
-        if (availableHeight > 0 && requiredHeight > availableHeight && scrollView.visibility == VISIBLE) {
+        if (availableHeight > 0 && requiredHeight > availableHeight &&
+            scrollView.visibility == VISIBLE
+        ) {
+            val reservedHeight = paddingTop + paddingBottom + contentTopMargin + footerHeight
             val constrainedScrollHeight =
-                (availableHeight - paddingTop - paddingBottom - contentTopMargin - footerHeight).coerceAtLeast(
-                    0
-                )
+                (availableHeight - reservedHeight).coerceAtLeast(0)
             scrollView.measure(
                 exactBodyWidthSpec,
                 MeasureSpec.makeMeasureSpec(constrainedScrollHeight, MeasureSpec.AT_MOST)
@@ -448,16 +459,24 @@ open class LegendSignatureView(
     }
 
     private fun formatData(timestamp: Long): String {
+        val dayMonthPattern =
+            if (WDateFormatter.isDayBeforeMonth(
+                    WBaseStorage.getActiveLanguage()
+                )
+            ) {
+                "dd MMM"
+            } else {
+                "MMM dd"
+            }
         if (useHour) {
-            return capitalize(ChartFormatters.formatDate("MMM dd", timestamp))
+            return capitalize(ChartFormatters.formatDate(dayMonthPattern, timestamp))
         }
         return capitalize(ChartFormatters.formatDate("E, ", timestamp)) +
-            capitalize(ChartFormatters.formatDate("MMM dd", timestamp))
+            capitalize(ChartFormatters.formatDate(dayMonthPattern, timestamp))
     }
 
-    private fun capitalize(value: String): String {
-        return if (value.isNotEmpty()) Character.toUpperCase(value[0]) + value.substring(1) else value
-    }
+    private fun capitalize(value: String): String =
+        if (value.isNotEmpty()) Character.toUpperCase(value[0]) + value.substring(1) else value
 
     private var formatterTON: DecimalFormat? = null
 
@@ -466,7 +485,7 @@ open class LegendSignatureView(
         formatter: Int,
         formatterIndex: Int,
         textView: TextView,
-        k: Float,
+        k: Float
     ): CharSequence {
         if (formatter == ChartData.FORMATTER_TON) {
             if (formatterIndex == 0) {
@@ -485,7 +504,7 @@ open class LegendSignatureView(
                     "GRAM " + formatterTON!!.format(v / 1_000_000_000.0),
                     textView.paint,
                     .82f,
-                    plain = false,
+                    plain = false
                 )
             }
             return "≈" + ChartFormatters.formatCurrency((v / k).toLong(), "USD")
@@ -543,7 +562,7 @@ open class LegendSignatureView(
             formatter = formatter,
             formatterIndex = 0,
             textView = footerValueView,
-            k = k,
+            k = k
         )
         updateFooterVisibility()
     }

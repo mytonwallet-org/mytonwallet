@@ -39,6 +39,7 @@ if (process.env.NO_EVM !== '1') {
     monad: new EVMSdk('monad'),
     avalanche: new EVMSdk('avalanche'),
     hyperliquid: new EVMSdk('hyperliquid'),
+    robinhood: new EVMSdk('robinhood'),
   });
 }
 /* eslint-enable @typescript-eslint/no-require-imports */

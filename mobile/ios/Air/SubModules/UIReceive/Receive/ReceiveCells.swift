@@ -19,7 +19,7 @@ struct AddressCell: View {
             .foregroundColor(Color.air.secondaryLabel)
         let addressText = Text(address: address)
         let text = Text("\(addressText) \(copy)")
-            .font(.system(size: 17, weight: .regular))
+            .textStyle(.body, content: .technical)
             .lineSpacing(2)
             .multilineTextAlignment(.leading)
 
@@ -45,10 +45,10 @@ struct BuyCryptoItemCell: View {
             Image.airBundle(imageName)
                 .frame(width: 30, height: 30)
             Text(title)
-                .font(.system(size: 17))
+                .textStyle(.body)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+            Image(systemName: "chevron.forward")
+                .textStyle(.captionStrong, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
         }
     }
@@ -97,7 +97,7 @@ struct ViewWalletWarningFooter: View {
         
         Text(langMd("$view_only_wallet_receive_warning"))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.system(size: 13))
+            .textStyle(.footnote)
             .foregroundStyle(color)
             .padding(.leading, 12)
             .padding(.trailing, 16)

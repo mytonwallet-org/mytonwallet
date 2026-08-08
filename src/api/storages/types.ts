@@ -51,4 +51,9 @@ export type StorageKey = 'accounts'
   | 'agentMessages'
   | 'agentConversationId'
   // For Headless
-  | 'headlessBalanceSnapshots';
+  | 'headlessBalanceSnapshots'
+  // SDK activity reconciliation
+  | 'walletOperationIntents'
+  | 'activeCexSwapReconciliationState'
+  | 'knownTonAggregatorTraceIds'
+  | 'knownTonAggregatorTraceProjections';

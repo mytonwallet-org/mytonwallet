@@ -5,7 +5,7 @@ data class PortfolioOverview(
     val netChangeAbs: Double,
     val netChangePct: Double?,
     val startTimestampMs: Long,
-    val endTimestampMs: Long,
+    val endTimestampMs: Long
 ) {
     companion object {
         val EMPTY = PortfolioOverview(
@@ -13,7 +13,7 @@ data class PortfolioOverview(
             netChangeAbs = 0.0,
             netChangePct = null,
             startTimestampMs = 0L,
-            endTimestampMs = 0L,
+            endTimestampMs = 0L
         )
     }
 }

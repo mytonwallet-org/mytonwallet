@@ -27,16 +27,29 @@ struct HomeCardCollapsedContent: View {
     
     var body: some View {
         WithPerceptionTracking {
-            VStack(spacing: spacing) {
-                _CollapsedBalanceView(accountContext: accountContext)
-                    .scaleEffect(balanceScale, anchor: .bottom)
-                    .animation(.default, value: accountContext.balance)
-                _CollapsedDisplayName(accountContext: accountContext)
-                    .scaleEffect(subtitleScale, anchor: .top)
+            VStack(spacing: headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs ? 6 : spacing) {
+                _CollapsedBalanceView(
+                    accountContext: accountContext,
+                    usesNavigationBarTopTabs: headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs
+                )
+                .scaleEffect(
+                    headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs ? 1 : balanceScale,
+                    anchor: .bottom
+                )
+                .animation(.default, value: accountContext.balance)
+
+                if headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs {
+                    _BalanceChange(accountContext: accountContext)
+                } else {
+                    _CollapsedDisplayName(accountContext: accountContext)
+                        .scaleEffect(subtitleScale, anchor: .top)
+                }
             }
-//            .backportGeometryGroup()
             .padding(.horizontal, 80)
-            .padding(.bottom, bottomPadding)
+            .padding(
+                .bottom,
+                headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs ? 24 : bottomPadding
+            )
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxHeight: .infinity, alignment: .bottom)
         }
@@ -46,10 +59,14 @@ struct HomeCardCollapsedContent: View {
 private struct _CollapsedBalanceView: View {
     
     let accountContext: AccountContext
+    let usesNavigationBarTopTabs: Bool
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBalanceView(balance: accountContext.balance, style: .homeCollaped)
+            MtwCardBalanceView(
+                balance: accountContext.balance,
+                style: usesNavigationBarTopTabs ? .homeNavigationBarCollapsed : .homeCollaped
+            )
                 .contextMenuSource(configuration: makeBaseCurrencyMenuConfig(accountId: accountContext.accountId))
         }
     }
@@ -71,7 +88,7 @@ private struct _CollapsedDisplayName: View {
                     .lineLimit(1)
             }
             .foregroundStyle(.secondary)
-            .font(.system(size: 17))
+            .textStyle(.body)
         }
     }
 }

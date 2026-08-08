@@ -1,8 +1,7 @@
 import React, { memo, useEffect } from '../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../global';
+import { getActions, getGlobal, withGlobal } from '../../../global';
 
-import { selectCurrentAccount } from '../../../global/selectors';
-import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
+import { selectCurrentAccount, selectEnclaveToken, selectIsEnclaveSessionValid } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 
 import useFlag from '../../../hooks/useFlag';
@@ -76,13 +75,12 @@ function Mfa(
   // note: since the current state in security settings is not stored in the global state, we have to resort to hacks
   useEffect(() => {
     if (installMfa?.user && !isPasswordRequested) {
-      if (getHasInMemoryPassword()) {
-        getInMemoryPassword()
-          .then((password) => {
-            submitInstallMfa({ password });
-            openMfaInstalled();
-          })
-          .catch(() => undefined);
+      const global = getGlobal();
+      const enclaveToken = selectEnclaveToken(global);
+
+      if (selectIsEnclaveSessionValid(global) && enclaveToken) {
+        submitInstallMfa({ enclaveToken });
+        openMfaInstalled();
       } else {
         openMfaPassword();
       }
