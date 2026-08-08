@@ -49,17 +49,20 @@ rm -f "$ANDROID_GRAM_TARGET"/*-sdk.js "$ANDROID_GRAM_TARGET"/*-sdk.js.LICENSE.tx
 cp dist-air/gramwallet-sdk.js "$ANDROID_GRAM_TARGET/"
 cp dist-air/gramwallet-sdk.js.LICENSE.txt "$ANDROID_GRAM_TARGET/" 2>/dev/null || true
 
-# Build .xcstrings from YAML locale files
-PY_SCRIPTS_DIR="./mobile/ios/Air/scripts/strings"
-PY_VENV_DIR="$PY_SCRIPTS_DIR/.venv"
+# Build .xcstrings from YAML locale files. Both mobile platforms share this script, and compiling
+# them needs `xcrun`, so the step is confined to the machines that carry an Xcode toolchain.
+if command -v xcrun > /dev/null 2>&1; then
+  PY_SCRIPTS_DIR="./mobile/ios/Air/scripts/strings"
+  PY_VENV_DIR="$PY_SCRIPTS_DIR/.venv"
 
-if [ ! -d "$PY_VENV_DIR" ]; then
-  python3 -m venv "$PY_VENV_DIR"
+  if [ ! -d "$PY_VENV_DIR" ]; then
+    python3 -m venv "$PY_VENV_DIR"
+  fi
+
+  "$PY_VENV_DIR/bin/python" -m pip install --disable-pip-version-check --upgrade pip
+  "$PY_VENV_DIR/bin/python" -m pip install --disable-pip-version-check -r "$PY_SCRIPTS_DIR/requirements.txt"
+
+  "$PY_VENV_DIR/bin/python" "$PY_SCRIPTS_DIR/import_localizations.py"
 fi
-
-"$PY_VENV_DIR/bin/python" -m pip install --disable-pip-version-check --upgrade pip
-"$PY_VENV_DIR/bin/python" -m pip install --disable-pip-version-check -r "$PY_SCRIPTS_DIR/requirements.txt"
-
-"$PY_VENV_DIR/bin/python" "$PY_SCRIPTS_DIR/import_localizations.py"
 
 echo "SDK build completed and copied to mobile platforms"
