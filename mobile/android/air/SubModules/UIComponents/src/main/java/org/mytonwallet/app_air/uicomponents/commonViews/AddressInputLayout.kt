@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.R
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.os.Build
 import android.text.Spanned
@@ -26,6 +25,7 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.addTextChangedListener
 import androidx.core.widget.doOnTextChanged
+import java.lang.ref.WeakReference
 import me.vkryl.android.AnimatorUtils
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setTextIfDiffer
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.EditTextTint
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -66,14 +67,14 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class AddressInputLayout(
     val viewController: WeakReference<WViewController>,
     val autoCompleteConfig: AutoCompleteConfig = AutoCompleteConfig(),
     onTextEntered: (text: String) -> Unit
-) : FrameLayout(viewController.get()!!.context), WThemedView {
+) : FrameLayout(viewController.get()!!.context),
+    WThemedView {
 
     var pasteInterceptor: ((pastedText: String) -> Boolean)? = null
 
@@ -152,7 +153,9 @@ class AddressInputLayout(
                         val cleaned = appliedText.replace("\n", "")
                         val committed = if (cleaned.isNotEmpty()) {
                             super.commitText(cleaned, newCursorPosition)
-                        } else true
+                        } else {
+                            true
+                        }
 
                         post { onTextEntered(getKeyword()) }
                         return committed
@@ -207,19 +210,24 @@ class AddressInputLayout(
         }
         onFocusChangeListener = OnFocusChangeListener { v, hasFocus ->
             focusCallback?.invoke(hasFocus)
-            if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILT_IN || !autoCompleteConfig.isEnabled)
+            if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILT_IN ||
+                !autoCompleteConfig.isEnabled
+            ) {
                 return@OnFocusChangeListener
+            }
             if (hasFocus) {
                 hideOverlayViews()
-                if (autoCompleteView.parent == null)
+                if (autoCompleteView.parent == null) {
                     viewController.get()?.view?.addView(
                         autoCompleteView,
                         LayoutParams(MATCH_PARENT, WRAP_CONTENT)
                     )
+                }
                 autoCompleteView.attachToAddressInput(this@AddressInputLayout, autoCompleteConfig)
             } else {
-                if (autoCompleteView.parent != null)
+                if (autoCompleteView.parent != null) {
                     viewController.get()?.view?.removeView(autoCompleteView)
+                }
                 autoCompleteView.attachToAddressInput(null, autoCompleteConfig)
                 findAddressAttempt()
             }
@@ -313,7 +321,7 @@ class AddressInputLayout(
     private val closeButton: WImageButton by lazy {
         WImageButton(context).apply {
             val closeDrawable = context.getDrawableCompat(
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_close_filled
+                org.mytonwallet.app_air.icons.R.drawable.ic_close_filled
             )
             setImageDrawable(closeDrawable)
             isGone = true
@@ -347,10 +355,13 @@ class AddressInputLayout(
         addView(pasteTextView)
         if (autoCompleteConfig.isEnabled) {
             addView(overlayLabel, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-            addView(closeButton, LayoutParams(24.dp, 24.dp).apply {
-                gravity = Gravity.END
-                setMarginsDp(0, 8, 12, 0)
-            })
+            addView(
+                closeButton,
+                LayoutParams(24.dp, 24.dp).apply {
+                    gravity = Gravity.TOP or Gravity.RIGHT
+                    setMarginsDp(0, 8, 12, 0)
+                }
+            )
         }
 
         pasteTextView.setOnClickListener {
@@ -395,8 +406,11 @@ class AddressInputLayout(
     }
 
     fun insetsUpdated() {
-        if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILT_IN || !autoCompleteConfig.isEnabled)
+        if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILT_IN ||
+            !autoCompleteConfig.isEnabled
+        ) {
             return
+        }
         val viewController = viewController.get() ?: return
         val keyboardHeight = viewController.window?.imeInsets?.bottom ?: return
         if (keyboardHeight == 0) {
@@ -409,13 +423,9 @@ class AddressInputLayout(
         autoCompleteView.maxYInWindow = totalHeight - keyboardHeight - 16.dp
     }
 
-    fun getKeyword(): String {
-        return textField.text.toString().trim()
-    }
+    fun getKeyword(): String = textField.text.toString().trim()
 
-    fun getAddress(): String {
-        return getKeyword()
-    }
+    fun getAddress(): String = getKeyword()
 
     fun addTextChangedListener(textWatcher: TextWatcher) {
         textField.addTextChangedListener(textWatcher)
@@ -428,17 +438,12 @@ class AddressInputLayout(
             before: Int,
             count: Int
         ) -> Unit
-    ): TextWatcher {
-        return textField.addTextChangedListener(onTextChanged = onTextChanged)
-    }
+    ): TextWatcher = textField.addTextChangedListener(onTextChanged = onTextChanged)
 
-    fun addTextChangedListener(
-        onTextChanged: (text: String) -> Unit
-    ): TextWatcher {
-        return addTextChangedListener(onTextChanged = { text, _, _, _ ->
+    fun addTextChangedListener(onTextChanged: (text: String) -> Unit): TextWatcher =
+        addTextChangedListener(onTextChanged = { text, _, _, _ ->
             onTextChanged(text?.toString().orEmpty())
         })
-    }
 
     fun removeTextChangedListener(watcher: TextWatcher?) {
         textField.removeTextChangedListener(watcher)
@@ -487,9 +492,7 @@ class AddressInputLayout(
         showOverlayViews()
     }
 
-    fun inputFieldHasFocus(): Boolean {
-        return textField.hasFocus()
-    }
+    fun inputFieldHasFocus(): Boolean = textField.hasFocus()
 
     fun resetInputFieldFocus() {
         textField.clearFocus()
@@ -524,10 +527,8 @@ class AddressInputLayout(
     }
 
     private fun findAddressAttempt() {
-        if (!IS_BUILD_IN_AUTOCOMPLETE_ENABLED)
-            return
-        if (autocompleteResult != null)
-            return
+        if (!IS_BUILD_IN_AUTOCOMPLETE_ENABLED) return
+        if (autocompleteResult != null) return
         val addresses = (AddressStore.addressData?.savedAddresses ?: emptyList()) +
             (AddressStore.addressData?.otherAccountAddresses ?: emptyList())
         addresses.firstOrNull { it.address == getAddress() }?.let {
@@ -588,7 +589,9 @@ class AddressInputLayout(
     }
 
     private fun updateTextFieldPadding() {
-        val rightPadding = if (!isEditable) {
+        val isCloseButtonCase =
+            isEditable && !textField.text.isNullOrEmpty() && showCloseOnTextEditing
+        val endPadding = if (!isEditable) {
             20.dp
         } else if (textField.text.isNullOrEmpty()) {
             val pasteTextWidth =
@@ -598,12 +601,21 @@ class AddressInputLayout(
             if (showCloseOnTextEditing) 44.dp else 20.dp
         }
 
-        textField.setPaddingLocalized(
-            20.dp,
-            textFieldTopPadding,
-            rightPadding,
-            textFieldBottomPadding
-        )
+        if (isCloseButtonCase) {
+            textField.setPadding(
+                20.dp,
+                textFieldTopPadding,
+                endPadding,
+                textFieldBottomPadding
+            )
+        } else {
+            textField.setPaddingLocalized(
+                20.dp,
+                textFieldTopPadding,
+                endPadding,
+                textFieldBottomPadding
+            )
+        }
         qrScanImageView.updateLayoutParams<LayoutParams> {
             topMargin = textFieldTopPadding
         }
@@ -637,8 +649,7 @@ class AddressInputLayout(
     ) {
         val name: String? get() = account?.name ?: savedAddress?.name
 
-        fun address(chain: String = MBlockchain.ton.name): String? {
-            return account?.addressByChain[chain] ?: account?.firstAddress ?: savedAddress?.address
-        }
+        fun address(chain: String = MBlockchain.ton.name): String? =
+            account?.addressByChain[chain] ?: account?.firstAddress ?: savedAddress?.address
     }
 }

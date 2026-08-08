@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup
 import androidx.core.view.isGone
+import java.util.concurrent.Executors
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uiassets.models.ExpiringDomainsData
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
@@ -31,9 +34,6 @@ import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
-import java.util.concurrent.Executors
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class AssetsTabVC(
@@ -41,9 +41,9 @@ class AssetsTabVC(
     val showingAccountId: String,
     private val defaultSelectedIdentifier: String?,
     private var initialSelectionSnapshot: AssetsVC.SelectionSnapshot? = null
-) :
-    WViewController(context),
+) : WViewController(context),
     WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "AssetsTab"
 
     companion object {
@@ -56,19 +56,17 @@ class AssetsTabVC(
         private const val EXPANDED_BANNER_TOP_MARGIN_DP = 8
         private const val EXPANDED_BANNER_BOTTOM_MARGIN_DP = 3
 
-        fun identifierForVC(viewController: WViewController): String? {
-            return when (viewController) {
-                is TokensVC -> {
-                    TAB_COINS
-                }
-
-                is AssetsVC -> {
-                    viewController.identifier
-                }
-
-                else ->
-                    TAB_COLLECTIBLES
+        fun identifierForVC(viewController: WViewController): String? = when (viewController) {
+            is TokensVC -> {
+                TAB_COINS
             }
+
+            is AssetsVC -> {
+                viewController.identifier
+            }
+
+            else ->
+                TAB_COLLECTIBLES
         }
     }
 
@@ -109,9 +107,11 @@ class AssetsTabVC(
     }
 
     private val expiringDomainsBannerExpandedHeight: Int by lazy {
-        (WDomainExpirationBannerView.HEIGHT_DP +
-            EXPANDED_BANNER_TOP_MARGIN_DP +
-            EXPANDED_BANNER_BOTTOM_MARGIN_DP).dp
+        (
+            WDomainExpirationBannerView.HEIGHT_DP +
+                EXPANDED_BANNER_TOP_MARGIN_DP +
+                EXPANDED_BANNER_BOTTOM_MARGIN_DP
+            ).dp
     }
 
     private val collectiblesExpiringDomainsBannerAnimator = BoolAnimator(
@@ -218,7 +218,7 @@ class AssetsTabVC(
             shouldShowTransferActions = assetsVC.shouldShowSelectionTransferActions(),
             onCloseTapped = { closeSelectionMode() },
             onHideTapped = {
-                assetsVC.hideSelectedAssets();
+                assetsVC.hideSelectedAssets()
                 closeSelectionMode()
             },
             onSelectAllTapped = { assetsVC.selectAllVisibleAssets() },
@@ -227,10 +227,7 @@ class AssetsTabVC(
         )
     }
 
-    private fun openSelectionMode(
-        assetsVC: AssetsVC,
-        nftAddressToSelect: String? = null
-    ) {
+    private fun openSelectionMode(assetsVC: AssetsVC, nftAddressToSelect: String? = null) {
         if (reorderingAssetsVC != null) {
             return
         }
@@ -298,23 +295,33 @@ class AssetsTabVC(
         segmentedController.hideActionBar()
     }
 
+    @Suppress("ktlint:standard:max-line-length")
     val segmentItems: MutableList<WSegmentedControllerItem>
         get() {
             val hiddenNFTsExist =
-                NftStore.nftData?.cachedNfts?.firstOrNull { it.isHidden == true } != null ||
+                NftStore.getHasHiddenNft(showingAccountId) ||
                     NftStore.nftData?.blacklistedNftAddresses?.isNotEmpty() == true
             val showCollectionsMenu = !NftStore.getCollections().isEmpty() || hiddenNFTsExist
             val homeNftCollections =
                 WGlobalStorage.getHomeNftCollections(AccountStore.activeAccountId ?: "")
             val items = mutableListOf<WSegmentedControllerItem>()
-            if (!homeNftCollections.any { it.chain == MBlockchain.ton.name && it.address == TAB_COINS })
+            if (!homeNftCollections.any {
+                    it.chain == MBlockchain.ton.name &&
+                        it.address == TAB_COINS
+                }
+            ) {
                 items.add(
                     WSegmentedControllerItem(
                         tokensVC,
                         identifier = identifierForVC(tokensVC)
                     )
                 )
-            if (!homeNftCollections.any { it.chain == MBlockchain.ton.name && it.address == TAB_COLLECTIBLES })
+            }
+            if (!homeNftCollections.any {
+                    it.chain == MBlockchain.ton.name &&
+                        it.address == TAB_COLLECTIBLES
+                }
+            ) {
                 items.add(
                     WSegmentedControllerItem(
                         collectiblesVC,
@@ -338,131 +345,147 @@ class AssetsTabVC(
                         }
                     )
                 )
+            }
 
             if (homeNftCollections.isNotEmpty()) {
                 val collections = NftStore.getCollections()
-                items.addAll(homeNftCollections.mapNotNull { homeNftCollection ->
-                    when (homeNftCollection.address) {
-                        TAB_COINS -> {
-                            WSegmentedControllerItem(
-                                tokensVC,
-                                identifierForVC(tokensVC),
-                            )
-                        }
+                items.addAll(
+                    homeNftCollections.mapNotNull { homeNftCollection ->
+                        when (homeNftCollection.address) {
+                            TAB_COINS -> {
+                                WSegmentedControllerItem(
+                                    tokensVC,
+                                    identifierForVC(tokensVC)
+                                )
+                            }
 
-                        TAB_COLLECTIBLES -> {
-                            WSegmentedControllerItem(
-                                collectiblesVC,
-                                identifier = TAB_COLLECTIBLES,
-                                onMenuPressed = if (showCollectionsMenu) { v ->
-                                    CollectionsMenuHelpers.presentCollectionsMenuOn(
-                                        showingAccountId,
-                                        v,
-                                        navigationController!!,
-                                        onReorderTapped = {
-                                            openReordering(collectiblesVC)
-                                        },
-                                        onSelectTapped = {
-                                            openSelectionMode(collectiblesVC)
+                            TAB_COLLECTIBLES -> {
+                                WSegmentedControllerItem(
+                                    collectiblesVC,
+                                    identifier = TAB_COLLECTIBLES,
+                                    onMenuPressed = if (showCollectionsMenu) {
+                                        { v ->
+                                            CollectionsMenuHelpers.presentCollectionsMenuOn(
+                                                showingAccountId,
+                                                v,
+                                                navigationController!!,
+                                                onReorderTapped = {
+                                                    openReordering(collectiblesVC)
+                                                },
+                                                onSelectTapped = {
+                                                    openSelectionMode(collectiblesVC)
+                                                }
+                                            )
                                         }
-                                    )
-                                } else null
-                            )
-                        }
-
-                        else -> {
-                            val collectionMode =
-                                if (homeNftCollection.address == NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION) {
-                                    AssetsVC.CollectionMode.TelegramGifts
-                                } else {
-                                    collections.find {
-                                        it.address == homeNftCollection.address &&
-                                            it.chain == homeNftCollection.chain
-                                    }
-                                        ?.let { AssetsVC.CollectionMode.SingleCollection(collection = it) }
-                                }
-                            if (collectionMode != null) {
-                                lateinit var vc: AssetsVC
-                                vc = AssetsVC(
-                                    context,
-                                    showingAccountId,
-                                    AssetsVC.ViewMode.COMPLETE,
-                                    injectedWindow = window,
-                                    collectionMode = collectionMode,
-                                    isShowingSingleCollection = false,
-                                    onReorderingRequested = {
-                                        openReordering(vc)
-                                    },
-                                    onScroll = { recyclerView ->
-                                        segmentedController.updateBlurViews(recyclerView)
-                                        updateBlurViews(recyclerView)
+                                    } else {
+                                        null
                                     }
                                 )
-                                bindSelection(vc)
-                                WSegmentedControllerItem(
-                                    viewController = vc,
-                                    identifier = identifierForVC(vc),
-                                    onMenuPressed = { v ->
-                                        CollectionsMenuHelpers.presentPinnedCollectionMenuOn(
-                                            v,
-                                            collectionMode,
-                                            onReorderTapped = {
-                                                openReordering(vc)
-                                            },
-                                            onSelectTapped = {
-                                                openSelectionMode(vc)
-                                            },
-                                            onRemoveTapped = {
-                                                showAlert(
-                                                    LocaleController.getString("Remove Tab"),
-                                                    LocaleController.getStringWithKeyValues(
-                                                        "Are you sure you want to unpin %tab%?",
-                                                        listOf(
-                                                            Pair("%tab%", collectionMode.title)
-                                                        )
-                                                    ),
-                                                    LocaleController.getString("Yes"),
-                                                    buttonPressed = {
-                                                        val homeNftCollections =
-                                                            WGlobalStorage.getHomeNftCollections(
-                                                                AccountStore.activeAccountId!!
-                                                            )
-                                                        val collectionChain =
-                                                            when (collectionMode) {
-                                                                is AssetsVC.CollectionMode.SingleCollection ->
-                                                                    collectionMode.collection.chain
+                            }
 
-                                                                is AssetsVC.CollectionMode.TelegramGifts ->
-                                                                    MBlockchain.ton.name
-
-                                                                is AssetsVC.CollectionMode.ReadOnly ->
-                                                                    return@showAlert
-                                                            }
-                                                        homeNftCollections.removeAll {
-                                                            it.address == collectionMode.collectionAddress &&
-                                                                it.chain == collectionChain
-                                                        }
-                                                        WGlobalStorage.setHomeNftCollections(
-                                                            AccountStore.activeAccountId!!,
-                                                            homeNftCollections
-                                                        )
-                                                        WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
-                                                    },
-                                                    secondaryButton = LocaleController.getString(
-                                                        "Cancel"
-                                                    ),
-                                                    primaryIsDanger = true
+                            else -> {
+                                val collectionMode =
+                                    if (homeNftCollection.address ==
+                                        NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
+                                    ) {
+                                        AssetsVC.CollectionMode.TelegramGifts
+                                    } else {
+                                        collections.find {
+                                            it.address == homeNftCollection.address &&
+                                                it.chain == homeNftCollection.chain
+                                        }
+                                            ?.let {
+                                                AssetsVC.CollectionMode.SingleCollection(
+                                                    collection = it
                                                 )
                                             }
-                                        )
                                     }
-                                )
-                            } else {
-                                null
+                                if (collectionMode != null) {
+                                    lateinit var vc: AssetsVC
+                                    vc = AssetsVC(
+                                        context,
+                                        showingAccountId,
+                                        AssetsVC.ViewMode.COMPLETE,
+                                        injectedWindow = window,
+                                        collectionMode = collectionMode,
+                                        isShowingSingleCollection = false,
+                                        onReorderingRequested = {
+                                            openReordering(vc)
+                                        },
+                                        onScroll = { recyclerView ->
+                                            segmentedController.updateBlurViews(recyclerView)
+                                            updateBlurViews(recyclerView)
+                                        }
+                                    )
+                                    bindSelection(vc)
+                                    WSegmentedControllerItem(
+                                        viewController = vc,
+                                        identifier = identifierForVC(vc),
+                                        onMenuPressed = { v ->
+                                            CollectionsMenuHelpers.presentPinnedCollectionMenuOn(
+                                                v,
+                                                collectionMode,
+                                                onReorderTapped = {
+                                                    openReordering(vc)
+                                                },
+                                                onSelectTapped = {
+                                                    openSelectionMode(vc)
+                                                },
+                                                onRemoveTapped = {
+                                                    showAlert(
+                                                        LocaleController.getString("Remove Tab"),
+                                                        LocaleController.getStringWithKeyValues(
+                                                            "Are you sure you want to unpin %tab%?",
+                                                            listOf(
+                                                                Pair("%tab%", collectionMode.title)
+                                                            )
+                                                        ),
+                                                        LocaleController.getString("Yes"),
+                                                        buttonPressed = {
+                                                            val homeNftCollections =
+                                                                WGlobalStorage.getHomeNftCollections(
+                                                                    AccountStore.activeAccountId!!
+                                                                )
+                                                            val collectionChain =
+                                                                when (collectionMode) {
+                                                                    is AssetsVC.CollectionMode.SingleCollection ->
+                                                                        collectionMode.collection.chain
+
+                                                                    is AssetsVC.CollectionMode.TelegramGifts ->
+                                                                        MBlockchain.ton.name
+
+                                                                    is AssetsVC.CollectionMode.ReadOnly ->
+                                                                        return@showAlert
+                                                                }
+                                                            homeNftCollections.removeAll {
+                                                                it.address ==
+                                                                    collectionMode.collectionAddress &&
+                                                                    it.chain == collectionChain
+                                                            }
+                                                            WGlobalStorage.setHomeNftCollections(
+                                                                AccountStore.activeAccountId!!,
+                                                                homeNftCollections
+                                                            )
+                                                            WalletCore.notifyEvent(
+                                                                WalletEvent.HomeNftCollectionsUpdated
+                                                            )
+                                                        },
+                                                        secondaryButton = LocaleController.getString(
+                                                            "Cancel"
+                                                        ),
+                                                        primaryIsDanger = true
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    )
+                                } else {
+                                    null
+                                }
                             }
                         }
                     }
-                })
+                )
             }
             return items
         }
@@ -483,12 +506,14 @@ class AssetsTabVC(
             onSelectedIndexChanged = {
                 applyCollectiblesExpiringDomainsBanner()
             },
-            pilledTabs = true,
+            pilledTabs = true
         )
         sc
     }
 
-    private fun collectiblesTabProgress(currentOffset: Float = segmentedController.currentOffset): Float {
+    private fun collectiblesTabProgress(
+        currentOffset: Float = segmentedController.currentOffset
+    ): Float {
         val collectiblesIndex =
             segmentedController.items.indexOfFirst { it.identifier == TAB_COLLECTIBLES }
         if (collectiblesIndex < 0) {
@@ -502,7 +527,9 @@ class AssetsTabVC(
         return ((progress - threshold) / BANNER_ALPHA_VISIBLE_RANGE).coerceIn(0f, 1f)
     }
 
-    private fun configureCollectiblesExpiringDomainsBanner(expiringDomainsData: ExpiringDomainsData) {
+    private fun configureCollectiblesExpiringDomainsBanner(
+        expiringDomainsData: ExpiringDomainsData
+    ) {
         expiringDomainsBannerView.configure(
             iconNfts = expiringDomainsData.domainNfts,
             count = expiringDomainsData.count,
@@ -534,7 +561,7 @@ class AssetsTabVC(
         val collapseProgress = 1f - displayProgress
         expiringDomainsBannerView.translationY =
             -BANNER_EXPANDED_TOP_OFFSET_DP.dp -
-                BANNER_COLLAPSE_TRANSLATION_DP.dp * collapseProgress
+            BANNER_COLLAPSE_TRANSLATION_DP.dp * collapseProgress
         val scale = BANNER_COLLAPSE_MIN_SCALE + (1f - BANNER_COLLAPSE_MIN_SCALE) * displayProgress
         expiringDomainsBannerView.scaleX = scale
         expiringDomainsBannerView.scaleY = scale
@@ -585,7 +612,7 @@ class AssetsTabVC(
     fun updateCollectiblesClick() {
         backgroundExecutor.execute {
             val hiddenNFTsExist =
-                NftStore.nftData?.cachedNfts?.firstOrNull { it.isHidden == true } != null ||
+                NftStore.getHasHiddenNft(showingAccountId) ||
                     NftStore.nftData?.blacklistedNftAddresses?.isNotEmpty() == true
             val showCollectionsMenu = !NftStore.getCollections().isEmpty() || hiddenNFTsExist
             segmentedController.updateOnMenuPressed(
@@ -654,5 +681,4 @@ class AssetsTabVC(
             else -> {}
         }
     }
-
 }

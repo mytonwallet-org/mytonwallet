@@ -16,7 +16,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class EarnHistoryHeaderCell(context: Context) : WCell(context), WThemedView {
+class EarnHistoryHeaderCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
@@ -33,7 +35,7 @@ class EarnHistoryHeaderCell(context: Context) : WCell(context), WThemedView {
             WSensitiveDataContainer.MaskConfig(
                 12,
                 3,
-                gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
             )
         )
     }
@@ -65,7 +67,7 @@ class EarnHistoryHeaderCell(context: Context) : WCell(context), WThemedView {
     @SuppressLint("SetTextI18n")
     fun configure(totalProfitFormatted: String?) {
         totalEarnedLabel.contentView.text = totalProfitFormatted?.let {
-            "${LocaleController.getString("Earned")}: $it"
+            "${LocaleController.getString("\$staking_history_earned")}: \u202D$it"
         }
         totalEarnedLabel.isSensitiveData = totalProfitFormatted != null
         updateTheme()

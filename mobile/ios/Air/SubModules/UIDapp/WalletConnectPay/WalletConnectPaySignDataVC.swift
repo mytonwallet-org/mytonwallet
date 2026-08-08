@@ -1,12 +1,13 @@
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import WalletCore
 import WalletContext
 
 final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationControllerDelegate {
     private let update: ApiUpdate.WalletConnectPaySignData
-    private let onSubmit: (ApiUpdate.WalletConnectPaySignData, String?) async throws -> ApiMfaProtectedResult
+    private let onSubmit: (ApiUpdate.WalletConnectPaySignData, EnclaveToken?) async throws -> ApiMfaProtectedResult
     private var onCancel: (() -> Void)?
     private var isWaitingForNextStep = false
     private var hostingController: UIHostingController<WalletConnectPaySignDataView>?
@@ -15,7 +16,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
 
     init(
         update: ApiUpdate.WalletConnectPaySignData,
-        onSubmit: @escaping (ApiUpdate.WalletConnectPaySignData, String?) async throws -> ApiMfaProtectedResult,
+        onSubmit: @escaping (ApiUpdate.WalletConnectPaySignData, EnclaveToken?) async throws -> ApiMfaProtectedResult,
         onCancel: @escaping () -> Void
     ) {
         self.update = update
@@ -53,32 +54,17 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
 
     private func onConfirm() {
         guard !isWaitingForNextStep else { return }
-        Task {
-            do {
-                _ = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: account,
-                    title: lang("Confirm Sending"),
-                    headerView: WalletConnectPayAuthHeaderView(
-                        merchant: update.merchant,
-                        paymentContext: WalletConnectPayPaymentContext(
-                            paymentInfo: update.paymentInfo,
-                            paymentOption: update.paymentOption
-                        ),
-                        accountContext: _account
-                    ),
-                    passwordAction: { password in
-                        try await self.onSubmit(self.update, password)
-                    },
-                    completionBehavior: .keepAuthForReplacement,
-                    prefersNavigationTitleWithCustomHeader: true,
-                    mfaTitle: lang("Confirm Sending")
-                )
-                finishConfirm()
-            } catch is CancellationError {
-            } catch {
-                showAlert(error: error)
+        let protectedAction = ProtectedAction.walletConnectPaySignData(
+            account: account,
+            accountContext: _account,
+            update: update,
+            submit: onSubmit,
+            onCommitted: { [weak self] in
+                self?.finishConfirm()
             }
+        )
+        Task {
+            _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
 
@@ -220,7 +206,9 @@ private struct WalletConnectPaySignDataInfoView: View {
         InsetSection {
             InsetCell {
                 Text(verbatim: payload.text)
-                    .font17h22()
+                    .textStyle(.body, scaling: .dynamic)
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
             }
         } header: {
             Text(lang("Message"))
@@ -241,7 +229,13 @@ private struct WalletConnectPaySignDataInfoView: View {
         InsetSection {
             InsetCell {
                 Text(verbatim: payload.schema)
-                    .font17h22()
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
             }
         } header: {
             Text(lang("Cell Schema"))
@@ -249,7 +243,13 @@ private struct WalletConnectPaySignDataInfoView: View {
         InsetSection {
             InsetCell {
                 Text(verbatim: payload.cell)
-                    .font17h22()
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
             }
         } header: {
             Text(lang("Cell Data"))
@@ -262,10 +262,16 @@ private struct WalletConnectPaySignDataInfoView: View {
             InsetCell {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(lang("Primary type"))
-                        .font(.system(size: 14, weight: .semibold))
+                        .textStyle(.supportingStrong)
                         .foregroundStyle(Color.air.secondaryLabel)
                     Text(verbatim: payload.primaryType)
-                        .font17h22()
+                        .textStyle(
+                            .body,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
+                        .lineSpacing(1)
+                        .frame(minHeight: 22)
                 }
             }
         } header: {

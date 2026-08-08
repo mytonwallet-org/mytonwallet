@@ -209,12 +209,6 @@ private extension CGRect {
     }
 }
 
-private extension [SkeletonShimmerTarget] {
-    var unionRect: CGRect {
-        reduce(into: self[0].frame) { $0 = $0.union($1.frame) }
-    }
-}
-
 private struct SkeletonPlaceholderModifier: ViewModifier {
     let surface: SkeletonPlaceholderSurface
     let cornerRadius: CGFloat
@@ -385,11 +379,11 @@ extension View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Activity title")
-                            .font(.system(size: 16, weight: .medium))
+                            .textStyle(.calloutEmphasized)
                             .frame(minHeight: 22)
                             .skeletonPlaceholder(barInset: EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
                         Text("Amount · time")
-                            .font(.system(size: 14))
+                            .textStyle(.supporting)
                             .foregroundStyle(.secondary)
                             .frame(minHeight: 20)
                             .skeletonPlaceholder(barInset: EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
@@ -404,10 +398,10 @@ extension View {
             InsetCell(horizontalPadding: 12, verticalPadding: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Main Wallet")
-                        .font(.system(size: 16, weight: .medium))
+                        .textStyle(.calloutEmphasized)
                         .skeletonPlaceholder()
                     Text("Main Wallet subtitle subtitle subtitle")
-                        .font(.system(size: 14))
+                        .textStyle(.supporting)
                         .skeletonPlaceholder()
                 }
             }

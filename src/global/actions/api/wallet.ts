@@ -1,7 +1,6 @@
 import type { ApiAnyDisplayError, ApiChain, ApiSwapAsset, ApiToken, ApiTokenWithPrice } from '../../../api/types';
 import { ApiHardwareError } from '../../../api/types';
 
-import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getChainTitle } from '../../../util/chain';
 import { unique } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
@@ -9,6 +8,7 @@ import { logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import { buildUserToken } from '../../../util/tokens';
 import { callApi } from '../../../api';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { errorCodeToMessage } from '../../helpers/errors';
 import { isErrorTransferResult } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -38,21 +38,14 @@ addActionHandler('setIsBackupRequired', (global, actions, { isMnemonicChecked })
   }));
 });
 
-addActionHandler('submitSignature', async (global, actions, payload) => {
-  const { password } = payload;
+addActionHandler('submitSignature', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload;
   const { promiseId } = global.currentSignature!;
 
-  if (!(await callApi('verifyPassword', password))) {
-    const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
-    setGlobal(updateCurrentSignature(getGlobal(), { error }));
-
-    return;
-  }
-
-  await callApi('confirmDappRequest', promiseId, password);
+  await callApi('confirmDappRequest', promiseId, enclaveToken);
 
   setGlobal(updateCurrentSignature(getGlobal(), { isSigned: true }));
-});
+}));
 
 addActionHandler('clearSignatureError', (global) => {
   setGlobal(updateCurrentSignature(global, { error: undefined }));

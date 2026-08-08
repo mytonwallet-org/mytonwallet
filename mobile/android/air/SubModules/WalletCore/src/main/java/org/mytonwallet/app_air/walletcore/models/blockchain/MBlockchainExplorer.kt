@@ -17,7 +17,8 @@ enum class MBlockchainExplorer(val identifier: String) {
     ARBISCAN("arbiscan"),
     MONADSCAN("monadscan"),
     SNOWTRACE("snowtrace"),
-    HYPEREVMSCAN("hyperevmscan");
+    HYPEREVMSCAN("hyperevmscan"),
+    ROBINSCAN("robinscan");
 
     val title: String
         get() {
@@ -34,163 +35,164 @@ enum class MBlockchainExplorer(val identifier: String) {
                 MONADSCAN -> "Monadscan"
                 SNOWTRACE -> "Snowtrace"
                 HYPEREVMSCAN -> "Hyperevmscan"
+                ROBINSCAN -> "Robinscan"
             }
         }
 
     private val isEvm: Boolean
         get() = this in setOf(
-            ETHERSCAN, BASESCAN, BSCTRACE, POLYGONSCAN, ARBISCAN, MONADSCAN, SNOWTRACE, HYPEREVMSCAN
+            ETHERSCAN, BASESCAN, BSCTRACE, POLYGONSCAN, ARBISCAN, MONADSCAN, SNOWTRACE,
+            HYPEREVMSCAN, ROBINSCAN
         )
 
-    private fun baseUrlBuilder(network: MBlockchainNetwork): Uri.Builder {
-        return when (this) {
-            TONSCAN -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "tonscan.org" else "testnet.tonscan.org")
+    private fun baseUrlBuilder(network: MBlockchainNetwork): Uri.Builder = when (this) {
+        TONSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "tonscan.org" else "testnet.tonscan.org")
 
-            TONVIEWER -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "tonviewer.com" else "testnet.tonviewer.com")
+        TONVIEWER -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "tonviewer.com" else "testnet.tonviewer.com")
 
-            TRONSCAN -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "tronscan.org" else "shasta.tronscan.org")
+        TRONSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "tronscan.org" else "shasta.tronscan.org")
 
-            SOLSCAN -> Uri.Builder()
-                .scheme("https")
-                .authority("solscan.io").apply {
-                    if (!network.isMainnet)
-                        appendQueryParameter("cluster", "devnet")
-                }
+        SOLSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority("solscan.io").apply {
+                if (!network.isMainnet) appendQueryParameter("cluster", "devnet")
+            }
 
-            ETHERSCAN -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "etherscan.io" else "sepolia.etherscan.io")
+        ETHERSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "etherscan.io" else "sepolia.etherscan.io")
 
-            BASESCAN -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "basescan.org" else "sepolia.basescan.org")
+        BASESCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "basescan.org" else "sepolia.basescan.org")
 
-            BSCTRACE -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "bscscan.com" else "testnet.bscscan.com")
+        BSCTRACE -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "bscscan.com" else "testnet.bscscan.com")
 
-            POLYGONSCAN -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "polygonscan.com" else "testnet.polygonscan.com")
+        POLYGONSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "polygonscan.com" else "testnet.polygonscan.com")
 
-            ARBISCAN -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "arbiscan.io" else "sepolia.arbiscan.io")
+        ARBISCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "arbiscan.io" else "sepolia.arbiscan.io")
 
-            MONADSCAN -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "monadscan.com" else "testnet.monadscan.com")
+        MONADSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "monadscan.com" else "testnet.monadscan.com")
 
-            SNOWTRACE -> Uri.Builder()
-                .scheme("https")
-                .authority(if (network.isMainnet) "snowtrace.io" else "testnet.snowtrace.io")
+        SNOWTRACE -> Uri.Builder()
+            .scheme("https")
+            .authority(if (network.isMainnet) "snowtrace.io" else "testnet.snowtrace.io")
 
-            HYPEREVMSCAN -> Uri.Builder()
-                .scheme("https")
-                .authority("hyperevmscan.io")
-        }
+        HYPEREVMSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority("hyperevmscan.io")
+
+        ROBINSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority("robinscan.io")
     }
 
-    fun transactionUrl(network: MBlockchainNetwork, txHash: String): String {
-        return when (this) {
-            TONSCAN -> baseUrlBuilder(network)
-                .appendPath("tx")
-                .appendPath(txHash)
-                .build().toString()
+    fun transactionUrl(network: MBlockchainNetwork, txHash: String): String = when (this) {
+        TONSCAN -> baseUrlBuilder(network)
+            .appendPath("tx")
+            .appendPath(txHash)
+            .build().toString()
 
-            TONVIEWER -> baseUrlBuilder(network)
-                .appendPath("transaction")
-                .appendPath(txHash)
-                .build().toString()
+        TONVIEWER -> baseUrlBuilder(network)
+            .appendPath("transaction")
+            .appendPath(txHash)
+            .build().toString()
 
-            TRONSCAN -> baseUrlBuilder(network)
-                .appendEncodedPath("#/transaction")
-                .appendPath(txHash)
-                .build().toString()
+        TRONSCAN -> baseUrlBuilder(network)
+            .appendEncodedPath("#/transaction")
+            .appendPath(txHash)
+            .build().toString()
 
-            SOLSCAN -> baseUrlBuilder(network)
-                .appendPath("tx")
-                .appendPath(txHash)
-                .build().toString()
+        SOLSCAN -> baseUrlBuilder(network)
+            .appendPath("tx")
+            .appendPath(txHash)
+            .build().toString()
 
-            else -> baseUrlBuilder(network)
-                .appendPath("tx")
-                .appendPath(txHash)
-                .build().toString()
-        }
+        else -> baseUrlBuilder(network)
+            .appendPath("tx")
+            .appendPath(txHash)
+            .build().toString()
     }
 
-    fun addressUrl(network: MBlockchainNetwork, address: String): String {
-        return when (this) {
-            TONSCAN -> baseUrlBuilder(network)
-                .appendPath("address")
-                .appendPath(address)
-                .build().toString()
+    fun addressUrl(network: MBlockchainNetwork, address: String): String = when (this) {
+        TONSCAN -> baseUrlBuilder(network)
+            .appendPath("address")
+            .appendPath(address)
+            .build().toString()
 
-            TONVIEWER -> baseUrlBuilder(network)
-                .appendPath(address)
-                .build().toString()
+        TONVIEWER -> baseUrlBuilder(network)
+            .appendPath(address)
+            .build().toString()
 
-            TRONSCAN -> baseUrlBuilder(network)
-                .appendEncodedPath("#/address")
-                .appendPath(address)
-                .build().toString()
+        TRONSCAN -> baseUrlBuilder(network)
+            .appendEncodedPath("#/address")
+            .appendPath(address)
+            .build().toString()
 
-            SOLSCAN -> baseUrlBuilder(network)
-                .appendPath("account")
-                .appendPath(address)
-                .build().toString()
+        SOLSCAN -> baseUrlBuilder(network)
+            .appendPath("account")
+            .appendPath(address)
+            .build().toString()
 
-            else -> baseUrlBuilder(network)
-                .appendPath("address")
-                .appendPath(address)
-                .build().toString()
-        }
+        else -> baseUrlBuilder(network)
+            .appendPath("address")
+            .appendPath(address)
+            .build().toString()
     }
 
-    fun tokenUrl(network: MBlockchainNetwork, tokenAddress: String): String? {
-        return when (this) {
-            TONSCAN -> baseUrlBuilder(network)
-                .appendPath("jetton")
-                .appendPath(tokenAddress)
-                .build().toString()
+    fun tokenUrl(network: MBlockchainNetwork, tokenAddress: String): String? = when (this) {
+        TONSCAN -> baseUrlBuilder(network)
+            .appendPath("jetton")
+            .appendPath(tokenAddress)
+            .build().toString()
 
-            TRONSCAN -> baseUrlBuilder(network)
-                .appendEncodedPath("#/token20")
-                .appendPath(tokenAddress)
-                .build().toString()
+        TRONSCAN -> baseUrlBuilder(network)
+            .appendEncodedPath("#/token20")
+            .appendPath(tokenAddress)
+            .build().toString()
 
-            SOLSCAN -> baseUrlBuilder(network)
+        SOLSCAN -> baseUrlBuilder(network)
+            .appendPath("token")
+            .appendPath(tokenAddress)
+            .build().toString()
+
+        else -> if (isEvm) {
+            baseUrlBuilder(network)
                 .appendPath("token")
                 .appendPath(tokenAddress)
                 .build().toString()
-
-            else -> if (isEvm) baseUrlBuilder(network)
-                .appendPath("token")
-                .appendPath(tokenAddress)
-                .build().toString()
-            else null
+        } else {
+            null
         }
     }
 
-    fun nftUrl(network: MBlockchainNetwork, nftAddress: String): String? {
-        return when (this) {
-            TONSCAN -> baseUrlBuilder(network)
-                .appendPath("nft")
-                .appendPath(nftAddress)
-                .build().toString()
+    fun nftUrl(network: MBlockchainNetwork, nftAddress: String): String? = when (this) {
+        TONSCAN -> baseUrlBuilder(network)
+            .appendPath("nft")
+            .appendPath(nftAddress)
+            .build().toString()
 
-            else -> if (isEvm) baseUrlBuilder(network)
+        else -> if (isEvm) {
+            baseUrlBuilder(network)
                 .appendPath("nft")
                 .appendPath(nftAddress)
                 .build().toString()
-            else null
+        } else {
+            null
         }
     }
 }

@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views
 
 import android.animation.ValueAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.drawable.InsetDrawable
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
@@ -19,21 +19,29 @@ import androidx.constraintlayout.widget.Guideline
 import androidx.core.animation.doOnEnd
 import androidx.core.view.children
 import androidx.fragment.app.FragmentActivity
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Runnable
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeInObjectAnimator
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.commonViews.PasscodeInputView
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
@@ -48,15 +56,16 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import kotlin.math.max
-import kotlin.math.roundToInt
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.stores.AuthStore
 
 @SuppressLint("ViewConstructor")
 class PasscodeScreenView(
     private val containerVC: WViewController,
     private val passcodeViewState: PasscodeViewState,
     ignoreBiometry: Boolean
-) : WView(containerVC.context), WThemedView,
+) : WView(containerVC.context),
+    WThemedView,
     PasscodeKeyboardView.PasscodeListener {
 
     companion object {
@@ -65,7 +74,8 @@ class PasscodeScreenView(
     }
 
     val allowBiometry =
-        WGlobalStorage.isBiometricActivated() && BiometricHelpers.canAuthenticate(context) && !ignoreBiometry
+        WGlobalStorage.isAnyBiometricActivated() && BiometricHelpers.canAuthenticate(context) &&
+            !ignoreBiometry
     private val passcodeLength = WSecureStorage.getPasscodeLength()
 
     private val showAnimation = WGlobalStorage.getAreAnimationsActive() &&
@@ -79,10 +89,11 @@ class PasscodeScreenView(
         }
 
         is PasscodeViewState.CustomHeader -> {
-            if (allowBiometry)
+            if (allowBiometry) {
                 LocaleController.getString("Enter passcode or use fingerprint")
-            else
+            } else {
                 LocaleController.getString("Enter Passcode")
+            }
         }
     }
 
@@ -109,9 +120,19 @@ class PasscodeScreenView(
     private val passcodeInputView = PasscodeInputView(
         context,
         null,
-        forceLightScreen = if (passcodeViewState is PasscodeViewState.Default) passcodeViewState.light == true else false,
-        forceDarkScreen = if (passcodeViewState is PasscodeViewState.Default && passcodeViewState.isUnlockScreen)
-            NftAccentColors.veryBrightColors.contains(WColor.Tint.color) else false,
+        forceLightScreen = if (passcodeViewState is PasscodeViewState.Default) {
+            passcodeViewState.light ==
+                true
+        } else {
+            false
+        },
+        forceDarkScreen = if (passcodeViewState is PasscodeViewState.Default &&
+            passcodeViewState.isUnlockScreen
+        ) {
+            NftAccentColors.veryBrightColors.contains(WColor.Tint.color)
+        } else {
+            false
+        },
         margins = 8,
         showKeyboardOnFocus = false
     ).apply {
@@ -121,10 +142,19 @@ class PasscodeScreenView(
         WBaseView(context)
     }
     private val gapView2 = WBaseView(context)
+    private var updatingProgressDrawable: RoundProgressDrawable? = null
+    private var updatingLabel: WLabel? = null
+    private var updatingLabelFadeInAnimator: ValueAnimator? = null
     private val passcodeKeyboardView = PasscodeKeyboardView(
         context,
-        light = if (passcodeViewState is PasscodeViewState.Default) passcodeViewState.light else null,
-        showMotionBackgroundDrawable = passcodeViewState is PasscodeViewState.Default && passcodeViewState.showMotionBackgroundDrawable,
+        light = if (passcodeViewState is PasscodeViewState.Default) {
+            passcodeViewState.light
+        } else {
+            null
+        },
+        showMotionBackgroundDrawable =
+            passcodeViewState is PasscodeViewState.Default &&
+                passcodeViewState.showMotionBackgroundDrawable,
         ignoreBiometry = ignoreBiometry
     ).apply {
         setPadding(
@@ -140,8 +170,7 @@ class PasscodeScreenView(
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
 
-            if (desiredHeight == 0)
-                desiredHeight = measuredHeight
+            if (desiredHeight == 0) desiredHeight = measuredHeight
             if (measuredHeight < desiredHeight) {
                 clipChildren = false
                 clipToPadding = false
@@ -206,6 +235,62 @@ class PasscodeScreenView(
         }
     }
 
+    private fun createUpdatingLabel(): WLabel {
+        updatingLabel?.let { return it }
+
+        val progressDrawable = RoundProgressDrawable(sizeDp = 13f, strokeWidthDp = 1f)
+        val progressContainer = InsetDrawable(progressDrawable, 1.dp).apply {
+            setBounds(0, 0, 15.dp, 15.dp)
+        }
+        val label = WLabel(context).apply {
+            setStyle(13f)
+            text = LocaleController.getString("Updating")
+            gravity = Gravity.CENTER
+            compoundDrawablePadding = 8.dp
+            setCompoundDrawablesRelative(progressContainer, null, null, null)
+            visibility = INVISIBLE
+        }
+        updatingProgressDrawable = progressDrawable
+        updatingLabel = label
+        bottomLayout.addView(label, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        bottomLayout.setConstraints {
+            centerXToCenterX(label, passcodeKeyboardView)
+            topToTop(label, passcodeKeyboardView)
+            bottomToBottom(label, passcodeKeyboardView, 64f)
+        }
+        updateUpdatingLabelTheme()
+        return label
+    }
+
+    private fun showUpdatingLabel() {
+        val label = createUpdatingLabel()
+        updatingLabelFadeInAnimator?.cancel()
+        label.animate().cancel()
+        label.alpha = 0f
+        updatingLabelFadeInAnimator = label.fadeInObjectAnimator()?.apply {
+            startDelay = if (showAnimation) 750L else 0L
+            duration = AnimationConstants.SLOW_ANIMATION
+            doOnEnd {
+                updatingLabelFadeInAnimator = null
+            }
+            start()
+        }
+    }
+
+    private fun hideUpdatingLabel() {
+        updatingLabelFadeInAnimator?.cancel()
+        updatingLabelFadeInAnimator = null
+        updatingLabel?.let { label ->
+            if (label.alpha > 0f) {
+                label.fadeOut {
+                    label.visibility = INVISIBLE
+                }
+            } else {
+                label.visibility = INVISIBLE
+            }
+        }
+    }
+
     private fun setupAsDefaultPasscodeView() {
         val defaultState = passcodeViewState as PasscodeViewState.Default
 
@@ -255,8 +340,11 @@ class PasscodeScreenView(
     // Layout metrics are derived from the current insets / parent height, so they
     // are recomputed on demand (also keeps them correct across rotation).
     private fun defaultTopInset() =
-        if ((passcodeViewState as PasscodeViewState.Default).showNavBar) 0
-        else containerVC.navigationController?.getSystemBars()?.top ?: 0
+        if ((passcodeViewState as PasscodeViewState.Default).showNavBar) {
+            0
+        } else {
+            containerVC.navigationController?.getSystemBars()?.top ?: 0
+        }
 
     private fun defaultScaleFactor(): Float {
         val parentHeight = (containerVC.navigationController?.parent as? ViewGroup)?.height ?: 0
@@ -267,8 +355,7 @@ class PasscodeScreenView(
 
     private fun applyDefaultLayout() {
         val isWide = containerVC.window?.isWideLayout == true
-        if (isWideDefaultLayout == isWide)
-            return
+        if (isWideDefaultLayout == isWide) return
         isWideDefaultLayout = isWide
 
         val defaultState = passcodeViewState as PasscodeViewState.Default
@@ -278,8 +365,9 @@ class PasscodeScreenView(
 
         if (isWide) {
             // Wide screens: header on the left, passcode input + pinpad on the right.
-            if (defaultState.isUnlockScreen)
+            if (defaultState.isUnlockScreen) {
                 titleTextView.text = LocaleController.getString("Locked")
+            }
             val bottomInset =
                 4.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
             // No status-bar top inset here, so the header column stays vertically
@@ -304,8 +392,7 @@ class PasscodeScreenView(
                 passcodeInputView,
                 LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
             )
-            if (centerGuideline.parent == null)
-                addView(centerGuideline)
+            if (centerGuideline.parent == null) addView(centerGuideline)
             bottomLayout.setConstraints {
                 constrainedHeight(passcodeKeyboardView.id, true)
                 setVerticalBias(subTitleTextView.id, 0f)
@@ -366,8 +453,7 @@ class PasscodeScreenView(
                     bottomMargin = 12.dp
                 }
             )
-            if (centerGuideline.parent != null)
-                removeView(centerGuideline)
+            if (centerGuideline.parent != null) removeView(centerGuideline)
             setConstraints {
                 toTop(gapView1)
                 topToBottom(topLinearLayout, gapView1)
@@ -375,8 +461,10 @@ class PasscodeScreenView(
                 topToBottom(bottomLayout, gapView2)
                 toBottom(bottomLayout)
                 createVerticalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.TOP,
-                    ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.TOP,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.BOTTOM,
                     intArrayOf(gapView1.id, topLinearLayout.id, gapView2.id, bottomLayout.id),
                     null,
                     ConstraintSet.CHAIN_PACKED
@@ -395,8 +483,7 @@ class PasscodeScreenView(
     // Re-pick the wide/narrow layout, e.g. after a tablet rotation. No-op if
     // the layout mode hasn't changed or the view isn't configured yet.
     fun relayoutForConfigurationChange() {
-        if (!isConfigured)
-            return
+        if (!isConfigured) return
         when (passcodeViewState) {
             is PasscodeViewState.Default -> applyDefaultLayout()
             is PasscodeViewState.CustomHeader -> applyCustomHeaderLayout()
@@ -425,8 +512,10 @@ class PasscodeScreenView(
                 toCenterX(passcodeInputView)
                 topToBottom(passcodeKeyboardView, passcodeInputView, 32f)
                 createVerticalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.TOP,
-                    ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.TOP,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.BOTTOM,
                     intArrayOf(subTitleTextView.id, passcodeInputView.id, passcodeKeyboardView.id),
                     null,
                     ConstraintSet.CHAIN_PACKED
@@ -451,8 +540,7 @@ class PasscodeScreenView(
 
     private fun applyCustomHeaderLayout() {
         val isWide = containerVC.window?.isWideLayout == true
-        if (isWideCustomHeaderLayout == isWide)
-            return
+        if (isWideCustomHeaderLayout == isWide) return
         isWideCustomHeaderLayout = isWide
 
         if (isWide) {
@@ -463,8 +551,7 @@ class PasscodeScreenView(
             }
             topLinearLayout.layoutParams = LayoutParams(0, WRAP_CONTENT)
             bottomLayout.layoutParams = LayoutParams(0, MATCH_PARENT)
-            if (centerGuideline.parent == null)
-                addView(centerGuideline)
+            if (centerGuideline.parent == null) addView(centerGuideline)
             setConstraints {
                 constrainMaxHeight(topLinearLayout.id, Int.MAX_VALUE)
                 guidelinePercent(centerGuideline, 0.5f)
@@ -490,22 +577,24 @@ class PasscodeScreenView(
             }
             topLinearLayout.layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             bottomLayout.layoutParams = LayoutParams(MATCH_PARENT, 0)
-            if (centerGuideline.parent != null)
-                removeView(centerGuideline)
+            if (centerGuideline.parent != null) removeView(centerGuideline)
             setConstraints {
                 val parentHeight = (containerVC.navigationController?.parent as? View)?.height ?: 0
-                if (parentHeight > 0)
+                if (parentHeight > 0) {
                     constrainMaxHeight(
                         topLinearLayout.id,
                         (parentHeight * TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
                     )
+                }
                 toTop(topLinearLayout)
                 topToBottom(gapView2, topLinearLayout)
                 topToBottom(bottomLayout, gapView2)
                 toBottom(bottomLayout)
                 createVerticalChain(
-                    ConstraintSet.PARENT_ID, ConstraintSet.TOP,
-                    ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.TOP,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.BOTTOM,
                     intArrayOf(topLinearLayout.id, gapView2.id, bottomLayout.id),
                     null,
                     ConstraintSet.CHAIN_SPREAD_INSIDE
@@ -574,7 +663,7 @@ class PasscodeScreenView(
             containerVC.window?.forceStatusBarLight = passcodeViewState.light
             containerVC.window?.forceBottomBarLight = passcodeViewState.light
             val lockDrawable = context.getDrawableCompat(
-                org.mytonwallet.app_air.uipasscode.R.drawable.ic_lock
+                org.mytonwallet.app_air.icons.R.drawable.ic_lock
             )?.apply {
                 setTint(color)
             }
@@ -585,6 +674,17 @@ class PasscodeScreenView(
             subTitleTextView.setTextColor(WColor.SecondaryText.color)
             gapDrawable.invalidateSelf()
         }
+        updateUpdatingLabelTheme()
+    }
+
+    private fun updateUpdatingLabelTheme() {
+        val color = if (passcodeViewState is PasscodeViewState.Default) {
+            if (passcodeViewState.light ?: ThemeManager.isDark) Color.WHITE else Color.BLACK
+        } else {
+            WColor.SecondaryText.color
+        }
+        updatingLabel?.setTextColor(color)
+        updatingProgressDrawable?.color = color
     }
 
     var delegate: Delegate? = null
@@ -594,6 +694,8 @@ class PasscodeScreenView(
             passcode: String,
             callback: (wasCorrect: Boolean, cooldownDate: Long?) -> Unit
         )
+
+        fun onBiometricToken(enclaveToken: String) {}
 
         fun signOutPressed() {}
     }
@@ -636,7 +738,6 @@ class PasscodeScreenView(
 
     var doOnNumPadClick: (() -> Unit)? = null
 
-
     /* * */
 
     var inBiometry = BoolAnimator(
@@ -658,24 +759,43 @@ class PasscodeScreenView(
         )
         inBiometry.animatedValue = true
 
-        BiometricHelpers.authenticate(
-            context as FragmentActivity,
-            if (passcodeViewState is PasscodeViewState.Default) passcodeViewState.title else subtitle,
-            null,
-            null,
-            LocaleController.getString("Use PIN"),
-            onSuccess = {
+        val isWaitingForBridge =
+            !WalletCore.isBridgeReady && WGlobalStorage.isLegacyBiometricActivated()
+        if (isWaitingForBridge) {
+            passcodeKeyboardView.visibility = INVISIBLE
+            showUpdatingLabel()
+        }
+        AuthStore.authorizeWithBiometrics(
+            containerVC.window!!,
+            onBridgeReady = {
+                if (isWaitingForBridge) {
+                    hideUpdatingLabel()
+                    passcodeKeyboardView.apply {
+                        alpha = 0f
+                        visibility = VISIBLE
+                        fadeIn()
+                    }
+                }
+            },
+            onAuthenticated = {
+                passcodeInputView.passcode = "----"
+                isLoading.animatedValue = true
+                if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true) {
+                    showIndicator(animateToGreen = false)
+                }
+            }
+        ) { token ->
+            if (token != null) {
                 Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "tryBiometrics: Biometric success")
                 passcodeInputView.passcode = "----" // To fill passcode input view
-                checkPasscode(WSecureStorage.getBiometricPasscode(containerVC.window!!) ?: "")
-            },
-            onCanceled = {
-                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "tryBiometrics: Biometric canceled")
+                isLoading.animatedValue = true
+                delegate?.onBiometricToken(token)
+            } else {
+                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "tryBiometrics: Biometric canceled/error")
                 inBiometry.animatedValue = false
             }
-        )
+        }
     }
-
 
     /* * */
 
@@ -705,8 +825,11 @@ class PasscodeScreenView(
                 inBiometry.animatedValue = false
                 passcodeInputView.hideIndicator(true)
                 passcodeInputView.resetInput()
-                if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true && cooldownDate != null)
+                if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true &&
+                    cooldownDate != null
+                ) {
                     passcodeKeyboardView.showSignOut = true
+                }
                 passcodeKeyboardView.updateButtons(isEmpty = true)
 
                 setupCooldown(cooldownDate)
@@ -836,5 +959,4 @@ class PasscodeScreenView(
         passcodeKeyboardView.unlockKeypad()
         subTitleTextView.text = subtitle
     }
-
 }

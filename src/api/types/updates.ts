@@ -169,6 +169,7 @@ export type ApiUpdateDappConnect = {
     proof: boolean;
   };
   proof?: TonConnectProof;
+  multichainResolution?: 'switched-account' | 'needs-new-wallet';
 };
 
 export type ApiUpdateDappConnectComplete = {
@@ -374,6 +375,7 @@ export type ApiUpdateConfig = {
   seasonalTheme: ApiBackendConfig['seasonalTheme'];
   knowledgeBaseVersion?: string;
   preferredAgent?: ApiBackendConfig['preferredAgent'];
+  allowedOnOffRampCurrencies?: string[];
 };
 
 export type ApiUpdateWalletVersions = {
@@ -415,17 +417,6 @@ export type ApiUpdatingStatus = {
 export type ApiUpdateSettings = {
   type: 'updateSettings';
   settings: Partial<GlobalState['settings']>;
-};
-
-export type ApiMigrateCoreApplication = {
-  type: 'migrateCoreApplication';
-  isTestnet?: boolean;
-  accountId: string;
-  address: string;
-  // Absent on the full-featured combo build, which no longer mirrors the wallet onto the opposite network.
-  secondAccountId?: string;
-  secondAddress?: string;
-  isTonProxyEnabled?: boolean;
 };
 
 export type ApiUpdateRemoveAccounts = {
@@ -496,7 +487,6 @@ export type ApiUpdate =
   | ApiUpdateVesting
   | ApiUpdatingStatus
   | ApiUpdateSettings
-  | ApiMigrateCoreApplication
   | ApiUpdateRemoveAccounts
   | ApiUpdateAccountConfig
   | ApiUpdateAccountDomainData;

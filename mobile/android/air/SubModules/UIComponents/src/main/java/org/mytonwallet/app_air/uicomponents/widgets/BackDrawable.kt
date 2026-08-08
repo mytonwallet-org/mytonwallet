@@ -9,7 +9,9 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.view.animation.DecelerateInterpolator
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.withTranslation
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils
 
 class BackDrawable(val context: Context, close: Boolean) : Drawable() {
@@ -93,7 +95,8 @@ class BackDrawable(val context: Context, close: Boolean) : Drawable() {
                     finalRotation
                 } else {
                     if (currentRotation < finalRotation) {
-                        interpolator.getInterpolation(currentAnimationTime / animationTime) * finalRotation
+                        interpolator.getInterpolation(currentAnimationTime / animationTime) *
+                            finalRotation
                     } else {
                         1.0f - interpolator.getInterpolation(currentAnimationTime / animationTime)
                     }
@@ -106,38 +109,40 @@ class BackDrawable(val context: Context, close: Boolean) : Drawable() {
         paint.color =
             ColorUtils.blendARGB(color, rotatedColor, currentRotation)
 
-        canvas.save()
-        canvas.translate((intrinsicWidth / 2).toFloat(), (intrinsicHeight / 2).toFloat())
-        if (arrowRotation != 0) {
-            canvas.rotate(arrowRotation.toFloat())
-        }
-        var rotation = currentRotation
-        if (!alwaysClose) {
-            canvas.rotate(currentRotation * (if (reverseAngle) -225 else 135))
-        } else {
-            canvas.rotate(135 + currentRotation * (if (reverseAngle) -180 else 180))
-            rotation = 1.0f
-        }
-        canvas.drawLine(
-            (AnimUtils.lerp(-6.75f, -8f, rotation)).dp,
-            0f,
-            8.dp - (paint.strokeWidth / 2f) * (1f - rotation),
-            0f,
-            paint
-        )
-        val startYDiff: Float = (-0.25f).dp
-        val endYDiff: Float = (
-            AnimUtils.lerp(
-                7f,
-                8f,
-                rotation
+        canvas.withTranslation((intrinsicWidth / 2).toFloat(), (intrinsicHeight / 2).toFloat()) {
+            if (LocaleController.isRTL) {
+                scale(-1f, 1f)
+            }
+            if (arrowRotation != 0) {
+                rotate(arrowRotation.toFloat())
+            }
+            var rotation = currentRotation
+            if (!alwaysClose) {
+                rotate(currentRotation * (if (reverseAngle) -225 else 135))
+            } else {
+                rotate(135 + currentRotation * (if (reverseAngle) -180 else 180))
+                rotation = 1.0f
+            }
+            drawLine(
+                (AnimUtils.lerp(-6.75f, -8f, rotation)).dp,
+                0f,
+                8.dp - (paint.strokeWidth / 2f) * (1f - rotation),
+                0f,
+                paint
             )
-            ).dp - (paint.strokeWidth / 4f) * (1f - rotation)
-        val startXDiff: Float = (AnimUtils.lerp(-7f - 0.25f, 0f, rotation)).dp
-        val endXDiff = 0f
-        canvas.drawLine(startXDiff, -startYDiff, endXDiff, -endYDiff, paint)
-        canvas.drawLine(startXDiff, startYDiff, endXDiff, endYDiff, paint)
-        canvas.restore()
+            val startYDiff: Float = (-0.25f).dp
+            val endYDiff: Float = (
+                AnimUtils.lerp(
+                    7f,
+                    8f,
+                    rotation
+                )
+                ).dp - (paint.strokeWidth / 4f) * (1f - rotation)
+            val startXDiff: Float = (AnimUtils.lerp(-7f - 0.25f, 0f, rotation)).dp
+            val endXDiff = 0f
+            drawLine(startXDiff, -startYDiff, endXDiff, -endYDiff, paint)
+            drawLine(startXDiff, startYDiff, endXDiff, endYDiff, paint)
+        }
     }
 
     override fun setAlpha(alpha: Int) {
@@ -148,15 +153,9 @@ class BackDrawable(val context: Context, close: Boolean) : Drawable() {
         paint.setColorFilter(cf)
     }
 
-    override fun getOpacity(): Int {
-        return PixelFormat.TRANSPARENT
-    }
+    override fun getOpacity(): Int = PixelFormat.TRANSPARENT
 
-    override fun getIntrinsicWidth(): Int {
-        return 24.dp
-    }
+    override fun getIntrinsicWidth(): Int = 24.dp
 
-    override fun getIntrinsicHeight(): Int {
-        return 24.dp
-    }
+    override fun getIntrinsicHeight(): Int = 24.dp
 }

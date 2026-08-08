@@ -5,8 +5,6 @@ import UIKit
 import UIComponents
 import WalletContext
 
-private let log = Log("NotificationsSettingsVC")
-
 public final class NotificationsSettingsVC: SettingsBaseVC {
     
     var hostingController: UIHostingController<NotificationsSettingsView>?

@@ -1,18 +1,19 @@
 import React, { memo, useEffect, useMemo, useState } from '../../lib/teact/teact';
-import { getActions, withGlobal } from '../../global';
+import { getActions, getGlobal, withGlobal } from '../../global';
 
 import type { TonConnectProof } from '../../api/dappProtocols/adapters';
 import type { StoredDappConnection } from '../../api/dappProtocols/storage';
-import type { ApiBaseCurrency, ApiCurrencyRates, ApiDappPermissions, ApiStakingState } from '../../api/types';
-import type { Account, AccountSettings, GlobalState } from '../../global/types';
-import { DappConnectState } from '../../global/types';
+import type { ApiDappPermissions } from '../../api/types';
+import type { Account } from '../../global/types';
+import { AppState, DappConnectState } from '../../global/types';
 
 import {
   selectCurrentAccountId,
+  selectEnclaveToken,
+  selectHasPassword,
+  selectIsEnclaveSessionValid,
   selectNetworkAccounts,
-  selectOrderedAccounts,
 } from '../../global/selectors';
-import { getHasInMemoryPassword, getInMemoryPassword } from '../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../util/buildClassName';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
 import isViewAccount from '../../util/isViewAccount';
@@ -22,12 +23,13 @@ import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
-import { useMultipleAccountsBalances } from '../../hooks/useMultipleAccountsBalances';
 
-import AccountRowContent from '../common/AccountRowContent';
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import MfaConfirm from '../common/MfaConfirm';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
+import AddAccountPasswordModal from '../main/modals/accountSelector/AddAccountPasswordModal';
 import Button from '../ui/Button';
 import Image from '../ui/Image';
 import Modal from '../ui/Modal';
@@ -50,14 +52,12 @@ interface DappConnectOpenProps {
   mfaRequestHash?: string;
   currentAccountId: string;
   accounts?: Record<string, Account>;
-  orderedAccounts: Array<[string, Account]>;
-  settingsByAccountId: Record<string, AccountSettings>;
-  baseCurrency: ApiBaseCurrency;
-  currencyRates: ApiCurrencyRates;
-  byAccountId: GlobalState['byAccountId'];
-  tokenInfo: GlobalState['tokenInfo'];
-  stakingDefault: ApiStakingState;
-  areTokensWithNoCostHidden?: boolean;
+  multichainResolution?: 'switched-account' | 'needs-new-wallet';
+  hasPassword: boolean;
+  isAccountLoading?: boolean;
+  isCreatingAccount?: boolean;
+  accountError?: string;
+  isAuthAppState?: boolean;
 }
 
 type StateProps = DappConnectOpenProps
@@ -72,46 +72,40 @@ function DappConnectModal({
   requiredProof,
   mfaRequestHash,
   accounts,
-  orderedAccounts,
   currentAccountId,
-  settingsByAccountId,
-  baseCurrency,
-  currencyRates,
-  byAccountId,
-  tokenInfo,
-  stakingDefault,
-  areTokensWithNoCostHidden,
+  multichainResolution,
+  hasPassword = false,
+  isAccountLoading,
+  isCreatingAccount,
+  accountError,
+  isAuthAppState,
 }: StateProps) {
   const {
     submitDappConnectRequestConfirm,
     cancelDappConnectRequestConfirm,
     setDappConnectRequestState,
     resetHardwareWalletConnect,
+    addAccount,
+    clearAccountError,
     updateDappConnectMfaRequestStatus,
   } = getActions();
 
   const lang = useLang();
   const [selectedAccount, setSelectedAccount] = useState<string>(currentAccountId);
 
-  const isOpen = hasConnectRequest;
+  const isOpen = hasConnectRequest && !(isCreatingAccount && isAuthAppState);
+
+  const handleCloseAnimationEnd = useLastCallback(() => {
+    if (!isCreatingAccount) {
+      cancelDappConnectRequestConfirm();
+    }
+  });
 
   const { renderingKey, nextKey } = useModalTransitionKeys(state ?? 0, isOpen);
 
   const isLoading = dapp === undefined;
 
   const dappHost = useMemo(() => dapp && dapp.url ? new URL(dapp.url).host : undefined, [dapp]);
-
-  const { balancesByAccountId } = useMultipleAccountsBalances({
-    filteredAccounts: orderedAccounts,
-    sourceAccounts: accounts,
-    byAccountId,
-    tokenInfo,
-    settingsByAccountId,
-    areTokensWithNoCostHidden,
-    baseCurrency,
-    currencyRates,
-    stakingDefault,
-  });
 
   useEffect(() => {
     if (!currentAccountId) return;
@@ -128,8 +122,9 @@ function DappConnectModal({
   }, isOpen && state === DappConnectState.ConfirmMfa ? 1000 : undefined);
 
   const shouldRenderAccountSelector = accounts && isKeyCountGreater(accounts, 1);
+  const isNoCompatibleWallet = multichainResolution === 'needs-new-wallet';
 
-  const handleOpenAccountSelector = useLastCallback((_accountId: string) => {
+  const handleOpenAccountSelector = useLastCallback(() => {
     setDappConnectRequestState({ state: DappConnectState.SelectAccount });
   });
 
@@ -142,7 +137,7 @@ function DappConnectModal({
     setDappConnectRequestState({ state: DappConnectState.Info });
   });
 
-  const handleSubmit = useLastCallback(async () => {
+  const handleSubmit = useLastCallback(() => {
     if (isViewAccount(accounts![selectedAccount].type) && (requiredProof || isMfaEnabled)) return;
 
     const isHardware = accounts![selectedAccount].type === 'hardware';
@@ -160,10 +155,10 @@ function DappConnectModal({
     } else if (isHardware) {
       resetHardwareWalletConnect({ chain: 'ton' });
       setDappConnectRequestState({ state: DappConnectState.ConnectHardware });
-    } else if (getHasInMemoryPassword()) {
+    } else if (selectIsEnclaveSessionValid(getGlobal())) {
       submitDappConnectRequestConfirm({
         accountId: selectedAccount,
-        password: await getInMemoryPassword(),
+        enclaveToken: selectEnclaveToken(getGlobal()),
       });
     } else {
       // The confirmation window must be closed before the password screen is displayed
@@ -183,92 +178,57 @@ function DappConnectModal({
     });
   });
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
+  const handlePasswordSubmit = useLastCallback((enclaveToken: string) => {
     submitDappConnectRequestConfirm({
       accountId: selectedAccount,
-      password,
+      enclaveToken,
     });
+  });
+
+  const handleCreateMultichainWallet = useLastCallback(() => {
+    if (!hasPassword || selectIsEnclaveSessionValid(getGlobal())) {
+      addAccount({ method: 'createAccount', clearDappConnectOnVerified: true });
+      return;
+    }
+
+    clearAccountError();
+    setDappConnectRequestState({ state: DappConnectState.AddAccountPassword });
+  });
+
+  const handleAddAccountPasswordSubmit = useLastCallback((enclaveToken: string) => {
+    addAccount({ method: 'createAccount', clearDappConnectOnVerified: true, enclaveToken });
+  });
+
+  const handleAddAccountPasswordCancel = useLastCallback(() => {
+    clearAccountError();
+    setDappConnectRequestState({ state: DappConnectState.Info });
   });
 
   function getIsAccountCompatible(byChain: Account['byChain']) {
     return !dapp?.chains?.length || dapp.chains.every(({ chain }) => Boolean(byChain[chain]));
   }
 
-  function renderAccountSelector() {
-    const account = accounts?.[selectedAccount];
-    if (!account) return undefined;
+  const getIsAccountDisabled = useLastCallback((account: Account) => {
+    if (isNoCompatibleWallet) return true;
 
-    const { title, byChain, type } = account;
-    const { cardBackgroundNft } = settingsByAccountId?.[selectedAccount] || {};
-    const balanceData = balancesByAccountId?.[selectedAccount];
+    const isCompatible = getIsAccountCompatible(account.byChain);
+    const accountHasMfa = Boolean(account.byChain.ton?.mfa);
 
-    return (
-      <>
-        <span className={styles.accountSelectorTitle}>{lang('Selected Wallet')}</span>
-        <AccountRowContent
-          accountId={selectedAccount}
-          byChain={byChain}
-          accountType={type}
-          title={title}
-          cardBackgroundNft={cardBackgroundNft}
-          balanceData={balanceData}
-          className={styles.accountSelectorButton}
-          suffixIcon={<i className={buildClassName(styles.accountSelectorChevron, 'icon-chevron-right')} aria-hidden />}
-          onClick={handleOpenAccountSelector}
+    return !isCompatible || ((!!requiredProof || accountHasMfa) && isViewAccount(account.type));
+  });
+
+  const slideSubtitle = useMemo(() => (
+    <span className={styles.accountSlideSubtitle}>
+      {lang('Wallet to use on %host%', { host: dappHost })}
+      {dapp?.urlTrustStatus !== 'verified' && (
+        <DappHostWarning
+          url={dapp?.url}
+          urlTrustStatus={dapp?.urlTrustStatus}
+          iconClassName={styles.dappLargePreviewHostWarning}
         />
-      </>
-    );
-  }
-
-  function renderSelectAccountSlide() {
-    return (
-      <>
-        <ModalHeader
-          title={lang('Choose Wallet')}
-          onBackButtonClick={handleAccountSelectorBack}
-          onClose={cancelDappConnectRequestConfirm}
-        />
-        <div className={modalStyles.transitionContent}>
-          <span className={buildClassName(styles.accountSelectorTitle, styles.accountSelectorTitle_2)}>
-            {lang('Wallet to use on %host%', { host: dappHost })}
-            {dapp?.urlTrustStatus !== 'verified' && (
-              <DappHostWarning
-                url={dapp?.url}
-                urlTrustStatus={dapp?.urlTrustStatus}
-                iconClassName={styles.dappLargePreviewHostWarning}
-              />
-            )}
-          </span>
-          <div className={styles.accountList}>
-            {(orderedAccounts ?? []).map(([accountId, { title, byChain, type }]) => {
-              const isCompatible = getIsAccountCompatible(byChain);
-              const accountHasMfa = Boolean(byChain.ton?.mfa);
-              const isDisabled = !isCompatible || ((!!requiredProof || accountHasMfa) && isViewAccount(type));
-              const isSelected = accountId === selectedAccount;
-              const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
-              const balanceData = balancesByAccountId?.[accountId];
-
-              return (
-                <AccountRowContent
-                  key={accountId}
-                  accountId={accountId}
-                  byChain={byChain}
-                  accountType={type}
-                  title={title}
-                  cardBackgroundNft={cardBackgroundNft}
-                  balanceData={balanceData}
-                  isSelected={isSelected}
-                  isDisabled={isDisabled}
-                  className={styles.accountListItem}
-                  onClick={handleSelectAccount}
-                />
-              );
-            })}
-          </div>
-        </div>
-      </>
-    );
-  }
+      )}
+    </span>
+  ), [dapp?.url, dapp?.urlTrustStatus, dappHost, lang]);
 
   function renderDappInfo() {
     const isViewMode = Boolean(
@@ -301,10 +261,13 @@ function DappConnectModal({
               />
             )}
           </span>
-          <p className={styles.dappLargePreviewDescription}>{lang('$connect_dapp_description')}</p>
+          <p className={styles.dappLargePreviewDescription}>
+            {lang(multichainResolution === 'needs-new-wallet'
+              ? '$connect_dapp_no_compatible_wallets_found'
+              : '$connect_dapp_description')}
+          </p>
         </div>
-        {shouldRenderAccountSelector && renderAccountSelector()}
-        {!isSelectedAccountCompatible && (
+        {(!isSelectedAccountCompatible || isNoCompatibleWallet) && (
           <div className={buildClassName(styles.multichainWarning, styles.warning)}>
             <div className={styles.warningTitle}>{lang('Unsupported Chain')}</div>
             {lang('Please upgrade to multichain to use this app.')}
@@ -312,15 +275,27 @@ function DappConnectModal({
         )}
 
         <div className={styles.footer}>
-          <Button
-            isPrimary
-            isDestructive={dapp?.urlTrustStatus === 'dangerous'}
-            isDisabled={isViewMode || !isSelectedAccountCompatible}
-            className={modalStyles.buttonFullWidth}
-            onClick={handleSubmit}
-          >
-            {lang(dapp?.urlTrustStatus === 'dangerous' ? 'Connect Anyway' : 'Connect Wallet')}
-          </Button>
+          {multichainResolution === 'needs-new-wallet' ? (
+            <Button
+              isPrimary
+              isLoading={isCreatingAccount}
+              isDisabled={isViewMode}
+              className={modalStyles.buttonFullWidth}
+              onClick={handleCreateMultichainWallet}
+            >
+              {lang('Create Multichain Wallet')}
+            </Button>
+          ) : (
+            <Button
+              isPrimary
+              isDestructive={dapp?.urlTrustStatus === 'dangerous'}
+              isDisabled={isViewMode || !isSelectedAccountCompatible}
+              className={modalStyles.buttonFullWidth}
+              onClick={handleSubmit}
+            >
+              {lang(dapp?.urlTrustStatus === 'dangerous' ? 'Connect Anyway' : 'Connect Wallet')}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -342,7 +317,17 @@ function DappConnectModal({
   function renderDappInfoWithSkeleton() {
     return (
       <Transition name="semiFade" activeKey={isLoading ? 0 : 1} slideClassName={styles.skeletonTransitionWrapper}>
-        <ModalHeader onClose={cancelDappConnectRequestConfirm} />
+        <div className={styles.headerWithPill}>
+          <ModalHeader onClose={cancelDappConnectRequestConfirm} />
+          {shouldRenderAccountSelector && (
+            <AccountSwitcherPill
+              accountId={selectedAccount}
+              title={accounts?.[selectedAccount]?.title}
+              className={styles.accountPill}
+              onClick={handleOpenAccountSelector}
+            />
+          )}
+        </div>
         {isLoading ? renderWaitForConnection() : renderDappInfo()}
       </Transition>
     );
@@ -353,14 +338,39 @@ function DappConnectModal({
       case DappConnectState.Info:
         return renderDappInfoWithSkeleton();
       case DappConnectState.SelectAccount:
-        return renderSelectAccountSlide();
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            selectedAccountId={selectedAccount}
+            subtitle={slideSubtitle}
+            getIsAccountDisabled={getIsAccountDisabled}
+            onAccountSelect={handleSelectAccount}
+            onBack={handleAccountSelectorBack}
+            onClose={cancelDappConnectRequestConfirm}
+          />
+        );
       case DappConnectState.Password:
         return (
           <DappPassword
             isActive={isActive}
             error={error}
-            onSubmit={handlePasswordSubmit}
+            // Proving ownership to the dapp and signing the MFA request are separate signatures, so
+            // a connection that does both reads the secret twice
+            extraAuthUsages={requiredProof && isMfaEnabled ? 1 : 0}
+            onAuthorize={handlePasswordSubmit}
             onCancel={handlePasswordCancel}
+            onClose={cancelDappConnectRequestConfirm}
+          />
+        );
+      case DappConnectState.AddAccountPassword:
+        return (
+          <AddAccountPasswordModal
+            isActive={isActive}
+            isLoading={isAccountLoading || isCreatingAccount}
+            error={accountError}
+            onClearError={clearAccountError}
+            onAuthorize={handleAddAccountPasswordSubmit}
+            onBack={handleAddAccountPasswordCancel}
             onClose={cancelDappConnectRequestConfirm}
           />
         );
@@ -400,11 +410,11 @@ function DappConnectModal({
       isOpen={isOpen}
       dialogClassName={styles.modalDialog}
       onClose={cancelDappConnectRequestConfirm}
-      onCloseAnimationEnd={cancelDappConnectRequestConfirm}
+      onCloseAnimationEnd={handleCloseAnimationEnd}
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}
@@ -417,7 +427,7 @@ function DappConnectModal({
 
 export default memo(withGlobal((global): StateProps => {
   const {
-    state, dapp, error, accountId, permissions, proof, mfaRequestHash,
+    state, dapp, error, accountId, permissions, proof, mfaRequestHash, multichainResolution, isCreatingAccount,
   } = global.dappConnectRequest || {};
   const currentAccountId = accountId || selectCurrentAccountId(global)!;
   const hasConnectRequest = state !== undefined;
@@ -427,19 +437,10 @@ export default memo(withGlobal((global): StateProps => {
   }
 
   const accounts = selectNetworkAccounts(global);
-  const orderedAccounts = selectOrderedAccounts(global);
 
-  const {
-    settings: {
-      byAccountId: settingsByAccountId,
-      baseCurrency,
-      areTokensWithNoCostHidden,
-    },
-    currencyRates,
-    byAccountId,
-    tokenInfo,
-    stakingDefault,
-  } = global;
+  const { accounts: accountsState } = global;
+
+  const { isLoading: isAccountLoading, error: accountError } = accountsState ?? {};
 
   return {
     state,
@@ -451,14 +452,12 @@ export default memo(withGlobal((global): StateProps => {
     mfaRequestHash,
     currentAccountId,
     accounts,
-    orderedAccounts,
-    settingsByAccountId,
-    baseCurrency,
-    currencyRates,
-    byAccountId,
-    tokenInfo,
-    stakingDefault,
-    areTokensWithNoCostHidden,
+    multichainResolution,
+    hasPassword: selectHasPassword(global),
+    isAccountLoading,
+    isCreatingAccount,
+    accountError,
+    isAuthAppState: global.appState === AppState.Auth,
   };
 })(DappConnectModal));
 

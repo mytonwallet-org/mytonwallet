@@ -27,7 +27,7 @@ import useCollectionOverviewMenu from './hooks/useCollectionOverviewMenu';
 import useNftCollectionMenuItems from './hooks/useNftCollectionMenuItems';
 
 import EdgeScrollButton from '../../../common/EdgeScrollButton';
-import LandscapeTopActions from '../Actions/LandscapeTopActions';
+import TopActions from '../Actions/TopActions';
 import Activities from './Activities';
 import Assets from './Assets';
 import Nfts from './Nfts';
@@ -50,6 +50,7 @@ interface StateProps {
   nftsByAddress?: Record<string, ApiNft>;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
+  areUnverifiedNftsHidden?: boolean;
   overviewCellSize: OverviewCellSize;
   isAssetCellVisible: boolean;
   isCollectibleCellVisible: boolean;
@@ -62,6 +63,7 @@ function LandscapeWalletOverview({
   nftsByAddress,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
+  areUnverifiedNftsHidden,
   overviewCellSize,
   isAssetCellVisible,
   isCollectibleCellVisible,
@@ -83,6 +85,7 @@ function LandscapeWalletOverview({
     nfts: nftsByAddress,
     blacklistedNftAddresses,
     whitelistedNftAddresses,
+    areUnverifiedNftsHidden,
   });
 
   const visibleCollectionTabs = useMemo(() => (
@@ -165,7 +168,7 @@ function LandscapeWalletOverview({
 
   return (
     <div className={buildClassName(styles.wrapper, 'custom-scroll', SCROLL_CONTAINER_CLASS)}>
-      <LandscapeTopActions />
+      <TopActions />
       <div ref={rowContainerRef} className={styles.rowContainer}>
         <div
           ref={rowRef}
@@ -278,6 +281,7 @@ export default memo(
         nftsByAddress: accountState?.nfts?.byAddress,
         blacklistedNftAddresses: accountState?.blacklistedNftAddresses,
         whitelistedNftAddresses: accountState?.whitelistedNftAddresses,
+        areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
         overviewCellSize: accountSettings?.overviewCellSize ?? 'small',
         isAssetCellVisible: !accountSettings?.areAssetsHidden,
         isCollectibleCellVisible: !accountSettings?.areCollectiblesHidden,

@@ -15,7 +15,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
-class WSuggestionCell(context: Context) : WCell(context, LayoutParams(WRAP_CONTENT, MATCH_PARENT)),
+class WSuggestionCell(context: Context) :
+    WCell(context, LayoutParams(WRAP_CONTENT, MATCH_PARENT)),
     WThemedView {
 
     private val ripple = WRippleDrawable.create(14f.dp)
@@ -71,20 +72,20 @@ class WSuggestionCell(context: Context) : WCell(context, LayoutParams(WRAP_CONTE
         if (isPrimary) {
             contentView.setPadding(6.dp, 6.dp, 6.dp, 6.dp)
             val isOneSuggestion = suggestionsLength == 1
-            val primaryRightMargin = if (isOneSuggestion) 6.dp else 0.dp
+            val primaryEndMargin = if (isOneSuggestion) 6.dp else 0.dp
             contentView.updateLayoutParams<MarginLayoutParams> {
-                leftMargin = 6.dp
+                marginStart = 6.dp
                 topMargin = 6.dp
-                rightMargin = primaryRightMargin
+                marginEnd = primaryEndMargin
                 bottomMargin = 6.dp
             }
             ripple.backgroundColor = WColor.PrimaryText.color.colorWithAlpha(15)
         } else {
             contentView.setPadding(6.dp, 12.dp, 6.dp, 12.dp)
             contentView.updateLayoutParams<MarginLayoutParams> {
-                leftMargin = 0
+                marginStart = 0
                 topMargin = 0
-                rightMargin = 0
+                marginEnd = 0
                 bottomMargin = 0
             }
             ripple.backgroundColor = Color.TRANSPARENT

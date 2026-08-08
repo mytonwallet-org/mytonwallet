@@ -5,16 +5,19 @@ enum ContextMenuVisuals {
         traits.userInterfaceStyle == .dark ? .dark : .light
     }
 
+    @MainActor
     static func titleFont() -> UIFont {
-        UIFont.systemFont(ofSize: 17.0, weight: .regular)
+        ContextMenuTypography.titleFont
     }
 
+    @MainActor
     static func subtitleFont() -> UIFont {
-        UIFont.systemFont(ofSize: 14.0, weight: .regular)
+        ContextMenuTypography.subtitleFont
     }
 
+    @MainActor
     static func badgeFont() -> UIFont {
-        UIFont.systemFont(ofSize: 13.0, weight: .regular)
+        ContextMenuTypography.badgeFont
     }
 
     static func primaryTextColor(for traits: UITraitCollection, role: ContextMenuRole, enabled: Bool) -> UIColor {
@@ -99,11 +102,13 @@ enum ContextMenuVisuals {
     }
 
     @MainActor
-    static func chevronImage() -> UIImage? {
-        let configuration = UIImage.SymbolConfiguration(pointSize: 13.0, weight: .semibold)
-        return UIImage(systemName: "chevron.right", withConfiguration: configuration)?.withRenderingMode(.alwaysTemplate)
+    static func chevronImage(layoutDirection: UIUserInterfaceLayoutDirection) -> UIImage? {
+        let configuration = UIImage.SymbolConfiguration(font: ContextMenuTypography.symbolFont)
+        let systemName = layoutDirection.contextMenuIsRightToLeft ? "chevron.left" : "chevron.right"
+        return UIImage(systemName: systemName, withConfiguration: configuration)?.withRenderingMode(.alwaysTemplate)
     }
 
+    @MainActor
     static func makeBadgeImage(text: String, traits: UITraitCollection) -> UIImage? {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: badgeFont(),

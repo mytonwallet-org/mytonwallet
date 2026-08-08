@@ -7,6 +7,8 @@ import android.view.View
 import android.view.View.OnTouchListener
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import java.net.URI
+import java.security.SecureRandom
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
@@ -24,8 +26,6 @@ import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSignDataRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappTransactionRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.DAppInject
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.net.URI
-import java.security.SecureRandom
 
 class TonConnectInjectedInterface(
     val webView: WebView,
@@ -70,7 +70,8 @@ class TonConnectInjectedInterface(
                     data: ${JSONObject.quote(json)}
                   }));
                 })();
-            """, null
+            """,
+                null
             )
         }
     }
@@ -79,13 +80,11 @@ class TonConnectInjectedInterface(
         liveAccountId = accountId
     }
 
-    private fun currentDApp(): ApiMethod.DApp.Inject.DAppArg {
-        return ApiMethod.DApp.Inject.DAppArg(
-            url = resolveDappOrigin(origin, webView.url),
-            urlTrustStatus = "verified",
-            accountId = liveAccountId
-        )
-    }
+    private fun currentDApp(): ApiMethod.DApp.Inject.DAppArg = ApiMethod.DApp.Inject.DAppArg(
+        url = resolveDappOrigin(origin, webView.url),
+        urlTrustStatus = "verified",
+        accountId = liveAccountId
+    )
 
     @JavascriptInterface
     fun invokeFunc(json: String) {
@@ -203,10 +202,13 @@ class TonConnectInjectedInterface(
                             )
                         ) { _, _ ->
                             webView.unlockTouch()
-                            sendInvokeResult(invoke.invocationId, JSONObject().apply {
-                                put("result", JSONObject())
-                                put("id", id)
-                            })
+                            sendInvokeResult(
+                                invoke.invocationId,
+                                JSONObject().apply {
+                                    put("result", JSONObject())
+                                    put("id", id)
+                                }
+                            )
                         }
                     }
 
@@ -393,7 +395,10 @@ class TonConnectInjectedInterface(
 
             "window:open" -> {
                 val url = invoke.args?.optJSONObject(0)?.optString("url") ?: return
-                val routingDecision = WindowOpenUrlRoutingDecision.resolve(url) { deeplink, source ->
+                val routingDecision = WindowOpenUrlRoutingDecision.resolve(url) {
+                        deeplink,
+                        source
+                    ->
                     WalletContextManager.delegate?.get()?.handleDeeplink(deeplink, source) == true
                 }
                 if (routingDecision == WindowOpenUrlRoutingDecision.LOAD_URL) {

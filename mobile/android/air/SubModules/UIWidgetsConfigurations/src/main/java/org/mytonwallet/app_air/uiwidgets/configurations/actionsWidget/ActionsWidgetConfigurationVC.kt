@@ -7,6 +7,8 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
@@ -24,15 +26,13 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.widgets.actionsWidget.ActionsWidget
-import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 class ActionsWidgetConfigurationVC(
     context: Context,
     override val appWidgetId: Int,
     override val onResult: (ok: Boolean) -> Unit
-) :
-    WidgetConfigurationVC(context) {
+) : WidgetConfigurationVC(context) {
+    @Suppress("PropertyName")
     override val TAG = "ActionsWidgetConfiguration"
 
     override val shouldDisplayBottomBar = false
@@ -73,8 +73,9 @@ class ActionsWidgetConfigurationVC(
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown by lazy {
         ReversedCornerViewUpsideDown(context, scrollView).apply {
-            if (ignoreSideGuttering)
+            if (ignoreSideGuttering) {
                 setHorizontalPadding(0f)
+            }
         }
     }
 
@@ -87,16 +88,22 @@ class ActionsWidgetConfigurationVC(
         navigationBar?.setTitleGravity(Gravity.CENTER)
 
         view.apply {
-            addView(scrollView, ConstraintLayout.LayoutParams(0, 0).apply {
-                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
-            })
+            addView(
+                scrollView,
+                ConstraintLayout.LayoutParams(0, 0).apply {
+                    matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+                }
+            )
             addView(
                 bottomReversedCornerViewUpsideDown,
                 ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_CONSTRAINT)
             )
-            addView(continueButton, ConstraintLayout.LayoutParams(0, WRAP_CONTENT).apply {
-                matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
-            })
+            addView(
+                continueButton,
+                ConstraintLayout.LayoutParams(0, WRAP_CONTENT).apply {
+                    matchConstraintMaxWidth = WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp
+                }
+            )
             setConstraints {
                 toTop(scrollView)
                 toCenterX(scrollView)

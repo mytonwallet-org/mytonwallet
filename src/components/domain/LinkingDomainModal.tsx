@@ -118,9 +118,9 @@ function LinkingDomainModal({
     }
   }, [domainNft, isOpen]);
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     if (canSubmit) {
-      submitDomainLinking({ password });
+      submitDomainLinking({ enclaveToken });
     }
   });
 
@@ -191,7 +191,7 @@ function LinkingDomainModal({
           isLoading={isLoading}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Cancel')}
-          onSubmit={handlePasswordSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={cancelDomainLinking}
           onUpdate={clearDomainLinkingError}
         >

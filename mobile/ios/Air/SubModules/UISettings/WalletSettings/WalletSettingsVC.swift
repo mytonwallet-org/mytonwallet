@@ -15,6 +15,7 @@ import OrderedCollections
 import UIKitNavigation
 
 private let maxWidth: CGFloat = 580
+private let minWindowHeightForPartialSheet: CGFloat = 700
 
 public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delegate {
     
@@ -74,13 +75,12 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     
     private lazy var tabs = Tabs(viewModel: viewModel)
 
-    private var currentFilter: WalletFilter { viewModel.currentFilter }
     private var segmentedController: WSegmentedController?
     private var segmentedControl: WSegmentedControl? { segmentedController?.segmentedControl }
     private var viewModel = WalletSettingsViewModel()
     private let segmentedControlWidth: CGFloat = 320
     private var segmentedControlContainerWidthConstraint: NSLayoutConstraint?
-    private var isConfiguredForBottomAttachedSheet: Bool?
+    private var isConfiguredForPartialHeightSheet: Bool?
     private var lastAppliedNavigationKey: NavigationKey?
 
     private struct NavigationKey: Equatable {
@@ -238,8 +238,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     private func switchToAllTabOnEditing() {
         guard let segmentedController else { return }
         let idx = tabs.itemIndexForFilter(.all) ?? 0
-        segmentedController.switchTo(tabIndex: idx)
-        segmentedController.handleSegmentChange(to: idx, animated: true)
+        segmentedController.setSelectedIndex(to: idx, animated: true)
     }
 
     public override func viewDidLayoutSubviews() {
@@ -271,14 +270,16 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     private func updateSheetPresentation() {
         guard let sheet = sheetPresentationController else { return }
         let usesBottomSheetControls = isSheetPresentationAttachedToBottom
-        let shouldUpdateDetents = isConfiguredForBottomAttachedSheet != usesBottomSheetControls
-        isConfiguredForBottomAttachedSheet = usesBottomSheetControls
+        let windowHeight = view.window?.bounds.height ?? screenHeight
+        let allowsPartialHeight = usesBottomSheetControls && windowHeight >= minWindowHeightForPartialSheet
+        let shouldUpdateDetents = isConfiguredForPartialHeightSheet != allowsPartialHeight
+        isConfiguredForPartialHeightSheet = allowsPartialHeight
 
         if IOS_26_MODE_ENABLED {
             sheet.prefersGrabberVisible = usesBottomSheetControls
         }
         if shouldUpdateDetents {
-            if usesBottomSheetControls {
+            if allowsPartialHeight {
                 sheet.detents = [
                     .custom(identifier: .init("twoThirds")) { $0.maximumDetentValue * 0.667 },
                     .large(),

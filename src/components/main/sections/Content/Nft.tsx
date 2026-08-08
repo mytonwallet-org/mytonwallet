@@ -153,7 +153,9 @@ function Nft({
   });
 
   const handleOpenMenu = useLastCallback(() => {
-    const { right: x, y } = ref.current!.getBoundingClientRect();
+    const { left, right, y } = ref.current!.getBoundingClientRect();
+    // RTL: mirror the anchor edge
+    const x = lang.isRtl ? left : right;
     setMenuAnchor({ x, y });
   });
 

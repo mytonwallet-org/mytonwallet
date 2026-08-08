@@ -53,12 +53,16 @@ class MockAgentProcessor : AgentProcessor {
                                 type = "action",
                                 message = null,
                                 deeplinks = listOf(
-                                    AgentResultDeeplink("Swap 10 GRAM → USDT", "ton://swap?from=TON&to=USDT&amount=10"),
+                                    AgentResultDeeplink(
+                                        "Swap 10 GRAM → USDT",
+                                        "ton://swap?from=TON&to=USDT&amount=10"
+                                    ),
                                     AgentResultDeeplink("View Balance", "ton://wallet")
                                 ),
                                 raw = org.json.JSONObject()
                             )
                         )
+
                         else -> listOf(
                             AgentResult(
                                 type = "action",

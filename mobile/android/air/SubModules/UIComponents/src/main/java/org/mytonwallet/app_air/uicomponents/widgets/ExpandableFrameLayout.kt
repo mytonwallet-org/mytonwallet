@@ -23,7 +23,7 @@ open class ExpandableFrameLayout @JvmOverloads constructor(
         initialValue = false
     ) { _, _, _, _ ->
         requestLayout()
-        if (!children.toList().isEmpty())
+        if (!children.toList().isEmpty()) {
             (children.first() as? ViewGroup)?.let { container ->
                 container.children.forEach {
                     it.apply {
@@ -39,6 +39,7 @@ open class ExpandableFrameLayout @JvmOverloads constructor(
                     }
                 }
             }
+        }
     }
 
     var expanded: Boolean

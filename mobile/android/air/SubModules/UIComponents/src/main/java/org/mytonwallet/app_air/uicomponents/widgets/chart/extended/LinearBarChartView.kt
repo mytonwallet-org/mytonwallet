@@ -6,9 +6,7 @@ import android.graphics.Paint
 import kotlin.math.max
 import kotlin.math.min
 
-class LinearBarChartView(
-    context: Context
-) : BaseChartView<ChartData, LineViewData>(context) {
+class LinearBarChartView(context: Context) : BaseChartView<ChartData, LineViewData>(context) {
     override fun init() {
         useMinHeight = true
         super.init()
@@ -36,7 +34,9 @@ class LinearBarChartView(
                 val yPercentage = (y[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight)
                 val padding = line.paint.strokeWidth / 2f
                 val yPoint =
-                    measuredHeight - chartBottom - padding - yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT - padding)
+                    measuredHeight - chartBottom - padding -
+                        yPercentage *
+                        (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT - padding)
                 if (USE_LINES) {
                     if (j == 0) {
                         line.linesPath[j++] = xPoint - p / 2f

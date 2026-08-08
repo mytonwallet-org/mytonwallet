@@ -3,14 +3,14 @@ package org.mytonwallet.app_air.walletcore.models
 import android.net.Uri
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
-sealed class MMarketplace(
-    val title: String,
-) {
+sealed class MMarketplace(val title: String) {
     abstract fun homeUrl(network: MBlockchainNetwork = MBlockchainNetwork.MAINNET): String
 
-    object Fragment : MMarketplace(
-        title = "Fragment",
-    ), GiftsMarket {
+    object Fragment :
+        MMarketplace(
+            title = "Fragment"
+        ),
+        GiftsMarket {
         override fun homeUrl(network: MBlockchainNetwork): String = "https://fragment.com/"
 
         override fun giftsUrl(network: MBlockchainNetwork): String = "${homeUrl(network)}gifts"
@@ -20,23 +20,23 @@ sealed class MMarketplace(
         fun usernameUrl(username: String): String = "${homeUrl()}username/${Uri.encode(username)}"
     }
 
-    object Getgems : MMarketplace(
-        title = "Getgems",
-    ), GiftsMarket, CollectionMarket, NftMarket {
-        override fun homeUrl(network: MBlockchainNetwork): String {
-            return if (network.isMainnet) {
-                "https://getgems.io/"
-            } else {
-                "https://testnet.getgems.io/"
-            }
+    object Getgems :
+        MMarketplace(
+            title = "Getgems"
+        ),
+        GiftsMarket,
+        CollectionMarket,
+        NftMarket {
+        override fun homeUrl(network: MBlockchainNetwork): String = if (network.isMainnet) {
+            "https://getgems.io/"
+        } else {
+            "https://testnet.getgems.io/"
         }
 
         override fun giftsUrl(network: MBlockchainNetwork): String = "${homeUrl(network)}top-gifts"
 
-        override fun collectionUrl(
-            collectionAddress: String,
-            network: MBlockchainNetwork
-        ): String = "${homeUrl(network)}collection/$collectionAddress"
+        override fun collectionUrl(collectionAddress: String, network: MBlockchainNetwork): String =
+            "${homeUrl(network)}collection/$collectionAddress"
 
         override fun nftUrl(
             collectionAddress: String,
@@ -46,15 +46,14 @@ sealed class MMarketplace(
     }
 
     object OpenSea : MMarketplace(
-        title = "OpenSea",
+        title = "OpenSea"
     ) {
         override fun homeUrl(network: MBlockchainNetwork): String = "https://opensea.io/"
     }
 
     companion object {
-        fun defaultForEmptyAssets(account: MAccount, isGramWallet: Boolean): MMarketplace {
-            return if (!isGramWallet && account.isMultichain) OpenSea else Fragment
-        }
+        fun defaultForEmptyAssets(account: MAccount, isGramWallet: Boolean): MMarketplace =
+            if (!isGramWallet && account.isMultichain) OpenSea else Fragment
     }
 }
 

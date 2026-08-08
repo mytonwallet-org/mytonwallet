@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
@@ -13,18 +12,20 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import androidx.core.view.doOnLayout
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -37,9 +38,11 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
-import kotlin.math.roundToInt
 
-class ConnectRequestView(context: Context) : WView(context), WThemedView, SkeletonContainer {
+class ConnectRequestView(context: Context) :
+    WView(context),
+    WThemedView,
+    SkeletonContainer {
     companion object {
         private const val SKELETON_RADIUS = 12f
         private const val IMAGE_SKELETON_RADIUS = 20f
@@ -140,9 +143,14 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
 
     var onWarningClick: (() -> Unit)? = null
 
-    fun configure(dApp: ApiDapp?) {
-        infoTextView.text =
-            LocaleController.getString("Connected apps can only see your wallet address and will not be able to move your assets without permission.")
+    fun configure(dApp: ApiDapp?, needsNewMultichainWallet: Boolean = false) {
+        infoTextView.text = LocaleController.getString(
+            if (needsNewMultichainWallet) {
+                "\$connect_dapp_no_compatible_wallets_found"
+            } else {
+                "Connected apps can only see your wallet address and will not be able to move your assets without permission."
+            }
+        )
         dApp?.let {
             if (isShowingSkeleton) {
                 hideSkeleton()
@@ -161,33 +169,32 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
         }
     }
 
-    private fun buildDappAddressLabel(dApp: ApiDapp): CharSequence {
-        return buildSpannedString {
-            append(dApp.host ?: "")
+    private fun buildDappAddressLabel(dApp: ApiDapp): CharSequence = buildSpannedString {
+        append(dApp.host ?: "")
 
-            if (dApp.shouldShowurlTrustStatusWarning()) {
-                context.getDrawableCompat(
-                    if (dApp.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS)
-                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_red_14
-                    else
-                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
-                )?.let { drawable ->
-                    val size = adaptiveFontSize().dp.roundToInt()
-                    drawable.setBounds(0, 0, size, size)
-
-                    inSpans(WSpacingSpan(4.dp)) { append(" ") }
-                    inSpans(
-                        VerticalImageSpan(
-                            drawable,
-                            verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
-                        ),
-                        object : ClickableSpan() {
-                            override fun onClick(widget: View) {
-                                onWarningClick?.invoke()
-                            }
-                        }
-                    ) { append(" ") }
+        if (dApp.shouldShowurlTrustStatusWarning()) {
+            context.getDrawableCompat(
+                if (dApp.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS) {
+                    org.mytonwallet.app_air.icons.R.drawable.ic_warning_red_14
+                } else {
+                    org.mytonwallet.app_air.icons.R.drawable.ic_warning_14
                 }
+            )?.let { drawable ->
+                val size = adaptiveFontSize().dp.roundToInt()
+                drawable.setBounds(0, 0, size, size)
+
+                inSpans(WSpacingSpan(4.dp)) { append(" ") }
+                inSpans(
+                    VerticalImageSpan(
+                        drawable,
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                    ),
+                    object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            onWarningClick?.invoke()
+                        }
+                    }
+                ) { append(" ") }
             }
         }
     }
@@ -255,11 +262,9 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
         linkTextView.fadeIn()
     }
 
-    override fun getChildViewMap(): HashMap<View, Float> {
-        return hashMapOf(
-            imageSkeletonView to IMAGE_SKELETON_RADIUS,
-            titleSkeletonView to SKELETON_RADIUS,
-            linkSkeletonView to SKELETON_RADIUS
-        )
-    }
+    override fun getChildViewMap(): HashMap<View, Float> = hashMapOf(
+        imageSkeletonView to IMAGE_SKELETON_RADIUS,
+        titleSkeletonView to SKELETON_RADIUS,
+        linkSkeletonView to SKELETON_RADIUS
+    )
 }

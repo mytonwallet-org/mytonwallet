@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,13 +36,11 @@ import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
-class WAutoCompleteView(
-    context: Context,
-    val onSuggest: (MSavedAddress) -> Unit
-) : WView(context), WRecyclerViewAdapter.WRecyclerViewDataSource,
+class WAutoCompleteView(context: Context, val onSuggest: (MSavedAddress) -> Unit) :
+    WView(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
     WThemedView {
 
     companion object {
@@ -97,8 +96,7 @@ class WAutoCompleteView(
         config: AddressInputLayout.AutoCompleteConfig
     ) {
         this.autoCompleteConfig = config
-        if (attachedInput?.get() === input)
-            return
+        if (attachedInput?.get() === input) return
         if (input != null) {
             val w = input.width
             (layoutParams as? LayoutParams)?.apply {
@@ -140,10 +138,13 @@ class WAutoCompleteView(
             val filteredAddresses = withContext(Dispatchers.IO) {
                 (
                     (AddressStore.addressData?.savedAddresses ?: emptyList()) +
-                        (if (autoCompleteConfig?.accountAddresses == true)
-                            (AddressStore.addressData?.otherAccountAddresses ?: emptyList())
-                        else
-                            emptyList())
+                        (
+                            if (autoCompleteConfig?.accountAddresses == true) {
+                                (AddressStore.addressData?.otherAccountAddresses ?: emptyList())
+                            } else {
+                                emptyList()
+                            }
+                            )
                     )
                     .distinctBy { it.address }
                     .filter { savedAddress ->
@@ -154,7 +155,13 @@ class WAutoCompleteView(
 
             suggestions = filteredAddresses
             val newVisibility =
-                if (suggestions.isNotEmpty() && (suggestions.size > 1 || keyword != suggestions[0].address)) VISIBLE else INVISIBLE
+                if (suggestions.isNotEmpty() &&
+                    (suggestions.size > 1 || keyword != suggestions[0].address)
+                ) {
+                    VISIBLE
+                } else {
+                    INVISIBLE
+                }
             if (newVisibility == VISIBLE) {
                 rvAdapter.reloadData()
                 updateLayout()
@@ -165,10 +172,11 @@ class WAutoCompleteView(
                     visibility = VISIBLE
                     alpha = 0f
                     fadeIn(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-                } else
+                } else {
                     fadeOut(AnimationConstants.VERY_VERY_QUICK_ANIMATION, onCompletion = {
                         visibility = suggestionsVisibility
                     })
+                }
             }
         }
     }
@@ -192,17 +200,12 @@ class WAutoCompleteView(
 
     private var suggestions = emptyList<MSavedAddress>()
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 1
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return suggestions.size
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = suggestions.size
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return SUGGEST_CELL
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        SUGGEST_CELL
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
         val cell = WAutoCompleteCell(context, onRemove = {
@@ -228,5 +231,4 @@ class WAutoCompleteView(
             indexPath.row == suggestions.size - 1
         )
     }
-
 }

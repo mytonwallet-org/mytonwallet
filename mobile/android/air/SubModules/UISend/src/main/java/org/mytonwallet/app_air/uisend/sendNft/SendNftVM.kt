@@ -3,6 +3,9 @@ package org.mytonwallet.app_air.uisend.sendNft
 import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,6 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -32,8 +36,6 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
 
 @SuppressLint("ViewConstructor")
 class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
@@ -50,7 +52,7 @@ class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
         val resolvedAddress: String? = null,
         val addressName: String? = null,
         val isScam: Boolean? = null,
-        val error: MApiAnyDisplayError? = null,
+        val error: MApiAnyDisplayError? = null
     )
 
     // Input values
@@ -94,9 +96,11 @@ class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
     private val hasAddressSearchCandidatesFlow: Flow<Boolean> =
         combine(
             otherAccountsFlow,
-            savedAddressesFlow,
-        ) { otherAccounts, savedAddresses -> otherAccounts.isNotEmpty() || savedAddresses.isNotEmpty() }
-
+            savedAddressesFlow
+        ) { otherAccounts, savedAddresses ->
+            otherAccounts.isNotEmpty() ||
+                savedAddresses.isNotEmpty()
+        }
 
     init {
         hasAddressSearchCandidatesFlow
@@ -150,7 +154,7 @@ class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
                 chain = chain,
                 input = destination,
                 resolvedAddress = destination,
-                addressName = savedName,
+                addressName = savedName
             )
         }
 
@@ -162,14 +166,17 @@ class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
                 chain = chain,
                 input = destination,
                 resolvedAddress = destination,
-                addressName = otherAccountName,
+                addressName = otherAccountName
             )
         }
 
         val isValid =
-            chain.isValidAddress(destination) || (chain == MBlockchain.ton && DNSHelpers.isDnsDomain(
-                destination
-            ))
+            chain.isValidAddress(destination) ||
+                (
+                    chain == MBlockchain.ton && DNSHelpers.isDnsDomain(
+                        destination
+                    )
+                    )
         if (!isValid) {
             return null
         }
@@ -195,9 +202,15 @@ class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
                 resolvedAddress = result?.resolvedAddress,
                 addressName = result?.addressName,
                 isScam = result?.isScam,
-                error = result?.error,
+                error = result?.error
             )
-        } catch (_: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.e(
+                Logger.LogTag.SEND,
+                "NFT address lookup failed chain=${chain.name} error=${e.javaClass.simpleName}"
+            )
             AddressInfo(chain, destination)
         }
     }
@@ -215,11 +228,16 @@ class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
 
     private fun requestFee() {
         delegate.get()?.feeUpdated(null, null)
+        val accountId = AccountStore.activeAccountId ?: run {
+            Logger.e(Logger.LogTag.SEND, "NFT fee request blocked: active account is missing")
+            delegate.get()?.showError(null)
+            return
+        }
         WalletCore.call(
             ApiMethod.Nft.CheckNftTransferDraft(
                 chain,
                 MApiCheckNftDraftOptions(
-                    AccountStore.activeAccountId!!,
+                    accountId,
                     nfts.map { it.toDictionary() },
                     inputAddress,
                     inputComment,
@@ -231,12 +249,16 @@ class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
                 addressName = res?.addressName
                 isScam = res?.isScam == true
                 feeValue = res?.realNativeFee
-                if (err?.parsed?.errorName == MBridgeError.UNKNOWN.errorName)
-                    err?.parsed?.customMessage =
-                        LocaleController.getString("Invalid address")
+                val bridgeError = err?.parsed?.let { parsed ->
+                    if (parsed.type == MBridgeError.Type.UNKNOWN) {
+                        parsed.withCustomMessage(LocaleController.getString("Invalid address"))
+                    } else {
+                        parsed
+                    }
+                }
                 delegate.get()?.feeUpdated(
                     (res ?: err?.parsedResult as? MApiCheckTransactionDraftResult)?.realNativeFee,
-                    err?.parsed
+                    bridgeError
                 )
             }
         )

@@ -6,7 +6,7 @@ open class SimpleGroupCell: UICollectionViewListCell {
 
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 17)
+        label.applyTextStyle(.body)
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -133,7 +133,7 @@ extension SimpleGroupCell {
     public final class TitledDisclosureAccessory: UIView {
         private let textLabel: UILabel = {
             let label = UILabel()
-            label.font = .systemFont(ofSize: 17)
+            label.applyTextStyle(.body)
             label.textColor = .air.secondaryLabel
             label.translatesAutoresizingMaskIntoConstraints = false
             return label
@@ -227,7 +227,7 @@ public class SimpleGroupSectionFooter: UICollectionReusableView {
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.numberOfLines = 0
         lbl.textColor = .secondaryLabel
-        lbl.font = .systemFont(ofSize: 13)
+        lbl.applyTextStyle(.footnote)
         return lbl
     }()
 
@@ -237,7 +237,7 @@ public class SimpleGroupSectionFooter: UICollectionReusableView {
             paragraphStyle.lineSpacing = 2
             label.attributedText = NSAttributedString(
                 string: text,
-                attributes: [.paragraphStyle: paragraphStyle, .font: UIFont.systemFont(ofSize: 13)]
+                attributes: [.paragraphStyle: paragraphStyle, .font: WTypography.uiFont(.footnote)]
             )
         }
     }

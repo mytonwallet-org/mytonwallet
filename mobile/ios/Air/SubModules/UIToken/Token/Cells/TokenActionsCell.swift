@@ -12,7 +12,6 @@ final class TokenActionsCell: FirstRowCell {
     private var accountContext: AccountContext?
     private var token: ApiToken?
     private var sendAvailable = false
-    private var swapAvailable = false
     private var earnAvailable = false
     private let topInset = CGFloat(16)
 
@@ -106,10 +105,9 @@ final class TokenActionsCell: FirstRowCell {
         actionsHeightConstraint?.constant = newHeight
     }
 
-    func configure(token: ApiToken?, sendAvailable: Bool, swapAvailable: Bool, earnAvailable: Bool) {
+    func configure(token: ApiToken?, sendAvailable: Bool, earnAvailable: Bool) {
         self.token = token
         self.sendAvailable = sendAvailable
-        self.swapAvailable = swapAvailable
         self.earnAvailable = earnAvailable
         updateActionsViewIfNeeded()
         applyConfiguration()
@@ -120,11 +118,12 @@ final class TokenActionsCell: FirstRowCell {
         
         actionsView.token = token
         actionsView.sendAvailable = sendAvailable
-        actionsView.swapAvailable = swapAvailable
         actionsView.earnAvailable = earnAvailable
         
         if actionsView.hasVisibleActions {
-            actionsHeightConstraint?.constant = actionsView.rowHeight
+            if actionsView.isHidden {
+                actionsHeightConstraint?.constant = actionsView.rowHeight
+            }
             heightConstraint?.constant = actionsView.rowHeight + topInset
             actionsView.isHidden = false
         } else {

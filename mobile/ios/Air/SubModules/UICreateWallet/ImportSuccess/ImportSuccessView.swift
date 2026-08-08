@@ -58,7 +58,7 @@ struct ImportSuccessView: View {
     
     var title: some View {
         Text(langMd("All Set!"))
-            .style(.header28)
+            .textStyle(.screenTitle)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
     }
@@ -69,7 +69,7 @@ struct ImportSuccessView: View {
         let line2 = successKind != .importedView ? lang("$wallet_done_description") : ""
         let text = [line1, line2].filter { !$0.isEmpty }.joined(separator: "\n\n")
         Text(LocalizedStringKey(text))
-            .style(.body17)
+            .textStyle(.body)
             .multilineTextAlignment(.center)
     }
     

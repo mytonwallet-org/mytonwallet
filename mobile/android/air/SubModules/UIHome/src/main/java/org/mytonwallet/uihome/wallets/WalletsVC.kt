@@ -21,6 +21,10 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.NO_POSITION
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -33,6 +37,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpside
 import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconTitleSubtitleView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
+import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -58,16 +63,14 @@ import org.mytonwallet.uihome.wallets.cells.IWalletCardCell
 import org.mytonwallet.uihome.wallets.cells.WalletCardCell
 import org.mytonwallet.uihome.wallets.cells.WalletCardRowCell
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 class WalletsVC(
     context: Context,
     val walletCategory: WalletsTabsVC.WalletCategory,
-    private val fallbackWidth: Int,
-) : WViewController(context), WRecyclerViewAdapter.WRecyclerViewDataSource {
+    private val fallbackWidth: Int
+) : WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "Wallets"
 
     private val topInset: Int
@@ -103,21 +106,24 @@ class WalletsVC(
         set(value) {
             if (field != value) {
                 field = value
-                if (!view.configured)
-                    return
+                if (!view.configured) return
                 updateRecyclerViewInsets()
-                if (recyclerView.computeVerticalScrollOffset() > 0)
-                    recyclerView.scrollTo(0, 0)
-                if (!recyclerView.isNestedScrollingEnabled)
+                if (recyclerView.computeVerticalScrollOffset() > 0) recyclerView.scrollTo(0, 0)
+                if (!recyclerView.isNestedScrollingEnabled) {
                     recyclerView.isNestedScrollingEnabled = true
+                }
             }
         }
     var isReordering = false
 
     var onAccountsReordered: ((List<MAccount>) -> Unit)? = null
     var onToggleReorderTapped: (() -> Unit)? = null
+    var onDragReorderStarted: (() -> Unit)? = null
     var onCheckChanged: (() -> Unit)? = null
     var onSwitchAccountInProgress: (() -> Unit)? = null
+
+    private var activeMenuPopup: INavigationPopup? = null
+    private var activeMenuCellView: WView? = null
 
     private val itemTouchHelper by lazy {
         val callback = object : ItemTouchHelper.SimpleCallback(
@@ -149,13 +155,26 @@ class WalletsVC(
                 // Not used
             }
 
-            override fun isLongPressDragEnabled(): Boolean {
-                return isReordering
+            override fun isLongPressDragEnabled(): Boolean = isReordering
+
+            override fun getMovementFlags(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int {
+                if (!isReordering) return 0
+                val dragFlags = if (viewMode == MWalletSettingsViewMode.GRID) {
+                    ItemTouchHelper.UP or ItemTouchHelper.DOWN or
+                        ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+                } else {
+                    ItemTouchHelper.UP or ItemTouchHelper.DOWN
+                }
+                return makeMovementFlags(dragFlags, 0)
             }
 
             override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
                 super.onSelectedChanged(viewHolder, actionState)
                 if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                    recyclerView.parent?.requestDisallowInterceptTouchEvent(true)
                     viewHolder?.itemView?.alpha = 0.7f
                 }
             }
@@ -165,18 +184,17 @@ class WalletsVC(
                 viewHolder: RecyclerView.ViewHolder
             ) {
                 super.clearView(recyclerView, viewHolder)
+                recyclerView.parent?.requestDisallowInterceptTouchEvent(false)
                 viewHolder.itemView.alpha = 1.0f
             }
         }
         ItemTouchHelper(callback)
     }
 
-    private fun calculateNoOfColumns(): Int {
-        return max(
-            2,
-            (totalWidth - 16.dp) / 104.dp
-        )
-    }
+    private fun calculateNoOfColumns(): Int = max(
+        2,
+        (totalWidth - 16.dp) / 104.dp
+    )
 
     // TODO: Workaround for RecyclerView jump glitch. we temporarily scroll to the top before applying changes.
     //       Find a proper fix for the glitch and remove this workaround.
@@ -189,10 +207,14 @@ class WalletsVC(
                 for (i in 0 until recyclerView.childCount) {
                     val child = recyclerView.getChildAt(i)
                     val viewHolder = recyclerView.getChildViewHolder(child)
-                    (viewHolder.itemView as? WalletCardRowCell)?.toggleReordering(
-                        isReordering,
-                        true
-                    )
+                    when (val cell = viewHolder.itemView) {
+                        is WalletCardRowCell -> cell.toggleReordering(
+                            isReordering,
+                            true
+                        )
+
+                        is WalletCardCell -> cell.setReordering(isReordering)
+                    }
                 }
                 Handler(Looper.getMainLooper()).postDelayed({
                     rvAdapter.reloadData()
@@ -221,15 +243,15 @@ class WalletsVC(
             super.onScrolled(recyclerView, dx, dy)
             val offset = recyclerView.computeVerticalScrollOffset()
             val isNestedScrollingEnabled = !isModalExpanded || offset == 0
-            if (recyclerView.isNestedScrollingEnabled != isNestedScrollingEnabled)
+            if (recyclerView.isNestedScrollingEnabled != isNestedScrollingEnabled) {
                 recyclerView.isNestedScrollingEnabled = isNestedScrollingEnabled
+            }
         }
 
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
             super.onScrollStateChanged(recyclerView, newState)
             if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                if (animatingReorderChange)
-                    animatingReorderChange = false
+                if (animatingReorderChange) animatingReorderChange = false
             }
         }
     }
@@ -242,9 +264,8 @@ class WalletsVC(
             private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
             private var isHorizontalScroll: Boolean? = null
 
-            override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
-                return super.onInterceptTouchEvent(e)
-            }
+            override fun onInterceptTouchEvent(e: MotionEvent): Boolean =
+                super.onInterceptTouchEvent(e)
 
             @SuppressLint("ClickableViewAccessibility")
             override fun onTouchEvent(ev: MotionEvent?): Boolean {
@@ -256,13 +277,27 @@ class WalletsVC(
                         isHorizontalScroll = null
                     }
 
-                    MotionEvent.ACTION_UP -> {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         touchingItem = null
+                        activeMenuCellView = null
                     }
                 }
 
-                if (isHorizontalScroll != null || isReordering)
+                // Dragging the finger while the cell menu is up starts reordering instead.
+                if (ev?.actionMasked == MotionEvent.ACTION_MOVE &&
+                    activeMenuCellView != null &&
+                    !isReordering &&
+                    walletCategory == WalletsTabsVC.WalletCategory.ALL
+                ) {
+                    val deltaX = abs(ev.x - initialX)
+                    val deltaY = abs(ev.y - initialY)
+                    if (deltaX > touchSlop || deltaY > touchSlop) startDragFromMenu(ev)
+                    return true
+                }
+
+                if (isHorizontalScroll != null || isReordering) {
                     return if (isHorizontalScroll == true) false else super.onTouchEvent(ev)
+                }
 
                 when (ev?.action) {
                     MotionEvent.ACTION_DOWN -> {
@@ -305,10 +340,11 @@ class WalletsVC(
                     val contentWidth = (width - paddingLeft - paddingRight).takeIf { it > 0 }
                         ?: (totalWidth - 16.dp)
                     val cols = max(2, contentWidth / 104.dp)
-                    return if (viewMode == MWalletSettingsViewMode.GRID)
+                    return if (viewMode == MWalletSettingsViewMode.GRID) {
                         (total / cols).coerceIn(1, total)
-                    else
+                    } else {
                         total
+                    }
                 }
             }
             this.layoutManager = layoutManager
@@ -339,7 +375,8 @@ class WalletsVC(
         super.setupViews()
 
         view.addView(
-            guideline, ConstraintLayout.LayoutParams(
+            guideline,
+            ConstraintLayout.LayoutParams(
                 WRAP_CONTENT,
                 WRAP_CONTENT
             ).apply {
@@ -347,7 +384,8 @@ class WalletsVC(
                 guideBegin = (navigationController?.getSystemBars()?.top ?: 0) +
                     WNavigationBar.DEFAULT_HEIGHT_THICK.dp +
                     33.dp
-            })
+            }
+        )
         view.addView(recyclerView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(
             bottomReversedCornerViewUpsideDown,
@@ -366,8 +404,7 @@ class WalletsVC(
 
     override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
         super.onSizeChanged(w, h, oldW, oldH)
-        if (w != oldW)
-            updateRecyclerViewInsets()
+        if (w != oldW) updateRecyclerViewInsets()
     }
 
     override fun didSetupViews() {
@@ -397,8 +434,7 @@ class WalletsVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
 
-        if (guideline.layoutParams == null)
-            return
+        if (guideline.layoutParams == null) return
         guideline.updateLayoutParams<ConstraintLayout.LayoutParams> {
             guideBegin = (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT_THICK.dp +
@@ -479,8 +515,7 @@ class WalletsVC(
         checkedAccounts = checkedAccounts.filter { checkedAccount ->
             accounts.find { it.accountId == checkedAccount.accountId } != null
         }.toMutableSet()
-        if (!view.configured)
-            return
+        if (!view.configured) return
         rvAdapter.reloadData()
         updateEmptyView()
     }
@@ -505,15 +540,18 @@ class WalletsVC(
                                 WalletsTabsVC.WalletCategory.ALL -> "You don’t have any wallets yet"
 
                                 WalletsTabsVC.WalletCategory.LEDGER -> "No Ledger wallets yet"
+
                                 WalletsTabsVC.WalletCategory.VIEW -> "No view wallets yet"
                             }
                         ),
                         LocaleController.getString(
                             when (walletCategory) {
-                                WalletsTabsVC.WalletCategory.VIEW -> "Add the first one to track balances and activity for any address."
+                                WalletsTabsVC.WalletCategory.VIEW ->
+                                    "Add the first one to track balances and activity for any address."
+
                                 else -> "Add your first one to begin."
                             }
-                        ),
+                        )
                     )
                 view.addView(
                     emptyView!!,
@@ -529,8 +567,7 @@ class WalletsVC(
                     )
                 }
             } else if ((emptyView?.alpha ?: 0f) < 1) {
-                if (emptyView?.startedAnimation == true)
-                    emptyView?.fadeIn()
+                if (emptyView?.startedAnimation == true) emptyView?.fadeIn()
             }
         } else {
             if ((emptyView?.alpha ?: 0f) > 0f) {
@@ -551,9 +588,9 @@ class WalletsVC(
         val modalExpandOffset = modalExpandOffset ?: 0
         bottomReversedCornerViewUpsideDown.translationY =
             WalletsTabsVC.DEFAULT_HEIGHT.toFloat().dp -
-                (window?.windowView?.height ?: 0) +
-                bottomSafeInset +
-                modalExpandOffset
+            (window?.windowView?.height ?: 0) +
+            bottomSafeInset +
+            modalExpandOffset
         emptyView?.translationY = (modalExpandOffset / 2f).coerceAtLeast(0f)
     }
 
@@ -596,8 +633,42 @@ class WalletsVC(
         }
     }
 
+    private fun startDragFromMenu(ev: MotionEvent) {
+        val cellView = activeMenuCellView ?: return
+        activeMenuCellView = null
+        val viewHolder = recyclerView.findContainingViewHolder(cellView) ?: return
+        activeMenuPopup?.dismiss()
+        activeMenuPopup = null
+        onDragReorderStarted?.invoke()
+        startReordering()
+        // cancelActiveGesture in showMenu made the recycler ignore the rest of this gesture
+        // and reset the touch helper's pointer tracking; replaying the current event as a
+        // DOWN re-arms both so the drag can follow the finger.
+        val downEvent = MotionEvent.obtain(ev)
+        downEvent.action = MotionEvent.ACTION_DOWN
+        recyclerView.onInterceptTouchEvent(downEvent)
+        downEvent.recycle()
+        itemTouchHelper.startDrag(viewHolder)
+    }
+
+    private fun startReordering() {
+        if (isReordering) return
+        isReordering = true
+        for (i in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(i)
+            when (val cell = recyclerView.getChildViewHolder(child).itemView) {
+                is WalletCardRowCell -> cell.toggleReordering(reordering = true, animated = true)
+                is WalletCardCell -> cell.setReordering(true)
+            }
+        }
+    }
+
     private fun showMenu(cell: IWalletCardCell, cellView: WView, account: MAccount) {
+        val allowsDragToReorder = walletCategory == WalletsTabsVC.WalletCategory.ALL
         recyclerView.cancelActiveGesture()
+        // cancelActiveGesture forwards a synthetic CANCEL to the pressed cell, which re-allows
+        // parent interception; block it again so the pager can't steal the rest of the gesture.
+        if (allowsDragToReorder) recyclerView.requestDisallowInterceptTouchEvent(true)
         val rect = cellView.frameAsRectF(4f)
         val isGridMode = cell is WalletCardCell
         if (isGridMode) {
@@ -613,14 +684,16 @@ class WalletsVC(
                 context,
                 rect,
                 cornerRadius,
-                if (topReversedCornerView?.isVisible == true)
+                if (topReversedCornerView?.isVisible == true) {
                     topReversedCornerView
-                else
-                    parentTopReversedCornerView?.get(),
-                if (bottomReversedCornerViewUpsideDown.isVisible)
+                } else {
+                    parentTopReversedCornerView?.get()
+                },
+                if (bottomReversedCornerViewUpsideDown.isVisible) {
                     bottomReversedCornerViewUpsideDown
-                else
+                } else {
                     parentBottomReversedCornerView?.get()
+                }
             ).apply {
                 alpha = 0f
                 fadeIn()
@@ -629,25 +702,27 @@ class WalletsVC(
             highlightOverlayView,
             FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
-        WMenuPopup.present(
+        activeMenuCellView = if (allowsDragToReorder) cellView else null
+        activeMenuPopup = WMenuPopup.present(
             cellView,
             listOf(
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            org.mytonwallet.uihome.R.drawable.ic_reorder,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_reorder,
                             tintColor = WColor.SecondaryText
                         ),
-                        title = LocaleController.getString("Reorder Tabs")
+                        title = LocaleController.getString("Reorder")
                     ),
                     hasSeparator = false,
                     onTap = {
                         onToggleReorderTapped?.invoke()
-                    }),
+                    }
+                ),
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            org.mytonwallet.uihome.R.drawable.ic_pen,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_pen,
                             tintColor = WColor.SecondaryText
                         ),
                         title = LocaleController.getString("Rename")
@@ -655,26 +730,29 @@ class WalletsVC(
                     hasSeparator = false,
                     onTap = {
                         AccountDialogHelpers.presentRename(this, account)
-                    }),
+                    }
+                ),
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            org.mytonwallet.uihome.R.drawable.ic_customize,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_customize,
                             tintColor = WColor.SecondaryText
                         ),
                         title = LocaleController.getString("Customize")
                     ),
                     hasSeparator = false,
                     onTap = {
+                        val walletCustomizationVC =
+                            WalletCustomizationVC.create(context, account.accountId)
+                                ?: return@Item
                         val navVC = WNavigationController(
                             window!!,
                             WNavigationController.PresentationConfig.PreferredFullScreen
                         )
-                        val walletCustomizationVC =
-                            WalletCustomizationVC(context, account.accountId)
                         navVC.setRoot(walletCustomizationVC)
                         window?.present(navVC)
-                    }),
+                    }
+                ),
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
@@ -689,18 +767,25 @@ class WalletsVC(
                         window?.let {
                             AccountDialogHelpers.presentSignOut(it, account)
                         }
-                    })
+                    }
+                )
             ),
             xOffset = if (isGridMode) (-8).dp else 72.dp,
             yOffset = if (isGridMode) 1 else (-20).dp,
             positioning = WMenuPopup.Positioning.BELOW,
             centerHorizontally = true,
-            windowBackgroundStyle = BackgroundStyle.Cutout(Path().apply {
-                addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
-            }),
+            windowBackgroundStyle = BackgroundStyle.Cutout(
+                Path().apply {
+                    addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
+                }
+            ),
             backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             usePillShadow = true,
+            // Keep the active gesture alive where drag-to-reorder from the menu is possible.
+            cancelsAncestorTouches = !allowsDragToReorder,
             onWillDismiss = {
+                activeMenuPopup = null
+                activeMenuCellView = null
                 cell.isShowingPopup = false
                 highlightOverlayView?.let { highlightOverlayView ->
                     highlightOverlayView.fadeOut {
@@ -711,40 +796,29 @@ class WalletsVC(
         )
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 1
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
 
-    override fun recyclerViewNumberOfItems(
-        rv: RecyclerView,
-        section: Int
-    ): Int {
-        return accounts.size
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = accounts.size
 
-    override fun recyclerViewCellType(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): WCell.Type {
-        return if (viewMode == MWalletSettingsViewMode.GRID) ACCOUNT_GRID_CELL else ACCOUNT_ROW_CELL
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        if (viewMode == MWalletSettingsViewMode.GRID) ACCOUNT_GRID_CELL else ACCOUNT_ROW_CELL
 
-    override fun recyclerViewCellView(
-        rv: RecyclerView,
-        cellType: WCell.Type
-    ): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             ACCOUNT_GRID_CELL -> {
                 WalletCardCell(
                     window!!,
                     cellWidth,
                     onTouchStart = { v ->
                         touchingItem = v
-                    }, onClick = { newAccount ->
+                    },
+                    onClick = { newAccount ->
                         switchAccountTo(newAccount)
-                    }, onLongClick = { cell, view, account ->
+                    },
+                    onLongClick = { cell, view, account ->
                         showMenu(cell, view, account)
-                    })
+                    }
+                )
             }
 
             ACCOUNT_ROW_CELL -> {
@@ -753,24 +827,28 @@ class WalletsVC(
                     reordering = isReordering,
                     onTouchStart = { v ->
                         touchingItem = v
-                    }, onClick = { newAccount ->
+                    },
+                    onClick = { newAccount ->
                         switchAccountTo(newAccount)
-                    }, onLongClick = { cell, view, account ->
+                    },
+                    onLongClick = { cell, view, account ->
                         showMenu(cell, view, account)
-                    }, onCheckChanged = { account, isChecked ->
-                        if (isChecked)
+                    },
+                    onCheckChanged = { account, isChecked ->
+                        if (isChecked) {
                             checkedAccounts.add(account)
-                        else
+                        } else {
                             checkedAccounts.remove(account)
+                        }
                         onCheckChanged?.invoke()
-                    })
+                    }
+                )
             }
 
             else -> {
                 throw Error()
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -779,7 +857,10 @@ class WalletsVC(
     ) {
         when {
             cellHolder.cell is WalletCardCell -> {
-                (cellHolder.cell as WalletCardCell).configure(accounts[indexPath.row])
+                (cellHolder.cell as WalletCardCell).configure(
+                    accounts[indexPath.row],
+                    reordering = isReordering
+                )
             }
 
             cellHolder.cell is WalletCardRowCell -> {
@@ -795,14 +876,12 @@ class WalletsVC(
         }
     }
 
-    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        return accounts[indexPath.row].accountId
-    }
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
+        accounts[indexPath.row].accountId
 
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         super.onModalSlide(expandOffset, expandProgress)
-        if (!view.configured)
-            return
+        if (!view.configured) return
         updateBottomViewsYPosition()
     }
 

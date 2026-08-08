@@ -28,26 +28,23 @@ object CoinUtils {
         return text
     }
 
+    fun toDecimalString(value: BigInteger, decimals: Int): String =
+        value.toBigDecimal(decimals).stripTrailingZeros().toPlainString()
 
-    fun toDecimalString(value: BigInteger, decimals: Int): String {
-        return value.toBigDecimal(decimals).stripTrailingZeros().toPlainString()
-    }
-
-    fun toDecimalString(value: BigDecimal, decimals: Int?, round: Boolean): String {
-        return (
-            if (decimals != null)
-                value.setScale(
-                    decimals,
-                    if (round) RoundingMode.HALF_UP else RoundingMode.FLOOR
-                )
-            else
-                value
-            ).stripTrailingZeros().toPlainString()
-    }
+    fun toDecimalString(value: BigDecimal, decimals: Int?, round: Boolean): String = (
+        if (decimals != null) {
+            value.setScale(
+                decimals,
+                if (round) RoundingMode.HALF_UP else RoundingMode.FLOOR
+            )
+        } else {
+            value
+        }
+        ).stripTrailingZeros().toPlainString()
 
     fun toDecimalString(value: String?, decimals: Int?): String? {
         if (value == null || decimals == null) {
-            return value;
+            return value
         }
         return try {
             toDecimalString(BigInteger(value), decimals)
@@ -56,9 +53,7 @@ object CoinUtils {
         }
     }
 
-    fun toBigDecimal(value: BigInteger, decimals: Int): BigDecimal {
-        return value.toBigDecimal(decimals)
-    }
+    fun toBigDecimal(value: BigInteger, decimals: Int): BigDecimal = value.toBigDecimal(decimals)
 
     fun fromDecimal(value: BigDecimal?, decimals: Int): BigInteger? {
         val v = value ?: return null

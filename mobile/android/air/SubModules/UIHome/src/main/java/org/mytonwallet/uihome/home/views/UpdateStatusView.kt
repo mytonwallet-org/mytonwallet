@@ -14,9 +14,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 
-class UpdateStatusView(
-    context: Context,
-) : FrameLayout(context),
+class UpdateStatusView(context: Context) :
+    FrameLayout(context),
     WThemedView {
 
     companion object {
@@ -41,10 +40,13 @@ class UpdateStatusView(
         clipChildren = false
         clipToPadding = false
         setPadding(1.dp, 0, 1.dp, 0)
-        addView(statusReplaceableLabel, LayoutParams(MATCH_PARENT, 28.dp).apply {
-            gravity = Gravity.CENTER
-            topMargin = (-2).dp
-        })
+        addView(
+            statusReplaceableLabel,
+            LayoutParams(MATCH_PARENT, 28.dp).apply {
+                gravity = Gravity.CENTER
+                topMargin = (-2).dp
+            }
+        )
 
         updateTheme()
 
@@ -69,25 +71,20 @@ class UpdateStatusView(
     private var customMessage = ""
 
     fun setAppearance(isShowing: Boolean, animated: Boolean) {
-        if (this.isShowing == isShowing)
-            return
+        if (this.isShowing == isShowing) return
         this.isShowing = isShowing
+        isClickable = isShowing
+        isLongClickable = isShowing
         statusReplaceableLabel.animate().cancel()
         if (!animated) {
             statusReplaceableLabel.alpha = if (isShowing) 1f else 0f
             return
         }
-        if (isShowing)
-            statusReplaceableLabel.fadeIn()
-        else
-            statusReplaceableLabel.fadeOut()
+        if (isShowing) statusReplaceableLabel.fadeIn() else statusReplaceableLabel.fadeOut()
     }
 
     @SuppressLint("SetTextI18n")
-    fun setState(
-        newState: State,
-        handleAnimation: Boolean,
-    ) {
+    fun setState(newState: State, handleAnimation: Boolean) {
         val newCustomMessage = (newState as? State.Updated)?.customText ?: ""
         // Check if the state has changed
         if (state == newState) {
@@ -103,9 +100,9 @@ class UpdateStatusView(
                         isExpandable = false,
                         textColor = WColor.SecondaryText,
                         textSize = LOADING_TEXT_SIZE,
-                        font = LOADING_FONT,
+                        font = LOADING_FONT
                     ),
-                    animated = handleAnimation,
+                    animated = handleAnimation
                 )
             }
 
@@ -117,9 +114,9 @@ class UpdateStatusView(
                         isExpandable = false,
                         textColor = WColor.SecondaryText,
                         textSize = LOADING_TEXT_SIZE,
-                        font = LOADING_FONT,
+                        font = LOADING_FONT
                     ),
-                    animated = handleAnimation,
+                    animated = handleAnimation
                 )
             }
 
@@ -131,9 +128,9 @@ class UpdateStatusView(
                         isExpandable = true,
                         textColor = WColor.PrimaryText,
                         textSize = LOADED_TEXT_SIZE,
-                        font = LOADED_FONT,
+                        font = LOADED_FONT
                     ),
-                    animated = handleAnimation,
+                    animated = handleAnimation
                 )
             }
         }
@@ -142,5 +139,4 @@ class UpdateStatusView(
         state = newState
         customMessage = newCustomMessage
     }
-
 }

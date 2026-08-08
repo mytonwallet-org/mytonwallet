@@ -377,6 +377,12 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     hash: 'c16fb5d47aa4f0ad23057d34490e6f26a62c71e6422e4f6a8648126857c71438',
     isSwapAllowed: true,
   },
+  // Example: https://tonviewer.com/EQAbWJ3Y1HgIIvcMq1prG1anlDC0T3cZlAU7luPT6LmTpmrZ
+  omnistonEscrowMinter: {
+    name: 'omnistonEscrowMinter',
+    hash: 'f91c43d395d0f7d955515ab24a55098b68fed2e708f80a79c95ecaa4fcc102b8',
+    isSwapAllowed: true,
+  },
   // `oldHash` should no longer be used for new contracts; it is retained for backwards compatibility with
   // contracts for which retrieving the new hash is difficult due to missing address tracking in past.
   // The `hash` field has been added for new contracts. It is a hex hash of the code,

@@ -5,10 +5,6 @@ import android.content.Intent
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.google.firebase.crashlytics.FirebaseCrashlytics
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -16,6 +12,10 @@ import java.io.IOException
 import java.util.Locale
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 object Logger {
     enum class LogTag(val tag: String) {
@@ -26,9 +26,10 @@ object Logger {
         ACTIVITY_STORE("ActStore"),
         FPS_PERFORMANCE("FPS"),
         HomeVM("Home"),
-        //DEEPLINK("Deeplink"),
+        // DEEPLINK("Deeplink"),
 
         WALLET_CORE("WalletCore"),
+        ENCLAVE("Enclave"),
         TON_CONNECT("TonConnect"),
         WALLET_PAY("WalletPay"),
         JS_DEBUG_ERROR("JSErr"),
@@ -36,24 +37,28 @@ object Logger {
         PASSCODE_CONFIRM("PassConf"),
         SCREEN("Screen"),
         SECURE_STORAGE("SecStore"),
+        LEDGER("Ledger"),
         SHIDDevice("SHID"),
         SEND("Send"),
         SWAP("Swap"),
         STAKING("Staking"),
         SETTINGS("Settings"),
         QR_SCAN("QRScan"),
-        MEMORY("Memory"),
+        MEMORY("Memory")
     }
 
     enum class LogLevel(val str: String) {
-        INFO("I"), DEBUG("D"), WARN("W"), ERROR("E")
+        INFO("I"),
+        DEBUG("D"),
+        WARN("W"),
+        ERROR("E")
     }
 
     data class LogEntry(
         val tag: String,
         val level: LogLevel,
         val message: LogMessage,
-        val timestamp: Long,
+        val timestamp: Long
     ) {
         fun composedForFile(): String {
             val relativeTime = (timestamp - appStartTime) / 1000.0
@@ -145,10 +150,9 @@ object Logger {
         }
     }
 
-    internal fun composeCrashlyticsEvent(level: LogLevel, tag: LogTag): String {
-        return "${level.str}/${tag.tag}"
-    }
-    ////////////////////////////////////////////////////////////////////////////////////////////////
+    internal fun composeCrashlyticsEvent(level: LogLevel, tag: LogTag): String =
+        "${level.str}/${tag.tag}"
+    // //////////////////////////////////////////////////////////////////////////////////////////////
 
     private fun log(tag: LogTag, level: LogLevel, message: LogMessage) {
         scope.launch {

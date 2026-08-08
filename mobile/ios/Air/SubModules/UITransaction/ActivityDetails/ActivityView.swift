@@ -20,9 +20,6 @@ struct ActivityView: View {
     @State private var detailsOpacity: CGFloat = 0
     @State private var scrollToTopTrigger: UUID? = nil
 
-    @State private var collapsedHeight: CGFloat = 0
-    @State private var detailsHeight: CGFloat = 0
-
     var activity: ApiActivity { model.activity }
     var neverUseProgressiveExpand: Bool {
         if let comment = activity.transaction?.comment {
@@ -116,11 +113,11 @@ struct ActivityView: View {
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     Text(name)
-                        .font(.system(size: 24, weight: .semibold))
+                        .textStyle(.prominentTitle)
                         .onTapGesture { showNft(nft, isExpanded: false) }
                     if activity.shouldShowTransactionAddress(in: .details) {
-                        HStack(alignment: .firstTextBaseline, spacing: 0) {
-                            Text((tx.isIncoming == true ? lang("Received from") : lang("Sent to")) + " ")
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(tx.isIncoming == true ? lang("Received from") : lang("Sent to"))
                                 .font17h22()
                             TappableAddress(
                                 account: model.accountContext,
@@ -198,7 +195,7 @@ struct ActivityView: View {
                             .padding(.horizontal, 44)
                         if canDecrypt {
                             Text(lang("Tap to reveal"))
-                                .font(.system(size: 10))
+                                .textStyle(.micro)
                                 .foregroundStyle(Color.air.secondaryLabel)
                         }
                     }
@@ -350,6 +347,11 @@ struct ActivityView: View {
                 let curr = TokenStore.baseCurrency
                 let token = TokenStore.getToken(slug: activity.slug)
                 Text(token?.price != nil ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(.baseCurrencyEquivalent, showMinus: false)))" : inToken)
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
                     .sensitiveDataInPlace(cols: 10, rows: 2, cellSize: 9, theme: .adaptive, cornerRadius: 5)
             }
         }
@@ -368,6 +370,11 @@ struct ActivityView: View {
                     precision: swap.displayStatus().isPending ? .approximate : .exact
                 )
                 Text("\(ex.toToken.symbol) = \(exchangeRateString)")
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
             }
         }
     }
@@ -385,17 +392,12 @@ struct ActivityView: View {
             }
         case .swap(let swap):
             if let native = (swap.networkFee?.value).flatMap({ doubleToBigInt($0, decimals: nativeToken.decimals) }) {
-                let token = TokenStore.tokens[swap.from] ?? nativeToken
-                let ourFee = swap.ourFeeMode == "included" ? nil : (swap.ourFee?.value).flatMap {
-                    doubleToBigInt($0, decimals: token.decimals)
-                }
-                if native <= 0, (ourFee ?? 0) <= 0 {
+                if native <= 0 {
                     return nil
                 }
-                let fromNative = token.isNative
                 let terms: MFee.FeeTerms = .init(
-                    token: fromNative ? nil : ourFee,
-                    native: fromNative ? native + (ourFee ?? 0) : native,
+                    token: nil,
+                    native: native,
                     stars: nil
                 )
 
@@ -414,8 +416,9 @@ struct ActivityView: View {
     var fee: some View {
         if let token {
             let chain = token.chain
+            let nativeToken = tokens[chain.nativeToken.slug] ?? chain.nativeToken
             let isLoading = model.isLoadingDetails
-            let fee = _computeDisplayFee(nativeToken: chain.nativeToken)
+            let fee = _computeDisplayFee(nativeToken: nativeToken)
             if chain.isSupported, isLoading || fee != nil {
                 InsetDetailCell {
                     Text(lang("Fee"))
@@ -423,7 +426,7 @@ struct ActivityView: View {
                 } value: {
                     FeeView(
                         token: token,
-                        nativeToken: chain.nativeToken,
+                        nativeToken: nativeToken,
                         fee: fee,
                         explainedTransferFee: nil,
                         includeLabel: false,

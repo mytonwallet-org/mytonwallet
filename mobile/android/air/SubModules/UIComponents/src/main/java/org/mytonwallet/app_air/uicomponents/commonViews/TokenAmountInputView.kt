@@ -31,10 +31,10 @@ import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 @SuppressLint("ViewConstructor")
-class TokenAmountInputView(
-    context: Context,
-    private val isFirstItem: Boolean,
-) : WView(context), Counter.Callback, WThemedView {
+class TokenAmountInputView(context: Context, private val isFirstItem: Boolean) :
+    WView(context),
+    Counter.Callback,
+    WThemedView {
 
     data class State(
         val title: String?,
@@ -46,7 +46,8 @@ class TokenAmountInputView(
 
         val inputDecimal: Int,
         val inputSymbol: String?,
-        val inputError: Boolean
+        val inputError: Boolean,
+        val feeError: Boolean = false
     )
 
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -165,6 +166,9 @@ class TokenAmountInputView(
         var avail = measuredWidth - 40f.dp
         feeTextView.shouldShowDrawable = isFeeDetailed
         feeTextView.isClickable = isFeeDetailed
+        if (!state.subtitle.isNullOrEmpty()) {
+            feeTextView.isError = state.feeError
+        }
         if (state.subtitle.isNullOrEmpty() || measuredWidth == 0) {
             feeTextView.setText(state.subtitle)
         } else {

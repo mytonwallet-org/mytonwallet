@@ -13,10 +13,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class SkeletonHeaderCell(
-    context: Context,
-    private val defaultHeight: Int = 56.dp
-) : WCell(context), WThemedView, SkeletonContainer {
+class SkeletonHeaderCell(context: Context, private val defaultHeight: Int = 56.dp) :
+    WCell(context),
+    WThemedView,
+    SkeletonContainer {
 
     companion object {
         val TITLE_SKELETON_RADIUS = 8f.dp

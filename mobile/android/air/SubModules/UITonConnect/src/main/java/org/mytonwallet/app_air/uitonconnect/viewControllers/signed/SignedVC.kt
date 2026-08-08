@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class SignedVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Signed"
 
     override val isBackAllowed: Boolean = false
@@ -35,7 +36,7 @@ class SignedVC(context: Context) : WViewController(context) {
     override fun setupViews() {
         super.setupViews()
 
-        title = LocaleController.getString("Data Signed!")
+        title = LocaleController.getString("Data Signed")
         setupNavBar(true)
         navigationBar?.addCloseButton()
 
@@ -55,7 +56,8 @@ class SignedVC(context: Context) : WViewController(context) {
             toCenterX(animationView)
             toCenterX(continueButton, 20f)
             toBottomPx(
-                continueButton, 20.dp +
+                continueButton,
+                20.dp +
                     (navigationController?.getSystemBars()?.bottom ?: 0)
             )
         }
@@ -73,7 +75,8 @@ class SignedVC(context: Context) : WViewController(context) {
         super.insetsUpdated()
         view.setConstraints {
             toBottomPx(
-                continueButton, 20.dp +
+                continueButton,
+                20.dp +
                     (navigationController?.getSystemBars()?.bottom ?: 0)
             )
             toStartPx(continueButton, 20.dp + systemBarStartInset)

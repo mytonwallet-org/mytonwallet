@@ -13,16 +13,16 @@ import buildStyle from '../../../../util/buildStyle';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
+import useDraggablePill from '../../../../hooks/useDraggablePill';
 import useEffectOnce from '../../../../hooks/useEffectOnce';
 import useFlag from '../../../../hooks/useFlag';
 import { getIsBottomBarHidden, subscribeToBottomBarVisibility } from '../../../../hooks/useHideBottomBar';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useDraggablePill from './hooks/useDraggablePill';
 
+import Pill from '../../../common/Pill';
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
 import Button from '../../../ui/Button';
-import Pill from './Pill';
 
 import styles from './BottomBar.module.scss';
 

@@ -7,8 +7,8 @@
 }
 
 .modalHeader {
-  padding-right: 0;
-  padding-left: 0;
+  padding-inline-start: 0;
+  padding-inline-end: 0;
 }
 
 .passwordModalDialog {
@@ -34,8 +34,8 @@
 
   @include mixins.respond-below(xs) {
     :global(.is-android) & {
-      border-top-left-radius: 0;
-      border-top-right-radius: 0;
+      border-start-start-radius: 0;
+      border-start-end-radius: 0;
     }
   }
 
@@ -141,7 +141,7 @@
 }
 
 .actionsTitle {
-  margin-left: 0.5rem;
+  margin-inline-start: 0.5rem;
 
   font-size: 0.8125rem;
   font-weight: 700;
@@ -208,9 +208,9 @@
     content: '';
 
     position: absolute;
-    right: 0;
     bottom: 0;
-    left: 3.625rem;
+    inset-inline-start: 3.625rem;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -243,7 +243,7 @@
 
   width: 2.25rem;
   height: 2.25rem;
-  margin-right: 0.625rem;
+  margin-inline-end: 0.625rem;
   border-radius: 50%;
 
   font-size: 1.5rem;

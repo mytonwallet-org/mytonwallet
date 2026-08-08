@@ -5,8 +5,8 @@ import android.os.Build
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.content.res.AppCompatResources
-import org.mytonwallet.app_air.walletbasecontext.utils.getPrivateField
 import java.lang.reflect.Field
+import org.mytonwallet.app_air.walletbasecontext.utils.getPrivateField
 
 fun EditText.setReadOnly() {
     isEnabled = false

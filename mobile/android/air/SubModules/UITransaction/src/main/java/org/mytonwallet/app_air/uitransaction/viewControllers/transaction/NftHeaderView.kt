@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Color
 import android.graphics.Paint
 import android.text.Spannable
@@ -12,6 +11,8 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -19,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
@@ -33,8 +35,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class NftHeaderView(
@@ -107,8 +107,7 @@ class NftHeaderView(
 
     fun reloadData() {
         val transaction = transaction
-        if (transaction !is MApiTransaction.Transaction)
-            throw Exception()
+        if (transaction !is MApiTransaction.Transaction) throw Exception()
         val nft = transaction.nft!!
 
         nameTextView.text = nft.name
@@ -170,5 +169,4 @@ class NftHeaderView(
         addressLabel.setTextColor(WColor.PrimaryText.color)
         nftImageView.updateTheme()
     }
-
 }

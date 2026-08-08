@@ -14,7 +14,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class WEmptyIconTitleSubtitleActionView(context: Context) : WView(context), WThemedView {
+class WEmptyIconTitleSubtitleActionView(context: Context) :
+    WView(context),
+    WThemedView {
 
     private val animationView: WAnimationView by lazy {
         WAnimationView(context)
@@ -64,7 +66,8 @@ class WEmptyIconTitleSubtitleActionView(context: Context) : WView(context), WThe
         addView(animationView, LayoutParams(100.dp, 100.dp))
         addView(titleLabel, LayoutParams(LayoutParams.MATCH_CONSTRAINT, LayoutParams.WRAP_CONTENT))
         addView(
-            subtitleLabel, LayoutParams(
+            subtitleLabel,
+            LayoutParams(
                 LayoutParams.MATCH_CONSTRAINT,
                 LayoutParams.WRAP_CONTENT
             )

@@ -350,6 +350,8 @@ export function initConnector(
       'eip155:10143': { chain: 'monad', network: 'testnet' },
       'eip155:999': { chain: 'hyperliquid', network: 'mainnet' },
       'eip155:998': { chain: 'hyperliquid', network: 'testnet' },
+      'eip155:4663': { chain: 'robinhood', network: 'mainnet' },
+      'eip155:46630': { chain: 'robinhood', network: 'testnet' },
     };
 
     const EVM_EIP155_NAMESPACES = {
@@ -378,15 +380,19 @@ export function initConnector(
     }
 
     function hexToEip155Caip2(hex: string): string {
-      const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
+      const value = String(hex ?? '');
 
-      return `eip155:${BigInt(withPrefix)}`;
+      if (!value) throw new TypeError('Invalid chain ID');
+
+      return `eip155:${BigInt(value)}`;
     }
 
     function normalizeHexChainId(hex: string): string {
-      const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
+      const value = String(hex ?? '');
 
-      return `0x${BigInt(withPrefix).toString(16)}`;
+      if (!value) throw new TypeError('Invalid chain ID');
+
+      return `0x${BigInt(value).toString(16)}`;
     }
 
     function getCaip2ForSessionChain(chain: string, network: string): string | undefined {

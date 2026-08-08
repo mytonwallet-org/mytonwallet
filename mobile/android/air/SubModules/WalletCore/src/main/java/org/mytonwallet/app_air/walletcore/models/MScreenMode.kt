@@ -9,7 +9,13 @@ sealed class MScreenMode {
 
     val isScreenActive: Boolean
         get() {
-            return (this == Default && !AccountStore.isPushedTemporary && WalletCore.nextAccountIsPushedTemporary != true) ||
-                (this is SingleWallet && AccountStore.activeAccountId == accountId && WalletCore.nextAccountId == null)
+            return (
+                this == Default && !AccountStore.isPushedTemporary &&
+                    WalletCore.nextAccountIsPushedTemporary != true
+                ) ||
+                (
+                    this is SingleWallet && AccountStore.activeAccountId == accountId &&
+                        WalletCore.nextAccountId == null
+                    )
         }
 }

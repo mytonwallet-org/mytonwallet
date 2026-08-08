@@ -9,7 +9,7 @@ import androidx.core.graphics.withSave
 class MarginImageSpan(
     drawable: Drawable,
     private val marginTopPx: Int = 0,
-    private val marginRightPx: Int = 0,
+    private val marginRightPx: Int = 0
 ) : ImageSpan(drawable) {
 
     override fun draw(
@@ -24,7 +24,6 @@ class MarginImageSpan(
         paint: Paint
     ) {
         canvas.withSave {
-
             val transY = (y + paint.fontMetricsInt.descent - drawable.bounds.bottom) + marginTopPx
             translate(x, transY.toFloat())
 

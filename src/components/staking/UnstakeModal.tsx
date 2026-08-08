@@ -16,8 +16,10 @@ import {
 import renderText from '../../global/helpers/renderText';
 import {
   selectAccountStakingState,
+  selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountTokens,
+  selectHasMultipleAccounts,
   selectIsCurrentAccountViewMode,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
@@ -26,6 +28,7 @@ import { formatRelativeHumanDateTime } from '../../util/dateFormat';
 import { toBig, toDecimal } from '../../util/decimals';
 import { getTonStakingFees } from '../../util/fee/getTonOperationFees';
 import { formatCurrency } from '../../util/formatNumber';
+import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { getIsLongUnstake, getUnstakeTime } from '../../util/staking';
 import { getIsMobileTelegramApp } from '../../util/windowEnvironment';
@@ -40,6 +43,8 @@ import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import useSyncEffect from '../../hooks/useSyncEffect';
 import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import MfaConfirm from '../common/MfaConfirm';
 import TransactionBanner from '../common/TransactionBanner';
 import TransferResult from '../common/TransferResult';
@@ -65,6 +70,9 @@ type StateProps = GlobalState['currentStaking'] & {
   theme: Theme;
   stakingState?: ApiStakingState;
   isSensitiveDataHidden?: true;
+  accountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
 };
 
 const IS_OPEN_STATES = new Set([
@@ -74,6 +82,7 @@ const IS_OPEN_STATES = new Set([
   StakingState.UnstakeConfirmHardware,
   StakingState.UnstakeConfirmMfa,
   StakingState.UnstakeComplete,
+  StakingState.UnstakeSelectAccount,
 ]);
 
 const UPDATE_UNSTAKE_DATE_INTERVAL_MS = 30000; // 30 sec
@@ -91,6 +100,9 @@ function UnstakeModal({
   mfaRequestHash,
   stakingState,
   isSensitiveDataHidden,
+  accountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
   const {
     setStakingScreen,
@@ -100,6 +112,7 @@ function UnstakeModal({
     submitStaking,
     fetchStakingHistory,
     updateStakingMfaRequestStatus,
+    switchStakingAccount,
   } = getActions();
 
   const {
@@ -175,14 +188,26 @@ function UnstakeModal({
     }
   });
 
+  const handleOpenAccountSelector = useLastCallback(() => {
+    setStakingScreen({ state: StakingState.UnstakeSelectAccount });
+  });
+
+  const handleSelectAccount = useLastCallback((nextAccountId: string) => {
+    switchStakingAccount({ accountId: nextAccountId, mode: 'unstake' });
+  });
+
+  const handleSelectAccountBack = useLastCallback(() => {
+    setStakingScreen({ state: StakingState.UnstakeInitial });
+  });
+
   const handleStartUnstakeClick = useLastCallback(() => {
     submitStakingInitial({ isUnstaking: true, amount: unstakeAmount });
   });
 
-  const handleTransferSubmit = useLastCallback((password: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     setSuccessUnstakeAmount(amount);
 
-    submitStaking({ password, isUnstaking: true });
+    submitStaking({ enclaveToken, isUnstaking: true });
   });
 
   const handleLedgerConnect = useLastCallback(() => {
@@ -308,7 +333,19 @@ function UnstakeModal({
   function renderInitial() {
     return (
       <>
-        <ModalHeader title={lang('$unstake_asset', { symbol: token?.symbol })} onClose={cancelStaking} />
+        <div
+          className={buildClassName(styles.initialHeader, hasMultipleAccounts && styles.initialHeaderWithSwitcher)}
+        >
+          <ModalHeader title={lang('$unstake_asset', { symbol: token?.symbol })} onClose={cancelStaking} />
+          {hasMultipleAccounts && accountId && (
+            <AccountSwitcherPill
+              accountId={accountId}
+              title={accountTitle}
+              className={styles.accountPill}
+              onClick={handleOpenAccountSelector}
+            />
+          )}
+        </div>
         <div className={modalStyles.transitionContent}>
           <AmountInput
             {...amountInputProps}
@@ -360,7 +397,7 @@ function UnstakeModal({
           placeholder={lang(placeholder)}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
-          onSubmit={handleTransferSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={handleBackClick}
           onUpdate={clearStakingError}
         >
@@ -371,11 +408,9 @@ function UnstakeModal({
   }
 
   function renderComplete(isActive: boolean) {
-    const title = getIsMobileTelegramApp()
-      ? lang('Request is sent!')
-      : isLongUnstake
-        ? lang('Request for unstaking is sent!')
-        : lang('Coins have been unstaked!');
+    const title = getIsMobileTelegramApp() || isLongUnstake
+      ? lang('Unstake Requested')
+      : lang('Unstaked');
 
     return (
       <>
@@ -444,6 +479,17 @@ function UnstakeModal({
 
       case StakingState.UnstakeComplete:
         return renderComplete(isActive);
+
+      case StakingState.UnstakeSelectAccount:
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            getIsAccountDisabled={getIsViewAccountDisabled}
+            onAccountSelect={handleSelectAccount}
+            onBack={handleSelectAccountBack}
+            onClose={cancelStaking}
+          />
+        );
     }
   }
 
@@ -458,7 +504,7 @@ function UnstakeModal({
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}
@@ -486,5 +532,8 @@ export default memo(withGlobal((global): StateProps => {
     stakingState,
     isSensitiveDataHidden,
     isViewMode: selectIsCurrentAccountViewMode(global),
+    accountId,
+    accountTitle: selectCurrentAccount(global)?.title,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
   };
 })(UnstakeModal));

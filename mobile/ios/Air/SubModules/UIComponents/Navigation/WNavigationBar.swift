@@ -66,9 +66,9 @@ public final class WNavigationBar: WTouchPassView {
         addSubview(blurView)
 
         NSLayoutConstraint.activate([
-            blurView.leftAnchor.constraint(equalTo: leftAnchor),
+            blurView.leadingAnchor.constraint(equalTo: leadingAnchor),
             blurView.topAnchor.constraint(equalTo: topAnchor),
-            blurView.rightAnchor.constraint(equalTo: rightAnchor),
+            blurView.trailingAnchor.constraint(equalTo: trailingAnchor),
             blurView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
@@ -78,8 +78,8 @@ public final class WNavigationBar: WTouchPassView {
         addSubview(separatorView)
         NSLayoutConstraint.activate([
             separatorView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            separatorView.leftAnchor.constraint(equalTo: leftAnchor),
-            separatorView.rightAnchor.constraint(equalTo: rightAnchor),
+            separatorView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            separatorView.trailingAnchor.constraint(equalTo: trailingAnchor),
             separatorView.heightAnchor.constraint(equalToConstant: 0.33),
         ])
 
@@ -87,8 +87,8 @@ public final class WNavigationBar: WTouchPassView {
         contentView.backgroundColor = .clear
         addSubview(contentView)
         NSLayoutConstraint.activate([
-            contentView.leftAnchor.constraint(equalTo: leftAnchor),
-            contentView.rightAnchor.constraint(equalTo: rightAnchor),
+            contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
             contentView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
             contentView.bottomAnchor.constraint(equalTo: bottomAnchor).withPriority(.init(999)),
             contentView.heightAnchor.constraint(equalToConstant: 60)
@@ -101,11 +101,11 @@ public final class WNavigationBar: WTouchPassView {
         titleStackView.isUserInteractionEnabled = false
         titleStackView.spacing = 2
 
-        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.applyTextStyle(.bodyStrong)
         titleStackView.addArrangedSubview(titleLabel)
 
         subtitleLabel.textColor = .air.secondaryLabel
-        subtitleLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        subtitleLabel.applyTextStyle(.footnote)
         titleStackView.addArrangedSubview(subtitleLabel)
 
         titleButton.translatesAutoresizingMaskIntoConstraints = false
@@ -145,11 +145,11 @@ public final class WNavigationBar: WTouchPassView {
         let imageAttachment = NSTextAttachment(image: backArrowImage)
         let imageAttachmentString = NSMutableAttributedString(attachment: imageAttachment)
         imageAttachmentString.addAttributes([
-            .font: UIFont.systemFont(ofSize: 23, weight: .medium),
+            .font: WTypography.uiFont(.navigationSymbol, content: .technical),
         ], range: NSRange(location: 0, length: imageAttachmentString.length))
         attributedString.append(imageAttachmentString)
         let titleString = NSAttributedString(string: " \(lang("Back"))", attributes: [
-            .font: UIFont.systemFont(ofSize: 17, weight: .regular),
+            .font: WTypography.uiFont(.body),
             .baselineOffset: 2
         ])
         attributedString.append(titleString)

@@ -1,4 +1,5 @@
 .term {
+  unicode-bidi: plaintext;
   line-height: 1.25em; // Setting an absolute line-height prevents the icon from shifting 1px vertically depending on the surrounding content
   white-space: nowrap;
 }

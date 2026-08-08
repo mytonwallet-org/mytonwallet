@@ -8,9 +8,11 @@ import android.os.Bundle
 import android.view.MotionEvent
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.airasframework.splash.SplashVC
+import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.ShakeDetector
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -25,7 +27,10 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.cleanupPendingLegacyAuth
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
 import org.mytonwallet.uihome.tabs.PhoneTabsVC
 
@@ -39,7 +44,8 @@ class MainWindow : WWindow() {
 
     companion object {
         const val ADDITIONAL_TABLET_PADDING =
-            ViewConstants.TABLET_PANELS_OVERLAP_WIDTH.toInt() + ViewConstants.TABLET_CONTENT_START_PADDING.toInt()
+            ViewConstants.TABLET_PANELS_OVERLAP_WIDTH.toInt() +
+                ViewConstants.TABLET_CONTENT_START_PADDING.toInt()
     }
 
     override fun getKeyNavigationController(): WNavigationController {
@@ -57,10 +63,11 @@ class MainWindow : WWindow() {
         ViewConstants.ADDITIONAL_TABLET_PADDING =
             if (isWideLayout) ADDITIONAL_TABLET_PADDING.dp else 0
         windowView.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
-            if (r - l != or - ol || b - t != ob - ot)
+            if (r - l != or - ol || b - t != ob - ot) {
                 swapTabContainerIfNeeded()
-            else
+            } else {
                 isConfiguring = false
+            }
         }
 
         if (!WGlobalStorage.isInitialized) {
@@ -68,6 +75,9 @@ class MainWindow : WWindow() {
         }
 
         AirAsFrameworkApplication.initTheme(applicationContext)
+
+        EnclaveManager.sharedInstance = EnclaveManager(this)
+        WalletCore.cleanupPendingLegacyAuth()
 
         WalletCore.incBridgeUsers()
         isBridgeUser = true
@@ -101,10 +111,15 @@ class MainWindow : WWindow() {
             applicationContext,
             windowView,
             forcedRecreation = forcedRecreation
-        ) {
-            // Bridge ready now!
-            splashVC.bridgeIsReady()
-            setAppFocusedState()
+        ) { isReady ->
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "restartBridge: setup completed forced=$forcedRecreation isReady=$isReady"
+            )
+            if (isReady) {
+                splashVC.bridgeIsReady()
+                setAppFocusedState()
+            }
         }
     }
 
@@ -122,9 +137,12 @@ class MainWindow : WWindow() {
         WGlobalStorage.clearUiCacheData()
         val langCode = WGlobalStorage.getLangCode()
         if (LocaleController.init(this, langCode)) {
-            WalletContextManager.delegate?.get()?.restartApp()
             WBaseStorage.setActiveLanguage(langCode)
+            FontManager.init(applicationContext)
+            WalletContextManager.delegate?.get()?.restartApp()
             WGlobalStorage.setLangCode(langCode)
+            TokenStore.clearLocalizedNames()
+            WalletCore.call(ApiMethod.Other.SetLangCode(langCode), callback = { _, _ -> })
             WidgetsConfigurations.reloadWidgets(this)
             AirAsFrameworkApplication.initTheme(applicationContext)
             updateTheme()
@@ -146,26 +164,26 @@ class MainWindow : WWindow() {
         isConfiguring = true
 
         // Swap the root tab container (phone <-> tablet) if it changed direction.
-        (navigationControllers.firstOrNull()?.viewControllers?.firstOrNull())?.let { currentContainer ->
-            when (currentContainer) {
-                is PhoneTabsVC -> if (nowWide) {
-                    // Tablet has no minimized-nav support; restore it as a presented nav first.
-                    currentContainer.maximize(animated = false)
-                    val transfer = currentContainer.exportStacks()
-                    val tabletContainer = TabletTabsVC(this)
-                    tabletContainer.adoptStacksBeforeSetup(transfer)
-                    navigationControllers.first().replaceRoot(tabletContainer)
-                }
-
-                is TabletTabsVC -> if (!nowWide) {
-                    val transfer = currentContainer.exportStacks()
-                    val phoneContainer = PhoneTabsVC(this)
-                    phoneContainer.adoptStacksBeforeSetup(transfer)
-                    navigationControllers.first().replaceRoot(phoneContainer)
-                }
-
-                else -> {}
+        val currentContainer =
+            navigationControllers.firstOrNull()?.viewControllers?.firstOrNull()
+        when (currentContainer) {
+            is PhoneTabsVC -> if (nowWide) {
+                // Tablet has no minimized-nav support; restore it as a presented nav first.
+                currentContainer.maximize(animated = false)
+                val transfer = currentContainer.exportStacks()
+                val tabletContainer = TabletTabsVC(this)
+                tabletContainer.adoptStacksBeforeSetup(transfer)
+                navigationControllers.first().replaceRoot(tabletContainer)
             }
+
+            is TabletTabsVC -> if (!nowWide) {
+                val transfer = currentContainer.exportStacks()
+                val phoneContainer = PhoneTabsVC(this)
+                phoneContainer.adoptStacksBeforeSetup(transfer)
+                navigationControllers.first().replaceRoot(phoneContainer)
+            }
+
+            else -> {}
         }
 
         ViewConstants.ADDITIONAL_TABLET_PADDING = if (nowWide) ADDITIONAL_TABLET_PADDING.dp else 0
@@ -230,11 +248,12 @@ class MainWindow : WWindow() {
             AirPushNotifications.register(subscribePreviousAccountsIfEmpty = false)
         } else {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS)) { _, grantResults ->
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
+                ) {
                     AirPushNotifications.register(subscribePreviousAccountsIfEmpty = true)
                 }
             }
         }
     }
-
 }

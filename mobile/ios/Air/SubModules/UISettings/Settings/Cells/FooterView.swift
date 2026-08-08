@@ -1,5 +1,6 @@
 
 import UIKit
+import UIComponents
 import WalletContext
 
 final class FooterView: UICollectionReusableView {
@@ -20,7 +21,7 @@ final class FooterView: UICollectionReusableView {
         versionLabel.translatesAutoresizingMaskIntoConstraints = false
         versionLabel.text = "\(APP_NAME) v\(appVersion) (\(bundleVersion))"
         versionLabel.textColor = .air.secondaryLabel
-        versionLabel.font = .systemFont(ofSize: 14)
+        versionLabel.applyTextStyle(.supporting, content: .technical)
         addSubview(versionLabel)
         NSLayoutConstraint.activate([
             versionLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),

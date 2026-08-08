@@ -13,10 +13,10 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 
 class CapacitorGlobalStorageWebViewClient extends WebViewClient {
-    private final WebViewClientDelegate delegate;
+    private final CapacitorGlobalStorageProvider storageProvider;
 
-    CapacitorGlobalStorageWebViewClient(WebViewClientDelegate delegate) {
-        this.delegate = delegate;
+    CapacitorGlobalStorageWebViewClient(CapacitorGlobalStorageProvider storageProvider) {
+        this.storageProvider = storageProvider;
     }
 
     @Override
@@ -50,9 +50,7 @@ class CapacitorGlobalStorageWebViewClient extends WebViewClient {
     @Override
     public void onPageFinished(WebView view, String url) {
         super.onPageFinished(view, url);
-        if (delegate != null) {
-            delegate.onPageFinished();
-        }
+        storageProvider.onPageFinished(view);
     }
 
     @Override
@@ -72,10 +70,6 @@ class CapacitorGlobalStorageWebViewClient extends WebViewClient {
 
     @Override
     public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-        return super.onRenderProcessGone(view, detail);
-    }
-
-    interface WebViewClientDelegate {
-        void onPageFinished();
+        return storageProvider.onRenderProcessGone(view, detail);
     }
 }

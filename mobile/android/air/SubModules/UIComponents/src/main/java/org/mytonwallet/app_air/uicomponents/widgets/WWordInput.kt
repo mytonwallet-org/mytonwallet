@@ -15,11 +15,9 @@ import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 import org.mytonwallet.app_air.walletcore.helpers.findMnemonicMatches
 
 @SuppressLint("SetTextI18n", "ViewConstructor")
-class WWordInput(
-    context: Context,
-    number: Int,
-    val delegate: Delegate,
-) : WView(context, LayoutParams(0, 50.dp)), WThemedView {
+class WWordInput(context: Context, number: Int, val delegate: Delegate) :
+    WView(context, LayoutParams(0, 50.dp)),
+    WThemedView {
 
     private val numberLabel: WLabel by lazy {
         val label = WLabel(context)
@@ -37,12 +35,12 @@ class WWordInput(
         textField.setMaxLines(1)
         textField.setImeOptions(EditorInfo.IME_ACTION_NEXT)
         textField.inputType =
-            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
         textField.isAutoFillSupported = false
 
         textField.doOnTextChanged { _, _, _, _ ->
-            if (textFieldIsLocked)
-                return@doOnTextChanged
+            if (textFieldIsLocked) return@doOnTextChanged
 
             val currentText = textField.text?.toString().orEmpty()
             val normalizedText = currentText.lowercase()

@@ -32,7 +32,5 @@ object SubprojectHelpers {
         return params.joinToString("&")
     }
 
-    fun appendSubprojectContext(url: String): String {
-        return "$url#${buildSubprojectHash()}"
-    }
+    fun appendSubprojectContext(url: String): String = "$url#${buildSubprojectHash()}"
 }

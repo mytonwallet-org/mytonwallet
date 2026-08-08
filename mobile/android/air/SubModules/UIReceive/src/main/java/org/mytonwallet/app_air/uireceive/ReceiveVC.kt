@@ -17,8 +17,12 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
+import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -45,26 +49,25 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
-import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class ReceiveVC private constructor(
     context: Context,
     private val defaultChain: MBlockchain? = null,
-    private var openBuyWithCardInstantly: Boolean = false,
+    private var openBuyWithCardInstantly: Boolean = false
 ) : WViewControllerWithModelStore(context) {
+    @Suppress("PropertyName")
     override val TAG = "Receive"
 
-    override val displayedAccount =
+    override var displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     override val shouldDisplayTopBar = false
@@ -77,18 +80,29 @@ class ReceiveVC private constructor(
 
         fun createIfAvailable(
             context: Context,
-            defaultChain: MBlockchain?,
-            openBuyWithCardInstantly: Boolean = false,
+            defaultChain: MBlockchain? = null,
+            openBuyWithCardInstantly: Boolean = false
         ): ReceiveVC? {
             val addressByChain = AccountStore.activeAccount?.addressByChain ?: return null
-            if (MBlockchain.supportedChains.none { addressByChain.containsKey(it.name) }) return null
+            if (MBlockchain.supportedChains.none {
+                    addressByChain.containsKey(it.name)
+                }
+            ) {
+                return null
+            }
             return ReceiveVC(context, defaultChain, openBuyWithCardInstantly)
         }
     }
 
     val availableChains: List<MBlockchain> =
-        AccountStore.activeAccount?.sortedChains()?.mapNotNull { entry ->
-            MBlockchain.supportedChains.find { it.name == entry.key }
+        AccountStore.activeAccount?.chainDisplaySnapshot()?.let { chainDisplay ->
+            val visibleChainNames = chainDisplay.visibleChains.map { it.key }.toSet()
+            val allChains = chainDisplay.visibleChains + chainDisplay.orderedChains.filterNot {
+                it.key in visibleChainNames
+            }
+            allChains.mapNotNull { entry ->
+                MBlockchain.supportedChains.find { it.name == entry.key }
+            }
         } ?: emptyList()
 
     private val isViewOnlyAccount = AccountStore.activeAccount?.isViewOnly == true
@@ -96,10 +110,7 @@ class ReceiveVC private constructor(
     private val defaultChainIndex = availableChains.indexOf(defaultChain).coerceAtLeast(0)
 
     private val onQrLoaded = {
-        if (isViewOnlyAccount)
-            viewOnlyWarningView.fadeIn()
-        else
-            optionsContainerView.fadeIn()
+        if (isViewOnlyAccount) viewOnlyWarningView.fadeIn() else optionsContainerView.fadeIn()
     }
 
     val qrCodeVCs: Map<MBlockchain, QRCodeVC> =
@@ -119,6 +130,11 @@ class ReceiveVC private constructor(
             }
         }
 
+    private var retainedGradientIndices = emptySet<Int>()
+    private val pendingGradientBackgrounds = mutableMapOf<Int, Pair<Int, Int>>()
+    private var gradientBackgroundWidth = 0
+    private var gradientBackgroundHeight = 0
+
     private val qrSegmentView: WSegmentedController by lazy {
         val defaultIndex = availableChains.indexOf(defaultChain).coerceAtLeast(0)
         val segmentedController = WSegmentedController(
@@ -130,12 +146,16 @@ class ReceiveVC private constructor(
             applySideGutters = false,
             defaultSelectedIndex = defaultIndex,
             onOffsetChange = { _, currentOffset ->
+                retainGradientBackgroundsAround(currentOffset)
                 val chainCount = availableChains.size
                 for (i in gradientColorViews.indices) {
                     gradientColorViews[i].alpha = when {
                         chainCount == 1 -> 1f
+
                         i == 0 -> (1f - currentOffset.coerceIn(0f, 1f))
+
                         i == chainCount - 1 -> (currentOffset - (i - 1)).coerceIn(0f, 1f)
+
                         else -> {
                             val dist = (currentOffset - i).let { kotlin.math.abs(it) }
                             (1f - dist).coerceIn(0f, 1f)
@@ -168,6 +188,15 @@ class ReceiveVC private constructor(
         )
         segmentedController.addCloseButton()
         segmentedController
+    }
+
+    private val accountSelectorView by lazy {
+        AccountSelectorView(
+            context,
+            accountsProvider = { switchableAccounts() },
+            onAccountSelected = ::switchAccount,
+            isTransparent = true
+        )
     }
 
     val titleLabel: WLabel by lazy {
@@ -286,23 +315,11 @@ class ReceiveVC private constructor(
             }
             v.setOnClickListener {
                 TokenStore.getToken(currentQRCode.chain.nativeSlug)?.let {
-                    val sendingToken = when (currentQRCode.chain) {
-                        MBlockchain.ton -> {
-                            TokenStore.getToken(TRON_USDT_SLUG)
-                        }
-
-                        else -> {
-                            TokenStore.getToken(TONCOIN_SLUG)
-                        }
-                    }
-                    if (sendingToken != null) {
-                        val swapVC = SwapVC(
-                            context,
-                            defaultSendingToken = MApiSwapAsset.from(sendingToken),
-                            defaultReceivingToken = MApiSwapAsset.from(it)
-                        )
-                        navigationController?.push(swapVC)
-                    }
+                    val swapVC = SwapVC(
+                        context,
+                        defaultReceivingToken = MApiSwapAsset.from(it)
+                    )
+                    navigationController?.push(swapVC)
                 }
             }
         }
@@ -380,10 +397,12 @@ class ReceiveVC private constructor(
             qrSegmentView,
             LayoutParams(MATCH_PARENT, qrHeight)
         )
-        if (qrSegmentView.items.size == 1) v.addView(
-            titleLabel,
-            LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp)
-        )
+        if (qrSegmentView.items.size == 1) {
+            v.addView(
+                titleLabel,
+                LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp)
+            )
+        }
         v.addView(optionsSeparatorView, LayoutParams(MATCH_PARENT, 16.dp))
         if (isViewOnlyAccount) {
             v.addView(viewOnlyWarningView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -439,6 +458,11 @@ class ReceiveVC private constructor(
             }
         }
 
+        if (isAccountSwitchingAllowed()) {
+            AccountStore.activeAccount?.let { accountSelectorView.config(it) }
+            qrSegmentView.addLeadingView(accountSelectorView, 75.dp, 48.dp)
+        }
+
         updateTheme()
         updateOptionsForOffset(defaultChainIndex.toFloat())
 
@@ -455,6 +479,11 @@ class ReceiveVC private constructor(
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(Color.WHITE)
+        backgroundColorView.setBackgroundColor(
+            WColor.Background.color,
+            0f,
+            ViewConstants.BLOCK_RADIUS.dp
+        )
         copyAddressView.setBackgroundColor(WColor.Background.color)
         copyAddressView.addRippleEffect(WColor.SecondaryBackground.color)
         copyAddressLabel.setTextColor(WColor.Tint.color)
@@ -479,13 +508,50 @@ class ReceiveVC private constructor(
             invoiceLabel.setTextColor(WColor.Tint.color)
         }
 
+        retainGradientBackgroundsAround(qrSegmentView.currentOffset)
+    }
+
+    private fun retainGradientBackgroundsAround(offset: Float) {
+        if (availableChains.isEmpty()) return
+
         val cacheWidth = ApplicationContextHolder.screenWidth
         val cacheHeight = (navigationController?.getSystemBars()?.top ?: 0) + 307.dp + 64.dp
-        for ((i, chain) in availableChains.withIndex()) {
-            val targetView = gradientColorViews[i]
-            ReceiveBackgroundCache.render(chain, cacheWidth, cacheHeight) { drawable ->
-                drawable?.let {
-                    targetView.post { targetView.background = it }
+        val sizeChanged = cacheWidth != gradientBackgroundWidth ||
+            cacheHeight != gradientBackgroundHeight
+        if (sizeChanged) {
+            gradientBackgroundWidth = cacheWidth
+            gradientBackgroundHeight = cacheHeight
+            gradientColorViews.forEach { it.background = null }
+        }
+
+        val centerIndex = offset.roundToInt().coerceIn(0, availableChains.lastIndex)
+        retainedGradientIndices = (centerIndex - 1..centerIndex + 1)
+            .filterTo(mutableSetOf()) { it in availableChains.indices }
+
+        gradientColorViews.forEachIndexed { index, view ->
+            if (index !in retainedGradientIndices) {
+                view.background = null
+            } else if (sizeChanged || view.background == null) {
+                loadGradientBackground(index, cacheWidth, cacheHeight)
+            }
+        }
+    }
+
+    private fun loadGradientBackground(index: Int, width: Int, height: Int) {
+        val requestedSize = width to height
+        if (pendingGradientBackgrounds[index] == requestedSize) return
+        pendingGradientBackgrounds[index] = requestedSize
+
+        ReceiveBackgroundCache.render(availableChains[index], width, height) { drawable ->
+            gradientColorViews[index].post {
+                if (pendingGradientBackgrounds[index] == requestedSize) {
+                    pendingGradientBackgrounds.remove(index)
+                }
+                if (index in retainedGradientIndices &&
+                    width == gradientBackgroundWidth &&
+                    height == gradientBackgroundHeight
+                ) {
+                    gradientColorViews[index].background = drawable
                 }
             }
         }
@@ -519,6 +585,41 @@ class ReceiveVC private constructor(
         }
     }
 
+    private fun switchableAccounts(): List<MAccount> =
+        WalletCore.getAllAccounts().filter { account ->
+            MBlockchain.supportedChains.any { account.byChain.containsKey(it.name) }
+        }
+
+    private fun isAccountSwitchingAllowed(): Boolean = !AccountStore.isPushedTemporary &&
+        navigationController?.viewControllers?.firstOrNull() == this &&
+        switchableAccounts().any { it.accountId != AccountStore.activeAccountId }
+
+    private fun switchAccount(account: MAccount) {
+        accountSelectorView.setLoading(true)
+        WalletCore.ensureAccountActivated(account.accountId) { accountChanged ->
+            if (accountChanged) {
+                WalletCore.notifyEvent(
+                    WalletEvent.AccountChangedInApp(persistedAccountsModified = false)
+                )
+            }
+            view.post { onAccountSwitched(account) }
+        }
+    }
+
+    private fun onAccountSwitched(account: MAccount) {
+        displayedAccount = DisplayedAccount(account.accountId, isPushedTemporary = false)
+        accountSelectorView.setLoading(false)
+        accountSelectorView.config(account)
+        val receiveVC = createIfAvailable(context) ?: return
+        val nav = navigationController ?: return
+        updateWithCrossFade(
+            duration = AnimationConstants.SUPER_QUICK_ANIMATION,
+            fadeInView = { receiveVC.scrollView }
+        ) {
+            nav.replaceRoot(receiveVC)
+        }
+    }
+
     private fun openBuyWithCard(chain: String, anchorView: View? = null) {
         val baseCurrencies = BuyWithCardLauncher.supportedBaseCurrencies(chain)
         val baseCurrency = BuyWithCardLauncher.preferredBaseCurrency(chain)
@@ -530,7 +631,7 @@ class ReceiveVC private constructor(
                         WMenuPopup.Item.Config.Item(
                             icon = null,
                             title = currency.currencyName,
-                            subtitle = currency.currencyCode,
+                            subtitle = currency.currencyCode
                         ),
                         onTap = {
                             openBuyWithCardUrl(chain, currency)
@@ -548,18 +649,33 @@ class ReceiveVC private constructor(
             return
         }
 
+        if (baseCurrency == null) {
+            // Same refusal BuyWithCardLauncher.launch gives, so a config that narrowed after the row
+            // was drawn does not swallow the tap on one entry point and report it on the other
+            showError(MBridgeError.Type.SERVER_ERROR)
+            return
+        }
         openBuyWithCardUrl(chain, baseCurrency)
     }
 
+    // The row is offered only when the chain supports the ramp AND the server still allows a currency
+    // on it, so the button and the screen behind it answer the same question
+    private fun isBuyWithCardOffered(chain: MBlockchain): Boolean = chain.isOnrampSupported &&
+        BuyWithCardLauncher.supportedBaseCurrencies(chain.name).isNotEmpty()
+
     private fun openBuyWithCardUrl(chain: String, baseCurrency: MBaseCurrency) {
+        // The menu may have been rendered before a config update narrowed the list
+        if (!BuyWithCardLauncher.supportedBaseCurrencies(chain).contains(baseCurrency)) {
+            showError(MBridgeError.Type.SERVER_ERROR)
+            return
+        }
         buyWithCardView.isClickable = false
         BuyWithCardLauncher.buyWithCardUrl(chain, baseCurrency, { url ->
             buyWithCardView.isClickable = true
             url?.let {
                 CustomTabsBrowser.open(context, it)
             } ?: run {
-                if (!WalletCore.isConnected())
-                    showError(MBridgeError.SERVER_ERROR)
+                if (!WalletCore.isConnected()) showError(MBridgeError.Type.SERVER_ERROR)
             }
         })
     }
@@ -567,8 +683,7 @@ class ReceiveVC private constructor(
     override fun viewWillAppear() {
         super.viewWillAppear()
         resubscribeQrHeightListener()
-        if (navigationController?.isSwipingBack == true)
-            return
+        if (navigationController?.isSwipingBack == true) return
         window!!.forceStatusBarLight = true
     }
 
@@ -628,14 +743,11 @@ class ReceiveVC private constructor(
         }
     }
 
-    private fun qrCodeHeight(vc: QRCodeVC): Int {
-        return vc.getHeight()
-    }
+    private fun qrCodeHeight(vc: QRCodeVC): Int = vc.getHeight()
 
-    private fun qrTransparentHeight(vc: QRCodeVC): Int {
-        return vc.getTransparentHeight() + qrSegmentView.navHeight +
+    private fun qrTransparentHeight(vc: QRCodeVC): Int =
+        vc.getTransparentHeight() + qrSegmentView.navHeight +
             (navigationController?.getSystemBars()?.top ?: 0)
-    }
 
     private fun animateQrView(
         qrCodeView: View,
@@ -663,6 +775,9 @@ class ReceiveVC private constructor(
 
     override fun onDestroy() {
         super.onDestroy()
+        retainedGradientIndices = emptySet()
+        pendingGradientBackgrounds.clear()
+        gradientColorViews.forEach { it.background = null }
         qrSegmentView.onDestroy()
         copyAddressView.setOnClickListener(null)
         if (!isViewOnlyAccount) {
@@ -676,9 +791,11 @@ class ReceiveVC private constructor(
         if (isViewOnlyAccount) return
 
         val tonIndex = availableChains.indexOf(MBlockchain.ton)
-        val tonFraction = if (tonIndex >= 0)
+        val tonFraction = if (tonIndex >= 0) {
             (1f - kotlin.math.abs(offset - tonIndex)).coerceIn(0f, 1f)
-        else 0f
+        } else {
+            0f
+        }
         invoiceView.layoutParams?.height = (OPTION_ROW_HEIGHT.dp * tonFraction).toInt()
         invoiceView.requestLayout()
         invoiceView.isClickable = tonFraction == 1f
@@ -686,8 +803,8 @@ class ReceiveVC private constructor(
         if (AccountStore.activeAccount?.supportsBuyWithCard == true) {
             val floorIdx = offset.toInt().coerceIn(0, availableChains.size - 1)
             val ceilIdx = (floorIdx + 1).coerceAtMost(availableChains.size - 1)
-            val fracA = if (availableChains[floorIdx].isOnrampSupported) 1f else 0f
-            val fracB = if (availableChains[ceilIdx].isOnrampSupported) 1f else 0f
+            val fracA = if (isBuyWithCardOffered(availableChains[floorIdx])) 1f else 0f
+            val fracB = if (isBuyWithCardOffered(availableChains[ceilIdx])) 1f else 0f
             val buyWithCardFraction = fracA + (fracB - fracA) * (offset - floorIdx)
             val buyWithCardHeight = (OPTION_ROW_HEIGHT.dp * buyWithCardFraction).toInt()
             buyWithCardView.layoutParams?.height = buyWithCardHeight
@@ -697,5 +814,4 @@ class ReceiveVC private constructor(
             buyWithCardView.isClickable = buyWithCardFraction == 1f
         }
     }
-
 }

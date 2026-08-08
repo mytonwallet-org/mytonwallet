@@ -1,5 +1,6 @@
 
 import Foundation
+import ProtectedAction
 import UIKit
 import SwiftUI
 import UIComponents
@@ -17,12 +18,13 @@ import UIHome
 import UIToken
 import UIInAppBrowser
 import UIPortfolio
-import UIPasscode
+import UIProtectedAction
 import UniformTypeIdentifiers
 import Dependencies
 
 @MainActor func configureAppActions() {
     AppActions = AppActionsImpl.self
+    ProtectedActionExecutor = UIProtectedActionExecutor.self
     _ = RootStateCoordinator.shared
 }
 
@@ -91,36 +93,6 @@ private class AppActionsImpl: AppActionsProtocol {
         UIApplication.shared.open(URL(string: "https://t.me/\(channel)")!)
     }
 
-    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
-        on viewController: UIViewController,
-        account: MAccount,
-        title: String,
-        headerView: HeaderView,
-        passwordAction: @escaping (String) async throws -> Result,
-        ledgerSignData: (() async throws -> SignData)?,
-        ledgerFromAddress: String?,
-        presentationStyle: ProtectedActionPresentationStyle,
-        useBioOnPresent: Bool,
-        completionBehavior: ProtectedActionCompletionBehavior,
-        prefersNavigationTitleWithCustomHeader: Bool,
-        mfaTitle: String?
-    ) async throws -> Result? {
-        try await ProtectedActionPresenter.authorizeProtectedAction(
-            on: viewController,
-            account: account,
-            title: title,
-            headerView: headerView,
-            passwordAction: passwordAction,
-            ledgerSignData: ledgerSignData,
-            ledgerFromAddress: ledgerFromAddress,
-            presentationStyle: presentationStyle,
-            useBioOnPresent: useBioOnPresent,
-            completionBehavior: completionBehavior,
-            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
-            mfaTitle: mfaTitle
-        )
-    }
-    
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity) {
         let action = {
             switch activity {
@@ -167,6 +139,77 @@ private class AppActionsImpl: AppActionsProtocol {
             presenting.dismiss(animated: true, completion: action)
         } else {
             action()
+        }
+    }
+
+    static func hideNft(accountId: String, nft: ApiNft, onHidden: (() -> Void)?) {
+        topViewController()?.showAlert(
+            title: lang("Hide NFT"),
+            text: lang("Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device."),
+            button: lang("Hide and Report"),
+            buttonStyle: .destructive,
+            buttonPressed: {
+                performHideAndReportNft(accountId: accountId, nft: nft, onHidden: onHidden)
+            },
+            secondaryButton: lang("Only Hide"),
+            secondaryButtonPressed: {
+                hideNftLocally(accountId: accountId, nft: nft, onHidden: onHidden)
+            },
+            preferPrimary: false
+        )
+    }
+
+    static func hideAndReportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?) {
+        topViewController()?.showAlert(
+            title: lang("Hide and Report NFT"),
+            text: lang("This NFT will be permanently hidden on this device and reported."),
+            button: lang("Hide and Report"),
+            buttonStyle: .destructive,
+            buttonPressed: {
+                performHideAndReportNft(accountId: accountId, nft: nft, onHidden: onConfirmed)
+            },
+            secondaryButton: lang("Cancel"),
+            preferPrimary: false
+        )
+    }
+
+    static func reportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?) {
+        topViewController()?.showAlert(
+            title: lang("Report NFT"),
+            text: lang("This NFT will remain hidden on this device and be reported."),
+            button: lang("Report"),
+            buttonStyle: .destructive,
+            buttonPressed: {
+                submitNftReport(accountId: accountId, nft: nft)
+                onConfirmed?()
+            },
+            secondaryButton: lang("Cancel"),
+            preferPrimary: false
+        )
+    }
+
+    private static func hideNftLocally(accountId: String, nft: ApiNft, onHidden: (() -> Void)?) {
+        NftStore.setHiddenByUser(accountId: accountId, nft: nft, isHidden: true)
+        onHidden?()
+    }
+
+    private static func performHideAndReportNft(accountId: String, nft: ApiNft, onHidden: (() -> Void)?) {
+        hideNftLocally(accountId: accountId, nft: nft, onHidden: onHidden)
+        submitNftReport(accountId: accountId, nft: nft)
+    }
+
+    private static func submitNftReport(accountId: String, nft: ApiNft) {
+        let network = AccountContext(accountId: accountId).account.network
+        Task {
+            do {
+                try await Api.reportNft(
+                    chain: nft.chain,
+                    network: network,
+                    nftAddress: nft.address
+                )
+            } catch {
+                log.error("failed to report NFT \(nft.address, .public): \(error, .public)")
+            }
         }
     }
 
@@ -288,6 +331,28 @@ private class AppActionsImpl: AppActionsProtocol {
             }
         }
     }
+
+    static func makeProtectedActionActivityDetailsPresentation(
+        accountId: String,
+        activity: ApiActivity,
+        context: ActivityDetailsContext
+    ) async throws -> ActivityDetailsPresentation {
+        try Task.checkCancellation()
+        let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: activity.id)
+        try Task.checkCancellation()
+        let viewController = ActivityVC(
+            activity: updatedActivity ?? activity,
+            accountSource: .accountId(accountId),
+            context: context
+        )
+        viewController.navigationItem.hidesBackButton = true
+        return ActivityDetailsPresentation(
+            viewController: viewController,
+            animateAlongside: { [weak viewController] in
+                viewController?.animateToCollapsed()
+            }
+        )
+    }
     
     static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool) {
         Task {
@@ -374,12 +439,20 @@ private class AppActionsImpl: AppActionsProtocol {
             AppActions.showError(error: DisplayError(text: lang("Buying with card is not supported in Testnet.")))
             return
         }
-        let chain = chain ?? accountContext.account.firstChain
-        guard chain.isOnrampSupported else {
+        // A caller naming no chain gets the account's first servable one, the same answer the split-home
+        // button is gated on, so its tap cannot land on a refusal the button did not anticipate
+        let chain = chain ?? OnRampCurrencyPolicy.defaultChain(for: accountContext.account)
+        guard let chain, chain.isOnrampSupported else {
             AppActions.showError(error: DisplayError(text: lang("Buying with card is not supported for this chain.")))
             return
         }
-        let buyWithCardVC = BuyWithCardVC(accountContext: accountContext, chain: chain)
+        // Every buy entry point funnels here, so refusing once covers the split-home button, the
+        // Receive row and deeplinks alike. The screen itself decides whether it has a currency to
+        // offer, which keeps that question answered in one place.
+        guard let buyWithCardVC = BuyWithCardVC(accountContext: accountContext, chain: chain) else {
+            AppActions.showError(error: DisplayError(text: lang("Buying with card is not supported for this chain.")))
+            return
+        }
         pushIfNeeded(buyWithCardVC, push: push)
     }
     
@@ -474,8 +547,6 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func showHiddenNfts(accountSource: AccountSource) {
-        let accountId = AccountStore.resolveAccountId(source: accountSource)
-        guard NftStore.getAccountHasHiddenNfts(accountId: accountId) else { return }
         let hiddenVC = HiddenNftsVC()
         let topVC = topViewController()
         if let nc = topVC as? WNavigationController {
@@ -573,6 +644,10 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showSettings(section: AppSettingsSection?) {
+        if section == .language {
+            openAppLanguageSettings()
+            return
+        }
         guard let path = settingsPath(for: section) else { return }
         rootContainerRouter.showSettings(path: path)
     }
@@ -588,14 +663,22 @@ private class AppActionsImpl: AppActionsProtocol {
         }
         let isAccountSwitchingAllowed = accountContext.source == .current
         let sendAccountContext = AccountContext(accountId: accountContext.account.id)
-        topViewController()?.present(
-            SendVC(
+        do {
+            let viewController = try SendNavigation.makeViewController(
                 accountContext: sendAccountContext,
                 prefilledValues: prefilledValues,
                 isAccountSwitchingAllowed: isAccountSwitchingAllowed
-            ),
-            animated: true
-        )
+            )
+            topViewController()?.present(
+                viewController,
+                animated: true
+            )
+        } catch {
+            log.fault(
+                "Invalid Send entry point: \(error, .public)"
+            )
+            AppActions.showError(error: error)
+        }
     }
     
     static func showSell(accountContext: AccountContext, tokenSlug: String?) {
@@ -721,7 +804,7 @@ private class AppActionsImpl: AppActionsProtocol {
         case .assets:
             return [AssetsAndActivityVC()]
         case .language:
-            return [LanguageVC()]
+            return nil
         case .notifications:
             return [NotificationsSettingsVC()]
         case .dapps:
@@ -735,9 +818,13 @@ private class AppActionsImpl: AppActionsProtocol {
         case .about:
             return [AboutVC(showLegalSection: true)]
         case .hiddenNfts:
-            guard NftStore.getAccountHasHiddenNfts(accountId: AccountStore.currentAccountId) else { return nil }
             return [AssetsAndActivityVC(), HiddenNftsVC()]
         }
+    }
+
+    private static func openAppLanguageSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 

@@ -11,9 +11,12 @@ import WalletContext
 
 final class WalletSeeAllCell: WHighlightCollectionViewCell {
     nonisolated public static let defaultHeight = CGFloat(48)
-    private static let regular17Font = UIFont.systemFont(ofSize: 17, weight: .regular)
-    private static let leadingIconConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-    private static let menuButtonConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+    private static let leadingIconConfig = UIImage.SymbolConfiguration(
+        font: WTypography.uiFont(.title3, content: .technical)
+    )
+    private static let menuButtonConfig = UIImage.SymbolConfiguration(
+        font: WTypography.uiFont(.supporting, content: .technical)
+    )
     private static let leadingIconToTextSpacing = CGFloat(18)
     private static let verticalOffset = CGFloat(-2)
     private static let menuButtonSideLength = CGFloat(36)
@@ -36,7 +39,7 @@ final class WalletSeeAllCell: WHighlightCollectionViewCell {
         
     private let seeAllLabel = configured(object: UILabel()) {
         $0.translatesAutoresizingMaskIntoConstraints = false
-        $0.font = WalletSeeAllCell.regular17Font
+        $0.applyTextStyle(.body)
         $0.text = lang("Show All Assets")
     }
 
@@ -105,7 +108,7 @@ final class WalletSeeAllCell: WHighlightCollectionViewCell {
         seeAllLabel.text = title
         leadingIconView.image = UIImage(systemName: leadingIconSystemName, withConfiguration: Self.leadingIconConfig)
         badge.configure(
-            text: "\(count)",
+            text: localizedIntegerString(count),
             foregroundColor: .tintColor,
             backgroundColor: .tintColor.withAlphaComponent(0.12)
         )

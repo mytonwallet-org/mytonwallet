@@ -12,7 +12,7 @@
 
   // Follows the InteractiveTextField style
   padding: calc(1rem - 1px) calc(0.75rem - 1px);
-  border-radius: 1rem;
+  border-radius: var(--border-radius-default);
 
   font-size: 1rem;
   font-weight: 600;

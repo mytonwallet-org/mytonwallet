@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.walletsdk.methods
 
 import com.squareup.moshi.JsonClass
+import java.lang.reflect.Type
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.walletsdk.WalletSDK
 import org.mytonwallet.app_air.walletsdk.utils.NetworkUtils
-import java.lang.reflect.Type
 
 sealed class SDKApiMethod<T> {
 
@@ -26,11 +26,9 @@ sealed class SDKApiMethod<T> {
     abstract val responseType: Type
 
     object Common {
-        class CurrencyRates() : SDKApiMethod<CurrencyRates>() {
+        class CurrencyRates : SDKApiMethod<CurrencyRates>() {
             @JsonClass(generateAdapter = true)
-            data class CurrencyRates(
-                val rates: Map<String, Double>
-            )
+            data class CurrencyRates(val rates: Map<String, Double>)
 
             override val service = Service.MyTonWallet
             override val path = "currency-rates"
@@ -40,13 +38,10 @@ sealed class SDKApiMethod<T> {
     }
 
     object Token {
-        class PriceChart(
-            assetId: String,
-            period: String,
-            baseCurrency: String
-        ) : SDKApiMethod<Array<Array<Double>>>() {
+        class PriceChart(assetId: String, period: String, baseCurrency: String) :
+            SDKApiMethod<Array<Array<Double>>>() {
             override val service = Service.MyTonWallet
-            override val path = "prices/chart/${assetId}?period=$period&base=$baseCurrency"
+            override val path = "prices/chart/$assetId?period=$period&base=$baseCurrency"
             override val method = NetworkUtils.Method.GET
             override val responseType: Type = Array<Array<Double>>::class.java
         }
@@ -72,7 +67,9 @@ sealed class SDKApiMethod<T> {
                         }
                     } else {
                         withContext(Dispatchers.Main) {
-                            callback.onError(IllegalStateException("Failed to parse response: $response"))
+                            callback.onError(
+                                IllegalStateException("Failed to parse response: $response")
+                            )
                         }
                     }
                 } else {

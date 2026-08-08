@@ -16,13 +16,15 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class WalletConnectPaySignDataValueCell(context: Context) : WCell(
-    context,
-    android.view.ViewGroup.LayoutParams(
-        LayoutParams.MATCH_PARENT,
-        LayoutParams.WRAP_CONTENT
-    )
-), WThemedView {
+class WalletConnectPaySignDataValueCell(context: Context) :
+    WCell(
+        context,
+        android.view.ViewGroup.LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT
+        )
+    ),
+    WThemedView {
 
     private var topRadius = 0f
     private var bottomRadius = 0f

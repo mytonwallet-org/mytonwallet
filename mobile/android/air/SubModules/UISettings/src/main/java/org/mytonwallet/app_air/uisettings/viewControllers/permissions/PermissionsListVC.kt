@@ -13,6 +13,7 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -37,16 +38,17 @@ import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MWalletPermission
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class PermissionsListVC(
     context: Context,
     accountId: String?,
     chain: MBlockchain,
-    private val standalone: Boolean = false,
-) : WViewController(context), WRecyclerViewAdapter.WRecyclerViewDataSource,
+    private val standalone: Boolean = false
+) : WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
     PermissionsListVM.Delegate {
+    @Suppress("PropertyName")
     override val TAG = "PermissionsList"
 
     override val shouldDisplayTopBar = standalone
@@ -179,15 +181,13 @@ class PermissionsListVC(
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView) = 1
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return if (permissions.isNotEmpty()) permissions.size else plugins.size
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int =
+        if (permissions.isNotEmpty()) permissions.size else plugins.size
 
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath) = PERMISSION_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return PermissionCell(context)
-    }
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        PermissionCell(context)
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -279,8 +279,10 @@ class PermissionsListVC(
                 message = LocaleController.getStringWithKeyValues(
                     "Are you sure you want to revoke delegation for %name%?",
                     listOf(
-                        "%name%" to (permission.delegateName
-                            ?: permission.delegateAddress.formatStartEndAddress())
+                        "%name%" to (
+                            permission.delegateName
+                                ?: permission.delegateAddress.formatStartEndAddress()
+                            )
                     )
                 )
             }
@@ -303,18 +305,21 @@ class PermissionsListVC(
             PasscodeViewState.Default(
                 LocaleController.getString("Locked"),
                 LocaleController.getString(
-                    if (WGlobalStorage.isBiometricActivated() &&
+                    if (WGlobalStorage.isAnyBiometricActivated() &&
                         BiometricHelpers.canAuthenticate(window!!)
-                    )
-                        "Enter passcode or use fingerprint" else "Enter Passcode"
+                    ) {
+                        "Enter passcode or use fingerprint"
+                    } else {
+                        "Enter Passcode"
+                    }
                 ),
                 LocaleController.getString("Revoke")
             ),
-            task = { passcode ->
+            task = { enclaveToken ->
                 nav?.pop()
                 viewModel.revoke(
                     permission,
-                    passcode,
+                    enclaveToken,
                     onSuccess = {},
                     onError = { error ->
                         showAlert(

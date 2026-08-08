@@ -17,7 +17,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 @SuppressLint("ViewConstructor")
-class WalletConnectPaySignDataTransferInfoCell(context: Context) : WCell(context), WThemedView {
+class WalletConnectPaySignDataTransferInfoCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     private val titleLabel = WLabel(context).apply {
         id = generateViewId()

@@ -1,6 +1,7 @@
 @use "../../styles/mixins";
 
 .wrapper {
+  unicode-bidi: plaintext;
   flex-shrink: 0;
 
   min-height: 3rem;
@@ -12,14 +13,19 @@
   font-weight: 600;
   line-height: 1.125rem;
   color: var(--color-black);
-  text-align: left;
+  text-align: start;
   word-break: break-all;
 
   background: var(--color-background-first);
+
+  :global(html[dir="rtl"]) & {
+    text-align: right;
+  }
 }
 
 .button {
   cursor: var(--custom-cursor, pointer);
+  unicode-bidi: plaintext;
   text-decoration: none !important;
 
   &_spoiler {
@@ -64,8 +70,8 @@
 }
 
 .iconShare {
-  margin-right: -0.0625rem;
-  margin-left: -0.125rem;
+  margin-inline-start: -0.125rem;
+  margin-inline-end: -0.0625rem;
   font-size: 1.25rem;
   vertical-align: -0.3125rem;
 }
@@ -100,7 +106,7 @@
 
 .revealSpoiler {
   cursor: var(--custom-cursor, pointer);
-  margin-left: 0.1875rem;
+  margin-inline-start: 0.1875rem;
   color: var(--color-accent);
 
   &:hover {
@@ -115,7 +121,7 @@
 .scamImage {
   width: 2.75rem;
   height: 1.0625rem;
-  margin-right: 0.25rem;
+  margin-inline-end: 0.25rem;
   vertical-align: bottom;
 }
 
@@ -149,8 +155,11 @@
 
 .menuIconChevronRight {
   order: 5;
-  margin: 0 -0.5rem 0 auto;
-  padding-left: 0.5rem;
+
+  margin-block: 0;
+  margin-inline: auto -0.5rem;
+  padding-inline-start: 0.5rem;
+
   font-size: 1rem !important;
 }
 
@@ -172,18 +181,18 @@
   border-radius: 0;
 
   &:first-child {
-    border-top-left-radius: var(--border-radius-default);
-    border-top-right-radius: var(--border-radius-default);
+    border-start-start-radius: var(--border-radius-default);
+    border-start-end-radius: var(--border-radius-default);
   }
 
   &:last-child {
-    border-bottom-right-radius: var(--border-radius-default);
-    border-bottom-left-radius: var(--border-radius-default);
+    border-end-start-radius: var(--border-radius-default);
+    border-end-end-radius: var(--border-radius-default);
   }
 
   &::before {
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
     width: 100%;
   }
 

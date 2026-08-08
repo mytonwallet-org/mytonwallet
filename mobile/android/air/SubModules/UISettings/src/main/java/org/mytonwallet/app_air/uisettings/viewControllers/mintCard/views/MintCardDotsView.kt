@@ -6,8 +6,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.view.View
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.abs
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 
 @SuppressLint("ViewConstructor")
 class MintCardDotsView(context: Context, private val count: Int) : View(context) {

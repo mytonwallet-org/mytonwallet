@@ -9,23 +9,25 @@ import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColorLocalized
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MExploreCategory
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class ExploreCategoryCell(
@@ -33,8 +35,8 @@ class ExploreCategoryCell(
     private val cellWidth: Int,
     private val onSiteTap: (site: MExploreSite) -> Unit,
     private val onOpenCategoryTap: (category: MExploreCategory) -> Unit
-) :
-    WCell(context, LayoutParams(WRAP_CONTENT, WRAP_CONTENT)), WThemedView {
+) : WCell(context, LayoutParams(WRAP_CONTENT, WRAP_CONTENT)),
+    WThemedView {
 
     private val imagesPadding = 4
 
@@ -154,36 +156,36 @@ class ExploreCategoryCell(
     private var isBottomRight: Boolean = false
     fun configure(
         category: MExploreCategory?,
-        isLeft: Boolean,
-        isRight: Boolean,
-        isTopLeft: Boolean,
-        isTopRight: Boolean,
-        isBottomLeft: Boolean,
-        isBottomRight: Boolean
+        isLeading: Boolean,
+        isTrailing: Boolean,
+        isTopLeading: Boolean,
+        isTopTrailing: Boolean,
+        isBottomLeading: Boolean,
+        isBottomTrailing: Boolean
     ) {
         this.category = category
-        this.isTopLeft = isTopLeft
-        this.isTopRight = isTopRight
-        this.isBottomLeft = isBottomLeft
-        this.isBottomRight = isBottomRight
+        this.isTopLeft = isTopLeading
+        this.isTopRight = isTopTrailing
+        this.isBottomLeft = isBottomLeading
+        this.isBottomRight = isBottomTrailing
 
-        setPadding(
-            if (isLeft) ViewConstants.HORIZONTAL_PADDINGS.dp else 0,
+        setPaddingLocalized(
+            if (isLeading) ViewConstants.HORIZONTAL_PADDINGS.dp else 0,
             0,
-            if (isRight) ViewConstants.HORIZONTAL_PADDINGS.dp else 0,
+            if (isTrailing) ViewConstants.HORIZONTAL_PADDINGS.dp else 0,
             0
         )
-        outerContainerView.setPadding(
-            if (isLeft) 8.dp else 0,
+        outerContainerView.setPaddingLocalized(
+            if (isLeading) 8.dp else 0,
             0,
-            if (isRight) 8.dp else 0,
-            0,
+            if (isTrailing) 8.dp else 0,
+            0
         )
         updateLayoutParams {
             width =
                 cellWidth +
-                    paddingLeft + paddingRight +
-                    outerContainerView.paddingLeft + outerContainerView.paddingRight
+                paddingLeft + paddingRight +
+                outerContainerView.paddingLeft + outerContainerView.paddingRight
         }
         containerView.isInvisible = category == null
         titleLabel.isInvisible = category == null
@@ -194,21 +196,33 @@ class ExploreCategoryCell(
                 ConfigStore.isLimited != true || !it.canBeRestricted
             }
 
-            if (sites.isNotEmpty()) img1.set(
-                Content.ofUrl(
-                    sites.getOrNull(0)!!.iconUrl ?: ""
+            if (sites.isNotEmpty()) {
+                img1.set(
+                    Content.ofUrl(
+                        sites.getOrNull(0)!!.iconUrl ?: ""
+                    )
                 )
-            ) else img1.clear()
-            if (sites.size > 1) img2.set(
-                Content.ofUrl(
-                    sites.getOrNull(1)!!.iconUrl ?: ""
+            } else {
+                img1.clear()
+            }
+            if (sites.size > 1) {
+                img2.set(
+                    Content.ofUrl(
+                        sites.getOrNull(1)!!.iconUrl ?: ""
+                    )
                 )
-            ) else img2.clear()
-            if (sites.size > 2) img3.set(
-                Content.ofUrl(
-                    sites.getOrNull(2)!!.iconUrl ?: ""
+            } else {
+                img2.clear()
+            }
+            if (sites.size > 2) {
+                img3.set(
+                    Content.ofUrl(
+                        sites.getOrNull(2)!!.iconUrl ?: ""
+                    )
                 )
-            ) else img3.clear()
+            } else {
+                img3.clear()
+            }
 
             val otherImages = listOf(otherImg1, otherImg2, otherImg3, otherImg4)
             for (i in otherImages.indices) {
@@ -236,12 +250,12 @@ class ExploreCategoryCell(
             26f.dp
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
-        outerContainerView.setBackgroundColor(
+        outerContainerView.setBackgroundColorLocalized(
             WColor.Background.color,
             if (isTopLeft) ViewConstants.BLOCK_RADIUS.dp else 0f,
             if (isTopRight) ViewConstants.BLOCK_RADIUS.dp else 0f,
             if (isBottomRight) ViewConstants.BLOCK_RADIUS.dp else 0f,
-            if (isBottomLeft) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            if (isBottomLeft) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
     }
 }

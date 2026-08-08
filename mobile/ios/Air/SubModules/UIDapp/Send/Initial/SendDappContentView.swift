@@ -143,7 +143,9 @@ private struct SendDappContentView: View {
                 }
             } header: {
                 let preview = Text(lang("Preview"))
+                    .textStyle(.sectionHeader)
                 let warning = Text(Image(systemName: "exclamationmark.circle.fill"))
+                    .textStyle(.sectionHeader, content: .technical)
                     .foregroundColor(Color.orange)
                 Text("\(preview) \(warning)")
                     .imageScale(.medium)
@@ -151,6 +153,7 @@ private struct SendDappContentView: View {
                         Button {
                             topWViewController()?.showTip(title: lang("Preview"), wide: false) {
                                 Text(langMd("$preview_not_guaranteed"))
+                                    .textStyle(.body, scaling: .dynamic)
                                     .multilineTextAlignment(.center)
                             }
                         } label: {
@@ -167,7 +170,7 @@ private struct SendDappContentView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .foregroundStyle(Color.air.secondaryLabel)
-                    .font(.system(size: 13))
+                    .textStyle(.footnote)
             }
         }
     }
@@ -243,7 +246,13 @@ private struct SendDappPlaceholderView: View {
                     }
                     
                     Text("Some fee: 11235 AMOUNT")
-                        .font17h22()
+                        .textStyle(
+                            .body,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
+                        .lineSpacing(1)
+                        .frame(minHeight: 22)
                         .skeletonPlaceholder(surface: .light)
                 }
                 
@@ -286,10 +295,12 @@ private struct PlaceholderTextColumn: View {
     var body: some View {
         VStack(alignment: alignment, spacing: 0) {
             Text(title)
-                .font(.system(size: 16, weight: .medium))
+                .textStyle(.calloutEmphasized)
                 .skeletonPlaceholder(surface: .light, barInset: .init(top: 0, leading: 0, bottom: 1, trailing: 0))
             Text(subtitle)
-                .font14h18()
+                .textStyle(.supporting)
+                .lineSpacing(2)
+                .padding(.top, 1)
                 .skeletonPlaceholder(surface: .light, barInset: .init(top: 1, leading: 0, bottom: 0, trailing: 0))
         }
     }

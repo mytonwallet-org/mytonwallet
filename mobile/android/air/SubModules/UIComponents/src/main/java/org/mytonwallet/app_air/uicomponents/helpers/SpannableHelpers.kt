@@ -15,7 +15,7 @@ object SpannableHelpers {
     fun encryptedCommentSpan(context: Context): SpannableStringBuilder {
         val builder = SpannableStringBuilder()
         context.getDrawableCompat(
-            org.mytonwallet.app_air.uicomponents.R.drawable.ic_lock
+            org.mytonwallet.app_air.icons.R.drawable.ic_lock
         )?.let { drawable ->
             drawable.mutate()
             drawable.setTint(Color.WHITE)

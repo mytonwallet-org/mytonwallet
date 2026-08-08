@@ -83,6 +83,7 @@ export default function createConfig(
       new EnvironmentPlugin({
         APP_ENV: 'production',
         IS_GRAM_WALLET: '0',
+        IS_HEADLESS: '',
         APP_VERSION: appVersion,
         PLATFORM_ENV: '',
         IS_AIR_APP: '1',

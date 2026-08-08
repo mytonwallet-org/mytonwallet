@@ -1,7 +1,9 @@
-import React, { memo, useMemo } from '../../../../lib/teact/teact';
+import type { ElementRef } from '../../../../lib/teact/teact';
+import React, { memo, useMemo, useState } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState } from '../../../../api/types';
+import type { Layout } from '../../../../hooks/useMenuPosition';
 import { type Account, AccountSelectorState, type GlobalState } from '../../../../global/types';
 
 import {
@@ -10,6 +12,7 @@ import {
   selectOrderedAccounts,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { handleWalletMenuItemClick, WALLET_CONTEXT_MENU_ITEMS } from './helpers/walletMenu';
 
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -17,6 +20,8 @@ import { useMultipleAccountsBalances } from '../../../../hooks/useMultipleAccoun
 
 import AccountRowContent from '../../../common/AccountRowContent';
 import Button from '../../../ui/Button';
+import WithContextMenu from '../../../ui/WithContextMenu';
+import LogOutModal from '../../modals/LogOutModal';
 
 import styles from './LandscapeWalletList.module.scss';
 
@@ -35,6 +40,14 @@ type StateProps = {
 };
 
 const MAX_VISIBLE_WALLETS = 16;
+// The shift is needed to prevent the mouse cursor from highlighting the first menu item
+const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
+const CONTEXT_MENU_LAYOUT: Partial<Layout> = {
+  doNotCoverTrigger: false,
+  isCenteredHorizontally: false,
+  topShiftY: CONTEXT_MENU_VERTICAL_SHIFT_PX,
+  preferredPositionX: 'left',
+};
 
 function LandscapeWalletList({
   orderedAccounts,
@@ -52,12 +65,13 @@ function LandscapeWalletList({
   const { switchAccount, openAddAccountModal, openAccountSelector } = getActions();
 
   const lang = useLang();
+  const [logOutAccountId, setLogOutAccountId] = useState<string>();
 
   const filteredAccounts = useMemo(() => {
     return orderedAccounts.slice(0, MAX_VISIBLE_WALLETS);
   }, [orderedAccounts]);
 
-  const { balancesByAccountId, displayedAccounts } = useMultipleAccountsBalances({
+  const { balancesByAccountId, addressLineChainsByAccountId } = useMultipleAccountsBalances({
     filteredAccounts,
     sourceAccounts: networkAccounts,
     byAccountId,
@@ -82,44 +96,70 @@ function LandscapeWalletList({
     });
   });
 
-  return (
-    <div className={styles.root}>
-      {(displayedAccounts ?? filteredAccounts).map(([accountId, { title, byChain, type }]) => (
-        <AccountRowContent
-          key={accountId}
-          accountId={accountId}
-          byChain={byChain}
-          accountType={type}
-          title={title}
-          isSelected={accountId === currentAccountId}
-          balanceData={balancesByAccountId[accountId]}
-          cardBackgroundNft={settingsByAccountId?.[accountId]?.cardBackgroundNft}
-          isSensitiveDataHidden={isSensitiveDataHidden}
-          className={styles.item}
-          avatarClassName={styles.itemAvatar}
-          onClick={handleSwitchAccount}
-        />
-      ))}
+  const handleLogOutModalClose = useLastCallback(() => {
+    setLogOutAccountId(undefined);
+  });
 
-      {hasExcessWallets && (
+  return (
+    <>
+      <div className={styles.root}>
+        {filteredAccounts.map(([accountId, { title, byChain, type }]) => (
+          <WithContextMenu
+            key={accountId}
+            items={WALLET_CONTEXT_MENU_ITEMS}
+            layout={CONTEXT_MENU_LAYOUT}
+            menuClassName={styles.menu}
+            fontIconClassName={styles.menuIcon}
+            onItemClick={(value) => handleWalletMenuItemClick(value, accountId, setLogOutAccountId)}
+          >
+            {(menuProps, isMenuOpen) => (
+              <AccountRowContent
+                ref={menuProps.ref as ElementRef<HTMLDivElement>}
+                accountId={accountId}
+                byChain={byChain}
+                visibleChains={addressLineChainsByAccountId?.[accountId]}
+                accountType={type}
+                title={title}
+                isSelected={accountId === currentAccountId}
+                balanceData={balancesByAccountId[accountId]}
+                cardBackgroundNft={settingsByAccountId?.[accountId]?.cardBackgroundNft}
+                isSensitiveDataHidden={isSensitiveDataHidden}
+                className={buildClassName(styles.item, isMenuOpen && styles.itemActive)}
+                avatarClassName={styles.itemAvatar}
+                onClick={handleSwitchAccount}
+                onMouseDown={menuProps.onMouseDown}
+                onContextMenu={menuProps.onContextMenu}
+              />
+            )}
+          </WithContextMenu>
+        ))}
+
+        {hasExcessWallets && (
+          <Button
+            isText
+            className={buildClassName(styles.item, styles.itemButton)}
+            onClick={openAccountSelector}
+          >
+            <i className={buildClassName(styles.itemIcon, 'icon-more-alt')} aria-hidden />
+            {lang('Show All Wallets')}
+          </Button>
+        )}
         <Button
           isText
           className={buildClassName(styles.item, styles.itemButton)}
-          onClick={openAccountSelector}
+          onClick={handleAddWalletClick}
         >
-          <i className={buildClassName(styles.itemIcon, 'icon-more-alt')} aria-hidden />
-          {lang('Show All Wallets')}
+          <i className={buildClassName(styles.itemIcon, 'icon-plus')} aria-hidden />
+          {lang('Add Wallet')}
         </Button>
-      )}
-      <Button
-        isText
-        className={buildClassName(styles.item, styles.itemButton)}
-        onClick={handleAddWalletClick}
-      >
-        <i className={buildClassName(styles.itemIcon, 'icon-plus')} aria-hidden />
-        {lang('Add Wallet')}
-      </Button>
-    </div>
+      </div>
+
+      <LogOutModal
+        isOpen={Boolean(logOutAccountId)}
+        targetAccountId={logOutAccountId}
+        onClose={handleLogOutModalClose}
+      />
+    </>
   );
 }
 

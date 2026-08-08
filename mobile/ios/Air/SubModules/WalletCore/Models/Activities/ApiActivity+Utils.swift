@@ -325,7 +325,13 @@ public extension ApiActivity {
             if type != nil && !isOutgoingBouncedSpam && !isMint {
                 return false
             }
-            
+
+            // A plain outgoing transfer is one the user signed themselves. Hiding it by value would make their own
+            // transaction disappear right after it confirms, so the cost threshold only applies to unsolicited activity.
+            if type == nil && !transaction.isIncoming {
+                return false
+            }
+
             guard let token = TokenStore.tokens[slug] else {
                 return false
             }
@@ -374,17 +380,13 @@ public extension ApiActivity {
             return transaction.extra?.marketplace == nil ? [] : .list
         }
 
-        let chain = transaction.nft?.chain ?? getChainBySlug(transaction.slug) ?? FALLBACK_CHAIN
         let shouldHide = isOurStakingTransaction
+            || type == .burn
             || (!transaction.isIncoming && transaction.nft != nil && transaction.toAddress == transaction.nft?.address)
             || (transaction.isIncoming && type == .excess && transaction.fromAddress == BURN_ADDRESS)
 
         if shouldHide {
             return []
-        }
-
-        if type == .burn {
-            return chain.shouldShowBurnAddress ? .details : []
         }
 
         return .all

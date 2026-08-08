@@ -86,7 +86,9 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        updateScrollLayout()
+        UIView.performWithoutAnimation {
+            updateScrollLayout()
+        }
     }
 
     private func updateScrollLayout() {
@@ -118,58 +120,65 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             return
         }
 
-        let snapshot = animated ? makeSegmentBarSnapshot() : nil
+        let snapshot: UIView?
+        if animated, window != nil, bounds.width > 0 {
+            snapshot = snapshotView(afterScreenUpdates: false)
+            snapshot?.frame = bounds
+            snapshot?.isUserInteractionEnabled = false
+        } else {
+            snapshot = nil
+        }
+        UIView.performWithoutAnimation {
+            if let snapshot {
+                addSubview(snapshot)
+                scrollView.alpha = 0
+                segmentedControl.alpha = 0
+            }
+        }
+
+        if animated {
+            onWillStartTransition?()
+        }
 
         clearTransientState()
 
         self.items = items
         model.setItems(items.map(\.segmentedControlItem))
+
         if items.isEmpty {
             model.selection = nil
-        }
-
-        if let oldSelectedId {
+            currentIndex = 0
+        } else if animated {
+            currentIndex = 0
+            if items.count >= 2 {
+                model.setRawProgress(0)
+            } else {
+                model.selection = .init(item1: items[0].id)
+            }
+        } else if let oldSelectedId {
             currentIndex = items.firstIndex(where: { $0.id == oldSelectedId }) ?? 0
         } else {
             currentIndex = 0
         }
-        syncSettledState(at: clampedIndex(currentIndex), updateLayout: true)
+
+        segmentedControl.applyPendingModelChangesWithoutAnimation()
+        syncSettledState(at: clampedIndex(currentIndex), updateLayout: true, reportProgress: false)
+
+        reportScrollProgress(CGFloat(currentIndex), animated: animated)
 
         if let snapshot {
-            animateReplacement(with: snapshot)
-        }
-    }
-
-    private func makeSegmentBarSnapshot() -> UIView? {
-        guard window != nil,
-              segmentedControl.bounds.width > 0,
-              let snapshot = segmentedControl.snapshotView(afterScreenUpdates: false)
-        else {
-            return nil
-        }
-        snapshot.frame = segmentedControl.frame
-        snapshot.isUserInteractionEnabled = false
-        addSubview(snapshot)
-        bringSubviewToFront(snapshot)
-        return snapshot
-    }
-
-    private func animateReplacement(with snapshot: UIView) {
-        segmentedControl.alpha = 0
-
-        DispatchQueue.main.async {
-            UIView.animate(
-                withDuration: TransitionAnimation.duration,
-                delay: 0,
-                usingSpringWithDamping: TransitionAnimation.springDamping,
-                initialSpringVelocity: TransitionAnimation.initialVelocity,
-                options: [.beginFromCurrentState]
-            ) {
+            UIView.animateAdaptive(duration: TransitionAnimation.duration) {
                 snapshot.alpha = 0
+                self.scrollView.alpha = 1
                 self.segmentedControl.alpha = 1
-            } completion: { _ in
+            } completion: { [weak self] _ in
                 snapshot.removeFromSuperview()
+                self?.onDidEndScrolling?()
             }
+        } else if animated {
+            scrollView.alpha = 1
+            segmentedControl.alpha = 1
+            onDidEndScrolling?()
         }
     }
 
@@ -223,6 +232,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
         translatesAutoresizingMaskIntoConstraints = false
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.clipsToBounds = false
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
         scrollView.isPagingEnabled = true
@@ -242,7 +252,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
         addSubview(scrollView)
 
         transitionPageView.backgroundColor = .clear
-        transitionPageView.clipsToBounds = true
+        transitionPageView.clipsToBounds = false
         transitionPageView.isHidden = true
         scrollView.addSubview(transitionPageView)
 
@@ -261,7 +271,13 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             scrollView.topAnchor.constraint(equalTo: topAnchor, constant: Layout.barHeight),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            {
+                // Priority 999 so the transient _UITemporaryLayoutHeight == 0 (height not yet resolved)
+                // can break this rather than producing an unsatisfiable layout during initial setup.
+                let c = scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
+                c.priority = UILayoutPriority(999)
+                return c
+            }(),
         ])
     }
 
@@ -323,13 +339,15 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
         lastViewportProgress = CGFloat(index)
     }
 
-    private func syncSettledState(at index: Int, updateLayout: Bool = false) {
+    private func syncSettledState(at index: Int, updateLayout: Bool = false, reportProgress: Bool = true) {
         updateSettledIndex(index)
         if updateLayout {
             updateScrollLayout()
         }
         syncVisiblePages(around: CGFloat(index))
-        reportSettledProgress()
+        if reportProgress {
+            reportSettledProgress()
+        }
     }
 
     private func startProgrammaticTransition(to targetIndex: Int) {
@@ -339,13 +357,13 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             return
         }
 
-        let realOffsetX = CGFloat(targetIndex) * width
+        let realOffsetX = realContentOffset(for: targetIndex).x
         if abs(targetIndex - currentIndex) == 1 {
             pendingProgrammaticTransition = .init(
                 sourceIndex: currentIndex,
                 targetIndex: targetIndex,
                 bridgeOffsetX: nil,
-                animatedOffsetX: realOffsetX,
+                animatedOffsetX: realOffsetX
             )
             animateProgrammaticScroll(to: realOffsetX)
             return
@@ -353,8 +371,8 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
         let direction: TransitionDirection = targetIndex > currentIndex ? .forward : .reverse
         let sourceIndex = currentIndex
-        let bridgeIndex = sourceIndex + direction.step
-        let bridgeOffsetX = CGFloat(bridgeIndex) * width
+        let bridgeIndex = targetIndex - direction.step
+        let bridgeOffsetX = realContentOffset(for: bridgeIndex).x
 
         pendingProgrammaticTransition = .init(
             sourceIndex: sourceIndex,
@@ -365,7 +383,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
         transitionContent = viewController(at: sourceIndex)
         host(transitionContent, in: transitionPageView)
         layoutTransitionPageView()
-        syncVisiblePages(around: CGFloat(bridgeIndex))
+        syncVisiblePages(around: CGFloat(targetIndex))
         scrollView.setContentOffset(CGPoint(x: bridgeOffsetX, y: 0), animated: false)
         animateProgrammaticScroll(to: realOffsetX)
     }
@@ -436,7 +454,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     private func makePageContainer(for index: Int) -> UIView {
         let container = UIView()
         container.backgroundColor = .clear
-        container.clipsToBounds = true
+        container.clipsToBounds = false
         container.frame = frame(for: index)
         scrollView.addSubview(container)
         pageContainers[index] = container
@@ -445,7 +463,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
     private func frame(for index: Int) -> CGRect {
         CGRect(
-            x: CGFloat(index) * scrollView.bounds.width,
+            x: physicalProgress(forLogicalProgress: CGFloat(index)) * scrollView.bounds.width,
             y: 0,
             width: scrollView.bounds.width,
             height: scrollView.bounds.height
@@ -582,12 +600,29 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     }
 
     private func realContentOffset(for index: Int) -> CGPoint {
-        CGPoint(x: CGFloat(index) * scrollView.bounds.width, y: 0)
+        CGPoint(x: physicalProgress(forLogicalProgress: CGFloat(index)) * scrollView.bounds.width, y: 0)
     }
 
     private func currentViewportProgress() -> CGFloat {
         guard scrollView.bounds.width > 0, !items.isEmpty else { return CGFloat(currentIndex) }
-        return clamp(scrollView.contentOffset.x / scrollView.bounds.width, min: 0, max: CGFloat(items.count - 1))
+        let physicalProgress = clamp(scrollView.contentOffset.x / scrollView.bounds.width, min: 0, max: maxPageProgress)
+        return logicalProgress(forPhysicalProgress: physicalProgress)
+    }
+
+    private var maxPageProgress: CGFloat {
+        CGFloat(max(items.count - 1, 0))
+    }
+
+    private var usesRightToLeftPageLayout: Bool {
+        effectiveUserInterfaceLayoutDirection == .rightToLeft
+    }
+
+    private func physicalProgress(forLogicalProgress progress: CGFloat) -> CGFloat {
+        usesRightToLeftPageLayout ? maxPageProgress - progress : progress
+    }
+
+    private func logicalProgress(forPhysicalProgress progress: CGFloat) -> CGFloat {
+        usesRightToLeftPageLayout ? maxPageProgress - progress : progress
     }
 
     private func nearestIndex(for progress: CGFloat) -> Int {
@@ -690,14 +725,6 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
     public func scrollViewDidEndDecelerating(_: UIScrollView) {
         finishInteractiveTransition()
-    }
-
-    public func scrollViewDidEndScrollingAnimation(_: UIScrollView) {
-        guard let pendingProgrammaticTransition else { return }
-
-        clearTransientState()
-        syncSettledState(at: pendingProgrammaticTransition.targetIndex)
-        onDidEndScrolling?()
     }
 }
 

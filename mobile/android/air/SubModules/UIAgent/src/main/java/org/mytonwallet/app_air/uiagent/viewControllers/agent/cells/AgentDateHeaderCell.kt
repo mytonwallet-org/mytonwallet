@@ -10,6 +10,9 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -17,14 +20,13 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @SuppressLint("ViewConstructor")
-class AgentDateHeaderCell(context: Context) : WCell(
-    context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-) {
+class AgentDateHeaderCell(context: Context) :
+    WCell(
+        context,
+        LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+    ) {
     private val timeFormat = SimpleDateFormat("H:mm", Locale.getDefault())
 
     private val label = WLabel(context).apply {

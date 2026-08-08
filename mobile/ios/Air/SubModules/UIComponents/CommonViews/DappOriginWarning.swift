@@ -26,7 +26,11 @@ public struct DappOriginWarning: View {
         Image(systemName: "exclamationmark.circle.fill")
             .foregroundStyle(urlTrustStatus.warningColor)
             .imageScale(.small)
-            .fontWeight(.bold)
+            .textStyle(
+                .bodyBold,
+                content: .technical,
+                scaling: .dynamic
+            )
             .padding(10)
             .contentShape(.rect)
             .onTapGesture {

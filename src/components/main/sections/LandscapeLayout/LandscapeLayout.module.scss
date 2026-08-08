@@ -25,8 +25,8 @@
   height: 100%;
   min-height: 0;
   padding-top: var(--app-padding-top);
-  padding-right: 1rem;
   padding-bottom: max(var(--safe-area-bottom), 1rem);
+  padding-inline-end: 1rem;
 }
 
 // Portfolio manages its own edge insets: the sticky time-range bar sits flush with the
@@ -34,8 +34,8 @@
 // absorbed inside `.body` via `adapt-padding-to-scrollbar` (like Settings), so the cards
 // stay as wide as the Agent/Settings panels instead of losing the scrollbar's width.
 .portfolioWrapper {
-  padding-right: 0;
   padding-bottom: 0;
+  padding-inline-end: 0;
 }
 
 .settingsWrapper {
@@ -48,5 +48,5 @@
   // Mirrors the scrollbar gutter that `LandscapeWalletOverview`'s outer scroll
   // container reserves, so Settings content right edge aligns with Activities
   // at narrow viewports (where the layout fills the full width).
-  padding-right: var(--scrollbar-width);
+  padding-inline-end: var(--scrollbar-width);
 }

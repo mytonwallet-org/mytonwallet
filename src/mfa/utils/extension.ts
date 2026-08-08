@@ -6,7 +6,7 @@ import {
 
 import type { ApiEmulationResult, ApiNetwork } from '../../api/types';
 
-import { signCustomData } from '../../util/authApi/telegram';
+import { signCustomData } from '../../util/telegram';
 import { WORKCHAIN } from '../../api/chains/ton/constants';
 import { getExternalMsgHashNormalized } from '../../api/chains/ton/util/sendExternal';
 import { getTonClient, toBase64Address } from '../../api/chains/ton/util/tonCore';

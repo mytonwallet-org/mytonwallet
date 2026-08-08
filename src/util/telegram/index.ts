@@ -3,7 +3,9 @@ import { getActions } from '../../global';
 
 import type { GlobalState } from '../../global/types';
 
+import { mapValues } from '../iteratees';
 import { logDebugError } from '../logs';
+import safeExec from '../safeExec';
 import { getIsMobileTelegramApp } from '../windowEnvironment';
 import { updateSizes } from '../windowSize';
 
@@ -15,7 +17,7 @@ declare global {
 
 let webApp: WebApp | undefined;
 let isBiometricInited = false;
-let isNativeBiometricAuthSupported = false;
+let hasBiometrics = false;
 let isFaceIdAvailable = false;
 let isTouchIdAvailable = false;
 let disableSwipeRequests = 0;
@@ -69,7 +71,7 @@ export function initTelegramAppBiometric() {
       isBiometricAvailable, biometricType, isAccessGranted, isAccessRequested,
     } = biometricManager;
 
-    isNativeBiometricAuthSupported = isBiometricAvailable && (isAccessGranted || !isAccessRequested);
+    hasBiometrics = isBiometricAvailable && (isAccessGranted || !isAccessRequested);
     if (webApp!.platform === 'ios') {
       isFaceIdAvailable = biometricType === 'face';
       isTouchIdAvailable = biometricType === 'finger';
@@ -78,7 +80,7 @@ export function initTelegramAppBiometric() {
 }
 
 export function getIsTelegramBiometricAuthSupported() {
-  return isNativeBiometricAuthSupported;
+  return hasBiometrics;
 }
 
 export function getIsTelegramFaceIdAvailable() {
@@ -170,4 +172,46 @@ export function enableTelegramMiniAppSwipeToClose() {
   if (disableSwipeRequests === 0) {
     webApp?.enableVerticalSwipes();
   }
+}
+
+export function signCustomData(
+  initDataFields: AnyLiteral,
+  payload: string,
+  options?: {
+    shouldSignHash?: boolean;
+    isPayloadBinary?: boolean;
+  },
+): Promise<{ result: string; resultUnsafe: AnyLiteral }> {
+  const app = getTelegramApp()!;
+
+  return new Promise((resolve, reject) => {
+    (app as any).invokeCustomMethod('prepareSignedPayload', {
+      init_data: app.initData,
+      init_data_sign_fields: initDataFields,
+      payload,
+      ...(options?.shouldSignHash && { sign_sha256: true }),
+      ...(options?.isPayloadBinary && { is_payload_binary: true }),
+    }, (err: Error, result: string) => {
+      if (result) {
+        resolve({
+          result,
+          resultUnsafe: parseResultUnsafe(result),
+        });
+      } else {
+        reject(err || 'Unknown Error');
+      }
+    });
+  });
+}
+
+function parseResultUnsafe(appData: string) {
+  const resultUnsafe = (window.Telegram as any).Utils.urlParseQueryString(appData);
+
+  return mapValues(resultUnsafe, (value: string) => {
+    if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
+      return safeExec(() => JSON.parse(value));
+    }
+
+    return value;
+  });
 }

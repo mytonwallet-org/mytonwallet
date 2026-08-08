@@ -87,7 +87,7 @@ final class RootStateCoordinator: WalletCoreData.EventsObserver {
     private func buildRootViewController(for rootState: AppRootState) -> UIViewController {
         switch rootState {
         case .intro:
-            return WNavigationController(rootViewController: IntroVC(introModel: IntroModel(network: .mainnet, password: nil)))
+            return WNavigationController(rootViewController: IntroVC(introModel: IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup)))
         case .active:
             return layoutResolver.buildActiveRootViewController()
         case .unlock:

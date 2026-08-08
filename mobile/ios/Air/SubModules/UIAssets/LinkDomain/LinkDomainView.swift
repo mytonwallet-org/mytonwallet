@@ -76,9 +76,10 @@ struct LinkDomainView: View {
                     nativeToken: tokenStore.getNativeToken(chain: chain),
                     fee: fee,
                     explainedTransferFee: nil,
-                    includeLabel: true
+                    includeLabel: true,
+                    textStyle: .supporting,
+                    textScaling: .fixed
                 )
-                .font(.system(size: 14))
                 .foregroundStyle(Color.air.secondaryLabel)
                 .transition(.opacity.animation(.default))
             }
@@ -235,13 +236,16 @@ private struct LinkDomainResolvedAddressView: View {
             HStack(spacing: 4) {
                 if let primary = display.primary {
                     Text(primary)
+                        .textStyle(.body, content: display.secondary == nil ? .technical : .default)
                         .foregroundStyle(Color.air.primaryLabel)
                         .truncationMode(.middle)
                 }
                 if let secondary = display.secondary {
                     Text("·")
+                        .textStyle(.body, content: .technical)
                         .foregroundStyle(Color.air.secondaryLabel)
                     Text(secondary)
+                        .textStyle(.body, content: .technical)
                         .foregroundStyle(Color.air.secondaryLabel)
                 }
             }

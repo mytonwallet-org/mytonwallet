@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisend.send
 
 import android.animation.Animator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
@@ -28,12 +27,17 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
@@ -47,6 +51,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setReadOnly
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.viewControllers.SendTokenVC
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
@@ -65,8 +70,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.setRoundedOutline
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.updateLayoutParamsIfExists
 import org.mytonwallet.app_air.uisend.send.helpers.ScamDetectionHelpers
-import org.mytonwallet.app_air.walletbasecontext.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -83,15 +88,14 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
+import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class SendVC(
@@ -99,14 +103,16 @@ class SendVC(
     private val initialTokenSlug: String? = null,
     private val initialValues: InitialValues? = null,
     private val isSell: Boolean = false,
-    private val shouldRequireFreshAuth: Boolean = false,
-) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
+    private val shouldRequireFreshAuth: Boolean = false
+) : WViewControllerWithModelStore(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "Send"
 
-    override val displayedAccount =
+    override var displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
-    private val activeAccount = AccountStore.activeAccount
+    private val activeAccount get() = AccountStore.activeAccount
 
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
@@ -117,7 +123,7 @@ class SendVC(
         val amount: String? = null,
         val binary: String? = null,
         val comment: String? = null,
-        val init: String? = null,
+        val init: String? = null
     )
 
     private val isOffRampAllowed: Boolean
@@ -128,7 +134,10 @@ class SendVC(
     private val supportsCommentEncryption: Boolean
         get() {
             return AccountStore.activeAccount?.supportsCommentEncryption == true &&
-                TokenStore.getToken(viewModel.getTokenSlug())?.mBlockchain?.isEncryptedCommentSupported == true
+                TokenStore.getToken(
+                    viewModel.getTokenSlug()
+                )?.mBlockchain?.isEncryptedCommentSupported ==
+                true
         }
 
     private val shouldShowSellTab: Boolean
@@ -161,6 +170,14 @@ class SendVC(
 
     private val navSegmentedControl = WClearSegmentedControl(context).apply {
         paintColor = WColor.Background.color
+    }
+
+    private val accountSelectorView by lazy {
+        AccountSelectorView(
+            context,
+            accountsProvider = { switchableAccounts() },
+            onAccountSelected = ::switchAccount
+        )
     }
 
     private var suggestionAnimator: Animator? = null
@@ -207,7 +224,8 @@ class SendVC(
                     viewModel.onDestinationEntered(keyword)
                 }
                 suggestionsBoxView.search(keyword, true)
-            }).apply {
+            }
+        ).apply {
             id = generateViewId()
             showCloseOnTextEditing = true
             pasteInterceptor = { pastedText ->
@@ -251,6 +269,10 @@ class SendVC(
                 when {
                     account != null && account.addressByChain.containsKey(activeChainName) -> {
                         addressInputView.setAccount(account)
+                        viewModel.onDestinationAccountSelected(
+                            account.accountId,
+                            addressInputView.getKeyword()
+                        )
                         hideSuggestions()
                         focusAmount()
                         viewModel.onDestinationEntered(addressInputView.getKeyword())
@@ -274,15 +296,14 @@ class SendVC(
 
     private val title2 = HeaderCell(context).apply {
         setOnClickListener {
-            if (!supportsCommentEncryption)
-                return@setOnClickListener
+            if (!supportsCommentEncryption) return@setOnClickListener
             WMenuPopup.present(
                 this@apply,
                 listOf(
                     WMenuPopup.Item(
                         null,
                         LocaleController.getString("Comment or Memo"),
-                        false,
+                        false
                     ) {
                         viewModel.onShouldEncrypt(false)
                         updateCommentTitleLabel()
@@ -290,11 +311,12 @@ class SendVC(
                     WMenuPopup.Item(
                         null,
                         LocaleController.getString("Encrypted Message"),
-                        false,
+                        false
                     ) {
                         viewModel.onShouldEncrypt(true)
                         updateCommentTitleLabel()
-                    }),
+                    }
+                ),
                 xOffset = 0,
                 yOffset = 5.dp,
                 popupWidth = WRAP_CONTENT,
@@ -736,10 +758,14 @@ class SendVC(
         WalletCore.registerObserver(this)
 
         navSegmentedControl.setItems(buildSegmentedItems(), 0, segmentedDelegate)
+        val showsAccountSelector = isAccountSwitchingAllowed()
         setupNavBar(true)
-        navigationBar?.setTitleView(navSegmentedControl, animated = false)
+        navigationBar?.setCenteredTitleView(navSegmentedControl, animated = false)
         navigationBar?.addCloseButton()
-        navigationBar?.setTitleGravity(Gravity.CENTER)
+        if (showsAccountSelector) {
+            activeAccount?.let { accountSelectorView.config(it) }
+            navigationBar?.addLeadingView(accountSelectorView)
+        }
 
         view.addHorizontalGuideline(bottomGuideline)
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
@@ -754,14 +780,17 @@ class SendVC(
         )
         scrollView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             val suggestionsBoxHeight =
-                ((scrollView.height - scrollView.paddingTop - linearLayout.paddingBottom) -
-                    headerContentContainer.height).coerceAtLeast(0)
+                (
+                    (scrollView.height - scrollView.paddingTop - linearLayout.paddingBottom) -
+                        headerContentContainer.height
+                    ).coerceAtLeast(0)
             if (suggestionsBoxView.layoutParams.height != suggestionsBoxHeight) {
                 suggestionsBoxView.updateLayoutParams { height = suggestionsBoxHeight }
             }
         }
         view.addView(
-            continueButtonSpace, ViewGroup.LayoutParams(MATCH_PARENT, continueButtonSpaceHeightPx)
+            continueButtonSpace,
+            ViewGroup.LayoutParams(MATCH_PARENT, continueButtonSpaceHeightPx)
         )
         view.addView(
             continueButton,
@@ -797,8 +826,10 @@ class SendVC(
         if (!isSell) {
             addressInputView.addTextChangedListener(onInputDestinationTextWatcher)
             addressInputView.doAfterQrCodeScanned { address ->
+                hideSuggestions()
                 switchTokenBasedOnChain(address)
                 viewModel.onDestinationEntered(address)
+                view.post { focusAmount() }
             }
 
             commentInputView.addTextChangedListener(onInputCommentTextWatcher)
@@ -823,24 +854,32 @@ class SendVC(
             }
             amountInputView.amountEditText.addTextChangedListener(onAmountTextWatcher)
             amountInputView.tokenSelectorView.setOnClickListener {
-                push(SendTokenVC(context).apply {
-                    setOnAssetSelectListener {
-                        onAssetSelected(it.slug)
+                push(
+                    SendTokenVC(context).apply {
+                        setOnAssetSelectListener {
+                            onAssetSelected(it.slug)
+                        }
                     }
-                })
+                )
             }
         }
 
         collectFlow(viewModel.inputStateFlow) {
-            if (amountInputView.amountEditText.text.toString() != it.amount) {
-                amountInputView.amountEditText.setText(it.amount)
+            amountInputView.amountEditText.amountTextWatcher.decimals = if (it.fiatMode) {
+                WalletCore.baseCurrency.decimalsCount
+            } else {
+                TokenStore.getToken(it.tokenSlug)?.decimals
+            }
+            if (amountInputView.amountEditText.text.toString() != it.displayedAmount) {
+                amountInputView.amountEditText.setText(it.displayedAmount)
             }
         }
 
         collectFlow(viewModel.uiStateFlow) {
             amountInputView.set(
                 it.uiInput,
-                viewModel.getConfirmationPageConfig()?.explainedFee?.supportsLegacyDetailsView == true
+                viewModel.getConfirmationPageConfig()?.explainedFee?.supportsLegacyDetailsView ==
+                    true
             )
             continueButton.isLoading = it.uiButton.status.isLoading
             if (!it.uiButton.status.isLoading) {
@@ -897,8 +936,12 @@ class SendVC(
             WClearSegmentedControl.Item(
                 LocaleController.getString("Send"),
                 null,
-                if (isSell) null else { anchorView ->
-                    presentOffRampSendMenu(anchorView)
+                if (isSell) {
+                    null
+                } else {
+                    { anchorView ->
+                        presentOffRampSendMenu(anchorView)
+                    }
                 }
             )
         )
@@ -908,13 +951,47 @@ class SendVC(
         return items
     }
 
+    private fun switchableAccounts(): List<MAccount> = WalletCore.getAllAccounts().filter {
+        it.accountType != MAccount.AccountType.VIEW
+    }
+
+    private fun isAccountSwitchingAllowed(): Boolean = !isSell &&
+        initialValues?.binary == null &&
+        !AccountStore.isPushedTemporary &&
+        switchableAccounts().any { it.accountId != AccountStore.activeAccountId }
+
+    private fun switchAccount(account: MAccount) {
+        accountSelectorView.setLoading(true)
+        WalletCore.ensureAccountActivated(account.accountId) { accountChanged ->
+            if (accountChanged) {
+                WalletCore.notifyEvent(
+                    WalletEvent.AccountChangedInApp(persistedAccountsModified = false)
+                )
+            }
+            view.post { onAccountSwitched(account) }
+        }
+    }
+
+    private fun onAccountSwitched(account: MAccount) {
+        displayedAccount = DisplayedAccount(account.accountId, isPushedTemporary = false)
+        accountSelectorView.setLoading(false)
+        accountSelectorView.config(account)
+        val tokenChain = TokenStore.getToken(viewModel.getTokenSlug())?.mBlockchain
+        if (tokenChain == null || !account.isChainSupported(tokenChain.name)) {
+            onAssetSelected(account.firstChain?.nativeSlug ?: TONCOIN_SLUG)
+        } else {
+            navSegmentedControl.setItems(buildSegmentedItems(), 0, segmentedDelegate)
+            updateCommentTitleLabel()
+        }
+    }
+
     private fun presentOffRampSendMenu(anchorView: View) {
         WMenuPopup.present(
             anchorView,
             listOf(
                 WMenuPopup.Item(
                     R.drawable.ic_header_popup_menu_multisend_outline,
-                    LocaleController.getString("Multisend"),
+                    LocaleController.getString("Multisend")
                 ) {
                     MultisendLauncher.launch(this)
                 }
@@ -929,7 +1006,7 @@ class SendVC(
         SellWithCardLauncher.launch(
             caller = WeakReference(this),
             account = activeAccount,
-            tokenSlug = viewModel.getTokenSlug(),
+            tokenSlug = viewModel.getTokenSlug()
         )
     }
 
@@ -950,10 +1027,19 @@ class SendVC(
             return
         }
         viewModel.getConfirmationPageConfig()?.let { config ->
+            val initialPreparation = viewModel.prepareTransfer(config, "")
+            if (initialPreparation !is SendViewModel.TransferPreparation.Ready) {
+                Logger.e(
+                    Logger.LogTag.SEND,
+                    "Send confirmation blocked: resolved destination is missing"
+                )
+                showError(null)
+                return@let
+            }
             val vc = SendConfirmVC(
                 context,
                 config,
-                viewModel.getTransferOptions(config, ""),
+                initialPreparation.options,
                 viewModel.getTokenSlug(),
                 name = addressInputView.autocompleteResult?.name,
                 isScam = viewModel.addressInfoFlow.value?.isScam ?: false,
@@ -968,12 +1054,29 @@ class SendVC(
                     } else {
                         // Send with passcode
                         try {
-                            val result = viewModel.callSend(config, passcode!!)
+                            val password = passcode ?: run {
+                                Logger.e(
+                                    Logger.LogTag.SEND,
+                                    "Send submission blocked: passcode is missing"
+                                )
+                                showSubmissionError(null)
+                                return@launch
+                            }
+                            val preparation = viewModel.prepareTransfer(config, password)
+                            if (preparation !is SendViewModel.TransferPreparation.Ready) {
+                                Logger.e(
+                                    Logger.LogTag.SEND,
+                                    "Send submission blocked: resolved destination is missing"
+                                )
+                                showSubmissionError(null)
+                                return@launch
+                            }
+                            val result = viewModel.callSend(preparation)
                             val mfaHash = result.mfaRequestHash
                             if (mfaHash != null) {
                                 val amountStr = CoinUtils.toDecimalString(
                                     config.request.amountEquivalent.tokenAmount.amountInteger,
-                                    config.request.token.decimals,
+                                    config.request.token.decimals
                                 )
                                 val token = config.request.token
                                 val recipient = config.resolvedAddress
@@ -981,11 +1084,11 @@ class SendVC(
                                 val chipText = LocaleController.getString("%amount% to %address%")
                                     .replace(
                                         "%amount%",
-                                        "$amountStr ${token.symbol ?: ""}".trim(),
+                                        "$amountStr ${token.symbol ?: ""}".trim()
                                     )
                                     .replace(
                                         "%address%",
-                                        recipient.formatStartEndAddress(),
+                                        recipient.formatStartEndAddress()
                                     )
                                 val mfaVC =
                                     org.mytonwallet.app_air.uicomponents.viewControllers
@@ -995,8 +1098,8 @@ class SendVC(
                                             chip = org.mytonwallet.app_air.uicomponents
                                                 .viewControllers.MfaActionConfirmVC.Chip(
                                                     leading = token,
-                                                    text = chipText,
-                                                ),
+                                                    text = chipText
+                                                )
                                         )
                                 navigationController?.push(mfaVC, onCompletion = {
                                     navigationController?.removePrevViewControllerOnly()
@@ -1006,15 +1109,14 @@ class SendVC(
                             val id = result.activityId
                             sentActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
                             // Wait for Pending Activity event...
-                            receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }
+                            receivedLocalActivities?.firstOrNull {
+                                it.getTxHash() == sentActivityId
+                            }
                                 ?.let {
                                     checkReceivedActivity(it)
                                 }
                         } catch (e: JSWebViewBridge.ApiError) {
-                            navigationController?.viewControllers[navigationController!!.viewControllers.size - 2]?.showError(
-                                e.parsed
-                            )
-                            navigationController?.pop(true)
+                            showSubmissionError(e.parsed)
                         }
                     }
                 }
@@ -1022,6 +1124,18 @@ class SendVC(
             view.hideKeyboard()
             push(vc)
         }
+    }
+
+    private fun showSubmissionError(error: MBridgeError?) {
+        val navigationController = navigationController
+        val previousViewController = navigationController?.viewControllers
+            ?.getOrNull(navigationController.viewControllers.size - 2)
+        if (previousViewController == null) {
+            showError(error)
+            return
+        }
+        previousViewController.showError(error)
+        navigationController.pop(true)
     }
 
     override fun updateTheme() {
@@ -1033,7 +1147,7 @@ class SendVC(
             it.setBackgroundColor(
                 WColor.Background.color,
                 ViewConstants.BLOCK_RADIUS.dp,
-                0f,
+                0f
             )
         }
         title1.updateTheme()
@@ -1060,6 +1174,11 @@ class SendVC(
             suggestionsBoxView.search(addressInputView.getKeyword())
         }
         viewModel.onInputToken(tokenSlug)
+        val destination = viewModel.inputStateFlow.value.destination
+        if (addressInputView.getKeyword() != destination) {
+            addressInputView.setText(destination)
+            viewModel.onDestinationEntered(destination)
+        }
         updateCommentViews()
         showServiceTokenWarningIfRequired()
 
@@ -1101,7 +1220,7 @@ class SendVC(
         )
         if (supportsEncryption) {
             context.getDrawableCompat(
-                org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_8
+                R.drawable.ic_arrow_bottom_8
             )?.let { drawable ->
                 drawable.mutate()
                 drawable.setTint(WColor.Tint.color)
@@ -1115,7 +1234,9 @@ class SendVC(
 
     private fun updateCommentHint(isMemoRequired: Boolean) {
         commentInputView.hint =
-            LocaleController.getString(if (isMemoRequired) "Required" else "Add a message, if needed")
+            LocaleController.getString(
+                if (isMemoRequired) "Required" else "Add a message, if needed"
+            )
     }
 
     private fun updateAddressOverlay(info: SendViewModel.AddressInfo, destination: String) {
@@ -1129,8 +1250,8 @@ class SendVC(
                 MSavedAddress(
                     address = address,
                     name = address,
-                    chain = info.chain.name,
-                ),
+                    chain = info.chain.name
+                )
             )
         }
         if (!resolved.isNullOrEmpty() && !name.isNullOrEmpty()) {
@@ -1138,8 +1259,8 @@ class SendVC(
                 MSavedAddress(
                     address = resolved,
                     name = name,
-                    chain = info.chain.name,
-                ),
+                    chain = info.chain.name
+                )
             )
         }
 
@@ -1191,12 +1312,10 @@ class SendVC(
         }
     }
 
-    private fun getSystemBottomOffset(): Int {
-        return max(
-            (navigationController?.getSystemBars()?.bottom ?: 0),
-            (navigationController?.imeInsetBottom ?: 0)
-        )
-    }
+    private fun getSystemBottomOffset(): Int = max(
+        (navigationController?.getSystemBars()?.bottom ?: 0),
+        (navigationController?.imeInsetBottom ?: 0)
+    )
 
     private fun getScrollViewBottomMargin(buttonVisible: Boolean = true): Int {
         val system = getSystemBottomOffset()
@@ -1259,11 +1378,9 @@ class SendVC(
         updateCommentTitleLabel()
     }
 
-    private fun isAllowSuspiciousActions(): Boolean {
-        return displayedAccount.accountId?.let {
-            WGlobalStorage.getIsAllowSuspiciousActions(it)
-        } ?: false
-    }
+    private fun isAllowSuspiciousActions(): Boolean = displayedAccount.accountId?.let {
+        WGlobalStorage.getIsAllowSuspiciousActions(it)
+    } ?: false
 
     private fun showScamWarningIfRequired() {
         TokenStore.getToken(viewModel.getTokenSlug())?.mBlockchain?.let { blockchain ->
@@ -1319,13 +1436,14 @@ class SendVC(
         if (token?.isLpToken == true ||
             STAKING_SLUGS.contains(viewModel.getTokenSlug()) ||
             PRICELESS_TOKEN_HASHES.contains(viewModel.inputStateFlow.value.tokenCodeHash)
-        )
+        ) {
             showAlert(
                 LocaleController.getString("Warning!"),
                 LocaleController.getString("\$service_token_transfer_warning"),
                 button = LocaleController.getString("Got It"),
                 primaryIsDanger = true
             )
+        }
     }
 
     override fun onDestroy() {
@@ -1366,15 +1484,15 @@ class SendVC(
         if (sentActivityId == null) {
             // Send in-progress, cached received local activity to process on send api callback is called
             if (receivedActivity.isLocal()) {
-                if (receivedLocalActivities == null)
-                    receivedLocalActivities = ArrayList()
+                if (receivedLocalActivities == null) receivedLocalActivities = ArrayList()
                 receivedLocalActivities?.add(receivedActivity)
             }
             return
         }
 
         val txMatch =
-            receivedActivity is MApiTransaction.Transaction && sentActivityId == receivedActivity.getTxHash()
+            receivedActivity is MApiTransaction.Transaction &&
+                sentActivityId == receivedActivity.getTxHash()
         if (!txMatch) {
             return
         }

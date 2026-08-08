@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
@@ -6,7 +8,9 @@ import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-open class WBaseView(context: Context?) : View(context), WThemedView {
+open class WBaseView(context: Context?) :
+    View(context),
+    WThemedView {
     init {
         id = generateViewId()
     }
@@ -22,8 +26,7 @@ open class WBaseView(context: Context?) : View(context), WThemedView {
     }
 
     override fun updateTheme() {
-        if (background is SeparatorBackgroundDrawable)
-            background.invalidateSelf()
+        if (background is SeparatorBackgroundDrawable) background.invalidateSelf()
         _backgroundColor?.let {
             setBackgroundColor(it.color)
         }

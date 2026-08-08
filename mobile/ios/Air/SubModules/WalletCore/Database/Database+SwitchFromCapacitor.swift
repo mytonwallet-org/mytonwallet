@@ -23,7 +23,6 @@ public func switchStorageFromCapacitorIfNeeded(global: GlobalStorage, db: any Da
         try await moveCurrentAccountId(global: global, db: db, accountIds: accountIds)
     }
     moveBaseCurrency(global: global)
-    LocalizationSupport.shared.syncLanguageFromGlobalStorage(global: global)
     await runNonEssentialSwitchFromCapacitorStep("settings", failureTrace: "airLauncher.storage.switchFromCapacitor.settings.failed") {
         try await moveSettings(global: global, db: db)
     }

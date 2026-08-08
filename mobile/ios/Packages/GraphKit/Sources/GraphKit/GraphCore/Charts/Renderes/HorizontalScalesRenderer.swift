@@ -18,7 +18,7 @@ class HorizontalScalesRenderer: BaseChartRenderer {
     private var animatedHorizontalLabels: [AnimatedLinesChartLabels] = []
     
     var labelsVerticalOffset: CGFloat = 8
-    var labelsFont: NSFont = .systemFont(ofSize: 11)
+    var labelsFont: NSFont = GraphTypography.technicalAxisFont
     var labelsColor: GColor = .gray
     
     func setup(labels: [LinesChartLabel], animated: Bool) {

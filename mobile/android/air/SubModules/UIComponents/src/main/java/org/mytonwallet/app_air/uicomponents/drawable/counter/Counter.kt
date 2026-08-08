@@ -2,14 +2,14 @@ package org.mytonwallet.app_air.uicomponents.drawable.counter
 
 import android.graphics.Canvas
 import android.text.TextPaint
+import kotlin.math.max
+import kotlin.math.min
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animator.CounterAnimator
 import me.vkryl.android.animator.ListAnimator
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.BoolAnimatorListener
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
-import kotlin.math.max
-import kotlin.math.min
 
 // TODO:: Fix known issue with RTL language
 //  For now, avoid using this in RTL languages by either using a normal TextView
@@ -19,7 +19,8 @@ class Counter(
     private val callback: Callback?,
     private val isReverse: Boolean = false,
     duration: Long = 180L
-) : CounterAnimator.Callback<CounterTextPart>, BoolAnimatorListener {
+) : CounterAnimator.Callback<CounterTextPart>,
+    BoolAnimatorListener {
     private val counter = CounterAnimator(this, duration, isReverse)
     private val isHidden =
         BoolAnimator(duration, AnimatorUtils.DECELERATE_INTERPOLATOR, false, this)
@@ -27,18 +28,12 @@ class Counter(
     interface Callback {
         fun onCounterAppearanceChanged(counter: Counter, sizeChanged: Boolean)
         fun onCounterRequiredWidthChanged(counter: Counter) {}
-        fun needAnimateChanges(counter: Counter): Boolean {
-            return true; }
+        fun needAnimateChanges(counter: Counter): Boolean = true
     }
 
-    fun getVisibleWidth(): Float {
-        return counter.width
-    }
+    fun getVisibleWidth(): Float = counter.width
 
-    fun getWidth(): Float {
-        return counter.width * visibility
-    }
-
+    fun getWidth(): Float = counter.width * visibility
 
     private var lastRequiredWidth = 0
 
@@ -68,7 +63,9 @@ class Counter(
 
         requiredWidth = if (count > 0) {
             (right - left).ceilToInt()
-        } else 0
+        } else {
+            0
+        }
         targetWidth = targetTotalWidth
         if (isHidden.value) {
             targetWidth = 0
@@ -141,10 +138,8 @@ class Counter(
         invalidate()
     }
 
-    override fun onCreateTextDrawable(text: String, start: Int): CounterTextPart {
-        return CounterTextPartImpl(text, paint)
-    }
-
+    override fun onCreateTextDrawable(text: String, start: Int): CounterTextPart =
+        CounterTextPartImpl(text, paint)
 
     override fun onAnimationUpdate(
         state: BoolAnimator.State,

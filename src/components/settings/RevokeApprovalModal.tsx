@@ -67,7 +67,7 @@ function RevokeApprovalModal({
     setError(undefined);
   });
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     if (!accountId || !permission) return;
 
     setIsLoading(true);
@@ -76,13 +76,13 @@ function RevokeApprovalModal({
     const revokeOptions = permission.kind === 'delegation'
       ? {
         accountId,
-        password,
+        enclaveToken,
         kind: 'delegation' as const,
         delegateAddress: permission.delegateAddress,
       }
       : {
         accountId,
-        password,
+        enclaveToken,
         kind: 'approval' as const,
         tokenAddress: permission.tokenAddress,
         spenderAddress: permission.spenderAddress,
@@ -120,7 +120,7 @@ function RevokeApprovalModal({
               submitLabel={lang('Revoke')}
               cancelLabel={lang('Back')}
               noAutoConfirm
-              onSubmit={handlePasswordSubmit}
+              onAuthorize={handleAuthorize}
               onCancel={handleBackToConfirm}
               onUpdate={handleClearError}
             >
@@ -167,7 +167,7 @@ function RevokeApprovalModal({
             submitLabel={lang('Revoke')}
             cancelLabel={lang('Back')}
             noAutoConfirm
-            onSubmit={handlePasswordSubmit}
+            onAuthorize={handleAuthorize}
             onCancel={handleBackToConfirm}
             onUpdate={handleClearError}
           >

@@ -10,6 +10,9 @@ import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.image.CloseableBitmap
 import com.facebook.imagepipeline.image.CloseableImage
 import com.facebook.imagepipeline.request.ImageRequestBuilder
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,8 +23,6 @@ import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 class ImagePaletteHelpers {
     companion object {
@@ -39,8 +40,12 @@ class ImagePaletteHelpers {
                         val bitmap = image.underlyingBitmap
                         if (bitmap != null && !bitmap.isRecycled) {
                             bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
-                        } else null
-                    } else null
+                        } else {
+                            null
+                        }
+                    } else {
+                        null
+                    }
                 }
             } catch (_: Exception) {
                 null
@@ -96,7 +101,7 @@ class ImagePaletteHelpers {
             NftAccentColors.ACCENT_RADIOACTIVE_INDEX,
             NftAccentColors.ACCENT_SILVER_INDEX,
             NftAccentColors.ACCENT_GOLD_INDEX,
-            NftAccentColors.ACCENT_BNW_INDEX,
+            NftAccentColors.ACCENT_BNW_INDEX
         )
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -119,11 +124,79 @@ class ImagePaletteHelpers {
             }
         }
 
+        // Color.TRANSPARENT is the sentinel for "extracted, no detectable color"
+        private val averageColorCache = ConcurrentHashMap<String, Int>()
+
+        private class AverageColorRequest(
+            val cacheKey: String,
+            val imageUrl: String,
+            val callbacks: MutableList<(Int?) -> Unit>
+        )
+
+        // Main-thread confined
+        private val averageColorQueue = ArrayDeque<AverageColorRequest>()
+        private var processingAverageColorRequest: AverageColorRequest? = null
+
+        // Cached results are delivered synchronously when called from the main thread
+        fun extractAverageColorFromNft(nft: ApiNft, onExtracted: (Int?) -> Unit) {
+            val imageUrl = nft.image?.takeIf { it.isNotEmpty() }
+                ?: return ensureMainThread { onExtracted(null) }
+            averageColorCache[nft.address]?.let {
+                val color = if (it == Color.TRANSPARENT) null else it
+                return ensureMainThread { onExtracted(color) }
+            }
+            ensureMainThread {
+                val processing = processingAverageColorRequest
+                if (processing?.cacheKey == nft.address) {
+                    processing.callbacks.add(onExtracted)
+                    return@ensureMainThread
+                }
+                val existing = averageColorQueue.find { it.cacheKey == nft.address }
+                if (existing != null) {
+                    existing.callbacks.add(onExtracted)
+                    averageColorQueue.remove(existing)
+                    averageColorQueue.addFirst(existing)
+                } else {
+                    averageColorQueue.addFirst(
+                        AverageColorRequest(nft.address, imageUrl, mutableListOf(onExtracted))
+                    )
+                }
+                processAverageColorQueue()
+            }
+        }
+
+        // Extractions run one at a time to bound bitmap memory; requests are processed
+        // newest-first so the most recently requested NFT always wins over queued ones
+        private fun processAverageColorQueue() {
+            if (processingAverageColorRequest != null) return
+            val request = averageColorQueue.removeFirstOrNull() ?: return
+            processingAverageColorRequest = request
+            scope.launch {
+                val bitmap = runCatching { getBitmapFromUri(request.imageUrl) }.getOrNull()
+                val color = bitmap?.let {
+                    try {
+                        BitmapPaletteExtractHelpers.extractAverageColor(it)
+                    } finally {
+                        it.recycle()
+                    }
+                }
+                if (bitmap != null) {
+                    averageColorCache[request.cacheKey] = color ?: Color.TRANSPARENT
+                }
+                withContext(Dispatchers.Main) {
+                    processingAverageColorRequest = null
+                    request.callbacks.forEach { it(color) }
+                    processAverageColorQueue()
+                }
+            }
+        }
+
         fun extractPaletteFromNft(nft: ApiNft, onPaletteExtracted: (Int?) -> Unit) {
             val deliver =
                 { colorIndex: Int? -> ensureMainThread { onPaletteExtracted(colorIndex) } }
-            if (nft.metadata?.mtwCardBorderShineType == ApiMtwCardBorderShineType.RADIOACTIVE)
+            if (nft.metadata?.mtwCardBorderShineType == ApiMtwCardBorderShineType.RADIOACTIVE) {
                 return deliver(NftAccentColors.ACCENT_RADIOACTIVE_INDEX)
+            }
             when (nft.metadata?.mtwCardType) {
                 ApiMtwCardType.SILVER -> {
                     deliver(NftAccentColors.ACCENT_SILVER_INDEX)

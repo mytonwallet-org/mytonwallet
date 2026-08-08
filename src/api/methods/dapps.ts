@@ -203,12 +203,12 @@ export async function signDappProof(
   dappChains: StoredSessionChain[] = [],
   accountId: string,
   proof: DappProofRequest,
-  password?: string,
+  enclaveToken?: string,
 ) {
   try {
     const signatures: string[] = [];
     for (const chain of dappChains) {
-      const result = await chains[chain.chain].dapp?.signConnectionProof?.(accountId, proof, password);
+      const result = await chains[chain.chain].dapp?.signConnectionProof?.(accountId, proof, enclaveToken);
       if (result && 'signature' in result) {
         signatures.push(result.signature);
       }
@@ -227,7 +227,7 @@ export async function signDappTransfers(
   accountId: string,
   transactions: ApiDappTransfer[],
   options: {
-    password?: string;
+    enclaveToken?: string;
     validUntil?: number;
     vestingAddress?: string;
     // Deal with solana b58/b64 issues based on requested method
@@ -242,14 +242,14 @@ export async function signDappData(
   accountId: string,
   url: string,
   payload: UnifiedSignDataPayload,
-  password?: string,
+  enclaveToken?: string,
 ) {
-  return await chains[dappChain.chain].dapp?.signDappData(accountId, url, payload, password);
+  return await chains[dappChain.chain].dapp?.signDappData(accountId, url, payload, enclaveToken);
 }
 
 export async function createDappConnectMfaRequest(
   accountId: string,
-  password?: string,
+  enclaveToken?: string,
 ): Promise<{ mfaRequestHash: string } | { error: ApiAnyDisplayError }> {
   try {
     const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
@@ -257,7 +257,7 @@ export async function createDappConnectMfaRequest(
     const signingResult = await ton.signTransfers(accountId, [{
       toAddress: walletAddress,
       amount: 0n,
-    }], password);
+    }], enclaveToken);
 
     if ('error' in signingResult) {
       return signingResult;

@@ -1,3 +1,5 @@
+@file:Suppress("PropertyName")
+
 package org.mytonwallet.app_air.uicomponents.widgets.coverFlow
 
 import android.annotation.SuppressLint
@@ -30,6 +32,9 @@ import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.image.CloseableBitmap
 import com.facebook.imagepipeline.image.CloseableImage
 import com.facebook.imagepipeline.request.ImageRequestBuilder
+import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -42,9 +47,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.abs
-import kotlin.math.pow
-import kotlin.math.roundToInt
 
 class WCoverFlowView @JvmOverloads constructor(
     context: Context,
@@ -67,7 +69,7 @@ class WCoverFlowView @JvmOverloads constructor(
     private var placeholderDrawable: Drawable? = null
     private var noImageDrawable: Drawable? = null
     private var currentIndex = 0
-    private var lastNotifiedIndex = -1  // Track last notified index
+    private var lastNotifiedIndex = -1 // Track last notified index
     private var scrollOffset = 0f
     private var targetOffset = 0f
 
@@ -79,11 +81,16 @@ class WCoverFlowView @JvmOverloads constructor(
 
     // Scroll state tracking
     enum class ScrollState {
-        IDLE, DRAGGING, SETTLING
+        IDLE,
+        DRAGGING,
+        SETTLING
     }
 
     var scrollState = ScrollState.IDLE
         private set
+
+    private val rtlSign: Float
+        get() = if (LocaleController.isRTL) -1f else 1f
 
     // Animation and interaction
     private val scroller = Scroller(context)
@@ -104,7 +111,7 @@ class WCoverFlowView @JvmOverloads constructor(
     }
 
     private fun untrackPendingLoad(
-        dataSource: DataSource<CloseableReference<CloseableImage>>,
+        dataSource: DataSource<CloseableReference<CloseableImage>>
     ): Boolean = synchronized(pendingDataSourcesLock) { pendingDataSources.remove(dataSource) }
 
     private fun takePendingLoads(): List<DataSource<CloseableReference<CloseableImage>>> =
@@ -148,7 +155,10 @@ class WCoverFlowView @JvmOverloads constructor(
 
         // Draw gradient placeholder
         val gradient = LinearGradient(
-            0f, 0f, COVER_WIDTH, COVER_HEIGHT,
+            0f,
+            0f,
+            COVER_WIDTH,
+            COVER_HEIGHT,
             WColor.SecondaryBackground.color,
             WColor.GroupedBackground.color,
             Shader.TileMode.CLAMP
@@ -167,15 +177,18 @@ class WCoverFlowView @JvmOverloads constructor(
         paint.color = WColor.SecondaryBackground.color
         canvas.drawRoundRect(RectF(0f, 0f, COVER_WIDTH, COVER_HEIGHT), 12f.dp, 12f.dp, paint)
 
-        val iconRes = if (ThemeManager.isDark)
+        val iconRes = if (ThemeManager.isDark) {
             org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_dark
-        else
+        } else {
             org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_light
+        }
         val iconDrawable = context.getDrawableCompat(iconRes)
         val iconSize = 60f.dp.toInt()
         val iconLeft = ((COVER_WIDTH - iconSize) / 2f).toInt()
         val textSize = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_SP, 9f, context.resources.displayMetrics
+            TypedValue.COMPLEX_UNIT_SP,
+            9f,
+            context.resources.displayMetrics
         )
         val contentHeight = iconSize + 4f.dp + textSize
         val iconTop = ((COVER_HEIGHT - contentHeight) / 2f).toInt()
@@ -216,9 +229,7 @@ class WCoverFlowView @JvmOverloads constructor(
         scrollToIndex(index, animate = false)
     }
 
-    fun getSelectedIndex(): Int {
-        return currentIndex
-    }
+    fun getSelectedIndex(): Int = currentIndex
 
     private fun setScrollState(newState: ScrollState) {
         if (scrollState != newState) {
@@ -257,57 +268,60 @@ class WCoverFlowView @JvmOverloads constructor(
         val dataSource = imagePipeline.fetchDecodedImage(imageRequest, this)
         trackPendingLoad(dataSource)
 
-        dataSource.subscribe(object : DataSubscriber<CloseableReference<CloseableImage>> {
-            override fun onNewResult(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                if (!dataSource.isFinished) {
-                    return
-                }
-                if (!untrackPendingLoad(dataSource)) {
-                    return
-                }
+        dataSource.subscribe(
+            object : DataSubscriber<CloseableReference<CloseableImage>> {
+                override fun onNewResult(
+                    dataSource: DataSource<CloseableReference<CloseableImage>>
+                ) {
+                    if (!dataSource.isFinished) return
+                    if (!untrackPendingLoad(dataSource)) return
 
-                val result = dataSource.result
-                result.use { result ->
-                    val closeableImage = result?.get()
-                    if (closeableImage is CloseableBitmap) {
-                        val bitmap = closeableImage.underlyingBitmap
-                        if (bitmap != null && !bitmap.isRecycled) {
-                            // Create a copy of the bitmap since the original will be recycled
-                            val bitmapCopy =
-                                bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
-                            val drawable = bitmapCopy.toDrawable(context.resources)
+                    val result = dataSource.result
+                    result.use { result ->
+                        val closeableImage = result?.get()
+                        if (closeableImage is CloseableBitmap) {
+                            val bitmap = closeableImage.underlyingBitmap
+                            if (bitmap != null && !bitmap.isRecycled) {
+                                // Create a copy of the bitmap since the original will be recycled
+                                val bitmapCopy =
+                                    bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
+                                val drawable = bitmapCopy.toDrawable(context.resources)
 
-                            post {
-                                if (covers.getOrNull(index)?.imageUrl != url) return@post
-                                coverDrawables[index] = drawable
-                                invalidate()
+                                post {
+                                    if (covers.getOrNull(index)?.imageUrl != url) return@post
+                                    coverDrawables[index] = drawable
+                                    invalidate()
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            override fun onFailure(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                if (!untrackPendingLoad(dataSource)) {
-                    return
+                override fun onFailure(dataSource: DataSource<CloseableReference<CloseableImage>>) {
+                    if (!untrackPendingLoad(dataSource)) return
+                    post {
+                        val cover = covers.getOrNull(index)
+                        coverDrawables[index] = cover?.let {
+                            createColorDrawable(it.color ?: DEFAULT_PLACEHOLDER.color)
+                        } ?: placeholderDrawable!!
+                        invalidate()
+                    }
                 }
-                post {
-                    val cover = covers.getOrNull(index)
-                    coverDrawables[index] = cover?.let {
-                        createColorDrawable(it.color ?: DEFAULT_PLACEHOLDER.color)
-                    } ?: placeholderDrawable!!
-                    invalidate()
+
+                override fun onCancellation(
+                    dataSource: DataSource<CloseableReference<CloseableImage>>
+                ) {
+                    untrackPendingLoad(dataSource)
                 }
-            }
 
-            override fun onCancellation(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                untrackPendingLoad(dataSource)
-            }
-
-            override fun onProgressUpdate(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                // Handle progress updates if needed
-            }
-        }, CallerThreadExecutor.getInstance())
+                override fun onProgressUpdate(
+                    dataSource: DataSource<CloseableReference<CloseableImage>>
+                ) {
+                    // Handle progress updates if needed
+                }
+            },
+            CallerThreadExecutor.getInstance()
+        )
     }
 
     private fun createColorDrawable(color: Int): Drawable {
@@ -374,9 +388,8 @@ class WCoverFlowView @JvmOverloads constructor(
     }
 
     // Get the current center index (rounded)
-    private fun getCurrentCenterIndex(): Int {
-        return getFractionalIndexFromOffset(scrollOffset).roundToInt().coerceIn(0, covers.size - 1)
-    }
+    private fun getCurrentCenterIndex(): Int =
+        getFractionalIndexFromOffset(scrollOffset).roundToInt().coerceIn(0, covers.size - 1)
 
     // Check if index changed and notify listener during scroll
     private fun checkAndNotifyIndexChange() {
@@ -415,8 +428,9 @@ class WCoverFlowView @JvmOverloads constructor(
         }
 
         // Draw center cover last
-        if (shouldRenderCenterItem && !isCollapsed && animationProgress == 1f)
+        if (shouldRenderCenterItem && !isCollapsed && animationProgress == 1f) {
             drawCover(canvas, centerIndex, fractionalCenterIndex, centerX, centerY)
+        }
     }
 
     private fun drawCover(
@@ -432,25 +446,29 @@ class WCoverFlowView @JvmOverloads constructor(
 
         val animPow2 = animationProgress.pow(2)
         val FIRST_COVER_SPACING =
-            if (isCollapsed)
+            if (isCollapsed) {
                 lerp(0f, FIRST_COVER_SPACING, animPow2)
-            else
+            } else {
                 lerp(FIRST_COVER_SPACING * 3f, FIRST_COVER_SPACING, animPow2)
+            }
         val NEXT_COVER_SPACINGS =
-            if (isCollapsed)
+            if (isCollapsed) {
                 lerp(0f, NEXT_COVER_SPACINGS, animationProgress.pow(distance * 2))
-            else
+            } else {
                 NEXT_COVER_SPACINGS
+            }
         val MAX_ROTATION =
-            if (isCollapsed)
+            if (isCollapsed) {
                 lerp(0f, MAX_ROTATION, animationProgress.pow(distance * 2))
-            else
+            } else {
                 lerp(MAX_ROTATION * 2f, MAX_ROTATION, animPow2)
+            }
         val SCALE_FACTOR =
-            if (isCollapsed)
+            if (isCollapsed) {
                 lerp(0f, SCALE_FACTOR, animationProgress.pow(distance * 2))
-            else
+            } else {
                 SCALE_FACTOR
+            }
         if (index < 0 || index >= covers.size) return
 
         // Calculate visual position using variable spacing
@@ -501,13 +519,13 @@ class WCoverFlowView @JvmOverloads constructor(
         }
 
         // Calculate 3D transformation based on logical position
-        val rotationY = (-position * MAX_ROTATION).coerceIn(-MAX_ROTATION, MAX_ROTATION)
+        val rotationY =
+            (-position * MAX_ROTATION).coerceIn(-MAX_ROTATION, MAX_ROTATION) * rtlSign
         val scale = 1f - (distance * (1f - SCALE_FACTOR)).coerceAtMost(1f - SCALE_FACTOR)
 
         val drawable = coverDrawables[index] ?: placeholderDrawable
         drawable?.let {
             canvas.withSave {
-
                 // Prepare transformation matrix
                 val matrix = Matrix()
                 val camera = Camera()
@@ -520,7 +538,7 @@ class WCoverFlowView @JvmOverloads constructor(
                 matrix.preTranslate(-COVER_WIDTH / 2f, -COVER_HEIGHT / 2f)
                 matrix.postTranslate(COVER_WIDTH / 2f, COVER_HEIGHT / 2f)
 
-                val translateX = centerX + visualPosition
+                val translateX = centerX + visualPosition * rtlSign
                 val translateY = centerY
 
                 canvas.translate(translateX, translateY)
@@ -529,8 +547,12 @@ class WCoverFlowView @JvmOverloads constructor(
 
                 val path = Path().apply {
                     addRoundRect(
-                        0f, 0f, COVER_WIDTH, COVER_HEIGHT,
-                        12f.dp, 12f.dp,
+                        0f,
+                        0f,
+                        COVER_WIDTH,
+                        COVER_HEIGHT,
+                        12f.dp,
+                        12f.dp,
                         Path.Direction.CW
                     )
                 }
@@ -539,7 +561,6 @@ class WCoverFlowView @JvmOverloads constructor(
                 // Set bounds and draw
                 it.setBounds(0, 0, COVER_WIDTH.toInt(), COVER_HEIGHT.toInt())
                 it.draw(canvas)
-
             }
         }
     }
@@ -568,7 +589,7 @@ class WCoverFlowView @JvmOverloads constructor(
 
                 MotionEvent.ACTION_MOVE -> {
                     if (isScrolling) {
-                        val deltaX = (lastTouchX - event.x) * 0.5f
+                        val deltaX = (lastTouchX - event.x) * 0.5f * rtlSign
                         scrollOffset += deltaX
                         val maxOffset = getAbsolutePositionForIndex(covers.size - 1)
                         scrollOffset = scrollOffset.coerceIn(0f, maxOffset)
@@ -669,15 +690,19 @@ class WCoverFlowView @JvmOverloads constructor(
             val centerX = width / 2f
             val tapX = e.x
 
+            val previousStep = if (LocaleController.isRTL) 1 else -1
+
             if (tapX < centerX - COVER_WIDTH / 2) {
-                // Tap on left side - go to previous
-                if (currentIndex > 0) {
-                    scrollToIndex(currentIndex - 1)
+                // Tap on left side
+                val target = currentIndex + previousStep
+                if (target in 0 until covers.size) {
+                    scrollToIndex(target)
                 }
             } else if (tapX > centerX + COVER_WIDTH / 2) {
-                // Tap on right side - go to next
-                if (currentIndex < covers.size - 1) {
-                    scrollToIndex(currentIndex + 1)
+                // Tap on right side
+                val target = currentIndex - previousStep
+                if (target in 0 until covers.size) {
+                    scrollToIndex(target)
                 }
             }
 
@@ -692,16 +717,20 @@ class WCoverFlowView @JvmOverloads constructor(
         ): Boolean {
             if (covers.isEmpty()) return false
 
-            val velocity = (-velocityX * 0.3f).toInt()
+            val velocity = (-velocityX * 0.3f * rtlSign).toInt()
             val startX = scrollOffset.toInt()
             val minX = 0
             val maxX = getAbsolutePositionForIndex(covers.size - 1).toInt()
 
             scroller.fling(
-                startX, 0,
-                velocity, 0,
-                minX, maxX,
-                0, 0
+                startX,
+                0,
+                velocity,
+                0,
+                minX,
+                maxX,
+                0,
+                0
             )
 
             val finalX = scroller.finalX.toFloat()
@@ -720,8 +749,5 @@ class WCoverFlowView @JvmOverloads constructor(
         }
     }
 
-    data class CoverItem(
-        val imageUrl: String?,
-        val color: Int? = null,
-    )
+    data class CoverItem(val imageUrl: String?, val color: Int? = null)
 }

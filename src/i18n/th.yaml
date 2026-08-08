@@ -152,7 +152,7 @@ $state_init_invalid: ข้อมูลการเริ่มต้นสั�
 $signature_warning: การเซ็นข้อมูลที่กำหนดเองอาจมีความเสี่ยงสูง. โปรดใช้เมื่อคุณใว้ใจแหล่งที่มาของข้อมูลนั้น.
 Sign: เซ็น
 Done!: เสร็จสิ้น!
-Signing was confirmed!: การเซ็นข้อมูลถูกยืนยันแล้ว!
+Signing Confirmed: การเซ็นข้อมูลถูกยืนยันแล้ว
 Activity Details: รายละเอียดกิจกรรม
 No activities found: ไม่พบกิจกรรม
 Comment Copied: หมายเหตุถูกคัดลอกแล้ว
@@ -172,6 +172,7 @@ Assets: สินทรัพย์
 Activity: กิจกรรม
 NFT: NFT
 No NFTs yet: ยังไม่มี NFT
+No hidden NFTs.: ไม่มี NFT ที่ซ่อนอยู่
 $nft_explore_offer: |
   สำรวจมาร์เก็ตเพลสเพื่อค้นพบ
   แหล่งของ NFT คอลเลกชัน.
@@ -208,7 +209,7 @@ Receiving Address: ที่อยู่บัญชีผู้รับ
 Fee: ค่าธรรมเนียม
 Edit: แก้ไข
 Confirm: ยืนยัน
-Data Signed!: ข้อมูลถูกลงนามแล้ว!
+Data Signed: ข้อมูลถูกลงนามแล้ว
 Details: รายละเอียด
 View details: ดูรายละเอียด
 Change password visibility: เปลี่ยนการแสดงรหัสผ่าน
@@ -250,7 +251,6 @@ $safe_staking_description_jetton2: คุณสามารถถอนการ
 $min_value: ต่ำที่สุด %value%
 Est. balance in a year: ≈ มูลค่าเมื่อถึงรอบปีถัดไป
 Confirm Staking: ยืนยันการสเต็ก
-Coins have been staked!: ทรัพย์สินได้ถูกสเต็กแล้ว!
 View: ดู
 Stake More: สเต็กเพิ่มเติม
 Staking: สเต็ก
@@ -263,7 +263,6 @@ $total: "ทั้งหมด: %value%"
 $unstake_asset: ถอนการสเต็ก %symbol%
 Amount to unstake: จำนวนที่ถอนจากการสเต็ก
 Confirm Unstaking: ยืนยันการถอนการสเต็ก
-Request for unstaking is sent!: คำขอการถอนการสเต็กได้ถูกส่งแล้ว!
 $unstaking_when_receive: คุณจะได้รับทรัพย์สินจากการสเต็กใน %time%.
 $unstaking_when_receive_with_amount: คุณจะได้รับ %amount% ที่ไม่ได้ล็อกในอีก %time%
 $unstaking_when_receive_with_amount_ethena: "%amount% จะสามารถถอนได้ใน %time%."
@@ -277,6 +276,10 @@ Unstaking: ถอนการสเต็ก
 $unstake_action: ถอนการสเต็ก
 The network fee has slightly changed, try sending again.: ค่าธรรมเนียมของเครือข่ายมีการเปลี่ยนแปลงเล็กน้อย, โปรดลองส่งใหม่อีกครั้ง.
 Transfer was unsuccessful. Try again later.: การโอนไม่สำเร็จ. โปรดลองใหม่อีกครั้งในภายหลัง.
+Action Partially Completed: ดำเนินการเสร็จสิ้นบางส่วน
+$action_partially_completed_description: "ดำเนินการสำเร็จ %completed% จาก %total% รายการ รายการที่เหลือยังไม่เสร็จสิ้น โปรดตรวจสอบกิจกรรมของคุณก่อนลองอีกครั้ง"
+Action Status Unknown: ไม่ทราบสถานะการดำเนินการ
+$action_status_unknown_description: "ไม่สามารถยืนยันสถานะการดำเนินการได้ โปรดตรวจสอบกิจกรรมและยอดคงเหลือก่อนลองอีกครั้ง หากลองอีกครั้งตอนนี้ การดำเนินการอาจถูกส่งซ้ำสองครั้ง"
 Invalid amount: จำนวนไม่ถูกต้อง
 Invalid address: ที่อยู่บัญชีไม่ถูกต้อง
 Domain is not connected to a wallet: โดเมนไม่ได้เชื่อมต่อกับวอลเล็ต
@@ -352,6 +355,7 @@ Add Token: เพิ่มโทเคน
 Delete Token: ลบโทเคน
 Are you sure you want to delete?: คุณแน่ใจหรือไม่ว่าต้องการลบโทเคน %token%?
 Hide Tokens With No Cost: ซ่อนโทเคนที่ไม่มีค่าใช้จ่าย
+Localized Token Names: ชื่อที่แปลแล้ว
 Sort By Cost: เรียงตามมูลค่า
 Update %app_name%: อัพเดต %app_name%
 Connect Ledger: เชื่อมต่อ Ledger
@@ -391,7 +395,6 @@ You sell: การขายของคุณ
 You buy: การซื้อของคุณ
 Swap Details: รายละเอียดการสับเปลี่ยน
 Blockchain Fee: ค่าธรรมเนียมบล็อกเชน
-Aggregator Fee: ค่าธรรมเนียมตัวรวบรวม
 Included: รวมอยู่ด้วย
 Price Impact: ผลกระทบด้านราคา
 Minimum Received: ขั้นต่ำที่ได้รับ
@@ -406,7 +409,6 @@ $swap_price_impact_tooltip1: นี่แสดงให้เห็นว่า
 $swap_price_impact_tooltip2: หากมีซื้อขายขนาดใหญ่เกิดขึ้นอาจทำให้ราคาขึ้นหรือลงอย่างรวดเร็ว, ซื้อขายขนาดเล็กจะมีผลดีกว่า.
 $swap_slippage_tooltip1: นี่เป็นราคาที่กำหนดที่อนุญาตให้เปลี่ยนแปลงได้ก่อนที่การสับเปลี่ยนของคุณจะถูกประมวลผล.
 $swap_slippage_tooltip2: หากระหว่างการประมวลผลสับเปลี่ยนของคุณ, แล้วมีราคาเปลี่ยนแปลงเกิดขึ้น, ออเดอร์ของคุณจะถูกยกเลิก.
-Coins have been swapped!: โทเคนถูกสับเปลี่ยนแล้ว!
 Slippage not specified: ค่าความคลาดเคลื่อนไม่ได้ถูกระบุ
 Slippage too high: ค่าความคลาดเคลื่อนสูงเกินไป
 Not Enough %symbol%: "%symbol% มีไม่เพียงพอ"
@@ -501,6 +503,15 @@ Scan QR: สแกน QR
 Account: บัญชี
 Accounts: บัญชี
 Networks: เครือข่าย
+Blockchains: บล็อกเชน
+All Chains: บล็อกเชนทั้งหมด
+"You will still be able to receive and send tokens in hidden chains.": "คุณจะยังคงสามารถรับและส่งโทเคนบนบล็อกเชนที่ซ่อนไว้ได้"
+"Sort by Value": "เรียงตามมูลค่า"
+"Automatically sort and hide chains based on your portfolio.": "เรียงและซ่อนบล็อกเชนอัตโนมัติตามพอร์ตโฟลิโอของคุณ"
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "บล็อกเชนที่ซ่อนอยู่จะยังคงใช้รับและส่งโทเคนได้ แต่จะไม่ปรากฏในรายการหลัก"
+"Move Up": "ย้ายขึ้น"
+"Move Down": "ย้ายลง"
+Tokens: โทเค็น
 Receive Funds: รับเงิน
 Open the receive screen.: เปิดหน้าจอรับ
 "Receive with ${applicationName}": รับด้วย ${applicationName}
@@ -526,8 +537,11 @@ Chinese Yuan: หยวนจีน
 Bitcoin: บิทคอยน์
 $max_balance: "สูงสุด: %balance%"
 $available_balance: "ที่ใช้ได้: %balance%"
+$send_recipient_invalid: ไม่ถูกต้อง
+$send_recipient_not_compatible: ไม่รองรับ
 $unstake_information_instantly: คุณจะได้รับฝากภายในอีกที่สักครู่
 Select Token: เลือกโทเคน
+$token_picker_hidden: ที่ซ่อนไว้
 MY: ของฉัน
 Popular: เป็นที่นิยม
 Not Found: ไม่พบป
@@ -536,7 +550,6 @@ Wallet is imported!: นำเข้าวอลเล็ตเรียบร�
 Create a code to protect it: สร้างรหัสผ่านเพื่อปกป้องวอลเล็ตของคุณ
 Enter your code again: กรอกรหัสผ่านอีกครั้ง
 Code set successfully: รหัสผ่านถูกตั้งค่าสำเร็จ
-Use Biometrics: ใช้ Biometrics
 Use Touch ID: ใช้ Touch ID
 Use Face ID: ใช้ Face ID
 Connect Touch ID: เชื่อมต่อ Touch ID
@@ -629,9 +642,9 @@ Send NFT: ส่ง NFT
 Send Collectible: ส่งของสะสม
 Send Collectibles: ส่งของสะสม
 $nfts_burned:
-  zeroValue: "เผา NFT แล้ว %1$d รายการ!"
-  oneValue: "เผา NFT แล้ว %1$d รายการ!"
-  otherValue: "เผา NFT แล้ว %1$d รายการ!"
+  zeroValue: "เผา NFT แล้ว %count% รายการ"
+  oneValue: "เผา NFT แล้ว %count% รายการ"
+  otherValue: "เผา NFT แล้ว %count% รายการ"
 No NFT selected: ไม่ได้เลือก NFT
 Cannot be sent: ไม่สามารถส่งได้
 NFT is for sale: NFT สำหรับขาย
@@ -717,6 +730,14 @@ Install on Desktop: ติดตั้งบนเดสก์ท็อป
 Install on Mobile: ติดตั้งบนมือถือ
 Install App: ติดตั้งแอป
 Hide: ซ่อน
+Hide and Report: ซ่อนและรายงาน
+Hide and Report NFT: ซ่อนและรายงาน NFT
+Report: รายงาน
+Report NFT: รายงาน NFT
+This NFT will remain hidden on this device and be reported.: NFT นี้จะยังคงซ่อนอยู่บนอุปกรณ์นี้และถูกรายงาน
+Only Hide: ซ่อนเท่านั้น
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: คุณต้องการรายงาน NFT นี้ว่าไม่เหมาะสมด้วยหรือไม่ จากนั้น NFT นี้จะถูกนำออกจากอุปกรณ์นี้อย่างถาวร
+This NFT will be permanently hidden on this device and reported.: NFT นี้จะถูกซ่อนอย่างถาวรบนอุปกรณ์นี้และถูกรายงาน
 Hidden NFTs: NFT ที่ซ่อนไว้
 Hidden By Me: ซ่อนไว้โดยฉัน
 Probably Scam: อาจเป็นการหลอกลวง
@@ -769,16 +790,8 @@ If away for 10 min: หากไม่มีการใช้งาน 10 น�
 Unlock: ปลดล็อก
 This address mimics another address that you previously interacted with.: ที่อยู่นี้เลียนแบบที่อยู่อื่นที่คุณเคยโต้ตอบด้วย
 Biometric authentication failed: การยืนยันตัวตนด้วยลายนิ้วมือล้มเหลว
+Authentication is already configured: การยืนยันตัวตนได้รับการตั้งค่าแล้ว
 Reset biometrics in security settings, or use a passcode.: รีเซ็ตการตรวจสอบอัตลักษณ์ทางชีวภาพในการตั้งค่าความปลอดภัย หรือใช้รหัสผ่าน
-Best Rate: อัตราที่ดีที่สุด
-via %dex_name%: ผ่าน %dex_name%
-$swap_dex_chooser_rate_title: อัตราที่แท้จริงที่วิเคราะห์จาก **DeDust** และ **STON.fi** เพื่อใช้ **อัตราที่ดีที่สุด**.
-You will receive %amount% **more**.: คุณจะได้รับ %amount% **มากขึ้น**.
-You will spend %amount% **less**.: คุณจะใช้จ่าย %amount% **น้อยลง**.
-Best: ที่ดีที่สุด
-Use Best Rate: ใช้อัตราที่ดีที่สุด
-Switch to %dex_name%: เปลี่ยนเป็น %dex_name%
-Built-in DEX Aggregator: ตัวรวบรวม DEX ในตัว
 Add Tokens: เพิ่มโทเค็น
 No tokens yet: ยังไม่มีโทเคน
 $no_tokens_description: รับโทเคนจากกระเป๋าเงินอื่น หรือเพียงแค่เปิดใช้งานโทเคนที่ต้องการในการตั้งค่าเพื่อการติดตาม
@@ -791,7 +804,6 @@ Notifications & Sounds: การแจ้งเตือนและเสี�
 Sounds: เสียง
 Push Notifications: การแจ้งเตือนแบบพุช
 Select up to %count% wallets for notifications: เลือกกระเป๋าเงินได้สูงสุด %count% ใบสำหรับการแจ้งเตือน
-$swap_aggregator_fee_tooltip: ตัวรวบรวม **DEX ในตัว** จะค้นหา **อัตราที่ดีที่สุด** จาก DEX ที่มีอยู่ ค่าบริการคือ %percent%.
 Accumulated Rewards: รางวัลที่สะสม
 $swap_reverse_prohibited: การตั้งค่าจำนวนซื้อเป็นไปไม่ได้สำหรับคู่โทเค็นนี้
 Blockchain Fee Details: รายละเอียดค่าธรรมเนียมบล็อกเชน
@@ -806,7 +818,6 @@ Wallet: กระเป๋าสตางค์
 Trending: มาแรง
 No Data: ไม่มีข้อมูล
 Toggle fullscreen: สลับโหมดเต็มหน้าจอ
-Request is sent!: ส่งคำขอแล้ว!
 Transaction ID: รหัสธุรกรรม
 Outgoing Transaction ID: รหัสธุรกรรมขาออก
 Incoming Transaction ID: รหัสธุรกรรมขาเข้า
@@ -819,6 +830,7 @@ $dapp_return_details: |
   %fee_amount% จะถูกหักจากกระเป๋าเงินของคุณทันทีเพื่อชำระค่าธรรมเนียม
 
   %received_amount% จะถูกคืนให้คุณภายในไม่กี่นาที
+$dapp_return_disclaimer: จำนวนเงินที่แสดงว่าคืนไม่รับประกันและอาจถูกควบคุมโดย Dapp ที่เป็นอันตราย ยกเลิกการดำเนินการหากคุณไม่แน่ใจเกี่ยวกับความน่าเชื่อถือของบริการนี้
 Additional Amount Sent: จะถูกส่งเพิ่มเติม
 Show Sensitive Data: แสดงข้อมูลที่ละเอียดอ่อน
 Hide Sensitive Data: ซ่อนข้อมูลที่ละเอียดอ่อน
@@ -826,6 +838,7 @@ Copy Address: คัดลอกที่อยู่
 Copy Transaction ID: คัดลอกรหัสธุรกรรม
 Requesting Unstake: กำลังขอยกเลิกการวางเดิมพัน
 Requested Unstake: ขอถอน Unstake
+Unstake Requested: ขอถอน Unstake
 $request_unstake_action: การร้องขอถอนเดิมพัน
 Calling Contract: กำลังเรียกสัญญา
 Called Contract: เรียกใช้สัญญา
@@ -927,7 +940,6 @@ $safe_staking_ethena_description3: คุณสามารถ**ถอนเง�
 Unstake %amount%: เลิกเดิมพัน %amount%
 Request Unstaking: ขอถอนการวางเดิมพัน
 $unstaking_when_receive_ethena: คุณจะสามารถรับเงินฝากที่ยกเลิกการวางเดิมพันได้ในอีก **7 วัน**
-Coins have been unstaked!: เหรียญถูกถอนแล้ว!
 Confirm Upgrading: ยืนยันการอัปเกรด
 How does it work?: ทำงานอย่างไร?
 Multisend: ส่งหลายรายการ
@@ -960,8 +972,8 @@ Configure DNS: กำหนดค่า DNS
 Link to Wallet: เชื่อมโยงกับกระเป๋าเงิน
 Change Wallet: เปลี่ยนกระเป๋าเงิน
 Change Linked Wallet: เปลี่ยนกระเป๋าเงินที่เชื่อมโยง
-Domain has been renewed!: ต่ออายุโดเมนเรียบร้อยแล้ว!
-Domains have been renewed!: ต่ออายุโดเมนเรียบร้อยแล้ว!
+Domain Renewed: ต่ออายุโดเมนเรียบร้อยแล้ว
+Domains Renewed: ต่ออายุโดเมนเรียบร้อยแล้ว
 Linked Wallet: กระเป๋าเงินที่เชื่อมโยง
 Domain Linked: เชื่อมโยงโดเมนเรียบร้อยแล้ว
 Link: เชื่อมโยง
@@ -1113,6 +1125,8 @@ $invalid_address_format: รูปแบบที่อยู่ไม่ถู�
 $no_valid_view_addresses: ไม่มีที่อยู่ที่สามารถดูได้
 Account Saved: บันทึกบัญชีสำเร็จแล้ว
 Share Wallet Link: แชร์ลิงก์วอลเล็ต
+Address: ที่อยู่
+Domain: โดเมน
 Remove: ลบ
 $missing_offramp_deposit_address: ไม่มีที่อยู่ฝากสำหรับการถอนออก
 Buy: ซื้อ
@@ -1121,6 +1135,7 @@ Sell on Card: ขายเข้าบัตร
 Sell %symbol%: ขาย %symbol%
 $connect_dapp_description: แอปที่เชื่อมต่อจะเห็นได้เฉพาะที่อยู่กระเป๋าเงินของคุณ และไม่สามารถย้ายสินทรัพย์ของคุณได้หากไม่ได้รับอนุญาต
 $connect_dapp_title: เชื่อมต่อกับ %name%?
+$connect_dapp_no_compatible_wallets_found: การเชื่อมต่อนี้ต้องใช้กระเป๋าเงินแบบมัลติเชน กระเป๋าเงินปัจจุบันของคุณรองรับเฉพาะ TON และคุณไม่มีกระเป๋าเงินแบบมัลติเชนอื่น แตะปุ่มด้านล่างเพื่อสร้างกระเป๋าเงินแบบมัลติเชนใหม่
 Choose Wallet: เลือกกระเป๋าเงิน
 Wallet to use on %host%: กระเป๋าเงินสำหรับ %host%
 Selected Wallet: กระเป๋าเงินที่เลือก
@@ -1128,6 +1143,8 @@ Wallet to use for payment: กระเป๋าเงินสำหรับ�
 $wallet_connect_pay_no_options: ไม่มีตัวเลือกการชำระเงินสำหรับกระเป๋าเงินนี้
 $wallet_connect_pay_try_another_wallet: ลองเลือกกระเป๋าเงินอื่น
 Connect Wallet: เชื่อมต่อวอลเล็ต
+Create Multichain Wallet: สร้างกระเป๋าเงินแบบมัลติเชน
+Select multichain wallet: เลือกวอลเล็ตมัลติเชน
 Connect Anyway: เชื่อมต่อต่อไป
 Insufficient Fee: ค่าธรรมเนียมไม่เพียงพอ
 Waiting for a View deeplink to display a wallet address.: กำลังรอลิงก์ลึก View เพื่อแสดงที่อยู่วอลเล็ต
@@ -1136,6 +1153,11 @@ $explorer_mode_warning: "โหมดสำรวจ: กำลังรอล�
 This command is not supported in explorer mode: คำสั่งนี้ไม่รองรับในโหมดสำรวจ
 $saved_addresses_header: บันทึกแล้ว
 confirm an action in My Wallet: ยืนยันการดำเนินการใน My Wallet
+Migration was rolled back: การโยกย้ายถูกย้อนกลับ
+Rollback Enclave Migration: ย้อนกลับการโยกย้ายเอนคลีฟ
+Unable to migrate wallet data. Please contact support.: ไม่สามารถโยกย้ายข้อมูลวอลเล็ตได้ กรุณาติดต่อฝ่ายสนับสนุน
+Failed to retrieve password from biometrics: ดึงรหัสผ่านจากไบโอเมทริกส์ล้มเหลว
+Migration failed. Please try again.: การโยกย้ายล้มเหลว กรุณาลองอีกครั้ง
 Timed out waiting for account to be ready: หมดเวลารอให้บัญชีพร้อมใช้งาน
 $connected_apps:
   otherValue: "%1$d เชื่อมต่อแล้ว"
@@ -1174,7 +1196,6 @@ Transfer Info: ข้อมูลการโอน
 Transfer not found: ไม่พบการโอน
 Failed to fetch transfer: ดึงข้อมูลการโอนล้มเหลว
 Transfer in progress: การโอนกำลังดำเนินการ
-Transfer Sent!: การโอนส่งแล้ว!
 Please confirm transfer on your Ledger: กรุณายืนยันการโอนบน Ledger ของคุณ
 Please confirm action on your Ledger: กรุณายืนยันการดำเนินการบน Ledger ของคุณ
 Not all transfers were sent successfully: การโอนทั้งหมดยังไม่ส่งสำเร็จ
@@ -1226,6 +1247,15 @@ Enabling biometric confirmation will reset the passcode.: เปิดการ�
 Confirm action with your passcode: ยืนยันการดำเนินการด้วยรหัสผ่านของคุณ
 No Image: ไม่มีรูปภาพ
 Different blockchain. Cannot be selected: บล็อกเชนต่างกัน ไม่สามารถเลือกได้
+Chains: เครือข่าย
+enclave_use_biometrics: ใช้ไบโอเมทริกส์
+Copy Storage Data: คัดลอกข้อมูลที่เก็บ
+Rollback Migration: ย้อนกลับการโยกย้าย
+Enclave session expired: เซสชัน Enclave หมดอายุ
+Failed to setup auth: ตั้งค่าการรับรองตัวตนล้มเหลว
+Failed to setup biometric auth: ตั้งค่าการรับรองตัวตนด้วยไบโอเมทริกส์ล้มเหลว
+No enclave session token available: ไม่มีโทเค็นเซสชัน Enclave
+Missing authorization: ขาดการอนุญาต
 $address_suggestion_no_chain: ไม่มี %chain%
 Subwallets: วอลเล็ตย่อย
 Other addresses for this wallet: ที่อยู่อื่นสำหรับวอลเล็ตนี้
@@ -1254,7 +1284,6 @@ Deposit: ฝากเงิน
 Trade: เทรด
 Show All %collection_name%: แสดงทั้งหมด %collection_name%
 Scanning for subwallets...: กำลังสแกนหาวอลเล็ตย่อย...
-This process may take up to a minute. Please wait.: กระบวนการนี้อาจใช้เวลาถึงหนึ่งนาที กรุณารอสักครู่
 Your assets on other TON contracts: สินทรัพย์ของคุณบนสัญญา TON อื่น
 No existing subwallets found: ไม่พบวอลเล็ตย่อยที่มีอยู่
 You can create a new subwallet if you need another address on the same secret words.: คุณสามารถสร้างวอลเล็ตย่อยใหม่ได้หากต้องการที่อยู่อื่นบนคำลับเดียวกัน
@@ -1407,7 +1436,6 @@ Swap is not supported on this account.: บัญชีนี้ไม่รอ�
 Connecting your wallet: กำลังเชื่อมต่อกระเป๋าของคุณ
 Action is not possible on a view-only wallet.: ไม่สามารถทำรายการนี้ในกระเป๋าแบบดูข้อมูลเท่านั้น
 No matching chains: ไม่มีเครือข่ายที่รองรับ
-Select multichain wallet: เลือกกระเป๋ามัลติเชน
 Logged in with My Wallet: เข้าสู่ระบบด้วย My Wallet
 You have no apps connected to this wallet.: ยังไม่มีแอปที่เชื่อมกับกระเป๋านี้
 Asset: สินทรัพย์
@@ -1571,6 +1599,11 @@ $web_permission_location: ตำแหน่งที่ตั้ง
 $web_permission_device_features: ความสามารถของอุปกรณ์
 $web_permission_this_site: เว็บไซต์นี้
 
+$enclave_use_biometrics: ใช้ Biometrics
+$enclave_enter_passcode_or_use_biometrics: ใส่รหัสผ่านหรือใช้ลายนิ้วมือ
+$enclave_use_pin: ใช้รหัส PIN
+$enclave_cancel: ยกเลิก
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: ส่ง %amount% %symbol%
 push_activity_token_received: ได้รับ %amount% %symbol%
@@ -1596,23 +1629,31 @@ push_activity_dns_renewed: ต่ออายุ DNS แล้ว
 push_activity_subscription_started: เริ่มการสมัครสมาชิกแล้ว
 push_activity_subscription_payment_received: ได้รับการชำระค่าสมัครสมาชิก %amount% %symbol%
 push_activity_subscription_canceled: ยกเลิกการสมัครสมาชิกแล้ว
-push_activity_swap_completed: สลับ %from_symbol% -> %to_symbol% สำเร็จ
-push_activity_swap_failed: สลับ %from_symbol% -> %to_symbol% ล้มเหลว
-push_activity_swap_expired: สลับ %from_symbol% -> %to_symbol% หมดอายุ
-push_activity_swap_pending: สลับ %from_symbol% -> %to_symbol% %status%
+push_activity_swap_completed: สลับ %from_symbol% → %to_symbol% สำเร็จ
+push_activity_swap_failed: สลับ %from_symbol% → %to_symbol% ล้มเหลว
+push_activity_swap_expired: สลับ %from_symbol% → %to_symbol% หมดอายุ
+push_activity_swap_pending: สลับ %from_symbol% → %to_symbol% %status%
 push_activity_staking_profit: กำไรจากการสเตก %amount% GRAM
 push_activity_staking_loyalty_profit: กำไรจากความภักดีในการสเตก %amount% GRAM
 push_domain_title_renew: ต่ออายุโดเมนของคุณ
 push_domain_expired_yesterday: โดเมน %domain% ของคุณหมดอายุเมื่อวานนี้ โปรดต่ออายุโดยเร็วที่สุดเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
 push_domain_expired_days_ago: โดเมน %domain% ของคุณหมดอายุมาแล้ว %days% วัน โปรดต่ออายุโดยเร็วที่สุดเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+push_domain_expired_days_ago_number:
+  zeroValue: โดเมน %domain% ของคุณหมดอายุมาแล้ว %days% วัน โปรดต่ออายุโดยเร็วที่สุดเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+  oneValue: โดเมน %domain% ของคุณหมดอายุมาแล้ว %days% วัน โปรดต่ออายุโดยเร็วที่สุดเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+  otherValue: โดเมน %domain% ของคุณหมดอายุมาแล้ว %days% วัน โปรดต่ออายุโดยเร็วที่สุดเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
 push_domain_expires_today: โดเมน %domain% ของคุณจะหมดอายุวันนี้ โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
 push_domain_expires_tomorrow: โดเมน %domain% ของคุณจะหมดอายุพรุ่งนี้ โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
 push_domain_expires_in_days: โดเมน %domain% ของคุณจะหมดอายุในอีก %days% วัน โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+push_domain_expires_in_days_number:
+  zeroValue: โดเมน %domain% ของคุณจะหมดอายุในอีก %days% วัน โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+  oneValue: โดเมน %domain% ของคุณจะหมดอายุในอีก %days% วัน โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+  otherValue: โดเมน %domain% ของคุณจะหมดอายุในอีก %days% วัน โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
 
 $more_nfts:
   zeroValue: ไม่มี NFT
   oneValue: "+1 NFT"
-  otherValue: "+%1$d NFT"
+  otherValue: "+%count% NFT"
 
 $subwallets_hint: ใช้ subwallet เพื่อรับที่อยู่เพิ่มเติมโดยไม่ต้องสร้างคำลับใหม่
 $subwallets_created_wallets: หากคุณเคยสร้าง subwallet ไว้ก่อนหน้านี้ จะปรากฏในรายการด้านล่าง
@@ -1634,13 +1675,76 @@ Email: อีเมล
 Choose Token: เลือกโทเคน
 You don't have any eligible tokens for this payment: คุณไม่มีโทเคนที่ใช้ได้สำหรับการชำระเงินนี้
 Buy, swap, or receive a supported token to continue.: ซื้อ แลกเปลี่ยน หรือรับโทเคนที่รองรับเพื่อดำเนินการต่อ
+Copy Wallet Link: คัดลอกลิงก์วอลเล็ต
 Are you sure you want to cancel the payment?: คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการชำระเงิน?
 Cancel Payment: ยกเลิกการชำระเงิน
-Paid!: ชำระแล้ว!
+Paid: ชำระแล้ว
 Payment: การชำระเงิน
-Sent!: ส่งแล้ว!
 $chart_months_short: ม.ค.,ก.พ.,มี.ค.,เม.ย.,พ.ค.,มิ.ย.,ก.ค.,ส.ค.,ก.ย.,ต.ค.,พ.ย.,ธ.ค.
 $chart_week_days: วันอาทิตย์,วันจันทร์,วันอังคาร,วันพุธ,วันพฤหัสบดี,วันศุกร์,วันเสาร์
 $chart_week_days_short: อาทิตย์,จันทร์,อังคาร,พุธ,พฤหัส,ศุกร์,เสาร์
 Unsupported Chain: เครือข่ายที่ไม่รองรับ
 Please upgrade to multichain to use this app.: โปรดอัปเกรดเป็นกระเป๋ามัลติเชนเพื่อใช้งานแอปนี้
+Rounded Corners: มุมโค้งมน
+Enable Blur: เปิดใช้งานเอฟเฟกต์เบลอ
+App Font: แบบอักษรแอป
+Rounded Balance Font: แบบอักษรยอดคงเหลือแบบโค้งมน
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: การขายเข้าบัตรยังไม่รองรับบน Testnet.
+Selling to card is not supported for this account.: บัญชีนี้ไม่รองรับการขายเข้าบัตร
+"Why is %tokenName% %direction% %timeframe%?": "ทำไมราคา %tokenName% ถึง%direction%%timeframe%?"
+up: ขึ้น
+down: ลง
+today: วันนี้
+this week: สัปดาห์นี้
+this month: เดือนนี้
+Info: ข้อมูล
+Market: ตลาด
+Market Cap: มูลค่าตลาด
+Created: สร้างเมื่อ
+Expanded: ขยายแล้ว
+Collapsed: ยุบแล้ว
+Circulating / Total Supply: อุปทานหมุนเวียน / ทั้งหมด
+Circulating Supply: อุปทานหมุนเวียน
+Total Supply: อุปทานทั้งหมด
+Volume · 24h: ปริมาณ · 24 ชม.
+Token Info Mock: ข้อมูลโทเค็นจำลอง
+Design: ดีไซน์
+Localized Description: คำอธิบายที่แปลแล้ว
+Long / Sparse: ยาว / ไม่ครบ
+Loading: กำลังโหลด
+Missing Description: ไม่มีคำอธิบาย
+Missing Token Info: ไม่มีข้อมูลโทเค็น
+Website: เว็บไซต์
+Documentation: เอกสาร
+Source Code: ซอร์สโค้ด
+Translated from English: แปลจากภาษาอังกฤษ
+Show Original: แสดงต้นฉบับ
+Show Translation: แสดงคำแปล
+Original Text: ข้อความต้นฉบับ
+$token_info_market_cap_hint: มูลค่าตลาดรวมของอุปทานโทเค็นที่หมุนเวียนอยู่
+$token_info_supply_hint: จำนวนโทเค็นที่หมุนเวียนอยู่ในปัจจุบันเทียบกับอุปทานทั้งหมด
+$token_info_volume_hint: มูลค่ารวมที่ซื้อขายในช่วง 24 ชั่วโมงที่ผ่านมา
+$token_info_expand_hint: ขยายข้อมูลโทเค็น
+$token_info_collapse_hint: ยุบข้อมูลโทเค็น
+$token_info_open_in_browser_hint: เปิดในเบราว์เซอร์
+$token_info_fallback_description: ไม่มีข้อมูลสาธารณะ
+$token_info_no_description: ไม่มีคำอธิบาย
+$swap_cex_aml_kyc_policy_with_provider: AML/KYC ของ %provider%
+$enclave_migration_damaged_title: ข้อมูลกระเป๋าเงินเสียหาย
+$enclave_migration_damaged_message: |
+  ปัญหานี้ไม่ได้เกิดจากรหัสผ่าน ข้อมูลที่บันทึกไว้ของกระเป๋าเงินหนึ่งใบของคุณไม่สามารถอ่านได้ การอัปเดตจึงหยุดลง และกระเป๋าเงินอื่นของคุณยังคงอยู่ในรูปแบบเดิม
+
+  อย่าติดตั้งแอปใหม่และอย่าล้างข้อมูลของแอป เพราะจะเป็นการลบกระเป๋าเงินที่ยังสมบูรณ์อยู่ กรุณาติดต่อ %support_link% แล้วเราจะช่วยกู้คืนให้
+$enclave_migration_interrupted_title: การอัปเดตถูกขัดจังหวะ
+$enclave_migration_interrupted_message: |
+  ความพยายามอัปเดตข้อมูลกระเป๋าเงินก่อนหน้านี้หยุดกลางคัน และไม่สามารถดำเนินต่อจากหน้าจอนี้ได้ การลองใหม่ที่นี่จะไม่ช่วยอะไร
+
+  อย่าติดตั้งแอปใหม่และอย่าล้างข้อมูลของแอป กระเป๋าเงินของคุณยังคงถูกเก็บไว้ในอุปกรณ์นี้ กรุณาติดต่อ %support_link% แล้วเราจะช่วยดำเนินการอัปเดตให้เสร็จ
+$enclave_migration_storage_title: ไม่สามารถบันทึกข้อมูลกระเป๋าเงินได้
+$enclave_migration_storage_message: |
+  ไม่สามารถบันทึกข้อมูลกระเป๋าเงินที่อัปเดตแล้วลงในอุปกรณ์นี้ได้ การเพิ่มพื้นที่ว่างในดิสก์อาจช่วยได้
+
+  อย่าติดตั้งแอปใหม่และอย่าล้างข้อมูลของแอป กระเป๋าเงินของคุณยังคงถูกเก็บไว้ในอุปกรณ์ หากยังเกิดขึ้นอีก กรุณาติดต่อ %support_link%
+Hide Unverified NFTs: ซ่อน NFT ที่ยังไม่ได้ตรวจสอบ
+Unverified: ยังไม่ได้ตรวจสอบ

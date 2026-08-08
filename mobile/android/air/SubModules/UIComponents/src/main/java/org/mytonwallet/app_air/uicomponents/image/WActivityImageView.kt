@@ -6,6 +6,7 @@ import android.widget.ImageView
 import androidx.core.view.isGone
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -14,10 +15,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class WActivityImageView(context: Context, viewSize: Int) : WView(context),
+class WActivityImageView(context: Context, viewSize: Int) :
+    WView(context),
     org.mytonwallet.app_air.uicomponents.widgets.WThemedView {
 
     val imageView: WCustomImageView by lazy {
@@ -46,7 +47,8 @@ class WActivityImageView(context: Context, viewSize: Int) : WView(context),
 
     init {
         addView(
-            imageView, LayoutParams(
+            imageView,
+            LayoutParams(
                 viewSize,
                 viewSize
             )
@@ -95,7 +97,6 @@ class WActivityImageView(context: Context, viewSize: Int) : WView(context),
                 currentAnimationRes = content.subImageAnimation
                 animationView?.play(content.subImageAnimation, repeat = true) {}
             }
-
         } else {
             hideAnimationView()
         }

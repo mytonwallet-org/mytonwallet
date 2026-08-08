@@ -87,6 +87,7 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
             guard let section = self?.dataSource.sectionIdentifier(for: indexPath.section) else { return }
             var content = UIListContentConfiguration.groupedHeader()
             content.text = section.headerTitle
+            content.applyTextStyle(.sectionHeader, scaling: .dynamic)
             cell.contentConfiguration = content
         }
 
@@ -211,7 +212,7 @@ private struct WalletVersionsFooter: View {
             : lang("You have tokens on other versions of your wallet. You can import them from here.")
 
         Text(makeAttributedHint(hintText))
-            .font(.system(size: 13))
+            .textStyle(.footnote)
             .foregroundStyle(Color.air.secondaryLabel)
             .frame(maxWidth: .infinity, alignment: .leading)
             .environment(\.openURL, OpenURLAction { url in

@@ -1,12 +1,13 @@
 
 import Foundation
+import ProtectedAction
 import SwiftUI
 import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
 
-struct StakingConfirmHeaderView: View {
+struct StakingConfirmHeaderView: ConfirmationContent {
     
     enum Mode {
         case stake
@@ -26,6 +27,37 @@ struct StakingConfirmHeaderView: View {
             toView
         }
         .padding(.bottom, 12)
+    }
+
+    var compactRepresentation: some View {
+        CompactActionSummary {
+            WUIIconViewToken(
+                token: tokenAmount.token,
+                isWalletView: false,
+                showldShowChain: false,
+                size: 20,
+                chainSize: 0,
+                chainBorderWidth: 0,
+                chainHorizontalOffset: 0,
+                chainVerticalOffset: 0
+            )
+        } label: {
+            Text(compactAction + " ")
+                .textStyle(.body)
+                + Text(tokenAmount.formatted(.defaultAdaptive))
+                .textStyle(.bodyEmphasized, content: .technical)
+        }
+    }
+
+    private var compactAction: String {
+        switch mode {
+        case .stake:
+            lang("Stake")
+        case .unstake:
+            lang("Unstake")
+        case .claim:
+            lang("Claim")
+        }
     }
     
     @ViewBuilder
@@ -70,5 +102,6 @@ struct StakingConfirmHeaderView: View {
             lang("Accumulated Rewards")
         }
         Text(hint)
+            .textStyle(.body, scaling: .dynamic)
     }
 }

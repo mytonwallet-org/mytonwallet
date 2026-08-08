@@ -15,7 +15,7 @@ object DappsStore : IStore {
             put(accountId, apps)
         }
     }
-    /////
+    // ///
 
     fun removeAccount(accountId: String) {
         _dAppsFlow.value = _dAppsFlow.value.toMutableMap().apply {
@@ -30,5 +30,4 @@ object DappsStore : IStore {
     override fun clearCache() {
         _dAppsFlow.value = emptyMap()
     }
-
 }

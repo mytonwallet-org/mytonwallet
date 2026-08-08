@@ -16,7 +16,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 
-class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
+class ListTitleValueCell(context: Context) :
+    FrameLayout(context),
+    WThemedView {
 
     private val titleView = WLabel(context).apply {
         isSingleLine = true
@@ -42,7 +44,8 @@ class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
         setPaddingDp(20f, 17f, 20f, 0f)
         layoutParams = ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, 40.dp)
         addView(
-            titleView, LayoutParams(
+            titleView,
+            LayoutParams(
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {
@@ -50,7 +53,8 @@ class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
             }
         )
         addView(
-            valueView, LayoutParams(
+            valueView,
+            LayoutParams(
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {

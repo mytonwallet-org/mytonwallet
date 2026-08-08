@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.setPadding
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
@@ -19,7 +20,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class HeaderAndActionsView(
@@ -36,9 +36,9 @@ class HeaderAndActionsView(
     private val trinaryActionPressed: (() -> Unit)? = null,
     val headerPadding: Float = 0f,
     var onStarted: (() -> Unit)? = null,
-    val textsGap: Float = 21f,
-) :
-    WView(context, LayoutParams(0, WRAP_CONTENT)), WThemedView {
+    val textsGap: Float = 21f
+) : WView(context, LayoutParams(0, WRAP_CONTENT)),
+    WThemedView {
 
     sealed class Media {
         open val onClick: ((v: View) -> Unit)? = null
@@ -159,8 +159,7 @@ class HeaderAndActionsView(
 
     private var startedAnimation = false
     private fun startedNow() {
-        if (startedAnimation)
-            return
+        if (startedAnimation) return
         startedAnimation = true
         fadeIn()
         onStarted?.invoke()
@@ -169,8 +168,7 @@ class HeaderAndActionsView(
     private var lastToggle = true
     fun toggle(on: Boolean) {
         val headerAnimation = headerView as WAnimationView
-        if (lastToggle == on)
-            return
+        if (lastToggle == on) return
         lastToggle = on
         if (on) {
             if (headerAnimation.progress < 0.5) {

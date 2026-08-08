@@ -6,17 +6,19 @@
 
 .content {
   position: absolute;
-  top: -0.125rem;
-  right: 0.5rem;
+  top: 0;
+  inset-inline-end: 0.5rem;
 
   display: flex;
   gap: 0.25rem;
 
   font-size: 0.8125rem;
+  line-height: 1.125rem;
   color: var(--color-gray-1);
 }
 
 .amount {
+  unicode-bidi: plaintext;
   font-weight: 600;
 }
 

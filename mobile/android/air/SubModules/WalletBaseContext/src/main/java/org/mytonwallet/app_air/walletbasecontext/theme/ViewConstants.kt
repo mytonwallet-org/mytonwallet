@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletbasecontext.theme
 
+@Suppress("PropertyName")
 object ViewConstants {
     // Corner radius for tags
     var TAG_RADIUS = 8f

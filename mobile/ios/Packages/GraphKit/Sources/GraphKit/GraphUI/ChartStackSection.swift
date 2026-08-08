@@ -33,7 +33,7 @@ private class ChartHeaderButton: UIButton {
         var config = UIButton.Configuration.plain()
         config.title = title
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { _ in
-            AttributeContainer([.font: UIFont.systemFont(ofSize: 14, weight: .regular)])
+            AttributeContainer([.font: GraphTypography.supportingFont])
         }
         if let image {
             config.image = image
@@ -122,7 +122,7 @@ class ChartStackSection: UIView, ChartThemeContainer {
             title: "Zoom Out",
             image: UIImage(
                 systemName: "minus.magnifyingglass",
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+                withConfiguration: UIImage.SymbolConfiguration(font: GraphTypography.technicalSymbolFont)
             )?.withRenderingMode(.alwaysTemplate)
         )
         todayButton = ChartHeaderButton(title: "Today")
@@ -138,7 +138,7 @@ class ChartStackSection: UIView, ChartThemeContainer {
         sectionContainerView.addSubview(backButton)
         sectionContainerView.addSubview(todayButton)
 
-        titleLabel.font = UIFont.systemFont(ofSize: 14, weight: .bold)
+        titleLabel.font = GraphTypography.supportingBoldFont
         titleLabel.textAlignment = .center
         titleLabel.adjustsFontSizeToFitWidth = true
         titleLabel.minimumScaleFactor = 0.75
@@ -160,7 +160,7 @@ class ChartStackSection: UIView, ChartThemeContainer {
     override func awakeFromNib() {
         super.awakeFromNib()
         
-        titleLabel.font = UIFont.systemFont(ofSize: 14, weight: .bold)
+        titleLabel.font = GraphTypography.supportingBoldFont
         visibilityView.clipsToBounds = true
         backButton.isExclusiveTouch = true
         todayButton.isExclusiveTouch = true

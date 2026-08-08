@@ -57,12 +57,12 @@
 
     :global(body.is-media-viewer-open) & {
       overflow: hidden !important;
-      padding-right: var(--scrollbar-width);
+      padding-inline-end: var(--scrollbar-width);
     }
   }
 
   @include mixins.respond-above(xs) {
-    padding-left: 1rem;
+    padding-inline-start: 1rem;
   }
 }
 

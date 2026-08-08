@@ -6,7 +6,7 @@
   }
 
   &.right {
-    text-align: right;
+    text-align: end;
   }
 
   &.interactive {
@@ -17,6 +17,7 @@
 
 .wrapper,
 .content {
+  unicode-bidi: inherit;
   display: inline-block !important; // It's important to override the global .not-shown class
   width: max-content;
 
@@ -40,7 +41,7 @@
   height: 100%;
 
   &.left {
-    left: 0;
+    inset-inline-start: 0;
   }
 
   &.center {
@@ -49,7 +50,7 @@
   }
 
   &.right {
-    right: 0;
+    inset-inline-end: 0;
   }
 }
 

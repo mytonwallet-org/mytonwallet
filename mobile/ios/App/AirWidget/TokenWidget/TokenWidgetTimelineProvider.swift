@@ -21,11 +21,21 @@ struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
         _ = await store.reloadCache()
         
         let displayCurrency = await store.displayCurrency()
-        let tokens = await store.tokensDictionary(tryRemote: true)
-        let rates = await store.ratesDictionary()
+        let tokens = await store.tokensDictionary()
+        let cachedRates = await store.ratesDictionary()
         
         let selectedSlug = configuration.token.tokenSlug
-        let token = tokens[selectedSlug] ?? configuration.token.apiTokenFallback
+        let requestToken = tokens[selectedSlug] ?? configuration.token.apiTokenFallback
+
+        async let latestPrice = loadPrice(for: requestToken)
+        async let latestRates = loadCurrencyRates()
+
+        var token = requestToken
+        if let price = await latestPrice {
+            token.priceUsd = price.priceUsd
+            token.percentChange24h = price.percentChange24h
+        }
+        let rates = await latestRates ?? cachedRates
         
         let currencyRate = BaseCurrencyAmount.fromDouble(
             (token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? displayCurrency.fallbackExchangeRate),
@@ -50,5 +60,23 @@ struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
             currencyRate: currencyRate,
             changeInCurrency: changeInCurrency,
         )
+    }
+
+    private func loadPrice(for token: ApiToken) async -> WidgetAPI.TokenPrice? {
+        do {
+            return try await WidgetAPI.fetchPrice(for: token)
+        } catch {
+            print("loadEntry price: \(error)")
+            return nil
+        }
+    }
+
+    private func loadCurrencyRates() async -> [String: MDouble]? {
+        do {
+            return try await WidgetAPI.fetchCurrencyRates()
+        } catch {
+            print("loadEntry currencyRates: \(error)")
+            return nil
+        }
     }
 }

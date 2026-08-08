@@ -28,7 +28,7 @@ public struct ApiSubmitTransferOptions: ApiTransactionCommonOptions, Equatable, 
     
     // ApiSubmitGasfullTransferOptions
       /** Required only for mnemonic accounts */
-    public var password: String?
+    public var enclaveToken: EnclaveToken?
     /** To cap the fee in TRON transfers */
     public var fee: BigInt?
     public var noFeeCheck: Bool?
@@ -48,7 +48,7 @@ public struct ApiSubmitTransferOptions: ApiTransactionCommonOptions, Equatable, 
         dieselAmount: BigInt?,
         isGaslessWithStars: Bool?,
         gaslessTransaction: String?,
-        password: String?,
+        enclaveToken: EnclaveToken?,
         fee: BigInt?,
         noFeeCheck: Bool?
     ) {
@@ -63,7 +63,7 @@ public struct ApiSubmitTransferOptions: ApiTransactionCommonOptions, Equatable, 
         self.dieselAmount = dieselAmount
         self.isGaslessWithStars = isGaslessWithStars
         self.gaslessTransaction = gaslessTransaction
-        self.password = password
+        self.enclaveToken = enclaveToken
         self.fee = fee
         self.noFeeCheck = noFeeCheck
     }

@@ -1,21 +1,15 @@
 package org.mytonwallet.app_air.walletcore.models
 
+import java.math.BigInteger
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
-import org.mytonwallet.app_air.walletcore.BNB_SLUG
-import org.mytonwallet.app_air.walletcore.ETH_SLUG
-import org.mytonwallet.app_air.walletcore.HYPERLIQUID_SLUG
-import org.mytonwallet.app_air.walletcore.SOLANA_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
-import org.mytonwallet.app_air.walletcore.TRON_SLUG
-import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
-import org.mytonwallet.app_air.walletcore.TRON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.buildVirtualStakingSlug
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 data class MTokenBalance(
     val token: String?,
@@ -23,7 +17,7 @@ data class MTokenBalance(
     var toBaseCurrency: Double?,
     var toBaseCurrency24h: Double?,
     val toUsdBaseCurrency: Double?,
-    val isVirtualStakingRow: Boolean = false,
+    val isVirtualStakingRow: Boolean = false
 ) {
     val virtualStakingToken: String? = if (isVirtualStakingRow && token != null) {
         buildVirtualStakingSlug(token)
@@ -33,10 +27,7 @@ data class MTokenBalance(
 
     private val priorityOrder: Int get() = PRIORITY_ORDER.indexOf(token)
 
-    fun compareByDisplayOrder(
-        other: MTokenBalance,
-        ignorePriorities: Boolean = false,
-    ): Int {
+    fun compareByDisplayOrder(other: MTokenBalance, ignorePriorities: Boolean = false): Int {
         val thisValue = this.toBaseCurrency ?: this.toUsdBaseCurrency ?: 0.0
         val otherValue = other.toBaseCurrency ?: other.toUsdBaseCurrency ?: 0.0
 
@@ -85,21 +76,18 @@ data class MTokenBalance(
         private val GRAM_PRIORITY_ORDER = listOf(
             TONCOIN_SLUG,
             TON_USDT_SLUG,
-            TON_USDT_TESTNET_SLUG,
+            TON_USDT_TESTNET_SLUG
         )
 
-        private val MYTONWALLET_PRIORITY_ORDER = listOf(
-            ETH_SLUG,
-            SOLANA_SLUG,
-            TONCOIN_SLUG,
-            TRON_SLUG,
-            BNB_SLUG,
-            HYPERLIQUID_SLUG,
-        )
+        private val MYTONWALLET_PRIORITY_ORDER: List<String>
+            get() = MBlockchain.supportedChains.map { it.nativeSlug }
 
         private val PRIORITY_ORDER: List<String>
-            get() = if (ApplicationContextHolder.isGramApp) GRAM_PRIORITY_ORDER
-            else MYTONWALLET_PRIORITY_ORDER
+            get() = if (ApplicationContextHolder.isGramApp) {
+                GRAM_PRIORITY_ORDER
+            } else {
+                MYTONWALLET_PRIORITY_ORDER
+            }
 
         // Factory method to create an instance from JSON
         fun fromJson(json: JSONObject): MTokenBalance {
@@ -112,8 +100,7 @@ data class MTokenBalance(
         // Factory method to create an instance from separate parameters
         @JvmName("fromParametersNullable")
         fun fromParameters(token: MToken?, amount: BigInteger?): MTokenBalance? {
-            if (token == null || amount == null)
-                return null
+            if (token == null || amount == null) return null
             return fromParameters(token, amount)
         }
 
@@ -121,6 +108,7 @@ data class MTokenBalance(
             val toBaseCurrency =
                 when {
                     amount == BigInteger.ZERO -> 0.0
+
                     else -> {
                         token.price?.let { amount.doubleAbsRepresentation(token.decimals) * it }
                             ?.let {
@@ -133,7 +121,10 @@ data class MTokenBalance(
                     if (it.isFinite()) it else null
                 }
             val toBaseCurrency24h =
-                priceYesterday?.let { amount.doubleAbsRepresentation(token.decimals) * priceYesterday }
+                priceYesterday?.let {
+                    amount.doubleAbsRepresentation(token.decimals) *
+                        priceYesterday
+                }
                     ?.let {
                         if (it.isFinite()) it else null
                     }
@@ -150,11 +141,10 @@ data class MTokenBalance(
             )
         }
 
-        fun fromVirtualStakingData(baseToken: MToken, amount: BigInteger): MTokenBalance {
-            return fromParameters(baseToken, amount).copy(
+        fun fromVirtualStakingData(baseToken: MToken, amount: BigInteger): MTokenBalance =
+            fromParameters(baseToken, amount).copy(
                 token = baseToken.slug,
                 isVirtualStakingRow = true
             )
-        }
     }
 }

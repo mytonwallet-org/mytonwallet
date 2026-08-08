@@ -7,9 +7,10 @@ import React, {
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiNft } from '../../api/types';
-import { MediaType } from '../../global/types';
+import { type HiddenNftsSection, MediaType } from '../../global/types';
 
 import { ANIMATION_END_DELAY } from '../../config';
+import { getIsNftVisible } from '../../global/helpers/nfts';
 import { selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
@@ -32,18 +33,21 @@ import styles from './MediaViewer.module.scss';
 interface StateProps {
   mediaId?: string;
   txId?: string;
-  hiddenNfts?: 'user' | 'scam';
+  hiddenNfts?: HiddenNftsSection;
   noGhostAnimation?: boolean;
   mediaIds: string[];
   mediaUrl?: string;
   mediaType: MediaType;
   mediaByIds?: Record<string, ApiNft>;
   blacklistedIds: string[];
+  whitelistedIds: string[];
+  areUnverifiedNftsHidden?: boolean;
   withAnimation: boolean;
 }
 
 function MediaViewer({
-  mediaId, mediaIds, mediaType, mediaUrl, withAnimation, mediaByIds, blacklistedIds, txId, hiddenNfts, noGhostAnimation,
+  mediaId, mediaIds, mediaType, mediaUrl, withAnimation, mediaByIds, blacklistedIds, whitelistedIds,
+  areUnverifiedNftsHidden, txId, hiddenNfts, noGhostAnimation,
 }: StateProps) {
   const { closeMediaViewer, openMediaViewer } = getActions();
 
@@ -60,11 +64,14 @@ function MediaViewer({
   const handleClose = useLastCallback(() => closeMediaViewer());
 
   const renderedMediaIds = useMemo(() => {
+    const blacklistedSet = new Set(blacklistedIds);
+    const whitelistedSet = new Set(whitelistedIds);
+
     return mediaIds.filter((id) => {
       const media = mediaByIds?.[id];
-      return media && !media.isHidden && !blacklistedIds.includes(id);
+      return media && getIsNftVisible(media, blacklistedSet, whitelistedSet, areUnverifiedNftsHidden);
     });
-  }, [blacklistedIds, mediaByIds, mediaIds]);
+  }, [areUnverifiedNftsHidden, blacklistedIds, mediaByIds, mediaIds, whitelistedIds]);
   const selectedMediaIndex = renderedMediaIds.indexOf(mediaId!);
 
   const getMediaId = useLastCallback((fromId?: string, direction?: number): string | undefined => {
@@ -142,16 +149,20 @@ export default memo(withGlobal((global): StateProps => {
   let mediaUrl: string | undefined;
   let mediaByIds: Record<string, ApiNft> | undefined;
   let blacklistedIds: string[] = MEMO_EMPTY_ARRAY;
+  let whitelistedIds: string[] = MEMO_EMPTY_ARRAY;
 
   if (mediaType === MediaType.Nft) {
     const { orderedAddresses, byAddress } = accountState?.nfts || {};
-    const { blacklistedNftAddresses } = accountState || {};
+    const { blacklistedNftAddresses, whitelistedNftAddresses } = accountState || {};
     const nft = byAddress?.[mediaId!];
     mediaUrl = (!nft?.metadata?.lottie && nft?.image) || nft?.thumbnail;
     mediaIds = orderedAddresses || MEMO_EMPTY_ARRAY;
     mediaByIds = byAddress;
     if (blacklistedNftAddresses?.length) {
       blacklistedIds = blacklistedNftAddresses;
+    }
+    if (whitelistedNftAddresses?.length) {
+      whitelistedIds = whitelistedNftAddresses;
     }
   }
 
@@ -165,6 +176,8 @@ export default memo(withGlobal((global): StateProps => {
     mediaUrl,
     mediaByIds,
     blacklistedIds,
+    whitelistedIds,
+    areUnverifiedNftsHidden: global.settings?.areUnverifiedNftsHidden,
     withAnimation: animationLevel > 0,
   };
 })(MediaViewer));

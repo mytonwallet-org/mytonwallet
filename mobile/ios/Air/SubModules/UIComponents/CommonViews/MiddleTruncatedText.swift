@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import WalletContext
 
 public struct MiddleTruncatedText: UIViewRepresentable {
     private let text: String
@@ -11,7 +12,7 @@ public struct MiddleTruncatedText: UIViewRepresentable {
 
     public init(
         _ text: String,
-        font: UIFont = .systemFont(ofSize: 17),
+        font: UIFont = WTypography.uiFont(.body, content: .technical),
         separator: String = "···",
         textColor: Color? = nil,
         separatorColor: Color? = nil,

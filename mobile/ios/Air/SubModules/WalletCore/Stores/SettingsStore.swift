@@ -82,6 +82,16 @@ public final class SettingsStore: Sendable {
         }
     }
 
+    public var areUnverifiedNftsHidden: Bool {
+        _row.withLock { $0.areUnverifiedNftsHidden }
+    }
+
+    public func setAreUnverifiedNftsHidden(_ areUnverifiedNftsHidden: Bool) {
+        update {
+            $0.areUnverifiedNftsHidden = areUnverifiedNftsHidden
+        }
+    }
+
     public var areTokensWithNoCostHidden: Bool {
         _row.withLock { $0.areTokensWithNoCostHidden }
     }
@@ -89,6 +99,16 @@ public final class SettingsStore: Sendable {
     public func setAreTokensWithNoCostHidden(_ areTokensWithNoCostHidden: Bool) {
         update {
             $0.areTokensWithNoCostHidden = areTokensWithNoCostHidden
+        }
+    }
+
+    public var useLocalizedTokenNames: Bool {
+        _row.withLock { $0.useLocalizedTokenNames }
+    }
+
+    public func setUseLocalizedTokenNames(_ useLocalizedTokenNames: Bool) {
+        update {
+            $0.useLocalizedTokenNames = useLocalizedTokenNames
         }
     }
 
@@ -154,6 +174,16 @@ public final class SettingsStore: Sendable {
     public func setIsTokenChartExpanded(_ isExpanded: Bool) {
         update {
             $0.isTokenChartExpanded = isExpanded
+        }
+    }
+
+    public var isTokenInfoExpanded: Bool {
+        _row.withLock { $0.isTokenInfoExpanded }
+    }
+
+    public func setIsTokenInfoExpanded(_ isExpanded: Bool) {
+        update {
+            $0.isTokenInfoExpanded = isExpanded
         }
     }
 

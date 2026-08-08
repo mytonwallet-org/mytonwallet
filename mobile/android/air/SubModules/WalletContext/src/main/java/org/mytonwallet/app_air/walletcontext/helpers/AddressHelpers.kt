@@ -6,9 +6,8 @@ import java.nio.charset.StandardCharsets
 class AddressHelpers {
     companion object {
 
-        private fun urlEncodedStringFromString(input: String): String {
-            return URLEncoder.encode(input, StandardCharsets.UTF_8.toString())
-        }
+        private fun urlEncodedStringFromString(input: String): String =
+            URLEncoder.encode(input, StandardCharsets.UTF_8.toString())
 
         fun walletInvoiceUrl(
             address: String,
@@ -62,8 +61,7 @@ class AddressHelpers {
             return true
         }
 
-        fun isFriendlyAddressBounceable(friendlyAddress: String): Boolean {
-            return friendlyAddress.startsWith("E")
-        }
+        fun isFriendlyAddressBounceable(friendlyAddress: String): Boolean =
+            friendlyAddress.startsWith("E")
     }
 }

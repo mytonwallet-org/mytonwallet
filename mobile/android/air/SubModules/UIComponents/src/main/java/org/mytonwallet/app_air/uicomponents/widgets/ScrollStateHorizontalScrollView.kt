@@ -17,9 +17,7 @@ import android.widget.HorizontalScrollView
 // framework's HorizontalScrollView.onLayout() snaps scrollX back to 0; the position then sticks
 // at 0 once the view returns to its narrower width. We remember the user's intended position and
 // re-apply it on every layout pass (clamped to that pass's range), so the narrow pass restores it.
-open class ScrollStateHorizontalScrollView(
-    context: Context
-) : HorizontalScrollView(context) {
+open class ScrollStateHorizontalScrollView(context: Context) : HorizontalScrollView(context) {
 
     companion object {
         const val SCROLL_STATE_IDLE = 0
@@ -67,7 +65,6 @@ open class ScrollStateHorizontalScrollView(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
-
             MotionEvent.ACTION_DOWN -> {
                 scrollStateHandler.removeCallbacks(scrollStateRunnable)
                 setScrollState(SCROLL_STATE_DRAGGING)

@@ -16,7 +16,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
 class ExploreTitleCell(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(28f, WFont.Medium)
@@ -48,5 +49,4 @@ class ExploreTitleCell(context: Context) :
         titleLabel.text = title
         updateTheme()
     }
-
 }

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -13,9 +12,11 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -36,11 +37,11 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
-    WCell(context, LayoutParams(cellWidth, (cellWidth / RATIO).roundToInt())), WThemedView {
+    WCell(context, LayoutParams(cellWidth, (cellWidth / RATIO).roundToInt())),
+    WThemedView {
 
     companion object {
         const val RATIO = 274 / 176f
@@ -189,14 +190,17 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
         cardNft?.let {
             balanceView.alpha = 0.95f
             textShader = LinearGradient(
-                0f, 0f,
-                width.toFloat(), 0f,
+                0f,
+                0f,
+                width.toFloat(),
+                0f,
                 intArrayOf(
                     secondaryColor,
                     primaryColor,
-                    secondaryColor,
+                    secondaryColor
                 ),
-                null, Shader.TileMode.CLAMP
+                null,
+                Shader.TileMode.CLAMP
             )
         } ?: run {
             balanceView.alpha = 1f
@@ -213,7 +217,10 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
         }
         val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.walletCustomizationViewStyle
-            MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.walletCustomizationHardwareStyle
+
+            MAccount.AccountType.HARDWARE ->
+                WMultichainAddressLabel.walletCustomizationHardwareStyle
+
             else -> WMultichainAddressLabel.walletCustomizationStyle
         }
         addressLabel.displayAddresses(account, style)

@@ -42,13 +42,13 @@ data class ChartStyle(
     @ColorInt
     val checkBoxTextColor: Int,
     val useTokenChartPickerResources: Boolean = false,
-    val linePalette: Map<String, LinePalette> = emptyMap(),
+    val linePalette: Map<String, LinePalette> = emptyMap()
 ) {
     data class LinePalette(
         @ColorInt
         val color: Int,
         @ColorInt
-        val darkColor: Int = ChartFormatters.defaultDarkLineColor(color),
+        val darkColor: Int = ChartFormatters.defaultDarkLineColor(color)
     )
 
     @ColorInt
@@ -61,20 +61,18 @@ data class ChartStyle(
         }
     }
 
-    fun createTooltipBackground(cornerRadius: Float): WRippleDrawable {
-        return WRippleDrawable.create(cornerRadius).apply {
+    fun createTooltipBackground(cornerRadius: Float): WRippleDrawable =
+        WRippleDrawable.create(cornerRadius).apply {
             backgroundColor = tooltipBackgroundColor
             rippleColor = tooltipRippleColor
         }
-    }
 
-    fun createPickerMaskBackground(cornerRadius: Float): GradientDrawable {
-        return GradientDrawable().apply {
+    fun createPickerMaskBackground(cornerRadius: Float): GradientDrawable =
+        GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             this.cornerRadius = cornerRadius
             setColor(backgroundColor)
         }
-    }
 
     companion object {
         fun default(isDark: Boolean = ThemeManager.isDark): ChartStyle {
@@ -109,7 +107,7 @@ data class ChartStyle(
                     if (isDark) 0.1f else 0.06f
                 ),
                 checkBoxTextColor = WColor.White.color,
-                useTokenChartPickerResources = true,
+                useTokenChartPickerResources = true
             )
         }
     }

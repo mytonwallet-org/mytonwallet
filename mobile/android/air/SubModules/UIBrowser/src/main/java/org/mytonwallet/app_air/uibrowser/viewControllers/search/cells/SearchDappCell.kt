@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.search.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
@@ -10,6 +9,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -27,7 +27,8 @@ import org.mytonwallet.app_air.walletcore.moshi.IDapp
 
 @SuppressLint("ViewConstructor")
 class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit) :
-    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)),
+    WThemedView {
 
     private val openButtonRipple = WRippleDrawable.create(16f.dp)
     private val ripple = WRippleDrawable.create(0f)
@@ -140,12 +141,18 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
                 drawable.setTint(WColor.PrimaryText.color.colorWithAlpha(50))
                 drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
                 titleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                    null, null, drawable, null
+                    null,
+                    null,
+                    drawable,
+                    null
                 )
             }
         } else {
             titleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                null, null, null, null
+                null,
+                null,
+                null,
+                null
             )
         }
         val currentRipple = if (isLastItem) rippleLastItem else ripple
@@ -153,5 +160,4 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
         currentRipple.backgroundColor = WColor.Background.color
         currentRipple.rippleColor = WColor.BackgroundRipple.color
     }
-
 }

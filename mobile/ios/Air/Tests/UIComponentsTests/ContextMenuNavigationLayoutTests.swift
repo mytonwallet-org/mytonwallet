@@ -6,6 +6,39 @@ import UIKit
 @MainActor
 struct ContextMenuNavigationLayoutTests {
     @Test
+    func `outside taps use the visible panel with an eight point safety margin`() throws {
+        let fixture = try self.makeFixture(
+            sourceRect: CGRect(x: 145, y: 150, width: 100, height: 40),
+            rootActionCount: 3,
+            submenuActionCount: 1
+        )
+        let panelFrame = fixture.navigationView.frame.insetBy(
+            dx: fixture.style.panelInset,
+            dy: fixture.style.panelInset
+        )
+
+        let protectedPoints = [
+            CGPoint(x: panelFrame.minX - 7, y: panelFrame.midY),
+            CGPoint(x: panelFrame.maxX + 7, y: panelFrame.midY),
+            CGPoint(x: panelFrame.midX, y: panelFrame.minY - 7),
+            CGPoint(x: panelFrame.midX, y: panelFrame.maxY + 7),
+        ]
+        for point in protectedPoints {
+            #expect(!fixture.overlayView.shouldDismissMenu(at: point))
+        }
+
+        let outsidePoints = [
+            CGPoint(x: panelFrame.minX - 9, y: panelFrame.midY),
+            CGPoint(x: panelFrame.maxX + 9, y: panelFrame.midY),
+            CGPoint(x: panelFrame.midX, y: panelFrame.minY - 9),
+            CGPoint(x: panelFrame.midX, y: panelFrame.maxY + 9),
+        ]
+        for point in outsidePoints {
+            #expect(fixture.overlayView.shouldDismissMenu(at: point))
+        }
+    }
+
+    @Test
     func `short submenu push and pop remain above the source without changing the animation anchor`() async throws {
         let fixture = try self.makeFixture(
             sourceRect: CGRect(x: 145, y: 500, width: 100, height: 40),
@@ -89,12 +122,13 @@ struct ContextMenuNavigationLayoutTests {
             .separator,
         ] + self.actions(count: submenuActionCount))
         let submenu = ContextMenuSubmenu(title: "Submenu") { submenuPage }
+        let style = ContextMenuStyle(minWidth: 220, maxWidth: 220)
         let configuration = ContextMenuConfiguration(
             rootPage: ContextMenuPage(
                 items: [.submenu(submenu)] + self.actions(count: rootActionCount)
             ),
             backdrop: .none,
-            style: ContextMenuStyle(minWidth: 220, maxWidth: 220)
+            style: style
         )
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         let overlayView = ContextMenuOverlayView(
@@ -125,7 +159,8 @@ struct ContextMenuNavigationLayoutTests {
             overlayView: overlayView,
             navigationView: navigationView,
             rootPageView: rootPageView,
-            submenuPage: submenuPage
+            submenuPage: submenuPage,
+            style: style
         )
     }
 
@@ -156,5 +191,6 @@ struct ContextMenuNavigationLayoutTests {
         let navigationView: ContextMenuNavigationView
         let rootPageView: ContextMenuPageView
         let submenuPage: ContextMenuPage
+        let style: ContextMenuStyle
     }
 }

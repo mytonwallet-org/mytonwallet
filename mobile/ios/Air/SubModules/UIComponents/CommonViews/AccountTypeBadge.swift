@@ -44,7 +44,7 @@ public struct AccountTypeBadge: View {
             Image.airBundle("ViewBadge")
                 .offset(y: 0.667)
             Text(lang("$view_mode"))
-                .font(.system(size: 12, weight: .semibold))
+                .textStyle(.captionStrong)
         }
         .offset(y: -0.333)
         .opacity(increasedOpacity ? 1 : 0.75)

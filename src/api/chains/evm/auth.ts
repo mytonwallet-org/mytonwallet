@@ -19,6 +19,7 @@ import { fetchStoredAccount } from '../../common/accounts';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { getMnemonic } from '../../common/mnemonic';
 import { bytesToHex } from '../../common/utils';
+import { isWalletDiscoveryRecoverableTransportError } from '../../errors';
 import { isValidAddress } from './address';
 import { EVM_DERIVATION_PATHS } from './constants';
 import { getWalletBalance, getWalletLastTransaction } from './wallet';
@@ -74,12 +75,12 @@ function getWalletVariantForPath(
 export async function fetchPrivateKeyString(
   chain: EVMChain,
   accountId: string,
-  password: string,
+  enclaveToken: string,
   account?: ApiAccountWithMnemonic,
 ) {
   try {
     account = account ?? (await fetchStoredAccount<ApiAccountWithMnemonic>(accountId));
-    const mnemonic = await getMnemonic(accountId, password, account);
+    const mnemonic = await getMnemonic(accountId, enclaveToken);
     if (!mnemonic) {
       return undefined;
     }
@@ -106,7 +107,7 @@ export async function getWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
   derivation?: ApiDerivation,
-  isMigration?: boolean,
+  shouldSkipDiscovery?: boolean,
 ): Promise<ApiEVMWallet[]> {
   const phrase = mnemonic.join(' ');
   const mnemonicObj = Mnemonic.fromPhrase(phrase);
@@ -127,7 +128,7 @@ export async function getWalletFromBip39Mnemonic(
     }];
   }
 
-  const raws = await pickBestWallets(network, chain, mnemonicObj, isMigration);
+  const raws = await pickBestWallets(network, chain, mnemonicObj, shouldSkipDiscovery);
 
   return raws.map((raw) => ({
     address: raw.address,
@@ -249,7 +250,7 @@ async function getRawWalletFromBip39Mnemonic(
   chain: EVMChain,
   mnemonic: string[],
   derivation?: ApiDerivation,
-  isMigration?: boolean,
+  shouldSkipDiscovery?: boolean,
 ): Promise<EvmWalletRaw> {
   const phrase = mnemonic.join(' ');
 
@@ -259,7 +260,7 @@ async function getRawWalletFromBip39Mnemonic(
     return getWalletVariantForPath(mnemonicObj, derivation.path, derivation.index, derivation.label);
   }
 
-  return await pickBestWallet(network, chain, mnemonicObj, isMigration);
+  return await pickBestWallet(network, chain, mnemonicObj, shouldSkipDiscovery);
 }
 
 /**
@@ -269,7 +270,7 @@ async function pickBestWallets(
   network: ApiNetwork,
   chain: EVMChain,
   mnemonic: Mnemonic,
-  isMigration?: boolean,
+  shouldSkipDiscovery?: boolean,
 ): Promise<EvmWalletRaw[]> {
   const variants = getWalletVariantsByPath(mnemonic);
 
@@ -278,7 +279,7 @@ async function pickBestWallets(
     throw new Error('EVM: no wallet variants');
   }
 
-  if (isMigration) {
+  if (shouldSkipDiscovery) {
     return [defaultWallet];
   }
 
@@ -298,6 +299,8 @@ async function pickBestWallets(
 
     return [defaultWallet];
   } catch (err) {
+    if (!isWalletDiscoveryRecoverableTransportError(err)) throw err;
+
     logDebugError(`evm:${chain}:pickBestWallets`, err);
     return [defaultWallet];
   }
@@ -327,14 +330,14 @@ export async function pickBestWallet(
   network: ApiNetwork,
   chain: EVMChain,
   mnemonic: Mnemonic,
-  isMigration?: boolean,
+  shouldSkipDiscovery?: boolean,
 ): Promise<EvmWalletRaw> {
   const variants = getWalletVariantsByPath(mnemonic);
 
   const defaultWallet
     = variants.find((v) => v.path === EVM_DERIVATION_PATHS.default)!;
 
-  if (isMigration) {
+  if (shouldSkipDiscovery) {
     return defaultWallet;
   }
 

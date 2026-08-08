@@ -131,7 +131,8 @@ public final class WalletAssetsTabContextMenuProviders {
             sourcePortal: ContextMenuSourcePortal(
                 sourceViewProvider: sourceViewProvider,
                 mask: .roundedAttachmentRect(cornerRadius: 12.0, cornerCurve: .circular),
-                showsBackdropCutout: true
+                showsBackdropCutout: true,
+                appliesRightToLeftTransformCorrection: false
             ),
             configuration: {
                 var menuConfiguration = configuration()

@@ -7,9 +7,8 @@ import android.graphics.Paint
 import kotlin.math.max
 import kotlin.math.min
 
-class DoubleLinearChartView(
-    context: Context
-) : BaseChartView<DoubleLinearChartData, LineViewData>(context) {
+class DoubleLinearChartView(context: Context) :
+    BaseChartView<DoubleLinearChartData, LineViewData>(context) {
 
     override fun init() {
         useMinHeight = true
@@ -29,12 +28,14 @@ class DoubleLinearChartView(
                 transitionAlpha = if (params.progress > 0.5f) 0f else 1f - params.progress * 2f
                 canvas.scale(1 + 2 * params.progress, 1f, params.pX, params.pY)
             }
+
             TRANSITION_MODE_CHILD -> {
                 val params = transitionParams ?: return
                 transitionAlpha = if (params.progress < 0.3f) 0f else params.progress
                 canvas.save()
                 canvas.scale(params.progress, params.progress, params.pX, params.pY)
             }
+
             TRANSITION_MODE_ALPHA_ENTER -> transitionAlpha = transitionParams?.progress ?: 1f
         }
 
@@ -51,9 +52,14 @@ class DoubleLinearChartView(
             for (i in localStart..localEnd) {
                 if (y[i] < 0) continue
                 val xPoint = data.xPercentage[i] * fullWidth - offset
-                val yPercentage = (y[i] * data.linesK[k] - currentMinHeight) / (currentMaxHeight - currentMinHeight)
+                val yPercentage =
+                    (y[i] * data.linesK[k] - currentMinHeight) /
+                        (currentMaxHeight - currentMinHeight)
                 val padding = line.paint.strokeWidth / 2f
-                val yPoint = measuredHeight - chartBottom - padding - yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT - padding)
+                val yPoint =
+                    measuredHeight - chartBottom - padding -
+                        yPercentage *
+                        (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT - padding)
                 if (USE_LINES) {
                     if (j == 0) {
                         line.linesPath[j++] = xPoint
@@ -71,9 +77,17 @@ class DoubleLinearChartView(
                     line.chartPath.lineTo(xPoint, yPoint)
                 }
             }
-            line.paint.strokeCap = if (endXIndex - startXIndex > 100) Paint.Cap.SQUARE else Paint.Cap.ROUND
+            line.paint.strokeCap =
+                if (endXIndex - startXIndex > 100) Paint.Cap.SQUARE else Paint.Cap.ROUND
             line.paint.alpha = (255 * line.alpha * transitionAlpha).toInt()
-            if (!USE_LINES) canvas.drawPath(line.chartPath, line.paint) else canvas.drawLines(line.linesPath, 0, j, line.paint)
+            if (!USE_LINES) {
+                canvas.drawPath(
+                    line.chartPath,
+                    line.paint
+                )
+            } else {
+                canvas.drawLines(line.linesPath, 0, j, line.paint)
+            }
         }
 
         canvas.restore()
@@ -112,8 +126,16 @@ class DoubleLinearChartView(
             }
             line.linesPathBottomSize = j
             line.bottomLinePaint.alpha = (255 * line.alpha).toInt()
-            if (USE_LINES) canvas.drawLines(line.linesPathBottom, 0, line.linesPathBottomSize, line.bottomLinePaint)
-            else canvas.drawPath(line.bottomLinePath, line.bottomLinePaint)
+            if (USE_LINES) {
+                canvas.drawLines(
+                    line.linesPathBottom,
+                    0,
+                    line.linesPathBottomSize,
+                    line.bottomLinePaint
+                )
+            } else {
+                canvas.drawPath(line.bottomLinePath, line.bottomLinePaint)
+            }
         }
     }
 
@@ -128,8 +150,12 @@ class DoubleLinearChartView(
         canvas.drawLine(xPoint, 0f, xPoint, chartArea.bottom, selectedLinePaint)
         for ((i, line) in lines.withIndex()) {
             if (!line.enabled && line.alpha == 0f) continue
-            val yPercentage = (line.line.y[selectedIndex] * data.linesK[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight)
-            val yPoint = measuredHeight - chartBottom - yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT)
+            val yPercentage =
+                (line.line.y[selectedIndex] * data.linesK[i] - currentMinHeight) /
+                    (currentMaxHeight - currentMinHeight)
+            val yPoint =
+                measuredHeight - chartBottom -
+                    yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT)
             line.selectionPaint.alpha = (255 * line.alpha * selectionA).toInt()
             selectionBackgroundPaint.alpha = (255 * line.alpha * selectionA).toInt()
             canvas.drawPoint(xPoint, yPoint, line.selectionPaint)
@@ -156,14 +182,25 @@ class DoubleLinearChartView(
         val chartHeight = measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT
         val textOffset = (SIGNATURE_TEXT_HEIGHT - signaturePaint.textSize).toInt()
         for (i in 0 until n) {
-            val y = (measuredHeight - chartBottom) - chartHeight * ((a.values[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight))
+            val y =
+                (measuredHeight - chartBottom) -
+                    chartHeight *
+                    ((a.values[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight))
             if (a.valuesStr != null && lines.isNotEmpty()) {
                 if (a.valuesStr2 == null || lines.size < 2) {
                     signaturePaint.color = style.signatureColor
-                    signaturePaint.alpha = (a.alpha * signaturePaintAlpha * transitionAlpha * additionalOutAlpha).toInt()
+                    signaturePaint.alpha =
+                        (
+                            a.alpha * signaturePaintAlpha * transitionAlpha *
+                                additionalOutAlpha
+                            ).toInt()
                 } else {
                     signaturePaint.color = lines[leftIndex].lineColor
-                    signaturePaint.alpha = (a.alpha * lines[leftIndex].alpha * transitionAlpha * additionalOutAlpha).toInt()
+                    signaturePaint.alpha =
+                        (
+                            a.alpha * lines[leftIndex].alpha * transitionAlpha *
+                                additionalOutAlpha
+                            ).toInt()
                 }
                 drawHorizontalLineSignature(
                     canvas = canvas,
@@ -172,12 +209,16 @@ class DoubleLinearChartView(
                     index = i,
                     x = HORIZONTAL_PADDING,
                     y = y - textOffset,
-                    paint = signaturePaint,
+                    paint = signaturePaint
                 )
             }
             if (a.valuesStr2 != null && lines.size > 1) {
                 signaturePaint2.color = lines[rightIndex].lineColor
-                signaturePaint2.alpha = (a.alpha * lines[rightIndex].alpha * transitionAlpha * additionalOutAlpha).toInt()
+                signaturePaint2.alpha =
+                    (
+                        a.alpha * lines[rightIndex].alpha * transitionAlpha *
+                            additionalOutAlpha
+                        ).toInt()
                 drawHorizontalLineSignature(
                     canvas = canvas,
                     linesData = a,
@@ -185,19 +226,27 @@ class DoubleLinearChartView(
                     index = i,
                     x = measuredWidth - HORIZONTAL_PADDING,
                     y = y - textOffset,
-                    paint = signaturePaint2,
+                    paint = signaturePaint2
                 )
             }
         }
     }
 
-    override fun createLineViewData(line: ChartData.Line): LineViewData = LineViewData(line, false, style)
+    override fun createLineViewData(line: ChartData.Line): LineViewData =
+        LineViewData(line, false, style)
 
     override fun findMaxValue(startXIndex: Int, endXIndex: Int): Long {
         if (lines.isEmpty()) return 0
         var maxValue = 0L
         for (i in lines.indices) {
-            val localMax = if (lines[i].enabled) (chartData!!.lines[i].segmentTree!!.rMaxQ(startXIndex, endXIndex) * chartData!!.linesK[i]).toLong() else 0L
+            val localMax = if (lines[i].enabled) {
+                (
+                    chartData!!.lines[i].segmentTree!!.rMaxQ(startXIndex, endXIndex) *
+                        chartData!!.linesK[i]
+                    ).toLong()
+            } else {
+                0L
+            }
             if (localMax > maxValue) maxValue = localMax
         }
         return maxValue
@@ -207,7 +256,14 @@ class DoubleLinearChartView(
         if (lines.isEmpty()) return 0
         var minValue = Long.MAX_VALUE
         for (i in lines.indices) {
-            val localMin = if (lines[i].enabled) (chartData!!.lines[i].segmentTree!!.rMinQ(startXIndex, endXIndex) * chartData!!.linesK[i]).toLong() else Int.MAX_VALUE.toLong()
+            val localMin = if (lines[i].enabled) {
+                (
+                    chartData!!.lines[i].segmentTree!!.rMinQ(startXIndex, endXIndex) *
+                        chartData!!.linesK[i]
+                    ).toLong()
+            } else {
+                Int.MAX_VALUE.toLong()
+            }
             if (localMin < minValue) minValue = localMin
         }
         return minValue
@@ -229,16 +285,27 @@ class DoubleLinearChartView(
         if (maxValue > 0 && maxValue.toFloat() != animatedToPickerMaxHeight) {
             animatedToPickerMaxHeight = maxValue.toFloat()
             pickerAnimator?.cancel()
-            pickerAnimator = createAnimator(pickerMaxHeight, animatedToPickerMaxHeight, ValueAnimator.AnimatorUpdateListener { animation ->
-                pickerMaxHeight = animation.animatedValue as Float
-                invalidatePickerChart = true
-                invalidate()
-            }).apply { start() }
+            pickerAnimator =
+                createAnimator(
+                    pickerMaxHeight,
+                    animatedToPickerMaxHeight,
+                    ValueAnimator.AnimatorUpdateListener { animation ->
+                        pickerMaxHeight = animation.animatedValue as Float
+                        invalidatePickerChart = true
+                        invalidate()
+                    }
+                ).apply { start() }
         }
     }
 
-    override fun createHorizontalLinesData(newMaxHeight: Long, newMinHeight: Long, formatter: Int): ChartHorizontalLinesData {
-        val data = chartData ?: return super.createHorizontalLinesData(newMaxHeight, newMinHeight, formatter)
+    override fun createHorizontalLinesData(
+        newMaxHeight: Long,
+        newMinHeight: Long,
+        formatter: Int
+    ): ChartHorizontalLinesData {
+        val data =
+            chartData
+                ?: return super.createHorizontalLinesData(newMaxHeight, newMinHeight, formatter)
         val k = if (data.linesK.size < 2) 1f else data.linesK[if (data.linesK[0] == 1f) 1 else 0]
         return ChartHorizontalLinesData(
             newMaxHeight,

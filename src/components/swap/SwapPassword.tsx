@@ -14,7 +14,7 @@ interface OwnProps {
   isLoading?: boolean;
   error?: string;
   children?: TeactNode;
-  onSubmit: (password: string) => void;
+  onAuthorize: (enclaveToken: string) => void;
   onBack: NoneToVoidFunction;
 }
 
@@ -23,7 +23,7 @@ function SwapPassword({
   isLoading,
   error,
   children,
-  onSubmit,
+  onAuthorize,
   onBack,
 }: OwnProps) {
   const { cancelSwap, clearSwapError } = getActions();
@@ -45,7 +45,12 @@ function SwapPassword({
         operationType="swap"
         submitLabel={lang('Swap')}
         cancelLabel={lang('Back')}
-        onSubmit={onSubmit}
+        // A swap builds the transfer and submits it in two separate API calls. The first one derives
+        // the backend auth token from the private key until it is cached, so the very first swap of
+        // an account reads the secret twice and would otherwise fail on a single-use session. Later
+        // swaps read once and hand the spare read back when the flow ends.
+        extraAuthUsages={1}
+        onAuthorize={onAuthorize}
         onCancel={onBack}
         onUpdate={clearSwapError}
       >

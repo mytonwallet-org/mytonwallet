@@ -6,6 +6,8 @@ import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.view.isGone
+import java.math.BigInteger
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.HighlightGradientBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
@@ -14,6 +16,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
 import org.mytonwallet.app_air.walletcore.SOLANA_USDC_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_USDT_SLUG
@@ -24,8 +27,6 @@ import org.mytonwallet.app_air.walletcore.TRON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
-import java.math.BigInteger
-import kotlin.math.roundToInt
 
 class TokenTagHelper(context: Context) {
 
@@ -52,9 +53,21 @@ class TokenTagHelper(context: Context) {
         tokenBalance: MTokenBalance?
     ) {
         val shouldShow = when (token?.slug) {
-            TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> { configureStaticTag("TRC-20"); true }
-            TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> { configureStaticTag("TON"); true }
-            SOLANA_USDT_SLUG, SOLANA_USDC_SLUG -> { configureStaticTag("Solana"); true }
+            TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> {
+                configureStaticTag("TRC-20")
+                true
+            }
+
+            TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> {
+                configureStaticTag("TON")
+                true
+            }
+
+            SOLANA_USDT_SLUG, SOLANA_USDC_SLUG -> {
+                configureStaticTag("Solana")
+                true
+            }
+
             else -> configureStakingTag(accountId, token, tokenBalance) ||
                 configureLabelTag(token)
         }
@@ -68,20 +81,16 @@ class TokenTagHelper(context: Context) {
         staticTagStyle?.let { applyStaticTagStyle(it) }
     }
 
-    private fun getTagDrawable(hasStaking: Boolean, cornerRadius: Float = 8f): GradientDrawable {
-        return if (hasStaking) {
+    private fun getTagDrawable(hasStaking: Boolean, cornerRadius: Float = 8f): GradientDrawable =
+        if (hasStaking) {
             cachedStakingTagDrawable ?: HighlightGradientBackgroundDrawable(true, cornerRadius)
                 .also { cachedStakingTagDrawable = it }
         } else {
             cachedNotStakingTagDrawable ?: HighlightGradientBackgroundDrawable(false, cornerRadius)
                 .also { cachedNotStakingTagDrawable = it }
         }
-    }
 
-    private fun configureStaticTag(
-        text: String,
-        style: StaticTagStyle = StaticTagStyle.REGULAR
-    ) {
+    private fun configureStaticTag(text: String, style: StaticTagStyle = StaticTagStyle.REGULAR) {
         staticTagStyle = style
         tagLabel.setAmount(text)
         applyStaticTagStyle(style)
@@ -119,7 +128,11 @@ class TokenTagHelper(context: Context) {
         tokenBalance: MTokenBalance?
     ): Boolean {
         staticTagStyle = null
-        if (tokenBalance?.isVirtualStakingRow != true && token?.isEarnAvailable != true) return false
+        if (tokenBalance?.isVirtualStakingRow != true &&
+            token?.isEarnAvailable != true
+        ) {
+            return false
+        }
         val stakingState = accountId?.let {
             StakingStore.getStakingState(it)?.stakingState(token?.slug ?: "")
         } ?: return false
@@ -128,10 +141,19 @@ class TokenTagHelper(context: Context) {
         val shouldShow = tokenBalance?.isVirtualStakingRow == true || !hasStakingAmount
         if (shouldShow) {
             tagLabel.setGradientColor(
-                if (hasStakingAmount) arrayOf(WColor.White, WColor.White)
-                else arrayOf(WColor.EarnGradientLeft, WColor.EarnGradientRight)
+                if (hasStakingAmount) {
+                    arrayOf(WColor.White, WColor.White)
+                } else {
+                    arrayOf(WColor.EarnGradientLeft, WColor.EarnGradientRight)
+                }
             )
-            tagLabel.setAmount(if (hasStakingAmount) "$apy%" else "${stakingState.yieldType} $apy%")
+            tagLabel.setAmount(
+                if (hasStakingAmount) {
+                    "‭$apy%".withLocalizedNumbers
+                } else {
+                    "${stakingState.yieldType} ‭$apy%".withLocalizedNumbers
+                }
+            )
             tagLabel.background = getTagDrawable(hasStakingAmount, 8f.dp)
         }
         return shouldShow

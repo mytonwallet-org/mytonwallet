@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uistake.helpers
 
+import java.math.BigInteger
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -17,15 +18,12 @@ import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 object ClaimRewardsHelper {
-    fun canClaimRewards(stakingState: StakingState?): Boolean {
-        return when (stakingState) {
-            is StakingState.Jetton -> stakingState.unclaimedRewards > BigInteger.ZERO
-            is StakingState.Ethena -> stakingState.isUnstakeRequestAmountUnlocked
-            else -> false
-        }
+    fun canClaimRewards(stakingState: StakingState?): Boolean = when (stakingState) {
+        is StakingState.Jetton -> stakingState.unclaimedRewards > BigInteger.ZERO
+        is StakingState.Ethena -> stakingState.isUnstakeRequestAmountUnlocked
+        else -> false
     }
 
     fun presentClaimRewards(
@@ -34,7 +32,7 @@ object ClaimRewardsHelper {
         stakingState: StakingState,
         amountToClaim: BigInteger?,
         onClaimed: (() -> Unit)? = null,
-        onError: ((MBridgeError?) -> Unit)? = null,
+        onError: ((MBridgeError?) -> Unit)? = null
     ) {
         val window = viewController.window ?: return
         val token = TokenStore.getToken(tokenSlug) ?: return
@@ -89,7 +87,8 @@ object ClaimRewardsHelper {
         val address = account.tonAddress ?: return
         val fee = getTonStakingFees(stakingState.stakingType)["claim"]?.real ?: return
         val nav = WNavigationController(
-            window, WNavigationController.PresentationConfig.PreferredFullScreen
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
         )
         val ledgerConnectVC = LedgerConnectVC(
             viewController.context,
@@ -126,12 +125,12 @@ object ClaimRewardsHelper {
                 headerView = confirmHeaderView,
                 navbarTitle = LocaleController.getString("Confirm")
             ),
-            task = { passcode ->
+            task = { enclaveToken ->
                 submitClaimRewards(
                     window = window,
                     tokenSlug = tokenSlug,
                     stakingState = stakingState,
-                    passcode = passcode,
+                    enclaveToken = enclaveToken,
                     onClaimed = onClaimed,
                     onError = onError
                 )
@@ -145,7 +144,7 @@ object ClaimRewardsHelper {
         window: WWindow,
         tokenSlug: String,
         stakingState: StakingState,
-        passcode: String,
+        enclaveToken: String,
         onClaimed: (() -> Unit)?,
         onError: ((MBridgeError?) -> Unit)?
     ) {
@@ -154,9 +153,9 @@ object ClaimRewardsHelper {
         WalletCore.call(
             ApiMethod.Staking.SubmitStakingClaimOrUnlock(
                 accountId = activeAccountId,
-                password = passcode,
                 state = stakingState,
-                realFee = fee
+                realFee = fee,
+                enclaveToken = enclaveToken
             )
         ) { result, err ->
             logClaimResult(tokenSlug, err)
@@ -182,10 +181,11 @@ object ClaimRewardsHelper {
                     onClaimed?.invoke()
                 }
             } else {
-                window.dismissLastNav()
-                err?.let {
-                    onError?.invoke(err.parsed)
-                } ?: onClaimed?.invoke()
+                window.dismissLastNav {
+                    err?.let {
+                        onError?.invoke(err.parsed)
+                    } ?: onClaimed?.invoke()
+                }
             }
         }
     }

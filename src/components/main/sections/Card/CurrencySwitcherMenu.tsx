@@ -14,12 +14,16 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountTokens,
 } from '../../../../global/selectors';
+import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
 
+import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 
 import DropdownMenu from '../../../ui/DropdownMenu';
+
+import styles from './CurrencySwitcherMenu.module.scss';
 
 interface OwnProps {
   isOpen: boolean;
@@ -59,6 +63,7 @@ function CurrencySwitcherMenu({
 }: OwnProps & StateProps) {
   const { changeBaseCurrency } = getActions();
 
+  const { isRtl } = useLang();
   const menuRef = useRef<HTMLDivElement>();
 
   const currencyList = useMemo<DropdownItem<ApiBaseCurrency>[]>(() => {
@@ -127,6 +132,7 @@ function CurrencySwitcherMenu({
       getLayout={getLayout}
       className={className}
       bubbleClassName={bubbleClassName}
+      buttonClassName={buildClassName(isRtl && styles.itemRtl)}
       onClose={onClose}
       onSelect={handleBaseCurrencyChange}
     />

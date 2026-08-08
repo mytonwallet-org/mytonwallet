@@ -16,8 +16,14 @@ class ViewHelpers {
             val shapeDrawable = ShapeDrawable()
             shapeDrawable.shape = RoundRectShape(
                 floatArrayOf(
-                    topRadius, topRadius, topRadius, topRadius,
-                    bottomRadius, bottomRadius, bottomRadius, bottomRadius
+                    topRadius,
+                    topRadius,
+                    topRadius,
+                    topRadius,
+                    bottomRadius,
+                    bottomRadius,
+                    bottomRadius,
+                    bottomRadius
                 ),
                 null,
                 null
@@ -25,9 +31,8 @@ class ViewHelpers {
             return shapeDrawable
         }
 
-        fun roundedShapeDrawable(color: Int, radius: Float): ShapeDrawable {
-            return roundedShapeDrawable(color, radius, radius, radius, radius)
-        }
+        fun roundedShapeDrawable(color: Int, radius: Float): ShapeDrawable =
+            roundedShapeDrawable(color, radius, radius, radius, radius)
 
         fun roundedShapeDrawable(
             color: Int,
@@ -39,8 +44,14 @@ class ViewHelpers {
             val shapeDrawable = ShapeDrawable()
             shapeDrawable.shape = RoundRectShape(
                 floatArrayOf(
-                    topLeftRadius, topLeftRadius, topRightRadius, topRightRadius,
-                    bottomRightRadius, bottomRightRadius, bottomLeftRadius, bottomLeftRadius
+                    topLeftRadius,
+                    topLeftRadius,
+                    topRightRadius,
+                    topRightRadius,
+                    bottomRightRadius,
+                    bottomRightRadius,
+                    bottomLeftRadius,
+                    bottomLeftRadius
                 ),
                 null,
                 null
@@ -53,7 +64,7 @@ class ViewHelpers {
             color: Int,
             radius: Float,
             borderColor: Int,
-            borderWidth: Float,
+            borderWidth: Float
         ): LayerDrawable {
             val outerRadius =
                 floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)

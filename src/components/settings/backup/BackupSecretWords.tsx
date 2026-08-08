@@ -1,5 +1,7 @@
 import React, { memo, useEffect, useState } from '../../../lib/teact/teact';
+import { getGlobal } from '../../../global';
 
+import { selectEnclaveToken } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { callApi } from '../../../api';
 
@@ -8,7 +10,8 @@ import useLang from '../../../hooks/useLang';
 import useScrolledState from '../../../hooks/useScrolledState';
 
 import SecretWordsContent from '../../common/backup/SecretWordsContent';
-import SettingsHeader from '../SettingsHeader';
+import Button from '../../ui/Button';
+import ModalHeader from '../../ui/ModalHeader';
 
 import settingsStyles from '../Settings.module.scss';
 import styles from './Backup.module.scss';
@@ -16,7 +19,7 @@ import styles from './Backup.module.scss';
 interface OwnProps {
   isActive?: boolean;
   currentAccountId: string;
-  enteredPassword?: string;
+  isInsideModal?: boolean;
   isBackupSlideActive?: boolean;
   onBackClick: NoneToVoidFunction;
   onSubmit: NoneToVoidFunction;
@@ -25,8 +28,8 @@ interface OwnProps {
 function BackupSecretWords({
   isActive,
   currentAccountId,
-  enteredPassword,
   isBackupSlideActive,
+  isInsideModal,
   onBackClick,
   onSubmit,
 }: OwnProps) {
@@ -37,8 +40,8 @@ function BackupSecretWords({
 
   useEffect(() => {
     async function loadMnemonic() {
-      if (isBackupSlideActive && enteredPassword) {
-        const mnemonicResult = await callApi('fetchMnemonic', currentAccountId, enteredPassword);
+      if (isBackupSlideActive) {
+        const mnemonicResult = await callApi('fetchMnemonic', currentAccountId, selectEnclaveToken(getGlobal())!);
 
         setMnemonic(mnemonicResult);
       } else {
@@ -46,7 +49,7 @@ function BackupSecretWords({
       }
     }
     void loadMnemonic();
-  }, [currentAccountId, enteredPassword, isBackupSlideActive]);
+  }, [currentAccountId, isBackupSlideActive]);
 
   useHistoryBack({
     isActive,
@@ -60,11 +63,22 @@ function BackupSecretWords({
 
   return (
     <div className={settingsStyles.slide}>
-      <SettingsHeader
-        title={lang('%1$d Secret Words', wordsCount) as string}
-        isScrolled={isScrolled}
-        onBackClick={onBackClick}
-      />
+      {isInsideModal ? (
+        <ModalHeader
+          title={lang('%1$d Secret Words', wordsCount) as string}
+          withNotch={isScrolled}
+          className={settingsStyles.modalHeader}
+          onBackButtonClick={onBackClick}
+        />
+      ) : (
+        <div className={buildClassName(settingsStyles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
+          <Button isSimple isText className={settingsStyles.headerBack} onClick={onBackClick}>
+            <i className={buildClassName(settingsStyles.iconChevron, 'icon-chevron-left')} aria-hidden />
+            <span>{lang('Back')}</span>
+          </Button>
+          <span className={settingsStyles.headerTitle}>{lang('%1$d Secret Words', wordsCount) as string}</span>
+        </div>
+      )}
       <div
         className={buildClassName(settingsStyles.content, styles.content)}
         onScroll={handleContentScroll}

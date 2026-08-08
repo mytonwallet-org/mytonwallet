@@ -205,23 +205,29 @@ private enum SwapModelIntent: Sendable {
         return .priceImpactWarning(impact: impact, next: route)
     }
 
-    func swapNow(
-        confirmation: SwapConfirmationAmounts,
-        passcode: String,
-        payoutAddress: String? = nil
-    ) async throws -> SwapExecutionResult {
-        guard confirmation == confirmationAmounts() else {
-            throw DisplayError(text: "Swap input changed")
-        }
-        return try await flow(for: swapType).performSwap(context: .init(
+    func makeConfirmationSnapshot(payoutAddress: String? = nil) -> SwapConfirmationSnapshot? {
+        guard let confirmation = confirmationAmounts() else { return nil }
+        return SwapConfirmationSnapshot(
             swapType: swapType,
             confirmation: confirmation,
             maxAmount: input.maxAmount,
             slippage: slippage.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS),
             payoutAddress: payoutAddress,
             account: currentAccountSnapshot(),
-            passcode: passcode
-        ), state: flowState)
+            flowState: flowState
+        )
+    }
+
+    func performSwap(snapshot: SwapConfirmationSnapshot, enclaveToken: EnclaveToken) async throws -> SwapExecutionResult {
+        try await flow(for: snapshot.swapType).performSwap(context: .init(
+            swapType: snapshot.swapType,
+            confirmation: snapshot.confirmation,
+            maxAmount: snapshot.maxAmount,
+            slippage: snapshot.slippage,
+            payoutAddress: snapshot.payoutAddress,
+            account: snapshot.account,
+            enclaveToken: enclaveToken
+        ), state: snapshot.flowState)
     }
 
     func commitSlippage(_ slippage: BigInt) {
@@ -485,7 +491,6 @@ private extension SwapModel {
             input.updateMaxAmountContext(
                 swapType: swapType,
                 fullNetworkFee: nil,
-                ourFeePercent: nil,
                 notifyAmountChange: notifyAmountChange
             )
             return
@@ -501,7 +506,6 @@ private extension SwapModel {
         input.updateMaxAmountContext(
             swapType: context.swapType,
             fullNetworkFee: context.fullNetworkFee,
-            ourFeePercent: context.ourFeePercent,
             notifyAmountChange: notifyAmountChange
         )
     }

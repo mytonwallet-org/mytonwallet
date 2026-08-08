@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer
 
 import android.animation.AnimatorSet
@@ -15,10 +17,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOutObjectAnimator
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
-class WSensitiveDataContainer<V : View>(
-    val contentView: V,
-    private val maskConfig: MaskConfig
-) : WFrameLayout(contentView.context), WProtectedView {
+class WSensitiveDataContainer<V : View>(val contentView: V, private val maskConfig: MaskConfig) :
+    WFrameLayout(contentView.context),
+    WProtectedView {
 
     var isSensitiveData = true
         set(value) {
@@ -48,8 +49,9 @@ class WSensitiveDataContainer<V : View>(
         skin = maskConfig.skin
         initMask()
         setOnClickListener {
-            if (WGlobalStorage.getIsSensitiveDataProtectionOn())
+            if (WGlobalStorage.getIsSensitiveDataProtectionOn()) {
                 WGlobalStorage.toggleSensitiveDataHidden()
+            }
         }
     }
 
@@ -58,13 +60,19 @@ class WSensitiveDataContainer<V : View>(
     private var maskState: MaskState = MaskState.HIDDEN
 
     init {
-        addView(contentView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = maskConfig.gravity
-        })
-        addView(maskView, LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
-            gravity = maskConfig.gravity
-            marginEnd = maskConfig.endMargin
-        })
+        addView(
+            contentView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = maskConfig.gravity
+            }
+        )
+        addView(
+            maskView,
+            LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
+                gravity = maskConfig.gravity
+                marginEnd = maskConfig.endMargin
+            }
+        )
 
         maskView.visibility = GONE
         if (isSensitiveData && WGlobalStorage.getIsSensitiveDataProtectionOn()) {
@@ -75,7 +83,9 @@ class WSensitiveDataContainer<V : View>(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (maskConfig.protectContentLayoutSize && WGlobalStorage.getIsSensitiveDataProtectionOn()) {
+        if (maskConfig.protectContentLayoutSize &&
+            WGlobalStorage.getIsSensitiveDataProtectionOn()
+        ) {
             contentView.post {
                 updateProtectedView(false)
             }
@@ -90,9 +100,10 @@ class WSensitiveDataContainer<V : View>(
 
     fun updateProtectedView(animated: Boolean) {
         if (isSensitiveData && WGlobalStorage.getIsSensitiveDataProtectionOn()) {
-            if (maskState == MaskState.SHOWING || maskState == MaskState.ANIMATING_IN)
-                return
-            if (maskConfig.protectContentLayoutSize && (layoutParams == null || contentView.height == 0)) {
+            if (maskState == MaskState.SHOWING || maskState == MaskState.ANIMATING_IN) return
+            if (maskConfig.protectContentLayoutSize &&
+                (layoutParams == null || contentView.height == 0)
+            ) {
                 // View is not attached to the window yet, wait...
                 return
             }
@@ -100,14 +111,15 @@ class WSensitiveDataContainer<V : View>(
             maskState = if (animated) MaskState.ANIMATING_IN else MaskState.SHOWING
             maskView.setIntersecting(true)
             maskView.visibility = VISIBLE
-            if (_maskPivotYPercent > 0f)
+            if (_maskPivotYPercent > 0f) {
                 maskView.post {
                     setMaskPivotYPercent(_maskPivotYPercent)
                 }
+            }
             if (animated) {
                 val animations = listOf(
                     contentView.fadeOutObjectAnimator(),
-                    maskView.fadeInObjectAnimator(),
+                    maskView.fadeInObjectAnimator()
                 )
                 AnimatorSet().apply {
                     duration = AnimationConstants.VERY_QUICK_ANIMATION
@@ -126,14 +138,14 @@ class WSensitiveDataContainer<V : View>(
             }
         } else {
             contentView.visibility = VISIBLE
-            if (maskState == MaskState.HIDDEN || maskState == MaskState.ANIMATING_OUT)
-                return
+            if (maskState == MaskState.HIDDEN || maskState == MaskState.ANIMATING_OUT) return
             maskState = if (animated) MaskState.ANIMATING_OUT else MaskState.HIDDEN
-            if (maskConfig.protectContentLayoutSize)
+            if (maskConfig.protectContentLayoutSize) {
                 layoutParams = layoutParams.apply {
                     width = WRAP_CONTENT
                     height = WRAP_CONTENT
                 }
+            }
             if (animated) {
                 val animations = listOf(
                     contentView.fadeInObjectAnimator(),
@@ -161,13 +173,10 @@ class WSensitiveDataContainer<V : View>(
 
     fun setMaskCols(cols: Int) {
         maskView.cols = cols
-        if (maskState == MaskState.HIDDEN)
-            return
+        if (maskState == MaskState.HIDDEN) return
         val changed = maskView.initMask()
-        if (!changed)
-            return
-        if (maskConfig.protectContentLayoutSize)
-            setMaskedLayoutParams()
+        if (!changed) return
+        if (maskConfig.protectContentLayoutSize) setMaskedLayoutParams()
         requestLayout()
     }
 

@@ -1,11 +1,10 @@
 import { TransferState } from '../../types';
 
-import { getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
 import { getChainBySlug } from '../../../util/tokens';
-import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { addActionHandler, setGlobal } from '../../index';
 import { resetHardware, setCurrentTransferAddress, updateCurrentTransfer } from '../../reducers';
-import { selectIsHardwareAccount } from '../../selectors';
+import { selectEnclaveToken, selectIsEnclaveSessionValid, selectIsHardwareAccount } from '../../selectors';
 
 addActionHandler('startTransfer', (global, actions, payload) => {
   const { isOfframp, ...rest } = payload ?? {};
@@ -81,25 +80,21 @@ addActionHandler('setTransferShouldEncrypt', (global, actions, { shouldEncrypt }
   return updateCurrentTransfer(global, { shouldEncrypt });
 });
 
-addActionHandler('submitTransferConfirm', async (global, actions) => {
-  const inMemoryPassword = await getInMemoryPassword();
-
-  global = getGlobal();
+addActionHandler('submitTransferConfirm', (global, actions) => {
   const { tokenSlug } = global.currentTransfer;
   const chain = getChainBySlug(tokenSlug);
 
   if (selectIsHardwareAccount(global)) {
     global = resetHardware(global, chain);
     global = updateCurrentTransfer(global, { state: TransferState.ConnectHardware });
-    setGlobal(global);
-  } else if (inMemoryPassword) {
+  } else if (selectIsEnclaveSessionValid(global)) {
     global = updateCurrentTransfer(global, { isLoading: true });
-    setGlobal(global);
-    actions.submitTransfer({ password: inMemoryPassword });
+    actions.submitTransfer({ enclaveToken: selectEnclaveToken(global) });
   } else {
     global = updateCurrentTransfer(global, { state: TransferState.Password });
-    setGlobal(global);
   }
+
+  return global;
 });
 
 addActionHandler('clearTransferError', (global) => {

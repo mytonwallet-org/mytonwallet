@@ -1,0 +1,24 @@
+{
+  "Simulator Target Bundle": "org.mytonwallet.app",
+  "aps": {
+    "category": "staking_reward",
+    "thread-id": "account:EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c:staking",
+    "alert": {
+      "title-loc-key": "push_title_wallet",
+      "title-loc-args": [
+        "My Wallet"
+      ],
+      "loc-key": "push_activity_staking_profit",
+      "loc-args": [
+        "1.23456"
+      ]
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "action": "staking",
+  "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c",
+  "stakingId": "liquid",
+  "stakingType": "liquid",
+  "logId": "staking-profit-rounded"
+}

@@ -17,7 +17,7 @@ final class WalletConnectPayLoadingVC: WViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = lang("Payment")
         label.textColor = .label
-        label.font = .systemFont(ofSize: 20, weight: .semibold)
+        label.applyTextStyle(.statusTitle)
         label.textAlignment = .center
         return label
     }()
@@ -27,7 +27,7 @@ final class WalletConnectPayLoadingVC: WViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = lang("Please wait")
         label.textColor = .air.secondaryLabel
-        label.font = .systemFont(ofSize: 16, weight: .regular)
+        label.applyTextStyle(.callout)
         label.textAlignment = .center
         return label
     }()

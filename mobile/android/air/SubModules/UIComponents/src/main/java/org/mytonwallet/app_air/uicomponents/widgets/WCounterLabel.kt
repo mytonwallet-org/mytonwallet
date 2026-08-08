@@ -1,26 +1,29 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
 import android.text.TextPaint
 import android.view.View
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import java.math.BigInteger
 
 // TODO:: Should be refactored to fix `Positioning/Layout Issues`
-class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemedView {
+class WCounterLabel(context: Context) :
+    View(context),
+    Counter.Callback,
+    WThemedView {
 
     private var textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Regular.typeface
@@ -80,10 +83,13 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
 
         lastGradientWidth = x1
         val gradient = LinearGradient(
-            0f, 0f,
-            x1, 0f,
+            0f,
+            0f,
+            x1,
+            0f,
             gradientColors.map { it.color }.toIntArray(),
-            null, Shader.TileMode.CLAMP
+            null,
+            Shader.TileMode.CLAMP
         )
 
         textPaint.shader = gradient
@@ -130,7 +136,13 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
         val formattedText = amount.toString(
             decimals = decimals,
             currency = currency,
-            currencyDecimals = if (smartDecimals) amount.smartDecimalsCount(currencyDecimals) else currencyDecimals,
+            currencyDecimals = if (smartDecimals) {
+                amount.smartDecimalsCount(
+                    currencyDecimals
+                )
+            } else {
+                currencyDecimals
+            },
             showPositiveSign = showPositiveSign,
             forceCurrencyToRight = forceCurrencyToRight
         )

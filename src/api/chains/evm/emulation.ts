@@ -400,7 +400,7 @@ export async function parseTokenOperation(
       fromAmount: toDecimal(sent.get([...sent][0][0])!, assetFrom?.decimals || 18),
       to: assetTo?.slug || '',
       toAmount: toDecimal(received.get([...received][0][0])!, assetTo?.decimals || 18),
-      networkFee: BigInt(tx.gasUsed).toString(10),
+      networkFee: toDecimal(BigInt(tx.gasUsed), getChainConfig(chain).nativeToken.decimals),
       swapFee: '0',
     },
   };

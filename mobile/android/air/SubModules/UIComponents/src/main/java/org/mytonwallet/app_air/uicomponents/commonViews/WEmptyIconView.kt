@@ -1,11 +1,11 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -15,11 +15,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class WEmptyIconView(
-    context: Context,
-    val animation: Int,
-    val text: String
-) : WView(context), WThemedView {
+class WEmptyIconView(context: Context, val animation: Int, val text: String) :
+    WView(context),
+    WThemedView {
 
     private val animationView: WAnimationView by lazy {
         val v = WAnimationView(context)
@@ -64,8 +62,7 @@ class WEmptyIconView(
         private set
 
     private fun startedNow() {
-        if (startedAnimation)
-            return
+        if (startedAnimation) return
         startedAnimation = true
         fadeIn()
     }

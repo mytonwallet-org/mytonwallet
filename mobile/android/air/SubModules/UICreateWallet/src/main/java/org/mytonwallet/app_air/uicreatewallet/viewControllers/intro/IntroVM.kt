@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.intro
 
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import java.lang.ref.WeakReference
 
 class IntroVM(delegate: Delegate) {
     interface Delegate {

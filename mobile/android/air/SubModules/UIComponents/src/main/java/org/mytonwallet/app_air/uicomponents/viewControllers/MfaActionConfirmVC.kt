@@ -3,8 +3,10 @@ package org.mytonwallet.app_air.uicomponents.viewControllers
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.text.SpannableStringBuilder
+import android.os.Handler
+import android.os.Looper
 import android.text.Spannable
+import android.text.SpannableStringBuilder
 import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.View
@@ -16,13 +18,15 @@ import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.net.toUri
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.TelegramAvatarView
@@ -42,12 +46,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import android.os.Handler
-import android.os.Looper
+import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.MFA_BOT_URL
 import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.buildMfaStartParam
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
@@ -56,8 +58,6 @@ import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
 
 /**
  * Reusable "Confirm with Telegram" screen for any flow that returns an MFA request
@@ -77,7 +77,10 @@ class MfaActionConfirmVC(
     private val popupConfirmedActivity: Boolean = true,
     private val onConfirmed: ((txHash: String?) -> Unit)? = null,
     private val onFinishOverride: ((txHash: String?) -> Unit)? = null,
-) : WViewController(context), WalletCore.EventObserver {
+    private val onClosedBeforeFinish: ((wasMfaConfirmed: Boolean, txHash: String?) -> Unit)? = null
+) : WViewController(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "MfaActionConfirm"
     override val shouldDisplayBottomBar = true
 
@@ -86,10 +89,7 @@ class MfaActionConfirmVC(
      * @param leading optional token icon (null hides the icon, useful for non-token flows).
      * @param text formatted text already prepared by the caller (e.g. "10.5 TON to UQk…").
      */
-    data class Chip(
-        val leading: IApiToken? = null,
-        val text: CharSequence,
-    )
+    data class Chip(val leading: IApiToken? = null, val text: CharSequence)
 
     companion object {
         private const val AVATAR_SIZE = 72
@@ -104,6 +104,8 @@ class MfaActionConfirmVC(
 
     private var pollingJob: Job? = null
     private var didComplete = false
+    private var didReceiveConfirmation = false
+    private var confirmedTxHash: String? = null
 
     private var pendingTxHash: String? = null
     private var pendingAccountId: String? = null
@@ -116,7 +118,7 @@ class MfaActionConfirmVC(
 
     private val walletAvatar = AccountIconView(
         context,
-        AccountIconView.Usage.ViewItem(28f.dp),
+        AccountIconView.Usage.ViewItem(28f.dp)
     ).apply {
         id = View.generateViewId()
         AccountStore.activeAccount?.let { config(it, useTelegramAvatar = false) }
@@ -133,7 +135,7 @@ class MfaActionConfirmVC(
             walletAvatar,
             LinearLayout.LayoutParams(AVATAR_SIZE.dp, AVATAR_SIZE.dp).apply {
                 marginEnd = -AVATAR_OVERLAP.dp
-            },
+            }
         )
         addView(userAvatar, LinearLayout.LayoutParams(AVATAR_SIZE.dp, AVATAR_SIZE.dp))
     }
@@ -164,27 +166,31 @@ class MfaActionConfirmVC(
         }
     }
 
-    private val chipView: LinearLayout? = if (chip == null) null else LinearLayout(context).apply {
-        id = View.generateViewId()
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        val hasIcon = chipTokenIcon != null
-        setPadding(
-            if (hasIcon) 8.dp else 14.dp,
-            6.dp,
-            14.dp,
-            6.dp,
-        )
-        chipTokenIcon?.let { icon ->
-            addView(
-                icon,
-                LinearLayout.LayoutParams(CHIP_ICON_SIZE.dp, CHIP_ICON_SIZE.dp).apply {
-                    marginEnd = 6.dp
-                },
+    private val chipView: LinearLayout? = if (chip == null) {
+        null
+    } else {
+        LinearLayout(context).apply {
+            id = View.generateViewId()
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val hasIcon = chipTokenIcon != null
+            setPadding(
+                if (hasIcon) 8.dp else 14.dp,
+                6.dp,
+                14.dp,
+                6.dp
             )
-        }
-        chipLabel?.let { lbl ->
-            addView(lbl, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            chipTokenIcon?.let { icon ->
+                addView(
+                    icon,
+                    LinearLayout.LayoutParams(CHIP_ICON_SIZE.dp, CHIP_ICON_SIZE.dp).apply {
+                        marginEnd = 6.dp
+                    }
+                )
+            }
+            chipLabel?.let { lbl ->
+                addView(lbl, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            }
         }
     }
 
@@ -226,7 +232,7 @@ class MfaActionConfirmVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0,
+            0
         )
         v.addView(avatarsRow, ViewGroup.LayoutParams(WRAP_CONTENT, AVATAR_SIZE.dp))
         v.addView(titleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -307,6 +313,10 @@ class MfaActionConfirmVC(
         activityTimeoutHandler.removeCallbacks(activityTimeoutRunnable)
         WalletCore.unregisterObserver(this)
         super.onDestroy()
+        if (didFinish) return
+        val onClosedBeforeFinish = onClosedBeforeFinish ?: return
+        didFinish = true
+        onClosedBeforeFinish(didReceiveConfirmation, confirmedTxHash)
     }
 
     private fun startPolling() {
@@ -344,23 +354,25 @@ class MfaActionConfirmVC(
 
     private fun shouldStopPolling(error: Throwable): Boolean {
         val apiError = error as? JSWebViewBridge.ApiError ?: return false
-        return when (apiError.parsed) {
-            MBridgeError.SERVER_ERROR,
-            MBridgeError.AXIOS_ERROR,
-            MBridgeError.PARSE_ERROR,
-            MBridgeError.UNKNOWN -> false
+        return when (apiError.parsed.type) {
+            MBridgeError.Type.SERVER_ERROR,
+            MBridgeError.Type.AXIOS_ERROR,
+            MBridgeError.Type.PARSE_ERROR,
+            MBridgeError.Type.UNKNOWN -> false
 
             else -> true
         }
     }
 
     private fun showError(apiError: JSWebViewBridge.ApiError?, error: Throwable) {
-        val parsed = apiError?.parsed ?: MBridgeError.UNKNOWN
+        val parsed = apiError?.parsed ?: MBridgeError.Type.UNKNOWN
         showError(parsed)
     }
 
     private fun onMfaConfirmed(txHash: String?) {
         val hash = txHash?.takeIf { it.isNotBlank() }
+        didReceiveConfirmation = true
+        confirmedTxHash = hash
         val accountId = AccountStore.activeAccount?.accountId
         if (hash == null || accountId == null) {
             finishMfaConfirm(matchedActivity = null)
@@ -372,7 +384,7 @@ class MfaActionConfirmVC(
         WalletCore.registerObserver(this)
         activityTimeoutHandler.postDelayed(
             activityTimeoutRunnable,
-            ACTIVITY_WAIT_TIMEOUT_MS,
+            ACTIVITY_WAIT_TIMEOUT_MS
         )
     }
 
@@ -464,12 +476,10 @@ class MfaActionConfirmVC(
         }
     }
 
-    private fun buttonsBottomMargin(): Int {
-        return 20.dp + max(
-            (navigationController?.bottomInset ?: 0),
-            (navigationController?.imeInsetBottom ?: 0),
-        )
-    }
+    private fun buttonsBottomMargin(): Int = 20.dp + max(
+        (navigationController?.bottomInset ?: 0),
+        (navigationController?.imeInsetBottom ?: 0)
+    )
 
     private fun buildUserAvatar(): View {
         val mfa = AccountStore.activeAccount?.byChain?.get(TON_CHAIN)?.mfa
@@ -494,7 +504,7 @@ class MfaActionConfirmVC(
 
     private fun buildInfoText(): CharSequence {
         val full = LocaleController.getString(
-            "An extra security layer requires confirming actions in Telegram after signing.",
+            "An extra security layer requires confirming actions in Telegram after signing."
         )
         val highlight = LocaleController.getString("confirming actions in Telegram")
         val idx = full.indexOf(highlight)
@@ -504,7 +514,7 @@ class MfaActionConfirmVC(
             StyleSpan(android.graphics.Typeface.BOLD),
             idx,
             idx + highlight.length,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         return builder
     }

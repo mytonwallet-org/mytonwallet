@@ -1,7 +1,7 @@
 import type { TeactNode } from '../../lib/teact/teact';
 import React from '../../lib/teact/teact';
 
-import type { ApiNft } from '../../api/types';
+import type { ApiChain, ApiNft } from '../../api/types';
 import type { Account, AccountType } from '../../global/types';
 import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
@@ -21,6 +21,7 @@ import styles from './AccountRowContent.module.scss';
 export interface AccountRowInnerProps {
   accountId: string;
   byChain: Account['byChain'];
+  visibleChains?: ApiChain[];
   accountType: AccountType;
   title?: string;
   isTestnet?: boolean;
@@ -39,6 +40,7 @@ export interface AccountRowInnerProps {
 function AccountRowInner({
   accountId,
   byChain,
+  visibleChains,
   accountType,
   title,
   isTestnet,
@@ -51,8 +53,8 @@ function AccountRowInner({
 }: AccountRowInnerProps) {
   const isHardware = accountType === 'hardware';
   const isView = isViewAccount(accountType);
-  const isSingleChain = getOrderedAccountChains(byChain).length === 1;
-  const formattedAddress = formatAccountAddresses(byChain, isSingleChain ? 'medium' : 'small');
+  const chains = visibleChains ?? getOrderedAccountChains(byChain);
+  const formattedAddress = formatAccountAddresses(byChain, chains, chains.length === 1 ? 'medium' : 'small');
   const resolvedAvatarUrl = avatarUrl ?? getTelegramAvatarUrlFromDomain(byChain.ton?.domain);
 
   return (

@@ -11,9 +11,9 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
-class NotificationSettingsFooterCell(
-    context: Context,
-) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+class NotificationSettingsFooterCell(context: Context) :
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     private val soundsRow = SwitchCell(
         context,
@@ -23,7 +23,8 @@ class NotificationSettingsFooterCell(
         isLast = true,
         onChange = { isChecked ->
             WGlobalStorage.setAreSoundsActive(isChecked)
-        })
+        }
+    )
 
     override fun setupViews() {
         super.setupViews()
@@ -42,5 +43,4 @@ class NotificationSettingsFooterCell(
     fun configure() {
         updateTheme()
     }
-
 }

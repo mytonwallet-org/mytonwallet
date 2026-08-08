@@ -77,15 +77,13 @@ import WalletContext
             tokenIn: sellingToken,
             networkFee: state.crosschain.cexEstimate?.networkFee,
             realNetworkFee: state.crosschain.cexEstimate?.realNetworkFee,
-            ourFee: nil,
             dieselStatus: nil,
             dieselFee: nil,
             nativeTokenInBalance: nativeTokenInBalance
         ))
         return SwapMaxAmountContext(
             swapType: swapType,
-            fullNetworkFee: explainedFee.fullFee?.networkTerms,
-            ourFeePercent: nil
+            fullNetworkFee: explainedFee.fullFee?.networkTerms
         )
     }
 
@@ -105,7 +103,7 @@ import WalletContext
             buyingToken: context.confirmation.buying.token,
             account: context.account,
             payoutAddress: context.payoutAddress,
-            passcode: context.passcode
+            enclaveToken: context.enclaveToken
         )
     }
 }

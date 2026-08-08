@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.views
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.os.Build
 import android.util.TypedValue
 import android.widget.FrameLayout
@@ -9,12 +8,15 @@ import androidx.appcompat.widget.AppCompatEditText
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class SwapInputView(context: Context) : FrameLayout(context), WThemedView {
+class SwapInputView(context: Context) :
+    FrameLayout(context),
+    WThemedView {
 
     val editText = AppCompatEditText(context).apply {
         background = null

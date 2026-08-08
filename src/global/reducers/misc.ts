@@ -6,12 +6,15 @@ import type {
   ApiSwapAsset,
   ApiTokenWithPrice,
 } from '../../api/types';
-import type { Account, AccountChain, AccountState, AccountType, GlobalState } from '../types';
+import type {
+  Account, AccountChain, AccountState, AccountType, ChainDisplayConfiguration, GlobalState,
+} from '../types';
 import { AuthState } from '../types';
 
 import { POPULAR_WALLET_VERSIONS, TONCOIN } from '../../config';
 import { generateAccountTitle } from '../../util/account';
 import { getDefaultEnabledSlugs } from '../../util/chain';
+import { getIsDefaultChainDisplayConfiguration } from '../../util/chainDisplay';
 import isPartialDeepEqual from '../../util/isPartialDeepEqual';
 import { getChainBySlug } from '../../util/tokens';
 import {
@@ -418,6 +421,12 @@ export function updateCurrentAccountSettings(
   settingsUpdate: Partial<GlobalState['settings']['byAccountId']['*']>,
 ) {
   return updateAccountSettings(global, selectCurrentAccountId(global)!, settingsUpdate);
+}
+
+export function updateCurrentChainDisplayConfiguration(global: GlobalState, config: ChainDisplayConfiguration) {
+  return updateCurrentAccountSettings(global, {
+    chainDisplayConfiguration: getIsDefaultChainDisplayConfiguration(config) ? undefined : config,
+  });
 }
 
 export function updateBiometrics(global: GlobalState, biometricsUpdate: Partial<GlobalState['biometrics']>) {

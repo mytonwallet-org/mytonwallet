@@ -26,10 +26,8 @@ import { getTranslation } from '../../../util/langProvider';
 import { logDebugError } from '../../../util/logs';
 import { openUrl } from '../../../util/openUrl';
 import { getTelegramApp } from '../../../util/telegram';
-import { getChainBySlug } from '../../../util/tokens';
 import {
   getIsMobileTelegramApp,
-  IS_BIOMETRIC_AUTH_SUPPORTED,
   IS_ELECTRON,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
@@ -46,6 +44,7 @@ import {
   updateAuth,
   updateCurrentAccountState,
   updateCurrentTransactionInfo,
+  updateDappConnectRequest,
   updateSettings,
 } from '../../reducers';
 import {
@@ -53,7 +52,10 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentNetwork,
-  selectIsPasswordPresent,
+  selectDefaultOffRampChain,
+  selectHasPassword,
+  selectIsOffRampAllowed,
+  selectIsOnRampAllowed,
 } from '../../selectors';
 import { switchAccount } from '../api/auth';
 
@@ -219,40 +221,44 @@ addActionHandler('toggleTinyTransfersHidden', (global, actions, { isEnabled } = 
   };
 });
 
+addActionHandler('toggleUnverifiedNftsHidden', (global, actions, { isEnabled } = {}) => {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      areUnverifiedNftsHidden: isEnabled,
+    },
+  };
+});
+
+addActionHandler('toggleLocalizedTokenNames', (global, actions, { isEnabled } = {}) => {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      areTokenNamesLocalized: isEnabled,
+    },
+  };
+});
+
 addActionHandler('setCurrentTokenPeriod', (global, actions, { period }) => {
   return updateCurrentAccountState(global, {
     currentTokenPeriod: period,
   });
 });
 
-addActionHandler('addAccount', async (global, actions, { method, password, isAuthFlow }) => {
-  const isPasswordPresent = selectIsPasswordPresent(global);
+addActionHandler('addAccount', async (global, actions, {
+  method, isAuthFlow, clearDappConnectOnVerified, enclaveToken,
+}) => {
+  const hasPassword = selectHasPassword(global);
   const isMnemonicImport = method === 'importMnemonic';
 
-  if (isPasswordPresent) {
+  if (hasPassword) {
     if (!isAuthFlow) {
       global = updateAccounts(global, {
         isLoading: true,
       });
       setGlobal(global);
-    }
-
-    if (!(await callApi('verifyPassword', password))) {
-      global = getGlobal();
-      const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
-      if (isAuthFlow) {
-        global = updateAuth(global, {
-          isLoading: undefined,
-          error,
-        });
-      } else {
-        global = updateAccounts(getGlobal(), {
-          isLoading: undefined,
-          error,
-        });
-      }
-      setGlobal(global);
-      return;
     }
 
     if (getDoesUsePinPad()) {
@@ -263,42 +269,51 @@ addActionHandler('addAccount', async (global, actions, { method, password, isAut
   }
 
   global = getGlobal();
-  if (isMnemonicImport || !isPasswordPresent) {
+  if (isMnemonicImport || !hasPassword) {
     global = { ...global, isAccountSelectorOpen: undefined };
   } else {
     global = updateAccounts(global, { isLoading: true });
   }
   setGlobal(global);
 
-  actions.addAccount2({ method, password });
+  if (clearDappConnectOnVerified) {
+    let newGlobal = getGlobal();
+    newGlobal = updateDappConnectRequest(newGlobal, {
+      isCreatingAccount: true,
+    });
+    newGlobal = updateAuth(newGlobal, { forceAddingTonOnlyAccount: undefined });
+    setGlobal(newGlobal);
+  }
+
+  actions.addAccount2({ method, enclaveToken });
 });
 
-addActionHandler('addAccount2', (global, actions, { method, password }) => {
+addActionHandler('addAccount2', (global, actions, { method, enclaveToken }) => {
   const isMnemonicImport = method === 'importMnemonic';
-  const isPasswordPresent = selectIsPasswordPresent(global);
-  const authState = isPasswordPresent
+  const hasPassword = selectHasPassword(global);
+  const authState = hasPassword
     ? isMnemonicImport
       ? AuthState.importWallet
       : undefined
     : (
       getDoesUsePinPad()
         ? AuthState.createPin
-        : (IS_BIOMETRIC_AUTH_SUPPORTED ? AuthState.createBiometrics : AuthState.createPassword)
+        : AuthState.createPassword
     );
 
-  if (isMnemonicImport || !isPasswordPresent) {
+  if (isMnemonicImport || !hasPassword) {
     global = { ...global, appState: AppState.Auth };
   }
-  global = updateAuth(global, { password, state: authState });
+  global = updateAuth(global, { state: authState });
   global = clearCurrentTransfer(global);
   global = clearCurrentSwap(global);
 
   setGlobal(global);
 
   if (isMnemonicImport) {
-    actions.startImportingWallet();
+    actions.startImportingWallet({ enclaveToken });
   } else {
-    actions.startCreatingWallet();
+    actions.startCreatingWallet({ enclaveToken });
   }
 });
 
@@ -549,6 +564,9 @@ addActionHandler('clearIsPinAccepted', (global) => {
 });
 
 addActionHandler('openOnRampWidgetModal', (global, actions, { chain }) => {
+  // Single choke point for every dispatch site, including deeplinks and menu items with no gate of their own
+  if (!selectIsOnRampAllowed(global, chain)) return;
+
   setGlobal({ ...global, chainForOnRampWidgetModal: chain });
 });
 
@@ -557,8 +575,10 @@ addActionHandler('closeOnRampWidgetModal', (global) => {
 });
 
 addActionHandler('openOffRampWidgetModal', (global) => {
-  const { tokenSlug } = global.currentTransfer;
-  const chain = tokenSlug ? getChainBySlug(tokenSlug) : 'ton';
+  const chain = selectDefaultOffRampChain(global);
+
+  if (!selectIsOffRampAllowed(global, chain)) return;
+
   setGlobal({ ...global, chainForOffRampWidgetModal: chain });
 });
 
@@ -819,7 +839,7 @@ addActionHandler('closePromotionModal', (global) => {
 
 addActionHandler('setAppLayout', (global, actions, { layout }) => {
   if (IS_ELECTRON) {
-    void window.electron?.changeAppLayout(layout);
+    void window.electron?.changeAppLayout?.(layout);
   } else {
     void callApi('setAppLayout', layout);
   }

@@ -89,7 +89,7 @@ private struct ConnectedDappGenericView<ImageView: View>: View {
                     .padding(EdgeInsets(top: 1, leading: 1, bottom: 1, trailing: 0))
 
                 if let title { // settings button has no title in compact layout
-                    Text(title).font(.system(size: 15, weight: .medium))
+                    Text(title).textStyle(.subheadlineEmphasized)
                         .kerning(-0.28)
                         .frame(maxWidth: 140)
                         .frame(height: 15) // should be lineHeight
@@ -111,7 +111,7 @@ private struct ConnectedDappGenericView<ImageView: View>: View {
                                         clipToStroke: true)
 
                 // For regular size, title is always expected, use " " as a fallback
-                Text(title ?? " ").font(.system(size: 12, weight: .medium))
+                Text(title ?? " ").textStyle(.captionEmphasized)
                     .kerning(-0.4)
                     .frame(height: 12) // should be lineHeight
                     .lineLimit(1)

@@ -64,11 +64,13 @@ struct WordDisplayView: View {
     
     var title: some View {
         Text(langMd("$mnemonic_list_description"))
+            .textStyle(.body, scaling: .dynamic)
             .multilineTextAlignment(.center)
     }
     
     var warning: some View {
         Text(langMd("$mnemonic_warning"))
+            .textStyle(.body, scaling: .dynamic)
             .multilineTextAlignment(.center)
             .foregroundStyle(Color.red)
             .padding(.horizontal, 16)
@@ -219,6 +221,7 @@ struct WordListView: View {
                 }
             }
         }
+        .environment(\.layoutDirection, .leftToRight)
     }
 }
 
@@ -230,17 +233,18 @@ private struct WordListEntryView: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("\(index).")
+            Text(verbatim: "\(localizedIntegerString(index)).")
+                .textStyle(.body, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .frame(minWidth: index >= 10 ? 22 : 14, alignment: .trailing)
                 .accessibilityHidden(true)
             Text(verbatim: word)
-                .font(.system(size: 17, weight: .medium))
+                .textStyle(.bodyEmphasized, content: .technical)
                 .fixedSize()
                 .frame(width: wordWidth, alignment: .leading)
                 .accessibilityHidden(true)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: "\(index). \(word)"))
+        .accessibilityLabel(Text(verbatim: "\(localizedIntegerString(index)). \(word)"))
     }
 }

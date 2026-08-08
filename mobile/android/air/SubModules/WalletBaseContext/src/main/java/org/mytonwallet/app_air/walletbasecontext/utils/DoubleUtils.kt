@@ -12,7 +12,8 @@ fun Double.toString(
     smartDecimals: Boolean,
     showPositiveSign: Boolean = false,
     forceCurrencyToRight: Boolean = false,
-    roundUp: Boolean = true
+    roundUp: Boolean = true,
+    localizedDigits: Boolean = false
 ): String? {
     val bigInteger = toBigInteger(decimals)
     return bigInteger?.toString(
@@ -21,7 +22,8 @@ fun Double.toString(
         if (smartDecimals) bigInteger.smartDecimalsCount(decimals) else currencyDecimals,
         showPositiveSign,
         forceCurrencyToRight,
-        roundUp
+        roundUp,
+        localizedDigits
     )
 }
 

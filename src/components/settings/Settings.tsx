@@ -30,8 +30,8 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
+  selectHasPassword,
   selectIsCurrentAccountViewMode,
-  selectIsPasswordPresent,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -46,7 +46,6 @@ import { captureControlledSwipe } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
 import { getTelegramTipsChannelUrl } from '../../util/url';
 import {
-  IS_BIOMETRIC_AUTH_SUPPORTED,
   IS_DAPP_SUPPORTED,
   IS_ELECTRON,
   IS_TOUCH_ENV,
@@ -68,11 +67,10 @@ import LedgerSelectWallets from '../ledger/LedgerSelectWallets';
 import LogOutModal from '../main/modals/LogOutModal';
 import Switcher from '../ui/Switcher';
 import Transition from '../ui/Transition';
-import Biometrics from './biometrics/Biometrics';
-import SettingsNativeBiometricsTurnOn from './biometrics/NativeBiometricsTurnOn';
 import SettingsAbout from './SettingsAbout';
 import SettingsAppearance from './SettingsAppearance';
 import SettingsAssets from './SettingsAssets';
+import SettingsChains from './SettingsChains';
 import SettingsDapps from './SettingsDapps';
 import SettingsDeveloperOptions from './SettingsDeveloperOptions';
 import SettingsDisclaimer from './SettingsDisclaimer';
@@ -86,6 +84,7 @@ import SettingsTokenList from './SettingsTokenList';
 import SettingsWalletVariants from './wallets/SettingsWalletVariants';
 import SettingsWalletVersions from './wallets/SettingsWalletVersions';
 
+import modalStyles from '../ui/Modal.module.scss';
 import styles from './Settings.module.scss';
 
 import aboutImg from '../../assets/settings/settings_about.svg';
@@ -112,6 +111,7 @@ import walletVersionImg from '../../assets/settings/settings_wallet-version.svg'
 
 type OwnProps = {
   isActive: boolean;
+  isInsideModal?: boolean;
 };
 
 type StateProps = {
@@ -119,7 +119,7 @@ type StateProps = {
   dapps: StoredDappConnection[];
   isOpen?: boolean;
   tokens?: UserToken[];
-  isPasswordPresent?: boolean;
+  hasPassword?: boolean;
   currentVersion?: ApiTonWalletVersion;
   versions?: ApiWalletWithVersionInfo[];
   isCopyStorageEnabled?: boolean;
@@ -152,7 +152,8 @@ function Settings({
   isActive,
   isOpen = false,
   tokens,
-  isPasswordPresent,
+  isInsideModal,
+  hasPassword,
   currentVersion,
   versions,
   isCopyStorageEnabled,
@@ -172,7 +173,6 @@ function Settings({
     toggleDeeplinkHook,
     toggleTonProxy,
     getDapps,
-    clearIsPinAccepted,
     openPortfolio,
   } = getActions();
 
@@ -225,12 +225,6 @@ function Settings({
       }) ?? [];
   }, [shortBaseSymbol, tonToken, versions, withAllWalletVersions]);
 
-  const handleSlideAnimationStop = useLastCallback(() => {
-    if (prevRenderingKeyRef.current === SettingsState.NativeBiometricsTurnOn) {
-      clearIsPinAccepted();
-    }
-  });
-
   const handleCloseSettings = useLastCallback(() => {
     closeSettings(undefined, { forceOnHeavyAnimation: true });
     setSettingsState({ state: SettingsState.Initial });
@@ -239,6 +233,7 @@ function Settings({
   useHistoryBack({
     isActive: isActive && isInitialScreen,
     onBack: handleCloseSettings,
+    shouldIgnoreForTelegram: isInsideModal,
   });
 
   useHideBottomBar(isOpen && !isInitialScreen);
@@ -297,6 +292,7 @@ function Settings({
     switch (renderingKey) {
       case SettingsState.HiddenNfts:
       case SettingsState.SelectTokenList:
+      case SettingsState.Chains:
         setSettingsState({ state: SettingsState.Assets });
         break;
 
@@ -339,22 +335,22 @@ function Settings({
 
   const [isTrayIconEnabled, setIsTrayIconEnabled] = useState(false);
   useEffect(() => {
-    void window.electron?.getIsTrayIconEnabled().then(setIsTrayIconEnabled);
+    void window.electron?.getIsTrayIconEnabled?.().then(setIsTrayIconEnabled);
   }, []);
 
   const handleTrayIconEnabledToggle = useLastCallback(() => {
     setIsTrayIconEnabled(!isTrayIconEnabled);
-    void window.electron?.setIsTrayIconEnabled(!isTrayIconEnabled);
+    void window.electron?.setIsTrayIconEnabled?.(!isTrayIconEnabled);
   });
 
   const [isAutoUpdateEnabled, setIsAutoUpdateEnabled] = useState(false);
   useEffect(() => {
-    void window.electron?.getIsAutoUpdateEnabled().then(setIsAutoUpdateEnabled);
+    void window.electron?.getIsAutoUpdateEnabled?.().then(setIsAutoUpdateEnabled);
   }, []);
 
   const handleAutoUpdateEnabledToggle = useLastCallback(() => {
     setIsAutoUpdateEnabled(!isAutoUpdateEnabled);
-    void window.electron?.setIsAutoUpdateEnabled(!isAutoUpdateEnabled);
+    void window.electron?.setIsAutoUpdateEnabled?.(!isAutoUpdateEnabled);
   });
 
   const handleBackOrCloseAction = useLastCallback(() => {
@@ -517,7 +513,7 @@ function Settings({
 
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>
-            {isPasswordPresent && (
+            {hasPassword && !isViewMode && (
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleSecurityOpen}>
                 <img className={styles.menuIcon} src={securityImg} alt={lang('Security')} />
                 <div className={styles.itemContent}>
@@ -759,6 +755,7 @@ function Settings({
         return (
           <SettingsSecurity
             isActive={isActive && isSlideActive}
+            isInsideModal={isInsideModal}
             isAutoUpdateEnabled={isAutoUpdateEnabled}
             onBackClick={handleBackClick}
             onAutoUpdateEnabledToggle={handleAutoUpdateEnabledToggle}
@@ -795,16 +792,16 @@ function Settings({
             onBackClick={handleBackClick}
           />
         );
-      case SettingsState.NativeBiometricsTurnOn:
-        return (
-          <SettingsNativeBiometricsTurnOn
-            isActive={isActive && isSlideActive}
-            onBackClick={handleBackClick}
-          />
-        );
       case SettingsState.SelectTokenList:
         return (
           <SettingsTokenList
+            isActive={isActive && isSlideActive}
+            onBackClick={handleBackClickToAssets}
+          />
+        );
+      case SettingsState.Chains:
+        return (
+          <SettingsChains
             isActive={isActive && isSlideActive}
             onBackClick={handleBackClickToAssets}
           />
@@ -813,6 +810,7 @@ function Settings({
         return (
           <SettingsWalletVariants
             isActive={isActive && isSlideActive}
+            isInsideModal={isInsideModal}
             accountChains={accountChains}
             onBackClick={handleBackClick}
           />
@@ -831,7 +829,7 @@ function Settings({
           <div className={styles.slide}>
             <LedgerConnect
               isActive={isActive && isSlideActive}
-              isStatic
+              isStatic={!isInsideModal}
               className={styles.nestedTransition}
               onBackClick={handleBackClick}
               onConnected={handleLedgerConnected}
@@ -844,7 +842,7 @@ function Settings({
           <div className={styles.slide}>
             <LedgerSelectWallets
               isActive={isActive && isSlideActive}
-              isStatic
+              isStatic={!isInsideModal}
               onBackClick={handleBackClick}
               onClose={handleBackOrCloseAction}
             />
@@ -872,10 +870,10 @@ function Settings({
       <Transition
         ref={transitionRef}
         name={resolveSlideTransitionName()}
-        className={buildClassName(styles.transitionContainer, 'custom-scroll')}
+        className={buildClassName(isInsideModal ? modalStyles.transition : styles.transitionContainer, 'custom-scroll')}
         activeKey={renderingKey}
+        slideClassName={buildClassName(isInsideModal && modalStyles.transitionSlide)}
         withSwipeControl
-        onStop={getDoesUsePinPad() ? handleSlideAnimationStop : undefined}
       >
         {renderContent}
       </Transition>
@@ -891,13 +889,12 @@ function Settings({
         />
       )}
       <LogOutModal isOpen={isLogOutModalOpened} onClose={handleCloseLogOutModal} />
-      {IS_BIOMETRIC_AUTH_SUPPORTED && <Biometrics />}
     </div>
   );
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const isPasswordPresent = selectIsPasswordPresent(global);
+  const hasPassword = selectHasPassword(global);
   const { isCopyStorageEnabled, supportAccountsCount = 1, isNftBuyingDisabled } = global.restrictions;
 
   const { currentVersion, byId: versionsById } = global.walletVersions ?? {};
@@ -912,7 +909,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     dapps,
     isOpen: global.areSettingsOpen,
     tokens: selectCurrentAccountTokens(global),
-    isPasswordPresent,
+    hasPassword,
     currentVersion,
     versions,
     isCopyStorageEnabled,

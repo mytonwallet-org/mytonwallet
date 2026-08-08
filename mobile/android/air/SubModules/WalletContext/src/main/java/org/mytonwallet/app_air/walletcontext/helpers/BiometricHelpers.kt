@@ -6,15 +6,18 @@ import android.os.Handler
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
+import java.util.concurrent.Executor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
-import java.util.concurrent.Executor
 
 class BiometricHelpers {
     companion object {
         fun canAuthenticate(context: Context): Boolean {
             val biometricManager = BiometricManager.from(context)
-            return biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+            return biometricManager.canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG
+            ) ==
+                BiometricManager.BIOMETRIC_SUCCESS
         }
 
         fun authenticate(
@@ -24,7 +27,7 @@ class BiometricHelpers {
             description: String?,
             cancel: String?,
             onSuccess: () -> Unit,
-            onCanceled: () -> Unit,
+            onCanceled: () -> Unit
         ) {
             val executor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 window.mainExecutor
@@ -54,20 +57,29 @@ class BiometricHelpers {
                             errString: CharSequence
                         ) {
                             super.onAuthenticationError(errorCode, errString)
-                            Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "onAuthenticationError: errorCode=$errorCode")
+                            Logger.d(
+                                Logger.LogTag.PASSCODE_CONFIRM,
+                                "onAuthenticationError: errorCode=$errorCode"
+                            )
                             onCanceled()
                         }
 
-                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        override fun onAuthenticationSucceeded(
+                            result: BiometricPrompt.AuthenticationResult
+                        ) {
                             super.onAuthenticationSucceeded(result)
                             onSuccess()
                         }
 
                         override fun onAuthenticationFailed() {
                             super.onAuthenticationFailed()
-                            Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "onAuthenticationFailed: Biometric did not match")
+                            Logger.d(
+                                Logger.LogTag.PASSCODE_CONFIRM,
+                                "onAuthenticationFailed: Biometric did not match"
+                            )
                         }
-                    })
+                    }
+                )
 
             try {
                 biometricPrompt.authenticate(promptInfo)

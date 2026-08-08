@@ -4,9 +4,8 @@ public enum ActivityDetailsContext {
     case normal
     case external
     case sendConfirmation
-    case sendNftConfirmation
-    case burnNftConfirmation
     case swapConfirmation
+    case onchainSwapConfirmation
     case stakeConfirmation
     case unstakeConfirmation
     case unstakeRequestConfirmation
@@ -14,19 +13,19 @@ public enum ActivityDetailsContext {
     public var isTransactionConfirmation: Bool {
         switch self {
         case .normal, .external: false
-        case .sendConfirmation, .sendNftConfirmation, .burnNftConfirmation, .swapConfirmation, .stakeConfirmation, .unstakeConfirmation, .unstakeRequestConfirmation: true
+        case .sendConfirmation, .swapConfirmation, .onchainSwapConfirmation, .stakeConfirmation, .unstakeConfirmation, .unstakeRequestConfirmation: true
         }
     }
     
     public var displayTitle: String? {
         switch self {
         case .normal, .external: nil
-        case .sendConfirmation, .sendNftConfirmation: lang("Sent!")
-        case .burnNftConfirmation: lang("Burned")
+        case .sendConfirmation: lang("Sent")
         case .swapConfirmation: lang("Swap Placed")
-        case .stakeConfirmation: lang("Coins have been staked!")
-        case .unstakeConfirmation: lang("Coins have been unstaked!")
-        case .unstakeRequestConfirmation: lang("Request for unstaking is sent!")
+        case .onchainSwapConfirmation: lang("Swapped")
+        case .stakeConfirmation: lang("Staked")
+        case .unstakeConfirmation: lang("Unstaked")
+        case .unstakeRequestConfirmation: lang("Unstake Requested")
         }
     }
 }

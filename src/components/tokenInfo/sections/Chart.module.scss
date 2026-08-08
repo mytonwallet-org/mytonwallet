@@ -1,0 +1,152 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  padding: 0.75rem;
+  border-radius: 1.5rem;
+
+  background-color: var(--color-background-first);
+}
+
+.modes ,
+.modesOverlay {
+  flex: 0 0 auto;
+  align-self: center;
+
+  margin-top: -0.25rem;
+  margin-bottom: -0.25rem;
+
+  font-size: 0.75rem;
+  line-height: 1.333;
+}
+
+.summary {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  :global(html[dir="rtl"]) & {
+    flex-direction: row-reverse;
+  }
+}
+
+// The row above keeps the plot order in RTL, so the sides flip their alignment to stay on their edges
+.summarySide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  align-items: flex-start;
+
+  min-width: 0;
+
+  :global(html[dir="rtl"]) & {
+    align-items: flex-end;
+  }
+}
+
+.summarySideEnd {
+  align-items: flex-end;
+
+  :global(html[dir="rtl"]) & {
+    align-items: flex-start;
+  }
+}
+
+.summaryCaption {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+
+  min-height: 1rem;
+
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.333;
+  color: var(--color-gray-2);
+}
+
+.summaryValue {
+  min-height: 1.25rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.333;
+  color: var(--color-black);
+}
+
+.captionSkeleton {
+  width: 3rem;
+  height: 1rem;
+  border-radius: 0.375rem;
+}
+
+.valueSkeleton {
+  width: 4.5rem;
+  height: 1.25rem;
+  border-radius: 0.375rem;
+}
+
+.change {
+  margin-inline-start: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.changePositive {
+  color: var(--color-activity-green-text);
+}
+
+.changeNegative {
+  color: var(--color-activity-red-text);
+}
+
+.plot,
+.plotSkeleton {
+  margin: 0 -0.25rem;
+}
+
+.plotSkeleton {
+  height: 5.875rem;
+  border-radius: 0.75rem;
+}
+
+.plotEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 5.875rem;
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-gray-2);
+}
+
+.timeRange {
+  align-self: center;
+
+  // The ranges read along the plot, which is never mirrored
+  :global(html[dir="rtl"]) & {
+    --pill-direction: 1;
+
+    direction: ltr;
+  }
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+
+  min-height: 1rem;
+
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--color-gray-2);
+
+  :global(html[dir="rtl"]) & {
+    flex-direction: row-reverse;
+  }
+}

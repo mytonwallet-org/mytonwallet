@@ -9,6 +9,7 @@ import type { DropdownItem } from '../../../ui/Dropdown';
 import buildClassName from '../../../../util/buildClassName';
 import { stopEvent } from '../../../../util/domEvents';
 import { formatNumber } from '../../../../util/formatNumber';
+import { toNativeDigits } from '../../../../util/nativeDigits';
 
 import useCurrentOrPrev from '../../../../hooks/useCurrentOrPrev';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -142,7 +143,7 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
             <i className={buildClassName(styles.showAllIcon, showAllIcon)} aria-hidden />
             <span className={styles.showAllLabel}>{showAllLabel}</span>
             {Boolean(showAllAmount) && (
-              <span className={styles.showAllBadge}>{formatNumber(showAllAmount)}</span>
+              <span className={styles.showAllBadge}>{toNativeDigits(formatNumber(showAllAmount))}</span>
             )}
           </Button>
         )}

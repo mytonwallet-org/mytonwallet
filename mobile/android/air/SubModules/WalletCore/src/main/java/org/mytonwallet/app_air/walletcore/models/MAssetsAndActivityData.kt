@@ -1,17 +1,17 @@
 package org.mytonwallet.app_air.walletcore.models
 
+import java.math.BigInteger
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
+import org.mytonwallet.app_air.walletcore.defaultShownSlugs
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 data class MAssetsAndActivityData(
     var accountId: String = "",
@@ -20,6 +20,7 @@ data class MAssetsAndActivityData(
     var deletedTokens: ArrayList<String> = ArrayList(),
     var addedTokens: ArrayList<String> = ArrayList(),
     var pinnedTokens: ArrayList<String> = ArrayList(),
+    var chainDisplayConfiguration: MChainDisplayConfiguration? = null
 ) {
 
     constructor(accountId: String) : this() {
@@ -32,6 +33,9 @@ data class MAssetsAndActivityData(
         )
         addedTokens = jsonArrayToArrayList(jsonObject.optJSONArray("importedSlugs"))
         pinnedTokens = jsonArrayToArrayList(jsonObject.optJSONArray("pinnedSlugs"))
+        chainDisplayConfiguration = jsonObject.optJSONObject("chainDisplayConfiguration")?.let {
+            MChainDisplayConfiguration(it)
+        }
     }
 
     private fun jsonArrayToArrayList(jsonArray: JSONArray?): ArrayList<String> {
@@ -52,11 +56,34 @@ data class MAssetsAndActivityData(
             jsonObject.put("deletedSlugs", JSONArray(deletedTokens))
             jsonObject.put("importedSlugs", JSONArray(addedTokens))
             jsonObject.put("pinnedSlugs", JSONArray(pinnedTokens))
+            chainDisplayConfiguration?.let {
+                jsonObject.put("chainDisplayConfiguration", it.toJSON)
+            }
             return jsonObject
         }
 
-    fun isPinned(slug: String): Boolean {
-        return pinnedTokens.contains(slug)
+    fun saveChainDisplayMode(displayMode: MChainDisplayMode) {
+        val configuration = chainDisplayConfiguration ?: MChainDisplayConfiguration()
+        configuration.updateDisplayMode(displayMode)
+        chainDisplayConfiguration = configuration.takeUnless { it.isDefault }
+    }
+
+    fun saveChainVisible(chain: String, isVisible: Boolean) {
+        val configuration = chainDisplayConfiguration ?: MChainDisplayConfiguration(
+            displayMode = MChainDisplayMode.MANUAL
+        )
+        configuration.updateDisplayMode(MChainDisplayMode.MANUAL)
+        configuration.setVisible(chain, isVisible)
+        chainDisplayConfiguration = configuration.takeUnless { it.isDefault }
+    }
+
+    fun saveChainOrder(manualOrder: List<String>) {
+        val configuration = chainDisplayConfiguration ?: MChainDisplayConfiguration(
+            displayMode = MChainDisplayMode.MANUAL
+        )
+        configuration.updateDisplayMode(MChainDisplayMode.MANUAL)
+        configuration.updateManualOrder(manualOrder)
+        chainDisplayConfiguration = configuration.takeUnless { it.isDefault }
     }
 
     fun deleteToken(slug: String) {
@@ -71,7 +98,7 @@ data class MAssetsAndActivityData(
 
     fun getAllTokens(
         shouldSort: Boolean = true,
-        addVirtualStakingTokens: Boolean = false,
+        addVirtualStakingTokens: Boolean = false
     ): Array<MTokenBalance> {
         val tokensArray =
             ArrayList(
@@ -83,7 +110,7 @@ data class MAssetsAndActivityData(
             )
 
         val account = AccountStore.accountById(accountId)
-        val defaultShownSlugs = DEFAULT_SHOWN_TOKENS[account?.network] ?: emptySet()
+        val defaultShownSlugs = account?.let { defaultShownSlugs(it) } ?: emptySet()
         val slugsToAdd = mutableListOf<String>().apply {
             addAll(defaultShownSlugs)
             addAll(addedTokens)

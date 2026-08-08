@@ -1,14 +1,12 @@
 import type {
   ApiAccountAny,
   ApiAccountConfig,
-  ApiAccountWithMnemonic,
   ApiActivityTimestamps,
   ApiBackendConfig,
   ApiChain,
   ApiCurrencyRates,
   ApiNetwork,
   ApiSwapAsset,
-  ApiTokenDetails,
   ApiTokenWithPrice,
   ApiUpdatingStatus,
   OnApiUpdate,
@@ -20,7 +18,7 @@ import { areDeepEqual } from '../../util/areDeepEqual';
 import { omit } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { OrGate } from '../../util/orGate';
-import { forbidConcurrency } from '../../util/schedulers';
+import { forbidConcurrency, throttle } from '../../util/schedulers';
 import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
 import {
@@ -32,8 +30,24 @@ import {
 import { tryUpdateKnownAddresses } from '../common/addresses';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { setBackendConfigCache } from '../common/cache';
+import {
+  forgetAllHeldTokens,
+  forgetHeldTokens,
+  forgetNetworkHeldTokens,
+  forgetOtherNetworksHeldTokens,
+  getHeldSlugs,
+  recordHeldTokens,
+} from '../common/held-tokens';
 import { pollingLoop } from '../common/polling/utils';
-import { getTokensCache, loadTokensCache, sendUpdateTokens, tokensPreload, updateTokens } from '../common/tokens';
+import {
+  buildTokenDetailsPayload,
+  fetchBackendTokenDetails,
+  getTokensCache,
+  loadTokensCache,
+  sendUpdateTokens,
+  tokensPreload,
+  updateTokens,
+} from '../common/tokens';
 import { MINUTE, SEC } from '../constants';
 import { storage } from '../storages';
 import { refreshMfaStateAndNotify } from './mfa';
@@ -48,16 +62,29 @@ const INCORRECT_TIME_DIFF = 30 * SEC;
 const ACCOUNT_CONFIG_INTERVAL = { focused: MINUTE, notFocused: 10 * MINUTE };
 const MFA_INTERVAL = MINUTE;
 
+/** A backstop for the token details payload, which is normally bounded by the size of the polled portfolios */
 const MAX_POST_TOKENS = 1500;
+/** Lets the balances of the several polled wallets arrive before the details of their new tokens are requested */
+const TOKEN_DETAILS_THROTTLE = 3 * SEC;
 
 let onUpdate: OnApiUpdate;
+/** Slugs of the last `GET /assets` response, reused when the details are requested outside `tryUpdateTokens` */
+let backendTokenSlugs = new Set<string>();
 let stopCommonBackendPolling: NoneToVoidFunction | undefined;
 let stopActiveAccountPolling: NoneToVoidFunction | undefined;
 const inactiveAccountPolling = createInactiveAccountsPollingManager();
 const setUpdatingStatus = createUpdatingStatusManager();
 
 export function initPolling(_onUpdate: OnApiUpdate) {
-  onUpdate = _onUpdate;
+  // Every chain reports the balances of both the active and the inactive accounts through this callback, which makes it
+  // the one place where the set of held tokens can be tracked without touching the chain implementations
+  onUpdate = (update) => {
+    if (update.type === 'updateBalances' && recordHeldTokens(update.accountId, update.balances)) {
+      refreshTokenDetails();
+    }
+
+    _onUpdate(update);
+  };
 
   void loadTokensCache();
 
@@ -113,36 +140,54 @@ function setupCommonBackendPolling() {
 
 async function tryUpdateTokens() {
   try {
-    const tokens = await callBackendGet<ApiTokenWithPrice[]>('/assets');
+    const langCode = await storage.getItem('langCode');
+    const tokens = await callBackendGet<ApiTokenWithPrice[]>('/assets', { langCode });
 
     for (const token of tokens) {
       token.isFromBackend = true;
     }
 
     await tokensPreload.promise;
-    const tokensCache = getTokensCache();
 
-    const backendReturnedSlugs = new Set(tokens.map((t) => t.slug));
-    const nonBackendTokenAddresses = Object.values(tokensCache.bySlug).reduce((result, token) => {
-      // Retrieve details for tokens that are not returned by /assets anymore
-      // (i.e. rug pulled and therefore disabled on the backend)
-      if ((!token.isFromBackend || !backendReturnedSlugs.has(token.slug)) && token.tokenAddress) {
-        result.push(token.tokenAddress);
-      }
-      return result;
-    }, [] as string[]);
+    backendTokenSlugs = new Set(tokens.map((t) => t.slug));
 
-    // POST is used to retrieve data due to the potentially large number of addresses
-    const nonBackendTokenDetails = nonBackendTokenAddresses.length
-      ? await callBackendPost<ApiTokenDetails[]>('/assets', {
-        assets: nonBackendTokenAddresses.slice(0, MAX_POST_TOKENS),
-      }) : undefined;
+    const nonBackendTokenDetails = await fetchNonBackendTokenDetails(langCode);
 
     await updateTokens(tokens, () => sendUpdateTokens(onUpdate), nonBackendTokenDetails, true);
   } catch (err) {
     logDebugError('tryUpdateTokens', err);
   }
 }
+
+async function fetchNonBackendTokenDetails(langCode?: string) {
+  const tokensCache = getTokensCache();
+  // POST is used to retrieve data because the addresses may not fit into a URL
+  const tokenAddresses = buildTokenDetailsPayload(Object.values(tokensCache.bySlug), {
+    backendSlugs: backendTokenSlugs,
+    heldSlugs: getHeldSlugs(),
+    maxCount: MAX_POST_TOKENS,
+  });
+
+  return tokenAddresses.length ? fetchBackendTokenDetails(tokenAddresses, langCode) : undefined;
+}
+
+/**
+ * `tryUpdateTokens` runs before the first balances arrive, so the tokens discovered on the wallets afterwards would
+ * wait for the next poll to get their price and type. This catches them up.
+ */
+const refreshTokenDetails = throttle(async () => {
+  try {
+    await tokensPreload.promise;
+    const langCode = await storage.getItem('langCode');
+    const tokenDetails = await fetchNonBackendTokenDetails(langCode);
+
+    if (tokenDetails?.length) {
+      await updateTokens([], () => sendUpdateTokens(onUpdate), tokenDetails, true);
+    }
+  } catch (err) {
+    logDebugError('refreshTokenDetails', err);
+  }
+}, TOKEN_DETAILS_THROTTLE, false);
 
 async function tryUpdateCurrencyRates() {
   try {
@@ -200,6 +245,7 @@ export async function tryUpdateConfig() {
       isUpdateRequired: isAppUpdateRequired,
       knowledgeBaseVersion,
       preferredAgent,
+      allowedOnOffRampCurrencies,
     } = config;
 
     onUpdate({
@@ -213,6 +259,7 @@ export async function tryUpdateConfig() {
       seasonalTheme,
       knowledgeBaseVersion,
       preferredAgent,
+      allowedOnOffRampCurrencies,
     });
 
     const localUtc = (new Date()).getTime();
@@ -275,16 +322,19 @@ export function addPollingAccount(accountId: string, account: ApiAccountAny) {
 /** Call it every time an account is removed (except for cases in the other remove...account functions) */
 export function removePollingAccount(accountId: string) {
   inactiveAccountPolling?.removeAccount(accountId);
+  forgetHeldTokens(accountId);
 }
 
 /** Call it every time all accounts of a network are removed */
 export function removeNetworkPollingAccounts(network: ApiNetwork) {
   inactiveAccountPolling?.removeNetworkAccounts(network);
+  forgetNetworkHeldTokens(network);
 }
 
 /** Call it every time all accounts are removed */
 export function removeAllPollingAccounts() {
   inactiveAccountPolling?.removeAllAccounts();
+  forgetAllHeldTokens();
 }
 
 function setupAccountConfigPolling(accountId: string, account: ApiAccountAny) {
@@ -294,7 +344,7 @@ function setupAccountConfigPolling(accountId: string, account: ApiAccountAny) {
   // our own API - it has no business riding a polling loop's request body once a swap has put it on the wallet.
   const { byChain } = account;
   const partialAccount = {
-    ...omit(account as ApiAccountWithMnemonic, ['mnemonicEncrypted']),
+    ...account,
     ...(byChain.ton && { byChain: { ...byChain, ton: omit(byChain.ton, ['authToken']) } }),
   };
 
@@ -426,6 +476,8 @@ function createInactiveAccountsPollingManager() {
     stopAllPollings();
     activeAccountId = newActiveAccountId;
     const { network } = parseAccountId(activeAccountId);
+    // The other network is no longer polled, so its held tokens would linger in the details payload forever
+    forgetOtherNetworksHeldTokens(network);
     const accounts = await fetchStoredAccounts();
     const otherAccountIds = Object.keys(accounts).filter((accountId) => (
       accountId !== activeAccountId

@@ -43,6 +43,18 @@ addActionHandler('initApi', async (global, actions) => {
     setGlobal(global);
   }
 
+  // The repair clears broken auth tokens, the detection below flags accounts missing one.
+  // If the detection ran first, the just-cleaned accounts would stay unflagged until the next launch.
+  void callApi('repairInvalidBip39TonAuthTokens').then(async () => {
+    const candidateIds = await callApi('getMultichainUpgradeCandidateIds');
+    if (candidateIds?.length) {
+      setGlobal({
+        ...getGlobal(),
+        multichainUpgradeCount: candidateIds.length,
+      });
+    }
+  });
+
   const { currentAccountId } = global;
 
   if (!currentAccountId) return;

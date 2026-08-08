@@ -1,0 +1,36 @@
+@use "../../styles/mixins";
+
+.root {
+  display: flex;
+  flex-direction: column;
+  padding-top: 0.75rem;
+  padding-bottom: 1rem;
+}
+
+.actions {
+  margin: 2rem 0 0;
+
+  // Auto margins center the row, yet collapse to 0 on overflow, keeping it scrollable from the start
+  > :first-child {
+    margin-inline-start: auto;
+  }
+
+  > :last-child {
+    margin-inline-end: auto;
+  }
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+
+  @include mixins.respond-above(lg) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.panel {
+  min-width: 0;
+}

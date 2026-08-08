@@ -1,7 +1,8 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uiassets.viewControllers.assets.cells
 
 import android.animation.ObjectAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -28,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setSizeBounds
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.image.WNftImageView
@@ -53,7 +55,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 class AssetCell(
     context: Context,
     val viewMode: AssetsVC.ViewMode,
-    private var showsTitle: Boolean = viewMode == AssetsVC.ViewMode.COMPLETE,
+    private var showsTitle: Boolean = viewMode == AssetsVC.ViewMode.COMPLETE
 ) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
 
@@ -81,7 +83,7 @@ class AssetCell(
     private val saleBadgeView: AppCompatImageView by lazy {
         AppCompatImageView(context).apply {
             id = generateViewId()
-            setImageResource(org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_sale)
+            setImageResource(org.mytonwallet.app_air.icons.R.drawable.ic_nft_sale)
             isGone = true
         }
     }
@@ -309,7 +311,7 @@ class AssetCell(
         isSelected: Boolean,
         isReadOnly: Boolean = false,
         daysUntilExpiration: Int? = null,
-        showsTitle: Boolean = this.showsTitle,
+        showsTitle: Boolean = this.showsTitle
     ) {
         applyShowsTitle(showsTitle)
         if (this.nft == nft &&
@@ -324,7 +326,8 @@ class AssetCell(
         }
         val nftChanged = this.nft?.address != nft.address
         val selectionModeChanged = !nftChanged &&
-            (this.interactionMode == AssetsVM.InteractionMode.SELECTION) != (interactionMode == AssetsVM.InteractionMode.SELECTION)
+            (this.interactionMode == AssetsVM.InteractionMode.SELECTION) !=
+            (interactionMode == AssetsVM.InteractionMode.SELECTION)
         val selectedChanged = !nftChanged && this.isSelected != isSelected
         val onSaleChanged = this.nft?.address == nft.address && this.nft?.isOnSale != nft.isOnSale
         val expiryChanged = !nftChanged && this.daysUntilExpiration != daysUntilExpiration
@@ -382,7 +385,8 @@ class AssetCell(
                 animationView.playFromUrl(
                     url = nft.metadata!!.lottie!!,
                     play = !animationsPaused,
-                    onStart = {})
+                    onStart = {}
+                )
             }
         }
         if (interactionMode == AssetsVM.InteractionMode.DRAG) {

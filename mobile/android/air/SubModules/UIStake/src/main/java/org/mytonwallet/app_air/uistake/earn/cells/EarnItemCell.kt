@@ -1,40 +1,43 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uistake.earn.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.view.isVisible
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uistake.earn.models.EarnItem
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
-import kotlin.math.abs
-import androidx.core.view.isVisible
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import kotlin.math.roundToInt
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
-class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.MATCH_PARENT, 0)),
+class EarnItemCell(context: Context) :
+    WCell(context, LayoutParams(LayoutParams.MATCH_PARENT, 0)),
     WThemedView {
 
     private var item: EarnItem? = null
@@ -97,7 +100,7 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
         label.setStyle(adaptiveFontSize(), WFont.Regular)
         WSensitiveDataContainer(
             label,
-            WSensitiveDataContainer.MaskConfig(0, 2, Gravity.RIGHT or Gravity.CENTER_VERTICAL)
+            WSensitiveDataContainer.MaskConfig(0, 2, Gravity.END or Gravity.CENTER_VERTICAL)
         )
     }
 
@@ -106,7 +109,7 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
         label.setStyle(13f, WFont.Regular)
         WSensitiveDataContainer(
             label,
-            WSensitiveDataContainer.MaskConfig(0, 2, Gravity.RIGHT or Gravity.CENTER_VERTICAL)
+            WSensitiveDataContainer.MaskConfig(0, 2, Gravity.END or Gravity.CENTER_VERTICAL)
         )
     }
 
@@ -212,8 +215,7 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
     private var isLastChanged = true
     override fun updateTheme() {
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged && !isLastChanged)
-            return
+        if (!darkModeChanged && !isLastChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
 
         setBackgroundColor(
@@ -221,12 +223,13 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
             0f,
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         )
-        if (item is EarnItem.ProfitGroup)
+        if (item is EarnItem.ProfitGroup) {
             addRippleEffect(
                 WColor.SecondaryBackground.color,
                 0f,
                 if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
             )
+        }
 
         titleLabel.setTextColor(WColor.PrimaryText.color)
         itemDateLabel.setTextColor(WColor.SecondaryText.color)
@@ -258,7 +261,9 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
         fiatValueLabel.fadeOut(duration) {
             if (this.item !== item) return@fadeOut
             titleLabel.setTextIfChanged(item.getTitle())
-            if (item is EarnItem.Profit || item is EarnItem.ProfitGroup || item is EarnItem.Unstaked) {
+            if (item is EarnItem.Profit || item is EarnItem.ProfitGroup ||
+                item is EarnItem.Unstaked
+            ) {
                 amountLabel.contentView.text = "+$signSpace${item.formattedAmount} $tokenSymbol"
                 amountLabel.contentView.setTextColor(WColor.Green.color)
                 amountLabel.maskView.skin = SensitiveDataMaskView.Skin.GREEN
@@ -296,10 +301,9 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
         isLast: Boolean,
         isAdded: Boolean = false,
         isReplaced: Boolean = false,
-        animationDelay: Long = 0L,
+        animationDelay: Long = 0L
     ) {
-        if (this.item == null)
-            firstAppearanceSetup()
+        if (this.item == null) firstAppearanceSetup()
 
         isLastChanged = this.isLast != isLast
         this.isLast = isLast
@@ -307,11 +311,9 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
         this.item = item
 
         val replaceAnimation = isReplaced && WGlobalStorage.getAreAnimationsActive()
-        if (!replaceAnimation)
-            updateTheme()
+        if (!replaceAnimation) updateTheme()
 
-        if (!itemChanged && !isLastChanged)
-            return
+        if (!itemChanged && !isLastChanged) return
 
         animate().cancel()
         cancelContentAnimations()
@@ -340,7 +342,7 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
             it.config(
                 item.getIcon(),
                 item.getGradientColors()?.first,
-                item.getGradientColors()?.second,
+                item.getGradientColors()?.second
             )
         }
         if (item is EarnItem.ProfitGroup) {
@@ -381,5 +383,4 @@ class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.
             setContentAlpha(1f)
         }
     }
-
 }

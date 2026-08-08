@@ -1,10 +1,9 @@
 import UIKit
+import UIComponents
 import WalletContext
 
 private enum AgentComposerMetrics {
     static let composerBackgroundColor = UIColor.clear
-    static let textFont = UIFont.systemFont(ofSize: 17, weight: .regular)
-    static let placeholderFont = UIFont.systemFont(ofSize: 17, weight: .regular)
     static let inputCornerRadius: CGFloat = 22
     static let sendButtonCornerRadius: CGFloat = 16
     static let minInputHeight: CGFloat = 44
@@ -108,7 +107,13 @@ final class AgentComposerView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        updateTextContainerInsets()
         updateInputHeightIfNeeded()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateTextContainerInsets()
     }
 
     override func tintColorDidChange() {
@@ -173,17 +178,12 @@ final class AgentComposerView: UIView {
 
         textView.translatesAutoresizingMaskIntoConstraints = false
         textView.backgroundColor = .clear
-        textView.font = AgentComposerMetrics.textFont
+        textView.applyTextStyle(.body)
         textView.isScrollEnabled = false
         textView.alwaysBounceVertical = false
         textView.keyboardDismissMode = .interactive
         textView.textContainer.lineFragmentPadding = 0
-        textView.textContainerInset = UIEdgeInsets(
-            top: AgentComposerMetrics.contentVerticalInset,
-            left: AgentComposerMetrics.contentHorizontalInset,
-            bottom: AgentComposerMetrics.contentVerticalInset,
-            right: AgentComposerMetrics.reservedTrailingTextInsetWithoutHints
-        )
+        updateTextContainerInsets()
         textView.returnKeyType = .default
         textView.autocapitalizationType = .sentences
         textView.delegate = self
@@ -192,7 +192,7 @@ final class AgentComposerView: UIView {
         }
 
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
-        placeholderLabel.font = AgentComposerMetrics.placeholderFont
+        placeholderLabel.applyTextStyle(.body)
         placeholderLabel.text = lang("Ask anything")
         placeholderLabel.isUserInteractionEnabled = false
 
@@ -312,9 +312,28 @@ final class AgentComposerView: UIView {
     }
 
     private func updateTrailingTextInset() {
-        textView.textContainerInset.right = isHintsToggleVisible
+        updateTextContainerInsets()
+    }
+
+    private func updateTextContainerInsets() {
+        let reservedInset = isHintsToggleVisible
             ? AgentComposerMetrics.reservedTrailingTextInsetWithHints
             : AgentComposerMetrics.reservedTrailingTextInsetWithoutHints
+        if effectiveUserInterfaceLayoutDirection == .rightToLeft {
+            textView.textContainerInset = UIEdgeInsets(
+                top: AgentComposerMetrics.contentVerticalInset,
+                left: reservedInset,
+                bottom: AgentComposerMetrics.contentVerticalInset,
+                right: AgentComposerMetrics.contentHorizontalInset
+            )
+        } else {
+            textView.textContainerInset = UIEdgeInsets(
+                top: AgentComposerMetrics.contentVerticalInset,
+                left: AgentComposerMetrics.contentHorizontalInset,
+                bottom: AgentComposerMetrics.contentVerticalInset,
+                right: reservedInset
+            )
+        }
     }
 
     private func updateHintsButtonAppearance() {

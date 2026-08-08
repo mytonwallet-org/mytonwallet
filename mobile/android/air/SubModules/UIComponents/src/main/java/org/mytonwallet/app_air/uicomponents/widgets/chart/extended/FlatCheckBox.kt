@@ -133,7 +133,13 @@ class FlatCheckBox(context: Context) : View(context) {
 
             rD = ((Color.red(colorTextActive) - Color.red(colorInactive)) * checkProgress).toInt()
             gD =
-                ((Color.green(colorTextActive) - Color.green(colorInactive)) * checkProgress).toInt()
+                (
+                    (
+                        Color.green(
+                            colorTextActive
+                        ) - Color.green(colorInactive)
+                        ) * checkProgress
+                    ).toInt()
             bD = ((Color.blue(colorTextActive) - Color.blue(colorInactive)) * checkProgress).toInt()
             c = Color.rgb(
                 Color.red(colorInactive) + rD,

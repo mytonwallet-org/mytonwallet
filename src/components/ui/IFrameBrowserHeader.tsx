@@ -75,7 +75,9 @@ function IFrameBrowserHeader({
     const button = menuButtonRef.current;
     if (!button) return;
 
-    const { right: x, y, height } = button.getBoundingClientRect();
+    const { left, right, y, height } = button.getBoundingClientRect();
+    // RTL: anchor to the button's outer (left) edge to mirror the LTR alignment
+    const x = lang.isRtl ? left : right;
     setMenuAnchor({ x, y: y + height });
   });
 

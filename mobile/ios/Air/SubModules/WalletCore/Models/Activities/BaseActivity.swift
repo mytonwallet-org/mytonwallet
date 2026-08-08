@@ -28,6 +28,8 @@ public struct BaseActivityExtra: Equatable, Hashable, Codable, Sendable {
     public var queryId: String?
     public var isOurSwapFee: Bool?
     public var mtwAggregator: ApiMtwAggregator?
+    /// SDK-owned source/projection metadata. Optional for backwards compatibility.
+    public var reconciliation: ApiActivityReconciliation?
     // TODO Move other extra fields here (externalMsgHash, ...)
 }
 
@@ -36,4 +38,11 @@ public struct ApiMtwAggregator: Equatable, Hashable, Codable, Sendable {
     public let swapIds: [String]
     public let from: String
     public let to: String
+}
+
+public struct ApiActivityReconciliation: Equatable, Hashable, Codable, Sendable {
+    public let operationId: String?
+    public let sourceActionIds: [String]
+    public let hiddenSourceActionIds: [String]
+    public let reason: String
 }

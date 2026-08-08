@@ -9,22 +9,23 @@ import android.text.style.ReplacementSpan
 import android.util.AttributeSet
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatTextView
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import kotlin.math.roundToInt
 
 class CopyTextView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0,
-) : AppCompatTextView(context, attrs, defStyle), WThemedView {
+    defStyle: Int = 0
+) : AppCompatTextView(context, attrs, defStyle),
+    WThemedView {
     private val span = CopyButtonSpan(context)
     private val ripple = WRippleDrawable.create(8f.dp)
 
@@ -102,7 +103,7 @@ class CopyTextView @JvmOverloads constructor(
             end: Int,
             fm: Paint.FontMetricsInt?
         ): Int {
-            val d = copyDrawable ?: return 0;
+            val d = copyDrawable ?: return 0
             return d.minimumWidth + 3.dp
         }
 

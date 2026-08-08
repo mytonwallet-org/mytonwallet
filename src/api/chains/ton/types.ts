@@ -70,8 +70,8 @@ export type PreparedTransactionToSign = Pick<
 };
 
 export interface JettonMetadata {
-  name: string;
-  symbol: string;
+  name?: string;
+  symbol?: string;
   description?: string;
   decimals?: number | string;
   image?: string;
@@ -86,7 +86,7 @@ export type ContractName = ApiTonWalletVersion
   | 'dedustPool' | 'dedustVaultNative' | 'dedustVaultJetton'
   | 'stonPtonWallet' | 'stonRouter' | 'stonRouterV2_1' | 'stonPoolV2_1'
   | 'stonRouterV2_2' | 'stonRouterV2_2_alt' | 'stonPoolV2_2' | 'stonPtonWalletV2'
-  | 'toncoRouter' | 'wrappedToncoTonWallet' | 'dedustVaultNativeV2';
+  | 'toncoRouter' | 'wrappedToncoTonWallet' | 'dedustVaultNativeV2' | 'omnistonEscrowMinter';
 
 export type ContractInfo = {
   name: ContractName;

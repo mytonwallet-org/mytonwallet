@@ -37,12 +37,18 @@ class LinedCenteredTitleView(context: Context) :
         }
 
     init {
-        addView(leftLineView, LayoutParams(60.dp, 1.dp).apply {
-            rightMargin = 12.dp
-        })
-        addView(rightLineView, LayoutParams(60.dp, 1.dp).apply {
-            leftMargin = 12.dp
-        })
+        addView(
+            leftLineView,
+            LayoutParams(60.dp, 1.dp).apply {
+                rightMargin = 12.dp
+            }
+        )
+        addView(
+            rightLineView,
+            LayoutParams(60.dp, 1.dp).apply {
+                leftMargin = 12.dp
+            }
+        )
         addView(titleLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         setConstraints {
             toLeft(leftLineView)
@@ -53,8 +59,10 @@ class LinedCenteredTitleView(context: Context) :
             toRight(rightLineView)
             toCenterY(rightLineView)
             createHorizontalChain(
-                ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.LEFT,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.RIGHT,
                 intArrayOf(leftLineView.id, titleLabel.id, rightLineView.id),
                 null,
                 ConstraintSet.CHAIN_PACKED
@@ -79,5 +87,4 @@ class LinedCenteredTitleView(context: Context) :
         titleLabel.setStyle(17f, font)
         titleLabel.setTextColor(color)
     }
-
 }

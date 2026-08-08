@@ -14,11 +14,15 @@ private let passcodeLength = 4
 
 protocol PasscodeScreenViewDelegate: PasscodeInputViewDelegate {
     @MainActor func animateSuccess()
-    func onAuthenticated(taskDone: Bool, passcode: String)
+    func onAuthenticated(taskDone: Bool, enclaveToken: EnclaveToken)
+    @MainActor func onBiometricToken(_ token: EnclaveToken)
+    @MainActor func onBiometricFailure()
     func signOutRequested()
 }
 
 extension PasscodeScreenViewDelegate {
+    @MainActor func onBiometricToken(_ token: EnclaveToken) {}
+    @MainActor func onBiometricFailure() {}
     func signOutRequested() {}
 }
 
@@ -26,6 +30,7 @@ public class PasscodeScreenView: UIView {
     
     /// An external config used for `effectiveBiometryType` in the work context.
     private let biometricPassAllowed: Bool
+    private let authSessionKind: AuthSessionKind
     private let canShowSignOutWhenEmpty: Bool
     private var showsSignOutWhenEmpty: Bool
     private weak var delegate: PasscodeScreenViewDelegate? = nil
@@ -36,12 +41,14 @@ public class PasscodeScreenView: UIView {
         subtitle: String? = nil,
         compactLayout: Bool = false,
         biometricPassAllowed: Bool,
+        authSessionKind: AuthSessionKind = .oneShot,
         allowsSignOutWhenEmpty: Bool = false,
         showsSignOutWhenEmpty: Bool = false,
         delegate: PasscodeScreenViewDelegate,
         matchHeaderColors: Bool = true
     ) {
             self.biometricPassAllowed = biometricPassAllowed
+            self.authSessionKind = authSessionKind
             self.canShowSignOutWhenEmpty = allowsSignOutWhenEmpty
             self.showsSignOutWhenEmpty = showsSignOutWhenEmpty
             self.delegate = delegate
@@ -85,7 +92,8 @@ public class PasscodeScreenView: UIView {
     /// This property takes into account both the `biometricPassAllowed` configuration and whether 
     /// the user has enabled biometrics.
     private var effectiveBiometryType: BiometryType? {
-        guard biometricPassAllowed, AppStorageHelper.isBiometricActivated() else {
+        guard biometricPassAllowed,
+              AuthSupport.status.authorizableMethods.contains(.biometrics) else {
             return nil
         }
         return BiometricHelper.biometryType
@@ -94,8 +102,7 @@ public class PasscodeScreenView: UIView {
     private(set) var passcodeInputView: PasscodeInputView!
     internal var lockImageView: UIImageView?
     internal var enterPasscodeLabel: WReplacableLabel!
-    private var customHeader: UIView?
-    private var isTryingBiometric = false
+    private var biometricInProgress = false
     private weak var signOutPromptView: PasscodeSignOutPromptView?
     
     private func setupViews(title: String,
@@ -113,8 +120,8 @@ public class PasscodeScreenView: UIView {
             addSubview(darkOverlayView)
             NSLayoutConstraint.activate([
                 darkOverlayView.topAnchor.constraint(equalTo: topAnchor),
-                darkOverlayView.leftAnchor.constraint(equalTo: leftAnchor),
-                darkOverlayView.rightAnchor.constraint(equalTo: rightAnchor),
+                darkOverlayView.leadingAnchor.constraint(equalTo: leadingAnchor),
+                darkOverlayView.trailingAnchor.constraint(equalTo: trailingAnchor),
                 darkOverlayView.bottomAnchor.constraint(equalTo: bottomAnchor),
             ])
         }
@@ -175,7 +182,7 @@ public class PasscodeScreenView: UIView {
         enterPasscodeLabel.translatesAutoresizingMaskIntoConstraints = false
         enterPasscodeLabel.label.textAlignment = .center
         if compactLayout {
-            enterPasscodeLabel.label.font = .systemFont(ofSize: 17)
+            enterPasscodeLabel.label.applyTextStyle(.body)
             let hintText: String
             switch biometryType {
             case .touch: hintText = lang("Enter code or use Touch ID")
@@ -185,7 +192,7 @@ public class PasscodeScreenView: UIView {
             enterPasscodeLabel.label.text = hintText
             enterPasscodeLabel.label.textColor = .air.secondaryLabel
         } else {
-            enterPasscodeLabel.label.font = .systemFont(ofSize: 20)
+            enterPasscodeLabel.label.applyTextStyle(.title3)
             enterPasscodeLabel.label.numberOfLines = 2
             enterPasscodeLabel.label.lineBreakMode = .byTruncatingTail
             if let subtitle {
@@ -481,32 +488,28 @@ public class PasscodeScreenView: UIView {
         return handled
     }
     func tryBiometric() {
-        guard effectiveBiometryType != nil else {
+        guard effectiveBiometryType != nil, !biometricInProgress else {
             return
         }
-        guard !isTryingBiometric else {
-            return
-        }
-        isTryingBiometric = true
+        biometricInProgress = true
         
-        Task { @MainActor in
-            defer { self.isTryingBiometric = false }
-            
-            let result = await BiometricHelper.authenticate()
-            switch result {
-            case .canceled:
-                break
-            case .userDeniedBiometrics:
-                guard let button = viewWithTag(biometricButtonTag) else {
-                    assertionFailure("Unable to get the biometric button")
-                    break
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { biometricInProgress = false }
+
+            do {
+                guard let enclaveToken = try await AuthSupport.authorizeWithBiometrics(
+                    sessionKind: authSessionKind
+                ) else {
+                    // nil is not a cancellation (that throws); the stored credential failed to authorize
+                    delegate?.onBiometricFailure()
+                    return
                 }
-                hideButton(button)
-            case .success:
-                delegate?.passcodeSelected(passcode: KeychainHelper.biometricPasscode())
-            case let .error(localizedDescription, title):
-                let topVC = topViewController() as? WViewController
-                topVC?.showAlert(title: title, text: localizedDescription, button: lang("OK"))
+                delegate?.onBiometricToken(enclaveToken)
+            } catch {
+                if BiometricHelper.biometryType == nil, let button = viewWithTag(biometricButtonTag) {
+                    hideButton(button)
+                }
             }
         }
     }

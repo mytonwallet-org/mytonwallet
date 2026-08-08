@@ -5,11 +5,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 
-open class LineViewData(
-    val line: ChartData.Line,
-    bar: Boolean,
-    private val style: ChartStyle,
-) {
+open class LineViewData(val line: ChartData.Line, bar: Boolean, private val style: ChartStyle) {
     val bottomLinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)

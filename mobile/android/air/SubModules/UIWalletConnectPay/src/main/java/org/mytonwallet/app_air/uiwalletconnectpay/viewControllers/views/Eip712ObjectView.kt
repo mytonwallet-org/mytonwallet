@@ -22,8 +22,9 @@ class Eip712ObjectView(
     context: Context,
     obj: Map<String, Any?>,
     typeName: String,
-    types: Map<String, List<TypeField>>,
-) : LinearLayout(context), WThemedView {
+    types: Map<String, List<TypeField>>
+) : LinearLayout(context),
+    WThemedView {
 
     companion object {
         private const val MAX_DEPTH = 32
@@ -49,7 +50,7 @@ class Eip712ObjectView(
         value: Any?,
         solidityType: String?,
         types: Map<String, List<TypeField>>,
-        depth: Int,
+        depth: Int
     ): LinearLayout {
         if (depth > MAX_DEPTH) {
             return scalarView(scalarText(value))
@@ -78,7 +79,7 @@ class Eip712ObjectView(
         obj: Map<String, Any?>,
         fields: List<TypeField>,
         types: Map<String, List<TypeField>>,
-        depth: Int,
+        depth: Int
     ): LinearLayout {
         val container = verticalContainer()
         applyIndent(container, depth)
@@ -95,7 +96,7 @@ class Eip712ObjectView(
     private fun unknownValueView(
         value: Any,
         types: Map<String, List<TypeField>>,
-        depth: Int,
+        depth: Int
     ): LinearLayout {
         @Suppress("UNCHECKED_CAST")
         when (value) {
@@ -114,6 +115,7 @@ class Eip712ObjectView(
             }
 
             is List<*> -> return arrayView(value, null, types, depth)
+
             else -> return scalarView(scalarText(value))
         }
     }
@@ -122,7 +124,7 @@ class Eip712ObjectView(
         values: List<*>,
         elementType: String?,
         types: Map<String, List<TypeField>>,
-        depth: Int,
+        depth: Int
     ): LinearLayout {
         val container = verticalContainer()
         values.forEachIndexed { index, element ->
@@ -200,7 +202,7 @@ class Eip712ObjectView(
 
     private fun applyIndent(container: LinearLayout, depth: Int) {
         val indent = minOf(depth, MAX_INDENT_LEVEL) * INDENT_STEP
-        container.setPadding(indent.dp, 0, 0, 0)
+        container.setPaddingRelative(indent.dp, 0, 0, 0)
     }
 
     private fun scalarText(value: Any?): String = when (value) {
@@ -230,6 +232,7 @@ class Eip712ObjectView(
                 .toString(2)
 
             is List<*> -> JSONArray(value).toString(2)
+
             else -> JSONObject.wrap(value)?.toString() ?: value.toString()
         }
     } catch (_: Throwable) {

@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.uipasscode.commonViews;
+package org.mytonwallet.app_air.uipasscode.commonViews
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -16,11 +16,12 @@ import android.view.inputmethod.InputConnection
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.setPadding
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -30,13 +31,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.pulseView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class PasscodeInputView(
@@ -45,8 +44,10 @@ class PasscodeInputView(
     val forceLightScreen: Boolean = false,
     val forceDarkScreen: Boolean = false,
     val margins: Int = 16,
-    val showKeyboardOnFocus: Boolean,
-) : WFrameLayout(context), View.OnKeyListener, WThemedView {
+    val showKeyboardOnFocus: Boolean
+) : WFrameLayout(context),
+    View.OnKeyListener,
+    WThemedView {
 
     interface Delegate {
         fun didChangePasscode(passcode: String)
@@ -60,14 +61,13 @@ class PasscodeInputView(
         }
 
     init {
+        layoutDirection = LAYOUT_DIRECTION_LTR
         isFocusableInTouchMode = true
         isFocusable = true
         setOnKeyListener(this)
     }
 
-    override fun onCheckIsTextEditor(): Boolean {
-        return true
-    }
+    override fun onCheckIsTextEditor(): Boolean = true
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
         outAttrs.inputType = EditorInfo.TYPE_CLASS_NUMBER
@@ -77,16 +77,14 @@ class PasscodeInputView(
     private var configured = false
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (configured)
-            return
+        if (configured) return
         configured = true
         setupViews()
     }
 
     override fun requestFocus(direction: Int, previouslyFocusedRect: Rect?): Boolean {
         super.requestFocus(direction, previouslyFocusedRect)
-        if (showKeyboardOnFocus)
-            showKeyboard()
+        if (showKeyboardOnFocus) showKeyboard()
         return true
     }
 
@@ -112,17 +110,17 @@ class PasscodeInputView(
         alpha = 0f
     }
 
+    private fun LayoutParams.applyCircleStartMargin(index: Int) {
+        marginStart = 4.dp + index * (14 + margins).dp
+        marginEnd = 4.dp
+        gravity = Gravity.START or Gravity.TOP
+    }
+
     private fun setupViews() {
         for (i in 0..5) {
             val v = WView(context)
             val lp = LayoutParams(14.dp, 14.dp).apply {
-                if (LocaleController.isRTL) {
-                    rightMargin = 4.dp + i * (14 + margins).dp
-                    leftMargin = 4.dp
-                } else {
-                    leftMargin = 4.dp + i * (14 + margins).dp
-                    rightMargin = 4.dp
-                }
+                applyCircleStartMargin(i)
                 topMargin = 4.dp
                 bottomMargin = 4.dp
             }
@@ -162,15 +160,20 @@ class PasscodeInputView(
     }
 
     override fun updateTheme() {
-        val primaryText = if (forceLightScreen) Color.WHITE else
+        val primaryText = if (forceLightScreen) {
+            Color.WHITE
+        } else {
             if (forceDarkScreen) Color.BLACK else WColor.Tint.color
+        }
         val secondaryText =
-            if (!forceDarkScreen && (forceLightScreen || ThemeManager.isDark))
-                Color.WHITE.colorWithAlpha(85) else Color.BLACK.colorWithAlpha(85)
+            if (!forceDarkScreen && (forceLightScreen || ThemeManager.isDark)) {
+                Color.WHITE.colorWithAlpha(85)
+            } else {
+                Color.BLACK.colorWithAlpha(85)
+            }
         circleViews.forEachIndexed { index, wView ->
             if (index < passcode.length) {
-                if (wView.currentBackgroundColor != primaryText)
-                    wView.pulseView()
+                if (wView.currentBackgroundColor != primaryText) wView.pulseView()
                 wView.animateBackgroundColor(
                     primaryText,
                     8f.dp,
@@ -196,8 +199,7 @@ class PasscodeInputView(
 
     var isShowingIndicator = false
     fun showIndicator(animateToGreen: Boolean = true) {
-        if (isShowingIndicator)
-            return
+        if (isShowingIndicator) return
         if (!animateToGreen) {
             roundDrawable.color = if (forceLightScreen) Color.WHITE else WColor.Tint.color
         }
@@ -211,11 +213,9 @@ class PasscodeInputView(
             it.pulseView()
         }
         Handler(Looper.getMainLooper()).postDelayed({
-            if (!isShowingIndicator)
-                return@postDelayed
+            if (!isShowingIndicator) return@postDelayed
             animateCirclesToCenter(animateToGreen) {
-                if (!isShowingIndicator)
-                    return@animateCirclesToCenter
+                if (!isShowingIndicator) return@animateCirclesToCenter
                 addView(
                     progressView,
                     LayoutParams(14.dp, 14.dp).apply {
@@ -245,14 +245,7 @@ class PasscodeInputView(
                     scaleY = 1f
                     alpha = 1f
                     layoutParams = (layoutParams as LayoutParams).apply {
-                        if (LocaleController.isRTL) {
-                            rightMargin = 4.dp + i * (14 + margins).dp
-                            leftMargin = 4.dp
-                        } else {
-                            leftMargin = 4.dp + i * (14 + margins).dp
-                            rightMargin = 4.dp
-                        }
-                        gravity = Gravity.NO_GRAVITY
+                        applyCircleStartMargin(i)
                     }
                     visibility = if (i < passLength) VISIBLE else GONE
                 }
@@ -292,37 +285,28 @@ class PasscodeInputView(
                     }
                 }
 
-            if (animateToGreen)
-                view.animateBackgroundColor(WColor.Green.color, 8f.dp)
+            if (animateToGreen) view.animateBackgroundColor(WColor.Green.color, 8f.dp)
         }
     }
 
     private fun animateCirclesFromCenter() {
         val secondaryText =
-            if (!forceDarkScreen && (forceLightScreen || ThemeManager.isDark))
-                Color.WHITE.colorWithAlpha(85) else Color.BLACK.colorWithAlpha(85)
+            if (!forceDarkScreen && (forceLightScreen || ThemeManager.isDark)) {
+                Color.WHITE.colorWithAlpha(85)
+            } else {
+                Color.BLACK.colorWithAlpha(85)
+            }
 
         circleViews.forEachIndexed { index, view ->
             view.animate().cancel()
 
-            val targetLeftMargin =
-                if (LocaleController.isRTL) 4.dp
-                else 4.dp + index * (14 + margins).dp
-            val targetRightMargin =
-                if (LocaleController.isRTL) 4.dp + index * (14 + margins).dp
-                else 4.dp
-            val targetX =
-                if (LocaleController.isRTL)
-                    (width - targetRightMargin - 14.dp).toFloat()
-                else
-                    targetLeftMargin.toFloat()
+            val startMargin = 4.dp + index * (14 + margins).dp
+            val targetX = startMargin.toFloat()
             val startTranslation = view.x - targetX
 
             view.translationX = startTranslation
             view.layoutParams = (view.layoutParams as LayoutParams).apply {
-                leftMargin = targetLeftMargin
-                rightMargin = targetRightMargin
-                gravity = Gravity.NO_GRAVITY
+                applyCircleStartMargin(index)
             }
             view.visibility = if (index < passLength) VISIBLE else GONE
 

@@ -314,3 +314,29 @@ export function forbidConcurrency<Args extends unknown[], Return>(
 ): (...args: Args) => Promise<Return> {
   return createTaskQueue(1).wrap(action);
 }
+
+// Race a promise against a timer, resolving (never rejecting) with `fallback` if the promise
+// rejects or the timer wins. For a network operation that can hang forever with no error - a
+// stalled gate fetch is the case here - the timeout keeps a caller from waiting on it forever.
+export function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+  onTimeout?: NoneToVoidFunction,
+): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value: T) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    // `onTimeout` fires only on the timer path, so the caller can cancel the underlying work it just gave up on.
+    const timer = setTimeout(() => {
+      onTimeout?.();
+      done(fallback);
+    }, ms);
+    promise.then(done, () => done(fallback));
+  });
+}

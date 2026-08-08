@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -15,9 +16,10 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import androidx.core.view.isVisible
 
-class SubwalletsHeaderCell(context: Context) : WCell(context), WThemedView {
+class SubwalletsHeaderCell(context: Context) :
+    WCell(context),
+    WThemedView {
     private val titleLabel = WLabel(context).apply {
         text = LocaleController.getString("Subwallets")
         setStyle(14f, WFont.Medium)
@@ -81,7 +83,10 @@ class SubwalletsHeaderCell(context: Context) : WCell(context), WThemedView {
                 scanningLabel.animate()
                     .alpha(0f)
                     .setDuration(300)
-                    .withEndAction { scanningLabel.visibility = GONE; scanningLabel.alpha = 1f }
+                    .withEndAction {
+                        scanningLabel.visibility = GONE
+                        scanningLabel.alpha = 1f
+                    }
             }
         }
         layoutParams.height = if (standalone) 52.dp else 40.dp

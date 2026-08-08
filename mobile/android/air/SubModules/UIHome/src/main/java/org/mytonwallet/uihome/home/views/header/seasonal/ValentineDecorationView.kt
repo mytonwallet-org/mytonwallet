@@ -31,11 +31,7 @@ class ValentineDecorationView(context: Context) : View(context) {
         val delayMs: Long
     )
 
-    private data class SparkConfig(
-        val x: Float,
-        val y: Float,
-        val delayMs: Long
-    )
+    private data class SparkConfig(val x: Float, val y: Float, val delayMs: Long)
 
     companion object {
         private const val DESIGN_WIDTH = 70f
@@ -49,12 +45,12 @@ class ValentineDecorationView(context: Context) : View(context) {
         private val HEARTS = listOf(
             HeartConfig(17f, 26f, -4f, 0.9f, 0),
             HeartConfig(35f, 19f, 3f, 1.0f, 70),
-            HeartConfig(50f, 32f, 4f, 0.85f, 140),
+            HeartConfig(50f, 32f, 4f, 0.85f, 140)
         )
 
         private val SPARKS = listOf(
             SparkConfig(46f, 13f, 40),
-            SparkConfig(26f, 36f, 110),
+            SparkConfig(26f, 36f, 110)
         )
 
         // CSS cubic-bezier curves — applied per-keyframe-interval, NOT to the whole animation
@@ -107,8 +103,16 @@ class ValentineDecorationView(context: Context) : View(context) {
         ValueAnimator.ofFloat(0f, 1f).apply {
             duration = IMAGE_PULSE_DURATION
             interpolator = LinearInterpolator()
-            addUpdateListener { pulseProgress = it.animatedValue as Float; invalidate() }
-            addListener(onEnd { pulseProgress = -1f; invalidate() })
+            addUpdateListener {
+                pulseProgress = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(
+                onEnd {
+                    pulseProgress = -1f
+                    invalidate()
+                }
+            )
             start()
             animators.add(this)
         }
@@ -119,8 +123,16 @@ class ValentineDecorationView(context: Context) : View(context) {
             duration = HEART_TRAIL_DURATION
             startDelay = delay
             interpolator = LinearInterpolator()
-            addUpdateListener { heartProgress[index] = it.animatedValue as Float; invalidate() }
-            addListener(onEnd { heartProgress[index] = -1f; invalidate() })
+            addUpdateListener {
+                heartProgress[index] = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(
+                onEnd {
+                    heartProgress[index] = -1f
+                    invalidate()
+                }
+            )
             start()
             animators.add(this)
         }
@@ -131,8 +143,16 @@ class ValentineDecorationView(context: Context) : View(context) {
             duration = SPARK_FLASH_DURATION
             startDelay = delay
             interpolator = LinearInterpolator()
-            addUpdateListener { sparkProgress[index] = it.animatedValue as Float; invalidate() }
-            addListener(onEnd { sparkProgress[index] = -1f; invalidate() })
+            addUpdateListener {
+                sparkProgress[index] = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(
+                onEnd {
+                    sparkProgress[index] = -1f
+                    invalidate()
+                }
+            )
             start()
             animators.add(this)
         }
@@ -192,12 +212,16 @@ class ValentineDecorationView(context: Context) : View(context) {
             val sat = 1f + 0.2f * f
             val bri = 1f + 0.08f * f
             val cm = ColorMatrix().apply { setSaturation(sat) }
-            cm.postConcat(ColorMatrix(floatArrayOf(
-                bri, 0f, 0f, 0f, 0f,
-                0f, bri, 0f, 0f, 0f,
-                0f, 0f, bri, 0f, 0f,
-                0f, 0f, 0f, 1f, 0f
-            )))
+            cm.postConcat(
+                ColorMatrix(
+                    floatArrayOf(
+                        bri, 0f, 0f, 0f, 0f,
+                        0f, bri, 0f, 0f, 0f,
+                        0f, 0f, bri, 0f, 0f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+            )
             imagePaint.colorFilter = ColorMatrixColorFilter(cm)
         } else {
             imagePaint.colorFilter = null
@@ -218,7 +242,11 @@ class ValentineDecorationView(context: Context) : View(context) {
      * CSS interpolates each property between its OWN keyframes independently.
      */
     private fun drawHeart(
-        canvas: Canvas, config: HeartConfig, progress: Float, sx: Float, sy: Float
+        canvas: Canvas,
+        config: HeartConfig,
+        progress: Float,
+        sx: Float,
+        sy: Float
     ) {
         // Transform: interpolated between keyframes 0% → 46% → 100%
         val tx: Float
@@ -242,10 +270,12 @@ class ValentineDecorationView(context: Context) : View(context) {
                 // 0 → 1, with bezier
                 HEART_BEZIER.getInterpolation(progress / 0.18f)
             }
+
             progress <= 0.46f -> {
                 // 1 → 1 (no change)
                 1f
             }
+
             else -> {
                 // 1 → 0, with bezier
                 1f - HEART_BEZIER.getInterpolation((progress - 0.46f) / 0.54f)
@@ -265,8 +295,12 @@ class ValentineDecorationView(context: Context) : View(context) {
 
         heartPaint.alpha = (alpha * 255).toInt()
         heartPaint.shader = LinearGradient(
-            0f, -size * 0.75f, 0f, size * 0.75f,
-            0xFFFF7A9F.toInt(), 0xFFFF3A62.toInt(),
+            0f,
+            -size * 0.75f,
+            0f,
+            size * 0.75f,
+            0xFFFF7A9F.toInt(),
+            0xFFFF3A62.toInt(),
             Shader.TileMode.CLAMP
         )
 
@@ -284,7 +318,11 @@ class ValentineDecorationView(context: Context) : View(context) {
      * Keyframes: 0% → 45% → 100%
      */
     private fun drawSpark(
-        canvas: Canvas, config: SparkConfig, progress: Float, sx: Float, sy: Float
+        canvas: Canvas,
+        config: SparkConfig,
+        progress: Float,
+        sx: Float,
+        sy: Float
     ) {
         val alpha: Float
         val scale: Float
@@ -307,7 +345,9 @@ class ValentineDecorationView(context: Context) : View(context) {
 
         sparkPaint.alpha = (alpha * 255).toInt()
         sparkPaint.shader = RadialGradient(
-            cx, cy, r,
+            cx,
+            cy,
+            r,
             Color.argb((alpha * 242).toInt(), 255, 131, 162),
             Color.argb(0, 255, 131, 162),
             Shader.TileMode.CLAMP
@@ -315,7 +355,9 @@ class ValentineDecorationView(context: Context) : View(context) {
         canvas.drawCircle(cx, cy, r, sparkPaint)
 
         sparkPaint.shader = RadialGradient(
-            cx - r * 0.2f, cy - r * 0.2f, (r * 0.7f).coerceAtLeast(0.1f),
+            cx - r * 0.2f,
+            cy - r * 0.2f,
+            (r * 0.7f).coerceAtLeast(0.1f),
             Color.argb((alpha * 230).toInt(), 255, 255, 255),
             Color.argb(0, 255, 255, 255),
             Shader.TileMode.CLAMP

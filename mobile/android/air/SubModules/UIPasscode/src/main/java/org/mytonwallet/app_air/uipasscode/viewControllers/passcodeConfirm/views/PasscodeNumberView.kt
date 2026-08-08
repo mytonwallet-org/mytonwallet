@@ -27,7 +27,8 @@ class PasscodeNumberView(
     val column: Int,
     val light: Boolean?,
     val showMotionBackgroundDrawable: Boolean
-) : WView(context), WThemedView {
+) : WView(context),
+    WThemedView {
 
     val num = getNum(row, column)
 
@@ -81,8 +82,7 @@ class PasscodeNumberView(
 
     fun updateConstraintsForSize(currentSize: Int) {
         val scaleFactor = currentSize / 80f.dp
-        if (scaleFactor >= 1)
-            return
+        if (scaleFactor >= 1) return
 
         titleLabel.setStyle(22f * scaleFactor)
         subtitleLabel.setStyle(14f * scaleFactor, WFont.Medium)
@@ -118,12 +118,13 @@ class PasscodeNumberView(
     private var prevColor: Int? = null
     private var prevRadius: Float? = null
     fun updateBackground() {
-        val color = if (showMotionBackgroundDrawable)
+        val color = if (showMotionBackgroundDrawable) {
             (if (light ?: ThemeManager.isDark) Color.WHITE else Color.BLACK).colorWithAlpha(20)
-        else WColor.BackgroundRipple.color
+        } else {
+            WColor.BackgroundRipple.color
+        }
         val radius = if (measuredWidth == measuredHeight) 40f.dp else 16f.dp
-        if (prevColor == color && prevRadius == radius)
-            return
+        if (prevColor == color && prevRadius == radius) return
         prevColor = color
         prevRadius = radius
         // Always set background first to avoid nested RippleDrawables on repeated calls
@@ -162,8 +163,7 @@ class PasscodeNumberView(
             imageView.alpha = 1f
         }
 
-        if (isInvisible)
-            visibility = VISIBLE
+        if (isInvisible) visibility = VISIBLE
     }
 
     private fun getNum(row: Int, column: Int): Int? {
@@ -178,9 +178,13 @@ class PasscodeNumberView(
     private fun subtitle(forNum: Int): String {
         return when (forNum) {
             0, 1 -> ""
+
             7 -> "PQRS"
+
             8 -> "TUV"
+
             9 -> "WXYZ"
+
             else -> {
                 var txt = ""
                 val startIndex = 'A'.code + forNum * 3 - 6

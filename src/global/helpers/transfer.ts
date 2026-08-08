@@ -1,10 +1,8 @@
 import type { ApiAnyDisplayError } from '../../api/types';
 import type { GlobalState } from '../types';
-import { ApiCommonError } from '../../api/types';
 
 import { getDoesUsePinPad } from '../../util/biometrics';
 import { vibrateOnError, vibrateOnSuccess } from '../../util/haptics';
-import { callApi } from '../../api';
 import { getActions, getGlobal, setGlobal } from '../index';
 import { clearIsPinAccepted, setIsPinAccepted } from '../reducers';
 import { selectIsHardwareAccount } from '../selectors';
@@ -21,25 +19,14 @@ export type FormReducer<State> = (global: GlobalState, update: FormUpdate<State>
 export type ErrorTransferResult = { error: ApiAnyDisplayError | string } | undefined;
 
 /** Returns `false` if there is a problem preventing the further progress, which has been shown to the user */
-export async function prepareTransfer<State>(
+export function prepareTransfer<State>(
   hardwareConfirmState: State,
   updateForm: FormReducer<State>,
-  password?: string,
 ) {
   let global = getGlobal();
   const isHardware = selectIsHardwareAccount(global);
 
   if (!isHardware) {
-    const isPasswordCorrect = await callApi('verifyPassword', password ?? '');
-    global = getGlobal();
-
-    if (!isPasswordCorrect) {
-      setGlobal(updateForm(global, {
-        error: errorCodeToMessage(ApiCommonError.InvalidPassword),
-      }));
-      return false;
-    }
-
     if (getDoesUsePinPad()) {
       global = setIsPinAccepted(global);
     }
@@ -112,27 +99,16 @@ export function reportErrorTransferResult(result: ErrorTransferResult, updateFor
 }
 
 /** Returns `false` if there is a problem preventing the further progress, which has been shown to the user */
-export async function prepareDappOperation<State>(
+export function prepareDappOperation<State>(
   accountId: string,
   hardwareConfirmState: State,
   updateForm: FormReducer<State>,
   doesNeedSigning: boolean,
-  password?: string,
 ) {
   let global = getGlobal();
   const isHardware = selectIsHardwareAccount(global, accountId);
 
   if (!isHardware) {
-    const isPasswordCorrect = !doesNeedSigning || await callApi('verifyPassword', password ?? '');
-    global = getGlobal();
-
-    if (!isPasswordCorrect) {
-      setGlobal(updateForm(global, {
-        error: errorCodeToMessage(ApiCommonError.InvalidPassword),
-      }));
-      return false;
-    }
-
     if (getDoesUsePinPad()) {
       global = setIsPinAccepted(global);
     }

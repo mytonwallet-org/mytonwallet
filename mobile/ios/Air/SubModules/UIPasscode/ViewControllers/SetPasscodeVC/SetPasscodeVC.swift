@@ -8,15 +8,16 @@
 import UIKit
 import UIComponents
 import WalletContext
+import WalletCore
 
-public typealias SetPasscodeCompletion = @MainActor (_ biometricsEnabled: Bool, _ passcode: String) async throws -> Void
+public typealias SetPasscodeCompletion = @MainActor (_ enclaveToken: EnclaveToken) async throws -> Void
 
 public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     func animateSuccess() {
         
     }
     
-    func onAuthenticated(taskDone: Bool, passcode: String) {
+    func onAuthenticated(taskDone: Bool, enclaveToken: EnclaveToken) {
         
     }
     
@@ -68,8 +69,8 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         view.addSubview(topView)
         NSLayoutConstraint.activate([
             topView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            topView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
-            topView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor)
+            topView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            topView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor)
         ])
 
         topView.addSubview(headerView)
@@ -94,8 +95,8 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         view.addSubview(passcodeScreenView)
         passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            passcodeScreenView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            passcodeScreenView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            passcodeScreenView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            passcodeScreenView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 //        passcodeScreenView.enterPasscodeLabel.label.text = "aa"
@@ -138,6 +139,6 @@ extension SetPasscodeVC: PasscodeInputViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    UINavigationController(rootViewController: SetPasscodeVC(onCompletion: { _, _ in }))
+    UINavigationController(rootViewController: SetPasscodeVC(onCompletion: { _ in }))
 }
 #endif

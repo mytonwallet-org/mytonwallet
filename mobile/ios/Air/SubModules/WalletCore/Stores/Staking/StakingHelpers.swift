@@ -67,6 +67,13 @@ public func getHasPositiveStakingYield(state: ApiStakingState) -> Bool {
     return state.apy > 0
 }
 
+/// Presentation stays attached to any positive rewards, including amounts below the active-state threshold.
+public func getHasStakingPosition(state: ApiStakingState) -> Bool {
+    return state.balance > 0
+        || (state.unclaimedRewards ?? 0) > 0
+        || (state.unstakeRequestAmount ?? 0) > 0
+}
+
 public func getIsLongUnstake(state: ApiStakingState, amount: BigInt?) -> Bool? {
     switch state.type {
     case .nominators:

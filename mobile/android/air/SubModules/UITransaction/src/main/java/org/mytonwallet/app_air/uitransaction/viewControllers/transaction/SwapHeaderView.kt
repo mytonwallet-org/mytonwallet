@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import androidx.appcompat.widget.AppCompatImageView
+import kotlin.math.absoluteValue
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -27,7 +28,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import kotlin.math.absoluteValue
 
 @SuppressLint("ViewConstructor")
 class SwapHeaderView(
@@ -119,6 +119,7 @@ class SwapHeaderView(
                         MotionEvent.ACTION_DOWN -> {
                             v.alpha = 0.6f
                         }
+
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                             v.alpha = 1f
                             if (event.action == MotionEvent.ACTION_UP) {
@@ -149,8 +150,7 @@ class SwapHeaderView(
 
     fun reloadData() {
         val transaction = transaction
-        if (transaction !is MApiTransaction.Swap)
-            throw Exception()
+        if (transaction !is MApiTransaction.Swap) throw Exception()
         if (transaction.fromToken != null) {
             tokenToSendIconView.setAsset(
                 transaction.fromToken!!,
@@ -204,5 +204,4 @@ class SwapHeaderView(
         tokenToReceiveTextView.contentView.setTextColor(WColor.PrimaryText.color)
         iconView.imageTintList = ColorStateList.valueOf(WColor.SecondaryText.color)
     }
-
 }

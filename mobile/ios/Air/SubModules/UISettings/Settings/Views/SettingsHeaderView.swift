@@ -13,6 +13,26 @@ import WalletCore
 
 class SettingsHeaderView: WTouchPassView {
     private let accountContext = AccountContext(source: .current)
+
+    var onLargeAvatarLongPress: (() -> Void)? {
+        didSet {
+            updateHeaderInteractions()
+        }
+    }
+
+    var onDrawerCloseTap: (() -> Void)? {
+        didSet {
+            updateHeaderInteractions()
+        }
+    }
+
+    var presentationStyle: SettingsPresentationStyle = .standard {
+        didSet {
+            let showsAccountDetails = presentationStyle == .standard
+            addressLabel.isHidden = !showsAccountDetails
+            titleStack.showsBalance = showsAccountDetails
+        }
+    }
     
     lazy var headerTouchTarget: UIView = {
         
@@ -30,6 +50,10 @@ class SettingsHeaderView: WTouchPassView {
         
         view.onTap = { [weak self] recognizer in
             guard let self else { return }
+            if let onDrawerCloseTap {
+                onDrawerCloseTap()
+                return
+            }
             if isCollapsed {
                 let location = recognizer.location(in: titleStack)
                 titleStack.handleTouchAt(location: location)
@@ -41,6 +65,33 @@ class SettingsHeaderView: WTouchPassView {
     
     private let avatarImageView = IconView(size: 88)
     private let avatarBlurView = WBlurredContentView()
+    private lazy var avatarLongPressGestureRecognizer: UILongPressGestureRecognizer = {
+        let gestureRecognizer = UILongPressGestureRecognizer(
+            target: self,
+            action: #selector(avatarLongPressed(_:))
+        )
+        gestureRecognizer.cancelsTouchesInView = false
+        gestureRecognizer.isEnabled = false
+        return gestureRecognizer
+    }()
+    private lazy var avatarCloseTapGestureRecognizer: UITapGestureRecognizer = {
+        let gestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(avatarCloseTapped(_:))
+        )
+        gestureRecognizer.cancelsTouchesInView = false
+        gestureRecognizer.isEnabled = false
+        return gestureRecognizer
+    }()
+    private lazy var titleCloseTapGestureRecognizer: UITapGestureRecognizer = {
+        let gestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(titleCloseTapped(_:))
+        )
+        gestureRecognizer.cancelsTouchesInView = false
+        gestureRecognizer.isEnabled = false
+        return gestureRecognizer
+    }()
     
     private var addressLabel: UILabel = {
         let label = UILabel()
@@ -69,6 +120,7 @@ class SettingsHeaderView: WTouchPassView {
         private var topSectionCollapsedInset: CGFloat { isLegacyOS ? 18 : 26 }
         
         var topSectionInset: CGFloat { isLegacyOS ? 40 : 32 }
+        var drawerTopSectionInset: CGFloat { max(0, topSectionInset - 24) }
 
         let collapseThreshold = 0.5
 
@@ -81,7 +133,7 @@ class SettingsHeaderView: WTouchPassView {
     
     let layoutGeometry: LayoutGeometry = .init()
         
-    private let titleStack = TitleStackView(fontSize: 24)
+    private let titleStack = TitleStackView()
     private let titleContainer = WTouchPassView()
     private var titleCenterYConstraint: NSLayoutConstraint!
     private var isCollapsed = false
@@ -141,6 +193,90 @@ class SettingsHeaderView: WTouchPassView {
         ])
     }
 
+    private func updateHeaderInteractions() {
+        let isDrawerCloseEnabled = onDrawerCloseTap != nil
+        let isDebugMenuEnabled = onLargeAvatarLongPress != nil
+
+        avatarLongPressGestureRecognizer.isEnabled = isDebugMenuEnabled
+        avatarCloseTapGestureRecognizer.isEnabled = isDrawerCloseEnabled
+        titleCloseTapGestureRecognizer.isEnabled = isDrawerCloseEnabled
+
+        if isDebugMenuEnabled, avatarLongPressGestureRecognizer.view == nil {
+            avatarImageView.addGestureRecognizer(avatarLongPressGestureRecognizer)
+        } else if !isDebugMenuEnabled, avatarLongPressGestureRecognizer.view != nil {
+            avatarImageView.removeGestureRecognizer(avatarLongPressGestureRecognizer)
+        }
+        if isDrawerCloseEnabled, avatarCloseTapGestureRecognizer.view == nil {
+            avatarImageView.addGestureRecognizer(avatarCloseTapGestureRecognizer)
+        } else if !isDrawerCloseEnabled, avatarCloseTapGestureRecognizer.view != nil {
+            avatarImageView.removeGestureRecognizer(avatarCloseTapGestureRecognizer)
+        }
+        if isDrawerCloseEnabled, titleCloseTapGestureRecognizer.view == nil {
+            titleStack.nameLabel.addGestureRecognizer(titleCloseTapGestureRecognizer)
+        } else if !isDrawerCloseEnabled, titleCloseTapGestureRecognizer.view != nil {
+            titleStack.nameLabel.removeGestureRecognizer(titleCloseTapGestureRecognizer)
+        }
+
+        avatarImageView.isUserInteractionEnabled = isDrawerCloseEnabled || isDebugMenuEnabled
+        titleStack.nameLabel.isUserInteractionEnabled = isDrawerCloseEnabled
+        avatarImageView.isAccessibilityElement = isDrawerCloseEnabled || isDebugMenuEnabled
+        avatarImageView.accessibilityLabel = isDrawerCloseEnabled ? lang("Close") : "Debug menu"
+        avatarImageView.accessibilityTraits = isDrawerCloseEnabled || isDebugMenuEnabled ? .button : []
+        titleStack.isAccessibilityElement = false
+        titleStack.nameLabel.isAccessibilityElement = isDrawerCloseEnabled
+        titleStack.nameLabel.accessibilityLabel = isDrawerCloseEnabled ? accountContext.account.displayName : nil
+        titleStack.nameLabel.accessibilityHint = isDrawerCloseEnabled ? lang("Close") : nil
+        titleStack.nameLabel.accessibilityTraits = isDrawerCloseEnabled ? .button : []
+
+        var accessibilityActions: [UIAccessibilityCustomAction] = []
+        if isDrawerCloseEnabled {
+            accessibilityActions.append(
+                UIAccessibilityCustomAction(
+                    name: lang("Close"),
+                    target: self,
+                    selector: #selector(closeDrawerFromAccessibility)
+                )
+            )
+        }
+        if isDebugMenuEnabled {
+            accessibilityActions.append(
+                UIAccessibilityCustomAction(
+                    name: "Open Debug Menu",
+                    target: self,
+                    selector: #selector(openDebugMenuFromAccessibility)
+                )
+            )
+        }
+        avatarImageView.accessibilityCustomActions = accessibilityActions.nilIfEmpty
+    }
+
+    @objc private func avatarCloseTapped(_ gestureRecognizer: UITapGestureRecognizer) {
+        guard gestureRecognizer.state == .ended, !isCollapsed else { return }
+        onDrawerCloseTap?()
+    }
+
+    @objc private func titleCloseTapped(_ gestureRecognizer: UITapGestureRecognizer) {
+        guard gestureRecognizer.state == .ended else { return }
+        onDrawerCloseTap?()
+    }
+
+    @objc private func avatarLongPressed(_ gestureRecognizer: UILongPressGestureRecognizer) {
+        guard gestureRecognizer.state == .began, !isCollapsed else { return }
+        onLargeAvatarLongPress?()
+    }
+
+    @objc private func openDebugMenuFromAccessibility() -> Bool {
+        guard !isCollapsed, let onLargeAvatarLongPress else { return false }
+        onLargeAvatarLongPress()
+        return true
+    }
+
+    @objc private func closeDrawerFromAccessibility() -> Bool {
+        guard !isCollapsed, let onDrawerCloseTap else { return false }
+        onDrawerCloseTap()
+        return true
+    }
+
     func updateAll() {
         avatarImageView.config(with: accountContext.account)
         updateTitle()
@@ -154,12 +290,15 @@ class SettingsHeaderView: WTouchPassView {
     
     private func updateTitle() {
         titleStack.updateWithAccount(accountContext.account)
+        if onDrawerCloseTap != nil {
+            titleStack.nameLabel.accessibilityLabel = accountContext.account.displayName
+        }
     }
     
     private func updateAddresses() {
         let addressLine = accountContext.addressLine
         addressLabel.attributedText = addressLine.attributedString(
-            font: .systemFont(ofSize: 16, weight: .regular),
+            font: WTypography.uiFont(.callout, content: .technical),
             color: .air.secondaryLabel,
             maxChainCount: 3,
             multichainAddressCount: 2
@@ -216,6 +355,7 @@ class SettingsHeaderView: WTouchPassView {
 
 private class TitleStackView: UIView {
     private let font: UIFont
+    private let technicalFont: UIFont
         
     // to avoid layout looping let's have both full and shortened views alive. It's cheap enough
     @MainActor
@@ -254,17 +394,25 @@ private class TitleStackView: UIView {
     private let fullBalance: BalanceViewContext
     private let shortenedBalance: BalanceViewContext
     private var balance: BaseCurrencyAmount?
+    private let separatorHorizontalSpacing: CGFloat = 5
     
     private var separatorLeadingCostraint: NSLayoutConstraint!
     private var nameLeadingConstraint: NSLayoutConstraint!
     private var nameWidthConstraint: NSLayoutConstraint!
     private var hasPerformedInitialLayout = false
 
+    var showsBalance = true {
+        didSet {
+            guard showsBalance != oldValue else { return }
+            updateLayout()
+        }
+    }
+
     private lazy var separatorDotLabel: UILabel = {
         let label = UILabel()
         label.textColor = .air.secondaryLabel
-        label.text = "\u{202f}·\u{202f}"
-        label.font = font
+        label.text = "·"
+        label.font = technicalFont
         label.isHidden = true
         return label
     }()
@@ -280,10 +428,11 @@ private class TitleStackView: UIView {
         return label
     }()
     
-    init(fontSize: CGFloat) {
-        font = UIFont.systemFont(ofSize: fontSize, weight: .semibold)
-        fullBalance = BalanceViewContext(font: font, cellSize: ceil(fontSize / 3))
-        shortenedBalance = BalanceViewContext(font: font, cellSize: ceil(fontSize / 3))
+    init() {
+        font = WTypography.uiFont(.prominentTitle)
+        technicalFont = WTypography.uiFont(.amount, content: .technical)
+        fullBalance = BalanceViewContext(font: technicalFont, cellSize: ceil(technicalFont.pointSize / 3))
+        shortenedBalance = BalanceViewContext(font: technicalFont, cellSize: ceil(technicalFont.pointSize / 3))
 
         super.init(frame: .zero)
         
@@ -409,23 +558,25 @@ private class TitleStackView: UIView {
         
         var nameLabelWidth = ceil(nameLabel.sizeThatFits(.init(width: .greatestFiniteMagnitude, height: b.height)).width)
         let separatorDotLabelWidth = ceil(separatorDotLabel.sizeThatFits(.init(width: .greatestFiniteMagnitude, height: b.height)).width)
+        let separatorWidth = separatorDotLabelWidth + 2 * separatorHorizontalSpacing
 
         // Update balances. Use alpha for visibility, not isHidden, to avoid layout loops
         var showFullBalance = false
         var showShortenedBalance = false
-        if balance != nil {
+        if showsBalance, balance != nil {
             let fullBalanceWidth = ceil(fullBalance.widthThatFitsHeight(b.height))
-            if nameLabelWidth + separatorDotLabelWidth + fullBalanceWidth > b.width {
+            if nameLabelWidth + separatorWidth + fullBalanceWidth > b.width {
                 showShortenedBalance = true
                 contentLength += ceil(shortenedBalance.widthThatFitsHeight(b.height))
             } else {
                 showFullBalance = true
                 contentLength += fullBalanceWidth
             }
-            contentLength += separatorDotLabelWidth
+            contentLength += separatorWidth
         }
         fullBalance.container.alpha = showFullBalance ? 1.0 : 0.0
         shortenedBalance.container.alpha = showShortenedBalance ? 1.0 : 0.0
+        separatorDotLabel.alpha = showsBalance && balance != nil ? 1.0 : 0.0
 
         // Final name length. Shorten if needed. Recalculate if shortened (it usually be less due truncation specifics)
         if nameLabelWidth + contentLength > b.width {
@@ -442,8 +593,8 @@ private class TitleStackView: UIView {
         nameLeadingConstraint.constant = offsetX
         offsetX += nameLabelWidth
         
-        separatorLeadingCostraint.constant = offsetX
-        offsetX += separatorDotLabelWidth
+        separatorLeadingCostraint.constant = offsetX + separatorHorizontalSpacing
+        offsetX += separatorWidth
         
         fullBalance.leadingConstraint.constant = offsetX
         shortenedBalance.leadingConstraint.constant = offsetX

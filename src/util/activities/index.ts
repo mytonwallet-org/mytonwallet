@@ -10,7 +10,7 @@ import type { LangFn } from '../langProvider';
 import { SwapType } from '../../global/types';
 
 import { ALL_STAKING_POOLS, BURN_ADDRESS } from '../../config';
-import { extractKey, groupBy, unique } from '../iteratees';
+import { unique } from '../iteratees';
 import { getIsTransactionWithPoisoning } from '../poisoningHash';
 import { getSwapType } from '../swap/getSwapType';
 import { getChainBySlug } from '../tokens';
@@ -163,23 +163,30 @@ export function getTransactionTitle(
 export function isScamTransaction(transaction: ApiTransaction) {
   return Boolean(transaction.metadata?.isScam)
     || Boolean(transaction.nft?.isScam)
-    || (transaction.isIncoming && getIsTransactionWithPoisoning(transaction));
+    || getIsTransactionWithPoisoning(transaction);
 }
 
-// A spam NFT is one the backend marked as hidden (unless the user whitelisted it) or the user blacklisted.
-// The scam case is covered by `isScamTransaction`.
+// A spam NFT is one the backend marked as hidden, one from an unverified collection (both unless the user
+// whitelisted it), or one the user blacklisted. The scam case is covered by `isScamTransaction`.
+// An unverified collection is only unknown, not a scam, so it hides what other people sent, not what the user did.
 export function getIsHiddenNftActivity(
   transaction: ApiTransaction,
   blacklistedNftAddresses?: string[],
   whitelistedNftAddresses?: string[],
+  areUnverifiedNftsHidden?: boolean,
 ) {
-  const { nft } = transaction;
+  const { nft, isIncoming, type } = transaction;
 
   if (!nft) return false;
 
-  if (nft.isHidden && !whitelistedNftAddresses?.includes(nft.address)) return true;
+  if (blacklistedNftAddresses?.includes(nft.address)) return true;
 
-  return Boolean(blacklistedNftAddresses?.includes(nft.address));
+  if (whitelistedNftAddresses?.includes(nft.address)) return false;
+
+  // The user buys and sells on a marketplace themselves, and `isIncoming` shows the TONCOIN direction there
+  const isReceivedFromOthers = isIncoming && type !== 'nftTrade';
+
+  return Boolean(nft.isHidden) || Boolean(areUnverifiedNftsHidden && nft.isUnverified && isReceivedFromOthers);
 }
 
 export function shouldShowTransactionComment(transaction: ApiTransaction) {
@@ -234,125 +241,6 @@ export function getIsActivityPending(activity: ApiActivity) {
 
 export function getIsActivityPendingForUser(activity: ApiActivity) {
   return PENDING_STATUSES.has(activity.status);
-}
-
-/**
- * Sometimes activity ids change. This function finds the new id withing `nextActivities` for each activity in
- * `prevActivities`. Currently only local and pending activity ids change, so it's enough to provide only such
- * activities in `prevActivities`.
- *
- * The ids should be unique within each input array. The returned map has previous activity ids as keys and next
- * activity ids as values. If the map has no value for a previous id, it means that there is no matching next activity.
- * The values may be not unique.
- */
-export function getActivityIdReplacements(prevActivities: ApiActivity[], nextActivities: ApiActivity[]) {
-  // Each previous activity must fall into either of the groups, otherwise the resulting map will falsely miss previous ids
-  const prevLocalActivities: ApiActivity[] = [];
-  const prevChainActivities: ApiActivity[] = [];
-
-  for (const activity of prevActivities) {
-    const group = getIsTxIdLocal(activity.id) ? prevLocalActivities : prevChainActivities;
-    group.push(activity);
-  }
-
-  return {
-    ...getLocalActivityIdReplacements(prevLocalActivities, nextActivities),
-    ...getChainActivityIdReplacements(prevChainActivities, nextActivities),
-  };
-}
-
-/** Replaces local activity ids. See `getActivityIdReplacements` for more details. */
-function getLocalActivityIdReplacements(prevLocalActivities: ApiActivity[], nextActivities: ApiActivity[]) {
-  const idReplacements: Record<string, string> = {};
-
-  if (!prevLocalActivities.length) {
-    return idReplacements;
-  }
-
-  const nextActivityIds = new Set(extractKey(nextActivities, 'id'));
-  const nextChainActivities = nextActivities.filter((activity) => !getIsTxIdLocal(activity.id));
-  const usedNextChainActivityIds = new Set<string>();
-
-  for (const localActivity of prevLocalActivities) {
-    const { id: prevId } = localActivity;
-
-    // Try a direct id match
-    if (nextActivityIds.has(prevId)) {
-      idReplacements[prevId] = prevId;
-      continue;
-    }
-
-    // Otherwise, try to find a match by a heuristic
-    const chainActivity = nextChainActivities.find((chainActivity) => {
-      return !usedNextChainActivityIds.has(chainActivity.id) && doesLocalActivityMatch(localActivity, chainActivity);
-    });
-    if (chainActivity) {
-      idReplacements[prevId] = chainActivity.id;
-      usedNextChainActivityIds.add(chainActivity.id);
-    }
-
-    // Otherwise, there is no match
-  }
-
-  return idReplacements;
-}
-
-/** Replaces chain (i.e. not local) activity ids. See `getActivityIdReplacements` for more details. */
-function getChainActivityIdReplacements(prevActivities: ApiActivity[], nextActivities: ApiActivity[]) {
-  const idReplacements: Record<string, string> = {};
-
-  if (!prevActivities.length) {
-    return idReplacements;
-  }
-
-  const nextActivityIds = new Set(extractKey(nextActivities, 'id'));
-  const nextActivitiesByMessageHash = groupBy(nextActivities, 'externalMsgHashNorm');
-
-  for (const { id: prevId, externalMsgHashNorm } of prevActivities) {
-    // Try a direct id match
-    if (nextActivityIds.has(prevId)) {
-      idReplacements[prevId] = prevId;
-      continue;
-    }
-
-    // Otherwise, match by the message hash
-    if (externalMsgHashNorm) {
-      const nextSubActivities = nextActivitiesByMessageHash[externalMsgHashNorm];
-      if (nextSubActivities?.length) {
-        idReplacements[prevId] = nextSubActivities[0].id;
-
-        // Leaving 1 activity in each group to ensure there is a match for the further prev activities with the same hash
-        if (nextSubActivities.length > 1) {
-          nextSubActivities.shift();
-        }
-      }
-    }
-
-    // Otherwise, there is no match
-  }
-
-  return idReplacements;
-}
-
-/** Decides whether the local activity matches the activity from the blockchain */
-export function doesLocalActivityMatch(localActivity: ApiActivity, chainActivity: ApiActivity) {
-  if (localActivity.extra?.withW5Gasless) {
-    if (localActivity.kind === 'transaction' && chainActivity.kind === 'transaction') {
-      return !chainActivity.isIncoming && localActivity.normalizedAddress === chainActivity.normalizedAddress
-        && localActivity.amount === chainActivity.amount
-        && localActivity.slug === chainActivity.slug;
-    } else if (localActivity.kind === 'swap' && chainActivity.kind === 'swap') {
-      return localActivity.from === chainActivity.from
-        && localActivity.to === chainActivity.to
-        && localActivity.fromAmount === chainActivity.fromAmount;
-    }
-  }
-
-  if (localActivity.externalMsgHashNorm) {
-    return localActivity.externalMsgHashNorm === chainActivity.externalMsgHashNorm && !chainActivity.shouldHide;
-  }
-
-  return parseTxId(localActivity.id).hash === parseTxId(chainActivity.id).hash;
 }
 
 /**

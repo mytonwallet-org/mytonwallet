@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.search.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.TextUtils
@@ -10,8 +9,10 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.net.toUri
 import androidx.core.view.isGone
+import java.util.Date
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -24,15 +25,15 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.timeAgo
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
-import java.util.Date
 
 @SuppressLint("ViewConstructor")
 class SearchHistoryCell(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)),
+    WThemedView {
 
     private val historyDrawable: Drawable? = AppCompatResources.getDrawable(
         context,
-        org.mytonwallet.app_air.uicomponents.R.drawable.ic_history
+        org.mytonwallet.app_air.icons.R.drawable.ic_history
     )
 
     private val historyImageView: WCustomImageView by lazy {
@@ -124,5 +125,4 @@ class SearchHistoryCell(context: Context) :
         )
         historyDrawable?.setTint(WColor.SecondaryText.color)
     }
-
 }

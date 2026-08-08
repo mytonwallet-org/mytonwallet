@@ -44,7 +44,7 @@ if (IS_TELEGRAM_APP) {
 initFocusScrollController();
 
 void (async () => {
-  await window.electron?.restoreStorage();
+  await window.electron?.restoreStorage?.();
 
   getActions().init();
 

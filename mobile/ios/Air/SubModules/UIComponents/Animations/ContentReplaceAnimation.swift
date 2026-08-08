@@ -80,23 +80,99 @@ private final class NavigationTransitionDelegate: NSObject, UINavigationControll
 @MainActor
 public final class ContentReplaceAnimationCoordinator {
     private weak var navigationController: UINavigationController?
+    private var previousNavigationDelegate: UINavigationControllerDelegate?
     private let navigationDelegate = NavigationTransitionDelegate()
 
     public init() { }
     
     public func replaceNavigationTop(with vc: UIViewController, in navigationController: UINavigationController, animateAlongside: @escaping () -> ()) {
         self.navigationController = navigationController
+        previousNavigationDelegate = navigationController.delegate
         navigationController.delegate = navigationDelegate
         navigationController.pushViewController(vc, animated: true)
         
-        guard let transitionCoordinator = navigationController.transitionCoordinator else { return }
+        guard let transitionCoordinator = navigationController.transitionCoordinator else {
+            navigationController.setViewControllers([vc], animated: false)
+            animateAlongside()
+            restoreNavigationDelegate(in: navigationController)
+            return
+        }
 
-        transitionCoordinator.animate { context in
+        let accepted = transitionCoordinator.animate { context in
             animateAlongside()
         } completion: { [self] _ in
             navigationController.setViewControllers([vc], animated: false)
+            restoreNavigationDelegate(in: navigationController)
             // do not deallocate self until transition completes
             _ = self
+        }
+        if !accepted {
+            navigationController.setViewControllers([vc], animated: false)
+            animateAlongside()
+            restoreNavigationDelegate(in: navigationController)
+        }
+    }
+
+    public func replaceNavigationStack(
+        with viewController: UIViewController,
+        in navigationController: UINavigationController,
+        targetViewControllers: [UIViewController],
+        animateAlongside: @escaping () -> Void,
+        isValid: @escaping () -> Bool = { true }
+    ) async -> Bool {
+        guard isValid(),
+              !navigationController.isBeingDismissed,
+              targetViewControllers.last === viewController,
+              !targetViewControllers.isEmpty
+        else {
+            return false
+        }
+
+        if navigationController.transitionCoordinator != nil {
+            guard navigationController.presentedViewController != nil else { return false }
+            navigationController.setViewControllers(targetViewControllers, animated: false)
+            animateAlongside()
+            return navigationController.viewControllers.elementsEqual(targetViewControllers, by: ===)
+        }
+
+        let previousDelegate = navigationController.delegate
+        navigationController.delegate = navigationDelegate
+        navigationController.pushViewController(viewController, animated: true)
+
+        guard let transitionCoordinator = navigationController.transitionCoordinator else {
+            navigationController.setViewControllers(targetViewControllers, animated: false)
+            animateAlongside()
+            if navigationController.delegate === navigationDelegate {
+                navigationController.delegate = previousDelegate
+            }
+            return navigationController.viewControllers.elementsEqual(targetViewControllers, by: ===)
+        }
+
+        return await withCheckedContinuation { continuation in
+            var didFinish = false
+            let finish = {
+                guard !didFinish else { return }
+                didFinish = true
+                navigationController.setViewControllers(targetViewControllers, animated: false)
+                if navigationController.delegate === self.navigationDelegate {
+                    navigationController.delegate = previousDelegate
+                }
+                continuation.resume(
+                    returning: navigationController.viewControllers.elementsEqual(
+                        targetViewControllers,
+                        by: ===
+                    )
+                )
+            }
+            let accepted = transitionCoordinator.animate { _ in
+                animateAlongside()
+            } completion: { _ in
+                finish()
+            }
+            if !accepted {
+                animateAlongside()
+                finish()
+            }
         }
     }
     
@@ -137,4 +213,12 @@ public final class ContentReplaceAnimationCoordinator {
         CATransaction.commit()
         return true
     }
+
+    private func restoreNavigationDelegate(in navigationController: UINavigationController) {
+        if navigationController.delegate === navigationDelegate {
+            navigationController.delegate = previousNavigationDelegate
+        }
+        previousNavigationDelegate = nil
+    }
+
 }

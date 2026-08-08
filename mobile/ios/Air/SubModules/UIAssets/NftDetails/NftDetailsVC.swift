@@ -279,6 +279,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                     }
                     
                     if isOwned {
+                        let isHidden = displayNft?.shouldHide ?? (nft.isHidden == true)
                         if displayNft?.isHiddenByUser == true {
                             items.append(.action(hideMenuAction(nft, title: lang("Unhide"), icon: .system("eye"), hide: false)))
                         } else if nft.isScam == true, displayNft?.isUnhiddenByUser != true {
@@ -286,6 +287,25 @@ public class NftDetailsVC: NftDetailsBaseVC {
                         } else {
                             items.append(.action(hideMenuAction(nft, title: lang("Hide"), icon: .airBundle("MenuHide26"), hide: true)))
                         }
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: lang(isHidden ? "Report" : "Hide and Report"),
+                                    icon: .system("flag"),
+                                    role: .destructive,
+                                    handler: { [weak self] in
+                                        guard let self else { return }
+                                        if isHidden {
+                                            AppActions.reportNft(accountId: accountId, nft: nft, onConfirmed: nil)
+                                        } else {
+                                            AppActions.hideAndReportNft(accountId: accountId, nft: nft) { [weak self] in
+                                                self?.finishHidingNft(nft)
+                                            }
+                                        }
+                                    }
+                                )
+                            )
+                        )
                     }
                     
                     if account.supportsBurn, isOwned, nft.chain.isNftBurnSupported, !nft.isOnSale {
@@ -413,8 +433,27 @@ public class NftDetailsVC: NftDetailsBaseVC {
         return ContextMenuAction(
             title: title,
             icon: icon,
-            handler: { [weak self] in self?.hideNft(nft, hide: hide) }
+            handler: { [weak self] in
+                guard let self else { return }
+                if hide {
+                    AppActions.hideNft(accountId: accountId, nft: nft) { [weak self] in
+                        self?.finishHidingNft(nft)
+                    }
+                } else {
+                    unhideNft(nft)
+                }
+            }
         )
+    }
+
+    private func finishHidingNft(_ nft: ApiNft) {
+        switch sourceContext.source {
+        case .collectionNfts, .singleNft:
+            removeNft(id: nft.id)
+            showHideToast(nft, hide: true, delayToParentScreen: nfts.isEmpty)
+        case .hiddenManagement:
+            dismissSelf()
+        }
     }
     
     private func showHideToast(_ nft: ApiNft, hide: Bool, delayToParentScreen: Bool = false) {
@@ -447,19 +486,13 @@ public class NftDetailsVC: NftDetailsBaseVC {
         }
     }
 
-    private func hideNft(_ nft: ApiNft, hide: Bool) {
+    private func unhideNft(_ nft: ApiNft) {
         switch sourceContext.source {
         case .collectionNfts, .singleNft:
-            if hide {
-                removeNft(id: nft.id)
-                NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
-                showHideToast(nft, hide: hide, delayToParentScreen: nfts.isEmpty)
-            } else {
-                NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: false)
-                showHideToast(nft, hide: hide, delayToParentScreen: false)
-            }
+            NftStore.setHiddenByUser(accountId: accountId, nft: nft, isHidden: false)
+            showHideToast(nft, hide: false, delayToParentScreen: false)
         case .hiddenManagement:
-            NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: hide)
+            NftStore.setHiddenByUser(accountId: accountId, nft: nft, isHidden: false)
             dismissSelf()
         }
     }
@@ -473,7 +506,8 @@ extension NftDetailsVC: NftDetailsDisplayStateProviding {
     }
 
     func isHiddenByUser(for model: NftDetailsItemModel) -> Bool {
-        NftStore.getNft(accountId: accountId, nftId: model.id)?.isHiddenByUser ?? false
+        guard let nft = resolveNft(for: model) else { return false }
+        return NftStore.isHiddenByUser(accountId: accountId, nft: nft)
     }
 }
 

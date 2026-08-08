@@ -6,19 +6,22 @@ struct ContextMenuPresentationReference {
     var portalMaskRectInWindow: CGRect?
     var portalMask: ContextMenuSourcePortalMask?
     var portalShowsBackdropCutout: Bool
+    var portalAppliesRightToLeftTransformCorrection: Bool
 
     init(
         anchorRectInWindow: CGRect,
         portalSourceView: UIView? = nil,
         portalMaskRectInWindow: CGRect? = nil,
         portalMask: ContextMenuSourcePortalMask? = nil,
-        portalShowsBackdropCutout: Bool = false
+        portalShowsBackdropCutout: Bool = false,
+        portalAppliesRightToLeftTransformCorrection: Bool = true
     ) {
         self.anchorRectInWindow = anchorRectInWindow
         self.portalSourceView = portalSourceView
         self.portalMaskRectInWindow = portalMaskRectInWindow
         self.portalMask = portalMask
         self.portalShowsBackdropCutout = portalShowsBackdropCutout
+        self.portalAppliesRightToLeftTransformCorrection = portalAppliesRightToLeftTransformCorrection
     }
 
     @MainActor
@@ -32,7 +35,8 @@ struct ContextMenuPresentationReference {
             portalSourceView: sourcePortal.sourceViewProvider?() ?? view,
             portalMaskRectInWindow: anchorRectInWindow,
             portalMask: sourcePortal.mask,
-            portalShowsBackdropCutout: sourcePortal.showsBackdropCutout
+            portalShowsBackdropCutout: sourcePortal.showsBackdropCutout,
+            portalAppliesRightToLeftTransformCorrection: sourcePortal.appliesRightToLeftTransformCorrection
         )
     }
 }

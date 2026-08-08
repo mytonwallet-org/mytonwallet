@@ -9,13 +9,16 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.generateViewId
 import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
+import java.lang.ref.WeakReference
 import me.vkryl.android.AnimatorUtils
+import org.mytonwallet.app_air.native_enclave.auth.AuthType
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.spans.ChainBadgeSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -30,7 +33,6 @@ import org.mytonwallet.app_air.uisettings.viewControllers.RecoveryPhraseVC
 import org.mytonwallet.app_air.uisettings.viewControllers.mfa.MfaVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
-import org.mytonwallet.app_air.uicomponents.helpers.spans.ChainBadgeSpan
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -41,12 +43,12 @@ import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.api.enclaveMigrateAuth
+import org.mytonwallet.app_air.walletcore.api.enclaveRemoveAuth
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
 
 private fun buildMfaRowTitle(): CharSequence {
     val title = LocaleController.getString("2FA with Telegram")
@@ -58,16 +60,17 @@ private fun buildMfaRowTitle(): CharSequence {
             ChainBadgeSpan(
                 text = "TON",
                 textColorInt = WColor.SecondaryText.color,
-                backgroundColorInt = WColor.SecondaryBackground.color,
+                backgroundColorInt = WColor.SecondaryBackground.color
             ),
             start,
             length,
-            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
     }
 }
 
-class SecurityVC(context: Context, private var currentPasscode: String) : WViewController(context) {
+class SecurityVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Security"
 
     override val displayedAccount =
@@ -93,28 +96,35 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         configure(
             SettingsItem(
                 identifier = SettingsItem.Identifier.NONE,
-                icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_export,
-                title = LocaleController.getString("Back Up & Export"),
+                icon = org.mytonwallet.app_air.icons.R.drawable.ic_export,
+                title = LocaleController.getString("\$back_up_security"),
                 value = null,
-                hasTintColor = false,
+                hasTintColor = false
             ),
             subtitle = null,
             isFirst = true,
             isLast = true,
             isEnabled = true,
             onTap = {
-                WalletCore.call(
-                    ApiMethod.Settings.FetchMnemonic(
-                        AccountStore.activeAccountId!!,
-                        currentPasscode
-                    ), callback = { words, err ->
-                        if (words == null || err != null) {
-                            return@call
+                confirmPasscode { enclaveToken ->
+                    WalletCore.call(
+                        ApiMethod.Settings.FetchMnemonic(
+                            AccountStore.activeAccountId!!,
+                            enclaveToken
+                        ),
+                        callback = { words, err ->
+                            if (words == null || err != null) {
+                                return@call
+                            }
+                            navigationController?.push(
+                                RecoveryPhraseVC(context, displayedAccount.network, words),
+                                onCompletion = {
+                                    navigationController?.removePrevViewControllerOnly()
+                                }
+                            )
                         }
-                        navigationController?.push(
-                            RecoveryPhraseVC(context, displayedAccount.network, words)
-                        )
-                    })
+                    )
+                }
             }
         )
     }
@@ -128,19 +138,31 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         SwitchCell(
             context,
             title = LocaleController.getString("Biometric Authentication"),
-            isChecked = WGlobalStorage.isBiometricActivated(),
+            isChecked = WGlobalStorage.isAnyBiometricActivated(),
             isFirst = true,
             isLast = false,
-            leadingIconRes = org.mytonwallet.app_air.uisettings.R.drawable.ic_biometric_auth,
+            leadingIconRes = org.mytonwallet.app_air.icons.R.drawable.ic_biometric_auth,
             onChange = { isChecked ->
-                if (WGlobalStorage.isBiometricActivated() == isChecked) return@SwitchCell
+                if (WGlobalStorage.isAnyBiometricActivated() == isChecked) return@SwitchCell
                 if (isChecked) {
-                    val activated = WSecureStorage.setBiometricPasscode(window!!, currentPasscode)
-                    WGlobalStorage.setIsBiometricActivated(activated)
-                    if (!activated) biometricAuthRow.isChecked = false
+                    biometricAuthRow.isChecked = false
+                    confirmPasscode { enclaveToken ->
+                        navigationController?.pop {
+                            WalletCore.enclaveMigrateAuth(
+                                window!!,
+                                enclaveToken,
+                                AuthType.BIOMETRIC,
+                                null,
+                                false
+                            ) { newToken, err ->
+                                biometricAuthRow.isChecked = newToken != null && err == null
+                            }
+                        }
+                    }
                 } else {
-                    WSecureStorage.deleteBiometricPasscode(window!!)
-                    WGlobalStorage.setIsBiometricActivated(false)
+                    WalletCore.enclaveRemoveAuth(AuthType.BIOMETRIC)
+                    WSecureStorage.deleteLegacyBiometricPasscode()
+                    WGlobalStorage.removeIsLegacyBiometricActivated()
                 }
             }
         ).apply {
@@ -154,10 +176,9 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             LocaleController.getString("Change Passcode"),
             "",
             KeyValueRowView.Mode.LINK,
-            isLast = true,
+            isLast = true
         ).apply {
-            if (biometricAuthRow.isGone)
-                setTopRadius(ViewConstants.BLOCK_RADIUS.dp)
+            if (biometricAuthRow.isGone) setTopRadius(ViewConstants.BLOCK_RADIUS.dp)
             setOnClickListener {
                 changePasscodePressed()
             }
@@ -179,10 +200,10 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             configure(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.MFA,
-                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_mfa,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_mfa,
                     title = buildMfaRowTitle(),
                     value = null,
-                    hasTintColor = false,
+                    hasTintColor = false
                 ),
                 subtitle = null,
                 isFirst = true,
@@ -198,7 +219,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
     private val mfaFooterLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(13f)
-            text = LocaleController.getString("Approve sign-in in Telegram as a second step.")
+            text = LocaleController.getString("Confirm operations in Telegram as a second step.")
             gravity = android.view.Gravity.START
             setTextColor(WColor.SecondaryText)
         }
@@ -209,18 +230,25 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
     private val allowAppLockRow: SwitchCell by lazy {
         SwitchCell(
             context,
-            title = LocaleController.getString("Allow App Lock"),
+            title = LocaleController.getString("App Lock"),
             isChecked = WGlobalStorage.isAppLockEnabled(),
             isFirst = false,
             isLast = false,
             onChange = { isChecked ->
-                WGlobalStorage.setIsAppLockEnabled(isChecked)
-                if (isChecked) {
-                    AutoLockHelper.start(WGlobalStorage.getAppLock().period)
-                } else {
-                    AutoLockHelper.stop()
+                if (WGlobalStorage.isAppLockEnabled() == isChecked) return@SwitchCell
+                allowAppLockRow.isChecked = !isChecked
+                confirmPasscode {
+                    navigationController?.pop {
+                        WGlobalStorage.setIsAppLockEnabled(isChecked)
+                        allowAppLockRow.isChecked = isChecked
+                        if (isChecked) {
+                            AutoLockHelper.start(WGlobalStorage.getAppLock().period)
+                        } else {
+                            AutoLockHelper.stop()
+                        }
+                        animateAutoLockRow(visible = isChecked)
+                    }
                 }
-                animateAutoLockRow(visible = isChecked)
             }
         )
     }
@@ -237,7 +265,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             LocaleController.getString("Lock the app after"),
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = false,
+            isLast = false
         ).apply {
             isGone = !WGlobalStorage.isAppLockEnabled()
             setValueView(lockTimeView)
@@ -368,8 +396,14 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         v.addView(appLockContainerView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appLockFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
-        v.addView(allowSuspiciousActionsRow, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.addView(allowSuspiciousActionsFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(
+            allowSuspiciousActionsRow,
+            ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        )
+        v.addView(
+            allowSuspiciousActionsFooterLabel,
+            ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        )
         v.addView(spacer4, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
         v.addView(disableScreenRecordWarningRow)
         v.setConstraints {
@@ -441,6 +475,17 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         updateTheme()
     }
 
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        biometricAuthRow.isChecked = WGlobalStorage.isAnyBiometricActivated()
+        allowAppLockRow.isChecked = WGlobalStorage.isAppLockEnabled()
+    }
+
+    override fun viewDidAppear() {
+        super.viewDidAppear()
+        updateBlurViews(scrollView)
+    }
+
     override fun updateTheme() {
         super.updateTheme()
 
@@ -449,7 +494,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         autoLockRow.setBackgroundColor(WColor.Background.color, 0f, 0f)
         appLockContainerView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 
@@ -469,32 +514,40 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
     }
 
     private fun changePasscodePressed() {
-        lateinit var changePasscodeVC: PasscodeConfirmVC
-        changePasscodeVC = PasscodeConfirmVC(
-            context,
-            PasscodeViewState.Default(
-                LocaleController.getString("Change Passcode"),
-                "",
-                LocaleController.getString("Change Passcode"),
-                showNavigationSeparator = false,
-                startWithBiometrics = false
-            ),
-            task = { newPasscode ->
-                confirmNewPasscode(changePasscodeVC, newPasscode)
-            },
-            ignoreBiometry = true
-        ).apply {
-            customPasscodeVerifier = {
-                // Accept any passcode
-                true
+        confirmPasscode { enclaveToken ->
+            lateinit var changePasscodeVC: PasscodeConfirmVC
+            changePasscodeVC = PasscodeConfirmVC(
+                context,
+                PasscodeViewState.Default(
+                    LocaleController.getString("Change Passcode"),
+                    "",
+                    LocaleController.getString("Change Passcode"),
+                    showNavigationSeparator = false,
+                    startWithBiometrics = false
+                ),
+                task = { newPasscode ->
+                    confirmNewPasscode(enclaveToken, changePasscodeVC, newPasscode)
+                },
+                ignoreBiometry = true
+            ).apply {
+                customPasscodeVerifier = {
+                    // Accept any passcode
+                    true
+                }
+                isTaskAsync = false
             }
-            isTaskAsync = false
-        }
 
-        navigationController?.push(changePasscodeVC)
+            navigationController?.push(changePasscodeVC, onCompletion = {
+                navigationController?.removePrevViewControllerOnly()
+            })
+        }
     }
 
-    private fun confirmNewPasscode(changePasscodeVC: PasscodeConfirmVC, newPasscode: String) {
+    private fun confirmNewPasscode(
+        enclaveToken: String,
+        changePasscodeVC: PasscodeConfirmVC,
+        newPasscode: String
+    ) {
         val confirmPasscodeVC = PasscodeConfirmVC(
             context,
             PasscodeViewState.Default(
@@ -503,21 +556,22 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
                 LocaleController.getString("Confirm Passcode"),
                 showNavigationSeparator = false,
                 startWithBiometrics = false
-            ), task = { _ ->
-                WalletCore.call(
-                    ApiMethod.Settings.ChangePassword(
-                        currentPasscode,
-                        newPasscode,
-                    )
-                ) { _, err ->
-                    if (err != null)
-                        return@call
-                    if (WGlobalStorage.isBiometricActivated()) {
-                        val activated = WSecureStorage.setBiometricPasscode(window!!, newPasscode)
-                        if (!activated)
-                            WGlobalStorage.setIsBiometricActivated(false)
+            ),
+            task = { _ ->
+                // The session confirming the change may be a biometric one, and replacing destroys the
+                // auth it came from. The new passcode overwrites the old credential either way.
+                WalletCore.enclaveMigrateAuth(
+                    window!!,
+                    enclaveToken,
+                    AuthType.PASSCODE,
+                    newPasscode,
+                    false
+                ) { newToken, err ->
+                    if (err != null || newToken == null) return@enclaveMigrateAuth
+                    if (WGlobalStorage.isLegacyBiometricActivated()) {
+                        WSecureStorage.deleteLegacyBiometricPasscode()
+                        WGlobalStorage.removeIsLegacyBiometricActivated()
                     }
-                    currentPasscode = newPasscode
                     navigationController?.removePrevViewControllers(2)
                     navigationController?.pop(true)
                 }
@@ -536,6 +590,30 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         navigationController?.push(confirmPasscodeVC, onCompletion = {
             changePasscodeVC.restartAuth()
         })
+    }
+
+    private fun confirmPasscode(onSuccess: (enclaveToken: String) -> Unit) {
+        navigationController?.push(
+            PasscodeConfirmVC(
+                context,
+                PasscodeViewState.Default(
+                    LocaleController.getString("Locked"),
+                    LocaleController.getString(
+                        if (WGlobalStorage.isAnyBiometricActivated() &&
+                            BiometricHelpers.canAuthenticate(window!!)
+                        ) {
+                            "Enter passcode or use fingerprint"
+                        } else {
+                            "Enter Passcode"
+                        }
+                    ),
+                    LocaleController.getString("Security")
+                ),
+                task = { enclaveToken ->
+                    onSuccess(enclaveToken)
+                }
+            )
+        )
     }
 
     private var autoLockHeightAnim: android.animation.ValueAnimator? = null

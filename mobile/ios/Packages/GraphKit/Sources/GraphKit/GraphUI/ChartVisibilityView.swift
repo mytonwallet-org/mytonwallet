@@ -25,25 +25,51 @@ public func calculateVisiblityHeight(
     return lastFrame.maxY + bottomInset
 }
 
-private func generateItemsFrames(frame: CGRect, items: [ChartVisibilityItem]) -> [CGRect] {
-    var previousPoint = CGPoint(x: Constants.insets.left, y: Constants.insets.top)
-    var frames: [CGRect] = []
-    
-    for item in items {
-        let labelSize = (item.title as NSString).size(withAttributes: [.font: ChartVisibilityItemView.textFont])
-        let width = (labelSize.width + Constants.labelTextApproxInsets).rounded(.up)
-        if previousPoint.x + width < (frame.width - Constants.insets.left - Constants.insets.right) {
-            frames.append(CGRect(origin: previousPoint, size: CGSize(width: width, height: Constants.itemHeight)))
-        } else if previousPoint.x <= Constants.insets.left {
-            frames.append(CGRect(origin: previousPoint, size: CGSize(width: width, height: Constants.itemHeight)))
-        } else {
-            previousPoint.y += Constants.itemHeight + Constants.itemSpacing
-            previousPoint.x = Constants.insets.left
-            frames.append(CGRect(origin: previousPoint, size: CGSize(width: width, height: Constants.itemHeight)))
-        }
-        previousPoint.x += width + Constants.itemSpacing
+private func generateItemsFrames(
+    frame: CGRect,
+    items: [ChartVisibilityItem],
+    layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+) -> [CGRect] {
+    let minX = Constants.insets.left
+    let maxX = frame.width - Constants.insets.right
+    guard maxX > minX else {
+        return []
     }
-    
+
+    var frames: [CGRect] = []
+    var y = Constants.insets.top
+    let itemWidth = { (item: ChartVisibilityItem) -> CGFloat in
+        let labelSize = (item.title as NSString).size(withAttributes: [.font: ChartVisibilityItemView.textFont])
+        return (labelSize.width + Constants.labelTextApproxInsets).rounded(.up)
+    }
+
+    if layoutDirection == .rightToLeft {
+        var nextMaxX = maxX
+        for item in items {
+            let width = itemWidth(item)
+            if nextMaxX < maxX && nextMaxX - width <= minX {
+                y += Constants.itemHeight + Constants.itemSpacing
+                nextMaxX = maxX
+            }
+
+            let x = nextMaxX - width
+            frames.append(CGRect(x: x, y: y, width: width, height: Constants.itemHeight))
+            nextMaxX = x - Constants.itemSpacing
+        }
+    } else {
+        var nextX = minX
+        for item in items {
+            let width = itemWidth(item)
+            if nextX > minX && nextX + width >= maxX {
+                y += Constants.itemHeight + Constants.itemSpacing
+                nextX = minX
+            }
+
+            frames.append(CGRect(x: nextX, y: y, width: width, height: Constants.itemHeight))
+            nextX += width + Constants.itemSpacing
+        }
+    }
+
     return frames
 }
 
@@ -132,8 +158,13 @@ class ChartVisibilityView: UIView {
     }
     
     private func updateFrames() {
-        for (index, frame) in generateItemsFrames(frame: bounds, items: self.items).enumerated() {
-            selectionViews[index].frame = frame
+        let frames = generateItemsFrames(
+            frame: bounds,
+            items: items,
+            layoutDirection: effectiveUserInterfaceLayoutDirection
+        )
+        for (index, view) in selectionViews.enumerated() {
+            view.frame = index < frames.count ? frames[index] : .zero
         }
     }
     

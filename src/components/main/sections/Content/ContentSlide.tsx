@@ -19,6 +19,7 @@ interface OwnProps {
   shouldShowSeparateAssetsPanel: boolean;
   totalTokensAmount: number;
   activeNftKey: number;
+  scrollContainerSelector?: string;
   onClickAsset: (slug: string) => void;
   onStakedTokenClick: NoneToVoidFunction;
   onScroll?: (e: React.UIEvent<HTMLElement>) => void;
@@ -33,6 +34,7 @@ function ContentSlide({
   shouldShowSeparateAssetsPanel,
   totalTokensAmount,
   activeNftKey,
+  scrollContainerSelector,
   onClickAsset,
   onStakedTokenClick,
   onScroll,
@@ -75,6 +77,7 @@ function ContentSlide({
         <Activities
           isActive={isActive}
           totalTokensAmount={totalTokensAmount}
+          scrollContainerSelector={scrollContainerSelector}
           onScroll={onScroll}
         />
       );

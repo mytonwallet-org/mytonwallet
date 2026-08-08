@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.uistake.staking
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -11,14 +11,20 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.lifecycle.ViewModelProvider
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.max
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLinearLayout
@@ -31,6 +37,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uistake.confirm.ConfirmStakingHeaderView
+import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uistake.helpers.StakingMessageHelpers
 import org.mytonwallet.app_air.uistake.staking.views.StakeDetailView
 import org.mytonwallet.app_air.uistake.staking.views.StakeInputView
@@ -48,23 +55,23 @@ import org.mytonwallet.app_air.walletcontext.utils.PriceConversionUtils
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class StakingVC(
-    context: Context,
-    tokenSlug: String,
-    mode: StakingViewModel.Mode,
-) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
+class StakingVC(context: Context, private val tokenSlug: String, mode: StakingViewModel.Mode) :
+    WViewControllerWithModelStore(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "Staking"
+
+    override var displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     private val viewmodelFactory = AddStakeViewModelFactory(tokenSlug, mode)
     private val stakingViewModel by lazy {
@@ -129,12 +136,19 @@ class StakingVC(
         wButton
     }
 
+    private val accountSelectorView by lazy {
+        AccountSelectorView(
+            context,
+            accountsProvider = { switchableAccounts() },
+            onAccountSelected = ::switchAccount
+        )
+    }
+
     private val scrollView = WScrollView(WeakReference(this))
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
         ReversedCornerViewUpsideDown(context, scrollView).apply {
-            if (ignoreSideGuttering)
-                setHorizontalPadding(0f)
+            if (ignoreSideGuttering) setHorizontalPadding(0f)
         }
 
     override fun setupViews() {
@@ -143,11 +157,19 @@ class StakingVC(
         WalletCore.registerObserver(this)
 
         setNavTitle(
-            if (stakingViewModel.isStake()) LocaleController.getString("Add Stake")
-            else LocaleController.getString("\$unstake_action")
+            if (stakingViewModel.isStake()) {
+                LocaleController.getString("Add Stake")
+            } else {
+                LocaleController.getString("\$unstake_action")
+            }
         )
         setupNavBar(true)
         navigationBar?.addCloseButton()
+        if (isAccountSwitchingAllowed()) {
+            AccountStore.activeAccount?.let { accountSelectorView.config(it) }
+            navigationBar?.addLeadingView(accountSelectorView)
+            navigationBar?.setTitleGravity(Gravity.CENTER)
+        }
 
         scrollView.addView(linearLayout, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
@@ -172,7 +194,8 @@ class StakingVC(
             toStartPx(stakeButton, 20.dp + systemBarStartInset)
             toEndPx(stakeButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                stakeButton, 20.dp + max(
+                stakeButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -259,7 +282,9 @@ class StakingVC(
                     }
 
                     stakeInputView.setShowingBaseCurrency(true)
-                    stakeInputView.amountEditText.setBaseCurrencySymbol(WalletCore.baseCurrency.sign)
+                    stakeInputView.amountEditText.setBaseCurrencySymbol(
+                        WalletCore.baseCurrency.sign
+                    )
                     stakingViewModel.isInputListenerLocked = false
                 }
 
@@ -267,7 +292,9 @@ class StakingVC(
                     inputState.amountInCrypto ?: BigInteger.ZERO,
                     stakingViewModel.currentToken.decimals,
                     stakingViewModel.tokenSymbol, // Show TON symbol in both Stake and Unstake
-                    inputState.amountInCrypto?.smartDecimalsCount(stakingViewModel.currentToken.decimals)
+                    inputState.amountInCrypto?.smartDecimalsCount(
+                        stakingViewModel.currentToken.decimals
+                    )
                         ?: 9,
                     true
                 )
@@ -282,7 +309,9 @@ class StakingVC(
                 val minAmountStr = stakingViewModel.minRequiredAmount.toString(
                     stakingViewModel.currentToken.decimals,
                     "",
-                    stakingViewModel.minRequiredAmount.smartDecimalsCount(stakingViewModel.currentToken.decimals),
+                    stakingViewModel.minRequiredAmount.smartDecimalsCount(
+                        stakingViewModel.currentToken.decimals
+                    ),
                     showPositiveSign = false,
                     forceCurrencyToRight = true
                 )
@@ -300,7 +329,9 @@ class StakingVC(
                 val minAmountStr = stakingViewModel.minRequiredAmount.toString(
                     stakingViewModel.currentToken.decimals,
                     "",
-                    stakingViewModel.minRequiredAmount.smartDecimalsCount(stakingViewModel.currentToken.decimals),
+                    stakingViewModel.minRequiredAmount.smartDecimalsCount(
+                        stakingViewModel.currentToken.decimals
+                    ),
                     false,
                     true
                 )
@@ -325,15 +356,22 @@ class StakingVC(
         stakeInputView.amountEditText.isError.animatedValue = viewState.isInputTextRed
         // Show TON symbol in both Stake and Unstake
         val feeText =
-            if (viewState.currentFee.isNotEmpty()) "${
-                LocaleController.getString("\$fee_value_with_colon")
-                    .replace("%fee%", "\u202F${viewState.currentFee}")
-            } ${MBaseCurrency.TON.sign}" else ""
+            if (viewState.currentFee.isNotEmpty()) {
+                "${
+                    LocaleController.getString("\$fee_value_with_colon")
+                        .replace("%fee%", viewState.currentFee)
+                } ${MBaseCurrency.TON.sign}"
+            } else {
+                ""
+            }
         stakeInputView.feeLabel.text = feeText
         when (stakingViewModel.mode) {
             StakingViewModel.Mode.STAKE -> {
                 stakingDetailView.setEarning(viewState.estimatedEarning)
-                stakingDetailView.setApy(viewState.currentApy)
+                stakingDetailView.setApy(
+                    viewState.currentApy,
+                    stakingViewModel.stakingState?.yieldType
+                )
                 stakingDetailView.setTvl(viewState.tvl)
                 stakingDetailView.setTotalStakers(viewState.totalStakers)
             }
@@ -449,7 +487,7 @@ class StakingVC(
     private fun presentMfaConfirm(event: StakingViewModel.VmToVcEvents.MfaRequested) {
         val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers.MfaActionConfirmVC(
             context,
-            requestHash = event.requestHash,
+            requestHash = event.requestHash
         )
         navigationController?.push(mfaVC, onCompletion = {
             navigationController?.removePrevViewControllerOnly()
@@ -546,7 +584,8 @@ class StakingVC(
             toStartPx(stakeButton, 20.dp + systemBarStartInset)
             toEndPx(stakeButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                stakeButton, 20.dp + max(
+                stakeButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -576,11 +615,12 @@ class StakingVC(
                     accountId = account.accountId,
                     amount = stakingViewModel.getAmountInCrypto() ?: BigInteger.ZERO,
                     stakingState = stakingViewModel.stakingState!!,
-                    realFee = stakingViewModel.realFee,
+                    realFee = stakingViewModel.realFee
                 ),
                 onDone = {
                     // Handled in LedgerConnect
-                }),
+                }
+            ),
             headerView = confirmHeaderView
         )
         push(ledgerConnectVC, onCompletion = {
@@ -594,15 +634,15 @@ class StakingVC(
         if (stakedActivityId == null) {
             // Staking in-progress, cached received local activity to process on staking api callback is called
             if (receivedActivity.isLocal()) {
-                if (receivedLocalActivities == null)
-                    receivedLocalActivities = ArrayList()
+                if (receivedLocalActivities == null) receivedLocalActivities = ArrayList()
                 receivedLocalActivities?.add(receivedActivity)
             }
             return
         }
 
         val txMatch =
-            receivedActivity is MApiTransaction.Transaction && stakedActivityId == receivedActivity.getTxHash()
+            receivedActivity is MApiTransaction.Transaction &&
+                stakedActivityId == receivedActivity.getTxHash()
         if (!txMatch) {
             return
         }
@@ -614,7 +654,7 @@ class StakingVC(
             return
         }
         window?.dismissLastNav {
-            //WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+            // WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
         }
     }
 
@@ -623,6 +663,47 @@ class StakingVC(
         // Wait for Pending Activity event...
         receivedLocalActivities?.firstOrNull { it.getTxHash() == stakedActivityId }?.let {
             checkReceivedActivity(it)
+        }
+    }
+
+    private fun switchableAccounts(): List<MAccount> = WalletCore.getAllAccounts().filter {
+        it.supportsEarn
+    }
+
+    private fun isAccountSwitchingAllowed(): Boolean = !AccountStore.isPushedTemporary &&
+        navigationController?.viewControllers?.firstOrNull() == this &&
+        switchableAccounts().any { it.accountId != AccountStore.activeAccountId }
+
+    private fun switchAccount(account: MAccount) {
+        accountSelectorView.setLoading(true)
+        WalletCore.ensureAccountActivated(account.accountId) { accountChanged ->
+            if (accountChanged) {
+                WalletCore.notifyEvent(
+                    WalletEvent.AccountChangedInApp(persistedAccountsModified = false)
+                )
+            }
+            view.post { onAccountSwitched(account) }
+        }
+    }
+
+    private fun onAccountSwitched(account: MAccount) {
+        displayedAccount = DisplayedAccount(account.accountId, isPushedTemporary = false)
+        accountSelectorView.setLoading(false)
+        accountSelectorView.config(account)
+        val activeStakingTokenSlug =
+            StakingStore.getStakingState(account.accountId)?.activeStakingTokenSlug()
+        val nav = navigationController ?: return
+        if (activeStakingTokenSlug != null) {
+            updateWithCrossFade {
+                nav.replaceRoot(EarnRootVC(context, activeStakingTokenSlug))
+            }
+        } else if (stakingViewModel.isUnstake()) {
+            updateWithCrossFade {
+                val nextTokenSlug =
+                    tokenSlug.takeIf { TokenStore.getToken(it)?.isEarnAvailable == true }
+                        ?: TONCOIN_SLUG
+                nav.replaceRoot(StakingVC(context, nextTokenSlug, StakingViewModel.Mode.STAKE))
+            }
         }
     }
 
@@ -652,8 +733,11 @@ class StakingVC(
                     amountInCrypto = stakingViewModel.inputStateValue().amountInCrypto
                         ?: BigInteger.ZERO,
                     showPositiveSignForAmount = !stakingViewModel.isStake(),
-                    messageString = if (stakingViewModel.isStake()) LocaleController.getString("Confirm Staking")
-                    else LocaleController.getString("Confirm Unstaking")
+                    messageString = if (stakingViewModel.isStake()) {
+                        LocaleController.getString("Confirm Staking")
+                    } else {
+                        LocaleController.getString("Confirm Unstaking")
+                    }
                 )
             }
         }

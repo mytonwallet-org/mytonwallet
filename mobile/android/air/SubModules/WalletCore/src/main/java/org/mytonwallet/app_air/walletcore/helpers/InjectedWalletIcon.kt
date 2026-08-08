@@ -8,6 +8,5 @@ object InjectedWalletIcon {
     private const val GRAM_SVG =
         """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="none" viewBox="0 0 200 200"><rect width="200" height="200" fill="#111827" rx="44"/><path fill="#75D7FE" d="m101 163-63-78 39 13 24 65Z"/><path fill="#38A6F5" d="m101 163 34-66 31-15-65 81Z"/><path fill="#52AFF4" d="m77 98 28-28 30 27-58 1Z"/><path fill="#7AC6FE" d="m135 97 7-34 24 19-31 15Z"/><path fill="#7DD2FF" d="M38 85 65 65l12 33-39-13Z"/><path fill="#C7E9FF" d="m65 65 24-11 42-1 35 29-24-19-37 7-28 28-12-33Z"/><path stroke="#C2E8FF" stroke-linecap="round" stroke-width="5" d="m108 70 19-4"/></svg>"""
 
-    fun svg(isGramWallet: Boolean): String =
-        if (isGramWallet) GRAM_SVG else MTW_SVG
+    fun svg(isGramWallet: Boolean): String = if (isGramWallet) GRAM_SVG else MTW_SVG
 }

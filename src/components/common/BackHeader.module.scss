@@ -7,7 +7,7 @@
   align-items: center;
 
   height: 3rem;
-  padding-right: var(--scrollbar-width);
+  padding-inline-end: var(--scrollbar-width);
   border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
 
   background: var(--color-background-first);
@@ -64,6 +64,8 @@
 
 .backIcon {
   font-size: 1.5rem;
+
+  @include mixins.rtl-mirror();
 }
 
 .title {

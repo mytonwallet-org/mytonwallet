@@ -1,21 +1,21 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
+import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 class DappFeeHelpers {
     companion object {
         fun calculateDappTransferFee(
             operationChain: String,
             fullFee: BigInteger,
-            received: BigInteger,
+            received: BigInteger
         ): String {
             val chain = MBlockchain.valueOfOrNull(operationChain) ?: return ""
             val nativeToken = TokenStore.getToken(chain.nativeSlug) ?: return ""
@@ -46,7 +46,8 @@ class DappFeeHelpers {
 
             val realReceived = received - fullFee
             return LocaleController.getFormattedString(
-                "%1$@ will be returned", listOf(
+                "%1$@ will be returned",
+                listOf(
                     realReceived.toString(
                         nativeToken.decimals,
                         nativeToken.symbol,

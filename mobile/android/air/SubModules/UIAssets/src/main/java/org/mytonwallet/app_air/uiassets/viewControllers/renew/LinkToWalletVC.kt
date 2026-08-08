@@ -13,6 +13,9 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -45,17 +48,13 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.roundToInt
 
-class LinkToWalletVC(
-    context: Context,
-    val nft: ApiNft
-) : WViewController(context) {
+class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "LinkToWallet"
 
     override val displayedAccount =
@@ -63,7 +62,10 @@ class LinkToWalletVC(
 
     override val shouldDisplayTopBar = false
 
-    var address: String? = NftStore.nftData?.linkedAddressByAddress?.get(nft.address)
+    private val linkedAddress =
+        NftStore.nftData?.linkedAddressByAddress?.get(nft.address)?.takeIf { it.isNotBlank() }
+    var address: String? =
+        linkedAddress ?: AccountStore.accountById(displayedAccount.accountId)?.tonAddress
     private var realFee = BigInteger.ZERO
 
     private val nftTagView = ActivitySingleTagView(context).apply {
@@ -77,7 +79,7 @@ class LinkToWalletVC(
 
     private val titleLabel = HeaderCell(context, startMargin = 20f).apply {
         configure(
-            LocaleController.getString("Linked Address"),
+            LocaleController.getString(if (linkedAddress != null) "Linked Wallet" else "Wallet"),
             WColor.Tint,
             HeaderCell.TopRounding.NORMAL
         )
@@ -89,12 +91,22 @@ class LinkToWalletVC(
             AddressInputLayout.AutoCompleteConfig(
                 type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
             ),
-            onTextEntered = {
+            onTextEntered = { address ->
+                updateAddressOverlay(address)
                 view.hideKeyboard()
-            }).apply {
+            }
+        ).apply {
             id = View.generateViewId()
             showCloseOnTextEditing = true
             setHint(LocaleController.getString("Enter Address"))
+            focusCallback = { hasFocus ->
+                if (!hasFocus) {
+                    updateAddressOverlay(getKeyword())
+                }
+            }
+            doAfterQrCodeScanned { address ->
+                updateAddressOverlay(address)
+            }
         }
     }
 
@@ -123,6 +135,8 @@ class LinkToWalletVC(
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
             address = s.toString()
             if (MBlockchain.ton.isValidAddress(address ?: "")) {
+                linkButton.isEnabled = false
+                linkButton.setText(LocaleController.getString("Link"))
                 calculateFee(address!!)
             } else {
                 linkButton.isEnabled = false
@@ -134,10 +148,27 @@ class LinkToWalletVC(
         override fun afterTextChanged(s: Editable?) {}
     }
 
+    private fun updateAddressOverlay(address: String) {
+        val normalizedAddress = address.trim()
+        val account =
+            AccountStore.accountById(AccountStore.accountIdByAddress(normalizedAddress))
+        if (account != null) {
+            addressInputView.setAccount(account)
+            return
+        }
+        AddressStore.getAddress(normalizedAddress, MBlockchain.ton.name)?.let {
+            addressInputView.setAddress(it)
+        }
+    }
+
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(LocaleController.getString("Change Linked Wallet"))
+        setNavTitle(
+            LocaleController.getString(
+                if (linkedAddress != null) "Change Linked Wallet" else "Link to Wallet"
+            )
+        )
         setupNavBar(true)
 
         navigationBar?.addCloseButton()
@@ -162,6 +193,7 @@ class LinkToWalletVC(
 
         address?.let { address ->
             addressInputView.setText(address)
+            updateAddressOverlay(address)
             calculateFee(address)
         } ?: run {
             linkButton.isEnabled = false
@@ -219,9 +251,9 @@ class LinkToWalletVC(
                 accountId,
                 nft,
                 address
-            ), callback = { res, err ->
-                if (this.address != address || isDestroyed)
-                    return@call
+            ),
+            callback = { res, err ->
+                if (this.address != address || isDestroyed) return@call
                 this.realFee = res?.realFee ?: BigInteger.ZERO
                 if (err != null || realFee == null) {
                     Handler(Looper.getMainLooper()).postDelayed({
@@ -229,13 +261,16 @@ class LinkToWalletVC(
                     }, 5000)
                     return@call
                 }
-                if ((BalanceStore.getBalances(accountId)
-                        ?.get(TONCOIN_SLUG) ?: BigInteger.ZERO) >= realFee
+                if ((
+                        BalanceStore.getBalances(accountId)
+                            ?.get(TONCOIN_SLUG) ?: BigInteger.ZERO
+                        ) >= realFee
                 ) {
-                    linkButton.isEnabled = true
+                    linkButton.isEnabled = address != linkedAddress
                     linkButton.isLoading = false
+                    linkButton.setText(LocaleController.getString("Link"))
                     val tonToken = TokenStore.getToken(TONCOIN_SLUG) ?: return@call
-                    feeLabel.text =
+                    val feeText =
                         "${LocaleController.getString("Fee")}: ${
                             realFee.toString(
                                 decimals = tonToken.decimals,
@@ -245,13 +280,17 @@ class LinkToWalletVC(
                                 forceCurrencyToRight = true
                             )
                         }"
-                    feeLabel.alpha = 0f
-                    feeLabel.fadeIn()
+                    if (feeLabel.text != feeText) {
+                        feeLabel.text = feeText
+                        feeLabel.alpha = 0f
+                        feeLabel.fadeIn()
+                    }
                 } else {
                     linkButton.isEnabled = false
                     linkButton.setText(LocaleController.getString("Insufficient Balance"))
                 }
-            })
+            }
+        )
     }
 
     private fun onRenewPressed() {
@@ -264,9 +303,12 @@ class LinkToWalletVC(
 
     private val headerView: View
         get() {
+            val availableHeight = window!!.windowView.height
+            val headerHeight =
+                (availableHeight * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             return PasscodeHeaderSendView(
                 WeakReference(this),
-                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
+                headerHeight
             ).apply {
                 config(
                     Content.ofUrl(nft.image ?: ""),
@@ -291,8 +333,11 @@ class LinkToWalletVC(
                     realFee = realFee
                 ),
                 onDone = {
-                    window?.dismissLastNav { }
-                }),
+                    window?.dismissLastNav {
+                        window?.dismissLastNav { }
+                    }
+                }
+            ),
             headerView = headerView
         )
         val nav = WNavigationController(
@@ -320,7 +365,8 @@ class LinkToWalletVC(
                         nft,
                         address!!,
                         realFee
-                    ), callback = { res, err ->
+                    ),
+                    callback = { res, err ->
                         if (err != null) {
                             showError(err.parsed)
                             return@call
@@ -330,7 +376,7 @@ class LinkToWalletVC(
                             val mfaVC = org.mytonwallet.app_air.uicomponents
                                 .viewControllers.MfaActionConfirmVC(
                                     context,
-                                    requestHash = mfaHash,
+                                    requestHash = mfaHash
                                 )
                             navigationController?.push(mfaVC, onCompletion = {
                                 navigationController?.removePrevViewControllerOnly()
@@ -340,7 +386,8 @@ class LinkToWalletVC(
                         window?.dismissLastNav {
                             window?.dismissLastNav { }
                         }
-                    })
+                    }
+                )
             }
         )
         val nav = WNavigationController(

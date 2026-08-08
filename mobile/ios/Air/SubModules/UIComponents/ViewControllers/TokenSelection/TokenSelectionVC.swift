@@ -98,9 +98,9 @@ public class TokenSelectionVC: WViewController {
 
     @AccountContext(source: .current) private var account: MAccount
     
-    private var collectionView: UICollectionView!
-    private var activityIndicatorView: WActivityIndicator!
-    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+    private var collectionView: UICollectionView?
+    private var activityIndicatorView: WActivityIndicator?
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?
     
     // MARK: - Init
     
@@ -152,8 +152,8 @@ public class TokenSelectionVC: WViewController {
         }
         
         if let otherSymbolOrMinterAddress {
-            activityIndicatorView.startAnimating(animated: true)
-            collectionView.alpha = 0
+            activityIndicatorView?.startAnimating(animated: true)
+            collectionView?.alpha = 0
             Task {
                 do {
                     let pairs = try await Api.swapGetPairs(symbolOrMinter: otherSymbolOrMinterAddress)
@@ -161,15 +161,15 @@ public class TokenSelectionVC: WViewController {
                 } catch {
                     log.error("failed to load swap pairs \(error, .public)")
                 }
-                activityIndicatorView.stopAnimating(animated: true)
+                activityIndicatorView?.stopAnimating(animated: true)
                 applySnapshot()
                 UIView.animate(withDuration: 0.2) { [weak self] in
                     guard let self else { return }
-                    collectionView.alpha = 1
-                    activityIndicatorView.alpha = 0
+                    collectionView?.alpha = 1
+                    activityIndicatorView?.alpha = 0
                 } completion: { [weak self] _ in
                     guard let self else { return }
-                    activityIndicatorView.stopAnimating(animated: true)
+                    activityIndicatorView?.stopAnimating(animated: true)
                 }
             }
         }
@@ -219,7 +219,8 @@ public class TokenSelectionVC: WViewController {
         definesPresentationContext = true
         self.searchController = sc
         
-        collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
+        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
+        self.collectionView = collectionView
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.keyboardDismissMode = .onDrag
         collectionView.delaysContentTouches = false
@@ -231,7 +232,8 @@ public class TokenSelectionVC: WViewController {
                                     top: \.topAnchor,
                                     bottom: \.bottomAnchor)
         
-        activityIndicatorView = WActivityIndicator()
+        let activityIndicatorView = WActivityIndicator()
+        self.activityIndicatorView = activityIndicatorView
         activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(activityIndicatorView)
         NSLayoutConstraint.activate([
@@ -243,6 +245,7 @@ public class TokenSelectionVC: WViewController {
     }
     
     private func configureDataSource() {
+        guard let collectionView else { return }
         let cellRegistration = UICollectionView.CellRegistration<TokenCell, Item> { [weak self] cell, indexPath, item in
             guard let self else { return }
             self.configure(cell: cell, for: item, at: indexPath)
@@ -252,7 +255,8 @@ public class TokenSelectionVC: WViewController {
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] headerView, _, indexPath in
             guard let self else { return }
-            let sectionIdentifiers = self.dataSource.snapshot().sectionIdentifiers
+            guard let dataSource = self.dataSource else { return }
+            let sectionIdentifiers = dataSource.snapshot().sectionIdentifiers
             guard indexPath.section < sectionIdentifiers.count else { return }
             var content = UIListContentConfiguration.plainHeader()
             content.text = sectionIdentifiers[indexPath.section].title
@@ -260,9 +264,10 @@ public class TokenSelectionVC: WViewController {
             headerView.contentConfiguration = content
         }
 
-        dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
+        let dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
             collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: item)
         }
+        self.dataSource = dataSource
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
             collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
         }
@@ -355,8 +360,8 @@ public class TokenSelectionVC: WViewController {
                 if lhsAmount != rhsAmount {
                     return lhsAmount > rhsAmount
                 }
-                let lhsName = lhs.token?.name ?? lhs.tokenSlug
-                let rhsName = rhs.token?.name ?? rhs.tokenSlug
+                let lhsName = lhs.token?.displayName(strippingLabelWhenShown: false) ?? lhs.tokenSlug
+                let rhsName = rhs.token?.displayName(strippingLabelWhenShown: false) ?? rhs.tokenSlug
                 return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
             }
         }
@@ -368,7 +373,10 @@ public class TokenSelectionVC: WViewController {
         }
         let filteredAssets = sourceAssets
             .filter { shouldIncludeChain($0.chain) && $0.matchesSearch(keyword) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .sorted {
+                $0.displayName(strippingLabelWhenShown: false)
+                    .localizedCaseInsensitiveCompare($1.displayName(strippingLabelWhenShown: false)) == .orderedAscending
+            }
 
         showingPopularTokens = filteredAssets.filter { $0.isPopular == true }
         showingAllAssets = filteredAssets

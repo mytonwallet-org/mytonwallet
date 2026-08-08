@@ -11,7 +11,7 @@ interface OwnProps {
   isActive: boolean;
   error?: string;
   childClassName?: string;
-  onSubmit: (password: string) => void;
+  onAuthorize: (enclaveToken: string) => void;
   onCancel: NoneToVoidFunction;
   onUpdate: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
@@ -21,7 +21,7 @@ function PasswordSlide({
   isActive,
   error,
   childClassName,
-  onSubmit,
+  onAuthorize,
   onCancel,
   onUpdate,
   onClose,
@@ -39,7 +39,7 @@ function PasswordSlide({
         containerClassName={childClassName}
         submitLabel={lang('Confirm')}
         noAutoConfirm
-        onSubmit={onSubmit}
+        onAuthorize={onAuthorize}
         onCancel={onCancel}
         onUpdate={onUpdate}
       />

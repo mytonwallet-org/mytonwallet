@@ -51,6 +51,8 @@ enum PortfolioPalette {
             return "#FF8E00"
         case .hyperliquid:
             return "#5DCFC3"
+        case .robinhood:
+            return "#CCFF00"
         case .ethereum:
             return "#5E5CEE"
         case .base:

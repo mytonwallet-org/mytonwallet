@@ -69,6 +69,7 @@ $iconGapSize: 1rem;
 }
 
 .accountTitleInner {
+  unicode-bidi: plaintext;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

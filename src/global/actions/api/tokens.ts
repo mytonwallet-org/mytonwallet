@@ -1,7 +1,7 @@
 import { logDebugError } from '../../../util/logs';
 import { callApi } from '../../../api';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
-import { updateTokenNetWorthHistory, updateTokenPriceHistory } from '../../reducers/tokens';
+import { updateTokenDetails, updateTokenNetWorthHistory, updateTokenPriceHistory } from '../../reducers/tokens';
 import { selectCurrentAccount, selectCurrentAccountId } from '../../selectors';
 
 addActionHandler('loadPriceHistory', async (global, actions, payload) => {
@@ -16,6 +16,15 @@ addActionHandler('loadPriceHistory', async (global, actions, payload) => {
   global = getGlobal();
   global = updateTokenPriceHistory(global, slug, { [period]: history });
   setGlobal(global);
+});
+
+addActionHandler('loadTokenDetails', async (global, actions, { slug }) => {
+  const result = await callApi('fetchTokenInfo', slug);
+
+  global = getGlobal();
+  setGlobal(updateTokenDetails(global, slug, !result || 'error' in result
+    ? { hasError: true }
+    : { data: result.details, hasError: undefined }));
 });
 
 addActionHandler('loadTokenNetWorthHistory', async (global, actions, payload) => {

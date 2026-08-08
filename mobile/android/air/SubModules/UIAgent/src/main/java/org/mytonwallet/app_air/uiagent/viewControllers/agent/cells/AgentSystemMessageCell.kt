@@ -13,9 +13,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class AgentSystemMessageCell(context: Context) : WCell(
-    context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-) {
+class AgentSystemMessageCell(context: Context) :
+    WCell(
+        context,
+        LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+    ) {
     private val label = WLabel(context).apply {
         setStyle(11f, WFont.Medium)
         setTextColor(WColor.SecondaryText.color)

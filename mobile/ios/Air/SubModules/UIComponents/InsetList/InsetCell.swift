@@ -16,6 +16,7 @@ public struct InsetCell<Content: View>: View {
     
     public var body: some View {
         content
+            .textStyle(.body, scaling: .dynamic)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, verticalPadding ?? 11)
@@ -117,10 +118,20 @@ public struct InsetExpandableCell: View {
         InsetCell(horizontalPadding: horizontalPadding, verticalPadding: verticalPadding) {
             ViewThatFits(in: .horizontal) {
                 Text(verbatim: content)
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
                     .lineLimit(1)
 
                 HStack(spacing: 16) {
                     Text(verbatim: content)
+                        .textStyle(
+                            .body,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
                         .lineLimit(isExpanded ? 20 : 1)
                         .fixedSize(horizontal: false, vertical: true)
                     if !isExpanded {

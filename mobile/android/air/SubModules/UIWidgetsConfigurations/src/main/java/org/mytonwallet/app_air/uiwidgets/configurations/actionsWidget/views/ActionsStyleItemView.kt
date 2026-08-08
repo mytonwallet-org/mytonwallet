@@ -1,12 +1,12 @@
 package org.mytonwallet.app_air.uiwidgets.configurations.actionsWidget.views
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.view.View
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -21,7 +21,8 @@ class ActionsStyleItemView(
     context: Context,
     val identifier: ActionsWidget.Config.Style,
     val onSelect: ((style: ActionsWidget.Config.Style) -> Unit)
-) : WView(context), WThemedView {
+) : WView(context),
+    WThemedView {
 
     var isActive: Boolean = false
 
@@ -78,5 +79,4 @@ class ActionsStyleItemView(
         nameLabel.setTextColor((if (isActive) WColor.Tint else WColor.SecondaryText).color)
         nameLabel.setStyle(adaptiveFontSize(), if (isActive) WFont.Medium else WFont.Regular)
     }
-
 }

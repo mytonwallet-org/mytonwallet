@@ -23,7 +23,9 @@ class SealedJsonAdapterFactory : JsonAdapter.Factory {
         val jsonSealedAnnotation =
             rawType.annotations.filterIsInstance<JsonSealed>().firstOrNull() ?: return null
         if (!rawType.isSealed) {
-            throw IllegalArgumentException("Class ${rawType.simpleName} annotated with @JsonSealed must be sealed")
+            throw IllegalArgumentException(
+                "Class ${rawType.simpleName} annotated with @JsonSealed must be sealed"
+            )
         }
 
         val labelKey = jsonSealedAnnotation.labelKey
@@ -33,7 +35,9 @@ class SealedJsonAdapterFactory : JsonAdapter.Factory {
         for (subclass in rawType.sealedSubclasses) {
             val subtypeAnnotation =
                 subclass.annotations.filterIsInstance<JsonSealedSubtype>().firstOrNull()
-                    ?: throw IllegalArgumentException("Subclass ${subclass.simpleName} must be annotated with @JsonSealedSubtype")
+                    ?: throw IllegalArgumentException(
+                        "Subclass ${subclass.simpleName} must be annotated with @JsonSealedSubtype"
+                    )
 
             val label = subtypeAnnotation.label
 

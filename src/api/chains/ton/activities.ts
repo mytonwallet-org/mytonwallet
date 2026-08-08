@@ -152,9 +152,9 @@ async function tryReloadIncompleteActivities(
   return { activities, actionIdsToReload };
 }
 
-export async function decryptComment({ accountId, activity, password }: ApiDecryptCommentOptions) {
+export async function decryptComment({ accountId, activity, enclaveToken }: ApiDecryptCommentOptions) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
-  const signer = getSigner(accountId, account, password);
+  const signer = getSigner(accountId, account, enclaveToken);
   return signer.decryptComment(Buffer.from(activity.encryptedComment, 'base64'), activity.fromAddress);
 }
 

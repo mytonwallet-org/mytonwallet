@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.ViewGroup
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -15,7 +16,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setMarginsDp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
-import kotlin.time.Duration
 
 class ToastHost(context: Context) : WFrameLayout(context) {
 
@@ -219,7 +219,8 @@ class ToastHost(context: Context) : WFrameLayout(context) {
                 toastView,
                 LayoutParams(LayoutParams.MATCH_PARENT, ToastView.HEIGHT_DP.dp).apply {
                     setMarginsDp(22, 12, 22, 12)
-                })
+                }
+            )
             this.toastView = toastView
         }
     }

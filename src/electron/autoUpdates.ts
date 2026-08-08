@@ -4,10 +4,11 @@ import { autoUpdater } from 'electron-updater';
 
 import { ElectronAction, ElectronEvent } from './types';
 
-import { PRODUCTION_URL } from '../config';
+import { BETA_UPDATE_URL, IS_STAGING, PRODUCTION_URL } from '../config';
 import getIsAppUpdateNeeded from '../util/getIsAppUpdateNeeded';
-import { pause } from '../util/schedulers';
+import { pause, withTimeout } from '../util/schedulers';
 import { validateIpcSender } from './ipcSecurity';
+import { getGateBase } from './updateChannel';
 import {
   forceQuit, IS_MAC_OS, IS_PREVIEW, IS_WINDOWS, mainWindow, store,
 } from './utils';
@@ -16,6 +17,7 @@ export const AUTO_UPDATE_SETTING_KEY = 'autoUpdate';
 
 const ELECTRON_APP_VERSION_URL = 'electronVersion.txt';
 const CHECK_UPDATE_INTERVAL = 5 * 60 * 1000;
+const GATE_FETCH_TIMEOUT = 30_000; // a throttled gate fetch must not wedge the 5-min poll loop
 
 let isUpdateCheckStarted = false;
 
@@ -67,8 +69,15 @@ async function checkForUpdates(): Promise<void> {
 }
 
 function shouldPerformAutoUpdate(): Promise<boolean> {
-  return new Promise((resolve) => {
-    const request = net.request(`${PRODUCTION_URL}/${ELECTRON_APP_VERSION_URL}?${Date.now()}`);
+  const gateBase = getGateBase({
+    isStaging: IS_STAGING,
+    betaUpdateUrl: BETA_UPDATE_URL,
+    productionUrl: PRODUCTION_URL,
+  });
+
+  let request: ReturnType<typeof net.request> | undefined;
+  const fetchGate = new Promise<boolean>((resolve) => {
+    request = net.request(`${gateBase}/${ELECTRON_APP_VERSION_URL}?${Date.now()}`);
 
     request.on('response', (response) => {
       let contents = '';
@@ -92,4 +101,7 @@ function shouldPerformAutoUpdate(): Promise<boolean> {
 
     request.end();
   });
+
+  // Abort the in-flight request when the timeout wins, else a throttled gate fetch leaks one socket per poll.
+  return withTimeout(fetchGate, GATE_FETCH_TIMEOUT, false, () => request?.abort());
 }

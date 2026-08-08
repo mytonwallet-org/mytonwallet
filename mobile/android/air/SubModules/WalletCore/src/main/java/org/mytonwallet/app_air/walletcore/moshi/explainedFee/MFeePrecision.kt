@@ -12,5 +12,5 @@ enum class MFeePrecision(val prefix: String) {
     APPROXIMATE("~"),
 
     @Json(name = "lessThan")
-    LESS_THAN("<");
+    LESS_THAN("<")
 }

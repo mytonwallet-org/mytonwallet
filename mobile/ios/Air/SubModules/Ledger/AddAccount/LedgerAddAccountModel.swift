@@ -8,7 +8,7 @@ import UIKit
 import UIComponents
 import Perception
 
-private let START_STEPS: OrderedDictionary<StepId, StepStatus> = [
+private let ledgerAddAccountStartSteps: OrderedDictionary<StepId, StepStatus> = [
     .connect: .current,
     .openApp: .none,
     .discoveringWallets: .hidden,
@@ -17,7 +17,7 @@ private let log = Log("LedgerAddAccountModel")
 
 @MainActor
 @Perceptible
-public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
+public final class LedgerAddAccountModel: Sendable {
     
     struct DiscoveredWallet: Identifiable, Sendable {
         var id: Int
@@ -38,38 +38,50 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     var discoveredWallets: [DiscoveredWallet] = []
     var isLoadingMore: Bool = false
     public private(set) var importedAccountIds: [String] = []
+
+    @PerceptionIgnored
+    private lazy var flow = LedgerFlowController(
+        steps: ledgerAddAccountStartSteps,
+        allowsCancellation: { true },
+        onCancel: { [weak self] in self?.onCancel?() },
+        performSteps: { [weak self] in
+            guard let self else { return }
+            try await self.performSteps()
+        }
+    )
+
+    @PerceptionIgnored
+    public var onDone: (@MainActor () -> Void)?
+    @PerceptionIgnored
+    public var onCancel: (@MainActor () -> Void)?
+    public var viewModel: LedgerViewModel { flow.viewModel }
     
     var selectedCount: Int { discoveredWallets.count(where: { $0.status == .selected }) }
     var canContinue: Bool { discoveredWallets.any { $0.status == .selected } }
     
-    public init() async {
-        await super.init(steps: START_STEPS)
+    public init() {}
+
+    public func start() {
+        flow.start()
     }
-    
-    isolated deinit {
-        log.info("deinit")
-        task?.cancel()
-    }
-    
-    override func performSteps() async throws {
-        try await connect()
-        try await openApp()
+
+    private func performSteps() async throws {
+        try await flow.connect()
+        try await flow.openApp()
         try await discoverAccounts()
         try? await Task.sleep(for: .seconds(0.5))
-        await MainActor.run {
-            topWViewController()?.navigationController?.pushViewController(LedgerSelectWalletsVC(model: self), animated: true)
-        }
+        topWViewController()?.navigationController?.pushViewController(LedgerSelectWalletsVC(model: self), animated: true)
     }
     
     func discoverAccounts() async throws {
-        await updateStep(.discoveringWallets, status: .current)
+        flow.updateStep(.discoveringWallets, status: .current)
         do {
             try await _discoverAccountsImpl()
-            await updateStep(.discoveringWallets, status: .done)
+            flow.updateStep(.discoveringWallets, status: .done)
         } catch {
             log.error("\(error)")
             let errorString = (error as? LocalizedError)?.errorDescription
-            await updateStep(.discoveringWallets, status: .error(errorString))
+            flow.updateStep(.discoveringWallets, status: .error(errorString))
         }
     }
     
@@ -96,7 +108,7 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     func appendDiscoveredWallets(_ newWallets: [ApiLedgerWalletInfo]) throws {
         let startIndex = discoveredWallets.count
         let toncoin = TokenStore.getNativeToken(chain: .ton)
-        let peripheralID = try self.connectedIdentifier.orThrow()
+        let peripheralID = try flow.connectedIdentifier.orThrow()
 
         let newWallets: [DiscoveredWallet] = newWallets.enumerated().map { (idx, walletInfo) in
             let alreadyImported = currentWalletAddresses.contains(walletInfo.wallet.address)

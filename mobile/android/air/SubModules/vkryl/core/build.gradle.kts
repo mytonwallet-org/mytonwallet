@@ -34,7 +34,7 @@ kotlin {
 
 android {
     namespace = "me.vkryl.core"
-    compileSdk = 36
+    compileSdk = (rootProject.property("compileSdkVersion") as Number).toInt()
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8

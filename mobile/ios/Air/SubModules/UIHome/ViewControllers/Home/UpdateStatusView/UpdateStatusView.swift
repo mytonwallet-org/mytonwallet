@@ -42,6 +42,7 @@ public final class UpdateStatusView: UIStackView {
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
+        semanticContentAttribute = .forceLeftToRight
         spacing = 2
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 44)
@@ -67,7 +68,8 @@ public final class UpdateStatusView: UIStackView {
         arrowImage.tintColor = UIColor.label
         arrowImage.setContentCompressionResistancePriority(.required, for: .horizontal)
         arrowImage.contentMode = .center
-        addArrangedSubview(arrowImage, margin: UIEdgeInsets(top: 0, left: 4, bottom: -1, right: 0))
+        addArrangedSubview(arrowImage, margin: UIEdgeInsets(top: 0, left: 0, bottom: -1, right: 0))
+        setCustomSpacing(6, after: statusLabel)
         
         let g = UITapGestureRecognizer(target: self, action: #selector(onTap))
         addGestureRecognizer(g)
@@ -157,7 +159,7 @@ public final class UpdateStatusView: UIStackView {
     private func applyLoadingStyle() {
         activityIndicator.startAnimating(animated: false)
         activityIndicatorContainer.isHidden = false
-        statusLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        statusLabel.applyTextStyle(.bodyStrong)
         statusLabel.textColor = updatingColor
         arrowImage.isHidden = true
     }
@@ -165,7 +167,7 @@ public final class UpdateStatusView: UIStackView {
     private func applyUpdatedStyle() {
         activityIndicator.stopAnimating(animated: false)
         activityIndicatorContainer.isHidden = true
-        statusLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        statusLabel.applyTextStyle(.bodyStrong)
         statusLabel.textColor = UIColor.label
         arrowImage.isHidden = false
     }

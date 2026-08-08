@@ -1,3 +1,6 @@
+// This migrator only handles fields that existed before the SQLite migration.
+// Do not add settings introduced later; legacy storage cannot contain them.
+
 import Foundation
 import GRDB
 import WalletContext
@@ -143,6 +146,9 @@ private func mergeLegacySettings(into row: inout MSettings, legacyRow: MSettings
     }
     if row.areTinyTransfersHidden == defaultRow.areTinyTransfersHidden {
         row.areTinyTransfersHidden = legacyRow.areTinyTransfersHidden
+    }
+    if row.areUnverifiedNftsHidden == defaultRow.areUnverifiedNftsHidden {
+        row.areUnverifiedNftsHidden = legacyRow.areUnverifiedNftsHidden
     }
     if row.areTokensWithNoCostHidden == defaultRow.areTokensWithNoCostHidden {
         row.areTokensWithNoCostHidden = legacyRow.areTokensWithNoCostHidden

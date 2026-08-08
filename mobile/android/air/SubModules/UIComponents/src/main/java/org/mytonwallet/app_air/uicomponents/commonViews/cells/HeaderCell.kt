@@ -19,10 +19,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class HeaderCell(
-    context: Context,
-    private val startMargin: Float = 20f,
-) : WCell(context), WThemedView {
+class HeaderCell(context: Context, private val startMargin: Float = 20f) :
+    WCell(context),
+    WThemedView {
 
     enum class TopRounding {
         FIRST_ITEM,
@@ -63,9 +62,12 @@ class HeaderCell(
         layoutParams.apply {
             height = 40.dp
         }
-        addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            constrainedWidth = true
-        })
+        addView(
+            titleLabel,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                constrainedWidth = true
+            }
+        )
         setConstraints {
             setHorizontalBias(titleLabel.id, 0f)
             toCenterX(titleLabel, startMargin)
@@ -115,11 +117,14 @@ class HeaderCell(
                     MATCH_PARENT,
                     WRAP_CONTENT
                 )
-            }) {
+            }
+        ) {
         private val view: HeaderCell = itemView as HeaderCell
         override fun onBind(item: Item.ListTitle) {
             view.configure(
-                item.title, item.titleColor, item.topRounding,
+                item.title,
+                item.titleColor,
+                item.topRounding
             )
             view.setConstraints {
                 toCenterX(view.titleLabel, item.startMargin)

@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .container {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -39,5 +41,8 @@
 }
 
 .detailsIcon {
+  display: inline-block;
   vertical-align: middle;
+
+  @include mixins.rtl-mirror();
 }

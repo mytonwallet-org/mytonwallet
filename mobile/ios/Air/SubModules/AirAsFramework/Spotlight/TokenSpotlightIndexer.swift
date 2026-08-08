@@ -6,7 +6,6 @@ import WalletCoreTypes
 
 private let tokenSpotlightLog = Log("TokenSpotlightIndexer")
 private let tokenSpotlightIndexName = "MyTonWallet_Tokens"
-private let legacyTokenSpotlightIndexName = "MyTonWallet_TokenHoldings"
 
 @MainActor
 @available(iOS 18.4, *)

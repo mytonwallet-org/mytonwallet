@@ -20,12 +20,15 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
     public var isSeasonalThemingDisabled: Bool
     public var canPlaySounds: Bool
     public var areTinyTransfersHidden: Bool
+    public var areUnverifiedNftsHidden: Bool
     public var areTokensWithNoCostHidden: Bool
+    public var useLocalizedTokenNames: Bool
     public var authConfig: String?
     public var autolockValue: String
     public var isSensitiveDataHidden: Bool
     public var selectedExplorerIds: [String: String]
     public var isTokenChartExpanded: Bool
+    public var isTokenInfoExpanded: Bool
     public var pushNotifications: GlobalPushNotifications?
     // Air intentionally keeps token period shared across accounts.
     public var currentTokenPeriod: String
@@ -42,12 +45,15 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         isSeasonalThemingDisabled: Bool = false,
         canPlaySounds: Bool = true,
         areTinyTransfersHidden: Bool = true,
+        areUnverifiedNftsHidden: Bool = true,
         areTokensWithNoCostHidden: Bool = true,
+        useLocalizedTokenNames: Bool = true,
         authConfig: String? = nil,
         autolockValue: String = DEFAULT_AUTOLOCK_OPTION.rawValue,
         isSensitiveDataHidden: Bool = false,
         selectedExplorerIds: [String: String] = [:],
         isTokenChartExpanded: Bool = false,
+        isTokenInfoExpanded: Bool = true,
         pushNotifications: GlobalPushNotifications? = nil,
         currentTokenPeriod: String = defaultCurrentTokenPeriod,
         walletTokensLimit: Int = defaultWalletTokensLimit,
@@ -62,12 +68,15 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         self.isSeasonalThemingDisabled = isSeasonalThemingDisabled
         self.canPlaySounds = canPlaySounds
         self.areTinyTransfersHidden = areTinyTransfersHidden
+        self.areUnverifiedNftsHidden = areUnverifiedNftsHidden
         self.areTokensWithNoCostHidden = areTokensWithNoCostHidden
+        self.useLocalizedTokenNames = useLocalizedTokenNames
         self.authConfig = authConfig
         self.autolockValue = autolockValue
         self.isSensitiveDataHidden = isSensitiveDataHidden
         self.selectedExplorerIds = selectedExplorerIds
         self.isTokenChartExpanded = isTokenChartExpanded
+        self.isTokenInfoExpanded = isTokenInfoExpanded
         self.pushNotifications = pushNotifications
         self.currentTokenPeriod = currentTokenPeriod
         self.walletTokensLimit = HomeWalletVisibleTokensLimit(storedValue: walletTokensLimit).rawValue
@@ -84,6 +93,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
             isSeasonalThemingDisabled: global.getBool(key: "settings.isSeasonalThemingDisabled") ?? false,
             canPlaySounds: global.getBool(key: "settings.canPlaySounds") ?? true,
             areTinyTransfersHidden: global.getBool(key: "settings.areTinyTransfersHidden") ?? true,
+            areUnverifiedNftsHidden: global.getBool(key: "settings.areUnverifiedNftsHidden") ?? true,
             areTokensWithNoCostHidden: global.getBool(key: "settings.areTokensWithNoCostHidden") ?? true,
             authConfig: settingsJsonString(from: global["settings.authConfig"]),
             autolockValue: MSettings.autolockValue(from: global),

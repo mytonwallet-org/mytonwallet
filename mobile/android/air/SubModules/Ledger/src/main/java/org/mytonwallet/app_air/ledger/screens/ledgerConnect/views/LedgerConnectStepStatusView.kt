@@ -22,7 +22,10 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
     }
 
     enum class State {
-        WAITING, IN_PROGRESS, DONE, ERROR
+        WAITING,
+        IN_PROGRESS,
+        DONE,
+        ERROR
     }
 
     private val animationDuration = AnimationConstants.SLOW_ANIMATION
@@ -130,7 +133,10 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
         doneTickPaint.alpha = alpha
         animatedTickPath.reset()
         tickPathMeasure.getSegment(
-            0f, tickPathMeasure.length * progress, animatedTickPath, true
+            0f,
+            tickPathMeasure.length * progress,
+            animatedTickPath,
+            true
         )
         canvas.drawPath(animatedTickPath, doneTickPaint)
     }
@@ -144,7 +150,9 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
                 if (previousState == State.DONE) {
                     drawCircle(canvas, paints[State.DONE]!!, cx, cy, 8.dp, doneAlpha)
                     drawTick(canvas, 1f, doneAlpha)
-                } else drawCircle(canvas, prevPaint, cx, cy, 4.dp, doneAlpha)
+                } else {
+                    drawCircle(canvas, prevPaint, cx, cy, 4.dp, doneAlpha)
+                }
                 drawCircle(canvas, paints[State.WAITING]!!, cx, cy, 4.dp, waitAlpha)
             }
 
@@ -180,7 +188,9 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
                 if (previousState == State.DONE) {
                     drawCircle(canvas, paints[State.DONE]!!, cx, cy, 8.dp, prevAlpha)
                     drawTick(canvas, 1f, prevAlpha)
-                } else drawCircle(canvas, prevPaint, cx, cy, 4.dp, prevAlpha)
+                } else {
+                    drawCircle(canvas, prevPaint, cx, cy, 4.dp, prevAlpha)
+                }
                 drawCircle(canvas, errorPaint, cx, cy, 4.dp, errorAlpha)
             }
 

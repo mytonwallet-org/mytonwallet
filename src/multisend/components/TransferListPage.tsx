@@ -3,13 +3,14 @@ import React, { memo, useState } from '../../lib/teact/teact';
 
 import type { TransferRow } from '../types';
 
+import { TONCOIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { formatNumber } from '../../util/formatNumber';
 import { shortenAddress } from '../../util/shortenAddress';
 import { setEnvironment } from '../../api/environment';
 import { createJettonTransferPayload, getJettonWalletAddress } from '../utils/tokens';
 import { sendTransaction, tonConnect } from '../utils/tonConnect';
-import { isTonIdentifier } from '../utils/transferValidation';
+import { isNativeTokenIdentifier } from '../utils/transferValidation';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -92,7 +93,7 @@ function TransferListPage({
         } = row;
         const targetAddress = resolvedAddress || receiver;
 
-        if (isTonIdentifier(tokenIdentifier)) {
+        if (isNativeTokenIdentifier(tokenIdentifier)) {
           const amountNano = Math.floor(Number(amount) * 1e9).toString();
           const payload = comment ? createCommentPayload(comment) : undefined;
 
@@ -199,9 +200,9 @@ function TransferListPage({
 
         <div className={styles.transfersList}>
           {transferData.map((row, index) => {
-            const isTon = isTonIdentifier(row.tokenIdentifier);
-            const tokenInfo = !isTon ? row.resolvedTokenInfo : undefined;
-            const displayToken = isTon ? 'TON' : tokenInfo!.symbol;
+            const isNative = isNativeTokenIdentifier(row.tokenIdentifier);
+            const tokenInfo = !isNative ? row.resolvedTokenInfo : undefined;
+            const displayToken = isNative ? TONCOIN.symbol : (tokenInfo?.symbol ?? row.tokenIdentifier);
             const displayAddress = row.receiver;
             const addressTitle = row.resolvedAddress
               ? `${row.receiver} → ${row.resolvedAddress}`

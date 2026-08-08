@@ -10,10 +10,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.max
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
 import org.mytonwallet.app_air.uicomponents.base.WActionBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -41,9 +45,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.max
 
 // TODO: Refactor this class to improve performance and readability.
 @SuppressLint("ViewConstructor")
@@ -66,7 +67,10 @@ class WSegmentedController(
     private val forceCenterTabs: Boolean = false,
     private val pilledTabs: Boolean = false,
     private val ownsItems: Boolean = true,
-) : WView(navigationController.context), WThemedView, WProtectedView,
+    private val initialPagePrefetchCount: Int? = null
+) : WView(navigationController.context),
+    WThemedView,
+    WProtectedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WClearSegmentedControl.Delegate,
     ISortableView {
@@ -95,8 +99,7 @@ class WSegmentedController(
     var targetIndex: Int? = null
         private set(value) {
             field = value
-            if (value != null)
-                lastTargetIndex = value
+            if (value != null) lastTargetIndex = value
         }
     private val viewPager: ViewPager2 by lazy {
         val vp = ViewPager2(context)
@@ -110,16 +113,29 @@ class WSegmentedController(
                 positionOffsetPixels: Int
             ) {
                 super.onPageScrolled(position, positionOffset, positionOffsetPixels)
-                if (isUserInteracting && clearSegmentedControl.isInDragMode)
+                if (isUserInteracting && clearSegmentedControl.isInDragMode) {
                     onForceEndReorderingRequested?.invoke()
+                }
                 currentOffset = position + positionOffset
                 if (currentOffset == position.toFloat() && lastFullyVisible != position) {
-                    (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
+                    (
+                        items.getOrNull(
+                            lastFullyVisible
+                        )?.viewController as? WSegmentedControllerItemVC
+                        )?.onPartiallyVisible()
                     lastFullyVisible = position
-                    (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onFullyVisible()
+                    (
+                        items.getOrNull(
+                            lastFullyVisible
+                        )?.viewController as? WSegmentedControllerItemVC
+                        )?.onFullyVisible()
                     notifySelectedIndexChanged(position)
                 } else {
-                    (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
+                    (
+                        items.getOrNull(
+                            lastFullyVisible
+                        )?.viewController as? WSegmentedControllerItemVC
+                        )?.onPartiallyVisible()
                 }
                 onOffsetChange?.invoke(position, currentOffset)
                 clearSegmentedControl.updateThumbPosition(
@@ -169,6 +185,9 @@ class WSegmentedController(
         vp.requestDisallowInterceptTouchEvent(true)
         val recyclerView = vp.getChildAt(0) as RecyclerView
         recyclerView.itemAnimator = null
+        initialPagePrefetchCount?.let { count ->
+            (recyclerView.layoutManager as? LinearLayoutManager)?.initialPrefetchItemCount = count
+        }
         recyclerView.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
                 when (e.actionMasked) {
@@ -191,7 +210,11 @@ class WSegmentedController(
     }
 
     private val clearSegmentedControl =
-        WClearSegmentedControl(context, horizontalPaddingDp = if (pilledTabs) 1f else 11f)
+        WClearSegmentedControl(
+            context,
+            horizontalPaddingDp = if (pilledTabs) 1f else 11f,
+            isTransparent = isTransparent
+        )
     private var underTabsView: View? = null
     private var underTabsHeight = 0
     private val blurSourceContainerView: WView by lazy {
@@ -222,6 +245,17 @@ class WSegmentedController(
     }
 
     private var backButton: WImageButton? = null
+    private var leadingView: View? = null
+
+    private fun segmentedControlTop(): Int {
+        val fullScreenOffset =
+            if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2
+        return if (pilledTabs) {
+            (navHeight - PILLED_TABS_HEIGHT.dp) / 2 + fullScreenOffset
+        } else {
+            fullScreenOffset
+        }
+    }
 
     val reversedCornerView: ReversedCornerView by lazy {
         ReversedCornerView(
@@ -246,12 +280,7 @@ class WSegmentedController(
             constrainedWidth(clearSegmentedControl.id, true)
             toTopPx(
                 clearSegmentedControl,
-                if (pilledTabs) {
-                    (navHeight - PILLED_TABS_HEIGHT.dp) / 2 +
-                        (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
-                } else {
-                    (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
-                }
+                segmentedControlTop()
             )
             toCenterX(clearSegmentedControl)
             constrainedWidth(clearSegmentedControl.id, true)
@@ -259,15 +288,12 @@ class WSegmentedController(
         v
     }
 
-    private fun baseHeaderHeight(): Int {
-        return navHeight +
-            (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else (-3).dp)
-    }
+    private fun baseHeaderHeight(): Int = navHeight +
+        (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else (-3).dp)
 
     private val systemBarStartInset: Int
         get() {
-            if (navigationController.tabBarController != null)
-                return 0
+            if (navigationController.tabBarController != null) return 0
             val bars = navigationController.getSystemBars()
             return if (LocaleController.isRTL) bars.right else bars.left
         }
@@ -279,31 +305,23 @@ class WSegmentedController(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w != oldw)
-            insetsUpdated()
+        if (w != oldw) insetsUpdated()
     }
 
     fun insetsUpdated() {
         contentView.layoutParams?.let { layoutParams ->
-            layoutParams.height = baseHeaderHeight()
-            contentView.layoutParams = layoutParams
+            val height = baseHeaderHeight()
+            if (layoutParams.height != height) {
+                layoutParams.height = height
+                contentView.layoutParams = layoutParams
+            }
         }
         contentView.setConstraints {
             toTopPx(
                 clearSegmentedControl,
-                if (pilledTabs) {
-                    (navHeight - PILLED_TABS_HEIGHT.dp) / 2 +
-                        (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
-                } else {
-                    (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
-                }
+                segmentedControlTop()
             )
-        }
-        setConstraints {
-            toTopPx(underTabsContainerView, baseHeaderHeight())
-        }
-        if (closeButton.parent != null) {
-            contentView.setConstraints {
+            if (closeButton.parent != null) {
                 toTopPx(
                     closeButton,
                     (navHeight - 40.dp) / 2 +
@@ -320,10 +338,8 @@ class WSegmentedController(
                 )
                 toEndPx(clearSegmentedControl, 56.dp + systemBarEndInset)
             }
-        }
-        backButton?.let { btn ->
-            if (btn.parent != null) {
-                contentView.setConstraints {
+            backButton?.let { btn ->
+                if (btn.parent != null) {
                     toTopPx(
                         btn,
                         (navHeight - 40.dp) / 2 +
@@ -336,6 +352,22 @@ class WSegmentedController(
                     )
                 }
             }
+            leadingView?.let { view ->
+                toTopPx(
+                    view,
+                    (navHeight - view.layoutParams.height) / 2 +
+                        (navigationController.getSystemBars().top + navTopPadding)
+                )
+                toStartPx(view, 8.dp + systemBarStartInset)
+                val reservedInset = 12.dp + view.layoutParams.width
+                toStartPx(clearSegmentedControl, reservedInset + systemBarStartInset)
+                if (closeButton.parent != null && (items.size < 3 || forceCenterTabs)) {
+                    toEndPx(clearSegmentedControl, reservedInset + systemBarEndInset)
+                }
+            }
+        }
+        setConstraints {
+            toTopPx(underTabsContainerView, baseHeaderHeight())
         }
         blurSourceContainerView.setConstraints {
             val gutter = if (applySideGutters) ViewConstants.HORIZONTAL_PADDINGS.dp else 0
@@ -350,15 +382,16 @@ class WSegmentedController(
         }
         updateUnderTabsLayout()
         items.forEach {
-            if (it.viewController.isViewConfigured)
-                it.viewController.insetsUpdated()
+            if (it.viewController.isViewConfigured) it.viewController.insetsUpdated()
         }
     }
 
     private fun updateUnderTabsLayout() {
         underTabsContainerView.layoutParams?.let { layoutParams ->
-            layoutParams.height = underTabsHeight
-            underTabsContainerView.layoutParams = layoutParams
+            if (layoutParams.height != underTabsHeight) {
+                layoutParams.height = underTabsHeight
+                underTabsContainerView.layoutParams = layoutParams
+            }
         }
         if (!isFullScreen && viewPager.parent === blurSourceContainerView) {
             blurSourceContainerView.setConstraints {
@@ -386,9 +419,10 @@ class WSegmentedController(
             blurSourceContainerView.setBackgroundColor(WColor.Background.color)
         }
         addView(blurSourceContainerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        blurSourceContainerView.addView(viewPager, ViewGroup.LayoutParams(MATCH_PARENT, 0))
-        if (isFullScreen && !isTransparent)
+        blurSourceContainerView.addView(viewPager, ViewGroup.LayoutParams(0, 0))
+        if (isFullScreen && !isTransparent) {
             addView(reversedCornerView, LayoutParams(MATCH_PARENT, 0))
+        }
         addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, baseHeaderHeight()))
         addView(underTabsContainerView, ViewGroup.LayoutParams(MATCH_PARENT, underTabsHeight))
         setConstraints {
@@ -418,17 +452,17 @@ class WSegmentedController(
         }
 
         viewPager.setupSpringFling(onScrollingToTarget = { targetIndex ->
-            if (targetIndex - this.lastTargetIndex > 1)
+            if (targetIndex - this.lastTargetIndex > 1) {
                 this.targetIndex = this.lastTargetIndex + 1
-            else if (this.lastTargetIndex - targetIndex > 1)
+            } else if (this.lastTargetIndex - targetIndex > 1) {
                 this.targetIndex = this.lastTargetIndex - 1
-            else
+            } else {
                 this.targetIndex = targetIndex
+            }
             this.lastTargetIndex
         })
         setActiveIndex(defaultSelectedIndex)
-        if (!applySideGutters)
-            reversedCornerView.setHorizontalPadding(0f)
+        if (!applySideGutters) reversedCornerView.setHorizontalPadding(0f)
 
         contentView.setOnClickListener {
             scrollToTop()
@@ -447,11 +481,10 @@ class WSegmentedController(
                 clipContent
             )
         }
-        if (isFullScreen)
-            clearSegmentedControl.paintColor = WColor.ThumbBackground.color
-        if (isTransparent)
+        if (isFullScreen) clearSegmentedControl.paintColor = WColor.ThumbBackground.color
+        if (isTransparent) {
             updateThemeTransparent()
-        else {
+        } else {
             if (isFullScreen) {
                 blurSourceContainerView.setBackgroundColor(WColor.SecondaryBackground.color)
                 reversedCornerView.updateTheme()
@@ -464,10 +497,7 @@ class WSegmentedController(
                 contentView.setBackgroundColor(WColor.Background.color)
             }
         }
-        clearSegmentedControl.apply {
-            updateTheme()
-            if (isTransparent) updateThemeTransparent()
-        }
+        clearSegmentedControl.updateTheme()
         (underTabsView as? WThemedView)?.updateTheme()
     }
 
@@ -478,36 +508,36 @@ class WSegmentedController(
         closeButton.updateColors(WColor.White, WColor.BackgroundRipple)
         backButton?.updateColors(WColor.White, WColor.BackgroundRipple)
         clearSegmentedControl.paintColor = Color.WHITE.colorWithAlpha(38)
-        clearSegmentedControl.primaryTextColor = Color.WHITE
-        clearSegmentedControl.secondaryTextColor = Color.WHITE.colorWithAlpha(153)
     }
 
     private fun applyItems(selectedItem: Int = 0) {
         items.forEach {
             it.viewController.navigationController = navigationController
+            it.viewController.isDisappeared = false
             (it.viewController as? WSegmentedControllerItemVC)?.segmentedController = this
         }
-        clearSegmentedControl.setItems(items.map {
-            WClearSegmentedControl.Item(
-                title = it.viewController.title ?: "",
-                onRemove = it.onRemovePressed,
-                onClick = it.onMenuPressed,
-                color = it.color,
-            )
-        }, selectedItem, this)
+        clearSegmentedControl.setItems(
+            items.map {
+                WClearSegmentedControl.Item(
+                    title = it.viewController.title ?: "",
+                    onRemove = it.onRemovePressed,
+                    onClick = it.onMenuPressed,
+                    color = it.color
+                )
+            },
+            selectedItem,
+            this
+        )
         clearSegmentedControl.isVisible = items.size > 1 && !actionBar.isVisible
         syncCloseButtonVisibility()
         clearSegmentedControl.updateItemsTrailingViews()
     }
 
-    private fun headerViews(): List<View> {
-        return buildList {
-            add(clearSegmentedControl)
-            if (closeButton.parent != null) {
-                add(closeButton)
-            }
-            backButton?.let { add(it) }
-        }
+    private fun headerViews(): List<View> = buildList {
+        add(clearSegmentedControl)
+        if (closeButton.parent != null) add(closeButton)
+        backButton?.let { add(it) }
+        leadingView?.let { add(it) }
     }
 
     private fun syncCloseButtonVisibility() {
@@ -524,7 +554,7 @@ class WSegmentedController(
         keepSelection: Boolean = false,
         onUpdated: (() -> Unit)? = null
     ) {
-        if (closeButton.parent != null)
+        if (closeButton.parent != null) {
             contentView.setConstraints {
                 val centeredTabs = items.size < 3 || forceCenterTabs
                 toStartPx(
@@ -533,6 +563,8 @@ class WSegmentedController(
                 )
                 toEndPx(clearSegmentedControl, 56.dp + systemBarEndInset)
             }
+        }
+        applyLeadingViewConstraints()
         if (fadeAnimation) {
             clearSegmentedControl
             clearSegmentedControl.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
@@ -543,12 +575,26 @@ class WSegmentedController(
             onUpdated?.invoke()
             val currentSelectionIdentifier =
                 this.items.getOrNull(viewPager.currentItem)?.identifier
+            val removedViewControllers =
+                if (ownsItems) {
+                    this.items
+                        .map { it.viewController }
+                        .filter { oldViewController ->
+                            items.none { it.viewController === oldViewController }
+                        }
+                        .distinct()
+                } else {
+                    emptyList()
+                }
             this.items = items
-            val newIndex = if (keepSelection && currentSelectionIdentifier != null)
+            val newIndex = if (keepSelection && currentSelectionIdentifier != null) {
                 items.indexOfFirst { it.identifier == currentSelectionIdentifier }
-            else -1
+            } else {
+                -1
+            }
             applyItems(selectedItem = max(0, newIndex))
             vpAdapter.reloadData()
+            removedViewControllers.forEach { it.onDestroy() }
             if (newIndex >= 0) {
                 targetIndex = newIndex
                 viewPager.setCurrentItem(newIndex, false)
@@ -556,19 +602,16 @@ class WSegmentedController(
         }
     }
 
-    fun getNextSelectedIndex(current: Int, m: Int): Int {
-        return when {
-            current < m -> current
-            current > m -> current - 1
-            m > 0 -> m - 1
-            else -> 0
-        }
+    fun getNextSelectedIndex(current: Int, m: Int): Int = when {
+        current < m -> current
+        current > m -> current - 1
+        m > 0 -> m - 1
+        else -> 0
     }
 
     var removingItem = false
     fun removeItem(index: Int, onCompletion: () -> Unit): WSegmentedControllerItem? {
-        if (removingItem)
-            return null
+        if (removingItem) return null
         removingItem = true
         val removedItem = items.getOrNull(index) ?: return null
         (items[index].viewController as ISortableView).endSorting()
@@ -578,8 +621,7 @@ class WSegmentedController(
         clearSegmentedControl.removeItem(index, nextSelectedIndex, onCompletion = {
             removingItem = false
             currentOffset = nextSelectedIndex.toFloat()
-            if (nextSelectedIndex != viewPager.currentItem)
-                setActiveIndex(nextSelectedIndex)
+            if (nextSelectedIndex != viewPager.currentItem) setActiveIndex(nextSelectedIndex)
             onCompletion()
         })
         return removedItem
@@ -594,7 +636,8 @@ class WSegmentedController(
             targetIndex = index,
             offset = index.toFloat(),
             force = true,
-            isAnimatingToPosition = isAnimatingChangeTab
+            isAnimatingToPosition = isAnimatingChangeTab,
+            animateScroll = false
         )
         notifySelectedIndexChanged(index)
     }
@@ -635,8 +678,7 @@ class WSegmentedController(
             navigationController.window.dismissLastNav()
         }
     ) {
-        if (closeButton.parent != null)
-            return
+        if (closeButton.parent != null) return
 
         contentView.addView(closeButton, LayoutParams(40.dp, 40.dp))
         closeButton.setOnClickListener {
@@ -685,6 +727,30 @@ class WSegmentedController(
             )
         }
         clearSegmentedControl.horizontalFadingEdge = true
+    }
+
+    fun addLeadingView(view: View, width: Int, height: Int) {
+        leadingView = view
+        contentView.addView(view, LayoutParams(width, height))
+        applyLeadingViewConstraints()
+        clearSegmentedControl.horizontalFadingEdge = true
+    }
+
+    private fun applyLeadingViewConstraints() {
+        val view = leadingView ?: return
+        contentView.setConstraints {
+            toTopPx(
+                view,
+                (navHeight - view.layoutParams.height) / 2 +
+                    (navigationController.getSystemBars().top + navTopPadding)
+            )
+            toStartPx(view, 8.dp + systemBarStartInset)
+            val reservedInset = 12.dp + view.layoutParams.width
+            toStartPx(clearSegmentedControl, reservedInset + systemBarStartInset)
+            if (closeButton.parent != null && (items.size < 3 || forceCenterTabs)) {
+                toEndPx(clearSegmentedControl, reservedInset + systemBarEndInset)
+            }
+        }
     }
 
     fun showActionBar() {
@@ -809,21 +875,15 @@ class WSegmentedController(
         viewPager.isUserInputEnabled = !actionBar.isVisible
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 1
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return items.size
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = items.size
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return PAGE_CELL
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        PAGE_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return WSegmentedControllerPageCell(context)
-    }
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        WSegmentedControllerPageCell(context)
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -843,9 +903,8 @@ class WSegmentedController(
         }
     }
 
-    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        return items.getOrNull(indexPath.row)?.identifier
-    }
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
+        items.getOrNull(indexPath.row)?.identifier
 
     override fun onIndexChanged(to: Int, animated: Boolean) {
         onIndexChanged(to, animated, null)
@@ -878,6 +937,7 @@ class WSegmentedController(
         blurState.forEach { (index, value) ->
             val newIndex = when (index) {
                 from -> to
+
                 in (minOf(from, to) + 1)..maxOf(from, to) -> {
                     if (from < to) index - 1 else index + 1
                 }
@@ -898,20 +958,19 @@ class WSegmentedController(
         onItemsReordered?.invoke()
     }
 
-    private fun determineNewSelectedIndex(currentIndex: Int, from: Int, to: Int): Int {
-        return when (currentIndex) {
+    private fun determineNewSelectedIndex(currentIndex: Int, from: Int, to: Int): Int =
+        when (currentIndex) {
             from -> to
+
             in (minOf(from, to) + 1)..maxOf(from, to) -> {
                 if (from < to) currentIndex - 1 else currentIndex + 1
             }
 
             else -> currentIndex
         }
-    }
 
     fun onDestroy() {
-        if (ownsItems)
-            items.forEach { it.viewController.onDestroy() }
+        if (ownsItems) items.forEach { it.viewController.onDestroy() }
         items = mutableListOf()
         onOffsetChange = null
         onItemsReordered = null
@@ -933,8 +992,7 @@ class WSegmentedController(
     }
 
     override fun startSorting() {
-        if (clearSegmentedControl.isInDragMode)
-            return
+        if (clearSegmentedControl.isInDragMode) return
         isInDragMode = true
         preeditItems = items.toMutableList()
         clearSegmentedControl.setDragMode(value = true, animated = true)

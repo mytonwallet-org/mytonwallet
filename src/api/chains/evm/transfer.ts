@@ -198,7 +198,7 @@ export async function submitGasfullTransfer(
   options: ApiSubmitGasfullTransferOptions,
 ): Promise<ApiSubmitGasfullTransferResult | { error: string }> {
   const {
-    accountId, password = '', toAddress, amount, fee = 0n, tokenAddress, payload, noFeeCheck,
+    accountId, enclaveToken = '', toAddress, amount, fee = 0n, tokenAddress, payload, noFeeCheck,
   } = options;
 
   const { network } = parseAccountId(accountId);
@@ -221,7 +221,7 @@ export async function submitGasfullTransfer(
       }
     }
 
-    const privateKey = await fetchPrivateKeyString(chain, accountId, password, account);
+    const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
 
     if (!privateKey) {
       return { error: ApiCommonError.InvalidPassword };
@@ -239,7 +239,7 @@ export async function submitGasfullTransfer(
 
     const response = await signer.sendTransaction(transaction);
 
-    return { txId: response.hash };
+    return { txId: response.hash, msgHashForCexSwap: response.hash };
   } catch (err) {
     logDebugError(`evm:${chain}:submitGasfullTransfer`, err);
 

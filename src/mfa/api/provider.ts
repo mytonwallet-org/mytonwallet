@@ -5,7 +5,6 @@ import type {
   ApiInitArgs,
   ApiNetwork,
   ApiSwapAsset,
-  ApiTokenDetails,
   ApiTokenWithPrice,
   OnApiUpdate,
 } from '../../api/types';
@@ -17,11 +16,13 @@ import { logDebugError } from '../../util/logs';
 import { parseEmulation } from '../../api/chains/ton/emulation';
 import { fetchEmulateTrace } from '../../api/chains/ton/toncenter/emulation';
 import { getNftSuperCollectionsByCollectionAddress, tryUpdateKnownAddresses } from '../../api/common/addresses';
-import { callBackendGet, callBackendPost } from '../../api/common/backend';
+import { callBackendGet } from '../../api/common/backend';
 import { setBackendConfigCache } from '../../api/common/cache';
 import { initClientId } from '../../api/common/other';
 import { pollingLoop } from '../../api/common/polling/utils';
 import {
+  buildTokenDetailsPayload,
+  fetchBackendTokenDetails,
   getTokensCache,
   loadTokensCache,
   sendUpdateTokens,
@@ -133,18 +134,13 @@ async function updateMfaTokens() {
 
     await tokensPreload.promise;
     const tokensCache = getTokensCache();
-    const backendReturnedSlugs = new Set(tokens.map((token) => token.slug));
-    const nonBackendTokenAddresses = Object.values(tokensCache.bySlug).reduce((result, token) => {
-      if ((!token.isFromBackend || !backendReturnedSlugs.has(token.slug)) && token.tokenAddress) {
-        result.push(token.tokenAddress);
-      }
-
-      return result;
-    }, [] as string[]);
+    // This runtime polls no wallet, so the payload can't be narrowed down to the held tokens the way the API does it
+    const nonBackendTokenAddresses = buildTokenDetailsPayload(Object.values(tokensCache.bySlug), {
+      backendSlugs: new Set(tokens.map((token) => token.slug)),
+      maxCount: MAX_POST_TOKENS,
+    });
     const nonBackendTokenDetails = nonBackendTokenAddresses.length
-      ? await callBackendPost<ApiTokenDetails[]>('/assets', {
-        assets: nonBackendTokenAddresses.slice(0, MAX_POST_TOKENS),
-      })
+      ? await fetchBackendTokenDetails(nonBackendTokenAddresses)
       : undefined;
 
     await updateTokens(tokens, () => sendUpdateTokens(onUpdate), nonBackendTokenDetails, true);
@@ -209,6 +205,7 @@ async function updateMfaConfig() {
       seasonalTheme: config.seasonalTheme,
       knowledgeBaseVersion: config.knowledgeBaseVersion,
       preferredAgent: config.preferredAgent,
+      allowedOnOffRampCurrencies: config.allowedOnOffRampCurrencies,
     });
   } catch (err) {
     logDebugError('updateMfaConfig', err);

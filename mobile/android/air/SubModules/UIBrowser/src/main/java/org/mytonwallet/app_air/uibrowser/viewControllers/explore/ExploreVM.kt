@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uibrowser.viewControllers.explore
 import android.os.Handler
 import android.os.Looper
 import androidx.core.net.toUri
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -20,7 +21,6 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
-import java.lang.ref.WeakReference
 
 class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     interface Delegate {
@@ -113,7 +113,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val account: MAccount,
         val chain: MBlockchain?,
         val address: String?,
-        val isFullMatch: Boolean,
+        val isFullMatch: Boolean
     )
 
     // A well-known address/domain resolved through the API for an unknown wallet.
@@ -123,7 +123,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val inputAddressOrDomain: String,
         val address: String,
         val name: String?,
-        val domain: String?,
+        val domain: String?
     )
 
     data class SearchResult(
@@ -134,7 +134,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val dapps: List<IDapp>? = null,
         val myWallets: List<MyWalletMatch>? = null,
         val walletInfo: WalletInfoMatch? = null,
-        val noResultsFound: Boolean = false,
+        val noResultsFound: Boolean = false
     )
 
     fun search(keyword: String): SearchResult {
@@ -153,9 +153,13 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         return SearchResult(
             keyword,
             matchedVisitedSite,
-            if (noResultsFound) listOf(
-                MExploreHistory.HistoryItem(keyword, null)
-            ) else recentSearches,
+            if (noResultsFound) {
+                listOf(
+                    MExploreHistory.HistoryItem(keyword, null)
+                )
+            } else {
+                recentSearches
+            },
             recentVisitedSites,
             dapps,
             myWallets,
@@ -166,8 +170,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
 
     private fun matchOwnWallets(query: String): List<MyWalletMatch> {
         val keyword = query.lowercase()
-        if (keyword.isEmpty())
-            return emptyList()
+        if (keyword.isEmpty()) return emptyList()
 
         val minimalAcceptableAddressMatchCount = 4
         val minimalAcceptableDomainMatchCount = 1
@@ -219,8 +222,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 }
             }
 
-            if (!isPartial)
-                return@forEach
+            if (!isPartial) return@forEach
 
             // Matched only by name: fall back to the account's primary chain for display.
             val chain = matchedChain ?: account.firstChain
@@ -239,26 +241,22 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val keyword = result.keyword
         currentSearchKeyword = keyword
 
-        if (keyword.isEmpty() || result.myWallets?.any { it.isFullMatch } == true)
-            return
+        if (keyword.isEmpty() || result.myWallets?.any { it.isFullMatch } == true) return
 
         val account = AccountStore.activeAccount ?: return
         val network = account.network
         val compatibleChains = MBlockchain.supportedChains.filter {
             it.isValidAddress(keyword) || it.isValidDNS(keyword)
         }
-        if (compatibleChains.isEmpty())
-            return
+        if (compatibleChains.isEmpty()) return
 
         var didEmit = false
         compatibleChains.forEach { chain ->
             WalletCore.call(
                 ApiMethod.WalletData.GetAddressInfo(chain, network, keyword)
             ) { info, err ->
-                if (currentSearchKeyword != keyword || didEmit)
-                    return@call
-                if (info == null || err != null || info.error != null)
-                    return@call
+                if (currentSearchKeyword != keyword || didEmit) return@call
+                if (info == null || err != null || info.error != null) return@call
 
                 val isDomain = chain.isValidDNS(keyword)
                 val resolved = info.resolvedAddress?.takeIf { it.isNotEmpty() }
@@ -271,7 +269,11 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 didEmit = true
                 onResult(
                     result.copy(
-                        recentSearches = if (result.noResultsFound) emptyList() else result.recentSearches,
+                        recentSearches = if (result.noResultsFound) {
+                            emptyList()
+                        } else {
+                            result.recentSearches
+                        },
                         noResultsFound = false,
                         walletInfo = WalletInfoMatch(
                             network = network,
@@ -279,7 +281,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                             inputAddressOrDomain = keyword,
                             address = address,
                             name = info.addressName?.takeIf { it.isNotEmpty() },
-                            domain = if (isDomain) keyword else null,
+                            domain = if (isDomain) keyword else null
                         )
                     )
                 )
@@ -288,19 +290,20 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     }
 
     private fun exactMatch(keyword: String): MExploreHistory.VisitedSite? {
-        if (keyword.isEmpty())
-            return null
+        if (keyword.isEmpty()) return null
         val exactMatchItem = ExploreHistoryStore.exploreHistory?.visitedSites?.firstOrNull {
             it.url.toUri().host?.startsWith(keyword) == true ||
                 it.url.startsWith(keyword)
         }
-        return exactMatchItem?.copy(favicon = allSites?.find { site ->
-            site.url?.toUri()?.host == exactMatchItem.url.toUri().host
-        }?.iconUrl ?: exactMatchItem.favicon)
+        return exactMatchItem?.copy(
+            favicon = allSites?.find { site ->
+                site.url?.toUri()?.host == exactMatchItem.url.toUri().host
+            }?.iconUrl ?: exactMatchItem.favicon
+        )
     }
 
-    private fun recentSearches(keyword: String): List<MExploreHistory.HistoryItem>? {
-        return ExploreHistoryStore.exploreHistory?.searchHistory
+    private fun recentSearches(keyword: String): List<MExploreHistory.HistoryItem>? =
+        ExploreHistoryStore.exploreHistory?.searchHistory
             ?.filter { it.title.lowercase().contains(keyword) }
             ?.sortedWith(
                 compareByDescending {
@@ -308,10 +311,9 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 }
             )
             ?.take(10)
-    }
 
-    private fun visitedSites(keyword: String): List<MExploreHistory.VisitedSite>? {
-        return ExploreHistoryStore.exploreHistory?.visitedSites
+    private fun visitedSites(keyword: String): List<MExploreHistory.VisitedSite>? =
+        ExploreHistoryStore.exploreHistory?.visitedSites
             ?.filter {
                 it.title.lowercase().contains(keyword) ||
                     it.url.lowercase().contains(keyword)
@@ -330,7 +332,6 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                     }?.iconUrl ?: visitedSite.favicon
                 )
             }
-    }
 
     private fun filterDapps(query: String): List<IDapp> {
         val query = query.lowercase()
@@ -342,19 +343,26 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
 
         return allSites
             .filter {
-                (ConfigStore.isLimited != true || (it is MExploreSite && !it.canBeRestricted) || it is ApiDapp) &&
+                (
+                    ConfigStore.isLimited != true || (it is MExploreSite && !it.canBeRestricted) ||
+                        it is ApiDapp
+                    ) &&
                     (
                         it.name?.lowercase()?.contains(query) == true ||
-                            (it is MExploreSite && it.description?.lowercase()
-                                ?.contains(query) == true) ||
+                            (
+                                it is MExploreSite && it.description?.lowercase()
+                                    ?.contains(query) == true
+                                ) ||
                             it.url?.lowercase()?.contains(query) == true
                         )
             }
             .sortedWith(
                 compareByDescending {
                     it.name?.lowercase()?.startsWith(query) == true ||
-                        (it is MExploreSite && it.description?.lowercase()
-                            ?.startsWith(query) == true) ||
+                        (
+                            it is MExploreSite && it.description?.lowercase()
+                                ?.startsWith(query) == true
+                            ) ||
                         it.url?.lowercase()?.startsWith(query) == true
                 }
             )

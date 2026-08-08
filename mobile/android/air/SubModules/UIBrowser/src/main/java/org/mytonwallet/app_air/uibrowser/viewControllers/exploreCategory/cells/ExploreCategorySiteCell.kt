@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.exploreCategory.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -14,6 +13,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -34,7 +34,8 @@ import org.mytonwallet.app_air.walletcore.models.MExploreSite
 class ExploreCategorySiteCell(
     context: Context,
     private val onSiteTap: (site: MExploreSite) -> Unit
-) : WCell(context, LayoutParams(MATCH_PARENT, 80.dp)), WThemedView {
+) : WCell(context, LayoutParams(MATCH_PARENT, 80.dp)),
+    WThemedView {
 
     private val img = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(12f.dp)
@@ -99,8 +100,9 @@ class ExploreCategorySiteCell(
         addView(contentView, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(openButton, LayoutParams(WRAP_CONTENT, 32.dp))
 
-        if (site?.badgeText?.isNotBlank() == true)
+        if (site?.badgeText?.isNotBlank() == true) {
             addView(badgeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        }
 
         setConstraints {
             toStart(img, 20f)
@@ -200,14 +202,19 @@ class ExploreCategorySiteCell(
                 drawable.setTint(WColor.PrimaryText.color.colorWithAlpha(50))
                 drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
                 titleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                    null, null, drawable, null
+                    null,
+                    null,
+                    drawable,
+                    null
                 )
             }
         } else {
             titleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                null, null, null, null
+                null,
+                null,
+                null,
+                null
             )
         }
     }
-
 }

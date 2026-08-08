@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
@@ -14,6 +13,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.inputmethod.EditorInfo
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -23,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.getTextFromClipboard
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
@@ -31,9 +33,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.WWordInput
-import org.mytonwallet.app_air.uicomponents.widgets.segmentedControlGroup.WSegmentedControlGroup
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.segmentedControlGroup.WSegmentedControlGroup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.suggestion.WSuggestionView
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
@@ -46,6 +48,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -54,17 +57,18 @@ import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
 import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import java.lang.ref.WeakReference
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class ImportWalletVC(
     context: Context,
     private val network: MBlockchainNetwork,
     // Used when adding new accounts. (not first mnemonic wallet)
-    private val passedPasscode: String?
-) :
-    WViewController(context), WThemedView, ImportWalletVM.Delegate, WEditText.Delegate {
+    private val passedEnclaveToken: String?
+) : WViewController(context),
+    WThemedView,
+    ImportWalletVM.Delegate,
+    WEditText.Delegate {
+    @Suppress("PropertyName")
     override val TAG = "ImportWallet"
 
     override val shouldDisplayTopBar = false
@@ -83,14 +87,17 @@ class ImportWalletVC(
         }
 
     override val shouldDisplayBottomBar = true
+    override val shouldHideKeyboardOnDisappear = false
 
     private val animationView: WAnimationView by lazy {
         WAnimationView(context).apply {
             play(
-                org.mytonwallet.app_air.uicomponents.R.raw.animation_snitch, true,
+                org.mytonwallet.app_air.uicomponents.R.raw.animation_snitch,
+                true,
                 onStart = {
                     fadeIn()
-                })
+                }
+            )
         }
     }
     private val titleLabel: WLabel by lazy {
@@ -106,11 +113,12 @@ class ImportWalletVC(
             setStyle(adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = LocaleController.getStringWithKeyValues(
-                "\$auth_import_mnemonic_description",
+                $$"$auth_import_mnemonic_description",
                 listOf(
                     Pair(
-                        "%counts%", LocaleController.getFormattedEnumeration(
-                            listOf("12", "24"),
+                        "%counts%",
+                        LocaleController.getFormattedEnumeration(
+                            listOf("12", "24").map { it.withLocalizedNumbers },
                             "or"
                         )
                     )
@@ -230,8 +238,10 @@ class ImportWalletVC(
         v.setConstraints {
             toTopPx(
                 animationView,
-                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                    ?: 0)
+                WNavigationBar.DEFAULT_HEIGHT.dp + (
+                    navigationController?.getSystemBars()?.top
+                        ?: 0
+                    )
             )
             toCenterX(animationView)
             topToBottom(titleLabel, animationView, 24f)
@@ -250,8 +260,10 @@ class ImportWalletVC(
 
     private fun applyWordInputConstraints(container: WView) {
         val columnCount = activeWordCount / 2
-        val containerWidth = (navigationController?.width?.takeIf { it > 0 }
-            ?: ApplicationContextHolder.screenWidth)
+        val containerWidth = (
+            navigationController?.width?.takeIf { it > 0 }
+                ?: ApplicationContextHolder.screenWidth
+            )
             .coerceAtMost(WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp) -
             systemBarStartInset - systemBarEndInset
         val wordInputWidth = (containerWidth - 64.dp - 16.dp) / 2
@@ -259,10 +271,11 @@ class ImportWalletVC(
         wordInputViews.forEachIndexed { i, wordInput ->
             wordInput.visibility = if (i < activeWordCount) View.VISIBLE else View.GONE
             wordInput.textField.setImeOptions(
-                if (i == activeWordCount - 1)
+                if (i == activeWordCount - 1) {
                     EditorInfo.IME_ACTION_DONE
-                else
+                } else {
                     EditorInfo.IME_ACTION_NEXT
+                }
             )
         }
 
@@ -309,8 +322,7 @@ class ImportWalletVC(
     }
 
     private fun setActiveWordCount(count: Int) {
-        if (activeWordCount == count)
-            return
+        if (activeWordCount == count) return
         activeWordCount = count
         wordCountSwitcher.setSelectedIndex(if (count == 12) 0 else 1)
         applyWordInputConstraints(scrollingContentView)
@@ -327,8 +339,9 @@ class ImportWalletVC(
 
         setNavTitle("")
         setupNavBar(true)
-        if (navigationController?.viewControllers?.firstOrNull() !is IntroVC)
+        if (navigationController?.viewControllers?.firstOrNull() !is IntroVC) {
             navigationBar?.addCloseButton()
+        }
 
         view.addView(
             scrollView,
@@ -341,8 +354,10 @@ class ImportWalletVC(
         }
 
         val scrollOffsetToShowNav =
-            96.dp + WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                ?: 0)
+            96.dp + WNavigationBar.DEFAULT_HEIGHT.dp + (
+                navigationController?.getSystemBars()?.top
+                    ?: 0
+                )
         scrollView.onScrollChange = { y ->
             if (y > 0) {
                 topReversedCornerView?.resumeBlurring()
@@ -350,7 +365,9 @@ class ImportWalletVC(
                 topReversedCornerView?.pauseBlurring(false)
             }
             if (y > scrollOffsetToShowNav) {
-                setNavTitle(LocaleController.getString("Enter Secret Words") + network.localizedIdentifier)
+                setNavTitle(
+                    LocaleController.getString("Enter Secret Words") + network.localizedIdentifier
+                )
                 setTopBlur(true, animated = true)
             } else {
                 setNavTitle("")
@@ -368,8 +385,10 @@ class ImportWalletVC(
         scrollingContentView.setConstraints {
             toTopPx(
                 animationView,
-                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                    ?: 0)
+                WNavigationBar.DEFAULT_HEIGHT.dp + (
+                    navigationController?.getSystemBars()?.top
+                        ?: 0
+                    )
             )
             toBottomPx(
                 continueButton,
@@ -380,8 +399,9 @@ class ImportWalletVC(
                     )
             )
         }
-        if (activeField != null && (window?.imeInsets?.bottom ?: 0) > 0)
+        if (activeField != null && (window?.imeInsets?.bottom ?: 0) > 0) {
             makeFieldVisible(activeField!!)
+        }
     }
 
     override val isTinted = true
@@ -428,8 +448,7 @@ class ImportWalletVC(
 
     private var activeField: WWordInput? = null
     private fun makeFieldVisible(view: WWordInput) {
-        if (activeField != view)
-            activeField = view
+        if (activeField != view) activeField = view
         scrollView.makeViewVisible(activeField!!)
         suggestionView.attachToWordInput(activeField!!)
     }
@@ -444,23 +463,26 @@ class ImportWalletVC(
     }
 
     override fun walletCanBeImported(words: Array<String>) {
-        if (passedPasscode == null) {
+        if (passedEnclaveToken == null) {
             continueButton.isLoading = false
             view.unlockView()
-            push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
-                importWalletVM.finalizeAccount(
-                    window!!,
-                    network,
-                    words,
-                    passcode,
-                    biometricsActivated,
-                    0
-                )
-            }, onCompletion = {
-                navigationController?.removePrevViewControllers()
-            })
+            push(
+                SetPasscodeVC(context, true, null) { enclaveToken, biometricsActivated ->
+                    importWalletVM.finalizeAccount(
+                        window!!,
+                        network,
+                        words,
+                        biometricsActivated,
+                        0,
+                        enclaveToken
+                    )
+                },
+                onCompletion = {
+                    navigationController?.removePrevViewControllers()
+                }
+            )
         } else {
-            importWalletVM.finalizeAccount(window!!, network, words, passedPasscode, null, 0)
+            importWalletVM.finalizeAccount(window!!, network, words, null, 0, passedEnclaveToken)
         }
     }
 
@@ -481,7 +503,7 @@ class ImportWalletVC(
                 )
                 continueButton.isLoading = false
                 view.unlockView()
-                showError(MBridgeError.UNKNOWN)
+                showError(MBridgeError.Type.UNKNOWN)
                 return@activateAccount
             } else {
                 if (WGlobalStorage.accountIds().size <= importedAccountsCount) {
@@ -500,10 +522,6 @@ class ImportWalletVC(
         }
     }
 
-    override fun viewWillDisappear() {
-        // Override to prevent keyboard from being dismissed!
-    }
-
     override fun showError(error: MBridgeError?) {
         if (navigationController?.viewControllers?.lastOrNull() != this) {
             navigationController?.viewControllers?.lastOrNull()?.showError(error)
@@ -511,12 +529,9 @@ class ImportWalletVC(
         }
         showAlert(
             LocaleController.getString(
-                if (error == MBridgeError.INVALID_MNEMONIC)
-                    "Wrong Phrase"
-                else
-                    "Error"
+                if (error == MBridgeError.Type.INVALID_MNEMONIC) "Wrong Phrase" else "Error"
             ),
-            (error ?: MBridgeError.UNKNOWN).toLocalized
+            (error ?: MBridgeError.Type.UNKNOWN).toLocalized
         )
         continueButton.isLoading = false
         view.unlockView()
@@ -547,5 +562,4 @@ class ImportWalletVC(
 
         wordInputViews.firstOrNull()?.textField?.handlePaste(clipText)
     }
-
 }

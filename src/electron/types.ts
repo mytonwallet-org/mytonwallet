@@ -18,6 +18,7 @@ export enum ElectronAction {
 
   TOGGLE_DEEPLINK_HANDLER = 'toggle-deeplink-handler',
 
+  GET_IS_ENCRYPTION_SUPPORTED = 'get-is-encryption-supported',
   GET_IS_TOUCH_ID_SUPPORTED = 'get-is-touch-id-supported',
   ENCRYPT_PASSWORD = 'encrypt-password',
   DECRYPT_PASSWORD = 'decrypt-password',
@@ -47,6 +48,7 @@ export interface ElectronApi {
 
   toggleDeeplinkHandler: (isEnabled: boolean) => Promise<void>;
 
+  getIsEncryptionSupported: () => Promise<boolean>;
   getIsTouchIdSupported: () => Promise<boolean>;
   encryptPassword: (password: string) => Promise<string>;
   decryptPassword: (encrypted: string) => Promise<string | undefined>;
@@ -69,8 +71,18 @@ export interface ElectronApi {
   on: (eventName: ElectronEvent, callback: any) => VoidFunction;
 }
 
+/**
+ * The API as the web bundle sees it. The desktop shell carries its own preload script and updates on its own
+ * schedule, so the bundle regularly runs inside a shell older than itself and any method may be missing. Optional
+ * members make the compiler demand a runtime check at every call site, and every caller must degrade gracefully
+ * when the method turns out to be absent.
+ */
+export type RemoteElectronApi = {
+  [K in keyof ElectronApi]?: ElectronApi[K];
+};
+
 declare global {
   interface Window {
-    electron?: ElectronApi;
+    electron?: RemoteElectronApi;
   }
 }

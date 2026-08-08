@@ -10,9 +10,8 @@ import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.random.Random
 
-class ConfettiView @JvmOverloads constructor(
-    context: Context, attrs: AttributeSet? = null
-) : View(context, attrs) {
+class ConfettiView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
+    View(context, attrs) {
 
     private val confetti = mutableListOf<Confetti>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)

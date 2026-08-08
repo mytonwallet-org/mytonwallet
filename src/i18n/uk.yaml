@@ -156,7 +156,7 @@ $state_init_invalid: Невірні дані ініціалізації конт
 $signature_warning: Підписання даних тягне за собою ризики. Використовуйте цю опцію, тільки якщо ви довіряєте джерелу.
 Sign: Підписати
 Done!: Готово!
-Signing was confirmed!: Підпис підтверджено!
+Signing Confirmed: Підпис підтверджено
 Activity Details: Деталі активності
 No activities found: Активність не знайдено
 Comment Copied: Коментар скопійовано
@@ -176,6 +176,7 @@ Assets: Активи
 Activity: Стрічка
 NFT: NFT
 No NFTs yet: Поки у вас немає NFT
+No hidden NFTs.: Прихованих NFT немає.
 $nft_explore_offer: |
   Ви можете переглянути NFT
   на маркетплейсі.
@@ -213,7 +214,7 @@ Receiving Address: Адреса одержувача
 Fee: Комісія
 Edit: Виправити
 Confirm: Підтвердити
-Data Signed!: Дані підписано!
+Data Signed: Дані підписано
 Details: Інфо
 View details: Переглянути деталі
 Change password visibility: Змінити видимість пароля
@@ -254,7 +255,6 @@ $safe_staking_description_jetton2: Ви можете вивести свої с�
 $min_value: Мін. %value%
 Est. balance in a year: Очікуваний баланс через рік
 Confirm Staking: Підтвердити стейкінг
-Coins have been staked!: Депозит відправлено!
 View: Огляд
 Stake More: Додати
 Staking: Стейкінг
@@ -267,7 +267,6 @@ $total: "Усього: %value%"
 $unstake_asset: Вивести %symbol%
 Amount to unstake: Сума до виведення
 Confirm Unstaking: Підтвердити виведення
-Request for unstaking is sent!: Запит на виведення відправлено!
 $unstaking_when_receive: Депозит буде виведено через %time%.
 $unstaking_when_receive_with_amount: "%amount% буде виведено через %time%."
 $unstaking_when_receive_with_amount_ethena: "%amount% будуть доступні для виведення через %time%."
@@ -281,6 +280,10 @@ Unstaking: Виведення стейку
 $unstake_action: Виведення стейку
 The network fee has slightly changed, try sending again.: Комісія за мережу трохи змінилася, спробуйте відправити ще раз.
 Transfer was unsuccessful. Try again later.: З переказом щось пішло не так. Спробуйте ще раз.
+Action Partially Completed: Дію виконано частково
+$action_partially_completed_description: "Виконано операцій: %completed% з %total%. Решту операцій не виконано. Перевірте історію операцій, перш ніж повторити спробу."
+Action Status Unknown: Статус дії невідомий
+$action_status_unknown_description: "Не вдалося перевірити, чи виконано дію. Перевірте історію операцій і баланс перед повторною спробою: якщо повторити дію зараз, її може бути надіслано двічі."
 Invalid amount: Некоректна сума
 Invalid address: Некоректна адреса
 Domain is not connected to a wallet: Домен не підключений до гаманця
@@ -358,6 +361,7 @@ Add Token: Додати токен
 Delete Token: Видалити токен
 Are you sure you want to delete?: Ви впевнені, що хочете видалити %token%?
 Hide Tokens With No Cost: Приховати токени без вартості
+Localized Token Names: Локалізовані назви
 Sort By Cost: Сортувати за вартістю
 Update %app_name%: Оновити %app_name%
 Connect Ledger: Підключити Ledger
@@ -396,7 +400,6 @@ You sell: Ви продаєте
 You buy: Ви купуєте
 Swap Details: Деталі обміну
 Blockchain Fee: Комісія блокчейну
-Aggregator Fee: Комісія агрегатора
 Included: Вкл. у ціну
 Price Impact: Вплив на ціну
 Minimum Received: Мінімально отримаєте
@@ -411,7 +414,6 @@ $swap_price_impact_tooltip1: Це показує, наскільки ваша у
 $swap_price_impact_tooltip2: Великі угоди можуть сильніше вплинути на ціну. Загалом, менше значення краще.
 $swap_slippage_tooltip1: Тут встановлюється, наскільки ціна може змінитися, перш ніж ваш обмін буде оброблено.
 $swap_slippage_tooltip2: Якщо під час обробки вашого обміну ціна зміниться більше, ніж на це значення, ваше замовлення буде скасовано.
-Coins have been swapped!: Токени були обміняні!
 Slippage not specified: Прослизання не вказано
 Slippage too high: Прослизання занадто велике
 Not Enough %symbol%: Недостатньо %symbol%
@@ -508,6 +510,15 @@ Scan QR: Сканувати QR
 Account: Обліковий запис
 Accounts: Облікові записи
 Networks: Мережі
+Blockchains: Блокчейни
+All Chains: Усі блокчейни
+"You will still be able to receive and send tokens in hidden chains.": "Ви й надалі зможете отримувати й надсилати токени в прихованих блокчейнах."
+"Sort by Value": "Сортувати за вартістю"
+"Automatically sort and hide chains based on your portfolio.": "Автоматично сортувати й приховувати блокчейни на основі вашого портфеля."
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "Приховані блокчейни й надалі будуть доступні для отримання та надсилання токенів, але не відображатимуться в основному списку."
+"Move Up": "Перемістити вгору"
+"Move Down": "Перемістити вниз"
+Tokens: Токени
 Receive Funds: Отримати кошти
 Open the receive screen.: Відкрити екран отримання коштів.
 "Receive with ${applicationName}": Отримати кошти в ${applicationName}
@@ -532,8 +543,11 @@ Russian Ruble: Російський рубль
 Chinese Yuan: Китайський юань
 $max_balance: "Максимум: %balance%"
 $available_balance: "Доступно: %balance%"
+$send_recipient_invalid: Некоректна
+$send_recipient_not_compatible: Несумісна
 $unstake_information_instantly: Ви отримаєте свій депозит миттєво
 Select Token: Вибрати токен
+$token_picker_hidden: Приховані
 MY: Мої
 Popular: Популярні
 Not Found: Не знайдено
@@ -542,7 +556,6 @@ Wallet is imported!: Гаманець імпортовано!
 Create a code to protect it: Створіть код для його захисту
 Enter your code again: Введіть свій код ще раз
 Code set successfully: Код успішно встановлено
-Use Biometrics: Використовуйте біометрію
 Use Touch ID: Використовуйте Touch ID
 Use Face ID: Використовуйте Face ID
 Connect Touch ID: Підключити Touch ID
@@ -636,11 +649,11 @@ Send NFT: Надіслати NFT
 Send Collectible: Надіслати NFT
 Send Collectibles: Надіслати NFT
 $nfts_burned:
-  zeroValue: "%1$d NFT спалено!"
-  oneValue: "%1$d NFT спалено!"
-  fewValue: "%1$d NFT спалено!"
-  manyValue: "%1$d NFT спалено!"
-  otherValue: "%1$d NFT спалено!"
+  zeroValue: "%count% NFT спалено"
+  oneValue: "%count% NFT спалено"
+  fewValue: "%count% NFT спалено"
+  manyValue: "%count% NFT спалено"
+  otherValue: "%count% NFT спалено"
 No NFT selected: NFT не вибрано
 Cannot be sent: Не можна відправити
 NFT is for sale: NFT на продажу
@@ -726,6 +739,14 @@ Install on Desktop: Встановити на комп’ютер
 Install on Mobile: Встановити на мобільний пристрій
 Install App: Встановити додаток
 Hide: Сховати
+Hide and Report: Сховати й поскаржитися
+Hide and Report NFT: Сховати NFT й поскаржитися
+Report: Поскаржитися
+Report NFT: Поскаржитися на NFT
+This NFT will remain hidden on this device and be reported.: Цей NFT залишиться прихованим на цьому пристрої, і на нього буде надіслано скаргу.
+Only Hide: Лише сховати
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: Ви також хочете поскаржитися на цей NFT як на неприйнятний? Після цього його буде назавжди видалено на цьому пристрої.
+This NFT will be permanently hidden on this device and reported.: Цей NFT буде назавжди приховано на цьому пристрої, і на нього буде надіслано скаргу.
 Hidden NFTs: Приховані NFT
 Hidden By Me: Приховані мною
 Probably Scam: Ймовірно шахрайство
@@ -748,7 +769,7 @@ Are you sure you want to hide these %number% NFTs?: Ви впевнені, що 
 Show: Показати
 Confirm Sending: Підтвердити відправку
 Confirm Burning: Підтвердити запис
-Confirm Passcode: Підтвердьте пароль
+Confirm Passcode: Підтвердьте код
 Enter your code: Введіть ваш код
 $hardware_blind_sign_not_enabled: Щоб продовжити, увімкніть опцію «Сліпе підписання» в налаштуваннях %chain% App на Ledger.
 Switch to W5: Версія W5
@@ -778,16 +799,8 @@ If away for 10 min: За 10 хв. бездіяльності
 Unlock: Розблокувати
 This address mimics another address that you previously interacted with.: Ця адреса імітує іншу адресу, з якою ви раніше взаємодіяли.
 Biometric authentication failed: Біометрична аутентифікація не вдалася
+Authentication is already configured: Аутентифікація вже налаштована
 Reset biometrics in security settings, or use a passcode.: Скиньте біометрію в налаштуваннях безпеки або використовуйте код доступу.
-Best Rate: Найкращий курс
-via %dex_name%: через %dex_name%
-$swap_dex_chooser_rate_title: Проаналізовані актуальні курси на **DeDust** та **STON.fi** для використання **найкращого курсу**.
-You will receive %amount% **more**.: Ви отримаєте на %amount% **більше**.
-You will spend %amount% **less**.: Ви витратите на %amount% **менше**.
-Best: Найкращий
-Use Best Rate: Використати найкращий курс
-Switch to %dex_name%: Перемкнутися на %dex_name%
-Built-in DEX Aggregator: Вбудований агрегатор DEX
 Add Tokens: Додати токени
 No tokens yet: Ще немає токенів
 $no_tokens_description: Отримайте токени з іншого гаманця або просто увімкніть потрібні токени в налаштуваннях для моніторингу.
@@ -800,7 +813,6 @@ Notifications & Sounds: Сповіщення та звуки
 Sounds: Звуки
 Push Notifications: Сповіщення
 Select up to %count% wallets for notifications: Виберіть до %count% гаманців для сповіщень
-$swap_aggregator_fee_tooltip: Вбудований **агрегатор DEX** знаходить **найкращий курс** серед доступних DEX. Плата за послугу становить %percent%.
 Accumulated Rewards: Накоплені нагороди
 $swap_reverse_prohibited: Встановити суму покупки для цієї пари токенів неможливо
 Blockchain Fee Details: Деталі комісії блокчейна
@@ -815,7 +827,6 @@ Wallet: Гаманець
 Trending: У тренді
 No Data: Даних немає
 Toggle fullscreen: Перемкнути повноекранний режим
-Request is sent!: Запит відправлено!
 Transaction ID: ID транзакції
 Outgoing Transaction ID: ID вихідної транзакції
 Incoming Transaction ID: ID вхідної транзакції
@@ -828,6 +839,7 @@ $dapp_return_details: |
   %fee_amount% буде миттєво списано з вашого гаманця для оплати комісії.
 
   %received_amount% буде повернуто вам протягом кількох хвилин.
+$dapp_return_disclaimer: Відображена сума повернення не гарантується і може бути змінена шкідливими додатками. Скасуйте операцію, якщо ви не впевнені в надійності цього сервісу.
 Additional Amount Sent: Додатково буде відправлено
 Show Sensitive Data: Показати конфіденційні дані
 Hide Sensitive Data: Приховати конфіденційні дані
@@ -835,6 +847,7 @@ Copy Address: Скопіювати адресу
 Copy Transaction ID: Скопіювати ID транзакції
 Requesting Unstake: Запит на виведення
 Requested Unstake: Запитано виведення
+Unstake Requested: Запитано виведення
 $request_unstake_action: Запит на виведення
 Calling Contract: Виклик контракту
 Called Contract: Викликано контракт
@@ -936,7 +949,6 @@ $safe_staking_ethena_description3: Ви можете **вивести депоз
 Unstake %amount%: Вивести %amount%
 Request Unstaking: Запросити виведення
 $unstaking_when_receive_ethena: Ви зможете отримати свій депозит через **7 днів**.
-Coins have been unstaked!: Монети виведено!
 Confirm Upgrading: Підтвердити оновлення
 How does it work?: Як це працює?
 Multisend: Мультинадсилання
@@ -972,8 +984,8 @@ Configure DNS: Налаштувати DNS
 Link to Wallet: Прив'язати до гаманця
 Change Wallet: Змінити гаманець
 Change Linked Wallet: Змінити прив'язаний гаманець
-Domain has been renewed!: Домен поновлено!
-Domains have been renewed!: Домени поновлено!
+Domain Renewed: Домен поновлено
+Domains Renewed: Домени поновлено
 Linked Wallet: Прив'язаний гаманець
 Domain Linked: Домен прив'язано
 Link: Прив'язати
@@ -1135,6 +1147,8 @@ $invalid_address_format: Неправильний формат адреси
 $no_valid_view_addresses: Немає дійсних адрес для перегляду
 Account Saved: Акаунт успішно збережено
 Share Wallet Link: Поділитися посиланням на гаманець
+Address: Адреса
+Domain: Домен
 Remove: Видалити
 $missing_offramp_deposit_address: Відсутня адреса для депонування під час off-ramp.
 Buy: Купити
@@ -1143,6 +1157,7 @@ Sell on Card: Продати на картку
 Sell %symbol%: Продати %symbol%
 $connect_dapp_description: Підключені застосунки можуть бачити лише адресу вашого гаманця й не можуть переміщувати ваші активи без вашого дозволу.
 $connect_dapp_title: Підключити до %name%?
+$connect_dapp_no_compatible_wallets_found: Для цього підключення потрібен мультичейн-гаманець. Поточний гаманець підтримує лише TON, а інших мультичейн-гаманців немає. Натисніть кнопку нижче, щоб створити новий мультичейн-гаманець.
 Choose Wallet: Вибрати гаманець
 Wallet to use on %host%: Гаманець для %host%
 Selected Wallet: Обраний гаманець
@@ -1150,6 +1165,8 @@ Wallet to use for payment: Гаманець для оплати
 $wallet_connect_pay_no_options: Для цього гаманця немає доступних способів оплати.
 $wallet_connect_pay_try_another_wallet: Спробуйте обрати інший гаманець.
 Connect Wallet: Підключити гаманець
+Create Multichain Wallet: Створити мультичейн-гаманець
+Select multichain wallet: Оберіть мультичейн-гаманець
 Connect Anyway: Усе одно підключити
 Insufficient Fee: Недостатньо для комісії
 Waiting for a View deeplink to display a wallet address.: Очікування диплінка View для відображення адреси гаманця.
@@ -1158,6 +1175,11 @@ $explorer_mode_warning: "Режим дослідника: очікування �
 This command is not supported in explorer mode: Ця команда не підтримується в режимі дослідника
 $saved_addresses_header: Збережені
 confirm an action in My Wallet: підтвердіть дію в My Wallet
+Migration was rolled back: Міграція була відкочена
+Rollback Enclave Migration: Відкотити міграцію анклаву
+Unable to migrate wallet data. Please contact support.: Не вдалося перенести дані гаманця. Будь ласка, зверніться до служби підтримки.
+Failed to retrieve password from biometrics: Не вдалося отримати пароль з біометрії
+Migration failed. Please try again.: Міграція не вдалася. Будь ласка, спробуйте ще раз.
 Timed out waiting for account to be ready: Таймаут очікування готовності акаунта
 $connected_apps:
   otherValue: "%1$d підключено"
@@ -1196,7 +1218,6 @@ Transfer Info: Інформація про переказ
 Transfer not found: Переказ не знайдено
 Failed to fetch transfer: Не вдалося отримати переказ
 Transfer in progress: Переказ виконується
-Transfer Sent!: Переказ відправлено!
 Please confirm transfer on your Ledger: Будь ласка, підтвердіть переказ на вашому Ledger
 Please confirm action on your Ledger: Будь ласка, підтвердіть дію на вашому Ledger
 Not all transfers were sent successfully: Не всі перекази були відправлені успішно
@@ -1248,6 +1269,15 @@ Enabling biometric confirmation will reset the passcode.: Увімкнення �
 Confirm action with your passcode: Підтвердьте дію вашим паролем
 No Image: Немає зображення
 Different blockchain. Cannot be selected: Інший блокчейн. Неможливо вибрати
+Chains: Мережі
+enclave_use_biometrics: Використовувати біометрію
+Copy Storage Data: Скопіювати дані сховища
+Rollback Migration: Відкотити міграцію
+Enclave session expired: Сесія закінчилася
+Failed to setup auth: Не вдалося налаштувати аутентифікацію
+Failed to setup biometric auth: Не вдалося налаштувати біометричну аутентифікацію
+No enclave session token available: Немає токена сесії
+Missing authorization: Відсутня авторизація
 $address_suggestion_no_chain: Немає %chain%
 Subwallets: Субгаманці
 Other addresses for this wallet: Інші адреси для цього гаманця
@@ -1276,7 +1306,6 @@ Deposit: Поповнити
 Trade: Торгівля
 Show All %collection_name%: Показати все %collection_name%
 Scanning for subwallets...: Пошук субгаманців...
-This process may take up to a minute. Please wait.: Цей процес може тривати до хвилини. Будь ласка, зачекайте.
 Your assets on other TON contracts: Ваші активи на інших TON-контрактах
 No existing subwallets found: Існуючі субгаманці не знайдені
 You can create a new subwallet if you need another address on the same secret words.: Ви можете створити новий субгаманець, якщо вам потрібна інша адреса на тих самих секретних словах.
@@ -1436,7 +1465,6 @@ Swap is not supported on this account.: Обмін не підтримуєтьс
 Connecting your wallet: З’єднання з гаманцем
 Action is not possible on a view-only wallet.: Дія недоступна в гаманці лише для перегляду.
 No matching chains: Немає сумісних мереж
-Select multichain wallet: Вибрати мультичейн-гаманець
 Logged in with My Wallet: Увійшли через My Wallet
 You have no apps connected to this wallet.: До цього гаманця не підключено застосунки.
 Asset: Актив
@@ -1606,6 +1634,11 @@ $web_permission_location: геолокації
 $web_permission_device_features: функцій пристрою
 $web_permission_this_site: цьому сайту
 
+$enclave_use_biometrics: Використовуйте біометрію
+$enclave_enter_passcode_or_use_biometrics: Введіть код або використайте відбиток пальця
+$enclave_use_pin: Використати PIN
+$enclave_cancel: Скасувати
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Надіслано %amount% %symbol%
 push_activity_token_received: Отримано %amount% %symbol%
@@ -1631,23 +1664,35 @@ push_activity_dns_renewed: DNS продовжено
 push_activity_subscription_started: Підписку розпочато
 push_activity_subscription_payment_received: Отримано платіж за підпискою %amount% %symbol%
 push_activity_subscription_canceled: Підписку скасовано
-push_activity_swap_completed: Обмін %from_symbol% -> %to_symbol% виконано
-push_activity_swap_failed: Обмін %from_symbol% -> %to_symbol% не виконано
-push_activity_swap_expired: Обмін %from_symbol% -> %to_symbol% прострочений
-push_activity_swap_pending: Обмін %from_symbol% -> %to_symbol% %status%
+push_activity_swap_completed: Обмін %from_symbol% → %to_symbol% виконано
+push_activity_swap_failed: Обмін %from_symbol% → %to_symbol% не виконано
+push_activity_swap_expired: Обмін %from_symbol% → %to_symbol% прострочений
+push_activity_swap_pending: Обмін %from_symbol% → %to_symbol% %status%
 push_activity_staking_profit: Прибуток від стейкінгу %amount% GRAM
 push_activity_staking_loyalty_profit: Прибуток від лояльності у стейкінгу %amount% GRAM
 push_domain_title_renew: Продовжте ваш домен
 push_domain_expired_yesterday: Термін дії вашого домену %domain% закінчився вчора. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
 push_domain_expired_days_ago: Термін дії вашого домену %domain% закінчився %days% днів тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
+push_domain_expired_days_ago_number:
+  zeroValue: Термін дії вашого домену %domain% закінчився %days% днів тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
+  oneValue: Термін дії вашого домену %domain% закінчився %days% день тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
+  fewValue: Термін дії вашого домену %domain% закінчився %days% дні тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
+  manyValue: Термін дії вашого домену %domain% закінчився %days% днів тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
+  otherValue: Термін дії вашого домену %domain% закінчився %days% дня тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
 push_domain_expires_today: Термін дії вашого домену %domain% закінчується сьогодні. Будь ласка, продовжте його, щоб не втратити доступ
 push_domain_expires_tomorrow: Термін дії вашого домену %domain% закінчується завтра. Будь ласка, продовжте його, щоб не втратити доступ
 push_domain_expires_in_days: Термін дії вашого домену %domain% закінчується через %days% днів. Будь ласка, продовжте його, щоб не втратити доступ
+push_domain_expires_in_days_number:
+  zeroValue: Термін дії вашого домену %domain% закінчується через %days% днів. Будь ласка, продовжте його, щоб не втратити доступ
+  oneValue: Термін дії вашого домену %domain% закінчується через %days% день. Будь ласка, продовжте його, щоб не втратити доступ
+  fewValue: Термін дії вашого домену %domain% закінчується через %days% дні. Будь ласка, продовжте його, щоб не втратити доступ
+  manyValue: Термін дії вашого домену %domain% закінчується через %days% днів. Будь ласка, продовжте його, щоб не втратити доступ
+  otherValue: Термін дії вашого домену %domain% закінчується через %days% дня. Будь ласка, продовжте його, щоб не втратити доступ
 
 $more_nfts:
   zeroValue: Немає NFT
   oneValue: "+1 NFT"
-  otherValue: "+%1$d NFT"
+  otherValue: "+%count% NFT"
 
 $subwallets_hint: Використовуйте субгаманці для отримання додаткових адрес без створення нових секретних слів.
 $subwallets_created_wallets: Якщо ви раніше створювали субгаманці, вони з'являться у списку нижче.
@@ -1671,13 +1716,76 @@ Email: Email
 Choose Token: Виберіть токен
 You don't have any eligible tokens for this payment: У вас немає відповідних токенів для цього платежу
 Buy, swap, or receive a supported token to continue.: Купіть, обміняйте або отримайте підтримуваний токен, щоб продовжити.
+Copy Wallet Link: Скопіювати посилання
 Are you sure you want to cancel the payment?: Ви впевнені, що хочете скасувати оплату?
 Cancel Payment: Скасувати оплату
-Paid!: Оплачено!
+Paid: Оплачено
 Payment: Оплата
-Sent!: Надіслано!
 $chart_months_short: січ.,лют.,бер.,квіт.,трав.,черв.,лип.,серп.,вер.,жовт.,лист.,груд.
 $chart_week_days: неділя,понеділок,вівторок,середа,четвер,пʼятниця,субота
 $chart_week_days_short: нд,пн,вт,ср,чт,пт,сб
 Unsupported Chain: Мережа не підтримується
 Please upgrade to multichain to use this app.: Щоб підключитися до програми, виберіть або створіть новий мультичейн-гаманець.
+Rounded Corners: Заокруглені кути
+Enable Blur: Увімкнути розмиття
+App Font: Шрифт застосунку
+Rounded Balance Font: Округлий шрифт балансу
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: Продаж на картку не підтримується в Testnet.
+Selling to card is not supported for this account.: Продаж на картку не підтримується для цього облікового запису.
+"Why is %tokenName% %direction% %timeframe%?": "Чому ціна %tokenName% %direction% %timeframe%?"
+up: зросла
+down: знизилася
+today: сьогодні
+this week: цього тижня
+this month: цього місяця
+Info: Інформація
+Market: Ринок
+Market Cap: Ринкова капіталізація
+Created: Створено
+Expanded: Розгорнуто
+Collapsed: Згорнуто
+Circulating / Total Supply: Обігова / загальна пропозиція
+Circulating Supply: Обігова пропозиція
+Total Supply: Загальна пропозиція
+Volume · 24h: Обсяг · 24 год
+Token Info Mock: Мок даних токена
+Design: За дизайном
+Localized Description: Локалізований опис
+Long / Sparse: Довгі / неповні дані
+Loading: Завантаження
+Missing Description: Немає опису
+Missing Token Info: Інформація про токен відсутня
+Website: Вебсайт
+Documentation: Документація
+Source Code: Вихідний код
+Translated from English: Перекладено з англійської
+Show Original: Показати оригінал
+Show Translation: Показати переклад
+Original Text: Оригінальний текст
+$token_info_market_cap_hint: Загальна ринкова вартість пропозиції токена, що перебуває в обігу.
+$token_info_supply_hint: Кількість токенів в обігу порівняно із загальною пропозицією.
+$token_info_volume_hint: Загальна вартість торгів за останні 24 години.
+$token_info_expand_hint: Розгортає інформацію про токен.
+$token_info_collapse_hint: Згортає інформацію про токен.
+$token_info_open_in_browser_hint: Відкриває у браузері.
+$token_info_fallback_description: Публічна інформація відсутня
+$token_info_no_description: Опис відсутній
+$swap_cex_aml_kyc_policy_with_provider: AML/KYC %provider%
+$enclave_migration_damaged_title: Дані гаманця пошкоджено
+$enclave_migration_damaged_message: |
+  Річ не в паролі. Збережені дані одного з ваших гаманців не читаються, тому оновлення зупинилося, а решта гаманців залишилася в попередньому форматі.
+
+  Не перевстановлюйте застосунок і не очищайте його дані: це видалить гаманці, які ще цілі. Будь ласка, зв'яжіться з %support_link%, і ми допоможемо їх відновити.
+$enclave_migration_interrupted_title: Оновлення було перервано
+$enclave_migration_interrupted_message: |
+  Попередня спроба оновити дані гаманця зупинилася на середині, і продовжити її з цього екрана неможливо. Повторне введення тут не допоможе.
+
+  Не перевстановлюйте застосунок і не очищайте його дані: ваші гаманці досі зберігаються на цьому пристрої. Будь ласка, зв'яжіться з %support_link%, і ми допоможемо завершити оновлення.
+$enclave_migration_storage_title: Не вдалося зберегти дані гаманця
+$enclave_migration_storage_message: |
+  Оновлені дані гаманця не вдалося зберегти на цьому пристрої. Можливо, допоможе звільнення місця на диску.
+
+  Не перевстановлюйте застосунок і не очищайте його дані: ваші гаманці досі зберігаються на ньому. Якщо це повторюється, будь ласка, зв'яжіться з %support_link%.
+Hide Unverified NFTs: Приховувати неперевірені NFT
+Unverified: Неперевірені

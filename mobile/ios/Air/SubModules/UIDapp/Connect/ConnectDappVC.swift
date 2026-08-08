@@ -24,15 +24,19 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     
     public init(
         request: ApiUpdate.DappConnect,
-        onCancel: @escaping () -> ()
+        onCreateMultichainWallet: @escaping () -> ()
     ) {
-        self.viewModel = ConnectViewModel(accountId: request.accountId, update: request, onCancel: onCancel)
+        self.viewModel = ConnectViewModel(
+            accountId: request.initialSelectedAccountId,
+            update: request,
+            onCreateMultichainWallet: onCreateMultichainWallet
+        )
         super.init(nibName: nil, bundle: nil)
     }
     
     init(placeholderAccountId: String?) {
         @Dependency(\.accountStore.currentAccountId) var currentAccountId
-        self.viewModel = ConnectViewModel(accountId: placeholderAccountId ?? currentAccountId, update: nil, onCancel: nil)
+        self.viewModel = ConnectViewModel(accountId: placeholderAccountId ?? currentAccountId, update: nil)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -42,13 +46,14 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     
     func replacePlaceholder(
         request: ApiUpdate.DappConnect,
-        onCancel: @escaping () -> ()
+        onCreateMultichainWallet: @escaping () -> ()
     ) {
-        viewModel.accountContext.accountId = request.accountId
         withAnimation(.smooth(duration: 0.3)) {
-            self.viewModel.update = request
+            self.viewModel.replaceRequest(
+                request,
+                onCreateMultichainWallet: onCreateMultichainWallet
+            )
         }
-        self.viewModel.onCancel = onCancel
     }
     
     public override func viewDidLoad() {
@@ -124,15 +129,11 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     }
     
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        if !viewModel.didConfirm {
-            viewModel.onCancel?()
-        }
+        viewModel.cancel()
     }
 
     private func closeTapped() {
-        if !viewModel.didConfirm {
-            viewModel.onCancel?()
-        }
+        viewModel.cancel()
         dismiss(animated: true)
     }
 }
@@ -141,11 +142,21 @@ private extension UISheetPresentationController.Detent.Identifier {
     static let content = UISheetPresentationController.Detent.Identifier("content")
 }
 
+extension ApiUpdate.DappConnect {
+    var initialSelectedAccountId: String {
+        if multichainResolution == .switchedAccount {
+            AccountStore.currentAccountId
+        } else {
+            accountId
+        }
+    }
+}
+
 #if DEBUG
 @available(iOS 26, *)
 #Preview {
 //    let vc = ConnectDappVC(placeholderAccountId: "0-maiinet")
-    let vc = ConnectDappVC(request: .sample, onCancel: {})
+    let vc = ConnectDappVC(request: .sample, onCreateMultichainWallet: {})
     previewSheet(vc)
 }
 #endif

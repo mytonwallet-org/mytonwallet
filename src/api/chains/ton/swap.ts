@@ -19,12 +19,14 @@ import type {
 import type { TonTransferParams } from './types';
 
 import { DIESEL_ADDRESS, SWAP_FEE_ADDRESS } from '../../../config';
+import { Big } from '../../../lib/big.js';
 import { parseAccountId } from '../../../util/account';
 import { assert as originalAssert } from '../../../util/assert';
 import { fromDecimal } from '../../../util/decimals';
 import { omitUndefined } from '../../../util/iteratees';
 import { getMaxMessagesInTransaction, isTokenTransferPayload } from '../../../util/ton/transfer';
 import { parsePayloadSlice } from './util/metadata';
+import { getSigner } from './util/signer';
 import { resolveTokenWalletAddress, toBase64Address } from './util/tonCore';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { patchSwapItem } from '../../common/swap';
@@ -56,9 +58,8 @@ export async function validateDexSwapTransfers(
   transfers: TonTransferParams[],
   account: ApiAccountWithChain<'ton'>,
 ) {
-  const feeTransfer = (
-    toBase64Address(transfers.at(-1)?.toAddress ?? '', false) === SWAP_FEE_ADDRESS
-  ) ? transfers.at(-1)! : undefined;
+  const hasFeeTransfer = Big(request.ourFee ?? 0).gt(0) || Big(request.dieselFee ?? 0).gt(0);
+  const feeTransfer = hasFeeTransfer ? transfers.at(-1) : undefined;
   const mainTransfers = feeTransfer ? transfers.slice(0, -1) : transfers;
   const maxMessages = getMaxMessagesInTransaction(account);
   const maxSplits = Math.min(maxMessages - (feeTransfer ? 1 : 0), MAX_SPLITS);
@@ -73,7 +74,7 @@ export async function validateDexSwapTransfers(
 
   // FIXME: TON renaming
   if (request.from === 'TON') {
-    const maxAmount = fromDecimal(request.fromAmount) + fromDecimal(request.ourFee ?? 0) + MAX_NETWORK_FEE;
+    const maxAmount = fromDecimal(request.fromAmount) + MAX_NETWORK_FEE;
     let sumAmount = 0n;
 
     const contractInfos = await getContractInfos(network, mainTransfers.map((transfer) => transfer.toAddress));
@@ -100,9 +101,7 @@ export async function validateDexSwapTransfers(
     const token = getTokenByAddress(request.from)!;
     assert(!!token, 'Unknown "from" token');
 
-    const maxAmount = fromDecimal(request.fromAmount, token.decimals)
-      + fromDecimal(request.ourFee ?? 0, token.decimals)
-      + fromDecimal(request.dieselFee ?? 0, token.decimals);
+    const maxAmount = fromDecimal(request.fromAmount, token.decimals);
     const maxTonAmount = MAX_NETWORK_FEE;
 
     const walletAddress = await resolveTokenWalletAddress(network, address, token.tokenAddress!);
@@ -203,7 +202,7 @@ export async function submitOnchainSwapTransfer(
 ): Promise<ApiSubmitOnchainSwapTransferResult> {
   const {
     accountId,
-    password,
+    enclaveToken,
     transfers,
     historyItem,
     isGasless,
@@ -240,7 +239,7 @@ export async function submitOnchainSwapTransfer(
 
     const result = await submitMultiTransferWithMfa({
       accountId,
-      password,
+      signer: getSigner(accountId, account, enclaveToken),
       messages: transferList,
       isGasless,
     });
@@ -272,6 +271,7 @@ export async function submitOnchainSwapTransfer(
       ...localSwap,
       externalMsgHashNorm: result.msgHashNormalized,
       extra: omitUndefined({
+        ...localSwap.extra,
         withW5Gasless: result.withW5Gasless,
       }),
     };
@@ -283,12 +283,15 @@ export async function submitOnchainSwapTransfer(
     });
 
     await patchSwapItem({
-      address, swapId, authToken, msgHash: result.msgHash,
+      address, swapId, authToken, msgHash: result.msgHash, msgHashNormalized: result.msgHashNormalized,
     });
 
     void callHook('onSwapCreated', accountId, updatedSwap.timestamp - 1);
 
-    return { activityId: updatedSwap.id };
+    return {
+      activityId: updatedSwap.id,
+      submittedHashes: [result.msgHash, result.msgHashNormalized],
+    };
   } catch (err: any) {
     if (!hasMfa) {
       onUpdate({

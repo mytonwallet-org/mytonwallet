@@ -281,6 +281,7 @@ describe('processSelfDeeplink', () => {
       startSwap: jest.fn(),
       showError: jest.fn(),
       openOnRampWidgetModal: jest.fn(),
+      openOffRampWidgetModal: jest.fn(),
       startStaking: jest.fn(),
       startTransfer: jest.fn(),
       closeSettings: jest.fn(),
@@ -497,6 +498,27 @@ describe('processSelfDeeplink', () => {
         error: 'Buying with card is not supported in Testnet.',
       });
       expect(mockActions.openOnRampWidgetModal).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Sell on card command', () => {
+    it('should open off-ramp widget modal', async () => {
+      const result = await processSelfDeeplink('mtw://sell-on-card');
+
+      expect(result).toBe(true);
+      expect(mockActions.openOffRampWidgetModal).toHaveBeenCalledWith();
+    });
+
+    it('should show error when sell-on-card is requested in testnet', async () => {
+      mockGlobal.settings.isTestnet = true;
+
+      const result = await processSelfDeeplink('https://my.tt/sell-on-card');
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: 'Selling to card is not supported in Testnet.',
+      });
+      expect(mockActions.openOffRampWidgetModal).not.toHaveBeenCalled();
     });
   });
 
@@ -793,6 +815,7 @@ describe('processDeeplink TRON deeplinks', () => {
       startSwap: jest.fn(),
       showError: jest.fn(),
       openOnRampWidgetModal: jest.fn(),
+      openOffRampWidgetModal: jest.fn(),
       startStaking: jest.fn(),
       openReceiveModal: jest.fn(),
       closeSettings: jest.fn(),
@@ -1233,6 +1256,7 @@ describe('View-only mode deeplink blocking', () => {
       startSwap: jest.fn(),
       showError: jest.fn(),
       openOnRampWidgetModal: jest.fn(),
+      openOffRampWidgetModal: jest.fn(),
       startStaking: jest.fn(),
       startTransfer: jest.fn(),
       closeSettings: jest.fn(),
@@ -1276,6 +1300,7 @@ describe('View-only mode deeplink blocking', () => {
       { name: 'Swap', url: 'mtw://swap' },
       { name: 'BuyWithCrypto', url: 'mtw://buy-with-crypto' },
       { name: 'BuyWithCard', url: 'mtw://buy-with-card' },
+      { name: 'SellOnCard', url: 'mtw://sell-on-card' },
       { name: 'Stake', url: 'mtw://stake' },
       { name: 'Transfer', url: `mtw://transfer/${TEST_TON_ADDRESS}?amount=1` },
       { name: 'Offramp', url: 'mtw://offramp?depositWalletAddress=addr&baseCurrencyCode=ton' },

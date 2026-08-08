@@ -9,22 +9,18 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 object TokenSelectorHelper {
-    fun buildAddTokenSelector(
-        context: Context,
-        account: MAccount
-    ): TokenSelectorVC {
-        val assets = TokenStore.swapAssets?.filter {
+    fun buildAddTokenSelector(context: Context, account: MAccount): TokenSelectorVC {
+        val assets = TokenStore.tokens.values.filter {
             val chain = it.chain
-            chain != null
-                && MBlockchain.supportedChainValues.contains(chain)
-                && account.isChainSupported(chain)
-        } ?: emptyList()
+            MBlockchain.supportedChainValues.contains(chain) &&
+                account.isChainSupported(chain)
+        }
         return TokenSelectorVC(
             context = context,
             titleToShow = LocaleController.getString("Add Token"),
             assets = assets,
             showMyAssets = false,
-            showChain = account.isMultichain,
+            showChain = account.isMultichain
         ).apply {
             setOnAssetSelectListener(::addTokenToAssetsAndActivityData)
         }
@@ -35,7 +31,9 @@ object TokenSelectorHelper {
         assetsAndActivityData.deletedTokens =
             ArrayList(assetsAndActivityData.deletedTokens.filter { it != asset.slug })
 
-        if (assetsAndActivityData.getAllTokens(shouldSort = false).none { it.token == asset.slug }
+        if (assetsAndActivityData.getAllTokens(shouldSort = false).none {
+                it.token == asset.slug
+            }
         ) {
             assetsAndActivityData.addedTokens.add(asset.slug)
         }

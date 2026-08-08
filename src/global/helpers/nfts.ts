@@ -36,10 +36,24 @@ export function pinMwCardsFirst(
   return cards.length ? cards.concat(rest) : orderedAddresses;
 }
 
+/** The caller builds the sets, so this function creates nothing when it runs over a list */
+export function getIsNftVisible(
+  nft: ApiNft,
+  blacklistedSet: ReadonlySet<string>,
+  whitelistedSet: ReadonlySet<string>,
+  areUnverifiedNftsHidden?: boolean,
+) {
+  if (blacklistedSet.has(nft.address)) return false;
+  if (whitelistedSet.has(nft.address)) return true;
+
+  return !nft.isHidden && !(areUnverifiedNftsHidden && nft.isUnverified);
+}
+
 export function buildNftCollectionIndex(
   nftsByAddress: Record<string, ApiNft> | undefined,
   blacklistedNftAddresses: string[] | undefined,
   whitelistedNftAddresses: string[] | undefined,
+  areUnverifiedNftsHidden?: boolean,
 ): NftCollectionIndex {
   const byKey = new Map<string, VisibleNftCollection>();
   let totalVisibleCount = 0;
@@ -51,9 +65,7 @@ export function buildNftCollectionIndex(
   let telegramGiftsCount = 0;
 
   for (const nft of Object.values(nftsByAddress)) {
-    const isVisible = (!nft.isHidden || whitelistedSet.has(nft.address))
-      && !blacklistedSet.has(nft.address);
-    if (!isVisible) continue;
+    if (!getIsNftVisible(nft, blacklistedSet, whitelistedSet, areUnverifiedNftsHidden)) continue;
 
     totalVisibleCount += 1;
 

@@ -8,6 +8,8 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.WRAP_CONTENT
+import java.math.BigInteger
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -23,11 +25,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBoldSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.IExplainedFee
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import java.math.BigInteger
-import kotlin.math.max
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.IExplainedFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
 
 @SuppressLint("ViewConstructor")
 class FeeDetailsContentView(
@@ -35,7 +35,8 @@ class FeeDetailsContentView(
     private val token: IApiToken,
     private val feeDetails: IExplainedFee,
     private val onClosePressed: () -> Unit
-) : WView(context), WThemedView {
+) : WView(context),
+    WThemedView {
 
     private val finalFeeLabel = WLabel(context).apply {
         setStyle(14f, WFont.Medium)
@@ -112,7 +113,10 @@ class FeeDetailsContentView(
                 weight =
                     max(
                         100f,
-                        (finalFeeVal * BigInteger.valueOf(1000) / (finalFeeVal + feeDetails.excessFee)).toFloat()
+                        (
+                            finalFeeVal * BigInteger.valueOf(1000) /
+                                (finalFeeVal + feeDetails.excessFee)
+                            ).toFloat()
                     ) / 1000f
             }
         val nativeToken = token.nativeToken!!
@@ -127,12 +131,13 @@ class FeeDetailsContentView(
         excessFeeValueLabel.layoutParams =
             (excessFeeValueLabel.layoutParams as LinearLayout.LayoutParams).apply {
                 weight =
-                    (feeDetails.excessFee * BigInteger.valueOf(1000) / (finalFeeVal + feeDetails.excessFee)).toFloat() / 1000f
+                    (
+                        feeDetails.excessFee * BigInteger.valueOf(1000) /
+                            (finalFeeVal + feeDetails.excessFee)
+                        ).toFloat() /
+                    1000f
                 if (weight > 0) {
-                    if (LocaleController.isRTL)
-                        rightMargin = 3.dp
-                    else
-                        leftMargin = 3.dp
+                    if (LocaleController.isRTL) rightMargin = 3.dp else leftMargin = 3.dp
                 }
             }
         finalFeeValueLabel.post {

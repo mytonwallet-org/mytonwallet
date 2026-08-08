@@ -2,14 +2,14 @@
   cursor: var(--custom-cursor, pointer);
 
   position: absolute;
-  right: 100%;
+  inset-inline-end: 100%;
 
   display: flex;
   align-items: center;
 
   min-width: 0;
   height: 1.75rem;
-  margin-right: auto;
+  margin-inline-end: auto;
   padding: 0 0.5rem;
   border-radius: var(--border-radius-default);
 
@@ -44,7 +44,7 @@
   }
 
   :global(html.is-electron.is-macos) & {
-    margin-right: 0.4375rem;
+    margin-inline-end: 0.4375rem;
   }
 }
 
@@ -55,7 +55,7 @@
 
   width: 0.875rem;
   height: 0.875rem;
-  margin-right: 0.3125rem;
+  margin-inline-end: 0.3125rem;
   border-radius: var(--border-radius-default);
 
   font-size: 0.75rem;

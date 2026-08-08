@@ -11,7 +11,9 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import androidx.core.graphics.withClip
 import androidx.core.view.isGone
+import java.text.NumberFormat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
@@ -21,8 +23,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MCardInfo
-import java.text.NumberFormat
-import androidx.core.graphics.withClip
 
 @SuppressLint("ViewConstructor")
 class MintCardAvailabilityView(context: Context) : FrameLayout(context) {
@@ -76,14 +76,20 @@ class MintCardAvailabilityView(context: Context) : FrameLayout(context) {
         }
         addView(blurView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(fillOverlay, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        addView(leftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            marginStart = 12.dp
-        })
-        addView(soldLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            marginEnd = 12.dp
-        })
+        addView(
+            leftLabel,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                marginStart = 12.dp
+            }
+        )
+        addView(
+            soldLabel,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                marginEnd = 12.dp
+            }
+        )
         addView(soldOutLabel, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
@@ -120,7 +126,6 @@ class MintCardAvailabilityView(context: Context) : FrameLayout(context) {
         fillOverlay.invalidate()
     }
 
-    private fun formatCount(value: Int): String {
-        return NumberFormat.getIntegerInstance().format(value.toLong())
-    }
+    private fun formatCount(value: Int): String =
+        NumberFormat.getIntegerInstance().format(value.toLong())
 }

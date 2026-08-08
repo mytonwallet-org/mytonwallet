@@ -24,9 +24,7 @@ object WCacheStorage {
         sharedPreferences = context.getSharedPreferences(CACHE_PREF_NAME, Context.MODE_PRIVATE)
     }
 
-    fun getTokens(): String? {
-        return sharedPreferences.getString(CACHE_PREF_TOKENS, null)
-    }
+    fun getTokens(): String? = sharedPreferences.getString(CACHE_PREF_TOKENS, null)
 
     fun setTokens(value: String?) {
         if (value == null) {
@@ -36,9 +34,7 @@ object WCacheStorage {
         sharedPreferences.edit { putString(CACHE_PREF_TOKENS, value) }
     }
 
-    fun getSwapAssets(): String? {
-        return sharedPreferences.getString(CACHE_PREF_SWAP_ASSETS, null)
-    }
+    fun getSwapAssets(): String? = sharedPreferences.getString(CACHE_PREF_SWAP_ASSETS, null)
 
     fun setSwapAssets(value: String?) {
         if (value == null) {
@@ -48,9 +44,8 @@ object WCacheStorage {
         sharedPreferences.edit { putString(CACHE_PREF_SWAP_ASSETS, value) }
     }
 
-    fun getStakingData(accountId: String): String? {
-        return sharedPreferences.getString(CACHE_PREF_STAKING_DATA + accountId, null)
-    }
+    fun getStakingData(accountId: String): String? =
+        sharedPreferences.getString(CACHE_PREF_STAKING_DATA + accountId, null)
 
     fun setStakingData(accountId: String, value: String?) {
         if (value == null) {
@@ -60,9 +55,8 @@ object WCacheStorage {
         sharedPreferences.edit { putString(CACHE_PREF_STAKING_DATA + accountId, value) }
     }
 
-    fun getNfts(accountId: String): String? {
-        return sharedPreferences.getString(CACHE_PREF_NFTS + accountId, null)
-    }
+    fun getNfts(accountId: String): String? =
+        sharedPreferences.getString(CACHE_PREF_NFTS + accountId, null)
 
     fun setNfts(accountId: String, value: String?) {
         sharedPreferences.edit {
@@ -93,9 +87,8 @@ object WCacheStorage {
         }
     }
 
-    fun getNftCollections(accountId: String): String? {
-        return sharedPreferences.getString(CACHE_PREF_NFT_COLLECTIONS + accountId, null)
-    }
+    fun getNftCollections(accountId: String): String? =
+        sharedPreferences.getString(CACHE_PREF_NFT_COLLECTIONS + accountId, null)
 
     fun setNftCollections(accountId: String, value: String?) {
         sharedPreferences.edit {
@@ -107,9 +100,8 @@ object WCacheStorage {
         }
     }
 
-    fun getExploreHistory(accountId: String): String? {
-        return sharedPreferences.getString(CACHE_PREF_EXPLORE + accountId, null)
-    }
+    fun getExploreHistory(accountId: String): String? =
+        sharedPreferences.getString(CACHE_PREF_EXPLORE + accountId, null)
 
     fun setExploreHistory(accountId: String, value: String?) {
         sharedPreferences.edit {
@@ -121,9 +113,8 @@ object WCacheStorage {
         }
     }
 
-    fun getPortfolio(key: String): String? {
-        return sharedPreferences.getString(CACHE_PREF_PORTFOLIO + key, null)
-    }
+    fun getPortfolio(key: String): String? =
+        sharedPreferences.getString(CACHE_PREF_PORTFOLIO + key, null)
 
     fun setPortfolio(key: String, value: String?) {
         sharedPreferences.edit {
@@ -159,17 +150,15 @@ object WCacheStorage {
     enum class InitialScreen(val value: Int) {
         INTRO(0),
         HOME(1),
-        LOCK(2);
+        LOCK(2)
     }
 
     private var cachedInitialScreen: InitialScreen? = null
 
-    fun getInitialScreen(): InitialScreen? {
-        return cachedInitialScreen ?: run {
-            val value = sharedPreferences.getInt(CACHE_INITIAL_SCREEN, InitialScreen.INTRO.value)
-            InitialScreen.entries.firstOrNull { it.value == value }
-                ?.also { cachedInitialScreen = it }
-        }
+    fun getInitialScreen(): InitialScreen? = cachedInitialScreen ?: run {
+        val value = sharedPreferences.getInt(CACHE_INITIAL_SCREEN, InitialScreen.INTRO.value)
+        InitialScreen.entries.firstOrNull { it.value == value }
+            ?.also { cachedInitialScreen = it }
     }
 
     fun setInitialScreen(initialScreen: InitialScreen) {
@@ -181,9 +170,7 @@ object WCacheStorage {
         }
     }
 
-    fun getAgentClientId(): String? {
-        return sharedPreferences.getString(CACHE_AGENT_CLIENT_ID, null)
-    }
+    fun getAgentClientId(): String? = sharedPreferences.getString(CACHE_AGENT_CLIENT_ID, null)
 
     fun setAgentClientId(value: String?) {
         sharedPreferences.edit {

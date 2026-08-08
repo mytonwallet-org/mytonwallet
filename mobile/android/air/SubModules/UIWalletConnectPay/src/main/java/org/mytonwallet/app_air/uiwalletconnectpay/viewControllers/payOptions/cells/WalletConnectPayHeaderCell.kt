@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -29,7 +30,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.WcPayAmount
 import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 @SuppressLint("ViewConstructor")
 class WalletConnectPayHeaderCell(context: Context) :
@@ -39,7 +39,8 @@ class WalletConnectPayHeaderCell(context: Context) :
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
         )
-    ), WThemedView {
+    ),
+    WThemedView {
 
     private val merchantIconView = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(20f.dp)
@@ -90,21 +91,26 @@ class WalletConnectPayHeaderCell(context: Context) :
         clipToPadding = false
         setPadding(0, 8.dp, 0, 25.dp)
         addView(
-            merchantIconContainer, LinearLayout.LayoutParams(112.dp, 112.dp).apply {
+            merchantIconContainer,
+            LinearLayout.LayoutParams(112.dp, 112.dp).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
             }
         )
         addView(
-            amountValueLabel, LinearLayout.LayoutParams(
-                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT
+            amountValueLabel,
+            LinearLayout.LayoutParams(
+                LayoutParams.WRAP_CONTENT,
+                LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
                 topMargin = 12.dp
             }
         )
         addView(
-            equivalentLabel, LinearLayout.LayoutParams(
-                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
+            equivalentLabel,
+            LinearLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
             ).apply {
                 topMargin = 9.dp
             }
@@ -125,7 +131,7 @@ class WalletConnectPayHeaderCell(context: Context) :
         amountValueLabel.updateColors(
             primaryColor = WColor.PrimaryText.color,
             secondaryColor = WColor.PrimaryText.color,
-            drawGradient = false,
+            drawGradient = false
         )
         equivalentLabel.setTextColor(WColor.SecondaryText.color)
     }
@@ -184,10 +190,7 @@ class WalletConnectPayHeaderCell(context: Context) :
         }
     }
 
-    private fun baseCurrencyEquivalent(
-        amount: WcPayAmount,
-        fiatCurrency: MBaseCurrency
-    ): String? {
+    private fun baseCurrencyEquivalent(amount: WcPayAmount, fiatCurrency: MBaseCurrency): String? {
         val baseCurrency = WalletCore.baseCurrency
         if (baseCurrency == fiatCurrency) return null
         val rates = TokenStore.currencyRates ?: return null
@@ -207,7 +210,7 @@ class WalletConnectPayHeaderCell(context: Context) :
                 9,
                 baseCurrency.sign,
                 baseCurrency.decimalsCount,
-                smartDecimals = true,
+                smartDecimals = true
             )?.let { "≈ $it" }
         } catch (_: Throwable) {
             null

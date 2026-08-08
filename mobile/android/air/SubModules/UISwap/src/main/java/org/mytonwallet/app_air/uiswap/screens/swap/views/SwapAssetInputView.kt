@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.InputType
 import android.text.TextUtils
 import android.text.method.DigitsKeyListener
@@ -12,6 +11,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WAmountEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -26,7 +26,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
-class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
+class SwapAssetInputView(context: Context) :
+    WCell(context),
+    WThemedView {
     private val leftTopLabel = WLabel(context).apply {
         id = generateViewId()
         layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT)
@@ -77,7 +79,8 @@ class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
     }
 
     enum class Mode {
-        SELL, BUY
+        SELL,
+        BUY
     }
 
     init {
@@ -157,7 +160,9 @@ class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
         separatorBackgroundDrawable.invalidateSelf()
         leftTopLabel.setTextColor(WColor.SecondaryText.color)
         rightTopButton.background = ViewHelpers.roundedRippleDrawable(
-            null, WColor.tintRippleColor, 8f.dp
+            null,
+            WColor.tintRippleColor,
+            8f.dp
         )
     }
 }

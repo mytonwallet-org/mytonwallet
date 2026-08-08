@@ -2,6 +2,8 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
+import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,18 +18,15 @@ import org.mytonwallet.app_air.uiagent.processors.AgentUserAddress
 import org.mytonwallet.app_air.uiagent.processors.MockAgentProcessor
 import org.mytonwallet.app_air.uiagent.processors.RealAgentProcessor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcore.stores.AgentMessageStore
-import org.mytonwallet.app_air.walletcore.stores.StoredAgentMessage
-import org.mytonwallet.app_air.walletcore.stores.StoredDeeplink
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import java.lang.ref.WeakReference
-import java.util.Date
+import org.mytonwallet.app_air.walletcore.stores.AgentMessageStore
+import org.mytonwallet.app_air.walletcore.stores.StoredAgentMessage
+import org.mytonwallet.app_air.walletcore.stores.StoredDeeplink
 
-class AgentVM(delegate: Delegate) :
-    WalletCore.EventObserver {
+class AgentVM(initialScrollPosition: ScrollPosition? = null) : WalletCore.EventObserver {
 
     interface Delegate {
         fun onMessageAdded(message: AgentMessage)
@@ -39,9 +38,23 @@ class AgentVM(delegate: Delegate) :
         fun onHintsUpdated(hints: List<AgentHint>)
     }
 
+    sealed interface ScrollAnchor {
+        data object Bottom : ScrollAnchor
+        data class Message(val messageId: String) : ScrollAnchor
+        data object Hints : ScrollAnchor
+    }
+
+    data class ScrollPosition(
+        val anchor: ScrollAnchor,
+        val offset: Int = 0,
+        val pinnedMessageId: String? = null,
+        val pinnedBottomPadding: Int = 0
+    )
+
     enum class ProcessorType { MOCK, REAL }
 
-    val delegate: WeakReference<Delegate> = WeakReference(delegate)
+    private val delegates = mutableListOf<WeakReference<Delegate>>()
+    private val activeDelegates = mutableListOf<WeakReference<Delegate>>()
     private var processor: AgentProcessor = RealAgentProcessor()
     var processorType = ProcessorType.REAL
         private set
@@ -49,9 +62,14 @@ class AgentVM(delegate: Delegate) :
     private val vmScope = CoroutineScope(supervisorJob + Dispatchers.Main)
     private val mainHandler = Handler(Looper.getMainLooper())
     private var streamJob: Job? = null
+    private var storedMessagesLoaded = false
+    private val pendingMessages = mutableListOf<String>()
 
     private val _messages = mutableListOf<AgentMessage>()
     val messages: List<AgentMessage> get() = _messages
+
+    var scrollPosition: ScrollPosition? = initialScrollPosition
+        private set
 
     private var availableHints = listOf<AgentHint>()
     private var showHintsInConversation = true
@@ -66,13 +84,37 @@ class AgentVM(delegate: Delegate) :
     private val shouldShowHints: Boolean
         get() = availableHints.isNotEmpty() && showHintsInConversation
 
-    var isActive = false
     private var currentAccountId: String? = AccountStore.activeAccountId
 
     init {
         WalletCore.registerObserver(this)
         loadHints()
         loadStoredMessages()
+    }
+
+    fun attach(delegate: Delegate) {
+        if (liveDelegates(delegates).none { it === delegate }) {
+            delegates.add(WeakReference(delegate))
+        }
+        delegate.onMessagesLoaded(_messages.toList())
+        delegate.onHintsUpdated(visibleHints)
+    }
+
+    fun detach(delegate: Delegate) {
+        removeDelegate(delegates, delegate)
+        removeDelegate(activeDelegates, delegate)
+    }
+
+    fun setActive(delegate: Delegate, active: Boolean) {
+        removeDelegate(activeDelegates, delegate)
+        if (active) {
+            activeDelegates.add(WeakReference(delegate))
+        }
+    }
+
+    fun updateScrollPosition(delegate: Delegate, position: ScrollPosition) {
+        if (liveDelegates(activeDelegates).none { it === delegate }) return
+        scrollPosition = position
     }
 
     fun setProcessor(type: ProcessorType) {
@@ -101,7 +143,9 @@ class AgentVM(delegate: Delegate) :
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
-        if (walletEvent is WalletEvent.AccountChanged && isActive) {
+        if (walletEvent is WalletEvent.AccountChanged &&
+            liveDelegates(activeDelegates).isNotEmpty()
+        ) {
             checkAccountChanged()
         }
     }
@@ -110,29 +154,38 @@ class AgentVM(delegate: Delegate) :
         val message = AgentMessage(role = AgentMessageRole.SYSTEM, text = text)
         _messages.add(message)
         persistMessage(message)
-        delegate.get()?.onMessageAdded(message)
+        notifyDelegates { it.onMessageAdded(message) }
     }
 
     fun clearChat() {
         streamJob?.cancel()
         _messages.clear()
+        scrollPosition = ScrollPosition(ScrollAnchor.Bottom)
         showHintsInConversation = false
         processor.resetClientId()
         AgentMessageStore.clearMessages()
+        notifyDelegates { it.onMessagesLoaded(emptyList()) }
+        notifyDelegates { it.onHintsUpdated(visibleHints) }
         loadHints()
     }
 
     fun sendMessage(text: String) {
+        if (!storedMessagesLoaded) {
+            pendingMessages.add(text)
+            return
+        }
+        sendMessageNow(text)
+    }
+
+    private fun sendMessageNow(text: String) {
         val wasShowingHints = visibleHints.isNotEmpty()
-        val hideHints = wasShowingHints && _messages.isEmpty()
-        if (hideHints)
-            showHintsInConversation = false
+        if (wasShowingHints) showHintsInConversation = false
         val userMessage = AgentMessage(role = AgentMessageRole.USER, text = text)
         _messages.add(userMessage)
         persistMessage(userMessage)
-        delegate.get()?.onMessageAdded(userMessage)
+        notifyDelegates { it.onMessageAdded(userMessage) }
         if (wasShowingHints) {
-            delegate.get()?.onHintsUpdated(visibleHints)
+            notifyDelegates { it.onHintsUpdated(visibleHints) }
         }
 
         requestReply(text)
@@ -140,7 +193,7 @@ class AgentVM(delegate: Delegate) :
 
     fun toggleHintsVisibility() {
         showHintsInConversation = !showHintsInConversation
-        delegate.get()?.onHintsUpdated(visibleHints)
+        notifyDelegates { it.onHintsUpdated(visibleHints) }
     }
 
     private fun loadHints() {
@@ -150,7 +203,7 @@ class AgentVM(delegate: Delegate) :
             val hints = processor.loadHints(langCode)
             availableHints = hints
             if (hints.isEmpty()) showHintsInConversation = false
-            delegate.get()?.onHintsUpdated(visibleHints)
+            notifyDelegates { it.onHintsUpdated(visibleHints) }
         }
     }
 
@@ -159,10 +212,17 @@ class AgentVM(delegate: Delegate) :
             val stored = withContext(Dispatchers.IO) {
                 AgentMessageStore.loadMessages()
             }
-            if (stored.isEmpty()) return@launch
-            val loaded = stored.map { it.toAgentMessage() }
-            _messages.addAll(loaded)
-            delegate.get()?.onMessagesLoaded(_messages)
+            if (stored.isEmpty()) {
+                scrollPosition = ScrollPosition(ScrollAnchor.Bottom)
+            } else {
+                val loaded = stored.map { it.toAgentMessage() }
+                _messages.addAll(loaded)
+                notifyDelegates { it.onMessagesLoaded(_messages.toList()) }
+            }
+            storedMessagesLoaded = true
+            val queued = pendingMessages.toList()
+            pendingMessages.clear()
+            queued.forEach(::sendMessageNow)
         }
     }
 
@@ -173,7 +233,7 @@ class AgentVM(delegate: Delegate) :
             isStreaming = true
         )
         _messages.add(assistantMessage)
-        delegate.get()?.onMessageAdded(assistantMessage)
+        notifyDelegates { it.onMessageAdded(assistantMessage) }
 
         val userAddresses = buildUserAddresses()
         val savedAddresses = buildSavedAddresses()
@@ -200,7 +260,9 @@ class AgentVM(delegate: Delegate) :
                                 updateMessage(messageId) {
                                     it.copy(text = textBuilder.toString())
                                 }
-                                delegate.get()?.onStreamingUpdate(messageId, textBuilder.toString())
+                                notifyDelegates {
+                                    it.onStreamingUpdate(messageId, textBuilder.toString())
+                                }
                             }
                         }
 
@@ -220,12 +282,15 @@ class AgentVM(delegate: Delegate) :
                                     val updated = msg.copy(
                                         text = cleanedText,
                                         isStreaming = false,
-                                        deeplinks = msg.deeplinks + resultsDeeplinks + inlineDeeplinks
+                                        deeplinks =
+                                            msg.deeplinks + resultsDeeplinks + inlineDeeplinks
                                     )
                                     persistMessage(updated)
                                     updated
                                 }
-                                delegate.get()?.onResultsReceived(messageId, event.results)
+                                notifyDelegates {
+                                    it.onResultsReceived(messageId, event.results)
+                                }
                             }
                         }
 
@@ -236,8 +301,8 @@ class AgentVM(delegate: Delegate) :
                                     persistMessage(updated)
                                     updated
                                 }
-                                delegate.get()?.onStreamingFinished(messageId)
-                                delegate.get()?.onError(event.message)
+                                notifyDelegates { it.onStreamingFinished(messageId) }
+                                notifyDelegates { it.onError(event.message) }
                             }
                         }
                     }
@@ -254,7 +319,7 @@ class AgentVM(delegate: Delegate) :
                             persistMessage(updated)
                             updated
                         }
-                        delegate.get()?.onStreamingFinished(messageId)
+                        notifyDelegates { it.onStreamingFinished(messageId) }
                     }
                 },
                 onError = { e ->
@@ -267,8 +332,8 @@ class AgentVM(delegate: Delegate) :
                             persistMessage(updated)
                             updated
                         }
-                        delegate.get()?.onStreamingFinished(messageId)
-                        delegate.get()?.onError(e.message ?: "Unknown error")
+                        notifyDelegates { it.onStreamingFinished(messageId) }
+                        notifyDelegates { it.onError(e.message ?: "Unknown error") }
                     }
                 }
             )
@@ -350,10 +415,40 @@ class AgentVM(delegate: Delegate) :
         }
     }
 
+    private fun liveDelegates(references: MutableList<WeakReference<Delegate>>): List<Delegate> {
+        val result = mutableListOf<Delegate>()
+        val iterator = references.iterator()
+        while (iterator.hasNext()) {
+            val delegate = iterator.next().get()
+            if (delegate == null) {
+                iterator.remove()
+            } else {
+                result.add(delegate)
+            }
+        }
+        return result
+    }
+
+    private fun removeDelegate(
+        references: MutableList<WeakReference<Delegate>>,
+        delegate: Delegate
+    ) {
+        references.removeAll { reference ->
+            val current = reference.get()
+            current == null || current === delegate
+        }
+    }
+
+    private inline fun notifyDelegates(callback: (Delegate) -> Unit) {
+        liveDelegates(delegates).forEach(callback)
+    }
+
     fun onDestroy() {
         streamJob?.cancel()
         hintsJob?.cancel()
         supervisorJob.cancel()
+        delegates.clear()
+        activeDelegates.clear()
         WalletCore.unregisterObserver(this)
     }
 }

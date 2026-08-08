@@ -12,7 +12,6 @@ import type { ApiPromotion } from '../../../../api/types/backend';
 import type {
   IAnchorPosition,
   PortfolioPnlChange,
-  TokenChartMode,
   UserToken,
 } from '../../../../global/types';
 import type { LangFn } from '../../../../hooks/useLang';
@@ -32,9 +31,9 @@ import {
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
-import captureEscKeyListener from '../../../../util/captureEscKeyListener';
 import { formatCurrency, formatCurrencyExtended, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { round } from '../../../../util/math';
+import { toNativeDigits } from '../../../../util/nativeDigits';
 import { DEFAULT_PORTFOLIO_TIME_RANGE } from '../../../../util/portfolio/timeRange';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
@@ -42,10 +41,8 @@ import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskS
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useFontScale from '../../../../hooks/useFontScale';
-import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useShowTransition from '../../../../hooks/useShowTransition';
 import useSyncEffect from '../../../../hooks/useSyncEffect';
 import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 import useWindowSize from '../../../../hooks/useWindowSize';
@@ -58,7 +55,6 @@ import SensitiveData from '../../../ui/SensitiveData';
 import Spinner from '../../../ui/Spinner';
 import Transition from '../../../ui/Transition';
 import CardAddress from './CardAddress';
-import ChartCard from './ChartCard';
 import CurrencySwitcherMenu from './CurrencySwitcherMenu';
 import CustomCardManager from './CustomCardManager';
 import SeasonalTheming from './SeasonalTheming';
@@ -70,8 +66,6 @@ import promoOverlayMaskUrl from '../../../../assets/cards/promo_card_overlay.png
 
 interface OwnProps {
   ref?: ElementRef<HTMLDivElement>;
-  onChartCardClose: NoneToVoidFunction;
-  tokenChartMode: TokenChartMode;
   onYieldClick: (stakingId?: string) => void;
 }
 
@@ -79,7 +73,6 @@ interface StateProps {
   currentAccountId: string;
   isTemporaryAccount?: boolean;
   tokens?: UserToken[];
-  currentTokenSlug?: string;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
   stakingStates?: ApiStakingState[];
@@ -139,9 +132,6 @@ function Card({
   currentAccountId,
   isTemporaryAccount,
   tokens,
-  currentTokenSlug,
-  onChartCardClose,
-  tokenChartMode,
   onYieldClick,
   baseCurrency,
   currencyRates,
@@ -186,14 +176,6 @@ function Card({
 
   const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
 
-  const {
-    shouldRender: shouldRenderChartCard,
-    ref: chartCardRef,
-  } = useShowTransition({
-    isOpen: Boolean(currentTokenSlug),
-    noMountTransition: true,
-    withShouldRender: true,
-  });
   const sensitiveDataMaskSkin = getSensitiveDataMaskSkinFromCardNft(cardNft);
 
   const openCurrencyMenu = () => {
@@ -245,16 +227,6 @@ function Card({
     }
   }, [currentAccountId, baseCurrency, portfolioActiveRange, isPortfolioOpen, values?.primaryValue]);
 
-  useHistoryBack({
-    isActive: Boolean(currentTokenSlug),
-    onBack: onChartCardClose,
-  });
-
-  useEffect(
-    () => (shouldRenderChartCard ? captureEscKeyListener(onChartCardClose) : undefined),
-    [shouldRenderChartCard, onChartCardClose],
-  );
-
   const { primaryValue, primaryWholePart, primaryFractionPart } = values || {};
 
   const changeValue = portfolioPnlChange ? portfolioPnlChange.amount : values?.changeValue;
@@ -267,10 +239,15 @@ function Card({
   const hasChangePercent = !!changePrefix && changePercent !== undefined;
 
   useLayoutEffect(() => {
-    if (primaryValue !== undefined) {
+    // Measure only after the balance-update animation (`Transition` fade + `AnimatedCounter`) settles,
+    // otherwise the transient DOM yields a wrong scale that then sticks
+    if (primaryValue !== undefined && !isUpdating) {
       updateFontScale();
     }
-  }, [primaryFractionPart, primaryValue, primaryWholePart, shortBaseSymbol, updateFontScale, screenWidthDep]);
+  }, [
+    primaryFractionPart, primaryValue, primaryWholePart, shortBaseSymbol,
+    updateFontScale, screenWidthDep, isUpdating,
+  ]);
 
   function renderLoader() {
     return (
@@ -374,10 +351,11 @@ function Card({
                       )}
                       aria-hidden
                     />
-                    <AnimatedCounter text={`${Math.abs(changePercent)}%`} />
+                    <AnimatedCounter text={toNativeDigits(`${Math.abs(changePercent)}%`)} className="custom-font" />
                     {' · '}
                   </>
                 )}
+
                 <AnimatedCounter text={hasChangePercent
                   ? formatCurrency(Math.abs(changeValue!), shortBaseSymbol)
                   : formatCurrencyExtended(changeValue!, shortBaseSymbol)}
@@ -409,7 +387,6 @@ function Card({
         className={
           buildClassName(
             styles.container,
-            currentTokenSlug && styles.backstage,
             customCardClassName,
             IS_GRAM_WALLET && 'gram',
           )
@@ -475,15 +452,6 @@ function Card({
         </div>
       </div>
 
-      {shouldRenderChartCard && (
-        <ChartCard
-          tokenSlug={currentTokenSlug}
-          ref={chartCardRef}
-          isUpdating={isUpdating}
-          tokenChartMode={tokenChartMode}
-          onYieldClick={isViewMode ? undefined : onYieldClick}
-        />
-      )}
     </div>
   );
 }
@@ -520,7 +488,6 @@ export default memo(
         isTemporaryAccount: selectCurrentAccount(global)?.isTemporary,
         isViewMode: selectIsCurrentAccountViewMode(global),
         tokens: selectCurrentAccountTokens(global),
-        currentTokenSlug: accountState?.currentTokenSlug,
         baseCurrency,
         currencyRates: global.currencyRates,
         stakingStates,

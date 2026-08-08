@@ -185,7 +185,7 @@ Implemented:
 - row measurement and layout
 - separators
 - row icons, subtitles, badges, disclosure chevrons
-- custom row hosting with selectable and content-handled interaction modes
+- custom row hosting with selectable, submenu, selectable-with-interactive-content, and content-handled interaction modes
 - fixed-height and automatic custom-row sizing
 - scrollable menu pages
 - immediate selection overlay when scrolling is not needed
@@ -198,7 +198,7 @@ Key design decisions copied from Telegram:
 - the selection highlight is not owned by each row
 - instead, a single highlight view is positioned over the active row
 - immediate hold-and-drag selection is enabled only when the page height fits without scrolling
-- immediate hold-and-drag selection only captures selectable row regions, so custom content rows with internal buttons keep receiving touches
+- immediate hold-and-drag selection skips selectable rows that preserve internal controls, so their buttons keep receiving direct touches
 - scrollable pages keep normal scrolling behavior and receive selection from the external long-press path
 
 Telegram references:

@@ -160,9 +160,9 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
 
         let vc = WalletConnectPaySignTransactionVC(
             request: update,
-            onSubmit: { [weak self] request, password in
+            onSubmit: { [weak self] request, enclaveToken in
                 guard let self else { throw CancellationError() }
-                return try await self.submitSignTransaction(request: request, password: password)
+                return try await self.submitSignTransaction(request: request, enclaveToken: enclaveToken)
             },
             onCancel: { [weak self] in
                 self?.cancelAndDismiss(promiseId: update.promiseId)
@@ -181,9 +181,9 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
 
         let vc = WalletConnectPaySignDataVC(
             update: update,
-            onSubmit: { [weak self] update, password in
+            onSubmit: { [weak self] update, enclaveToken in
                 guard let self else { throw CancellationError() }
-                return try await self.submitSignData(update: update, password: password)
+                return try await self.submitSignData(update: update, enclaveToken: enclaveToken)
             },
             onCancel: { [weak self] in
                 self?.cancelAndDismiss(promiseId: update.promiseId)
@@ -463,13 +463,13 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
                 _ = try await AccountStore.activateAccount(accountId: accountId)
             }
         } catch {
-            log.fault("failed to switch to account \(accountId, .public) error:\(error, .public)")
+            log.error("failed to switch to account \(accountId, .public) error:\(error, .public)")
         }
     }
 
     private func submitSignTransaction(
         request: ApiUpdate.WalletConnectPaySignTransaction,
-        password: String?
+        enclaveToken: EnclaveToken?
     ) async throws -> ApiSignDappTransfersResult {
         let account = AccountStore.get(accountId: request.accountId)
         let chain = request.operationChain
@@ -484,7 +484,7 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
             accountId: request.accountId,
             messages: request.transactions.map { ApiTransferToSign($0, chain: chain) },
             options: .init(
-                password: password,
+                enclaveToken: enclaveToken,
                 vestingAddress: nil,
                 validUntil: request.validUntil,
                 isLegacyOutput: request.isLegacyOutput ?? request.isSignOnly
@@ -509,7 +509,7 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
 
     private func submitSignData(
         update: ApiUpdate.WalletConnectPaySignData,
-        password: String?
+        enclaveToken: EnclaveToken?
     ) async throws -> ApiMfaProtectedResult {
         let account = AccountStore.get(accountId: update.accountId)
         let address = account.getAddress(chain: update.operationChain) ?? ""
@@ -523,7 +523,7 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
             accountId: update.accountId,
             dappUrl: walletConnectPaySignUrl,
             payloadToSign: update.payloadToSign,
-            password: password
+            enclaveToken: enclaveToken
         )
         try await Api.confirmWalletConnectPaySignData(
             promiseId: update.promiseId,

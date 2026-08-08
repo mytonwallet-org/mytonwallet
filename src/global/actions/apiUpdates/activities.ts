@@ -8,29 +8,33 @@ import {
   MINT_CARD_REFUND_COMMENT,
   MW_CARDS_COLLECTION,
 } from '../../../config';
-import { getActivityIdReplacements, getIsHiddenNftActivity } from '../../../util/activities';
+import { getIsHiddenNftActivity } from '../../../util/activities';
 import { playIncomingTransactionSound } from '../../../util/notificationSound';
 import { getIsTransactionWithPoisoning, updatePoisoningCacheFromActivities } from '../../../util/poisoningHash';
 import { waitFor } from '../../../util/schedulers';
 import { getChainBySlug } from '../../../util/tokens';
+import { callApi } from '../../../api';
 import { SEC } from '../../../api/constants';
 import { getIsTinyOrScamTransaction } from '../../helpers';
+import { runActivityUpdateInOrder } from '../../helpers/activityUpdateQueue';
+import {
+  selectCexSwapRefreshContextActivities,
+} from '../../helpers/cexSwapRefresh';
 import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
 import {
   addInitialActivities,
   addNewActivities,
   addNft,
+  applyActivitiesPatch,
   applyIncomingNftFromActivity,
   applyOutgoingNftFromActivity,
-  removeActivities,
   replaceCurrentActivityId,
   replaceCurrentDomainLinkingId,
   replaceCurrentDomainRenewalId,
   replaceCurrentSwapId,
   replaceCurrentTransferId,
+  replacePendingActivities,
   updateAccountState,
-  updatePendingActivitiesToTrustedByReplacements,
-  updatePendingActivitiesWithTrustedStatus,
 } from '../../reducers';
 import {
   selectAccountSettings,
@@ -44,7 +48,7 @@ import {
 const TX_AGE_TO_PLAY_SOUND = 60000; // 1 min
 const PRELOAD_ACTIVITY_TOKEN_COUNT = 10;
 
-addActionHandler('apiUpdate', (global, actions, update) => {
+addActionHandler('apiUpdate', async (global, actions, update) => {
   switch (update.type) {
     case 'initialActivities': {
       const {
@@ -53,7 +57,17 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
       updatePoisoningCacheFromActivities(mainActivities);
 
+      const currentActivities = Object.values(selectAccountState(global, accountId)?.activities?.byId ?? {});
+      const duplicateIds = await callApi(
+        'getBackendDexSwapIdsDuplicatedByTonAggregates',
+        accountId,
+        [...currentActivities, ...mainActivities],
+      );
+      global = getGlobal();
       global = addInitialActivities(global, accountId, mainActivities, bySlug, chain, mainHistoryHasMore);
+      if (duplicateIds?.length) {
+        global = applyActivitiesPatch(global, accountId, { upsert: [], removeIds: duplicateIds });
+      }
       setGlobal(global);
 
       void preloadTopTokenHistory(accountId, chain);
@@ -66,92 +80,143 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         activities,
       } = update;
 
-      // Find matches between local and chain activities
-      const replacedIds = findLocalToChainActivityMatches(global, accountId, activities);
+      await runActivityUpdateInOrder(accountId, async () => {
+        global = getGlobal();
 
-      hideOutdatedLocalActivities(activities, replacedIds);
+        const maxCheckDepth = activities.length + 20;
+        const chainActivities = selectRecentNonLocalActivitiesSlow(global, accountId, maxCheckDepth);
+        const reconciliation = await callApi(
+          'reconcileActivityUpdate',
+          accountId,
+          activities,
+          chainActivities,
+          undefined,
+        );
+        global = getGlobal();
 
-      // Update pending chain activities to trusted status where applicable
-      global = updatePendingActivitiesToTrustedByReplacements(global, accountId, activities, replacedIds);
-      global = addNewActivities(global, accountId, activities);
+        let localActivities = activities;
+        if (reconciliation) {
+          const { patch } = reconciliation;
+          const replacedIds = patch.replacedIds ?? {};
+          const removeIds = new Set(patch.removeIds);
+          const localIds = new Set(activities.map(({ id }) => id));
+          const patchUpsertById = new Map(patch.upsert.map((activity) => [activity.id, activity]));
 
-      setGlobal(global);
+          localActivities = activities
+            .filter(({ id }) => !removeIds.has(id))
+            .map((activity) => patchUpsertById.get(activity.id) ?? activity);
+
+          global = addNewActivities(
+            global,
+            accountId,
+            patch.upsert.filter(({ id }) => !localIds.has(id)),
+          );
+          global = replaceCurrentTransferId(global, replacedIds);
+          global = replaceCurrentDomainLinkingId(global, replacedIds);
+          global = replaceCurrentDomainRenewalId(global, replacedIds);
+          global = replaceCurrentSwapId(global, replacedIds);
+          global = replaceCurrentActivityId(global, accountId, replacedIds);
+        }
+
+        // If the SDK bridge is unavailable, keep local and chain rows separate. Native/app code must not infer identity.
+        global = addNewActivities(global, accountId, localActivities);
+        if (reconciliation) {
+          global = applyActivitiesPatch(global, accountId, reconciliation.patch);
+        }
+
+        setGlobal(global);
+      });
       break;
     }
 
     case 'newActivities': {
       const { accountId, activities: newConfirmedActivities, pendingActivities, chain } = update;
+      await runActivityUpdateInOrder(accountId, async () => {
+        global = getGlobal();
+        const { activities } = selectAccountState(global, accountId) ?? {};
+        const prevActivitiesForReplacement = [
+          ...selectLocalActivitiesSlow(global, accountId),
+          ...(chain ? selectPendingActivitiesSlow(global, accountId, chain) : []),
+        ];
+        const reconciliation = await callApi(
+          'reconcileActivityUpdate',
+          accountId,
+          prevActivitiesForReplacement,
+          newConfirmedActivities,
+          pendingActivities,
+          {
+            contextActivities: activities
+              ? selectCexSwapRefreshContextActivities(activities, [], newConfirmedActivities)
+              : newConfirmedActivities,
+          },
+        );
+        global = getGlobal();
+        const replacedIds = reconciliation?.patch.replacedIds ?? {};
+        const reconciledConfirmedActivities = reconciliation?.confirmedActivities ?? newConfirmedActivities;
+        const reconciledPendingActivities = reconciliation?.pendingActivities ?? pendingActivities;
 
-      const prevActivitiesForReplacement = [
-        ...selectLocalActivitiesSlow(global, accountId),
-        ...(chain ? selectPendingActivitiesSlow(global, accountId, chain) : []),
-      ];
-      const incomingActivities = [
-        ...(pendingActivities ?? []),
-        ...newConfirmedActivities,
-      ];
-      const replacedIds = getActivityIdReplacements(prevActivitiesForReplacement, incomingActivities);
+        if (chain && reconciledPendingActivities) {
+          global = replacePendingActivities(global, accountId, chain, reconciledPendingActivities);
+        }
+        // Fail closed on bridge errors: commit raw rows, but never infer replacements or visibility in app code.
+        global = addNewActivities(global, accountId, reconciledConfirmedActivities);
+        if (reconciliation) {
+          global = applyActivitiesPatch(global, accountId, reconciliation.patch);
+        }
+        global = replaceCurrentTransferId(global, replacedIds);
+        global = replaceCurrentDomainLinkingId(global, replacedIds);
+        global = replaceCurrentDomainRenewalId(global, replacedIds);
+        global = replaceCurrentSwapId(global, replacedIds);
+        global = replaceCurrentActivityId(global, accountId, replacedIds);
 
-      // A good TON address for testing: UQD5mxRgCuRNLxKxeOjG6r14iSroLF5FtomPnet-sgP5xI-e
-      global = removeActivities(global, accountId, Object.keys(replacedIds));
-      global = updatePendingActivitiesWithTrustedStatus(
-        global,
-        accountId,
-        chain,
-        pendingActivities,
-        replacedIds,
-        prevActivitiesForReplacement,
-      );
-      global = addNewActivities(global, accountId, newConfirmedActivities);
+        notifyAboutNewActivities(
+          global,
+          accountId,
+          reconciledConfirmedActivities.filter(({ shouldHide }) => shouldHide !== true),
+        );
+        updatePoisoningCacheFromActivities(newConfirmedActivities);
 
-      global = replaceCurrentTransferId(global, replacedIds);
-      global = replaceCurrentDomainLinkingId(global, replacedIds);
-      global = replaceCurrentDomainRenewalId(global, replacedIds);
-      global = replaceCurrentSwapId(global, replacedIds);
-      global = replaceCurrentActivityId(global, accountId, replacedIds);
+        if (!IS_FEATURE_LIMITED) {
+          // NFT polling is executed at long intervals, so a transaction-event with an NFT can arrive
+          // long before the next polling round. Apply the change to local NFT state immediately so the UI
+          // reflects new ownership (incl. MW-card auto-install) without waiting for polling.
+          // A subsequent `nftReceived`/`nftSent` socket update or polling round is idempotent here.
+          for (const activity of newConfirmedActivities) {
+            if (activity.kind !== 'transaction' || !activity.nft) continue;
 
-      notifyAboutNewActivities(global, accountId, newConfirmedActivities);
-      updatePoisoningCacheFromActivities(newConfirmedActivities);
+            // For `nftTrade` (marketplace buy/sell) `isIncoming` reflects the `TONCOIN` direction,
+            // not the NFT direction - so it must be inverted here
+            const isNftIncoming = activity.type === 'nftTrade' ? !activity.isIncoming : activity.isIncoming;
 
-      if (!IS_FEATURE_LIMITED) {
-        // NFT polling is executed at long intervals, so a transaction-event with an NFT can arrive
-        // long before the next polling round. Apply the change to local NFT state immediately so the UI
-        // reflects new ownership (incl. MW-card auto-install) without waiting for polling.
-        // A subsequent `nftReceived`/`nftSent` socket update or polling round is idempotent here.
-        for (const activity of newConfirmedActivities) {
-          if (activity.kind !== 'transaction' || !activity.nft) continue;
+            if (isNftIncoming) {
+              global = applyIncomingNftFromActivity(global, accountId, activity.nft);
 
-          // For `nftTrade` (marketplace buy/sell) `isIncoming` reflects the `TONCOIN` direction,
-          // not the NFT direction - so it must be inverted here
-          const isNftIncoming = activity.type === 'nftTrade' ? !activity.isIncoming : activity.isIncoming;
+              // Auto-installing a card is only safe where the card can also be taken off: every removal surface
+              // (customization modal, accent picker, the NFT menu's reset action) belongs to the My Wallet brand
+              if (IS_MY_WALLET_BRAND && activity.nft.collectionAddress === MW_CARDS_COLLECTION) {
+                const settings = selectAccountSettings(global, accountId);
 
-          if (isNftIncoming) {
-            global = applyIncomingNftFromActivity(global, accountId, activity.nft);
-
-            // Auto-installing a card is only safe where the card can also be taken off: every removal surface
-            // (customization modal, accent picker, the NFT menu's reset action) belongs to the My Wallet brand
-            if (IS_MY_WALLET_BRAND && activity.nft.collectionAddress === MW_CARDS_COLLECTION) {
-              const settings = selectAccountSettings(global, accountId);
-
-              if (!settings?.cardBackgroundNft) {
-                getActions().setCardBackgroundNft({ nft: activity.nft, accountId });
-                getActions().installAccentColorFromNft({ nft: activity.nft, accountId });
+                if (!settings?.cardBackgroundNft) {
+                  getActions().setCardBackgroundNft({ nft: activity.nft, accountId });
+                  getActions().installAccentColorFromNft({ nft: activity.nft, accountId });
+                }
               }
+            } else {
+              // `newOwnerAddress` is `unknown` from the sender's activity; `ownedSet` pruning is the meaningful effect
+              global = applyOutgoingNftFromActivity(global, accountId, activity.nft);
             }
-          } else {
-            // `newOwnerAddress` is `unknown` from the sender's activity; `ownedSet` pruning is the meaningful effect
-            global = applyOutgoingNftFromActivity(global, accountId, activity.nft);
+          }
+
+          // Handles the `isCardMinting` flag reset and refund branch. `addNft`/`setCardBackgroundNft` are
+          // idempotent, so the small overlap with the loop above is harmless.
+          if (IS_MY_WALLET_BRAND) {
+            global = processCardMintingActivity(global, accountId, newConfirmedActivities);
           }
         }
 
-        // Handles the `isCardMinting` flag reset and refund branch. `addNft`/`setCardBackgroundNft` are
-        // idempotent, so the small overlap with the loop above is harmless.
-        if (IS_MY_WALLET_BRAND) {
-          global = processCardMintingActivity(global, accountId, newConfirmedActivities);
-        }
-      }
+        setGlobal(global);
+      });
 
-      setGlobal(global);
       break;
     }
   }
@@ -162,7 +227,7 @@ function notifyAboutNewActivities(global: GlobalState, accountId: string, newAct
     return;
   }
 
-  const { areTinyTransfersHidden } = global.settings;
+  const { areTinyTransfersHidden, areUnverifiedNftsHidden } = global.settings;
   const { blacklistedNftAddresses, whitelistedNftAddresses } = selectAccountState(global, accountId) || {};
 
   const shouldPlaySound = newActivities.some((activity) => {
@@ -170,13 +235,8 @@ function notifyAboutNewActivities(global: GlobalState, accountId: string, newAct
       && activity.isIncoming
       && activity.status === 'completed'
       && (Date.now() - activity.timestamp < TX_AGE_TO_PLAY_SOUND)
-      && !(
-        areTinyTransfersHidden
-        && (
-          getIsTinyOrScamTransaction(activity, global.tokenInfo?.bySlug[activity.slug])
-          || getIsHiddenNftActivity(activity, blacklistedNftAddresses, whitelistedNftAddresses)
-        )
-      )
+      && !getIsHiddenNftActivity(activity, blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden)
+      && !(areTinyTransfersHidden && getIsTinyOrScamTransaction(activity, global.tokenInfo?.bySlug[activity.slug]))
       && !getIsTransactionWithPoisoning(activity);
   });
 
@@ -219,34 +279,9 @@ function processCardMintingActivity(global: GlobalState, accountId: string, acti
   return global;
 }
 
-function findLocalToChainActivityMatches(
-  global: GlobalState,
-  accountId: string,
-  localActivities: ApiActivity[],
-) {
-  const maxCheckDepth = localActivities.length + 20;
-  const chainActivities = selectRecentNonLocalActivitiesSlow(global, accountId, maxCheckDepth);
-
-  return getActivityIdReplacements(localActivities, chainActivities);
-}
-
-/**
- * Thanks to the socket, there is a possibility that a pending activity will arrive before the corresponding local
- * activity. Such local activities duplicate the pending activities, which is unwanted. They shouldn't be removed,
- * because other parts of the global state may point to their ids, so they get hidden instead.
- */
-function hideOutdatedLocalActivities(
-  localActivities: ApiActivity[],
-  replacements: Record<string, string>,
-) {
-  for (const localActivity of localActivities) {
-    if (localActivity.id in replacements) {
-      localActivity.shouldHide = true;
-    }
-  }
-}
-
 async function preloadTopTokenHistory(accountId: string, chain: ApiChain) {
+  const { fetchPastActivities } = getActions();
+
   await waitFor(() => !!selectAccountTokens(getGlobal(), accountId), SEC, 10);
   const global = getGlobal();
 
@@ -255,7 +290,6 @@ async function preloadTopTokenHistory(accountId: string, chain: ApiChain) {
     .filter((token) => getChainBySlug(token.slug) === chain);
 
   const { idsBySlug } = selectAccountState(global, accountId)?.activities || {};
-  const { fetchPastActivities } = getActions();
 
   for (const { slug } of tokens) {
     if (idsBySlug?.[slug] === undefined) {

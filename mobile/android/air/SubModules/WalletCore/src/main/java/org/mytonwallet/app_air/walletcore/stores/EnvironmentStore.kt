@@ -10,8 +10,7 @@ object EnvironmentStore : IStore {
 
     fun loadEnvVariable() {
         WalletCore.call(ApiMethod.Other.GetEnvironmentVariables(), { res, _ ->
-            if (res != null)
-                environmentVariables = res
+            if (res != null) environmentVariables = res
         })
     }
 

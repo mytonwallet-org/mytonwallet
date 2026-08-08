@@ -31,7 +31,14 @@ export type ApiTonWallet = ApiBaseWallet & {
 
 export type ApiTronWallet = ApiBaseWallet;
 
-export type ApiSolanaWallet = ApiBaseWallet;
+export type ApiSolanaWallet = ApiBaseWallet & {
+  /**
+   * Monotonic schema version for the stored derivation. When the target version
+   * in CHAIN_CONFIG.solana.derivation.version is bumped, the chain-upgrade subsystem
+   * will re-derive this wallet and write the new version here.
+   */
+  derivationVersion?: number;
+};
 
 export type ApiEVMWallet = ApiBaseWallet;
 
@@ -48,6 +55,7 @@ export type ApiWalletByChain = {
   monad: ApiEVMWallet;
   avalanche: ApiEVMWallet;
   hyperliquid: ApiEVMWallet;
+  robinhood: ApiEVMWallet;
 };
 
 type ApiBaseAccount = {
@@ -59,12 +67,10 @@ type ApiBaseAccount = {
 /** Also accounts based on a private key */
 export type ApiBip39Account = ApiBaseAccount & {
   type: 'bip39';
-  mnemonicEncrypted: string;
 };
 
 export type ApiTonAccount = ApiBaseAccount & {
   type: 'ton';
-  mnemonicEncrypted: string;
 };
 
 export type ApiLedgerAccount = ApiBaseAccount & {
@@ -79,7 +85,7 @@ export type ApiViewAccount = ApiBaseAccount & {
 };
 
 export type ApiAccountAny = ApiBip39Account | ApiTonAccount | ApiLedgerAccount | ApiViewAccount;
-export type ApiAccountWithMnemonic = Extract<ApiAccountAny, { mnemonicEncrypted: string }>;
+export type ApiAccountWithMnemonic = ApiBip39Account | ApiTonAccount;
 export type ApiAccountWithChain<T extends ApiChain> = ApiAccountAny & { byChain: Record<T, ApiWalletByChain[T]> };
 
 export interface ApiSseOptions {

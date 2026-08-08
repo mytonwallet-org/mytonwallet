@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
 import java.util.Date
 import java.util.UUID
+import org.mytonwallet.app_air.uiagent.processors.AgentHint
 
 enum class AgentMessageRole {
     ASSISTANT,
@@ -9,10 +10,7 @@ enum class AgentMessageRole {
     SYSTEM
 }
 
-data class AgentDeeplink(
-    val title: String,
-    val url: String
-)
+data class AgentDeeplink(val title: String, val url: String)
 
 data class AgentMessage(
     val id: String = UUID.randomUUID().toString(),
@@ -20,10 +18,11 @@ data class AgentMessage(
     val text: String,
     val date: Date = Date(),
     val isStreaming: Boolean = false,
-    val deeplinks: List<AgentDeeplink> = emptyList(),
+    val deeplinks: List<AgentDeeplink> = emptyList()
 )
 
 sealed class AgentTimelineItem {
     data class DateHeader(val date: Date) : AgentTimelineItem()
     data class Message(val message: AgentMessage) : AgentTimelineItem()
+    data class Hints(val hints: List<AgentHint>) : AgentTimelineItem()
 }

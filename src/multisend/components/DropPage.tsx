@@ -3,7 +3,7 @@ import React, { memo, useEffect, useRef, useState } from '../../lib/teact/teact'
 
 import type { TransferRow, ValidationError } from '../types';
 
-import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../config';
+import { ANIMATED_STICKER_BIG_SIZE_PX, TONCOIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { ANIMATED_STICKERS_PATHS } from '../../components/ui/helpers/animatedAssets';
 import { downloadTemplateFile } from '../utils/csvTemplates';
@@ -214,7 +214,7 @@ function DropPage({
               nonInteractive
             />
             <p className={styles.title}>
-              Send TON and tokens to multiple recipients in one batch operation
+              Send {TONCOIN.symbol} and tokens to multiple recipients in one batch operation
             </p>
 
             <div className={styles.importButtons}>

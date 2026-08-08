@@ -90,6 +90,7 @@ public extension StakingConfig {
     var baseToken: ApiToken { TokenStore.tokens[baseTokenSlug] ?? _baseToken }
     var stakedToken: ApiToken { TokenStore.tokens[stakedTokenSlug] ?? _stakedToken }
     var nativeToken: ApiToken { TokenStore.tokens[nativeTokenSlug] ?? .TONCOIN }
+    var canAddStake: Bool { baseTokenSlug != MYCOIN_SLUG }
     
     func stakingState(stakingData: MStakingData?) -> ApiStakingState? {
         switch self {

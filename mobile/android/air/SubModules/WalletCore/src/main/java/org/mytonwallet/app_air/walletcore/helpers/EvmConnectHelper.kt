@@ -1,11 +1,11 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 
 object EvmConnectHelper {
 
@@ -13,13 +13,19 @@ object EvmConnectHelper {
         get() = ApplicationContextHolder.isGramApp
 
     private val installFlag: String
-        get() = if (isGramWallet) "__gramWalletEvmConnectorInstalled" else "__mtwEvmConnectorInstalled"
+        get() = if (isGramWallet) {
+            "__gramWalletEvmConnectorInstalled"
+        } else {
+            "__mtwEvmConnectorInstalled"
+        }
 
     private val rdns: String
         get() = if (isGramWallet) "io.gramwallet" else "app.mytonwallet"
 
     private val appName: String
-        get() = ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key)
+        get() = ApplicationContextHolder.applicationContext.getString(
+            BaseR.string.app_locale_name_key
+        )
 
     private val activeNetwork: String
         get() = (AccountStore.activeAccount?.network ?: MBlockchainNetwork.MAINNET).value
@@ -148,13 +154,15 @@ object EvmConnectHelper {
             }
 
             function hexToEip155Caip2(hex) {
-                const withPrefix = String(hex || '').startsWith('0x') ? String(hex) : ('0x' + hex);
-                return 'eip155:' + BigInt(withPrefix);
+                const value = String(hex ?? '');
+                if (!value) throw new TypeError('Invalid chain ID');
+                return 'eip155:' + BigInt(value);
             }
 
             function normalizeHexChainId(hex) {
-                const withPrefix = String(hex || '').startsWith('0x') ? String(hex) : ('0x' + hex);
-                return '0x' + BigInt(withPrefix).toString(16);
+                const value = String(hex ?? '');
+                if (!value) throw new TypeError('Invalid chain ID');
+                return '0x' + BigInt(value).toString(16);
             }
 
             function isSupportedCaip(caip2) {

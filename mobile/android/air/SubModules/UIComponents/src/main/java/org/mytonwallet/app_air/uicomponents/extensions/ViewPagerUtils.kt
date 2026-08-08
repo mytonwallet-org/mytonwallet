@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.abs
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 fun ViewPager2.setupSpringFling(onScrollingToTarget: (targetIndex: Int) -> Int) {
     val recyclerView = getChildAt(0) as RecyclerView
@@ -26,39 +27,43 @@ fun ViewPager2.setupSpringFling(onScrollingToTarget: (targetIndex: Int) -> Int) 
                 abs(viewCenter - recyclerCenter)
             } ?: 0
 
+            val step = if (LocaleController.isRTL) -1 else 1
             val targetPosition = when {
-                velocityX > 300 -> currentPosition + 1
-                velocityX < -300 -> currentPosition - 1
+                velocityX > 300 -> currentPosition + step
+                velocityX < -300 -> currentPosition - step
                 else -> currentPosition
             }.coerceIn(0, itemCount - 1)
             val finalTargetPosition = onScrollingToTarget(targetPosition)
+            val scrollPosition =
+                if (LocaleController.isRTL) {
+                    itemCount - 1 - finalTargetPosition
+                } else {
+                    finalTargetPosition
+                }
 
             val springAnim = SpringAnimation(
                 recyclerView,
                 object : FloatPropertyCompat<RecyclerView>("scrollX") {
-                    override fun getValue(view: RecyclerView): Float {
-                        return view.computeHorizontalScrollOffset().toFloat()
-                    }
+                    override fun getValue(view: RecyclerView): Float =
+                        view.computeHorizontalScrollOffset().toFloat()
 
                     override fun setValue(view: RecyclerView, value: Float) {
                         view.scrollBy((value - view.computeHorizontalScrollOffset()).toInt(), 0)
                     }
                 },
-                finalTargetPosition * width.toFloat()
+                scrollPosition * width.toFloat()
             )
 
             springAnim.spring.dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
             springAnim.spring.stiffness = 500f
             springAnim.setStartVelocity(velocityX.toFloat())
             springAnim.addEndListener { _, canceled, _, _ ->
-                if (!canceled)
-                    recyclerView.scrollToPosition(finalTargetPosition)
+                if (!canceled) recyclerView.scrollToPosition(finalTargetPosition)
             }
             springAnim.start()
             @SuppressLint("ClickableViewAccessibility")
             recyclerView.setOnTouchListener { _, event ->
-                if (event.action == MotionEvent.ACTION_DOWN)
-                    springAnim.cancel()
+                if (event.action == MotionEvent.ACTION_DOWN) springAnim.cancel()
                 recyclerView.setOnTouchListener(null)
                 return@setOnTouchListener false
             }
@@ -68,17 +73,22 @@ fun ViewPager2.setupSpringFling(onScrollingToTarget: (targetIndex: Int) -> Int) 
     }
 }
 
-fun ViewPager2.springToItem(targetPosition: Int, velocityX: Float = 0f, onCompletion: (() -> Unit)? = null) {
+fun ViewPager2.springToItem(
+    targetPosition: Int,
+    velocityX: Float = 0f,
+    onCompletion: (() -> Unit)? = null
+) {
     val recyclerView = getChildAt(0) as RecyclerView
     val itemCount = recyclerView.adapter?.itemCount ?: return
 
     val clampedPosition = targetPosition.coerceIn(0, itemCount - 1)
-    val offset = clampedPosition * width.toFloat()
+    val scrollPosition =
+        if (LocaleController.isRTL) itemCount - 1 - clampedPosition else clampedPosition
+    val offset = scrollPosition * width.toFloat()
 
     val scrollProperty = object : FloatPropertyCompat<RecyclerView>("scrollX") {
-        override fun getValue(view: RecyclerView): Float {
-            return view.computeHorizontalScrollOffset().toFloat()
-        }
+        override fun getValue(view: RecyclerView): Float =
+            view.computeHorizontalScrollOffset().toFloat()
 
         override fun setValue(view: RecyclerView, value: Float) {
             view.scrollBy((value - view.computeHorizontalScrollOffset()).toInt(), 0)

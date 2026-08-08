@@ -3,6 +3,9 @@ package org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.payOptions.vi
 import android.annotation.SuppressLint
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -11,19 +14,16 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
-import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
+import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
 
 @SuppressLint("ViewConstructor")
-class WalletConnectPayMerchantHeaderView(
-    private val navigationController: WNavigationController,
-) : WView(navigationController.context), WThemedView {
+class WalletConnectPayMerchantHeaderView(private val navigationController: WNavigationController) :
+    WView(navigationController.context),
+    WThemedView {
 
     companion object {
         private const val NAV_SIZE_OFFSET_DP = 8

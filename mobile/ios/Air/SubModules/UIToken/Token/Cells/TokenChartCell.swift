@@ -11,7 +11,7 @@ import WalletCore
 import WalletContext
 
 final class TokenChartCell: FirstRowCell {
-    private let horizontalInset = S.insetSectionHorizontalMargin
+    private let horizontalInset = CGFloat(16)
 
     override init(frame: CGRect) {
         super.init(frame: frame)

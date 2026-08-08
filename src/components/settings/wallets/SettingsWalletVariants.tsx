@@ -1,22 +1,27 @@
 import type { TeactNode } from '../../../lib/teact/teact';
-import React, { memo, useEffect, useLayoutEffect, useMemo, useState } from '../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../global';
+import React, {
+  memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useUnmountCleanup,
+} from '../../../lib/teact/teact';
+import { getActions, getGlobal, withGlobal } from '../../../global';
 
 import type { ApiTonWalletVersion } from '../../../api/chains/ton/types';
 import type { ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiGroupedWalletVariant } from '../../../api/types';
 import type { Account, AccountChain, GlobalState, UserToken } from '../../../global/types';
 import type Big from '../../../lib/big.js';
 
-import { selectCurrentAccountId, selectCurrentAccountTokens } from '../../../global/selectors';
-import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
-import { getDoesUsePinPad } from '../../../util/biometrics';
+import { dropEnclaveSessionHold, holdEnclaveSession } from '../../../global/helpers/enclave';
+import {
+  selectCurrentAccountId,
+  selectCurrentAccountTokens,
+  selectEnclaveToken,
+  selectIsEnclaveSessionValid,
+} from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { calculateTokenPrice } from '../../../util/calculatePrice';
 import { getOrderedAccountChains } from '../../../util/chain';
 import { toBig, toDecimal } from '../../../util/decimals';
 import { formatAccountAddresses } from '../../../util/formatAccountAddress';
 import { formatCurrency, getShortCurrencySymbol } from '../../../util/formatNumber';
-import { vibrateOnSuccess } from '../../../util/haptics';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
 import { pause } from '../../../util/schedulers';
 import { callApi } from '../../../api';
@@ -45,6 +50,7 @@ export interface Wallet {
 
 interface OwnProps {
   isActive?: boolean;
+  isInsideModal?: boolean;
   accountChains?: Account['byChain'];
   onBackClick: NoneToVoidFunction;
 }
@@ -75,6 +81,7 @@ const enum SLIDES {
 
 function SettingsWalletVariants({
   isActive,
+  isInsideModal,
   accountChains,
   onBackClick,
   accountId,
@@ -88,28 +95,59 @@ function SettingsWalletVariants({
     addSubWallet,
     addAllFoundSubwallets,
     createSubWallet,
-    setIsPinAccepted,
-    clearIsPinAccepted,
+    releaseEnclaveSession,
   } = getActions();
   const lang = useLang();
 
   const [currentSlide, setCurrentSlide] = useState<SLIDES>(
-    getHasInMemoryPassword() ? SLIDES.walletVariants : SLIDES.password,
+    selectIsEnclaveSessionValid(getGlobal()) ? SLIDES.walletVariants : SLIDES.password,
   );
 
-  const [password, setPassword] = useState<string>();
-  const [passwordError, setPasswordError] = useState<string>();
+  const [enclaveToken, setEnclaveToken] = useState<string | undefined>(
+    selectIsEnclaveSessionValid(getGlobal()) ? selectEnclaveToken(getGlobal()) : undefined,
+  );
   const [groups, setGroups] = useState<ApiGroupedWalletVariant[]>([]);
   const [derivationsError, setDerivationsError] = useState<string>();
   const [isLoadingDerivations, setIsLoadingDerivations] = useState(true);
 
+  /**
+   * The screen reads the secret to list the variants and again to create the one that was picked,
+   * so it owns its token for as long as it is open rather than for the length of one call. The hold
+   * is what keeps the creation it started from losing the session when the screen closes behind it.
+   */
+  const heldTokenRef = useRef<string>();
+  const isCreatingRef = useRef(false);
+
+  const holdToken = useLastCallback((token: string) => {
+    if (heldTokenRef.current === token) return;
+
+    dropHeldToken();
+    heldTokenRef.current = token;
+    holdEnclaveSession(token);
+  });
+
+  const dropHeldToken = useLastCallback(() => {
+    const token = heldTokenRef.current;
+    if (!token) return;
+
+    heldTokenRef.current = undefined;
+    if (dropEnclaveSessionHold(token)) {
+      releaseEnclaveSession({ enclaveToken: token });
+    }
+  });
+
+  // The screen can also die without being deactivated first - switching the account rebuilds the
+  // layout around it - and a hold nobody drops leaves a live read of the private key behind, with
+  // no expiry to end it.
+  useUnmountCleanup(dropHeldToken);
+
   const cleanup = useLastCallback(() => {
-    setPassword(undefined);
-    setPasswordError(undefined);
+    dropHeldToken();
+    isCreatingRef.current = false;
+    setEnclaveToken(undefined);
     setGroups([]);
     setDerivationsError(undefined);
     setIsLoadingDerivations(true);
-    clearIsPinAccepted();
   });
 
   const handleBackToSettingsClick = useLastCallback(() => {
@@ -118,8 +156,19 @@ function SettingsWalletVariants({
   });
 
   useLayoutEffect(() => {
-    if (isActive && getHasInMemoryPassword()) {
-      void getInMemoryPassword().then(setPassword);
+    if (!isActive) {
+      cleanup();
+      return;
+    }
+
+    const currentEnclaveToken = selectEnclaveToken(getGlobal());
+
+    if (currentEnclaveToken && selectIsEnclaveSessionValid(getGlobal())) {
+      holdToken(currentEnclaveToken);
+      setEnclaveToken(currentEnclaveToken);
+      setCurrentSlide(SLIDES.walletVariants);
+    } else {
+      setCurrentSlide(SLIDES.password);
     }
   }, [isActive]);
 
@@ -138,17 +187,11 @@ function SettingsWalletVariants({
     setCurrentSlide(SLIDES.walletVariants);
   });
 
-  useLayoutEffect(() => {
-    if (password === undefined && isActive && !getHasInMemoryPassword()) {
-      setCurrentSlide(SLIDES.password);
-    } else if (!isActive) cleanup();
-  }, [password, isActive]);
-
   useEffect(() => {
-    if (!isActive || !password) return undefined;
+    if (!isActive || !enclaveToken) return undefined;
 
     const currentAccountId = accountId;
-    const currentPassword = password;
+    const currentEnclaveToken = enclaveToken;
     let isCancelled = false;
 
     setDerivationsError(undefined);
@@ -156,7 +199,7 @@ function SettingsWalletVariants({
     setIsLoadingDerivations(true);
 
     const runSearch = async () => {
-      const mnemonicResult = await callApi('fetchMnemonic', currentAccountId, currentPassword);
+      const mnemonicResult = await callApi('fetchMnemonic', currentAccountId, currentEnclaveToken);
 
       if (!mnemonicResult) {
         setDerivationsError('Unexpected error');
@@ -215,28 +258,12 @@ function SettingsWalletVariants({
     return () => {
       isCancelled = true;
     };
-  }, [accountId, isActive, password]);
+  }, [accountId, enclaveToken, isActive]);
 
-  const handlePasswordSubmit = useLastCallback(async (enteredPassword: string) => {
-    const result = await callApi('verifyPassword', enteredPassword);
-
-    if (!result) {
-      const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
-      setPasswordError(error);
-      return;
-    }
-
-    if (getDoesUsePinPad()) {
-      setIsPinAccepted();
-      await vibrateOnSuccess(true);
-    }
-
+  const handleAuthorize = useLastCallback((authorizedEnclaveToken: string) => {
+    holdToken(authorizedEnclaveToken);
+    setEnclaveToken(authorizedEnclaveToken);
     handleGoToVariants();
-    setPassword(enteredPassword);
-  });
-
-  const clearPasswordError = useLastCallback(() => {
-    setPasswordError(undefined);
   });
 
   const displayChains = useMemo(
@@ -327,7 +354,7 @@ function SettingsWalletVariants({
     return {
       title: `.${dotIndex + 1}`,
       label,
-      addressContent: formatAccountAddresses(walletsByChain, 'small'),
+      addressContent: formatAccountAddresses(walletsByChain, getOrderedAccountChains(walletsByChain), 'small'),
       assetAmounts,
       totalBalance: formatCurrency(fiatAccum, shortBaseSymbol),
     };
@@ -397,9 +424,13 @@ function SettingsWalletVariants({
   }, [displayChains, accountChains, tokens, tokenInfo, baseCurrency, currencyRates]);
 
   const handleCreateSubwallet = useLastCallback(() => {
-    if (!password) return;
+    const currentEnclaveToken = enclaveToken ?? selectEnclaveToken(getGlobal());
+    // The button outlives the click by a render, and the budget covers a single creation: a second
+    // one would ask for a read the session no longer has and report a correct password as wrong.
+    if (!currentEnclaveToken || isCreatingRef.current) return;
 
-    createSubWallet({ password });
+    isCreatingRef.current = true;
+    createSubWallet({ enclaveToken: currentEnclaveToken });
     closeSettings();
   });
 
@@ -561,14 +592,16 @@ function SettingsWalletVariants({
             />
             <PasswordForm
               isActive={isSlideActive && !!isActive}
-              error={passwordError}
               containerClassName={styles.passwordFormWithHeaderOffset}
               placeholder={lang('Enter your current password')}
+              forceBiometricsInMain={!isInsideModal}
               submitLabel={lang('Continue')}
               noAutoConfirm
+              // Listing the variants reads the secret, and creating the one that was picked reads
+              // it again
+              extraAuthUsages={1}
               onCancel={handleBackToSettingsClick}
-              onSubmit={handlePasswordSubmit}
-              onUpdate={clearPasswordError}
+              onAuthorize={handleAuthorize}
             />
           </div>
         );

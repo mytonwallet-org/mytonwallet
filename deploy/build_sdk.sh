@@ -1,9 +1,20 @@
 #!/bin/bash
 
+# Without this the script keeps going after a failed webpack run and copies whatever `dist-air`
+# happened to hold, which reaches the mobile asset dirs as a silently stale SDK.
+set -euo pipefail
+
 # Build SDKs
 rm -rf dist-air
 SDK_OUTPUT_CLEAN=1 IS_GRAM_WALLET=0 webpack --config webpack-air.config.ts
 SDK_OUTPUT_CLEAN=0 IS_GRAM_WALLET=1 webpack --config webpack-air.config.ts
+
+for sdk in dist-air/mytonwallet-sdk.js dist-air/gramwallet-sdk.js; do
+  if [ ! -s "$sdk" ]; then
+    echo "SDK build produced no $sdk" >&2
+    exit 1
+  fi
+done
 
 bash ./deploy/copy_to_dist.sh
 

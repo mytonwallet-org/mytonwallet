@@ -5,7 +5,7 @@ import type { ApiTransactionActivity } from '../api/types';
 
 import { errorCodeToMessage } from '../global/helpers/errors';
 import { isErrorTransferResult } from '../global/helpers/transfer';
-import { getHasInMemoryPassword, getInMemoryPassword } from '../util/authApi/inMemoryPasswordStore';
+import { selectEnclaveToken, selectIsEnclaveSessionValid } from '../global/selectors';
 import { getDoesUsePinPad } from '../util/biometrics';
 import { vibrateOnSuccess } from '../util/haptics';
 import { callApi } from '../api';
@@ -21,8 +21,8 @@ export interface EncryptedCommentHandlers {
   openPasswordSlide: NoneToVoidFunction;
   closePasswordSlide: NoneToVoidFunction;
   clearPasswordError: NoneToVoidFunction;
-  handlePasswordSubmit: (password: string) => Promise<void>;
-  openHiddenComment: NoneToVoidFunction;
+  handleAuthorizeComment: (enclaveToken: string) => Promise<void>;
+  handleCommentReveal: NoneToVoidFunction;
   resetDecryptedComment: NoneToVoidFunction;
 }
 
@@ -58,14 +58,14 @@ export default function useEncryptedComment({
     setDecryptedComment(undefined);
   });
 
-  const handlePasswordSubmit = useLastCallback(async (password: string) => {
+  const handleAuthorizeComment = useLastCallback(async (enclaveToken: string) => {
     if (!transaction) return;
 
     const result = await callApi(
       'decryptComment',
       getGlobal().currentAccountId!,
       transaction,
-      password,
+      enclaveToken,
     );
 
     if (isErrorTransferResult(result)) {
@@ -82,16 +82,13 @@ export default function useEncryptedComment({
     setDecryptedComment(result);
   });
 
-  const openHiddenComment = useLastCallback(async () => {
+  const handleCommentReveal = useLastCallback(() => {
     if (!encryptedComment) return;
 
-    if (getHasInMemoryPassword()) {
-      const password = await getInMemoryPassword();
+    if (selectIsEnclaveSessionValid(getGlobal())) {
+      void handleAuthorizeComment(selectEnclaveToken(getGlobal())!);
 
-      if (password) {
-        void handlePasswordSubmit(password);
-        return;
-      }
+      return;
     }
 
     openPasswordSlide();
@@ -107,8 +104,8 @@ export default function useEncryptedComment({
       openPasswordSlide,
       closePasswordSlide,
       clearPasswordError,
-      handlePasswordSubmit,
-      openHiddenComment,
+      handleAuthorizeComment,
+      handleCommentReveal,
       resetDecryptedComment,
     },
   ];

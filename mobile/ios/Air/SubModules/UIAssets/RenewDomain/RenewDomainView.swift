@@ -26,7 +26,8 @@ struct RenewDomainView: View {
                             nativeToken: tokenStore.getNativeToken(chain: chain),
                             fee: fee,
                             explainedTransferFee: nil,
-                            includeLabel: true
+                            includeLabel: true,
+                            textStyle: .footnote
                         )
                         .transition(.opacity.animation(.default))
                     }

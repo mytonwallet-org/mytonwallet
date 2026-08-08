@@ -56,13 +56,13 @@ function SelectTokenButton({
             <TokenIcon
               token={tokenToRender}
               withChainIcon={!noChainIcon}
-              size="middle"
+              size="small"
               className={styles.tokenIcon}
             />
           )}
           <div className={styles.content}>
             <span>{tokenToRender?.symbol}</span>
-            <i className={buildClassName('icon-chevron-right', styles.chevronIcon)} aria-hidden />
+            <i className={buildClassName('icon-expand', styles.caretIcon)} aria-hidden />
           </div>
         </button>
       </Transition>
@@ -74,8 +74,9 @@ function SelectTokenButton({
 
 export default memo(SelectTokenButton);
 
-const BUTTON_WIDTH = 70 / REM;
-const CHARACTER_WIDTH = 10;
+// Fixed part of the button: inline paddings, token icon, gaps and the caret icon
+const BUTTON_WIDTH = 56 / REM;
+const CHARACTER_WIDTH = 11;
 
 function useSelectorWidth(token?: ApiToken) {
   const transitionRef = useRef<HTMLDivElement>();

@@ -51,6 +51,5 @@ final class CreateBackupDisclaimerVC: CreateWalletBaseVC {
 
 @available(iOS 18, *)
 #Preview {
-    LocalizationSupport.shared.setLanguageCode("ru")
-    return CreateBackupDisclaimerVC(introModel: IntroModel(network: .mainnet, password: nil))
+    CreateBackupDisclaimerVC(introModel: IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup))
 }

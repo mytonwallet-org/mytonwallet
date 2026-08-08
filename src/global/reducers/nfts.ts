@@ -43,6 +43,21 @@ export function removeNft(global: GlobalState, accountId: string, nftAddress: st
   });
 }
 
+export function replaceNft(global: GlobalState, accountId: string, nft: ApiNft) {
+  const nfts = selectAccountState(global, accountId)?.nfts;
+  if (!nfts?.byAddress?.[nft.address]) return global;
+
+  return updateAccountState(global, accountId, {
+    nfts: {
+      ...nfts,
+      byAddress: {
+        ...nfts.byAddress,
+        [nft.address]: nft,
+      },
+    },
+  });
+}
+
 export function updateNft(global: GlobalState, accountId: string, nftAddress: string, partial: Partial<ApiNft>) {
   const nfts = selectAccountState(global, accountId)!.nfts;
   const nft = nfts?.byAddress?.[nftAddress];
@@ -174,7 +189,9 @@ export function addUnorderedNfts(
   Object.values(updatedNfts).forEach((nft) => {
     const existingNft = byAddress?.[nft.address];
     if (existingNft) {
-      global = updateNft(global, accountId, nft.address, nft);
+      // The refreshed NFT is complete, so it replaces the stored one - a field-by-field merge would keep
+      // flags the new data has dropped, such as `isUnverified` of a collection that has become trusted
+      global = replaceNft(global, accountId, nft);
     } else {
       global = addNft(global, accountId, nft, true);
     }

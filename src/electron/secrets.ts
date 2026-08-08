@@ -12,6 +12,11 @@ const BASE64_REGEXP = /^[A-Za-z0-9+/]+={0,2}$/;
 let biometricPrompt = NATIVE_BIOMETRICS_PROMPT_KEY;
 
 export function setupSecrets() {
+  ipcMain.handle(ElectronAction.GET_IS_ENCRYPTION_SUPPORTED, (event) => {
+    validateIpcSender(event);
+
+    return safeStorage.isEncryptionAvailable();
+  });
   ipcMain.handle(ElectronAction.GET_IS_TOUCH_ID_SUPPORTED, (event) => {
     validateIpcSender(event);
 

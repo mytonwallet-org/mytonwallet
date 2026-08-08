@@ -15,7 +15,7 @@
     position: absolute;
     z-index: 1;
     top: 50%;
-    left: 0.75rem;
+    inset-inline-start: 0.75rem;
     transform: translateY(-50%);
   }
 
@@ -31,7 +31,7 @@
   }
 
   &.draggableItem {
-    padding-left: 3rem;
+    padding-inline-start: 3rem;
   }
 
   @include mixins.respond-below(xs) {

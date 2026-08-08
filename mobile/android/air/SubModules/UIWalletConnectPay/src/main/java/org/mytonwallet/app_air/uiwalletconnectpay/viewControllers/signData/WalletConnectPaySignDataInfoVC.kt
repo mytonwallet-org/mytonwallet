@@ -5,6 +5,7 @@ import android.content.Context
 import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
@@ -19,13 +20,12 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
-class WalletConnectPaySignDataInfoVC(
-    context: Context,
-    private val payload: MSignDataPayload,
-) : WViewController(context), WRecyclerViewAdapter.WRecyclerViewDataSource {
+class WalletConnectPaySignDataInfoVC(context: Context, private val payload: MSignDataPayload) :
+    WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "WalletConnectPaySignDataInfo"
 
     override val shouldDisplayBottomBar = true
@@ -43,7 +43,7 @@ class WalletConnectPaySignDataInfoVC(
         data class Eip712(
             val obj: Map<String, Any?>,
             val typeName: String,
-            val types: Map<String, List<MSignDataPayload.SignDataPayloadEip712.TypeField>>,
+            val types: Map<String, List<MSignDataPayload.SignDataPayloadEip712.TypeField>>
         ) : Row()
 
         object Gap : Row()
@@ -139,23 +139,21 @@ class WalletConnectPaySignDataInfoVC(
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int) = rows.size
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return when (rows[indexPath.row]) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (rows[indexPath.row]) {
             is Row.Title -> TITLE_CELL
             is Row.Value -> VALUE_CELL
             is Row.Eip712 -> EIP712_CELL
             Row.Gap -> GAP_CELL
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             TITLE_CELL -> HeaderCell(context)
             VALUE_CELL -> WalletConnectPaySignDataValueCell(context)
             EIP712_CELL -> WalletConnectPaySignDataEip712Cell(context)
             else -> GapCell(context)
         }
-    }
 
     private fun topRadiusFor(index: Int): Float = when {
         index == 0 -> ViewConstants.TOOLBAR_RADIUS.dp
@@ -180,8 +178,11 @@ class WalletConnectPaySignDataInfoVC(
                 (cellHolder.cell as HeaderCell).configure(
                     row.text,
                     titleColor = WColor.Tint,
-                    topRounding = if (index == 0) HeaderCell.TopRounding.FIRST_ITEM
-                    else HeaderCell.TopRounding.NORMAL
+                    topRounding = if (index == 0) {
+                        HeaderCell.TopRounding.FIRST_ITEM
+                    } else {
+                        HeaderCell.TopRounding.NORMAL
+                    }
                 )
             }
 
@@ -209,8 +210,9 @@ class WalletConnectPaySignDataInfoVC(
     }
 
     @SuppressLint("ViewConstructor")
-    private class GapCell(context: Context) : WCell(
-        context,
-        ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, 12.dp)
-    )
+    private class GapCell(context: Context) :
+        WCell(
+            context,
+            ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, 12.dp)
+        )
 }

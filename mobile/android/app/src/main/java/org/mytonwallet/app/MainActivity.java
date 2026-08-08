@@ -1,24 +1,17 @@
 package org.mytonwallet.app;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
-import android.view.View;
 import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.webkit.WebViewCompat;
 
 import org.mytonwallet.app_air.airasframework.airLauncher.AirLauncher;
@@ -31,9 +24,6 @@ import org.mytonwallet.app_air.airasframework.airLauncher.LaunchConfig;
     - Plays splash-screen for MTW Air (This flow may be enhanced later)
  */
 public class MainActivity extends BaseActivity {
-  private final int DELAY = 300;
-  private boolean keep = true;
-
   @Override
   public void onCreate(Bundle savedInstanceState) {
     Log.i("MTWAirApplication", "Main Activity Created");
@@ -65,50 +55,10 @@ public class MainActivity extends BaseActivity {
     airLauncher = new AirLauncher(this);
     AirLauncher.setInstance(airLauncher);
     airLauncher.handle(getIntent());
-
-    // Splash-Screen doesn't work as expected on Android 12 and 13
-    if (!shouldAnimateSplash) {
-      splashScreenAnimatedEnded();
-      return;
+    if (splashScreen != null) {
+      splashScreen.setKeepOnScreenCondition(() -> !AirLauncher.getInstance().getIsOnTheAir());
     }
-
-    boolean isGramApp = getPackageName().startsWith("io.gramwallet.");
-    splashScreen.setKeepOnScreenCondition(() -> keep);
-    splashScreen.setOnExitAnimationListener(splashScreenView -> {
-      AnimatorSet animationSet = new AnimatorSet();
-
-      View view = splashScreenView.getView();
-      ObjectAnimator opacity = ObjectAnimator.ofFloat(view, View.ALPHA, 0.0f);
-
-      animationSet.setInterpolator(new FastOutSlowInInterpolator());
-      if (isGramApp) {
-        animationSet.setDuration(200L);
-        animationSet.playTogether(opacity);
-      } else {
-        ObjectAnimator scaleY = ObjectAnimator.ofFloat(view, View.SCALE_Y, 4f);
-        ObjectAnimator scaleX = ObjectAnimator.ofFloat(view, View.SCALE_X, 4f);
-        animationSet.setDuration(350L);
-        animationSet.playTogether(scaleX, scaleY, opacity);
-      }
-
-      animationSet.addListener(new AnimatorListenerAdapter() {
-        @Override
-        public void onAnimationEnd(Animator animation) {
-          splashScreenView.remove();
-          splashScreenAnimatedEnded();
-        }
-      });
-
-      animationSet.start();
-    });
-
-    Handler handler = new Handler();
-    handler.postDelayed(() -> keep = false, isGramApp ? 0L : DELAY);
-  }
-
-  private void splashScreenAnimatedEnded() {
-    Log.i("MTWAirApplication", "Splash animation ended");
-    AirLauncher.getInstance().soarIntoAir(this, false);
+    airLauncher.soarIntoAir(this);
   }
 
   @Override

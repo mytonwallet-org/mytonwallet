@@ -52,6 +52,6 @@ private extension UISheetPresentationController.Detent.Identifier {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    ImportExistingPickerVC(introModel: IntroModel(network: .mainnet, password: nil))
+    ImportExistingPickerVC(introModel: IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup))
 }
 #endif

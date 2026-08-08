@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uireceive
 
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -13,6 +12,7 @@ import android.text.TextWatcher
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -20,6 +20,10 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
+import java.math.BigDecimal
+import java.math.BigInteger
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
@@ -27,8 +31,10 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -52,12 +58,9 @@ import org.mytonwallet.app_air.walletcore.helpers.TokenEquivalent
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigDecimal
-import java.math.BigInteger
-import kotlin.math.max
 
 class InvoiceVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Invoice"
 
     override val shouldDisplayBottomBar = true
@@ -101,6 +104,8 @@ class InvoiceVC(context: Context) : WViewController(context) {
             setStyle(14f)
             movementMethod = LinkMovementMethod.getInstance()
             highlightColor = Color.TRANSPARENT
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+            gravity = Gravity.LEFT
         }
     }
 
@@ -149,49 +154,27 @@ class InvoiceVC(context: Context) : WViewController(context) {
     }
 
     private val onCommentChangeListener = object : TextWatcher {
-        override fun beforeTextChanged(
-            s: CharSequence?,
-            start: Int,
-            count: Int,
-            after: Int
-        ) {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
         }
 
-        override fun onTextChanged(
-            s: CharSequence?,
-            start: Int,
-            before: Int,
-            count: Int
-        ) {
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
         }
 
         override fun afterTextChanged(s: Editable?) {
             updateLink()
         }
-
     }
 
     private val onAmountChangeListener = object : TextWatcher {
-        override fun beforeTextChanged(
-            s: CharSequence?,
-            start: Int,
-            count: Int,
-            after: Int
-        ) {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
         }
 
-        override fun onTextChanged(
-            s: CharSequence?,
-            start: Int,
-            before: Int,
-            count: Int
-        ) {
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
         }
 
         override fun afterTextChanged(s: Editable?) {
             updateInputState()
         }
-
     }
 
     private var token = TokenStore.getToken(TONCOIN_SLUG)
@@ -227,13 +210,14 @@ class InvoiceVC(context: Context) : WViewController(context) {
                         it.chain == MBlockchain.ton.name
                     },
                     showMyAssets = true,
-                    showChain = false,
+                    showChain = false
                 ).apply {
                     setOnAssetSelectListener { asset ->
                         token = TokenStore.getToken(asset.slug)
                         updateInputState()
                     }
-                })
+                }
+            )
         }
         updateInputState()
 
@@ -297,7 +281,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                     fiatMode = fiatMode,
                     inputDecimal = 0,
                     inputSymbol = if (fiatMode) WalletCore.baseCurrency.sign else null,
-                    inputError = false,
+                    inputError = false
                 ),
                 false
             )
@@ -310,7 +294,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
         )
         equivalent = TokenEquivalent.from(
             fiatMode,
-            token.price?.toBigDecimal() ?: BigDecimal.ZERO,
+            token.price?.takeIf { it.isFinite() }?.toBigDecimal() ?: BigDecimal.ZERO,
             token,
             inputAmountParsed ?: BigInteger.ZERO,
             WalletCore.baseCurrency ?: MBaseCurrency.USD
@@ -325,7 +309,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                 fiatMode = fiatMode,
                 inputDecimal = token.decimals,
                 inputSymbol = if (fiatMode) WalletCore.baseCurrency.sign else null,
-                inputError = false,
+                inputError = false
             ),
             false
         )
@@ -335,7 +319,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
     private fun updateLink() {
         title3.setTitle(
             LocaleController.getString("Share this URL to receive %token%")
-                .replace("%token%", token?.name ?: "")
+                .replace("%token%", token?.displayName ?: "")
         )
         val tonAddress = AccountStore.activeAccount?.tonAddress
         if (tonAddress == null) {
@@ -361,7 +345,10 @@ class InvoiceVC(context: Context) : WViewController(context) {
             val width = 7.dp
             val height = 14.dp
             drawable.setBounds(0, 0, width, height)
-            val imageSpan = VerticalImageSpan(drawable)
+            val imageSpan = VerticalImageSpan(
+                drawable,
+                verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm
+            )
             ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         val clickableSpan: ClickableSpan = object : ClickableSpan() {
@@ -372,7 +359,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                         WMenuPopup.Item(
                             null,
                             LocaleController.getString("Copy"),
-                            false,
+                            false
                         ) {
                             if (ClipboardHelpers.copyToClipboard(context, "", shareLink)) {
                                 Haptics.play(context, HapticType.LIGHT_TAP)
@@ -387,7 +374,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                         WMenuPopup.Item(
                             null,
                             LocaleController.getString("Share"),
-                            false,
+                            false
                         ) {
                             val shareIntent = Intent(Intent.ACTION_SEND)
                             shareIntent.setType("text/plain")
@@ -398,7 +385,8 @@ class InvoiceVC(context: Context) : WViewController(context) {
                                     LocaleController.getString("Share")
                                 )
                             )
-                        }),
+                        }
+                    ),
                     xOffset = 20.dp,
                     popupWidth = WRAP_CONTENT,
                     positioning = WMenuPopup.Positioning.BELOW,
@@ -411,7 +399,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
 
             override fun updateDrawState(ds: TextPaint) {
                 super.updateDrawState(ds)
-                ds.setColor(WColor.PrimaryText.color);
+                ds.setColor(WColor.PrimaryText.color)
                 ds.isUnderlineText = false
             }
         }

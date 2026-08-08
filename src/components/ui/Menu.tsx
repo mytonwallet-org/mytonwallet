@@ -7,6 +7,7 @@ import { stopEvent } from '../../util/domEvents';
 
 import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useHistoryBack from '../../hooks/useHistoryBack';
+import useLang from '../../hooks/useLang';
 import useMenuPosition, { type MenuPositionOptions } from '../../hooks/useMenuPosition';
 import useShowTransition from '../../hooks/useShowTransition';
 import useVirtualBackdrop from '../../hooks/useVirtualBackdrop';
@@ -31,6 +32,8 @@ type OwnProps = {
   noBackdrop?: boolean;
   withPortal?: boolean;
   noCloseOnBackdrop?: boolean;
+  /** Keeps the menu out of the back-navigation history. Needed for nested menus, which otherwise steal the parent menu's history record */
+  noHistoryBack?: boolean;
   shouldCleanup?: boolean;
   onCloseAnimationEnd?: NoneToVoidFunction;
   onClose?: NoneToVoidFunction;
@@ -54,6 +57,7 @@ const Menu: FC<OwnProps> = ({
   noBackdrop = false,
   withPortal,
   noCloseOnBackdrop = false,
+  noHistoryBack = false,
   shouldCleanup,
   onCloseAnimationEnd,
   onClose,
@@ -61,6 +65,7 @@ const Menu: FC<OwnProps> = ({
   onMouseLeave,
   ...positionOptions
 }) => {
+  const { isRtl } = useLang();
   const containerRef = useRef<HTMLDivElement>();
   let bubbleRef = useRef<HTMLDivElement>();
   if (menuRef) {
@@ -70,7 +75,7 @@ const Menu: FC<OwnProps> = ({
   useMenuPosition(isOpen, containerRef, bubbleRef, positionOptions);
 
   useHistoryBack({
-    isActive: Boolean(isOpen && onClose),
+    isActive: Boolean(isOpen && onClose && !noHistoryBack),
     onBack: onClose!,
     shouldBeReplaced: true,
   });
@@ -118,8 +123,11 @@ const Menu: FC<OwnProps> = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={isOpen ? onMouseLeave : undefined}
     >
-      {isOpen && !noBackdrop && (
-        // This only prevents click events triggering on underlying elements
+      {shouldRender && !noBackdrop && (
+        // This only prevents click events triggering on underlying elements. It stays mounted
+        // through the closing animation: the browser generates a regular `click` for the closing
+        // tap after the menu has already re-rendered closed, and without the backdrop that `click`
+        // would hit the element beneath.
         <div className={styles.backdrop} onClick={stopEvent} />
       )}
       <div
@@ -127,6 +135,7 @@ const Menu: FC<OwnProps> = ({
         className={fullBubbleClassName}
         role={role}
         onClick={autoClose ? onClose : undefined}
+        dir={isRtl ? 'rtl' : 'ltr'}
       >
         {children}
       </div>

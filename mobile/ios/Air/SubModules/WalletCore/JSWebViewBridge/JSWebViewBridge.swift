@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NativeEnclave
 import WebKit
 import WalletContext
 
@@ -21,6 +22,12 @@ let NATIVE_CALL_OK = """
 let NATIVE_CALL_OK_VOID = """
     window.airBridge.nativeCallCallbacks[requestNumber]?.({
         ok: true 
+    })
+"""
+let NATIVE_CALL_ERROR = """
+    window.airBridge.nativeCallCallbacks[requestNumber]?.({
+        ok: false,
+        error: error
     })
 """
 
@@ -60,18 +67,22 @@ let CALL_API = """
     }
 """
 
-let INIT_API = """
-    window.airBridge.initApi(
-        (data) => {
-            window.webkit.messageHandlers.onUpdate.postMessage({ update: JSON.stringify(data) })
-        }, 
-        {
-            isElectron: false,
-            isIosApp: true,
-            isAndroidApp: false
-        }
-    )
-"""
+private func makeInitApi(langCode: String) -> String {
+    let langCodeJSON = String(data: try! JSONEncoder().encode(langCode), encoding: .utf8)!
+    return """
+        window.airBridge.initApi(
+            (data) => {
+                window.webkit.messageHandlers.onUpdate.postMessage({ update: JSON.stringify(data) })
+            },
+            {
+                isElectron: false,
+                isIosApp: true,
+                isAndroidApp: false,
+                langCode: \(langCodeJSON)
+            }
+        )
+    """
+}
 
 let LOGGING_FETCH = """
     const originalFetch = window.fetch;
@@ -108,7 +119,6 @@ private let sdkReadAccessURL = sdkIndexFileURL.deletingLastPathComponent()
 public class JSWebViewBridge: UIViewController {
     
     private var webView: WKWebView?
-    private let start = Date()
     private var isApiReady = false
     private var bridgeReadyWaiters: [CheckedContinuation<Void, Never>] = []
 
@@ -201,7 +211,11 @@ public class JSWebViewBridge: UIViewController {
         webView?.loadFileURL(sdkIndexFileURL, allowingReadAccessTo: sdkReadAccessURL)
     }
     
-    private func _callApiImpl(methodName: String, args: [AnyEncodable?]) async throws -> String? {
+    private func _callApiImpl(
+        methodName: String,
+        args: [AnyEncodable?],
+        waitForBridge: Bool = true
+    ) async throws -> String? {
         let jsonData = try! JSONEncoder().encode(args)
         let argsString = String(data: jsonData, encoding: .utf8)!
         
@@ -209,6 +223,9 @@ public class JSWebViewBridge: UIViewController {
             throw SdkError.sdkNotReady(methodName: methodName, reason: "Switched to legacy app")
         }
         if !isApiReady {
+            guard waitForBridge else {
+                throw SdkError.sdkNotReady(methodName: methodName, reason: "SDK bridge is not ready")
+            }
             await waitUntilBridgeIsReady()
         }
         guard self.webView != nil else {
@@ -236,12 +253,11 @@ public class JSWebViewBridge: UIViewController {
     }
     
     private func _parseError(_ error: any Error, methodName: String) throws -> Never {
-        log.fault("callAsyncJavaScript callApi(\(methodName, .public)) error \(error, .public)")
-        if let error = error as? SdkError {
-            throw error
-        }
         if error is CancellationError || Task.isCancelled {
             throw CancellationError()
+        }
+        if let error = error as? SdkError {
+            throw error
         }
         if let error = error as? WKError {
             switch error.code {
@@ -251,10 +267,11 @@ public class JSWebViewBridge: UIViewController {
                     if exception.message == "err! callApi not found!" {
                         throw SdkError.sdkNotReady(methodName: methodName, reason: exception.message)
                     }
+                    log.fault("callAsyncJavaScript JavaScript exception method=\(methodName, .public)")
                     throw SdkError.javaScriptException(exception)
                 }
             case .javaScriptResultTypeIsUnsupported:
-                log.fault("javaScriptResultTypeIsUnsupported")
+                log.fault("callAsyncJavaScript returned unsupported result type method=\(methodName, .public)")
                 throw SdkError.invalidResponse(
                     methodName: methodName,
                     reason: error.localizedDescription,
@@ -264,14 +281,25 @@ public class JSWebViewBridge: UIViewController {
                 break
             }
         }
+        log.fault(
+            "callAsyncJavaScript unexpected failure method=\(methodName, .public) type=\(String(reflecting: type(of: error)), .public)"
+        )
         throw SdkError.unexpected(
             message: error.localizedDescription,
             context: String(describing: error)
         )
     }
     
-    nonisolated(nonsending) func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> sending Any? {
-        if let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args)) {
+    private nonisolated(nonsending) func _callApiRawImpl(
+        methodName: String,
+        args: [AnyEncodable?],
+        waitForBridge: Bool
+    ) async throws -> sending Any? {
+        if let responseString = try await _callApiImpl(
+            methodName: methodName,
+            args: args,
+            waitForBridge: waitForBridge
+        ) {
             do {
                 return try JSONSerialization.jsonObject(withString: responseString)
             } catch {
@@ -286,6 +314,18 @@ public class JSWebViewBridge: UIViewController {
         } else {
             return nil
         }
+    }
+
+    nonisolated(nonsending) func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> sending Any? {
+        try await _callApiRawImpl(
+            methodName: methodName,
+            args: asAnyEncodables(repeat each args),
+            waitForBridge: true
+        )
+    }
+
+    nonisolated(nonsending) func callApiRawIfReady(_ methodName: String) async throws -> sending Any? {
+        try await _callApiRawImpl(methodName: methodName, args: [], waitForBridge: false)
     }
     
     nonisolated(nonsending) func callApi<each E: Encodable & Sendable, T: Decodable & Sendable>(_ methodName: String, _ args: repeat each E, decoding: T.Type) async throws -> T {
@@ -343,14 +383,19 @@ public class JSWebViewBridge: UIViewController {
         }
     }
     
-    private func injectIfNeeded() {
+    private func injectIfNeeded(attempt: Int = 0) {
         // inject the js codes for mytonwallet logic here
-        webView?.evaluateJavaScript(INIT_API) { [weak self] (result, error) in
+        let initApi = makeInitApi(langCode: LocalizationSupport.shared.langCode)
+        webView?.evaluateJavaScript(initApi) { [weak self] (result, error) in
             if let error = error {
-                log.fault("Error injecting JavaScript: \(error.localizedDescription)")
+                if attempt == 3 {
+                    log.fault("JavaScript injection repeatedly failed: \(error.localizedDescription)")
+                } else {
+                    log.error("Error injecting JavaScript attempt=\(attempt + 1): \(error.localizedDescription)")
+                }
                 // retry after a second!
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: {
-                    self?.injectIfNeeded()
+                    self?.injectIfNeeded(attempt: attempt + 1)
                 })
             } else {
                 //log.debug("JavaScript injected successfully")
@@ -408,7 +453,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                     return
                 }
                 Task { @MainActor in
-                    
+
                     func completeNativeCallVoid() async {
                         do {
                             _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
@@ -416,7 +461,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                             log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
                         }
                     }
-                    
+
                     func completeNativeCallOk(result: sending Any?) async {
                         do {
                             _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: result)
@@ -424,7 +469,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                             log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
                         }
                     }
-                    
+
                     switch methodName {
                     case "airStorageGetItem":
                         guard let key = data?["arg0"] as? String
@@ -446,9 +491,58 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                             KeychainHelper.saveStorage(key: key, value: nil)
                         }
                         await completeNativeCallVoid()
+
+                    case "airStorageClear":
+                        KeychainHelper.clearStorage()
+                        await completeNativeCallVoid()
                         
                     case "airStorageKeys":
                         await completeNativeCallOk(result: KeychainHelper.keys())
+
+                    case "exportSecret":
+                        guard let id = data?["arg0"] as? String, !id.isEmpty else {
+                            Task {
+                                do {
+                                    _ = try await self.webView?.nativeCallError(
+                                        requestNumber: requestNumber,
+                                        error: "exportSecret failed: Missing id"
+                                    )
+                                } catch {
+                                    log.fault("Error injecting exportSecret error to JavaScript: \(error)")
+                                }
+                            }
+                            return
+                        }
+                        guard let token = data?["arg1"] as? String, !token.isEmpty else {
+                            Task {
+                                do {
+                                    _ = try await self.webView?.nativeCallError(
+                                        requestNumber: requestNumber,
+                                        error: "exportSecret failed: Missing token"
+                                    )
+                                } catch {
+                                    log.fault("Error injecting exportSecret error to JavaScript: \(error)")
+                                }
+                            }
+                            return
+                        }
+
+                        Task {
+                            do {
+                                let secret = try await EnclaveManager.shared.exportSecret(id: id, token: EnclaveToken(token))
+                                _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: secret)
+                            } catch {
+                                log.error("exportSecret failed: \(error, .public)")
+                                do {
+                                    _ = try await self.webView?.nativeCallError(
+                                        requestNumber: requestNumber,
+                                        error: "exportSecret failed: \(error.localizedDescription)"
+                                    )
+                                } catch {
+                                    log.fault("Error injecting exportSecret error to JavaScript: \(error)")
+                                }
+                            }
+                        }
                         
                     case "exchangeWithLedger":
                         guard let apdu = data?["arg0"] as? String else {
@@ -933,6 +1027,13 @@ fileprivate extension WKWebView {
     func nativeCallOkVoid(requestNumber: Int) async throws {
         _ = try await callAsyncJavaScript(NATIVE_CALL_OK_VOID, arguments: [
             "requestNumber": requestNumber
+        ], contentWorld: .page)
+    }
+
+    func nativeCallError(requestNumber: Int, error: String) async throws {
+        _ = try await callAsyncJavaScript(NATIVE_CALL_ERROR, arguments: [
+            "requestNumber": requestNumber,
+            "error": error,
         ], contentWorld: .page)
     }
 }

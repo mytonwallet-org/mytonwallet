@@ -186,9 +186,12 @@ $previewCardHeight: 11rem;
 }
 
 .currencySwitcher {
+  direction: ltr;
+  unicode-bidi: plaintext;
   display: flex;
   gap: 0.0625rem;
   align-items: baseline;
+
   line-height: 3.5rem;
 }
 
@@ -207,6 +210,9 @@ $previewCardHeight: 11rem;
 .primaryValue {
   position: absolute;
   top: 3.5rem; // ~ at the middle of the card
+
+  direction: ltr; // this is correct value
+  unicode-bidi: plaintext;
 
   font-size: calc($portraitBaseBalanceSize * var(--font-size-scale-preview, 1));
   font-weight: 850;

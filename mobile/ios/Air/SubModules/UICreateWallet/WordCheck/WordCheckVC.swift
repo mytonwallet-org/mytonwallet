@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import UIPasscode
 import UIComponents
 import SwiftUI
 import WalletContext
@@ -57,7 +56,7 @@ class WordCheckVC: CreateWalletBaseVC {
 @available(iOS 18.0, *)
 #Preview {
     WordCheckVC(
-        introModel: IntroModel(network: .mainnet, password: nil),
+        introModel: IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup),
         words: [
             "word 1", "word 2", "word 3", "word 4",
             "word 5", "word 6", "word 7", "word 8",

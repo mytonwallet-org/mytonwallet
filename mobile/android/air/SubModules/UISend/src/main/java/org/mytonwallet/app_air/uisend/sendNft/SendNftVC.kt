@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisend.sendNft
 
 import android.animation.Animator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
@@ -22,6 +21,9 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.doOnTextChanged
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -31,6 +33,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
@@ -59,18 +62,16 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
-class SendNftVC(
-    context: Context,
-    val nfts: List<ApiNft>,
-) : WViewController(context), SendNftVM.Delegate, WalletCore.EventObserver {
+class SendNftVC(context: Context, val nfts: List<ApiNft>) :
+    WViewController(context),
+    SendNftVM.Delegate,
+    WalletCore.EventObserver {
 
     constructor(context: Context, nft: ApiNft) : this(context, listOf(nft))
 
+    @Suppress("PropertyName")
     override val TAG = "SendNft"
 
     override val displayedAccount =
@@ -106,7 +107,8 @@ class SendNftVC(
                     viewModel.onDestinationEntered(keyword)
                 }
                 suggestionsBoxView.search(keyword, true)
-            }).apply {
+            }
+        ).apply {
             id = View.generateViewId()
             showCloseOnTextEditing = true
             activeChain = chain
@@ -311,8 +313,7 @@ class SendNftVC(
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
         ReversedCornerViewUpsideDown(context, scrollView).apply {
-            if (ignoreSideGuttering)
-                setHorizontalPadding(0f)
+            if (ignoreSideGuttering) setHorizontalPadding(0f)
         }
 
     private val continueButton by lazy {
@@ -387,7 +388,8 @@ class SendNftVC(
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                continueButton, 20.dp + max(
+                continueButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -448,7 +450,8 @@ class SendNftVC(
             ViewConstants.BLOCK_RADIUS.dp
         )
         multipleNftView.setBackgroundColor(
-            WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp
+            WColor.Background.color,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         commentInputView.setBackgroundColor(
             WColor.Background.color,
@@ -472,7 +475,8 @@ class SendNftVC(
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                continueButton, 20.dp + max(
+                continueButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -786,7 +790,8 @@ class SendNftVC(
         }
 
         val txMatch =
-            receivedActivity is MApiTransaction.Transaction && receivedActivity.nft?.address == sentNftAddress
+            receivedActivity is MApiTransaction.Transaction &&
+                receivedActivity.nft?.address == sentNftAddress
         if (!txMatch) {
             return
         }

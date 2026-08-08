@@ -3,7 +3,8 @@
 
   overflow: hidden;
 
-  padding: 0.5625rem 0.75rem 0.625rem 1rem;
+  padding-block: 0.5625rem 0.625rem;
+  padding-inline: 1rem 0.75rem;
   border-radius: var(--border-radius-small);
 
   font-size: 0.8125rem;
@@ -18,7 +19,7 @@
 
     position: absolute;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
 
     display: block;
 

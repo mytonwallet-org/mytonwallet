@@ -8,6 +8,8 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -27,8 +29,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import java.lang.ref.WeakReference
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class BackupVC(
@@ -37,8 +37,9 @@ class BackupVC(
     private val words: Array<String>,
     private val isFirstPasscodeProtectedWallet: Boolean,
     // Used when adding new account (not first account!)
-    private val passedPasscode: String?
+    private val passedEnclaveToken: String?
 ) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "Backup"
 
     override val isContentWidthCapped = true
@@ -53,10 +54,12 @@ class BackupVC(
     private val animationView: WAnimationView by lazy {
         WAnimationView(context).apply {
             play(
-                org.mytonwallet.app_air.uicomponents.R.raw.animation_snitch, true,
+                org.mytonwallet.app_air.uicomponents.R.raw.animation_snitch,
+                true,
                 onStart = {
                     fadeIn()
-                })
+                }
+            )
         }
     }
     private val titleLabel: WLabel by lazy {
@@ -91,7 +94,7 @@ class BackupVC(
                         words = words,
                         isFirstWalletToAdd = true,
                         isFirstPasscodeProtectedWallet = isFirstPasscodeProtectedWallet,
-                        passedPasscode = passedPasscode
+                        passedEnclaveToken = passedEnclaveToken
                     )
                 )
             }
@@ -110,8 +113,10 @@ class BackupVC(
         v.setConstraints {
             toTopPx(
                 animationView,
-                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                    ?: 0)
+                WNavigationBar.DEFAULT_HEIGHT.dp + (
+                    navigationController?.getSystemBars()?.top
+                        ?: 0
+                    )
             )
             toCenterX(animationView)
             topToBottom(titleLabel, animationView, 24f)
@@ -126,8 +131,9 @@ class BackupVC(
                             toWordsButton.isEnabled = true
                         }
                     } else {
-                        for (i in i + 1 until checks.count())
+                        for (i in i + 1 until checks.count()) {
                             checkboxViews.getOrNull(i)?.isBoxEnabled = false
+                        }
                         toWordsButton.isEnabled = false
                     }
                 }
@@ -171,8 +177,9 @@ class BackupVC(
 
         setNavTitle("")
         setupNavBar(true)
-        if (navigationController?.viewControllers?.firstOrNull() !is IntroVC)
+        if (navigationController?.viewControllers?.firstOrNull() !is IntroVC) {
             navigationBar?.addCloseButton()
+        }
 
         view.addView(
             scrollView,
@@ -185,8 +192,10 @@ class BackupVC(
         }
 
         val scrollOffsetToShowNav =
-            124.dp + WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                ?: 0)
+            124.dp + WNavigationBar.DEFAULT_HEIGHT.dp + (
+                navigationController?.getSystemBars()?.top
+                    ?: 0
+                )
         scrollView.onScrollChange = { y ->
             if (y > 0) {
                 topReversedCornerView?.resumeBlurring()
@@ -211,8 +220,10 @@ class BackupVC(
         scrollingContentView.setConstraints {
             toTopPx(
                 animationView,
-                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                    ?: 0)
+                WNavigationBar.DEFAULT_HEIGHT.dp + (
+                    navigationController?.getSystemBars()?.top
+                        ?: 0
+                    )
             )
             toBottomPx(
                 toWordsButton,
@@ -228,5 +239,4 @@ class BackupVC(
     override fun updateTheme() {
         view.setBackgroundColor(WColor.SecondaryBackground.color)
     }
-
 }

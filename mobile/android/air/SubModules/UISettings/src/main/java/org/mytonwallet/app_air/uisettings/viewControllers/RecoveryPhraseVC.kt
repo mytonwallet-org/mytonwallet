@@ -12,6 +12,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isGone
+import java.lang.ref.WeakReference
+import kotlin.random.Random
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -46,16 +48,14 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
-import java.lang.ref.WeakReference
-import kotlin.random.Random
 
 @SuppressLint("ViewConstructor")
 open class RecoveryPhraseVC(
     context: Context,
     private val network: MBlockchainNetwork,
     private val words: Array<String>
-) :
-    WViewController(context) {
+) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "RecoveryPhrase"
 
     override val isContentWidthCapped = true
@@ -80,7 +80,13 @@ open class RecoveryPhraseVC(
         setStyle(17f, WFont.Regular)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
         text =
-            LocaleController.getString(if (isShowingPrivateKey) "\$private_key_description" else "\$mnemonic_list_description")
+            LocaleController.getString(
+                if (isShowingPrivateKey) {
+                    "\$private_key_description"
+                } else {
+                    "\$mnemonic_list_description"
+                }
+            )
                 .toProcessedSpannableStringBuilder()
         gravity = Gravity.CENTER
         setTextColor(WColor.PrimaryText)
@@ -97,24 +103,22 @@ open class RecoveryPhraseVC(
         setTextColor(WColor.Red)
     }
 
-    private fun warningText(key: String?): SpannableStringBuilder {
-        return SpannableStringBuilder().apply {
-            key?.let {
-                append(
-                    LocaleController.getString(key)
-                        .toProcessedSpannableStringBuilder()
-                )
-                append("\n\n")
-            }
-            val redWarningStart = length
-            append(LocaleController.getString("Other apps will be able to read your secret words!"))
-            setSpan(
-                WTypefaceSpan(WFont.Medium.typeface, WColor.Red.color),
-                redWarningStart,
-                length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+    private fun warningText(key: String?): SpannableStringBuilder = SpannableStringBuilder().apply {
+        key?.let {
+            append(
+                LocaleController.getString(key)
+                    .toProcessedSpannableStringBuilder()
             )
+            append("\n\n")
         }
+        val redWarningStart = length
+        append(LocaleController.getString("Other apps will be able to read your secret words!"))
+        setSpan(
+            WTypefaceSpan(WFont.Medium.typeface, WColor.Red.color),
+            redWarningStart,
+            length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
     }
 
     private val copyToClipboardButton = WLabel(context).apply {
@@ -147,7 +151,9 @@ open class RecoveryPhraseVC(
                     }
                 },
                 primaryIsDanger = true,
-                secondaryButton = LocaleController.getString(if (isShowingPrivateKey) "Cancel" else "See Words")
+                secondaryButton = LocaleController.getString(
+                    if (isShowingPrivateKey) "Cancel" else "See Words"
+                )
             )
         }
     }
@@ -233,7 +239,7 @@ open class RecoveryPhraseVC(
         setNavTitle(
             LocaleController.getPluralOrFormat(
                 if (isShowingPrivateKey) "Private Key" else "%1\$d Secret Words",
-                wordsCount,
+                wordsCount
             ) + network.localizedIdentifier
         )
         setupNavBar(true)
@@ -260,21 +266,24 @@ open class RecoveryPhraseVC(
         }
 
         animationView.play(
-            R.raw.animation_bill, true,
+            R.raw.animation_bill,
+            true,
             onStart = {
                 scrollView.fadeIn()
-            })
+            }
+        )
 
         updateTheme()
     }
 
     override fun updateTheme() {
         super.updateTheme()
-        if (isSplitDetailPanel)
+        if (isSplitDetailPanel) {
             view.background =
                 TabletEdgeFadeDrawable(WColor.Background.color, dimWhenWide = false)
-        else
+        } else {
             view.setBackgroundColor(WColor.Background.color)
+        }
         warningLabel.setBackgroundColor(WColor.Red.color.colorWithAlpha(20), 16f.dp)
     }
 
@@ -319,9 +328,8 @@ open class RecoveryPhraseVC(
             showAlert(
                 title = LocaleController.getString("Security Warning"),
                 text = warningText("\$screenshot_mnemonic_warning"),
-                button = LocaleController.getString("See Words"),
+                button = LocaleController.getString("See Words")
             )
         }
     }
-
 }

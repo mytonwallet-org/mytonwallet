@@ -10,10 +10,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
-open class Item(
-    type: Int,
-    key: String? = null
-) : BaseListItem(type, key) {
+open class Item(type: Int, key: String? = null) : BaseListItem(type, key) {
     enum class Type {
         LIST_TITLE,
         LIST_TITLE_VALUE,
@@ -37,19 +34,18 @@ open class Item(
         val id: String? = null,
         val isSensitiveData: Boolean = false,
         override val clickable: Clickable? = null
-    ) : Item(Type.ICON_DUAL_LINE.value, id), IClickable
+    ) : Item(Type.ICON_DUAL_LINE.value, id),
+        IClickable
 
     data class ListTitle(
         val title: CharSequence,
         val titleColor: WColor = WColor.Tint,
         val topRounding: TopRounding,
-        val startMargin: Float = 20f,
+        val startMargin: Float = 20f
     ) : Item(Type.LIST_TITLE.value, title.toString())
 
-    data class ListTitleValue(
-        val title: CharSequence,
-        val value: CharSequence?
-    ) : Item(Type.LIST_TITLE_VALUE.value, "${title}_$value")
+    data class ListTitleValue(val title: CharSequence, val value: CharSequence?) :
+        Item(Type.LIST_TITLE_VALUE.value, "${title}_$value")
 
     data class ListText(
         val title: String,
@@ -60,31 +56,22 @@ open class Item(
         val textSize: Float? = null
     ) : Item(Type.TEXT.value, title)
 
-    data class ExpandableText(
-        val text: String
-    ) : Item(Type.EXPANDABLE_TEXT.value, text)
+    data class ExpandableText(val text: String) : Item(Type.EXPANDABLE_TEXT.value, text)
 
-    data class CopyableText(
-        val address: String,
-        val copyLabel: String,
-        val copyToast: String,
-    ) : Item(Type.COPYABLE_TEXT.value)
+    data class CopyableText(val address: String, val copyLabel: String, val copyToast: String) :
+        Item(Type.COPYABLE_TEXT.value)
 
     data class Activity(
         val activity: MApiTransaction,
         val accountId: String,
         val isMultichain: Boolean,
         val isFirst: Boolean,
-        val isLast: Boolean,
+        val isLast: Boolean
     ) : Item(Type.ACTIVITY.value)
 
-    data class Alert(
-        val text: CharSequence,
-    ) : Item(Type.ALERT.value)
+    data class Alert(val text: CharSequence) : Item(Type.ALERT.value)
 
-    data class Gap(
-        val height: Int = 12.dp
-    ) : Item(Type.GAP.value)
+    data class Gap(val height: Int = 12.dp) : Item(Type.GAP.value)
 
     interface IClickable {
         val clickable: Clickable?

@@ -172,7 +172,7 @@ private struct _Content: View {
                 .opacity(isSelected ? 0 : 1)
                 .padding(1.2)
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: Layout.markerSize))
+                .textStyle(.title2, content: .technical)
                 .foregroundStyle(Color(uiColor: .tintColor))
                 .opacity(isSelected ? 1 : 0)
         }

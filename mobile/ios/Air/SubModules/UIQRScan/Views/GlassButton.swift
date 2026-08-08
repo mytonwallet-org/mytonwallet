@@ -76,9 +76,9 @@ public final class GlassButton: UIButton {
             bringSubviewToFront(imageView)
         }
         NSLayoutConstraint.activate([
-            blurView.leftAnchor.constraint(equalTo: leftAnchor),
+            blurView.leadingAnchor.constraint(equalTo: leadingAnchor),
             blurView.topAnchor.constraint(equalTo: topAnchor),
-            blurView.rightAnchor.constraint(equalTo: rightAnchor),
+            blurView.trailingAnchor.constraint(equalTo: trailingAnchor),
             blurView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 

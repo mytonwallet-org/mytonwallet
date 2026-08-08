@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.appInfo
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
@@ -12,9 +11,10 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.isGone
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
-import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
@@ -36,6 +37,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -44,10 +46,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import java.lang.ref.WeakReference
-import kotlin.math.max
 
 class AppInfoVC(context: Context) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "AppInfo"
 
     override val isContentWidthCapped = true
@@ -57,13 +58,17 @@ class AppInfoVC(context: Context) : WViewController(context) {
 
     private val isGramApp = ApplicationContextHolder.isGramApp
 
-    private val particleParams: ParticleConfig? = if (isGramApp) ParticleConfig(
-        particleCount = 35,
-        centerShift = floatArrayOf(0f, -28f),
-        distanceLimit = 0.45f,
-        colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
-        useStarShape = true
-    ) else null
+    private val particleParams: ParticleConfig? = if (isGramApp) {
+        ParticleConfig(
+            particleCount = 35,
+            centerShift = floatArrayOf(0f, -28f),
+            distanceLimit = 0.45f,
+            colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
+            useStarShape = true
+        )
+    } else {
+        null
+    }
 
     var particlesCleaner: (() -> Unit)? = null
     val tonParticlesView = ParticleView(context).apply {
@@ -76,7 +81,9 @@ class AppInfoVC(context: Context) : WViewController(context) {
             id = View.generateViewId()
             bindParticleHost(tonParticlesView, centerShift = floatArrayOf(0f, -28f))
         }
-    } else null
+    } else {
+        null
+    }
 
     val logoImageView = AppCompatImageView(view.context).apply {
         id = View.generateViewId()
@@ -145,7 +152,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
             configure(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.NONE,
-                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_about_video,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_about_video,
                     title = LocaleController.getString("Watch Video about Features"),
                     value = null,
                     hasTintColor = false
@@ -166,7 +173,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
             configure(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.NONE,
-                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_about_blog,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_about_blog,
                     title = LocaleController.getString("Enjoy Monthly Updates in Blog"),
                     value = null,
                     hasTintColor = false
@@ -186,7 +193,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
             configure(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.NONE,
-                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_about_help,
+                    icon = org.mytonwallet.app_air.icons.R.drawable.ic_about_help,
                     title = LocaleController.getString("Learn New Things in Help Center"),
                     value = null,
                     hasTintColor = false
@@ -372,5 +379,4 @@ class AppInfoVC(context: Context) : WViewController(context) {
         )
         window?.present(nav)
     }
-
 }

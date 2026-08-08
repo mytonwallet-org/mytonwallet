@@ -3,8 +3,8 @@ package org.mytonwallet.app_air.uicomponents.widgets.chart.extended
 import android.animation.ValueAnimator
 import android.graphics.Rect
 import android.view.MotionEvent
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.sqrt
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 
 class ChartPickerDelegate(private val view: Listener) {
     var disabled: Boolean = false
@@ -24,9 +24,14 @@ class ChartPickerDelegate(private val view: Listener) {
 
     private val capturedStates = arrayOfNulls<CapturesData>(2)
 
-    fun getMiddleCaptured(): CapturesData? = capturedStates.firstOrNull { it?.state == CAPTURE_MIDDLE }
+    fun getMiddleCaptured(): CapturesData? = capturedStates.firstOrNull {
+        it?.state ==
+            CAPTURE_MIDDLE
+    }
     fun getLeftCaptured(): CapturesData? = capturedStates.firstOrNull { it?.state == CAPTURE_LEFT }
-    fun getRightCaptured(): CapturesData? = capturedStates.firstOrNull { it?.state == CAPTURE_RIGHT }
+    fun getRightCaptured(): CapturesData? = capturedStates.firstOrNull {
+        it?.state == CAPTURE_RIGHT
+    }
 
     inner class CapturesData(val state: Int) {
         var capturedX: Int = 0
@@ -71,6 +76,7 @@ class ChartPickerDelegate(private val view: Listener) {
                         moveToAnimator?.cancel()
                         return true
                     }
+
                     y < middlePickerArea.bottom && y > middlePickerArea.top -> {
                         tryMoveTo = true
                         moveToX = x.toFloat()
@@ -85,52 +91,55 @@ class ChartPickerDelegate(private val view: Listener) {
                         return true
                     }
                 }
-            } else when {
-                leftPickerArea.contains(x, y) -> {
-                    if (capturedStates[0] != null) capturedStates[1] = capturedStates[0]
-                    capturedStates[0] = CapturesData(CAPTURE_LEFT).apply {
-                        start = pickerStart
-                        capturedX = x
-                        lastMovingX = x
-                        captured()
-                    }
-                    moveToAnimator?.cancel()
-                    return true
-                }
-                rightPickerArea.contains(x, y) -> {
-                    if (capturedStates[0] != null) capturedStates[1] = capturedStates[0]
-                    capturedStates[0] = CapturesData(CAPTURE_RIGHT).apply {
-                        end = pickerEnd
-                        capturedX = x
-                        lastMovingX = x
-                        captured()
-                    }
-                    moveToAnimator?.cancel()
-                    return true
-                }
-                middlePickerArea.contains(x, y) -> {
-                    capturedStates[0] = CapturesData(CAPTURE_MIDDLE).apply {
-                        start = pickerStart
-                        end = pickerEnd
-                        capturedX = x
-                        lastMovingX = x
-                        captured()
-                    }
-                    moveToAnimator?.cancel()
-                    return true
-                }
-                y < leftPickerArea.bottom && y > leftPickerArea.top -> {
-                    tryMoveTo = true
-                    moveToX = x.toFloat()
-                    moveToY = y.toFloat()
-                    startTapTime = System.currentTimeMillis()
-                    moveToAnimator?.let {
-                        if (it.isRunning) {
-                            view.onPickerJumpTo(pickerStart, pickerEnd, true)
+            } else {
+                when {
+                    leftPickerArea.contains(x, y) -> {
+                        if (capturedStates[0] != null) capturedStates[1] = capturedStates[0]
+                        capturedStates[0] = CapturesData(CAPTURE_LEFT).apply {
+                            start = pickerStart
+                            capturedX = x
+                            lastMovingX = x
+                            captured()
                         }
-                        it.cancel()
+                        moveToAnimator?.cancel()
+                        return true
                     }
-                    return true
+
+                    rightPickerArea.contains(x, y) -> {
+                        if (capturedStates[0] != null) capturedStates[1] = capturedStates[0]
+                        capturedStates[0] = CapturesData(CAPTURE_RIGHT).apply {
+                            end = pickerEnd
+                            capturedX = x
+                            lastMovingX = x
+                            captured()
+                        }
+                        moveToAnimator?.cancel()
+                        return true
+                    }
+
+                    middlePickerArea.contains(x, y) -> {
+                        capturedStates[0] = CapturesData(CAPTURE_MIDDLE).apply {
+                            start = pickerStart
+                            end = pickerEnd
+                            capturedX = x
+                            lastMovingX = x
+                            captured()
+                        }
+                        moveToAnimator?.cancel()
+                        return true
+                    }
+
+                    y < leftPickerArea.bottom && y > leftPickerArea.top -> {
+                        tryMoveTo = true
+                        moveToX = x.toFloat()
+                        moveToY = y.toFloat()
+                        startTapTime = System.currentTimeMillis()
+                        moveToAnimator?.let {
+                            if (it.isRunning) view.onPickerJumpTo(pickerStart, pickerEnd, true)
+                            it.cancel()
+                        }
+                        return true
+                    }
                 }
             }
         } else if (pointerIndex == 1) {
@@ -175,12 +184,14 @@ class ChartPickerDelegate(private val view: Listener) {
                 if (pickerEnd - pickerStart < minDistance) pickerStart = pickerEnd - minDistance
                 notify = true
             }
+
             CAPTURE_RIGHT -> {
                 pickerEnd = data.end - (data.capturedX - x) / pickerWidth
                 if (pickerEnd > 1f) pickerEnd = 1f
                 if (pickerEnd - pickerStart < minDistance) pickerEnd = pickerStart + minDistance
                 notify = true
             }
+
             CAPTURE_MIDDLE -> {
                 pickerStart = data.start - (data.capturedX - x) / pickerWidth
                 pickerEnd = data.end - (data.capturedX - x) / pickerWidth
@@ -272,7 +283,7 @@ class ChartPickerDelegate(private val view: Listener) {
 
     enum class PickerMode {
         RANGE,
-        SINGLE,
+        SINGLE
     }
 
     companion object {

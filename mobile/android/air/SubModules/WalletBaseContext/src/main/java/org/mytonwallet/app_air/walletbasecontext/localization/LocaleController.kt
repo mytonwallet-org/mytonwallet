@@ -1,20 +1,28 @@
 package org.mytonwallet.app_air.walletbasecontext.localization
 
-import android.app.LocaleManager
 import android.content.Context
 import android.os.Build
 import android.text.SpannableStringBuilder
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
+import java.io.IOException
+import java.util.Locale
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapStringNested
-import java.io.IOException
-import java.util.Locale
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
 object LocaleController {
     val PLURAL_RULES: Map<String, (Int) -> Int> = mapOf(
-        WLanguage.ENGLISH.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
+        WLanguage.ENGLISH.langCode to { n ->
+            if (n == 0) {
+                1
+            } else if (n != 1) {
+                6
+            } else {
+                2
+            }
+        },
         WLanguage.RUSSIAN.langCode to { n ->
             when {
                 n == 0 -> 1
@@ -24,7 +32,15 @@ object LocaleController {
             }
         },
 
-        WLanguage.SPANISH.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
+        WLanguage.SPANISH.langCode to { n ->
+            if (n == 0) {
+                1
+            } else if (n != 1) {
+                6
+            } else {
+                2
+            }
+        },
         WLanguage.POLISH.langCode to { n ->
             when {
                 n == 0 -> 1
@@ -34,7 +50,15 @@ object LocaleController {
             }
         },
         WLanguage.THAI.langCode to { n -> if (n == 0) 1 else 6 },
-        WLanguage.TURKISH.langCode to { n -> if (n == 0) 1 else if (n > 1) 6 else 2 },
+        WLanguage.TURKISH.langCode to { n ->
+            if (n == 0) {
+                1
+            } else if (n > 1) {
+                6
+            } else {
+                2
+            }
+        },
         WLanguage.UKRAINIAN.langCode to { n ->
             when {
                 n == 0 -> 1
@@ -45,7 +69,25 @@ object LocaleController {
         },
         WLanguage.CHINESE_SIMPLIFIED.langCode to { n -> if (n == 0) 1 else 6 },
         WLanguage.CHINESE_TRADITIONAL.langCode to { n -> if (n == 0) 1 else 6 },
-        //WLanguage.PERSIAN.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
+        WLanguage.PERSIAN.langCode to { n ->
+            if (n == 0) {
+                1
+            } else if (n != 1) {
+                6
+            } else {
+                2
+            }
+        },
+        WLanguage.ARABIC.langCode to { n ->
+            when {
+                n == 0 -> 1
+                n == 1 -> 2
+                n == 2 -> 3
+                n % 100 in 3..10 -> 4
+                n % 100 in 11..99 -> 5
+                else -> 6
+            }
+        }
     )
 
     val PLURAL_OPTIONS = listOf(
@@ -60,7 +102,9 @@ object LocaleController {
 
     private var dictionary = emptyMap<String, String>()
     private var _activeLanguage: WLanguage? = null
-    val activeLanguage: WLanguage get() = requireNotNull(_activeLanguage) { "LocaleController not initialized yet" }
+    val activeLanguage: WLanguage get() = requireNotNull(_activeLanguage) {
+        "LocaleController not initialized yet"
+    }
 
     fun init(context: Context, langCode: String?): Boolean {
         var langCode = langCode
@@ -78,9 +122,9 @@ object LocaleController {
         var jsonObject: JSONObject
         try {
             val jsonString = runCatching {
-                context.assets.open("public/i18n/${langCode}.json")
+                context.assets.open("public/i18n/$langCode.json")
             }.getOrElse {
-                context.assets.open("${langCode}.json")
+                context.assets.open("$langCode.json")
             }.bufferedReader().use { it.readText() }
             jsonObject = JSONObject(jsonString)
         } catch (_: IOException) {
@@ -124,54 +168,46 @@ object LocaleController {
         return locales.firstNotNullOfOrNull { locale -> WLanguage.valueOfLocale(locale)?.langCode }
     }
 
-    fun getString(key: String): String {
-        return dictionary[key] ?: key
-    }
+    fun getString(key: String): String = dictionary[key] ?: key
 
-    fun getStringOrNull(key: String?): String? {
-        return key?.let { getString(key) }
-    }
+    fun getStringOrNull(key: String?): String? = key?.let { getString(key) }
 
-    fun getPlural(amount: Int, key: String): String {
-        return getPluralOrFormat(key, amount)
-    }
+    fun getPlural(amount: Int, key: String): String = getPluralOrFormat(key, amount)
 
     // `$in_days` is a pure plural ("in N days"). `today`/`tomorrow` are handled separately because
     // the CLDR `one` plural category (e.g. ru/uk: 1, 21, 31, 61...) cannot isolate exactly 1 day.
-    fun getRelativeDays(amount: Int): String {
-        return when (amount) {
-            0 -> getString("\$relative_today")
-            1 -> getString("\$relative_tomorrow")
-            else -> getPlural(amount, "\$in_days")
-        }
+    fun getRelativeDays(amount: Int): String = when (amount) {
+        0 -> getString("\$relative_today")
+        1 -> getString("\$relative_tomorrow")
+        else -> getPlural(amount, "\$in_days")
     }
 
-    fun getPluralWord(amount: Int, key: String): String {
-        return getPluralOrFormat(key, amount, "")
-    }
+    fun getPluralWord(amount: Int, key: String): String = getPluralOrFormat(key, amount, "")
 
     fun getPluralOrFormat(
         key: String,
         amount: Int,
         value: String = amount.toString(),
+        localizedNumbers: Boolean = true
     ): String {
         val rule: ((Int) -> Int)? = PLURAL_RULES[activeLanguage.langCode]
         val optionIndex = rule?.invoke(amount) ?: 0
         val pluralKey = key + "." + PLURAL_OPTIONS.getOrElse(optionIndex) { PLURAL_OPTIONS[0] }
-        return if (dictionary.contains(pluralKey))
+        return if (dictionary.contains(pluralKey)) {
             getFormattedString(
                 pluralKey,
                 listOf(value)
-            )
-        else {
+            ).withLocalizedNumbers(localizedNumbers)
+        } else {
             val fallbackKey = key + "." + PLURAL_OPTIONS[6]
-            if (dictionary.contains(fallbackKey))
+            if (dictionary.contains(fallbackKey)) {
                 getFormattedString(
                     fallbackKey,
                     listOf(value)
-                )
-            else
-                getFormattedString(key, listOf(value))
+                ).withLocalizedNumbers(localizedNumbers)
+            } else {
+                getFormattedString(key, listOf(value)).withLocalizedNumbers(localizedNumbers)
+            }
         }
     }
 
@@ -186,10 +222,7 @@ object LocaleController {
         return result
     }
 
-    fun getStringWithKeyValues(
-        key: String,
-        keyValues: List<Pair<String, String>>
-    ): String {
+    fun getStringWithKeyValues(key: String, keyValues: List<Pair<String, String>>): String {
         var result = getString(key)
         keyValues.forEach { keyValue ->
             result = result.replace(keyValue.first, keyValue.second)
@@ -212,10 +245,7 @@ object LocaleController {
         return result
     }
 
-    fun getFormattedEnumeration(
-        items: List<String>,
-        joiner: String = "and"
-    ): String {
+    fun getFormattedEnumeration(items: List<String>, joiner: String = "and"): String {
         val middleJoiner = getString("\$joining_comma")
         val lastJoiner = getString(if (joiner == "and") "\$joining_and" else "\$joining_or")
         return buildString {

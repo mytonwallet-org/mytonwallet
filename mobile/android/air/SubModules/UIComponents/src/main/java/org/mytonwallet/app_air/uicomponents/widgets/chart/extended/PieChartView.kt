@@ -1,3 +1,5 @@
+@file:Suppress("PropertyName")
+
 package org.mytonwallet.app_air.uicomponents.widgets.chart.extended
 
 import android.animation.ValueAnimator
@@ -6,10 +8,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Typeface
 import android.text.TextPaint
 import android.view.HapticFeedbackConstants
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
@@ -17,10 +17,12 @@ import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
+import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
-class PieChartView(
-    context: Context
-) : StackLinearChartView<PieChartViewData>(context) {
+class PieChartView(context: Context) : StackLinearChartView<PieChartViewData>(context) {
     private var values: FloatArray? = null
     private var darawingValuesPercentage: FloatArray? = null
     private var sum = 0f
@@ -39,11 +41,11 @@ class PieChartView(
 
     init {
         for (i in 1..100) {
-            lookupTable[i] = "$i%"
+            lookupTable[i] = "${i.toString().withLocalizedNumbers}%"
         }
         textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = Color.WHITE
-        textPaint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        textPaint.typeface = WFont.Medium.typeface
         canCaptureChartSelection = true
     }
 
@@ -140,7 +142,12 @@ class PieChartView(
                 canvas.drawText(
                     lookupTable[percent],
                     (rectF.centerX() + rText * cos(Math.toRadians(textAngle.toDouble()))).toFloat(),
-                    (rectF.centerY() + rText * sin(Math.toRadians(textAngle.toDouble()))).toFloat() - ((textPaint.descent() + textPaint.ascent()) / 2),
+                    (
+                        rectF.centerY() + rText * sin(
+                            Math.toRadians(textAngle.toDouble())
+                        )
+                        ).toFloat() -
+                        ((textPaint.descent() + textPaint.ascent()) / 2),
                     textPaint
                 )
             }
@@ -179,11 +186,18 @@ class PieChartView(
                 val y = line.line.y
                 val yPercentage = when {
                     valueMode == ValueMode.RELATIVE && drawingLinesCount == 1 && y[i] == 0L -> 0f
+
                     valueMode == ValueMode.RELATIVE && drawingLinesCount == 1 -> line.alpha
+
                     valueMode == ValueMode.RELATIVE && localSum == 0f -> 0f
-                    valueMode == ValueMode.RELATIVE && allDisabled -> (y[i] / localSum) * line.alpha * line.alpha
+
+                    valueMode == ValueMode.RELATIVE && allDisabled ->
+                        (y[i] / localSum) * line.alpha * line.alpha
+
                     valueMode == ValueMode.RELATIVE -> (y[i] / localSum) * line.alpha
+
                     pickerMaxHeight <= 0f -> 0f
+
                     else -> y[i] * line.alpha / pickerMaxHeight
                 }
                 val yPoint = yPercentage * pikerHeight
@@ -292,7 +306,9 @@ class PieChartView(
             }
 
             var yl = min(
-                rectF.centerY() + r * sin(Math.toRadians((selectionStartA * 360f - 90f).toDouble())),
+                rectF.centerY() + r * sin(
+                    Math.toRadians((selectionStartA * 360f - 90f).toDouble())
+                ),
                 rectF.centerY() + r * sin(Math.toRadians((selectionEndA * 360f - 90f).toDouble()))
             ).toInt()
             yl = min(rectF.centerY().toInt(), yl)
@@ -331,9 +347,8 @@ class PieChartView(
         super.onDraw(canvas)
     }
 
-    override fun getSelectedDate(): Long {
-        return if (currentSelection >= 0) currentSelection.toLong() else -1
-    }
+    override fun getSelectedDate(): Long =
+        if (currentSelection >= 0) currentSelection.toLong() else -1
 
     override fun clearSelection() {
         super.clearSelection()
@@ -459,7 +474,8 @@ class PieChartView(
                     ValueAnimator.AnimatorUpdateListener { animation ->
                         line.drawingPart = animation.animatedValue as Float
                         invalidate()
-                    }).apply { start() }
+                    }
+                ).apply { start() }
             }
         } else {
             for (i in 0 until nl) {
@@ -489,10 +505,11 @@ class PieChartView(
 
     private fun formatLegendPercentage(ratio: Float): String {
         val percent = 100f * ratio
-        return if (percent < 10f && percent != 0f) {
-            String.format(java.util.Locale.ENGLISH, "%.1f%%", percent)
+        val text = if (percent < 10f && percent != 0f) {
+            String.format(java.util.Locale.ENGLISH, "%.1f", percent)
         } else {
-            "${percent.roundToInt()}%"
+            percent.roundToInt().toString()
         }
+        return "${text.withLocalizedNumbers}%"
     }
 }

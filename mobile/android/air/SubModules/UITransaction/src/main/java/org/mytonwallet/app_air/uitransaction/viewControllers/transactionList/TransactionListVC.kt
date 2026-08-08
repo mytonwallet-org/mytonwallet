@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uitransaction.viewControllers.transactionList
 
 import android.content.Context
@@ -5,6 +7,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -23,15 +26,15 @@ import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import java.lang.ref.WeakReference
 
 class TransactionListVC(
     context: Context,
     private val accountId: String,
     private val transactions: List<MApiTransaction>
-) :
-    WViewController(context),
-    WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+) : WViewController(context),
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "Transaction"
 
     override val shouldDisplayBottomBar = true
@@ -66,8 +69,7 @@ class TransactionListVC(
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
 
@@ -117,8 +119,7 @@ class TransactionListVC(
         super.updateTheme()
 
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
+        if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
@@ -154,34 +155,19 @@ class TransactionListVC(
         }
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 1
-    }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
 
-    override fun recyclerViewNumberOfItems(
-        rv: RecyclerView,
-        section: Int
-    ): Int {
-        return transactions.size
-    }
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = transactions.size
 
-    override fun recyclerViewCellType(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): WCell.Type {
-        return TRANSACTION_CELL
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        TRANSACTION_CELL
 
-    override fun recyclerViewCellView(
-        rv: RecyclerView,
-        cellType: WCell.Type
-    ): WCell {
-        return ActivityCell(recyclerView, withoutTagAndComment = false, isFirstInDay = null).apply {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        ActivityCell(recyclerView, withoutTagAndComment = false, isFirstInDay = null).apply {
             onTap = {
                 onTransactionTap(it)
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -196,12 +182,11 @@ class TransactionListVC(
                 isFirst = indexPath.row == 0,
                 isFirstInDay = false,
                 isLastInDay = false,
-                isLast = indexPath.row == transactions.size - 1,
-            ),
+                isLast = indexPath.row == transactions.size - 1
+            )
         )
     }
 
-    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        return transactions[indexPath.row].id
-    }
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
+        transactions[indexPath.row].id
 }

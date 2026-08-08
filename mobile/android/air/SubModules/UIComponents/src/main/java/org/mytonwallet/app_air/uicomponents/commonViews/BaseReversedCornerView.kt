@@ -1,11 +1,15 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.content.Context
+import android.graphics.RectF
 import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setLocalized
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 
 public open class BaseReversedCornerView(context: Context) : FrameLayout(context) {
+    protected open val appliesAdditionalTabletPadding = true
+
     var pathDirty = true
 
     var startHorizontalPadding = ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
@@ -18,8 +22,7 @@ public open class BaseReversedCornerView(context: Context) : FrameLayout(context
     }
 
     fun setHorizontalPadding(start: Float, end: Float) {
-        if (startHorizontalPadding == start && endHorizontalPadding == end)
-            return
+        if (startHorizontalPadding == start && endHorizontalPadding == end) return
         startHorizontalPadding = start
         endHorizontalPadding = end
         pathDirty = true
@@ -32,8 +35,7 @@ public open class BaseReversedCornerView(context: Context) : FrameLayout(context
         private set
 
     fun setSideInsets(start: Float, end: Float) {
-        if (startInset == start && endInset == end)
-            return
+        if (startInset == start && endInset == end) return
         startInset = start
         endInset = end
         pathDirty = true
@@ -44,8 +46,7 @@ public open class BaseReversedCornerView(context: Context) : FrameLayout(context
         private set
 
     fun setMaxContentWidth(width: Float) {
-        if (maxContentWidth == width)
-            return
+        if (maxContentWidth == width) return
         maxContentWidth = width
         pathDirty = true
         invalidate()
@@ -67,4 +68,20 @@ public open class BaseReversedCornerView(context: Context) : FrameLayout(context
         return width - endInset - centeringOffset - endHorizontalPadding
     }
 
+    internal fun setCutoutRect(outRect: RectF, top: Float, bottom: Float) {
+        val width = width.toFloat()
+        val tabletPadding =
+            if (appliesAdditionalTabletPadding) {
+                ViewConstants.ADDITIONAL_TABLET_PADDING.toFloat()
+            } else {
+                0f
+            }
+        outRect.setLocalized(
+            cutoutStart(width, tabletPadding),
+            top,
+            cutoutEnd(width),
+            bottom,
+            width
+        )
+    }
 }

@@ -124,5 +124,7 @@ public struct Language: Equatable, Identifiable, Sendable {
         .th,
         .uk,
         .pl,
+        .ar,
+        .fa,
     ]
 }

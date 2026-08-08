@@ -39,9 +39,12 @@ class AgentOutgoingBubbleDrawable : Drawable() {
         tail.reset()
         tail.moveTo(w - 6f.dp, h - 10f.dp)
         tail.cubicTo(
-            w - 6f.dp, h - 6.786f.dp,
-            w - 4.235f.dp, h - 2.321f.dp,
-            w - 0.706f.dp, h - 1.429f.dp
+            w - 6f.dp,
+            h - 6.786f.dp,
+            w - 4.235f.dp,
+            h - 2.321f.dp,
+            w - 0.706f.dp,
+            h - 1.429f.dp
         )
         tail.lineTo(w, h - 1.429f.dp)
         tail.cubicTo(w, h - 0.714f.dp, w - 0.706f.dp, h, w - 0.706f.dp, h)

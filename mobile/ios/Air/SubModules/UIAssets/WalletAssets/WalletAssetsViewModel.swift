@@ -4,8 +4,6 @@ import WalletContext
 import WalletCore
 import GRDB
 
-private let log = Log("WalletAssetsViewModel")
-
 @MainActor public protocol WalletAssetsViewModelDelegate: AnyObject {
     func walletAssetModelDidChangeDisplayTabs(dueToAccountSwitch: Bool)
 }

@@ -4,10 +4,13 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.util.Base64
+import android.util.LruCache
 import androidx.core.graphics.drawable.toDrawable
 import com.facebook.cache.common.SimpleCacheKey
 import com.facebook.cache.disk.FileCache
 import com.facebook.imagepipeline.core.ImagePipelineFactory
+import java.io.ByteArrayOutputStream
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,15 +23,15 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import java.io.ByteArrayOutputStream
-import kotlin.math.roundToInt
 
 object ReceiveBackgroundCache {
+    private const val MAX_MEMORY_ENTRIES = 3
+
     private data class CacheKey(val chain: MBlockchain, val width: Int, val height: Int)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val cache = mutableMapOf<CacheKey, BitmapDrawable>()
+    private val cache = LruCache<CacheKey, BitmapDrawable>(MAX_MEMORY_ENTRIES)
     private val pending = mutableMapOf<CacheKey, MutableList<(BitmapDrawable?) -> Unit>>()
     private val queue = Channel<CacheKey>(Channel.UNLIMITED)
 
@@ -50,8 +53,9 @@ object ReceiveBackgroundCache {
     fun precache(statusBarTop: Int, prioritizedChains: List<MBlockchain> = emptyList()) {
         val width = ApplicationContextHolder.screenWidth
         val height = statusBarTop + WNavigationBar.DEFAULT_HEIGHT.dp + QRCodeVC.HEIGHT.dp
-        val ordered =
-            prioritizedChains + MBlockchain.supportedChains.filter { it !in prioritizedChains }
+        val ordered = prioritizedChains
+            .plus(MBlockchain.supportedChains.filter { it !in prioritizedChains })
+            .distinct()
         for (chain in ordered) {
             render(chain, width, height, null)
         }
@@ -89,8 +93,7 @@ object ReceiveBackgroundCache {
         }
     }
 
-    private fun diskKey(key: CacheKey) =
-        SimpleCacheKey("receive_bg_${key.chain.name}")
+    private fun diskKey(key: CacheKey) = SimpleCacheKey("receive_bg_${key.chain.name}")
 
     private fun fileCache(): FileCache? = try {
         ImagePipelineFactory.getInstance().diskCachesStoreSupplier.get().mainFileCache
@@ -129,7 +132,7 @@ object ReceiveBackgroundCache {
             return
         }
         loadFromDisk(key)?.let {
-            synchronized(cache) { cache[key] = it }
+            synchronized(cache) { cache.put(key, it) }
             dispatchPending(key, it)
             return
         }
@@ -154,7 +157,7 @@ object ReceiveBackgroundCache {
                 bitmap.toDrawable(
                     ApplicationContextHolder.applicationContext.resources
                 ).also {
-                    synchronized(cache) { cache[key] = it }
+                    synchronized(cache) { cache.put(key, it) }
                 }
             }
         } catch (_: Throwable) {

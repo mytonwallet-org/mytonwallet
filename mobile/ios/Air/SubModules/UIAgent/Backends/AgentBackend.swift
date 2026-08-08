@@ -5,12 +5,8 @@ public enum AgentBackendKind: String, CaseIterable {
     case real
     case local
     case hybrid
-}
-
-extension AgentBackendKind {
-    static var menuOrder: [Self] {
-        return [.real, .local, .hybrid, .testing]
-    }
+    
+    static var menuOrder: [Self] { [.real, .local, .hybrid, .testing] }
 
     var menuTitle: String {
         switch self {
@@ -22,22 +18,6 @@ extension AgentBackendKind {
             "Local (On-Device)"
         case .hybrid:
             "Hybrid"
-        }
-    }
-
-    @MainActor
-    var isAvailable: Bool {
-        switch self {
-        case .testing:
-            #if DEBUG
-            true
-            #else
-            false
-            #endif
-        case .real:
-            true
-        case .local, .hybrid:
-            AgentStore.shared.isLocalBackendAvailable
         }
     }
 }
@@ -52,9 +32,20 @@ struct AgentBackendConversationMessage {
     let text: String
 }
 
+struct AgentBackendParsedMessage {
+    let text: String
+    let action: AgentMessageAction?
+}
+
 struct AgentBackendEditContext {
     let originalText: String
     let history: [AgentBackendConversationMessage]
+}
+
+enum AgentBackendMessages {
+    static let unavailableMessage = "Agent backend is not configured yet."
+    static let emptyResponseMessage = "The Agent returned an empty response."
+    static let fallbackErrorMessage = "Something went wrong. Please try again."
 }
 
 @MainActor
@@ -63,7 +54,6 @@ protocol AgentBackend: AnyObject {
 
     func attach(to context: AgentBackendContext)
     func detach()
-    func loadInitialTimeline(animated: Bool)
     func loadHints(animated: Bool)
     func prepareForEditing(_ editContext: AgentBackendEditContext)
     func didSendUserMessage(_ text: String, editContext: AgentBackendEditContext?)
@@ -71,8 +61,95 @@ protocol AgentBackend: AnyObject {
 }
 
 extension AgentBackend {
-    func loadHints(animated: Bool) {}
-    func prepareForEditing(_ editContext: AgentBackendEditContext) {}
+    private static var trailingMessageCharacters: CharacterSet {
+        CharacterSet.whitespacesAndNewlines.union(
+            CharacterSet(charactersIn: "\u{00A0}\u{200B}\u{200C}\u{200D}\u{FEFF}")
+        )
+    }
+
+    static func parseMessage(_ rawText: String) -> AgentBackendParsedMessage {
+        let trimmedText = rawText.trimmingCharacters(in: trailingMessageCharacters)
+        guard let match = AgentActionLinkMatcher.deeplinkRegex.matches(
+            in: trimmedText,
+            options: [],
+            range: NSRange(trimmedText.startIndex..., in: trimmedText)
+        ).last else {
+            return AgentBackendParsedMessage(text: trimmedText, action: nil)
+        }
+
+        guard let fullRange = Range(match.range(at: 0), in: trimmedText),
+              let titleRange = Range(match.range(at: 1), in: trimmedText),
+              let urlRange = Range(match.range(at: 2), in: trimmedText) else {
+            return AgentBackendParsedMessage(text: trimmedText, action: nil)
+        }
+
+        let title = String(trimmedText[titleRange])
+        let urlString = String(trimmedText[urlRange])
+        guard let url = URL(string: urlString) else {
+            return AgentBackendParsedMessage(text: trimmedText, action: nil)
+        }
+
+        var messageText = trimmedText
+        messageText.removeSubrange(fullRange)
+        messageText = messageText.trimmingCharacters(in: trailingMessageCharacters)
+
+        return AgentBackendParsedMessage(
+            text: messageText,
+            action: AgentMessageAction(title: title, url: url)
+        )
+    }
+
+    static func streamingFrames(for text: String) -> [String] {
+        var frames: [String] = []
+        var currentText = ""
+        var charactersSinceFrame = 0
+
+        for character in text {
+            currentText.append(character)
+            charactersSinceFrame += 1
+
+            let shouldFlush = charactersSinceFrame >= streamingFlushThreshold(emittedCharacterCount: currentText.count)
+                || character.isSentenceBoundary
+                || character == "\n"
+            if shouldFlush {
+                frames.append(currentText)
+                charactersSinceFrame = 0
+            }
+        }
+
+        if frames.last != currentText {
+            frames.append(currentText)
+        }
+
+        return frames
+    }
+
+    static func streamingDelay(frameIndex: Int, frame: String) -> Duration {
+        let slowStartCharacterCount = 110
+        let accelerationCharacterSpan = 320
+        let baseMilliseconds = frame.last?.isSentenceBoundary == true ? 140.0 : 70.0
+        let excess = max(0, frame.count - slowStartCharacterCount)
+        let ramp = min(1.0, Double(excess) / Double(accelerationCharacterSpan))
+        let factor = 1.0 - (0.7 * ramp)
+        return .milliseconds(Int((baseMilliseconds * factor).rounded(.up)))
+    }
+
+    private static func streamingFlushThreshold(emittedCharacterCount: Int) -> Int {
+        let slowStartCharacterCount = 110
+        let initialFlushThreshold = 6
+        let maxFlushThreshold = 40
+        guard emittedCharacterCount > slowStartCharacterCount else {
+            return initialFlushThreshold
+        }
+        let excess = emittedCharacterCount - slowStartCharacterCount
+        return min(maxFlushThreshold, initialFlushThreshold + excess / 14)
+    }
+}
+
+private extension Character {
+    var isSentenceBoundary: Bool {
+        self == "." || self == "!" || self == "?"
+    }
 }
 
 @MainActor

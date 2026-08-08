@@ -3,12 +3,13 @@ package org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet
 import android.app.Activity
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.api.enclaveImportSecrets
 import org.mytonwallet.app_air.walletcore.api.importPrivateKey
 import org.mytonwallet.app_air.walletcore.api.importWallet
 import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
@@ -18,7 +19,6 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
-import java.lang.ref.WeakReference
 
 class ImportWalletVM(delegate: Delegate) {
     interface Delegate {
@@ -52,9 +52,9 @@ class ImportWalletVM(delegate: Delegate) {
         window: Activity,
         network: MBlockchainNetwork,
         words: Array<String>,
-        passcode: String,
         biometricsActivated: Boolean?,
-        retriesLeft: Int = 3
+        retriesLeft: Int = 3,
+        enclaveToken: String
     ) {
         fun onResult(importedAccounts: List<MAccount>?, error: MBridgeError?) {
             if (error != null) {
@@ -64,9 +64,9 @@ class ImportWalletVM(delegate: Delegate) {
                             window,
                             network,
                             words,
-                            passcode,
                             biometricsActivated,
-                            retriesLeft - 1
+                            retriesLeft - 1,
+                            enclaveToken
                         )
                     }, 3000)
                 } else {
@@ -91,6 +91,16 @@ class ImportWalletVM(delegate: Delegate) {
                         LogMessage.MessagePartPrivacy.REDACTED
                     ).build()
             )
+            val secret = words.joinToString(" ")
+            val importError = WalletCore.enclaveImportSecrets(
+                importedAccounts.map { it.accountId },
+                secret,
+                enclaveToken
+            )
+            if (importError != null) {
+                delegate.get()?.showError(importError)
+                return
+            }
             importedAccounts.forEach { account ->
                 WGlobalStorage.addAccount(
                     accountId = account.accountId,
@@ -102,27 +112,18 @@ class ImportWalletVM(delegate: Delegate) {
             }
             WalletCore.refreshStoredMfaIfPossible(
                 importedAccounts.map { it.accountId },
-                passcode,
+                enclaveToken
             )
-            if (biometricsActivated != null) {
-                if (biometricsActivated) {
-                    val activated = WSecureStorage.setBiometricPasscode(window, passcode)
-                    WGlobalStorage.setIsBiometricActivated(activated)
-                } else {
-                    WSecureStorage.deleteBiometricPasscode(window)
-                    WGlobalStorage.setIsBiometricActivated(false)
-                }
-            }
             delegate.get()?.finalizedImport(primaryAccount.accountId, importedAccounts.size)
         }
 
         val privateKeyWords = PrivateKeyHelper.normalizeMnemonicPrivateKey(words)
         if (privateKeyWords != null) {
-            WalletCore.importPrivateKey(network, privateKeyWords[0], passcode) { account, error ->
+            WalletCore.importPrivateKey(network, privateKeyWords[0]) { account, error ->
                 onResult(account?.let { listOf(it) }, error)
             }
         } else {
-            WalletCore.importWallet(network, words, passcode, false) { accounts, error ->
+            WalletCore.importWallet(network, words, false) { accounts, error ->
                 onResult(accounts, error)
             }
         }

@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.uistake.earn
 
-import org.mytonwallet.app_air.uistake.earn.models.EarnItem
 import java.math.BigInteger
+import org.mytonwallet.app_air.uistake.earn.models.EarnItem
 
 data class EarnViewState(
     var stakingBalance: String? = null,
@@ -18,8 +18,8 @@ data class EarnViewState(
 
     val unclaimedReward: BigInteger? = null
 ) {
-    fun updateHistoryItems(newHistoryItems: List<EarnItem>, replace: Boolean): EarnViewState {
-        return (historyListState as? HistoryListState.HasItem)?.run {
+    fun updateHistoryItems(newHistoryItems: List<EarnItem>, replace: Boolean): EarnViewState =
+        (historyListState as? HistoryListState.HasItem)?.run {
             if (replace) (historyItems as MutableList).clear()
             val allItems = (historyItems as MutableList)
             allItems.addAll(newHistoryItems)
@@ -32,7 +32,6 @@ data class EarnViewState(
                 HistoryListState.HasItem(list)
             }
         )
-    }
 }
 
 sealed class HistoryListState {
@@ -41,8 +40,5 @@ sealed class HistoryListState {
 
     object NoItem : HistoryListState()
 
-    data class HasItem(
-        val historyItems: List<EarnItem>,
-    ) : HistoryListState()
-
+    data class HasItem(val historyItems: List<EarnItem>) : HistoryListState()
 }

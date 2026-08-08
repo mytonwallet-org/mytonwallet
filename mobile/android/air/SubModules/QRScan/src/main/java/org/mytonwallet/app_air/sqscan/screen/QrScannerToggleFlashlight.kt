@@ -29,7 +29,6 @@ class QrScannerToggleFlashlight @JvmOverloads constructor(
         const val BACKGROUND_LIGHT = 0x80FFFFFF.toInt()
     }
 
-
     private val path = Path()
     private val pathReverse = Path()
     private val drawableLight = context.getDrawableCompat(R.drawable.ic_flashlight_75)
@@ -145,16 +144,12 @@ class QrScannerToggleFlashlight @JvmOverloads constructor(
         }
 
         override fun setAlpha(alpha: Int) {
-
         }
 
         override fun setColorFilter(colorFilter: ColorFilter?) {
-
         }
 
-        override fun getOpacity(): Int {
-            return PixelFormat.UNKNOWN
-        }
+        override fun getOpacity(): Int = PixelFormat.UNKNOWN
     }
     private val ripple = WRippleDrawable.create(rippleBackground, 75f.dp / 2)
 

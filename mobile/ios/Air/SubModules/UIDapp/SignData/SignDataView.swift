@@ -66,7 +66,9 @@ struct SignDataView: View {
         InsetSection {
             InsetCell {
                 Text(verbatim: payload.text)
-                    .font17h22()
+                    .textStyle(.body, scaling: .dynamic)
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
             }
         } header: {
             Text(lang("Message"))
@@ -89,10 +91,16 @@ struct SignDataView: View {
             InsetCell {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(lang("Primary type"))
-                        .font(.system(size: 14, weight: .semibold))
+                        .textStyle(.supportingStrong)
                         .foregroundStyle(Color.air.secondaryLabel)
                     Text(verbatim: payload.primaryType)
-                        .font17h22()
+                        .textStyle(
+                            .body,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
+                        .lineSpacing(1)
+                        .frame(minHeight: 22)
                 }
             }
         } header: {
@@ -128,7 +136,13 @@ struct SignDataView: View {
         InsetSection {
             InsetCell {
                 Text(verbatim: payload.schema)
-                    .font17h22()
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
             }
         } header: {
             Text(lang("Cell Schema"))
@@ -136,7 +150,13 @@ struct SignDataView: View {
         InsetSection {
             InsetCell {
                 Text(verbatim: payload.cell)
-                    .font17h22()
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
             }
         } header: {
             Text(lang("Cell Data"))
@@ -315,7 +335,7 @@ private struct Eip712ArrayView: View {
             ForEach(Array(values.enumerated()), id: \.offset) { index, value in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(verbatim: "[\(index)]")
-                        .font(.system(size: 14, weight: .semibold))
+                        .textStyle(.supportingStrong, content: .technical)
                         .foregroundStyle(Color.air.secondaryLabel)
                     Eip712ValueView(
                         value: value,
@@ -342,7 +362,7 @@ private struct Eip712FieldRow<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: name)
-                .font(.system(size: 14, weight: .semibold))
+                .textStyle(.supportingStrong, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)
             content
@@ -356,7 +376,7 @@ private struct Eip712ScalarText: View {
 
     var body: some View {
         Text(verbatim: text)
-            .font(.system(size: 16, weight: .semibold))
+            .textStyle(.calloutStrong, content: .technical)
             .lineSpacing(2)
             .foregroundStyle(Color.air.primaryLabel)
             .textSelection(.enabled)

@@ -4,24 +4,26 @@ import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletCore.notifyEvent
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.enclaveReset
 import org.mytonwallet.app_air.walletcore.api.removeAccount
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
-import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import org.mytonwallet.app_air.walletcore.models.blockchain.MultiWalletSupport
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MultiWalletSupport
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
 import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
@@ -48,7 +50,13 @@ object AccountStore : IStore {
     var isPushedTemporary: Boolean = false
     val permanentActiveAccount: MAccount?
         get() {
-            return if (!isPushedTemporary) activeAccount else accountById(WGlobalStorage.getActiveAccountId())
+            return if (!isPushedTemporary) {
+                activeAccount
+            } else {
+                accountById(
+                    WGlobalStorage.getActiveAccountId()
+                )
+            }
         }
 
     var assetsAndActivityData: MAssetsAndActivityData = MAssetsAndActivityData()
@@ -61,12 +69,12 @@ object AccountStore : IStore {
         saveToStorage: Boolean
     ) {
         assetsAndActivityData = newValue
-        if (saveToStorage)
+        if (saveToStorage) {
             activeAccountId?.let { activeAccountId ->
                 WGlobalStorage.setAssetsAndActivityData(activeAccountId, newValue.toJSON)
             }
-        if (notify)
-            notifyEvent(WalletEvent.AssetsAndActivityDataUpdated)
+        }
+        if (notify) notifyEvent(WalletEvent.AssetsAndActivityDataUpdated)
     }
 
     var walletVersionsData: ApiUpdate.ApiUpdateWalletVersions? = null
@@ -103,8 +111,7 @@ object AccountStore : IStore {
     }
 
     fun accountIdByAddress(tonAddress: String?): String? {
-        if (tonAddress == null)
-            return null
+        if (tonAddress == null) return null
         val accountIds = WGlobalStorage.accountIds()
         for (accountId in accountIds) {
             val accountObj = WGlobalStorage.getAccount(accountId)
@@ -221,15 +228,13 @@ object AccountStore : IStore {
             }
 
             Logger.d(Logger.LogTag.ACCOUNT, "Remove account: $removingAccountId")
-            val accountObj = WGlobalStorage.getAccount(removingAccountId)
-            accountObj?.let {
-                val account = MAccount(
-                    removingAccountId,
-                    accountObj
-                )
-                if (!account.isTemporary)
-                    AirPushNotifications.unsubscribe(account) {}
+            val removedAccount = WGlobalStorage.getAccount(removingAccountId)?.let {
+                MAccount(removingAccountId, it)
             }
+            removedAccount?.let {
+                if (!it.isTemporary) AirPushNotifications.unsubscribe(it) {}
+            }
+            cleanupEnclaveAfterRemovingAccount(removedAccount)
             ActivityStore.removeAccount(removingAccountId)
             PoisoningCacheHelper.removeAccount(removingAccountId)
             DappsStore.removeAccount(removingAccountId)
@@ -257,6 +262,22 @@ object AccountStore : IStore {
         }
     }
 
+    private fun cleanupEnclaveAfterRemovingAccount(removedAccount: MAccount?) {
+        if (removedAccount?.accountType != MAccount.AccountType.MNEMONIC) {
+            return
+        }
+        val hasOtherMnemonicAccounts = WGlobalStorage.accountIds().any { accountId ->
+            accountId != removedAccount.accountId &&
+                WGlobalStorage.getAccount(accountId)?.optString("type") ==
+                MAccount.AccountType.MNEMONIC.value
+        }
+        if (hasOtherMnemonicAccounts) {
+            EnclaveManager.sharedInstance.removeSecret(removedAccount.accountId)
+        } else {
+            WalletCore.enclaveReset()
+        }
+    }
+
     fun renameAccount(account: MAccount, newWalletName: String) {
         account.name = newWalletName
         WGlobalStorage.save(
@@ -275,8 +296,7 @@ object AccountStore : IStore {
     }
 
     fun saveTemporaryAccount(account: MAccount) {
-        if (activeAccountId != account.accountId)
-            return
+        if (activeAccountId != account.accountId) return
         if (account.name == LocaleController.getString("Wallet")) {
             val newName =
                 WGlobalStorage.getSuggestedName(account.network, account.accountType.value)

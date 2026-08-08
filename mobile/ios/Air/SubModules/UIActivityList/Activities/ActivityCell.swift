@@ -46,10 +46,6 @@ public class ActivityCell: WHighlightCollectionViewCell {
     }
     public override class var layerClass: AnyClass { Layer.self }
 
-    static let regular14Font = UIFont.systemFont(ofSize: 14, weight: .regular)
-    static let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
-    static let medium16Font = UIFont.systemFont(ofSize: 16, weight: .medium)
-
     var skeletonView: ActivitySkeletonView? = nil
 
     let mainView = UIView()
@@ -62,7 +58,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
     private lazy var centeredLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = ActivityCell.medium16Font
+        label.applyTextStyle(.calloutEmphasized)
         label.isHidden = true
         mainView.addSubview(label)
         NSLayoutConstraint.activate([
@@ -180,7 +176,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         // MARK: address
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         firstTwoRows.addSubview(titleLabel)
-        titleLabel.font = ActivityCell.medium16Font
+        titleLabel.applyTextStyle(.calloutEmphasized)
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: firstTwoRows.topAnchor, constant: 1.667),
@@ -205,12 +201,12 @@ public class ActivityCell: WHighlightCollectionViewCell {
             detailsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             detailsLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1)
         ])
-        detailsLabel.font = ActivityCell.regular14Font
+        detailsLabel.applyTextStyle(.supporting)
         detailsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailsLabel.lineBreakMode = .byTruncatingMiddle
 
         // MARK: amount1
-        amountLabel.font = Self.regular16Font
+        amountLabel.applyTextStyle(.callout, content: .technical)
         amountLabel.translatesAutoresizingMaskIntoConstraints = false
         amountContainer.addContent(amountLabel)
         firstTwoRows.addSubview(amountContainer)
@@ -220,7 +216,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         ])
 
         // MARK: amount2
-        amount2Label.font = Self.regular14Font
+        amount2Label.applyTextStyle(.supporting, content: .technical)
         amount2Label.textColor = .air.secondaryLabel
         amount2Label.translatesAutoresizingMaskIntoConstraints = false
         amount2Label.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
@@ -488,7 +484,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         let activity = options.activity
         let attr = NSMutableAttributedString()
         let detailsAttributes: [NSAttributedString.Key: Any] = [
-            .font: Self.regular14Font
+            .font: WTypography.uiFont(.supporting)
         ]
 
         switch activity {
@@ -502,7 +498,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                     attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
                 }
 
-                let addressFont = UIFont.systemFont(ofSize: 14, weight: .semibold)
+                let addressFont = WTypography.uiFont(.supportingStrong, content: .technical)
                 var address = NSAttributedString(string: options.address, attributes: [
                     .font: addressFont
                 ])
@@ -524,7 +520,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                     attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
                 }
                 let annualYield = NSAttributedString(string: "\(stakingState.yieldType.rawValue) \(stakingState.annualYield.value)%", attributes: [
-                    .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+                    .font: WTypography.uiFont(.supportingStrong, content: .technical)
                 ])
                 attr.append(attributedLang(
                     "at %annual_yield%",
@@ -561,7 +557,9 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
             }
             let timestamp = stringForTimestamp(timestamp: Int32(clamping: activity.timestamp / 1000))
-            attr.append(NSAttributedString(string: timestamp, attributes: detailsAttributes))
+            attr.append(NSAttributedString(string: timestamp, attributes: [
+                .font: WTypography.uiFont(.supporting, content: .technical)
+            ]))
         }
         detailsLabel.textColor = UIColor.air.secondaryLabel
         detailsLabel.attributedText = attr
@@ -597,9 +595,9 @@ public class ActivityCell: WHighlightCollectionViewCell {
                         showMinus: displayMode == .noSign ? false : true,
                         roundHalfUp: false
                     ),
-                    integerFont: UIFont.systemFont(ofSize: 16),
-                    fractionFont: UIFont.systemFont(ofSize: 16),
-                    symbolFont: UIFont.systemFont(ofSize: 16),
+                    integerFont: WTypography.uiFont(.callout, content: .technical),
+                    fractionFont: WTypography.uiFont(.callout, content: .technical),
+                    symbolFont: WTypography.uiFont(.callout, content: .technical),
                     integerColor: color,
                     fractionColor: color,
                     symbolColor: color
@@ -645,14 +643,14 @@ public class ActivityCell: WHighlightCollectionViewCell {
 
         return NSAttributedString(string: text, attributes: [
             .foregroundColor: color,
-            .font: isFrom ? Self.regular14Font : Self.regular16Font
+            .font: WTypography.uiFont(isFrom ? .supporting : .callout, content: .technical)
         ])
     }
 
     func configureAmount2(_ options: ConfigureAmountOptions) {
         let activity = options.activity
 
-        amount2Label.font = .systemFont(ofSize: 14)
+        amount2Label.applyTextStyle(.supporting, content: .technical)
         amount2Label.textColor = UIColor.air.secondaryLabel
 
         let displayMode = activity.amountDisplayMode
@@ -669,9 +667,9 @@ public class ActivityCell: WHighlightCollectionViewCell {
                         showMinus: false,
                         roundHalfUp: false
                     ),
-                    integerFont: UIFont.systemFont(ofSize: 14),
-                    fractionFont: UIFont.systemFont(ofSize: 14),
-                    symbolFont: UIFont.systemFont(ofSize: 14),
+                    integerFont: WTypography.uiFont(.supporting, content: .technical),
+                    fractionFont: WTypography.uiFont(.supporting, content: .technical),
+                    symbolFont: WTypography.uiFont(.supporting, content: .technical),
                     integerColor: color,
                     fractionColor: color,
                     symbolColor: color

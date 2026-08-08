@@ -9,14 +9,16 @@ class WindowOpenUrlRoutingContractTest {
     fun windowOpenWalletOfframpIsConsumedBeforeDelegate() {
         val handledSources = mutableListOf<String>()
 
-        val mtwDecision = resolveRouting("mtw://offramp?depositWalletAddress=UQAddress") { _, source ->
-            handledSources.add(source.toString())
-            false
-        }
-        val gramDecision = resolveRouting("gramwallet://offramp?depositWalletAddress=UQAddress") { _, source ->
-            handledSources.add(source.toString())
-            false
-        }
+        val mtwDecision =
+            resolveRouting("mtw://offramp?depositWalletAddress=UQAddress") { _, source ->
+                handledSources.add(source.toString())
+                false
+            }
+        val gramDecision =
+            resolveRouting("gramwallet://offramp?depositWalletAddress=UQAddress") { _, source ->
+                handledSources.add(source.toString())
+                false
+            }
 
         assertEquals("CONSUME", mtwDecision)
         assertEquals("CONSUME", gramDecision)
@@ -49,7 +51,5 @@ class WindowOpenUrlRoutingContractTest {
     private fun resolveRouting(
         url: String,
         handleDeeplink: (String, DeeplinkOpenSource) -> Boolean
-    ): String {
-        return WindowOpenUrlRoutingDecision.resolve(url, handleDeeplink).toString()
-    }
+    ): String = WindowOpenUrlRoutingDecision.resolve(url, handleDeeplink).toString()
 }

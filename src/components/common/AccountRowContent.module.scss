@@ -69,6 +69,7 @@
 }
 
 .title {
+  unicode-bidi: plaintext;
   overflow: hidden;
 
   font-size: 1rem;
@@ -126,15 +127,16 @@
 }
 
 .balance {
+  unicode-bidi: plaintext;
   flex-shrink: 0;
 
-  margin-left: auto;
+  margin-inline-start: auto;
 
   font-size: 1rem;
   font-weight: 600;
   line-height: 1;
   color: var(--color-gray-2);
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
 
   @include mixins.respond-above(xs) {

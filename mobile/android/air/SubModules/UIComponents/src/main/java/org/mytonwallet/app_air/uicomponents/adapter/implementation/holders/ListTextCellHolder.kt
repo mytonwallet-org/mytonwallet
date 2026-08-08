@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.uicomponents.adapter.implementation.holders
 
 import android.util.TypedValue
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor

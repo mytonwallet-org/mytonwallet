@@ -44,13 +44,13 @@ struct ExploreCategoryRow: View {
     
     private func textsAndButton() -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(site.name).font(.system(size: 15, weight: .semibold))
+            Text(site.name).textStyle(.subheadlineStrong)
                 .fixedSize()
                 .padding(.top, 11)
                 
             Spacer().frame(height: 4)
                 
-            Text(site.description).font(.system(size: 14))
+            Text(site.description).textStyle(.supporting)
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
                 .foregroundStyle(Color.air.secondaryLabel)

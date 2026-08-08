@@ -5,11 +5,9 @@ interface ITheme {
     fun getColor(color: WColor, isDark: Boolean): Int
 }
 
-private fun create(colormap: Map<WColor, Int>): IntArray {
-    return IntArray(WColor.entries.size).apply {
-        colormap.forEach {
-            set(it.key.ordinal, it.value)
-        }
+private fun create(colormap: Map<WColor, Int>): IntArray = IntArray(WColor.entries.size).apply {
+    colormap.forEach {
+        set(it.key.ordinal, it.value)
     }
 }
 
@@ -46,6 +44,8 @@ internal val THEME_LIGHT_PRESET
             WColor.Green to 0xFF53A30D.toInt(),
             WColor.PositiveBalance to 0xFF7BFF9D.toInt(),
             WColor.Red to 0xFFFF3B30.toInt(),
+            WColor.Buy to 0xFF49CA3B.toInt(),
+            WColor.Sell to 0xFFFF5148.toInt(),
             WColor.Purple to 0xFF5E6BDE.toInt(),
             WColor.Orange to 0xFFF7931A.toInt(),
             WColor.StockBadge to 0xFFDE8C00.toInt(),
@@ -59,7 +59,7 @@ internal val THEME_LIGHT_PRESET
             WColor.Transparent to 0x00000000,
             WColor.White to 0xFFFFFFFF.toInt(),
             WColor.Black to 0xFF000000.toInt(),
-            WColor.Icon to 0xFF363A3E.toInt(),
+            WColor.Icon to 0xFF363A3E.toInt()
         )
     )
 
@@ -93,6 +93,8 @@ internal val THEME_DARK_PRESET
             WColor.Green to 0xFF57C84A.toInt(),
             WColor.PositiveBalance to 0xFF7BFF9D.toInt(),
             WColor.Red to 0xFFFF5148.toInt(),
+            WColor.Buy to 0xFF49CA3B.toInt(),
+            WColor.Sell to 0xFFFF5148.toInt(),
             WColor.Purple to 0xFF7D88F4.toInt(),
             WColor.Orange to 0xFFF7931A.toInt(),
             WColor.StockBadge to 0xFFDE8C00.toInt(),
@@ -106,6 +108,6 @@ internal val THEME_DARK_PRESET
             WColor.Transparent to 0x00000000,
             WColor.White to 0xFFFFFFFF.toInt(),
             WColor.Black to 0xFF000000.toInt(),
-            WColor.Icon to 0xFFFFFFFF.toInt(),
+            WColor.Icon to 0xFFFFFFFF.toInt()
         )
     )

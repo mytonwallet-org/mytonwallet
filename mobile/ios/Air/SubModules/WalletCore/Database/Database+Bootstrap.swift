@@ -117,8 +117,6 @@ public enum DatabaseBootstrap {
                 "airLauncher.globalStorage.bootstrapDecision",
                 details: "shouldLoad=false reason=noKeychainAccounts \(walletEvidence.traceDetails)"
             )
-            completeEmptyLegacyGlobalStorageMigration()
-            StartupTrace.mark("airLauncher.languageMigration.end")
             await markLegacyBootstrapNotNeededIfPossible(db: db)
             StartupTrace.mark("airLauncher.globalStorage.load.skipped")
             StartupTrace.mark("airLauncher.storage.switchFromCapacitor.skipped")
@@ -156,14 +154,12 @@ public enum DatabaseBootstrap {
         do {
             switch try await storage.loadFromWebViewIfPresent() {
             case .missing:
-                completeEmptyLegacyGlobalStorageMigration()
                 return await finishAbsentLegacyGlobalStorageBootstrap(
                     db: db,
                     walletEvidence: walletEvidence,
                     trace: "airLauncher.globalStorage.load.missing"
                 )
             case .empty:
-                completeEmptyLegacyGlobalStorageMigration()
                 return await finishAbsentLegacyGlobalStorageBootstrap(
                     db: db,
                     walletEvidence: walletEvidence,
@@ -173,7 +169,6 @@ public enum DatabaseBootstrap {
                 StartupTrace.mark("airLauncher.globalStorage.load.end")
             }
         } catch GlobalStorageError.localStorageIsNull, GlobalStorageError.localStorageIsEmpty {
-            completeEmptyLegacyGlobalStorageMigration()
             return await finishAbsentLegacyGlobalStorageBootstrap(
                 db: db,
                 walletEvidence: walletEvidence,
@@ -195,7 +190,6 @@ public enum DatabaseBootstrap {
 
         walletEvidence = walletEvidence.updating(legacyAccountsState: detectLegacyAccountsState(in: storage))
         guard walletEvidence.legacyAccountsState == .present else {
-            LocalizationSupport.shared.migrateLanguageFromGlobalStorageIfNeeded(global: storage)
             return await finishAbsentLegacyGlobalStorageBootstrap(
                 db: db,
                 walletEvidence: walletEvidence,
@@ -226,8 +220,6 @@ public enum DatabaseBootstrap {
             }
         }
 
-        LocalizationSupport.shared.migrateLanguageFromGlobalStorageIfNeeded(global: storage)
-        StartupTrace.mark("airLauncher.languageMigration.end")
         walletEvidence = walletEvidence.updating(legacyAccountsState: detectLegacyAccountsState(in: storage))
 
         do {
@@ -268,7 +260,6 @@ public enum DatabaseBootstrap {
         })
 
         return !requiredLegacyMigrationIds.isSubset(of: executedMigrationIds)
-            || LocalizationSupport.shared.needsLegacyGlobalStorageMigration
     }
 
     private static func markLegacyBootstrapNotNeeded(db: any DatabaseWriter) async throws {
@@ -306,19 +297,11 @@ public enum DatabaseBootstrap {
         walletEvidence: StartupWalletEvidence,
         trace: String
     ) async -> StartupWalletEvidence {
-        StartupTrace.mark("airLauncher.languageMigration.end")
         StartupTrace.mark(trace)
         await markLegacyBootstrapNotNeededIfPossible(db: db)
         StartupTrace.mark("airLauncher.storage.switchFromCapacitor.skipped")
         StartupTrace.mark("airLauncher.legacyMigration.skipped")
         return walletEvidence.updating(legacyAccountsState: .absent)
-    }
-
-    @MainActor
-    private static func completeEmptyLegacyGlobalStorageMigration() {
-        let storage = GlobalStorage()
-        storage.update { $0[""] = [:] }
-        LocalizationSupport.shared.migrateLanguageFromGlobalStorageIfNeeded(global: storage)
     }
 
     private static func fetchDatabaseAccountCount(db: any DatabaseWriter) async throws -> Int {

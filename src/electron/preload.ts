@@ -17,6 +17,7 @@ const electronApi: ElectronApi = {
 
   toggleDeeplinkHandler: (isEnabled: boolean) => ipcRenderer.invoke(ElectronAction.TOGGLE_DEEPLINK_HANDLER, isEnabled),
 
+  getIsEncryptionSupported: () => ipcRenderer.invoke(ElectronAction.GET_IS_ENCRYPTION_SUPPORTED),
   getIsTouchIdSupported: () => ipcRenderer.invoke(ElectronAction.GET_IS_TOUCH_ID_SUPPORTED),
   encryptPassword: (password: string) => ipcRenderer.invoke(ElectronAction.ENCRYPT_PASSWORD, password),
   decryptPassword: (encrypted: string) => ipcRenderer.invoke(ElectronAction.DECRYPT_PASSWORD, encrypted),

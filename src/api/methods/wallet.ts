@@ -2,11 +2,8 @@ import * as tonWebMnemonic from 'tonweb-mnemonic';
 
 import type { DappProtocolType, DappSignDataResult } from '../dappProtocols';
 import type { ApiDappRequestConfirmation } from '../dappProtocols/adapters/tonConnect/types';
-import type {
-  OnApiUpdate } from '../types';
 import type { ApiRevokeWalletPermissionOptions, ApiTonPlugin, ApiWalletPermission } from '../types/misc';
 import {
-  type ApiAccountWithMnemonic,
   type ApiAnyDisplayError,
   type ApiChain,
   type ApiNetwork,
@@ -14,31 +11,20 @@ import {
 } from '../types';
 
 import { parseAccountId } from '../../util/account';
-import { logDebugError } from '../../util/logs';
 import chains from '../chains';
 import {
-  fetchStoredAccount,
   fetchStoredAccounts,
   fetchStoredAddress,
-  getAccountWithMnemonic,
 } from '../common/accounts';
 import * as dappPromises from '../common/dappPromises';
 import { getMnemonic } from '../common/mnemonic';
-import { repairInvalidBip39TonAuthTokens, upgradeMultichainAccounts } from './auth';
 
-let onUpdate: OnApiUpdate;
-
-export function initWallet(_onUpdate: OnApiUpdate) {
-  onUpdate = _onUpdate;
+export function fetchPrivateKey(accountId: string, chain: ApiChain, enclaveToken: string) {
+  return chains[chain].fetchPrivateKeyString(accountId, enclaveToken);
 }
 
-export function fetchPrivateKey(accountId: string, chain: ApiChain, password: string) {
-  return chains[chain].fetchPrivateKeyString(accountId, password);
-}
-
-export async function fetchMnemonic(accountId: string, password: string) {
-  const account = await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
-  return getMnemonic(accountId, password, account);
+export async function fetchMnemonic(accountId: string, enclaveToken: string) {
+  return getMnemonic(accountId, enclaveToken);
 }
 
 export function getMnemonicWordList() {
@@ -59,42 +45,8 @@ export async function checkWorkerStorageIntegrity(): Promise<boolean> {
   }
 }
 
-export async function verifyPassword(password: string): Promise<boolean> {
-  let isValidPassword = false;
-
-  try {
-    const [accountId, account] = (await getAccountWithMnemonic()) ?? [];
-    if (!accountId || !account) {
-      return false;
-    }
-
-    const mnemonic = await getMnemonic(accountId, password, account);
-    if (!mnemonic) {
-      return false;
-    }
-
-    isValidPassword = true;
-
-    await repairInvalidBip39TonAuthTokens();
-    await upgradeMultichainAccounts(password);
-
-    return true;
-  } catch (err: any) {
-    logDebugError('verifyPassword', err);
-
-    if (isValidPassword) {
-      onUpdate?.({
-        type: 'showError',
-        error: err,
-      });
-    }
-
-    return isValidPassword;
-  }
-}
-
-export function confirmDappRequest(promiseId: string, password?: string) {
-  dappPromises.resolveDappPromise(promiseId, password);
+export function confirmDappRequest(promiseId: string, enclaveToken?: string) {
+  dappPromises.resolveDappPromise(promiseId, enclaveToken);
 }
 
 export function confirmDappRequestConnect(promiseId: string, data: ApiDappRequestConfirmation) {

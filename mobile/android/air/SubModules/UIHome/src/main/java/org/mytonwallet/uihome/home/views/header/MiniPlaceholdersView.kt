@@ -38,11 +38,11 @@ class MiniPlaceholdersView(context: Context) : View(context) {
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val height =
             topPadding +
-            line1Height +
-            space12 +
-            line2Height +
-            space23 +
-            line3Height
+                line1Height +
+                space12 +
+                line2Height +
+                space23 +
+                line3Height
 
         val width = 36.dp
 

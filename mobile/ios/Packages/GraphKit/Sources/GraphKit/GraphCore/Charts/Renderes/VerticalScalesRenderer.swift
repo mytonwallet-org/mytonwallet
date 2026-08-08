@@ -40,7 +40,7 @@ class VerticalScalesRenderer: BaseChartRenderer {
             setNeedsDisplay()
         }
     }
-    var labelsFont: NSFont = .systemFont(ofSize: 11)
+    var labelsFont: NSFont = GraphTypography.technicalAxisFont
     var drawLabels: Bool = true {
         didSet {
             setNeedsDisplay()

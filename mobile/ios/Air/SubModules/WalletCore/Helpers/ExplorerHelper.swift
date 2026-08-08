@@ -203,9 +203,12 @@ public final class ExplorerHelper {
         return nil
     }
     
-    public static func tokenUrl(token: ApiToken) -> URL {
+    public static func tokenUrl(token: ApiToken) -> URL? {
         guard let tokenAddress = token.tokenAddress?.nilIfEmpty else {
-            return URL(string: "https://coinmarketcap.com/currencies/\(token.cmcSlug ?? "")/")!
+            guard let cmcSlug = token.cmcSlug?.nilIfEmpty else {
+                return nil
+            }
+            return URL(string: "https://coinmarketcap.com/currencies/\(cmcSlug)/")
         }
         let network = AccountStore.activeNetwork
         let chain = token.chain
@@ -216,13 +219,13 @@ public final class ExplorerHelper {
                 .replacing("{base}", with: baseUrl.url)
                 .replacing("{address}", with: tokenAddress)
                 + param
-            return URL(string: str)!
+            return URL(string: str)
         }
         let str = chain.explorer.token
             .replacing("{base}", with: chain.explorer.baseUrl[network]!.url)
             .replacing("{address}", with: tokenAddress)
             + (chain.explorer.baseUrl[network]!.param ?? "")
-        return URL(string: str)!
+        return URL(string: str)
     }
     
     public struct Website {

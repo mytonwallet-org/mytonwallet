@@ -46,6 +46,10 @@ extension MStakingData {
     public var mycoinState: ApiStakingState? {
         stateById.values.first { $0.tokenSlug == MYCOIN_SLUG }
     }
+    public var hasMycoinStakeOrRewards: Bool {
+        guard let mycoinState else { return false }
+        return mycoinState.balance > 0 || (mycoinState.unclaimedRewards ?? 0) > 0
+    }
     public var mycoinJetton: ApiStakingStateJetton? {
         for state in stateById.values {
             if case .jetton(let jetton) = state, jetton.tokenSlug == MYCOIN_SLUG {
@@ -81,5 +85,39 @@ extension MStakingData {
             return nil
         }
     }
-}
 
+    public func byTokenSlug(_ tokenSlug: String) -> ApiStakingState? {
+        bySlug(tokenSlug) ?? byStakedSlug(tokenSlug)
+    }
+
+    public func stakingTokenPresentation(tokenSlug: String, isStaking: Bool) -> StakingTokenPresentation? {
+        guard let state = byTokenSlug(tokenSlug) else { return nil }
+
+        let isStakedRepresentation = isStaking || byStakedSlug(tokenSlug) != nil
+        let hasStakingPosition = getHasStakingPosition(state: state)
+        let showsStakingPresentation = hasStakingPosition ? isStakedRepresentation : !isStakedRepresentation
+        let accessory: StakingAccessoryContent? = if hasStakingPosition, showsStakingPresentation {
+            state.apy > 0 ? .active : .inactive
+        } else {
+            nil
+        }
+        let badge: StakingBadgeContent? = if showsStakingPresentation, state.apy > 0 {
+            StakingBadgeContent(
+                isActive: hasStakingPosition,
+                yieldType: state.yieldType,
+                yieldValue: state.apy
+            )
+        } else {
+            nil
+        }
+        return StakingTokenPresentation(accessory: accessory, badge: badge)
+    }
+
+    public func isEarnAvailable(forTokenSlug tokenSlug: String) -> Bool {
+        guard let state = byTokenSlug(tokenSlug) else { return false }
+        if state.tokenSlug == MYCOIN_SLUG, state.apy == 0 {
+            return hasMycoinStakeOrRewards
+        }
+        return true
+    }
+}

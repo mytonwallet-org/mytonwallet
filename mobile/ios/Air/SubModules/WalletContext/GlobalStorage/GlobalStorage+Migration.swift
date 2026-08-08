@@ -1,6 +1,6 @@
 import Foundation
 
-public let STATE_VERSION: Int = 59
+public let STATE_VERSION: Int = 60
 
 private let log = Log("GlobalStorage+Migration")
 private let mainAccountId = "0-ton-mainnet"
@@ -246,9 +246,6 @@ extension GlobalStorage {
         }
 
         if self.stateVersion == 53 {
-            if self["settings.langSource"] == nil {
-                update { $0["settings.langSource"] = "user" }
-            }
             self.stateVersion = 54
         }
 
@@ -275,6 +272,12 @@ extension GlobalStorage {
         if self.stateVersion == 58 {
             _clearActivities()
             self.stateVersion = 59
+        }
+
+        if self.stateVersion == 59 {
+            // Web's 59→60 drops unneeded legacy `settings.authConfig`; iOS keeps auth config in the database
+            // settings row instead, so there is nothing to clean in the global storage.
+            self.stateVersion = 60
         }
 
         assert(self.stateVersion == STATE_VERSION)

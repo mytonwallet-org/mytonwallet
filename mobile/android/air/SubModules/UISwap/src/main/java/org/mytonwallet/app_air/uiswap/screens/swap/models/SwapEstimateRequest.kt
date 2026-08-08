@@ -1,18 +1,19 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
+import java.math.BigDecimal
+import java.math.BigInteger
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
 import org.mytonwallet.app_air.walletcore.models.DIESEL_TOKENS
 import org.mytonwallet.app_air.walletcore.models.SwapType
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDexLabel
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
-import java.math.BigDecimal
-import java.math.BigInteger
 
-data class SwapEstimateRequest(
+@ConsistentCopyVisibility
+data class SwapEstimateRequest private constructor(
     val key: String,
     val wallet: SwapWalletState,
     val tokenToSend: IApiToken,
@@ -23,9 +24,9 @@ data class SwapEstimateRequest(
     val slippage: Float,
     val reverse: Boolean,
     val isFromAmountMax: Boolean,
-    val selectedDex: MApiSwapDexLabel?,
     val prevEst: SwapEstimateResponse?
 ) {
+    val tokenToSendChain: MBlockchain = requireNotNull(tokenToSend.mBlockchain)
     val tokenToSendIsSupported = wallet.isSupportedChain(tokenToSend.mBlockchain)
     val tokenToReceiveIsSupported = wallet.isSupportedChain(tokenToReceive.mBlockchain)
     val isCex = SwapHelpers.isCex(tokenToSend, tokenToReceive)
@@ -43,18 +44,24 @@ data class SwapEstimateRequest(
                 prevEst?.dex?.networkFee
             )
         val totalNativeAmount = (networkFeeData?.fee ?: BigDecimal.ZERO) +
-            (if (networkFeeData?.isNativeIn == true) CoinUtils.toBigDecimal(
-                amount,
-                nativeTokenToSend.decimals
-            ) else BigDecimal.ZERO)
-        val tokenInChain = tokenToSend.mBlockchain!!
+            (
+                if (networkFeeData?.isNativeIn == true) {
+                    CoinUtils.toBigDecimal(
+                        amount,
+                        nativeTokenToSend.decimals
+                    )
+                } else {
+                    BigDecimal.ZERO
+                }
+                )
         val nativeBalance = CoinUtils.toBigDecimal(
-            wallet.balances[tokenInChain.nativeSlug] ?: BigInteger.ZERO,
+            wallet.balances[tokenToSendChain.nativeSlug] ?: BigInteger.ZERO,
             nativeTokenToSend.decimals
         )
         val isEnoughNative = nativeBalance >= totalNativeAmount
         shouldTryDiesel =
-            !isEnoughNative && !tokenToSend.isBlockchainNative && prevEst?.dex?.dieselStatus != MDieselStatus.NOT_AVAILABLE
+            !isEnoughNative && !tokenToSend.isBlockchainNative &&
+            prevEst?.dex?.dieselStatus != MDieselStatus.NOT_AVAILABLE
         isDiesel = swapType == SwapType.ON_CHAIN && shouldTryDiesel && DIESEL_TOKENS.contains(
             tokenToSend.tokenAddress
         )
@@ -66,19 +73,27 @@ data class SwapEstimateRequest(
             to = tokenToReceive.swapSlug,
             fromAddress = tokenToSend.mBlockchain?.name?.let { wallet.addressByChain[it] }
                 ?: wallet.tonAddress,
-            fromAmount = if (!reverse) CoinUtils.toBigDecimal(
-                amount,
-                tokenToSend.decimals
-            ) else null,
-            toAmount = if (reverse) CoinUtils.toBigDecimal(
-                amount,
-                tokenToReceive.decimals
-            ) else null,
+            fromAmount = if (!reverse) {
+                CoinUtils.toBigDecimal(
+                    amount,
+                    tokenToSend.decimals
+                )
+            } else {
+                null
+            },
+            toAmount = if (reverse) {
+                CoinUtils.toBigDecimal(
+                    amount,
+                    tokenToReceive.decimals
+                )
+            } else {
+                null
+            },
             slippage = slippage,
             shouldTryDiesel = shouldTryDiesel,
             walletVersion = null,
             isFromAmountMax = isFromAmountMax,
-            toncoinBalance = nativeTokenToSendBalance,
+            toncoinBalance = nativeTokenToSendBalance
         )
 
     val estimateRequestCex: MApiSwapEstimateRequest
@@ -102,4 +117,37 @@ data class SwapEstimateRequest(
                 toncoinBalance = nativeTokenToSendBalance
             )
         }
+
+    companion object {
+        fun create(
+            key: String,
+            wallet: SwapWalletState,
+            tokenToSend: IApiToken,
+            tokenToReceive: IApiToken,
+            nativeTokenToSend: IApiToken?,
+            nativeTokenToSendBalance: String,
+            amount: BigInteger,
+            slippage: Float,
+            reverse: Boolean,
+            isFromAmountMax: Boolean,
+            prevEst: SwapEstimateResponse?
+        ): SwapEstimateRequest? {
+            if (nativeTokenToSend == null || tokenToSend.mBlockchain == null) {
+                return null
+            }
+            return SwapEstimateRequest(
+                key = key,
+                wallet = wallet,
+                tokenToSend = tokenToSend,
+                tokenToReceive = tokenToReceive,
+                nativeTokenToSend = nativeTokenToSend,
+                nativeTokenToSendBalance = nativeTokenToSendBalance,
+                amount = amount,
+                slippage = slippage,
+                reverse = reverse,
+                isFromAmountMax = isFromAmountMax,
+                prevEst = prevEst
+            )
+        }
+    }
 }

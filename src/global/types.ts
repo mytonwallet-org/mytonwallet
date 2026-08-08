@@ -43,9 +43,10 @@ import type {
   ApiSwapAsset,
   ApiSwapCexLabel,
   ApiSwapDexLabel,
-  ApiSwapEstimateVariant,
-  ApiSwapFeeMode,
+  ApiSwapDexRouterLabel,
+  ApiSwapRoute,
   ApiSwapVersion,
+  ApiTokenDetails,
   ApiTokenType,
   ApiTokenWithPrice,
   ApiUpdate,
@@ -64,7 +65,7 @@ import type {
   NativePlatform,
 } from '../api/types';
 import type { AUTOLOCK_OPTIONS_LIST } from '../config';
-import type { AuthConfig } from '../util/authApi/types';
+import type { LegacyAuthConfig } from '../enclave';
 import type { ExplainedTransferFee } from '../util/fee/transferFee';
 import type { LedgerTransport } from '../util/ledger/types';
 
@@ -148,7 +149,7 @@ export type DialogType = {
   };
 };
 
-export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl';
+export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl' | 'ar' | 'fa';
 export type LanguageSource = 'system' | 'user';
 
 export interface LangItem {
@@ -177,6 +178,7 @@ interface AuthAccount {
   accountId: string;
   byChain: Partial<Record<ApiChain, AccountChain>>;
   network?: ApiNetwork;
+  partial?: Partial<Account>;
 }
 
 type SignOutLevel = 'account' | 'network' | 'all';
@@ -187,6 +189,7 @@ export enum AppState {
   Agent,
   Explore,
   Portfolio,
+  TokenInfo,
   Settings,
   Ledger,
   Inactive,
@@ -200,17 +203,13 @@ export enum AuthState {
   createPin,
   confirmPin,
   createBiometrics,
-  confirmBiometrics,
-  createNativeBiometrics,
   createPassword,
   disclaimerAndBackup,
   importWalletCheckPassword,
   importWallet,
   importWalletCreatePin,
   importWalletConfirmPin,
-  importWalletCreateNativeBiometrics,
   importWalletCreateBiometrics,
-  importWalletConfirmBiometrics,
   importWalletCreatePassword,
   disclaimer,
   about,
@@ -221,6 +220,13 @@ export enum AuthState {
   congratulations,
   importCongratulations,
   ready,
+}
+
+export type AuthType = 'passcode' | 'biometric';
+
+export interface EnclaveSession {
+  token: string;
+  validUntil?: number;
 }
 
 export enum AccountSelectorState {
@@ -236,12 +242,10 @@ export enum AccountSelectorState {
 
 export enum BiometricsState {
   None,
-  TurnOnPasswordConfirmation,
   TurnOnRegistration,
   TurnOnVerification,
   TurnOnComplete,
   TurnOffWarning,
-  TurnOffBiometricConfirmation,
   TurnOffCreatePassword,
   TurnOffComplete,
 }
@@ -255,6 +259,7 @@ export enum TransferState {
   ConfirmHardware,
   ConfirmMfa,
   Complete,
+  SelectAccount,
 }
 
 export enum RemoveMfaState {
@@ -322,6 +327,7 @@ export enum SwapState {
   Complete,
   SelectTokenFrom,
   SelectTokenTo,
+  SelectAccount,
 }
 
 export enum SwapInputSource {
@@ -360,6 +366,7 @@ export enum DappConnectState {
   Password,
   ConnectHardware,
   ConfirmHardware,
+  AddAccountPassword,
   ConfirmMfa,
 }
 
@@ -393,6 +400,10 @@ export enum StakingState {
   ClaimConfirmHardware,
   ClaimConfirmMfa,
   ClaimComplete,
+
+  StakeSelectAccount,
+  UnstakeSelectAccount,
+  ClaimSelectAccount,
 }
 
 export enum VestingUnfreezeState {
@@ -411,7 +422,6 @@ export enum SettingsState {
   Language,
   About,
   Disclaimer,
-  NativeBiometricsTurnOn,
   SelectTokenList,
   WalletVariants, // Wallet Derivations
   WalletVersions, // TON Versions
@@ -420,6 +430,7 @@ export enum SettingsState {
   HiddenNfts,
   BackupWallet,
   Permissions,
+  Chains,
 }
 
 export enum MintCardState {
@@ -445,9 +456,13 @@ export enum MediaType {
   Nft,
 }
 
+/** Section of the "Hidden NFTs" settings screen the media viewer was opened from */
+export type HiddenNftsSection = 'user' | 'scam' | 'unverified';
+
 export type UserToken = {
   amount: bigint;
   name: string;
+  localizedName?: string;
   symbol: string;
   image?: string;
   slug: string;
@@ -483,6 +498,12 @@ export type TokenChartMode = 'price' | 'netWorth';
 
 export type PriceHistoryPeriods = Partial<Record<ApiPriceHistoryPeriod, ApiHistoryList>>;
 
+/** Absent while the request is in flight; an entry with neither field means the backend has no info */
+export type TokenDetailsState = {
+  data?: ApiTokenDetails;
+  hasError?: true;
+};
+
 export type DieselStatus = 'not-available' | 'not-authorized' | 'pending-previous' | 'available' | 'stars-fee';
 
 export type AccountType = 'mnemonic' | 'hardware' | 'view';
@@ -509,6 +530,7 @@ export interface Account {
   type: AccountType;
   byChain: Partial<Record<ApiChain, AccountChain>>;
   isTemporary?: true;
+  isPrivateKeyBased?: true;
 }
 
 export type AssetPairs = Record<string, {
@@ -521,6 +543,7 @@ export interface AgentMessage {
   isOutgoing: boolean;
   timestamp: number;
   isTyping?: boolean;
+  isStreaming?: boolean;
 }
 
 export interface AgentHint {
@@ -561,6 +584,8 @@ export interface AccountState {
      */
     mainActivityIdsByChain?: Partial<Record<ApiChain, string[]>>;
     mainHistoryHasMoreByChain?: Partial<Record<ApiChain, boolean>>;
+    /** SDK-provided aliases used only to preserve presentation identity across activity id replacements. */
+    activityIdReplacements?: Record<string, string>;
   };
   nfts?: {
     byAddress?: Record<string, ApiNft>;
@@ -636,12 +661,36 @@ export interface AccountState {
   isAppReady?: boolean;
 }
 
+export type ChainDisplayMode = 'value' | 'manual';
+
+/**
+ * How the Blockchains settings screen displays the account's chains.
+ *
+ * The iOS and Android apps read and write the same value under
+ * `settings.byAccountId.<accountId>.chainDisplayConfiguration`, so keep these field names and shapes in sync
+ * with `MChainDisplayConfiguration` in the `mobile` folder.
+ *
+ * `displayMode` - `value` lets the app order and hide the chains by balance; `manual` lets the user do it.
+ * `hiddenChains` - chains the user turned off, even though the app would show them.
+ * `shownChains` - chains the user turned on, even though the app would hide them.
+ * `manualOrder` - the shown chains, in the order the user dragged them into.
+ *
+ * Only the user's differences from the app's own choice are stored, so a chain funded later appears on its own.
+ */
+export interface ChainDisplayConfiguration {
+  displayMode: ChainDisplayMode;
+  hiddenChains?: ApiChain[];
+  shownChains?: ApiChain[];
+  manualOrder?: ApiChain[];
+}
+
 export interface AccountSettings {
   pinnedSlugs?: string[];
   alwaysShownSlugs?: string[];
   alwaysHiddenSlugs?: string[];
   deletedSlugs?: string[];
   importedSlugs?: string[];
+  chainDisplayConfiguration?: ChainDisplayConfiguration;
   // These NFTs should be saved in the settings for immediate use after launching the application,
   // without synchronizing the wallet history or complex state caching
   cardBackgroundNft?: ApiNft;
@@ -673,7 +722,7 @@ export interface AddressBookItemData {
 export interface NftTransfer {
   name?: string;
   address: string;
-  thumbnail: string;
+  thumbnail?: string;
   collectionName?: string;
 }
 
@@ -684,28 +733,34 @@ export type GlobalState = {
 
   auth: {
     state: AuthState;
-    biometricsStep?: 1 | 2;
     method?: AuthMethod;
     isLoading?: boolean;
     mnemonic?: string[];
     mnemonicCheckIndexes?: number[];
     hardwareSelectedIndices?: number[];
     error?: string;
-    password?: string;
+    pin?: string;
     isImportModalOpen?: boolean;
     accounts?: AuthAccount[];
     forceAddingTonOnlyAccount?: boolean;
-    initialAddAccountState?: AccountSelectorState; // Initial rendering state for the `AddAccountModal` component
+    initialAddAccountState?: AccountSelectorState; // Initial rendering state for the `AccountSelectorModal` component
     shouldHideAddAccountBackButton?: boolean;
   };
+
+  // Enclave
+  authTypes?: AuthType[];
+  enclaveSession?: EnclaveSession;
+  /**
+   * Number of accounts awaiting the multichain upgrade: they miss wallets for newly supported chains
+   * or a backend auth token. The upgrade clears the count when it starts, so a non-zero value means
+   * it has not run yet.
+   */
+  multichainUpgradeCount?: number;
 
   biometrics: {
     state: BiometricsState;
     error?: string;
-    password?: string;
   };
-
-  nativeBiometricsError?: string;
 
   hardware: {
     hardwareState: HardwareConnectState;
@@ -798,17 +853,14 @@ export type GlobalState = {
       fromMax?: string;
     };
     dieselStatus?: DieselStatus;
-    estimates?: ApiSwapEstimateVariant[];
-    // This property is necessary to ensure that when the DEX with the best rate changes,
-    // the user's selection remains unchanged
-    isDexLabelChanged?: true;
-    currentDexLabel?: ApiSwapDexLabel;
+    dexLabel?: ApiSwapDexLabel;
+    dexRouterLabel?: ApiSwapDexRouterLabel;
+    routes?: ApiSwapRoute[][];
     currentCexLabel?: ApiSwapCexLabel;
     currentCexProviderName?: string;
     currentCexTermsOfUseUrl?: string;
     currentCexPrivacyPolicyUrl?: string;
     currentCexAmlKycPolicyUrl?: string;
-    bestRateDexLabel?: ApiSwapDexLabel;
     maxAmountFromBackend?: string;
     // Fees. Undefined values mean that these fields are unknown.
     networkFee?: string;
@@ -817,7 +869,6 @@ export type GlobalState = {
     swapFeePercent?: number;
     ourFee?: string;
     ourFeePercent?: number;
-    ourFeeMode?: ApiSwapFeeMode;
     dieselFee?: string;
   };
 
@@ -940,6 +991,10 @@ export type GlobalState = {
     state: DappConnectState;
     isSse?: boolean;
     isLoading?: boolean;
+    /** True while a new wallet is being prepared after password OK (before auth safety flow) */
+    isCreatingAccount?: boolean;
+    /** Set after importMnemonic succeeds; used to resume dapp connect after backup flow */
+    pendingConnectAccountId?: string;
     promiseId?: string;
     accountId?: string;
     dapp: StoredDappConnection;
@@ -948,6 +1003,7 @@ export type GlobalState = {
     proofSignatures?: string[];
     mfaRequestHash?: string;
     error?: string;
+    multichainResolution?: 'switched-account' | 'needs-new-wallet';
   };
 
   currentStaking: {
@@ -991,6 +1047,10 @@ export type GlobalState = {
     bySlug: Record<string, PriceHistoryPeriods>;
   };
 
+  tokenDetails: {
+    bySlug: Record<string, TokenDetailsState>;
+  };
+
   byAccountId: Record<string, AccountState>;
 
   walletVersions?: {
@@ -1008,6 +1068,7 @@ export type GlobalState = {
     langSource?: LanguageSource;
     byAccountId: Record<string, AccountSettings>;
     areTinyTransfersHidden?: boolean;
+    areTokenNamesLocalized?: boolean;
     canPlaySounds?: boolean;
     isInvestorViewEnabled?: boolean;
     isTonProxyEnabled?: boolean;
@@ -1016,12 +1077,12 @@ export type GlobalState = {
     isTestnet?: boolean;
     isSecurityWarningHidden?: boolean;
     areTokensWithNoCostHidden: boolean;
+    areUnverifiedNftsHidden?: boolean;
     importToken?: {
       isLoading?: boolean;
       token?: UserToken | UserSwapToken;
       error?: string;
     };
-    authConfig?: AuthConfig;
     baseCurrency: ApiBaseCurrency;
     isAppLockEnabled?: boolean;
     autolockValue?: AutolockValueType;
@@ -1105,13 +1166,14 @@ export type GlobalState = {
     isCopyStorageEnabled?: boolean;
     supportAccountsCount?: number;
     countryCode?: ApiCountryCode;
+    allowedOnOffRampCurrencies?: ApiBaseCurrency[];
   };
 
   mediaViewer: {
     mediaId?: string;
     mediaType?: MediaType;
     txId?: string;
-    hiddenNfts?: 'user' | 'scam';
+    hiddenNfts?: HiddenNftsSection;
     noGhostAnimation?: boolean;
   };
 
@@ -1147,7 +1209,7 @@ export interface ActionPayloads {
   afterInit: undefined;
   apiUpdate: ApiUpdate;
   resetAuth: undefined;
-  startCreatingWallet: undefined;
+  startCreatingWallet: { enclaveToken?: string } | undefined;
   afterCheckMnemonic: undefined;
   afterCongratulations: { isImporting?: boolean };
   skipCheckMnemonic: undefined;
@@ -1155,18 +1217,15 @@ export interface ActionPayloads {
     wordsCount: number;
     preserveIndexes?: number[];
   };
-  afterCreatePassword: { password: string; isPasswordNumeric?: boolean };
-  startCreatingBiometrics: undefined;
-  afterCreateBiometrics: undefined;
-  skipCreateBiometrics: { isImporting: boolean };
-  cancelCreateBiometrics: undefined;
-  afterCreateNativeBiometrics: undefined;
-  skipCreateNativeBiometrics: undefined;
+  createPassword: { password: string; isNumeric?: boolean };
+  skipBiometrics: undefined;
+  setupBiometricAuth: undefined;
+  skipCreateBiometrics: { isImporting?: boolean };
   createPin: { pin: string; isImporting: boolean };
   confirmPin: { isImporting: boolean };
   cancelConfirmPin: { isImporting: boolean };
   cancelCheckPassword: undefined;
-  startImportingWallet: undefined;
+  startImportingWallet: { enclaveToken?: string } | undefined;
   afterImportMnemonic: { mnemonic: string[] };
   startImportingHardwareWallet: { driver: ApiLedgerDriver };
   confirmDisclaimer: undefined;
@@ -1189,17 +1248,37 @@ export interface ActionPayloads {
   createHardwareAccounts: undefined;
   addHardwareAccounts: { accounts: { accountId: string; byChain: Account['byChain'] }[] };
   loadMoreHardwareWallets: undefined;
-  createAccount: { password: string; isImporting: boolean; isPasswordNumeric?: boolean };
+  createAccount: { enclaveToken?: string; isPasswordNumeric?: boolean } | undefined;
   afterSelectHardwareWallets: { hardwareSelectedIndices: number[] };
   resetApiSettings: { areAllDisabled?: boolean } | undefined;
   checkAppVersion: undefined;
   importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
   addSubWallet: { group: ApiGroupedWalletVariant };
   addAllFoundSubwallets: { foundSubwallets: ApiGroupedWalletVariant[] };
-  createSubWallet: { password: string };
+  createSubWallet: { enclaveToken: string };
+  upgradeMultichainAccounts: { enclaveToken: string };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
   openTemporaryViewAccount: { addressByChain: Partial<Record<ApiChain, string>> };
   saveTemporaryAccount: undefined;
+
+  setEnclaveSession: EnclaveSession;
+  releaseEnclaveSession: { enclaveToken: string };
+
+  rollbackEnclaveMigration: undefined;
+  migrateLegacyAuth: {
+    password: string;
+    isLongSession: boolean;
+    usageCount?: number;
+    onSuccess: (token: string) => void;
+    onError: (error: string) => void;
+  };
+  migrateLegacyBiometricAuth: {
+    legacyAuthConfig: LegacyAuthConfig;
+    isLongSession: boolean;
+    usageCount?: number;
+    onSuccess: (token: string) => void;
+    onError: (error: string) => void;
+  };
 
   selectToken: { slug?: string } | undefined;
   openBackupWalletModal: undefined;
@@ -1256,10 +1335,11 @@ export interface ActionPayloads {
     isNftBurn?: boolean;
   };
   submitTransferConfirm: undefined;
-  submitTransfer: { password?: string } | undefined;
+  submitTransfer: { enclaveToken?: string } | undefined;
   updateMfaRequestStatus: undefined;
   clearTransferError: undefined;
   cancelTransfer: { shouldReset?: boolean } | undefined;
+  switchTransferAccount: { accountId: string };
   showTransferScamWarning: { type: ScamWarningType };
   dismissTransferScamWarning: undefined;
   showDialog: DialogType;
@@ -1272,8 +1352,18 @@ export interface ActionPayloads {
   signOut: { level: SignOutLevel; accountId?: string };
   cancelCaching: undefined;
   afterSignOut: { shouldReset?: boolean } | undefined;
-  addAccount: { method: AuthMethod; password: string; isAuthFlow?: boolean };
-  addAccount2: { method: AuthMethod; password: string };
+  addAccount: {
+    method: AuthMethod;
+    isAuthFlow?: boolean;
+    clearDappConnectOnVerified?: boolean;
+    /**
+     * The token minted by the authorization that opened this flow. Carrying it forward is what tells the
+     * flow it is already authorized - the session it came from is usage-scoped, so global state cannot
+     * answer that question after the fact.
+     */
+    enclaveToken?: string;
+  };
+  addAccount2: { method: AuthMethod; enclaveToken?: string };
   switchAccount: { accountId: string; newNetwork?: ApiNetwork };
   renameAccount: { accountId: string; title: string };
   clearAccountError: undefined;
@@ -1288,6 +1378,7 @@ export interface ActionPayloads {
   showActivityInfo: { id: string };
   showAnyAccountTx: { txId: string; accountId: string; network: ApiNetwork; chain: ApiChain };
   showTokenActivity: { slug: string; returnTab?: ContentTab };
+  closeTokenActivity: undefined;
   closeActivityInfo: { id: string };
   fetchActivityDetails: { id: string };
 
@@ -1336,7 +1427,7 @@ export interface ActionPayloads {
   loadPortfolioPnlChange: undefined;
 
   closeAnyModal: undefined;
-  submitSignature: { password: string };
+  submitSignature: { enclaveToken: string };
   clearSignatureError: undefined;
   cancelSignature: undefined;
 
@@ -1379,7 +1470,7 @@ export interface ActionPayloads {
   startUnstaking: { stakingId: string } | undefined;
   setStakingScreen: { state: StakingState };
   submitStakingInitial: { amount?: bigint; isUnstaking?: boolean } | undefined;
-  submitStaking: { password?: string; isUnstaking?: boolean } | undefined;
+  submitStaking: { enclaveToken?: string; isUnstaking?: boolean } | undefined;
   clearStakingError: undefined;
   cancelStaking: undefined;
   fetchStakingHistory: undefined;
@@ -1389,10 +1480,11 @@ export interface ActionPayloads {
   closeStakingInfo: undefined;
   changeCurrentStaking: { stakingId: string; shouldReopenModal?: boolean };
   startStakingClaim: { stakingId: string } | undefined;
-  submitStakingClaim: { password?: string } | undefined;
+  submitStakingClaim: { enclaveToken?: string } | undefined;
   cancelStakingClaim: undefined;
   openStakingInfoOrStart: undefined;
   updateStakingMfaRequestStatus: undefined;
+  switchStakingAccount: { accountId: string; mode: 'stake' | 'unstake' | 'claim' };
 
   // Settings
   openSettings: undefined;
@@ -1404,6 +1496,8 @@ export interface ActionPayloads {
   toggleSeasonalTheming: { isEnabled?: boolean };
   setDeveloperSettingsOverride: DeveloperSettingsOverridePayload;
   toggleTinyTransfersHidden: { isEnabled?: boolean } | undefined;
+  toggleUnverifiedNftsHidden: { isEnabled?: boolean } | undefined;
+  toggleLocalizedTokenNames: { isEnabled?: boolean } | undefined;
   toggleInvestorView: { isEnabled?: boolean } | undefined;
   toggleCanPlaySounds: { isEnabled?: boolean } | undefined;
   toggleTonProxy: { isEnabled: boolean };
@@ -1417,6 +1511,9 @@ export interface ActionPayloads {
   pinToken: { slug: string };
   unpinToken: { slug: string };
   toggleTokenVisibility: { slug: string; shouldShow: boolean };
+  toggleChainVisibility: { chain: ApiChain; shouldShow: boolean };
+  setChainDisplayMode: { displayMode: ChainDisplayMode };
+  updateChainDisplayOrder: { orderedChains: ApiChain[] };
   setOverviewCellSize: { size: OverviewCellSize };
   setAreAssetsHidden: { isHidden: boolean };
   setAreCollectiblesHidden: { isHidden: boolean };
@@ -1427,35 +1524,30 @@ export interface ActionPayloads {
   rebuildOrderedAccountIds: undefined;
   resetImportToken: undefined;
   closeBiometricSettings: undefined;
-  openBiometricsTurnOn: undefined;
   openBiometricsTurnOffWarning: undefined;
-  openBiometricsTurnOff: undefined;
-  enableBiometrics: { password: string };
-  disableBiometrics: { password: string; isPasswordNumeric?: boolean };
-  enableNativeBiometrics: { password: string };
-  disableNativeBiometrics: undefined;
+  enableBiometrics: { isLoginFlow?: boolean } | undefined;
+  disableBiometrics: { newPassword?: string; isPasswordNumeric?: boolean } | undefined;
+  changePasscode: { passcode: string; onSuccess: NoneToVoidFunction };
   changeBaseCurrency: { currency: ApiBaseCurrency };
-  clearNativeBiometricsError: undefined;
   copyStorageData: undefined;
   setAppLockValue: { value?: AutolockValueType; isEnabled: boolean };
   setIsManualLockActive: { isActive?: boolean; shouldHideBiometrics?: boolean };
   setIsAutoConfirmEnabled: { isEnabled: boolean };
   setIsAllowSuspiciousActions: { isEnabled: boolean };
-  setInMemoryPassword: { password?: string; force?: boolean };
   openSettingsHardwareWallet: undefined;
   apiUpdateWalletVersions: ApiUpdateWalletVersions;
 
   // tg2fa
-  startMfaRecoveryProcess: { password?: string };
+  startMfaRecoveryProcess: { enclaveToken?: string };
 
   createInstallMfaRequest: undefined;
   updateInstallMfaRequest: undefined;
   clearMfaRequests: undefined;
   clearInstallMfaError: undefined;
-  submitInstallMfa: { password?: string };
+  submitInstallMfa: { enclaveToken?: string };
 
   updateRemoveMfaRequest: undefined;
-  submitRemoveMfa: { password?: string };
+  submitRemoveMfa: { enclaveToken?: string };
   clearRemoveMfaError: undefined;
 
   // Account Settings
@@ -1470,7 +1562,7 @@ export interface ActionPayloads {
   apiUpdateDappCloseLoading: ApiUpdateDappCloseLoading;
 
   // TON Connect connection
-  submitDappConnectRequestConfirm: { accountId: string; password?: string };
+  submitDappConnectRequestConfirm: { accountId: string; enclaveToken?: string };
   clearDappConnectRequestError: undefined;
   cancelDappConnectRequestConfirm: undefined;
   setDappConnectRequestState: { state: DappConnectState };
@@ -1480,7 +1572,7 @@ export interface ActionPayloads {
   setDappTransferScreen: { state: TransferState };
   showDappTransferTransaction: { transactionIdx: number };
   submitDappTransferConfirm: undefined;
-  submitDappTransfer: { password?: string } | undefined;
+  submitDappTransfer: { enclaveToken?: string } | undefined;
   clearDappTransferError: undefined;
   cancelDappTransfer: undefined;
   closeDappTransfer: undefined;
@@ -1489,7 +1581,7 @@ export interface ActionPayloads {
   // TON Connect SignData
   setDappSignDataScreen: { state: SignDataState };
   submitDappSignDataConfirm: undefined;
-  submitDappSignData: { password?: string } | undefined;
+  submitDappSignData: { enclaveToken?: string } | undefined;
   clearDappSignDataError: undefined;
   cancelDappSignData: undefined;
   closeDappSignData: undefined;
@@ -1519,7 +1611,7 @@ export interface ActionPayloads {
   };
 
   // Swap
-  submitSwap: { password: string };
+  submitSwap: { enclaveToken: string };
   startSwap: {
     state?: SwapState;
     tokenInSlug?: string;
@@ -1528,6 +1620,7 @@ export interface ActionPayloads {
     toAddress?: string;
   } | undefined;
   cancelSwap: { shouldReset?: boolean } | undefined;
+  switchSwapAccount: { accountId: string };
   setDefaultSwapParams: { tokenInSlug?: string; tokenOutSlug?: string; withResetAmount?: boolean } | undefined;
   switchSwapTokens: undefined;
   setSwapTokenIn: { tokenSlug: string };
@@ -1538,13 +1631,12 @@ export interface ActionPayloads {
   estimateSwap: undefined;
   setSwapScreen: { state: SwapState };
   clearSwapError: undefined;
-  submitSwapCex: { password: string };
+  submitSwapCex: { enclaveToken: string };
   updateSwapMfaRequestStatus: undefined;
   setSwapCexAddress: { toAddress: string };
   addSwapToken: { token: UserSwapToken };
   toggleSwapSettingsModal: { isOpen: boolean };
-  updatePendingSwaps: undefined;
-  setSwapDex: { dexLabel: ApiSwapDexLabel };
+  updatePendingSwaps: { forceProviderRefresh?: boolean; contextActivities?: ApiActivity[] } | undefined;
 
   openOnRampWidgetModal: { chain: ApiChain };
   closeOnRampWidgetModal: undefined;
@@ -1558,8 +1650,8 @@ export interface ActionPayloads {
   apiUpdateWalletConnectPayPaymentComplete: ApiUpdateWalletConnectPayPaymentComplete;
   apiUpdateWalletConnectPaySignTransaction: ApiUpdateWalletConnectPaySignTransaction;
   apiUpdateWalletConnectPaySignData: ApiUpdateWalletConnectPaySignData;
-  submitWalletConnectPaySignTransaction: { password?: string } | undefined;
-  submitWalletConnectPaySignData: { password?: string } | undefined;
+  submitWalletConnectPaySignTransaction: { enclaveToken?: string } | undefined;
+  submitWalletConnectPaySignData: { enclaveToken?: string } | undefined;
   clearWalletConnectPayError: undefined;
   cancelWalletConnectPay: undefined;
   closeWalletConnectPay: undefined;
@@ -1574,7 +1666,7 @@ export interface ActionPayloads {
     mediaId: string;
     mediaType: MediaType;
     txId?: string;
-    hiddenNfts?: 'user' | 'scam';
+    hiddenNfts?: HiddenNftsSection;
     noGhostAnimation?: boolean;
   };
   closeMediaViewer: undefined;
@@ -1592,6 +1684,7 @@ export interface ActionPayloads {
     period: ApiPriceHistoryPeriod;
     currency?: ApiBaseCurrency;
   };
+  loadTokenDetails: { slug: string };
 
   showIncorrectTimeError: undefined;
 
@@ -1602,7 +1695,7 @@ export interface ActionPayloads {
   openVestingModal: undefined;
   closeVestingModal: undefined;
   startClaimingVesting: undefined;
-  submitClaimingVesting: { password?: string } | undefined;
+  submitClaimingVesting: { enclaveToken?: string } | undefined;
   clearVestingError: undefined;
   cancelClaimingVesting: undefined;
 
@@ -1611,7 +1704,7 @@ export interface ActionPayloads {
   openPromotionModal: undefined;
   closePromotionModal: undefined;
   startCardMinting: { type: ApiMtwCardType };
-  submitMintCard: { password?: string } | undefined;
+  submitMintCard: { enclaveToken?: string } | undefined;
   clearMintCardError: undefined;
 
   toggleNotifications: { isEnabled: boolean };
@@ -1632,7 +1725,7 @@ export interface ActionPayloads {
   openDomainRenewalModal: { accountId?: string; network?: ApiNetwork; addresses: string[] };
   startDomainsRenewal: undefined;
   checkDomainsRenewalDraft: { nfts: ApiNft[] };
-  submitDomainsRenewal: { password?: string } | undefined;
+  submitDomainsRenewal: { enclaveToken?: string } | undefined;
   clearDomainsRenewalError: undefined;
   cancelDomainsRenewal: undefined;
   updateDomainsRenewalMfaRequestStatus: undefined;
@@ -1640,7 +1733,7 @@ export interface ActionPayloads {
   openDomainLinkingModal: { address: string };
   startDomainLinking: undefined;
   checkDomainLinkingDraft: { nft: ApiNft };
-  submitDomainLinking: { password?: string } | undefined;
+  submitDomainLinking: { enclaveToken?: string } | undefined;
   clearDomainLinkingError: undefined;
   cancelDomainLinking: undefined;
   updateDomainLinkingMfaRequestStatus: undefined;

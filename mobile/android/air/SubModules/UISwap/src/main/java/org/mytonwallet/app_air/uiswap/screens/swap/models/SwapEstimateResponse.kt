@@ -1,19 +1,19 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
+import java.math.BigDecimal
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.helpers.Rate
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.max
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.MAX_PRICE_IMPACT_VALUE
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
-import java.math.BigDecimal
-import java.math.BigInteger
 
 data class SwapEstimateResponse(
     val request: SwapEstimateRequest,
@@ -38,13 +38,14 @@ data class SwapEstimateResponse(
         }
     val toAmountDecimalStr =
         toAmount?.let {
-            if (it > BigInteger.ZERO)
+            if (it > BigInteger.ZERO) {
                 CoinUtils.toDecimalString(
                     it,
                     request.tokenToReceive.decimals
                 )
-            else
+            } else {
                 null
+            }
         }
 
     private val toAmountMin =
@@ -108,8 +109,7 @@ data class SwapEstimateResponse(
 
     val isEnoughBalance: Boolean
         get() {
-            if (swapType == SwapType.CROSS_CHAIN_TO_WALLET)
-                return true
+            if (swapType == SwapType.CROSS_CHAIN_TO_WALLET) return true
 
             val maxAmount = SwapHelpers.calcSwapMaxBalance(
                 request.tokenToSend,
@@ -118,11 +118,9 @@ data class SwapEstimateResponse(
                 request.wallet.balances,
                 this
             )
-            if (fromAmount == null)
-                return false
+            if (fromAmount == null) return false
             val nativeBalance = request.wallet.balances[request.tokenToSend.nativeToken?.slug]
-            if (nativeBalance == null)
-                return false
+            if (nativeBalance == null) return false
 
             return fromAmount <= maxAmount &&
                 (explainedFee.fullFee?.networkTerms?.native ?: BigInteger.ZERO) <= nativeBalance
@@ -156,23 +154,11 @@ data class SwapEstimateResponse(
                 )
             } else {
                 val shouldShowFullFee = hasInsufficientFeeError
-                return (if (shouldShowFullFee) explainedFee.fullFee else explainedFee.realFee)?.toString(
+                val selectedFee =
+                    if (shouldShowFullFee) explainedFee.fullFee else explainedFee.realFee
+                return selectedFee?.toString(
                     request.tokenToSend,
                     appendNonNative = explainedFee.isGasless
-                )
-            }
-        }
-
-    val aggregatorFee: String?
-        get() {
-            return dex?.ourFee?.toDoubleOrNull()?.let {
-                val tokenToSend = request.tokenToSend
-                it.toString(
-                    decimals = tokenToSend.decimals,
-                    currency = tokenToSend.symbol ?: "",
-                    currencyDecimals = tokenToSend.decimals,
-                    smartDecimals = true,
-                    showPositiveSign = false
                 )
             }
         }

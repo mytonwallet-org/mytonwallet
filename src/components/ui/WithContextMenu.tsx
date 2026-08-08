@@ -24,6 +24,7 @@ interface Props<T extends string> {
     className?: string;
   }, isMenuOpen: boolean) => TeactNode;
   menuClassName?: string;
+  fontIconClassName?: string;
   menuPositionY?: 'top' | 'bottom';
 }
 
@@ -35,6 +36,7 @@ export default function WithContextMenu<T extends string>({
   layout: layoutOverrides,
   children,
   menuClassName,
+  fontIconClassName,
   menuPositionY = 'bottom',
 }: Props<T>) {
   const buttonRef = useRef<HTMLDivElement | HTMLButtonElement>();
@@ -94,6 +96,7 @@ export default function WithContextMenu<T extends string>({
           menuPositionY={menuPositionY}
           menuAnchor={contextMenuAnchor}
           bubbleClassName={menuClassName}
+          fontIconClassName={fontIconClassName}
           getTriggerElement={getTriggerElement}
           getRootElement={getRootElement}
           getMenuElement={getMenuElement}

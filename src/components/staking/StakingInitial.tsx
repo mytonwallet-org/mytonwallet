@@ -398,7 +398,6 @@ function StakingInitial({
       <AmountInput
         {...amountInputProps}
         containerClassName={styles.amountInputContainer}
-        inputWrapperClassName={styles.amountInputWrapper}
         maxAmount={maxAmount}
         token={selectedToken}
         allTokens={selectableTokens}

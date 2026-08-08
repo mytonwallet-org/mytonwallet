@@ -10,7 +10,7 @@ data class StakeViewState(
     val currentFee: String,
     val maxAmountString: String,
     val tvl: Double? = null,
-    val totalStakers: Long? = null,
+    val totalStakers: Long? = null
 ) {
     fun emptyInput(): StakeViewState = copy(
         buttonState = StakeButtonState.EmptyAmount,
@@ -25,11 +25,10 @@ data class StakeViewState(
             estimatedEarning = "",
             currentApy = "",
             currentFee = "",
-            maxAmountString = "",
+            maxAmountString = ""
         )
     }
 }
-
 
 sealed class StakeButtonState {
 
@@ -37,19 +36,20 @@ sealed class StakeButtonState {
 
     object LowerThanMinAmount : StakeButtonState() {
 
-        fun getText(minAmount: String, symbol: String) =
-            LocaleController.getStringWithKeyValues(
-                "Minimum amount", listOf(
-                    Pair("%value%", "$minAmount $symbol")
-                )
+        fun getText(minAmount: String, symbol: String) = LocaleController.getStringWithKeyValues(
+            "Minimum amount",
+            listOf(
+                Pair("%value%", "$minAmount $symbol")
             )
+        )
 
         override val isEnabled = false
     }
 
     object InsufficientBalance : StakeButtonState() {
         fun getText(symbol: String): String = LocaleController.getFormattedString(
-            "Insufficient %1$@ Balance", listOf(symbol)
+            "Insufficient %1$@ Balance",
+            listOf(symbol)
         )
 
         override val isEnabled = false
@@ -57,29 +57,30 @@ sealed class StakeButtonState {
 
     object InsufficientFeeAmount : StakeButtonState() {
         fun getText(text: String): String = LocaleController.getString("Insufficient fee")
-        //LocaleController.getString("\$insufficient_fee").replace("%fee%", text)
+        // LocaleController.getString("\$insufficient_fee").replace("%fee%", text)
 
         override val isEnabled = false
     }
 
     object EmptyAmount : StakeButtonState() {
         fun getText(symbol: String, mode: StakingViewModel.Mode): String =
-            if (mode == StakingViewModel.Mode.STAKE)
+            if (mode == StakingViewModel.Mode.STAKE) {
                 LocaleController.getString("\$stake_asset").replace("%symbol%", symbol)
-            else
+            } else {
                 LocaleController.getString("\$unstake_asset").replace("%symbol%", symbol)
+            }
 
         override val isEnabled = false
     }
 
     object ValidAmount : StakeButtonState() {
         fun getText(symbol: String, mode: StakingViewModel.Mode): String =
-            if (mode == StakingViewModel.Mode.STAKE)
+            if (mode == StakingViewModel.Mode.STAKE) {
                 LocaleController.getString("\$stake_asset").replace("%symbol%", symbol)
-            else
+            } else {
                 LocaleController.getString("\$unstake_asset").replace("%symbol%", symbol)
+            }
 
         override val isEnabled = true
     }
-
 }

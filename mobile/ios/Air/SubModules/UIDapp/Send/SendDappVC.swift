@@ -1,6 +1,7 @@
 
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import WalletCore
 import WalletContext
@@ -125,7 +126,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     private lazy var errorLabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 14, weight: .regular)
+        lbl.applyTextStyle(.supporting)
         lbl.textAlignment = .center
         lbl.textColor = .air.error
         lbl.numberOfLines = 2
@@ -177,12 +178,12 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         NSLayoutConstraint.activate([
             bottomPanel.heightAnchor.constraint(equalToConstant: 136),
             bottomPanel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor).withPriority(.init(500)),
-            bottomPanel.leftAnchor.constraint(equalTo: view.leftAnchor),
-            bottomPanel.rightAnchor.constraint(equalTo: view.rightAnchor)
+            bottomPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         bottomPanel.isHidden = request == nil
 
-        updateTheme()        
+        updateTheme()
         updateSendButtonState()
 
         // This VC is the root of a presented navigation controller, so the sheet (and its swipe-to-dismiss)
@@ -274,30 +275,16 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
 
     private func submit(request: ApiUpdate.DappSendTransactions) {
-        Task {
-            do {
-                _ = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: account,
-                    title: lang("Confirm Sending"),
-                    headerView: DappHeaderView(dapp: request.dapp, accountContext: _account),
-                    passwordAction: { password in
-                        try await TonConnect.shared.submitSendTransactions(
-                            request: request,
-                            password: password
-                        )
-                    },
-                    ledgerSignData: {
-                        .signDappTransfers(update: request)
-                    },
-                    ledgerFromAddress: account.getAddress(chain: request.operationChain),
-                    mfaTitle: lang("Confirm Sending")
-                )
-                finishConfirm()
-            } catch is CancellationError {
-            } catch {
-                showAlert(error: error)
+        let protectedAction = ProtectedAction.sendDappTransactions(
+            account: account,
+            accountContext: _account,
+            request: request,
+            onCommitted: { [weak self] in
+                self?.finishConfirm()
             }
+        )
+        Task {
+            _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
     

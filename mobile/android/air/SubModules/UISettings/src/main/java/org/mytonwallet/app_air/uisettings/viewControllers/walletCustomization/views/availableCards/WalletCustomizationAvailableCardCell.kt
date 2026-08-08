@@ -9,6 +9,8 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.ImageView
+import java.math.BigInteger
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.commonViews.RadialGradientView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -33,12 +35,11 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardTextType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import java.math.BigInteger
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int) :
-    WCell(context, LayoutParams(cellWidth, (cellWidth / RATIO).roundToInt())), WThemedView {
+    WCell(context, LayoutParams(cellWidth, (cellWidth / RATIO).roundToInt())),
+    WThemedView {
 
     var onTap: ((accountId: String, cardNft: ApiNft?) -> Unit)? = null
 
@@ -208,20 +209,19 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
         bottomViewContainer.setBackgroundColor(secondaryColor.colorWithAlpha(191), 2.5f.dp)
     }
 
-
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
 
-        if (isSelectedCard)
-            drawSelectedBorder(canvas)
+        if (isSelectedCard) drawSelectedBorder(canvas)
     }
 
     private fun drawSelectedBorder(canvas: Canvas) {
         val padding = 2f
         val halfStroke = borderPaint.strokeWidth / 2
-        val left = padding + halfStroke
+        val isRtl = layoutDirection == LAYOUT_DIRECTION_RTL
+        val left = padding + halfStroke + if (isRtl) 4f.dp else 0f
         val top = padding + halfStroke
-        val right = width - padding - halfStroke - 4.dp
+        val right = width - padding - halfStroke - if (isRtl) 0f else 4f.dp
         val bottom = height - padding - halfStroke - 4.dp
 
         val cornerRadius = 12f.dp

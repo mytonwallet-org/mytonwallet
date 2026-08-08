@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -17,15 +18,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsAccountCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class WalletSelectionVC(
@@ -33,7 +33,10 @@ class WalletSelectionVC(
     private val dappHost: String,
     private val requiresProof: Boolean,
     private val requiredChains: List<ApiDappSessionChain> = emptyList()
-) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
+) : WViewController(context),
+    WThemedView,
+    WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "WalletSelection"
 
     override val shouldDisplayBottomBar = true
@@ -66,8 +69,7 @@ class WalletSelectionVC(
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
         })
@@ -125,16 +127,11 @@ class WalletSelectionVC(
         return if (accounts.isEmpty()) 0 else accounts.size + 1 // +1 for header
     }
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return if (indexPath.row == 0) {
-            HEADER_CELL
-        } else {
-            WALLET_CELL
-        }
-    }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        if (indexPath.row == 0) HEADER_CELL else WALLET_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             WALLET_CELL -> {
                 val cell = SettingsAccountCell(context)
                 cell
@@ -146,7 +143,6 @@ class WalletSelectionVC(
 
             else -> throw IllegalArgumentException("Unknown cell type: $cellType")
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -189,7 +185,11 @@ class WalletSelectionVC(
                 val headerText = "${LocaleController.getString("Wallet to use on")} $dappHost"
                 val isFirstHeader = rvAdapter.indexPathToPosition(indexPath) == 0
                 val topRounding =
-                    if (isFirstHeader) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
+                    if (isFirstHeader) {
+                        HeaderCell.TopRounding.FIRST_ITEM
+                    } else {
+                        HeaderCell.TopRounding.NORMAL
+                    }
 
                 cell.configure(
                     headerText,
@@ -200,9 +200,8 @@ class WalletSelectionVC(
         }
     }
 
-    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        return accounts.getOrNull(indexPath.row - 1)?.accountId
-    }
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
+        accounts.getOrNull(indexPath.row - 1)?.accountId
 
     private fun loadAccounts() {
         accounts = WalletCore.getAllAccounts()

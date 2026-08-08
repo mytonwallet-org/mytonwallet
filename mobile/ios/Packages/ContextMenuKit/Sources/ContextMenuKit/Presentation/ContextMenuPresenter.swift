@@ -14,6 +14,7 @@ enum ContextMenuPresenter {
         let configuration = configuration.resolved(for: sourceView)
         let resolvedPresentationReference = presentationReference ?? ContextMenuPresentationReference.from(view: sourceView)
         let sourceUserInterfaceStyle = ContextMenuVisuals.resolvedUserInterfaceStyle(for: sourceView.traitCollection)
+        let sourceUserInterfaceLayoutDirection = sourceView.effectiveUserInterfaceLayoutDirection
         let overlayView = ContextMenuOverlayView(
             configuration: configuration,
             sourceRectInWindow: resolvedPresentationReference.anchorRectInWindow,
@@ -22,7 +23,9 @@ enum ContextMenuPresenter {
             portalMaskRectInWindow: resolvedPresentationReference.portalMaskRectInWindow,
             portalMask: resolvedPresentationReference.portalMask,
             portalShowsBackdropCutout: resolvedPresentationReference.portalShowsBackdropCutout,
-            sourceUserInterfaceStyle: sourceUserInterfaceStyle
+            portalAppliesRightToLeftTransformCorrection: resolvedPresentationReference.portalAppliesRightToLeftTransformCorrection,
+            sourceUserInterfaceStyle: sourceUserInterfaceStyle,
+            sourceUserInterfaceLayoutDirection: sourceUserInterfaceLayoutDirection
         )
         overlayView.frame = window.bounds
         overlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]

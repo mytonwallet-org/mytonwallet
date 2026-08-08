@@ -2,7 +2,6 @@ package org.mytonwallet.app_air.walletbasecontext
 
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 
-
 val DEBUG_MODE: Boolean = BuildConfig.DEBUG_MODE
 
 val APP_SCHEME: String by lazy {

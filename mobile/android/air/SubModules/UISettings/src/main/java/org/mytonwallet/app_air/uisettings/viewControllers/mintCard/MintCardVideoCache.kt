@@ -1,6 +1,9 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.mintCard
 
 import android.content.Context
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -8,9 +11,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.walletcore.MTW_CARDS_MINT_BASE_URL
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 
 // Downloads the per-card intro videos to disk once, so every tab plays instantly (and works
 // offline) after MintCardVC opens. Playback falls back to the remote URL until a file is ready.

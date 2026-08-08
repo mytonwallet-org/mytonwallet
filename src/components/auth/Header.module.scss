@@ -21,7 +21,7 @@ $transformTransition: transform 200ms ease-out;
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
   transform: translateY(-100%);
 
   width: 100%;
@@ -54,7 +54,7 @@ $transformTransition: transform 200ms ease-out;
   position: absolute;
   z-index: 2;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   display: flex;
   gap: 0.25rem;
@@ -75,6 +75,8 @@ $transformTransition: transform 200ms ease-out;
 .backIcon {
   font-size: 1.25rem;
   line-height: 1;
+
+  @include mixins.rtl-mirror();
 }
 
 .title {

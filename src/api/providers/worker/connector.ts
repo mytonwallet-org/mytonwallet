@@ -76,6 +76,9 @@ export async function callApi<T extends keyof AllMethods>(
 
     return result;
   } catch (err) {
+    // Callers treat `undefined` as a transport failure, so record the swallowed cause for support logs.
+    // Args are deliberately not logged: they may carry sensitive payloads.
+    logDebugError(`callApi: ${fnName}`, err);
     return undefined;
   }
 }

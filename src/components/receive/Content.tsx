@@ -2,12 +2,14 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiChain } from '../../api/types';
+import type { ChainDisplay } from '../../global/selectors';
 import type { Account } from '../../global/types';
 import type { TabWithProperties } from '../ui/TabList';
 
 import { DEFAULT_CHAIN } from '../../config';
 import {
   selectCurrentAccount,
+  selectCurrentAccountChainDisplay,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
@@ -27,12 +29,14 @@ import Address from './content/Address';
 import styles from './ReceiveModal.module.scss';
 
 const ORDERED_SUPPORTED_CHAINS = getDisplayOrderedChains();
+const EMPTY_CHAINS: ApiChain[] = [];
 
 interface StateProps {
   accountChains?: Account['byChain'];
+  chainDisplay?: ChainDisplay;
   isLedger?: boolean;
   isViewMode: boolean;
-  chain: ApiChain;
+  receiveModalChain?: ApiChain;
 }
 
 type OwnProps = {
@@ -47,7 +51,7 @@ const tabIdByChain = Object.fromEntries(
 const chainByTabId = swapKeysAndValues(tabIdByChain);
 
 function Content({
-  isOpen, accountChains, chain, isLedger, isViewMode, onClose,
+  isOpen, accountChains, chainDisplay, receiveModalChain, isLedger, isViewMode, onClose,
 }: StateProps & OwnProps) {
   const { setReceiveActiveTab } = getActions();
 
@@ -56,8 +60,16 @@ function Content({
   const lang = useLang();
   const { isPortrait } = useDeviceScreen();
 
-  const tabs = useMemo(() => getChainTabs(accountChains ?? {}), [accountChains]);
+  // Every chain of the account is available here, hidden ones included, in the Blockchains screen order
+  const chains = chainDisplay?.orderedChains ?? EMPTY_CHAINS;
+  const tabs = useMemo(() => getChainTabs(chains), [chains]);
+  const defaultChain = chains.includes(DEFAULT_CHAIN) || !chains.length
+    ? DEFAULT_CHAIN
+    : chains[0];
+  const chain = receiveModalChain && chains.includes(receiveModalChain) ? receiveModalChain : defaultChain;
   const activeTab = tabIdByChain[chain];
+  // `TabList` addresses its tabs by position, while `activeTab` is the chain position in the full chain order
+  const activeTabIndex = tabs.findIndex((tab) => tab.id === activeTab);
 
   const handleSwitchTab = useLastCallback((tabId: number) => {
     const newChain = chainByTabId[tabId];
@@ -89,8 +101,9 @@ function Content({
     <>
       {tabs.length > 1 && (
         <TabList
+          isActive={isOpen}
           tabs={tabs}
-          activeTab={activeTab}
+          activeTab={activeTabIndex}
           className={styles.tabs}
           overlayClassName={buildClassName(styles.tabsOverlay, chain && styles[chain])}
           onSwitchTab={handleSwitchTab}
@@ -116,28 +129,19 @@ export default memo(
 
     return {
       accountChains: account?.byChain,
+      chainDisplay: selectCurrentAccountChainDisplay(global),
       isLedger: account?.type === 'hardware',
       isViewMode: selectIsCurrentAccountViewMode(global),
-      chain: receiveModalChain ?? DEFAULT_CHAIN,
+      receiveModalChain,
     };
   },
   (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)))(Content),
 );
 
-function getChainTabs(accountChains: Partial<Record<ApiChain, unknown>>) {
-  const result: TabWithProperties[] = [];
-
-  for (const chain of ORDERED_SUPPORTED_CHAINS) {
-    if (!(chain in accountChains)) {
-      continue;
-    }
-
-    result.push({
-      id: tabIdByChain[chain],
-      title: getChainTitle(chain),
-      className: buildClassName(styles.tab, styles[chain]),
-    });
-  }
-
-  return result;
+function getChainTabs(chains: ApiChain[]): TabWithProperties[] {
+  return chains.map((chain) => ({
+    id: tabIdByChain[chain],
+    title: getChainTitle(chain),
+    className: buildClassName(styles.tab, styles[chain]),
+  }));
 }

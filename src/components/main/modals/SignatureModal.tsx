@@ -73,8 +73,8 @@ function SignatureModal({
     setNextKey(SLIDES.complete);
   });
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
-    submitSignature({ password });
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
+    submitSignature({ enclaveToken });
   });
 
   function renderConfirm() {
@@ -109,7 +109,7 @@ function SignatureModal({
           submitLabel={lang('Sign')}
           cancelLabel={lang('Cancel')}
           noAutoConfirm
-          onSubmit={handlePasswordSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={closeModal}
           onUpdate={clearSignatureError}
         />
@@ -120,7 +120,7 @@ function SignatureModal({
   function renderComplete(isActive: boolean) {
     return (
       <>
-        <ModalHeader title={lang('Done!')} onClose={closeModal} />
+        <ModalHeader title={lang('Signing Confirmed')} onClose={closeModal} />
 
         <div className={buildClassName(modalStyles.transitionContent, modalStyles.transitionContent_simple)}>
           <AnimatedIconWithPreview
@@ -131,10 +131,6 @@ function SignatureModal({
             tgsUrl={ANIMATED_STICKERS_PATHS.thumbUp}
             previewUrl={ANIMATED_STICKERS_PATHS.thumbUpPreview}
           />
-          <div className={styles.description}>
-            {lang('Signing was confirmed!')}
-          </div>
-
           <div className={modalStyles.buttons}>
             <Button isPrimary onClick={closeModal}>{lang('Close')}</Button>
           </div>

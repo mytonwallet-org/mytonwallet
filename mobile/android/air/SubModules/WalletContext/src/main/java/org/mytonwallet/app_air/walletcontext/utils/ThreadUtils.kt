@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.walletcontext.utils;
+package org.mytonwallet.app_air.walletcontext.utils
 
 import android.os.Handler
 import android.os.Looper

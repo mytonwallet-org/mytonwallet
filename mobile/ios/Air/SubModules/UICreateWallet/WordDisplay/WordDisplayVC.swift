@@ -34,7 +34,7 @@ public class WordDisplayVC: CreateWalletBaseVC {
 
     func setupViews() {
         
-        navigationItem.title = wordList.count == 24 ? lang("24 Words") : lang("12 Words")
+        navigationItem.title = localizedIntegerDigits(in: wordList.count == 24 ? lang("24 Words") : lang("12 Words"))
         if !canGoBack {
             addCloseNavigationItemIfNeeded()
         }
@@ -53,9 +53,8 @@ public class WordDisplayVC: CreateWalletBaseVC {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    LocalizationSupport.shared.setLanguageCode("ru")
-    return WordDisplayVC(
-        introModel: IntroModel(network: .mainnet, password: nil),
+    WordDisplayVC(
+        introModel: IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup),
         wordList: [
             "word 1", "word 2", "word 3", "word 4",
             "word 5", "word 6", "word 7", "word 8",

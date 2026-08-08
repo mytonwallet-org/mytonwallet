@@ -13,5 +13,5 @@ data class TransitionParams(
     var startY: FloatArray = floatArrayOf(),
     var endX: FloatArray = floatArrayOf(),
     var endY: FloatArray = floatArrayOf(),
-    var angle: FloatArray = floatArrayOf(),
+    var angle: FloatArray = floatArrayOf()
 )

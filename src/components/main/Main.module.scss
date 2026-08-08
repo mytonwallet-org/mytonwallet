@@ -56,7 +56,7 @@ $landscapeSidebarWidth: 21.375rem;
   height: 100%;
   max-height: calc(var(--vh, 1vh) * 100);
   margin: auto;
-  padding: 0 0 0 max(0rem, calc((100vw - #{$landscapeSidebarWidth} - #{v.$landscapeMainContentMaxWidth}) / 2));
+  padding-inline-start: max(0rem, calc((100vw - #{$landscapeSidebarWidth} - #{v.$landscapeMainContentMaxWidth}) / 2));
 
   :global(html.is-electron) & {
     --app-padding-top: 0;
@@ -78,10 +78,10 @@ $landscapeSidebarWidth: 21.375rem;
   }
 
   .sidebar {
-    margin-right: #{$scrollOffset};
+    margin-inline-end: #{$scrollOffset};
     padding-top: var(--app-padding-top);
-    padding-right: calc(1rem - var(--scrollbar-width) - #{$scrollOffset});
     padding-bottom: max(var(--safe-area-bottom), 1rem);
+    padding-inline-end: calc(1rem - var(--scrollbar-width) - #{$scrollOffset});
   }
 
 }
@@ -107,5 +107,5 @@ $landscapeSidebarWidth: 21.375rem;
   overflow-y: scroll;
 
   // Add some space between scrollbar and content
-  padding-right: #{$scrollOffset};
+  padding-inline-end: #{$scrollOffset};
 }

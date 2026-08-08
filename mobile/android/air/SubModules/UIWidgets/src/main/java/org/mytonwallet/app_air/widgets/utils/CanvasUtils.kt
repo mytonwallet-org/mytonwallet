@@ -11,7 +11,10 @@ fun Canvas.drawOval(ovalRect: RectF, rotation: Float, colors: IntArray, paint: P
     withSave {
         rotate(rotation, ovalRect.centerX(), ovalRect.centerY())
         paint.shader = LinearGradient(
-            0f, 0f, ovalRect.width(), ovalRect.height(),
+            0f,
+            0f,
+            ovalRect.width(),
+            ovalRect.height(),
             colors,
             null,
             Shader.TileMode.CLAMP

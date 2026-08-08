@@ -1,7 +1,6 @@
 package org.mytonwallet.uihome.tabs
 
 import android.animation.ValueAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -23,12 +22,12 @@ import android.widget.FrameLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.net.toUri
 import androidx.core.view.children
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.get
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.widget.doOnTextChanged
-import org.mytonwallet.uihome.tabs.views.FloatingBottomNavigationView
-import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
+import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
@@ -44,18 +43,19 @@ import org.mytonwallet.app_air.uicomponents.commonViews.toast.ToastHost
 import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
+import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -88,10 +88,15 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
-import kotlin.math.roundToInt
+import org.mytonwallet.uihome.tabs.views.FloatingBottomNavigationView
+import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
 
-class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtectedView,
+class PhoneTabsVC(context: Context) :
+    BaseTabsVC(context),
+    WThemedView,
+    WProtectedView,
     WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "Tabs"
 
     companion object {
@@ -126,11 +131,10 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         searchBlurryBackgroundView.setupWith(exploreVC.view)
     }
 
-    override fun exportSearchText(): String {
-        return if (searchMatchedSite != null)
-            searchKeyword
-        else
-            (searchEditText.text?.toString() ?: "")
+    override fun exportSearchText(): String = if (searchMatchedSite != null) {
+        searchKeyword
+    } else {
+        (searchEditText.text?.toString() ?: "")
     }
 
     override fun restoreSearchText(text: String) {
@@ -156,6 +160,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         }
 
     private var isSwitchingTabs = false
+    private var selectingTabId: Int? = null
 
     private val tabListener = object : IBottomNavigationView.Listener {
         override fun onTabSelected(itemId: Int, isReselect: Boolean): Boolean {
@@ -167,30 +172,28 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
             }
             if (isSwitchingTabs) return false
 
+            selectingTabId = itemId
             checkForUpdate(itemId)
             val isAgent = itemId == IBottomNavigationView.ID_AGENT
             ignoreSideGuttering = isAgent
             val wasAgent = bottomNavigationView.selectedItemId == IBottomNavigationView.ID_AGENT
-            if (wasAgent != isAgent)
-                updateBottomNavigationBackground(itemId)
+            if (wasAgent != isAgent) updateBottomNavigationBackground(itemId)
             bottomReversedCornerView?.setHorizontalPadding(
-                if (ignoreSideGuttering)
-                    0f
-                else
-                    ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
+                if (ignoreSideGuttering) 0f else ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
             )
 
             val newNav = getNavigationStack(itemId)
             updateToastAvailability(itemId)
-            if (newNav.parent != null)
+            if (newNav.parent != null) {
+                selectingTabId = null
                 return true // switching navigation bottom bar view type
+            }
 
             val oldNav = contentView[0] as? WNavigationController
             oldNav?.viewWillDisappear()
 
             val searchVisible = itemId == IBottomNavigationView.ID_EXPLORE
-            if (searchView.hasFocus() && !searchVisible)
-                searchView.clearFocus()
+            if (searchView.hasFocus() && !searchVisible) searchView.clearFocus()
 
             val animationsEnabled = WGlobalStorage.getAreAnimationsActive()
 
@@ -247,8 +250,9 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                     .setDuration(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
                     .setInterpolator(CubicBezierInterpolator.EASE_OUT)
                     .withEndAction {
+                        // A full-screen push may interrupt this appearance before the animation ends.
+                        if (newNav.isDisappeared) return@withEndAction
                         newNav.viewDidAppear()
-                        bottomNavigationView.post { onUpdateAdditionalHeight() }
                     }
                     .start()
             } else {
@@ -263,8 +267,8 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                 )
                 newNav.viewWillAppear()
                 newNav.viewDidAppear()
-                view.post { onUpdateAdditionalHeight() }
             }
+            selectingTabId = null
             return true
         }
     }
@@ -283,7 +287,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         setOverlayColor(WColor.SearchFieldBackground, 204)
     }
     private val searchEditText by lazy {
-        object : SwapSearchEditText(context) {
+        object : WSearchEditText(context) {
             override fun onFocusChanged(
                 focused: Boolean,
                 direction: Int,
@@ -295,44 +299,50 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
 
             override fun onSelectionChanged(selStart: Int, selEnd: Int) {
                 super.onSelectionChanged(selStart, selEnd)
-                if (isProcessingSearchKeyword || searchMatchedSite == null)
-                    return
+                if (isProcessingSearchKeyword || searchMatchedSite == null) return
 
-                isProcessingSearchKeyword = true
-                setTextKeepCursor(searchKeyword)
-                searchMatchedSite = null
-                isProcessingSearchKeyword = false
+                val keyword = searchKeyword
+                val autoCompleteText = text?.toString()
+                doOnPreDraw {
+                    if (isProcessingSearchKeyword ||
+                        searchMatchedSite == null ||
+                        searchKeyword != keyword ||
+                        text?.toString() != autoCompleteText
+                    ) {
+                        return@doOnPreDraw
+                    }
+                    isProcessingSearchKeyword = true
+                    setTextKeepCursor(keyword)
+                    searchMatchedSite = null
+                    isProcessingSearchKeyword = false
+                }
             }
         }.apply {
             hint =
                 LocaleController.getString("Search app or enter address")
-            doOnTextChanged { text, start, _, count ->
-                if (text != null && text == searchKeyword)
-                    return@doOnTextChanged
-                if (isProcessingSearchKeyword)
-                    return@doOnTextChanged
+            doOnTextChanged { text, _, _, _ ->
+                if (text != null && text == searchKeyword) return@doOnTextChanged
+                if (isProcessingSearchKeyword) return@doOnTextChanged
                 isProcessingSearchKeyword = true
-                if ((text?.length ?: 0) > searchKeyword.length)
-                    checkForMatchingUrl(text?.toString() ?: "")
-                else {
-                    searchKeyword = text?.toString() ?: ""
-                    searchMatchedSite = null
-                }
-                if (searchMatchedSite == null) {
-                    val cursorPosition = start + count
-                    setText(searchKeyword)
-                    setSelection(cursorPosition.coerceAtMost(searchKeyword.length))
-                }
+                val keyword = text?.toString() ?: ""
+                val shouldCheckForMatchingUrl = keyword.length > searchKeyword.length
+                searchKeyword = keyword
+                searchMatchedSite = null
                 cachedExploreVC?.search(searchKeyword, hasFocus())
                 post {
+                    if (shouldCheckForMatchingUrl && searchKeyword == keyword) {
+                        checkForMatchingUrl(keyword)
+                    }
                     isProcessingSearchKeyword = false
                 }
             }
             onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
-                if (isProcessingSearchKeyword)
+                if (isProcessingSearchKeyword) return@OnFocusChangeListener
+                if (!hasFocus &&
+                    (context as? android.app.Activity)?.isChangingConfigurations == true
+                ) {
                     return@OnFocusChangeListener
-                if (!hasFocus && (context as? android.app.Activity)?.isChangingConfigurations == true)
-                    return@OnFocusChangeListener
+                }
                 isProcessingSearchKeyword = true
                 val query = if (hasFocus) text?.toString() else null
                 cachedExploreVC?.search(query, hasFocus)
@@ -343,9 +353,14 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
             }
             setOnEditorActionListener { _, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
-                    event?.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_ENTER
+                    (
+                        event?.action == KeyEvent.ACTION_DOWN &&
+                            event.keyCode == KeyEvent.KEYCODE_ENTER
+                        )
                 ) {
-                    if (WalletContextManager.delegate?.get()?.handleDeeplink(text.toString()) == true) {
+                    if (WalletContextManager.delegate?.get()?.handleDeeplink(text.toString()) ==
+                        true
+                    ) {
                         setText("")
                         clearFocus()
                         hideKeyboard()
@@ -359,8 +374,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                         )
                     } ?: run {
                         val (isValidUrl, uri) = InAppBrowserVC.convertToUri(text.toString())
-                        if (!isValidUrl)
-                            ExploreHistoryStore.saveSearchHistory(text.toString())
+                        if (!isValidUrl) ExploreHistoryStore.saveSearchHistory(text.toString())
                         InAppBrowserConfig(
                             url = uri.toString(),
                             injectDappConnect = true,
@@ -389,8 +403,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         object : WFrameLayout(context) {
             override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
                 super.onLayout(changed, left, top, right, bottom)
-                if (changed)
-                    searchShadow?.sync()
+                if (changed) searchShadow?.sync()
             }
         }.apply {
             alpha = 0f
@@ -459,11 +472,15 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
 
         // Bottom navigation translation
         bottomNavigationView.translationY =
-            (contentHeight -
-                (BOTTOM_TABS_LAYOUT_HEIGHT.dp +
-                    BOTTOM_TABS_BOTTOM_MARGIN.dp +
-                    minimizedNavHeightPx) +
-                BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * visibilityFraction)
+            (
+                contentHeight -
+                    (
+                        BOTTOM_TABS_LAYOUT_HEIGHT.dp +
+                            BOTTOM_TABS_BOTTOM_MARGIN.dp +
+                            minimizedNavHeightPx
+                        ) +
+                    BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * visibilityFraction
+                )
         syncToastHostPosition()
 
         stickyBottomGradientDrawable?.setStops(computeGradientStops(visibilityFraction))
@@ -474,7 +491,11 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                 nav.y = minimizedNavY!! + hiddenTranslationY
                 minimizedNavShadow?.let {
                     applyMinimizedShadowProgress(
-                        nav, it.alpha, nav.width, nav.height, 24.dp.toFloat()
+                        nav,
+                        it.alpha,
+                        nav.width,
+                        nav.height,
+                        24.dp.toFloat()
                     )
                 }
             }
@@ -487,7 +508,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     }
 
     private fun updateSearchWidth() {
-        if (searchView.layoutParams != null)
+        if (searchView.layoutParams != null) {
             searchView.layoutParams = searchView.layoutParams.apply {
                 width = lerp(
                     searchWidth.toFloat(),
@@ -495,7 +516,8 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                     searchFocused.floatValue
                 ).roundToInt()
             }
-        searchEditText.setPaddingDp(
+        }
+        searchEditText.setPaddingDpLocalized(
             lerp(21f, 16f, searchFocused.floatValue).ceilToInt(),
             0,
             lerp(0f, 48f, searchFocused.floatValue).ceilToInt(),
@@ -541,8 +563,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         )
         pendingSelectedTab?.let { tab ->
             pendingSelectedTab = null
-            if (tab != IBottomNavigationView.ID_HOME)
-                bottomNavigationView.selectedItemId = tab
+            if (tab != IBottomNavigationView.ID_HOME) bottomNavigationView.selectedItemId = tab
         }
         val searchVisible = initialTab == IBottomNavigationView.ID_EXPLORE
         searchView.alpha = if (searchVisible) 1f else 0f
@@ -552,7 +573,9 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         view.post {
             activeNavigationController?.insetsUpdated()
             // preload other tabs
-            getNavigationStack(IBottomNavigationView.ID_EXPLORE)
+            if (AppTabsManager.contains(IBottomNavigationView.ID_EXPLORE)) {
+                getNavigationStack(IBottomNavigationView.ID_EXPLORE)
+            }
             getNavigationStack(IBottomNavigationView.ID_SETTINGS)
         }
 
@@ -572,7 +595,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
             val addAccountItem = WMenuPopup.Item(
                 config = WMenuPopup.Item.Config.Item(
                     icon = WMenuPopup.Item.Config.Icon(
-                        iconResId = org.mytonwallet.app_air.uisettings.R.drawable.ic_add,
+                        iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_add,
                         tintColor = WColor.SubtitleText,
                         iconSize = 28.dp,
                         iconMargin = 17.dp
@@ -611,31 +634,36 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
 
             val allAccountsShown = accounts.size <= numberOfAccountsToShow
 
-            val showAllItem = if (allAccountsShown) null else WMenuPopup.Item(
-                config = WMenuPopup.Item.Config.Item(
-                    icon = WMenuPopup.Item.Config.Icon(
-                        iconResId = org.mytonwallet.app_air.uisettings.R.drawable.ic_show_all,
-                        tintColor = WColor.SubtitleText,
-                        iconSize = 28.dp,
-                        iconMargin = 17.dp
+            val showAllItem = if (allAccountsShown) {
+                null
+            } else {
+                WMenuPopup.Item(
+                    config = WMenuPopup.Item.Config.Item(
+                        icon = WMenuPopup.Item.Config.Icon(
+                            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_show_all,
+                            tintColor = WColor.SubtitleText,
+                            iconSize = 28.dp,
+                            iconMargin = 17.dp
+                        ),
+                        title = LocaleController.getString("Show All Wallets")
                     ),
-                    title = LocaleController.getString("Show All Wallets")
-                ),
-                hasSeparator = false,
-                onTap = {
-                    val navVC = WNavigationController(
-                        window!!, PresentationConfig(
-                            style = WNavigationController.PresentationStyle.BottomSheet
+                    hasSeparator = false,
+                    onTap = {
+                        val navVC = WNavigationController(
+                            window!!,
+                            PresentationConfig(
+                                style = WNavigationController.PresentationStyle.BottomSheet
+                            )
                         )
-                    )
-                    navVC.setRoot(
-                        WalletContextManager.delegate?.get()?.getWalletsTabsVC(
-                            MWalletSettingsViewMode.LIST
-                        ) as WViewController
-                    )
-                    window?.present(navVC)
-                }
-            )
+                        navVC.setRoot(
+                            WalletContextManager.delegate?.get()?.getWalletsTabsVC(
+                                MWalletSettingsViewMode.LIST
+                            ) as WViewController
+                        )
+                        window?.present(navVC)
+                    }
+                )
+            }
 
             lateinit var popup: IPopup
             val menuItems =
@@ -651,7 +679,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                                         title = account.name,
                                         network = account.network,
                                         byChain = account.byChain,
-                                        accountType = account.accountType,
+                                        accountType = account.accountType
                                     ),
                                     showArrow = false,
                                     isTrusted = true,
@@ -660,8 +688,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                                         popup.dismiss()
                                         val isActive =
                                             account.accountId == AccountStore.activeAccountId
-                                        if (isActive)
-                                            return@AccountItemView
+                                        if (isActive) return@AccountItemView
                                         WalletCore.activateAccount(
                                             account.accountId,
                                             notifySDK = true
@@ -674,7 +701,8 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                                                 )
                                             }
                                         }
-                                    })
+                                    }
+                                )
                             ),
                             hasSeparator = hasSeparator
                         )
@@ -715,8 +743,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         val tintColor = WColor.Tint.color
 
         for (navView in navStacks) {
-            if (navView.parent != null)
-                continue
+            if (navView.parent != null) continue
             navView.updateTheme()
         }
 
@@ -749,9 +776,8 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     }
 
     // Full-screen pushes on phone live in the window nav, above this PhoneTabsVC root.
-    override fun exportPushedOverMain(): List<WViewController> {
-        return navigationController?.detachAboveRoot() ?: emptyList()
-    }
+    override fun exportPushedOverMain(): List<WViewController> =
+        navigationController?.detachAboveRoot() ?: emptyList()
 
     override fun adoptPushedOverMain(pushed: List<WViewController>) {
         navigationController?.adoptAboveRoot(pushed)
@@ -773,10 +799,8 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         for (navView in navStacks) {
             fun updateProtectedViewForChildren(parentView: ViewGroup) {
                 for (child in parentView.children) {
-                    if (child is WProtectedView)
-                        child.updateProtectedView()
-                    if (child is ViewGroup)
-                        updateProtectedViewForChildren(child)
+                    if (child is WProtectedView) child.updateProtectedView()
+                    if (child is ViewGroup) updateProtectedViewForChildren(child)
                 }
             }
             updateProtectedViewForChildren(navView)
@@ -792,7 +816,8 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                         BOTTOM_TABS_LAYOUT_HEIGHT.dp -
                         BOTTOM_TABS_BOTTOM_MARGIN.dp -
                         (if (minimizedNav != null) 56.dp else 0)
-                    ).toFloat(), 0f
+                    ).toFloat(),
+                0f
             )
         }
 
@@ -819,14 +844,15 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         get() = WGlobalStorage.isGradientNavigationBarActive()
 
     private fun ensureStickyBottomGradientView() {
-        if (stickyBottomGradientView != null)
-            return
+        if (stickyBottomGradientView != null) return
         stickyBottomGradientView = View(context).apply {
             id = View.generateViewId()
         }
         view.addView(
-            stickyBottomGradientView, ViewGroup.LayoutParams(
-                MATCH_PARENT, stickyGradientFullHeight()
+            stickyBottomGradientView,
+            ViewGroup.LayoutParams(
+                MATCH_PARENT,
+                stickyGradientFullHeight()
             )
         )
         bottomNavigationView.bringToFront()
@@ -835,12 +861,10 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         toastHostView.bringToFront()
     }
 
-    private fun stickyGradientFullHeight(): Int {
-        return BOTTOM_TABS_LAYOUT_HEIGHT.dp +
-            BOTTOM_TABS_BOTTOM_MARGIN.dp +
-            bottomBarHeight +
-            (minimizedNavHeight ?: 0f).roundToInt()
-    }
+    private fun stickyGradientFullHeight(): Int = BOTTOM_TABS_LAYOUT_HEIGHT.dp +
+        BOTTOM_TABS_BOTTOM_MARGIN.dp +
+        bottomBarHeight +
+        (minimizedNavHeight ?: 0f).roundToInt()
 
     private fun updateStickyGradientHeight() {
         val gradient = stickyBottomGradientView ?: return
@@ -874,7 +898,9 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         )
     }
 
-    private fun updateBottomNavigationBackground(selectedItemId: Int = bottomNavigationView.selectedItemId) {
+    private fun updateBottomNavigationBackground(
+        selectedItemId: Int = bottomNavigationView.selectedItemId
+    ) {
         if (shouldShowStickyBottomGradientView) {
             if (stickyBottomGradientView == null) {
                 ensureStickyBottomGradientView()
@@ -883,10 +909,11 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                 }
             }
             stickyBackgroundColor =
-                if (ThemeManager.isDark && selectedItemId != IBottomNavigationView.ID_AGENT)
+                if (ThemeManager.isDark && selectedItemId != IBottomNavigationView.ID_AGENT) {
                     WColor.SecondaryBackground.color
-                else
+                } else {
                     WColor.Background.color
+                }
             val drawable = StickyBottomGradientDrawable(
                 intArrayOf(
                     stickyBackgroundColor.colorWithAlpha(0),
@@ -907,16 +934,20 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     }
 
     override fun switchToExplore(targetUri: Uri?) {
+        if (!AppTabsManager.contains(IBottomNavigationView.ID_EXPLORE)) return
         navigationController?.popToRoot(false)
         bottomNavigationView.selectedItemId = IBottomNavigationView.ID_EXPLORE
         window?.dismissToRoot()
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
     }
 
-    override fun switchToAgent() {
+    override fun switchToAgent(prompt: String?): Boolean {
+        if (!AppTabsManager.contains(IBottomNavigationView.ID_AGENT)) return false
         navigationController?.popToRoot(false)
         bottomNavigationView.selectedItemId = IBottomNavigationView.ID_AGENT
         window?.dismissToRoot()
+        submitAgentPrompt(prompt)
+        return true
     }
 
     override fun switchToSettings(pushVC: WViewController?) {
@@ -974,13 +1005,15 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                     } else {
                         context.getString(BaseR.string.app_install_url)
                     }
-                    if (url.isNotEmpty())
+                    if (url.isNotEmpty()) {
                         window?.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
+                    }
                 }
             }
 
             view.addView(
-                updateFloatingButton, ViewGroup.LayoutParams(
+                updateFloatingButton,
+                ViewGroup.LayoutParams(
                     WRAP_CONTENT,
                     WRAP_CONTENT
                 )
@@ -998,8 +1031,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
 
     private var isShowingUpdateButton = false
     private fun showUpdateButton() {
-        if (isShowingUpdateButton)
-            return
+        if (isShowingUpdateButton) return
         isShowingUpdateButton = true
         createUpdateButtonIfNeeded()
         updateFloatingButton?.isGone = false
@@ -1007,14 +1039,12 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     }
 
     private fun hideUpdateButton() {
-        if (!isShowingUpdateButton)
-            return
+        if (!isShowingUpdateButton) return
         isShowingUpdateButton = false
         updateFloatingButton?.let { button ->
             if (button.isVisible) {
                 button.fadeOut {
-                    if (!isShowingUpdateButton)
-                        button.isGone = true
+                    if (!isShowingUpdateButton) button.isGone = true
                 }
             }
         }
@@ -1035,16 +1065,16 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     var searchKeyword = ""
     private fun checkForMatchingUrl(keyword: String) {
         searchKeyword = keyword
-        if (keyword.isEmpty())
-            return
+        if (keyword.isEmpty()) return
         searchMatchedSite =
-            if (keyword.isEmpty() || !isKeyboardOpen)
+            if (keyword.isEmpty() || !isKeyboardOpen) {
                 null
-            else
+            } else {
                 ExploreHistoryStore.exploreHistory?.visitedSites?.firstOrNull {
                     it.url.toUri().host?.startsWith(keyword) == true ||
                         it.url.startsWith(keyword)
                 }
+            }
         searchMatchedSite?.let { matchedSite ->
             val urlPart = matchedSite.url.toUri().let { uri ->
                 if (uri.host?.startsWith(keyword) == true) {
@@ -1061,7 +1091,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                 txt.length,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            searchEditText.setText(spannable)
+            searchEditText.setTextKeepCursor(spannable)
             val length = searchEditText.length()
             searchEditText.setSelection(
                 keyword.length.coerceAtMost(length),
@@ -1074,16 +1104,16 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     }
 
     private fun clearSearchAutoComplete() {
-        searchEditText.setText(searchKeyword)
+        searchEditText.setTextKeepCursor(searchKeyword)
         checkForMatchingUrl(searchKeyword)
     }
-
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
-                if (!AccountStore.isPushedTemporary && !walletEvent.isSavingTemporaryAccount)
+                if (!AccountStore.isPushedTemporary && !walletEvent.isSavingTemporaryAccount) {
                     navigationController?.popToRoot(false)
+                }
             }
 
             is WalletEvent.TemporaryAccountSaved -> {
@@ -1092,13 +1122,21 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
             }
 
             is WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
-                if (bottomNavigationView.selectedItemId != IBottomNavigationView.ID_HOME)
+                if (bottomNavigationView.selectedItemId != IBottomNavigationView.ID_HOME) {
                     bottomNavigationView.selectedItemId = IBottomNavigationView.ID_HOME
+                }
                 dismissMinimized(false)
             }
 
             is WalletEvent.ConfigReceived -> {
                 checkForUpdate()
+            }
+
+            WalletEvent.AppTabsChanged -> {
+                if (!AppTabsManager.contains(bottomNavigationView.selectedItemId)) {
+                    bottomNavigationView.selectedItemId = IBottomNavigationView.ID_HOME
+                }
+                bottomNavigationView.reloadTabs()
             }
 
             else -> {
@@ -1111,8 +1149,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     private var visibilityTarget = 1f
     private var activeVisibilityValueAnimator: ValueAnimator? = null
     override fun scrollingUp() {
-        if (visibilityTarget == 1f)
-            return
+        if (visibilityTarget == 1f) return
         bottomNavigationView.setTabsEnabled(true)
         activeVisibilityValueAnimator?.cancel()
         activeVisibilityValueAnimator = ValueAnimator.ofFloat(visibilityFraction, 1f).apply {
@@ -1129,8 +1166,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     }
 
     override fun scrollingDown() {
-        if (visibilityTarget == 0f)
-            return
+        if (visibilityTarget == 0f) return
         bottomNavigationView.setTabsEnabled(false)
         activeVisibilityValueAnimator?.cancel()
         activeVisibilityValueAnimator = ValueAnimator.ofFloat(visibilityFraction, 0f).apply {
@@ -1146,15 +1182,29 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         }
     }
 
-    override fun onBackPressed(): Boolean {
-        return activeNavigationController?.onBackPressed() ?: true
-    }
+    override fun onBackPressed(): Boolean = activeNavigationController?.onBackPressed() ?: true
 
     override fun getBottomNavigationHeight(): Int {
         val keyboard = keyboardHeight
         val minimizedNavHeight = minimizedNavHeight ?: 0f
+        val selectedItemId = selectingTabId ?: bottomNavigationView.selectedItemId
         val additionalHeight =
-            ((if (bottomNavigationView.selectedItemId == IBottomNavigationView.ID_EXPLORE) (SEARCH_BOTTOM_MARGIN + SEARCH_HEIGHT + SEARCH_TOP_MARGIN).dp else 0) + keyboard + minimizedNavHeight).roundToInt()
+            (
+                (
+                    if (selectedItemId ==
+                        IBottomNavigationView.ID_EXPLORE
+                    ) {
+                        (
+                            SEARCH_BOTTOM_MARGIN + SEARCH_HEIGHT +
+                                SEARCH_TOP_MARGIN
+                            ).dp
+                    } else {
+                        0
+                    }
+                    ) +
+                    keyboard +
+                    minimizedNavHeight
+                ).roundToInt()
         return BOTTOM_TABS_LAYOUT_HEIGHT.dp + additionalHeight + bottomBarHeight
     }
 
@@ -1185,7 +1235,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         fraction: Float,
         width: Int,
         height: Int,
-        radius: Float,
+        radius: Float
     ) {
         val shadow = minimizedNavShadow
         if (shadow != null) {
@@ -1208,8 +1258,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
             onMaximizeProgress(1f)
             return
         }
-        if (minimizedNav != null)
-            dismissMinimized(false)
+        if (minimizedNav != null) dismissMinimized(false)
         this.onMaximizeProgress = onMaximizeProgress
         minimizedNav = nav
         nav.window.detachLastNav()
@@ -1230,7 +1279,8 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         minimizedNavHeight = finalHeight + 8f.dp
         updateStickyGradientHeight()
         bottomNavigationView.translationY =
-            -(BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBarHeight + minimizedNavHeight!!) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp
+            -(BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBarHeight + minimizedNavHeight!!) +
+            BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp
         syncToastHostPosition()
         render()
 
@@ -1274,8 +1324,9 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
 
                     start()
                 }
-        } else
+        } else {
             onUpdate(1f)
+        }
     }
 
     override fun maximize() {
@@ -1308,7 +1359,11 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
             val radius = 24.dp * (1 - animatedFraction)
             nav.setBackgroundColor(Color.TRANSPARENT, radius, radius > 0f)
             applyMinimizedShadowProgress(
-                nav, 1f - animatedFraction, animatedWidth, animatedHeight, radius
+                nav,
+                1f - animatedFraction,
+                animatedWidth,
+                animatedHeight,
+                radius
             )
         }
 
@@ -1351,26 +1406,31 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
     }
 
     override fun dismissMinimized(animated: Boolean) {
-        if (minimizedNav == null)
-            return
-        val nav = minimizedNav
+        val nav = minimizedNav ?: return
         fun onUpdate(animatedFraction: Float) {
             minimizedNavHeight = (1 - animatedFraction) * 48.dp
             updateStickyGradientHeight()
             bottomNavigationView.translationY =
-                -(BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBarHeight + minimizedNavHeight!!) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * (1 - animatedFraction)
+                -(BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBarHeight + minimizedNavHeight!!) +
+                BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * (1 - animatedFraction)
             syncToastHostPosition()
             render()
             val fadedAlpha = visibilityFraction * (1 - animatedFraction)
-            nav?.alpha = fadedAlpha
+            nav.alpha = fadedAlpha
             minimizedNavShadow?.alpha = fadedAlpha
+        }
+        fun onEnd() {
+            if (minimizedNav !== nav) return
+            nav.willBeDismissed()
+            detachMinimizedShadow(nav)
+            view.removeView(nav)
+            nav.onDestroy()
+            minimizedNav = null
+            minimizedNavY = null
         }
         if (!animated) {
             onUpdate(1f)
-            detachMinimizedShadow(nav)
-            view.removeView(minimizedNav)
-            minimizedNav = null
-            minimizedNavY = null
+            onEnd()
             return
         }
         ValueAnimator.ofInt(0, 1)
@@ -1382,9 +1442,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
                     onUpdate(animatedFraction)
                 }
                 doOnEnd {
-                    detachMinimizedShadow(nav)
-                    view.removeView(nav)
-                    minimizedNav = null
+                    onEnd()
                 }
 
                 start()
@@ -1452,6 +1510,7 @@ class PhoneTabsVC(context: Context) : BaseTabsVC(context), WThemedView, WProtect
         super.onDestroy()
         WalletCore.unregisterObserver(this)
         minimizedNav?.let { nav ->
+            nav.willBeDismissed()
             detachMinimizedShadow(nav)
             view.removeView(nav)
             nav.onDestroy()

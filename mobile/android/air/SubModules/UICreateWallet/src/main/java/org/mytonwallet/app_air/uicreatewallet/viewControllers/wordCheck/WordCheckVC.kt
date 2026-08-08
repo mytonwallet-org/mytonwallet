@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.wordCheck
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +10,8 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -21,12 +22,12 @@ import org.mytonwallet.app_air.uicomponents.commonViews.WordCheckerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.uicreatewallet.WalletCreationVM
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
@@ -34,16 +35,16 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.WalletCreationVM
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class WordCheckVC(
@@ -52,7 +53,9 @@ class WordCheckVC(
     val words: Array<String>,
     private val initialWordIndices: List<Int>,
     private val mode: WordCheckMode
-) : WViewController(context), WalletCreationVM.Delegate {
+) : WViewController(context),
+    WalletCreationVM.Delegate {
+    @Suppress("PropertyName")
     override val TAG = "WordCheck"
 
     override val isContentWidthCapped = true
@@ -78,16 +81,20 @@ class WordCheckVC(
                 repeat = true
             ),
             title = LocaleController.getString("Let's Check!"),
-            subtitle = (LocaleController.getString("\$check_words_description") + "\n" +
-                LocaleController.getStringWithKeyValues(
-                    "\$mnemonic_check_words_list",
-                    listOf(
-                        Pair(
-                            "%word_numbers%",
-                            "**${currentWordIndices.joinToString(", ") { it.toString() }}**"
+            subtitle = (
+                LocaleController.getString("\$check_words_description") + "\n" +
+                    LocaleController.getStringWithKeyValues(
+                        "\$mnemonic_check_words_list",
+                        listOf(
+                            Pair(
+                                "%word_numbers%",
+                                "**${currentWordIndices.joinToString(", ") {
+                                    it.withLocalizedNumbers
+                                }}**"
+                            )
                         )
                     )
-                )).toProcessedSpannableStringBuilder(),
+                ).toProcessedSpannableStringBuilder(),
             onStarted = {
                 scrollView.fadeIn()
             }
@@ -159,8 +166,9 @@ class WordCheckVC(
 
         setNavTitle("")
         setupNavBar(true)
-        if ((mode as? WordCheckMode.CheckAndImport)?.isFirstWalletToAdd == false)
+        if ((mode as? WordCheckMode.CheckAndImport)?.isFirstWalletToAdd == false) {
             navigationBar?.addCloseButton()
+        }
 
         scrollView.alpha = 0f
         view.addView(
@@ -209,9 +217,14 @@ class WordCheckVC(
             toBottomPx(
                 wordsDoNotMatchLabel,
                 48.dp + max(
-                    (navigationController?.getSystemBars()?.bottom
-                        ?: 0), (navigationController?.imeInsetBottom
-                        ?: 0)
+                    (
+                        navigationController?.getSystemBars()?.bottom
+                            ?: 0
+                        ),
+                    (
+                        navigationController?.imeInsetBottom
+                            ?: 0
+                        )
                 )
             )
         }
@@ -264,27 +277,31 @@ class WordCheckVC(
                 is WordCheckMode.CheckAndImport -> {
                     view.unlockView()
                     if (mode.isFirstPasscodeProtectedWallet) {
-                        push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
-                            walletCreationVM.finalizeAccount(
-                                window!!,
-                                network,
-                                words,
-                                passcode,
-                                biometricsActivated,
-                                0
-                            )
-                        }, onCompletion = {
-                            navigationController?.removePrevViewControllers()
-                        })
+                        push(
+                            SetPasscodeVC(context, true, null) {
+                                    enclaveToken,
+                                    biometricsActivated
+                                ->
+                                walletCreationVM.finalizeAccount(
+                                    window!!,
+                                    network,
+                                    words,
+                                    0,
+                                    enclaveToken
+                                )
+                            },
+                            onCompletion = {
+                                navigationController?.removePrevViewControllers()
+                            }
+                        )
                     } else {
                         view.lockView()
                         walletCreationVM.finalizeAccount(
                             window!!,
                             network,
                             words,
-                            mode.passedPasscode ?: "",
-                            null,
-                            0
+                            0,
+                            mode.passedEnclaveToken ?: ""
                         )
                     }
                 }
@@ -321,22 +338,24 @@ class WordCheckVC(
             it.isWordSelected && !it.isValidatedAndWrong
         }
         wordsDoNotMatchLabel.fadeOut()
-        if (allSelected)
-            checkPressed()
+        if (allSelected) checkPressed()
     }
 
     private fun updateHeaderDescription() {
-        val newDescription = (LocaleController.getString("\$check_words_description") + "\n" +
-            LocaleController.getStringWithKeyValues(
-                "\$mnemonic_check_words_list",
-                listOf(
-                    Pair(
-                        "%word_numbers%",
-                        "**${currentWordIndices.joinToString(", ") { it.toString() }}**"
+        val newDescription = (
+            LocaleController.getString("\$check_words_description") + "\n" +
+                LocaleController.getStringWithKeyValues(
+                    "\$mnemonic_check_words_list",
+                    listOf(
+                        Pair(
+                            "%word_numbers%",
+                            "**${currentWordIndices.joinToString(", ") {
+                                it.withLocalizedNumbers
+                            }}**"
+                        )
                     )
                 )
-            )).toProcessedSpannableStringBuilder()
+            ).toProcessedSpannableStringBuilder()
         headerView.setSubtitleText(newDescription)
     }
-
 }

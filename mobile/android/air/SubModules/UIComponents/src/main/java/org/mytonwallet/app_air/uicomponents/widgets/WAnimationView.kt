@@ -50,8 +50,7 @@ open class WAnimationView(context: Context) : LottieAnimationView(context) {
             setAnimatorListener(onStart)
             if (repeat) repeatCount = LottieDrawable.INFINITE
             setAnimationFromUrl(url)
-            if (play)
-                playAnimation()
+            if (play) playAnimation()
         } catch (_: Exception) {
             setAnimatorListener(null)
             onStart?.invoke()
@@ -71,8 +70,7 @@ open class WAnimationView(context: Context) : LottieAnimationView(context) {
         mainHandler.removeCallbacks(startFallbackRunnable)
         pendingOnStart = onStart
         removeAllAnimatorListeners()
-        if (onStart == null)
-            return
+        if (onStart == null) return
         addAnimatorListener(object : Animator.AnimatorListener {
             override fun onAnimationStart(animation: Animator) {
                 firePendingOnStart()

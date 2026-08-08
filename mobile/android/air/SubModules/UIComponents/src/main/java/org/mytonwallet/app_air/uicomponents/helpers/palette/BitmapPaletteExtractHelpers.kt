@@ -6,9 +6,8 @@ import android.graphics.Color
 class BitmapPaletteExtractHelpers {
     companion object {
 
-        private fun quantize(pixelArray: List<IntArray>, colorCount: Int): MMCQ.CMap? {
-            return MMCQ.quantize(pixelArray, colorCount)
-        }
+        private fun quantize(pixelArray: List<IntArray>, colorCount: Int): MMCQ.CMap? =
+            MMCQ.quantize(pixelArray, colorCount)
 
         fun extractAccentColorIndex(bitmap: Bitmap): Int {
             return try {
@@ -16,6 +15,44 @@ class BitmapPaletteExtractHelpers {
                 return Color.rgb(palette[0], palette[1], palette[2])
             } catch (_: Exception) {
                 Color.BLACK
+            }
+        }
+
+        // Average color of the bottom band of the image, used to blend the image into the
+        // screen background. Returns null when the band is mostly transparent.
+        fun extractAverageColor(bitmap: Bitmap): Int? {
+            return try {
+                val bandTop = bitmap.height * 3 / 4
+                val bandHeight = bitmap.height - bandTop
+                if (bandHeight <= 0 || bitmap.width <= 0) return null
+                val pixels = IntArray(bitmap.width * bandHeight)
+                bitmap.getPixels(pixels, 0, bitmap.width, 0, bandTop, bitmap.width, bandHeight)
+                val step = (pixels.size / 10_000).coerceAtLeast(1)
+                var r = 0L
+                var g = 0L
+                var b = 0L
+                var opaqueCount = 0
+                var sampledCount = 0
+                var i = 0
+                while (i < pixels.size) {
+                    val pixel = pixels[i]
+                    sampledCount++
+                    if (Color.alpha(pixel) >= 120) {
+                        r += Color.red(pixel)
+                        g += Color.green(pixel)
+                        b += Color.blue(pixel)
+                        opaqueCount++
+                    }
+                    i += step
+                }
+                if (opaqueCount == 0 || opaqueCount < sampledCount / 20) return null
+                Color.rgb(
+                    (r / opaqueCount).toInt(),
+                    (g / opaqueCount).toInt(),
+                    (b / opaqueCount).toInt()
+                )
+            } catch (_: Exception) {
+                null
             }
         }
 

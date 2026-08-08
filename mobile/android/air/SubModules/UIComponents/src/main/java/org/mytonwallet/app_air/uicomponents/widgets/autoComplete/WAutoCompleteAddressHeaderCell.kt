@@ -19,14 +19,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 @SuppressLint("ViewConstructor")
 class WAutoCompleteAddressHeaderCell(context: Context) :
     WCell(context, LayoutParams(MATCH_PARENT, 40.dp)),
-    IAutoCompleteAddressItemCell, WThemedView {
+    IAutoCompleteAddressItemCell,
+    WThemedView {
 
     private val animationDuration = AnimationConstants.QUICK_ANIMATION
     private var animator: Animator? = null
 
     private var animationState: AutoCompleteAddressItem.AnimationState =
         AutoCompleteAddressItem.AnimationState.IDLE
-
 
     private val label: HeaderCell by lazy {
         HeaderCell(context, 20f).apply {
@@ -112,9 +112,7 @@ class WAutoCompleteAddressHeaderCell(context: Context) :
         label.titleLabel.translationY = 0f
     }
 
-    override fun hasActiveAnimation(): Boolean {
-        return false
-    }
+    override fun hasActiveAnimation(): Boolean = false
 
     override fun updateTheme() {
         label.updateTheme()

@@ -2,8 +2,6 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 
 import type { ApiChain, ApiSwapActivity, ApiSwapAsset } from '../../api/types';
 
-import { TONCOIN } from '../../config';
-import { Big } from '../../lib/big.js';
 import { resolveSwapAsset } from '../../global/helpers';
 import { getIsActivityPendingForUser } from '../../util/activities';
 import { getSwapTransactionIdRows } from '../../util/swap/transactionIds';
@@ -41,8 +39,6 @@ function SwapActivityInfo({
     toAmount,
     status,
     networkFee = '0',
-    ourFee = '0',
-    ourFeeMode,
     shouldLoadDetails,
     cex,
   } = activity;
@@ -57,7 +53,6 @@ function SwapActivityInfo({
     return resolveSwapAsset(tokensBySlug, to);
   }, [to, tokensBySlug]);
 
-  const isFromToncoin = from === TONCOIN.slug;
   const isPending = getIsActivityPendingForUser(activity);
   const isError = ONCHAIN_ERROR_STATUSES.has(status) || (cex && status === 'failed');
 
@@ -68,12 +63,8 @@ function SwapActivityInfo({
       return undefined;
     }
 
-    const isOurFeeIncluded = ourFeeMode === 'included';
-    const terms = isFromToncoin ? {
-      native: isOurFeeIncluded ? networkFee : Big(networkFee).add(ourFee).toString(),
-    } : {
+    const terms = {
       native: networkFee,
-      token: isOurFeeIncluded ? undefined : ourFee,
     };
 
     return (

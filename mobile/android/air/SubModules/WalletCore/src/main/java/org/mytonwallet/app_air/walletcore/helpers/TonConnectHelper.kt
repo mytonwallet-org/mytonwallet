@@ -1,11 +1,11 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
+import java.security.SecureRandom
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.DeviceInfo
-import java.security.SecureRandom
 
 object TonConnectHelper {
     const val TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE = "_mytonwallet"
@@ -16,7 +16,9 @@ object TonConnectHelper {
     val deviceInfo: DeviceInfo
         get() = DeviceInfo(
             platform = "android",
-            appName = ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key),
+            appName = ApplicationContextHolder.applicationContext.getString(
+                BaseR.string.app_locale_name_key
+            ),
             appVersion = ApplicationContextHolder.getAppVersion ?: "",
             maxProtocolVersion = 2,
             features = listOf(
@@ -27,7 +29,6 @@ object TonConnectHelper {
     val deviceInfoJson: String
         get() =
             WalletCore.moshi.adapter(DeviceInfo::class.java).toJson(deviceInfo)
-
 
     enum class WebViewBridgeMessageType(val key: String) {
         INVOKE_FUNC("invokeFunc"),
@@ -62,8 +63,7 @@ object TonConnectHelper {
         """
     }
 
-    fun injectBridge(): String {
-        return """
+    fun injectBridge(): String = """
         (function() {
             if (window._mtwAir_invokeFunc) return;
             window._mtwAir_promises = {};
@@ -125,14 +125,13 @@ object TonConnectHelper {
             });
         })();
         """
-    }
 
     fun inject(): String {
         val funcs = listOf(
             Pair("connect", "tonConnect:connect"),
             Pair("restoreConnection", "tonConnect:restoreConnection"),
             Pair("disconnect", "tonConnect:disconnect"),
-            Pair("send", "tonConnect:send"),
+            Pair("send", "tonConnect:send")
         ).joinToString(separator = "") { (funcName, invokeName) ->
             """
             '$funcName': (...args) => {
@@ -157,7 +156,7 @@ object TonConnectHelper {
             window.$tonConnectWalletJsBridgeKey = {
                 tonconnect: Object.assign(
                     {
-                        deviceInfo: ${deviceInfoJson},
+                        deviceInfo: $deviceInfoJson,
                         protocolVersion: ${deviceInfo.maxProtocolVersion},
                         isWalletBrowser: true
                     },

@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.animation.Animator
@@ -30,11 +32,7 @@ class WGradientMaskView(child: View) : FrameLayout(child.context) {
         updateGradient()
     }
 
-    fun setupLayout(
-        width: Int? = null,
-        height: Int? = null,
-        parentWidth: Int? = null
-    ) {
+    fun setupLayout(width: Int? = null, height: Int? = null, parentWidth: Int? = null) {
         this._width = width ?: _width
         this._height = height ?: _height
         this._additionalWidth = parentWidth?.let {
@@ -83,8 +81,7 @@ class WGradientMaskView(child: View) : FrameLayout(child.context) {
     }
 
     fun updateGradient() {
-        if (!isAnimating)
-            return
+        if (!isAnimating) return
         if (_width <= 0 || _height <= 0 || gradientColors.size != segments) return
 
         val positions = FloatArray(segments) { i ->
@@ -94,8 +91,10 @@ class WGradientMaskView(child: View) : FrameLayout(child.context) {
         animator.duration = AnimationConstants.SLOW_ANIMATION * segments
 
         linearGradient = LinearGradient(
-            0f, 0f,
-            _width.toFloat(), _height.toFloat(),
+            0f,
+            0f,
+            _width.toFloat(),
+            _height.toFloat(),
             gradientColors,
             positions,
             Shader.TileMode.MIRROR

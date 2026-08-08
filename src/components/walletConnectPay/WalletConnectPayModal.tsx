@@ -7,6 +7,7 @@ import type { GlobalState } from '../../global/types';
 import { WalletConnectPayState } from '../../global/types';
 
 import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../config';
+import { selectCurrentAccountId, selectHasMultipleAccounts } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
@@ -21,6 +22,7 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
 import TransactionBanner from '../common/TransactionBanner';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
@@ -41,6 +43,9 @@ type StateProps = Pick<
   | 'paymentOption' | 'isSignOnly'
 > & {
   tokensBySlug: Record<string, ApiToken>;
+  accountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
 };
 
 function WalletConnectPayModal({
@@ -53,6 +58,9 @@ function WalletConnectPayModal({
   paymentOption,
   isSignOnly,
   tokensBySlug,
+  accountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
   const {
     submitWalletConnectPaySignData,
@@ -87,11 +95,11 @@ function WalletConnectPayModal({
     cancelWalletConnectPay();
   });
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     if (isSignData) {
-      submitWalletConnectPaySignData({ password });
+      submitWalletConnectPaySignData({ enclaveToken });
     } else {
-      submitWalletConnectPaySignTransaction({ password });
+      submitWalletConnectPaySignTransaction({ enclaveToken });
     }
   });
 
@@ -142,7 +150,16 @@ function WalletConnectPayModal({
     return (
       <>
         {!getDoesUsePinPad() && (
-          <ModalHeader title={title} onClose={handleClose} />
+          <div className={styles.passwordHeaderWithPill}>
+            <ModalHeader title={title} onClose={handleClose} />
+            {hasMultipleAccounts && accountId && (
+              <AccountSwitcherPill
+                accountId={accountId}
+                title={accountTitle}
+                className={styles.accountPill}
+              />
+            )}
+          </div>
         )}
         <PasswordForm
           isActive={isActive}
@@ -155,7 +172,7 @@ function WalletConnectPayModal({
           noAutoConfirm
           noAnimatedIcon
           containerClassName={styles.passwordFormContent}
-          onSubmit={handlePasswordSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={handleBackClick}
           onUpdate={clearWalletConnectPayError}
         >
@@ -238,7 +255,7 @@ function WalletConnectPayModal({
 
       case WalletConnectPayState.Complete:
         return renderResult(isActive, {
-          title: lang('Paid!'),
+          title: lang('Paid'),
           tgsUrl: ANIMATED_STICKERS_PATHS.thumbUp,
           previewUrl: ANIMATED_STICKERS_PATHS.thumbUpPreview,
         });
@@ -289,16 +306,23 @@ function formatPayOptionAmount(option: WcPayPaymentOption): string {
   }
 }
 
-export default memo(withGlobal((global): StateProps => ({
-  ...pick(global.currentWalletConnectPay, [
-    'state',
-    'operation',
-    'isLoading',
-    'error',
-    'merchant',
-    'paymentAmount',
-    'paymentOption',
-    'isSignOnly',
-  ]),
-  tokensBySlug: global.tokenInfo.bySlug,
-}))(WalletConnectPayModal));
+export default memo(withGlobal((global): StateProps => {
+  const accountId = global.currentWalletConnectPay.accountId ?? selectCurrentAccountId(global);
+
+  return {
+    ...pick(global.currentWalletConnectPay, [
+      'state',
+      'operation',
+      'isLoading',
+      'error',
+      'merchant',
+      'paymentAmount',
+      'paymentOption',
+      'isSignOnly',
+    ]),
+    tokensBySlug: global.tokenInfo.bySlug,
+    accountId,
+    accountTitle: accountId ? global.accounts?.byId[accountId]?.title : undefined,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
+  };
+})(WalletConnectPayModal));

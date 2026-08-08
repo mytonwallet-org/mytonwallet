@@ -9,6 +9,8 @@ import { getDappConnectionUniqueId } from '../../../util/getDappConnectionUnique
 import { pause } from '../../../util/schedulers';
 import { USER_AGENT_LANG_CODE } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
+import { requestAbortDappConnectWalletCreation } from '../../helpers/abortDappConnectWalletCreation';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { handleDappSignatureResult, prepareDappOperation } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -42,19 +44,20 @@ function recordTonConnectUiEvent(eventName: TonConnectEventName, promiseId?: str
   void callApi('recordTonConnectEvent', { event_name: eventName, promiseId });
 }
 
-addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { password, accountId }) => {
+addActionHandler('submitDappConnectRequestConfirm', withEnclaveSessionRelease(async (
+  global, actions, { enclaveToken, accountId },
+) => {
   const {
     promiseId, permissions, proof, dapp,
   } = global.dappConnectRequest!;
   const shouldRequireMfa = Boolean(global.accounts?.byId?.[accountId]?.byChain?.ton?.mfa);
 
   recordTonConnectUiEvent('wallet-connect-accepted', promiseId);
-  if (!await prepareDappOperation(
+  if (!prepareDappOperation(
     accountId,
     DappConnectState.ConfirmHardware,
     updateDappConnectRequest,
     Boolean(permissions?.isPasswordRequired) || shouldRequireMfa,
-    password,
   )) {
     return;
   }
@@ -65,7 +68,7 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
       dapp.chains,
       accountId,
       { ...proof, type: 'tonProof' },
-      password,
+      enclaveToken,
     )
     : { signatures: undefined };
 
@@ -76,7 +79,7 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
   if (shouldRequireMfa) {
     actions.switchAccount({ accountId });
 
-    const mfaResult = await callApi('createDappConnectMfaRequest', accountId, password);
+    const mfaResult = await callApi('createDappConnectMfaRequest', accountId, enclaveToken);
     if (!handleDappSignatureResult(mfaResult, updateDappConnectRequest)) {
       return;
     }
@@ -105,9 +108,13 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
 
   await pause(GET_DAPPS_PAUSE);
   actions.getDapps();
-});
+}));
 
 addActionHandler('cancelDappConnectRequestConfirm', (global) => {
+  if (global.dappConnectRequest?.isCreatingAccount) {
+    requestAbortDappConnectWalletCreation();
+  }
+
   recordTonConnectUiEvent('wallet-connect-rejected', global.dappConnectRequest?.promiseId);
   cancelDappOperation(
     (global) => global.dappConnectRequest,
@@ -145,7 +152,8 @@ function cancelDappOperation(
   setGlobal(global);
 }
 
-addActionHandler('submitDappTransfer', async (global, actions, { password } = {}) => {
+addActionHandler('submitDappTransfer', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
   const { promiseId } = global.currentDappTransfer;
   if (!promiseId) {
     return;
@@ -153,12 +161,11 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
 
   recordTonConnectUiEvent('wallet-transaction-accepted', promiseId);
 
-  if (!await prepareDappOperation(
+  if (!prepareDappOperation(
     selectCurrentAccountId(global)!,
     TransferState.ConfirmHardware,
     updateCurrentDappTransfer,
     true,
-    password,
   )) {
     return;
   }
@@ -177,7 +184,7 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
     accountId,
     transactions!,
     {
-      password,
+      enclaveToken,
       validUntil,
       vestingAddress,
       isLegacyOutput,
@@ -203,9 +210,10 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
   }
 
   await callApi('confirmDappRequestSendTransaction', promiseId, signedTransactions);
-});
+}));
 
-addActionHandler('submitDappSignData', async (global, actions, { password } = {}) => {
+addActionHandler('submitDappSignData', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
   const { promiseId } = global.currentDappSignData;
   if (!promiseId) {
     return;
@@ -213,12 +221,11 @@ addActionHandler('submitDappSignData', async (global, actions, { password } = {}
 
   recordTonConnectUiEvent('wallet-sign-data-accepted', promiseId);
 
-  if (!await prepareDappOperation(
+  if (!prepareDappOperation(
     selectCurrentAccountId(global)!,
     0 as never, // Ledger doesn't support SignData yet, so this value is never used
     updateCurrentDappSignData,
     true,
-    password,
   )) {
     return;
   }
@@ -230,14 +237,13 @@ addActionHandler('submitDappSignData', async (global, actions, { password } = {}
     return;
   }
   const accountId = selectCurrentAccountId(global)!;
-
   const signedData = await callApi(
     'signDappData',
     currentChain,
     accountId,
     dapp!.url,
     payloadToSign!,
-    password,
+    enclaveToken,
   );
 
   if (!handleDappSignatureResult(signedData, updateCurrentDappSignData)) {
@@ -245,7 +251,7 @@ addActionHandler('submitDappSignData', async (global, actions, { password } = {}
   }
 
   await callApi('confirmDappRequestSignData', promiseId, signedData);
-});
+}));
 
 addActionHandler('getDapps', async (global, actions) => {
   const { currentAccountId } = global;
@@ -297,7 +303,7 @@ addActionHandler('cancelDappSignData', (global) => {
 });
 
 addActionHandler('apiUpdateDappConnect', (global, actions, {
-  accountId, dapp, permissions, promiseId, proof,
+  accountId, dapp, permissions, promiseId, proof, multichainResolution,
 }) => {
   global = updateDappConnectRequest(global, {
     state: DappConnectState.Info,
@@ -309,6 +315,7 @@ addActionHandler('apiUpdateDappConnect', (global, actions, {
       isPasswordRequired: permissions.proof,
     },
     proof,
+    multichainResolution,
   });
   setGlobal(global);
 

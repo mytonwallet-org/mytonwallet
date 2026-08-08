@@ -6,7 +6,7 @@ import { AuthState } from '../../global/types';
 
 import { selectIsBiometricAuthEnabled } from '../../global/selectors';
 import { pick } from '../../util/iteratees';
-import { IS_ANDROID } from '../../util/windowEnvironment';
+import { CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY, IS_ANDROID } from '../../util/windowEnvironment';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -16,11 +16,10 @@ import SettingsAbout from '../settings/SettingsAbout';
 import Transition from '../ui/Transition';
 import AuthCheckPassword from './AuthCheckPassword';
 import AuthCheckWords from './AuthCheckWords';
-import AuthConfirmBiometrics from './AuthConfirmBiometrics';
+import AuthChooseProtection from './AuthChooseProtection';
 import AuthConfirmPin from './AuthConfirmPin';
 import AuthCongratulations from './AuthCongratulations';
 import AuthCreateBiometrics from './AuthCreateBiometrics';
-import AuthCreateNativeBiometrics from './AuthCreateNativeBiometrics';
 import AuthCreatePassword from './AuthCreatePassword';
 import AuthCreatePin from './AuthCreatePin';
 import AuthCreatingWallet from './AuthCreatingWallet';
@@ -34,7 +33,7 @@ import AuthStart from './AuthStart';
 import styles from './Auth.module.scss';
 
 type StateProps = Pick<GlobalState['auth'], (
-  'state' | 'biometricsStep' | 'error' | 'mnemonic' | 'mnemonicCheckIndexes' | 'isLoading' | 'method'
+  'state' | 'error' | 'mnemonic' | 'mnemonicCheckIndexes' | 'isLoading' | 'method'
   | 'hardwareSelectedIndices'
 )> & { isBiometricAuthEnabled?: boolean };
 
@@ -42,7 +41,6 @@ const RENDER_COUNT = Object.keys(AuthState).length / 2;
 
 const Auth = ({
   state,
-  biometricsStep,
   error,
   isLoading,
   mnemonic,
@@ -93,20 +91,9 @@ const Auth = ({
       case AuthState.confirmPin:
         return <AuthConfirmPin isActive={isActive} method="createAccount" />;
       case AuthState.createBiometrics:
-        return <AuthCreateBiometrics isActive={isActive} method="createAccount" />;
-      case AuthState.confirmBiometrics:
-        return (
-          <AuthConfirmBiometrics
-            isActive={isActive}
-            isLoading={isLoading}
-            error={error}
-            biometricsStep={biometricsStep}
-          />
-        );
-      case AuthState.createNativeBiometrics:
-        return (
-          <AuthCreateNativeBiometrics isActive={isActive} isLoading={isLoading} />
-        );
+        return CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
+          ? <AuthChooseProtection isActive={isActive} isLoading={isLoading} />
+          : <AuthCreateBiometrics isActive={isActive} isLoading={isLoading} />;
       case AuthState.createPassword:
         return <AuthCreatePassword isActive={isActive} isLoading={isLoading} method="createAccount" />;
       case AuthState.disclaimerAndBackup:
@@ -136,23 +123,12 @@ const Auth = ({
             isActive={isActive}
           />
         );
-      case AuthState.importWalletCreateNativeBiometrics:
-        return (
-          <AuthCreateNativeBiometrics isActive={isActive} isLoading={isLoading} />
-        );
+      case AuthState.importWalletCreateBiometrics:
+        return CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
+          ? <AuthChooseProtection isActive={isActive} isLoading={isLoading} isImporting />
+          : <AuthCreateBiometrics isActive={isActive} isLoading={isLoading} />;
       case AuthState.importWalletCreatePassword:
         return <AuthCreatePassword isActive={isActive} isLoading={isLoading} method={method} />;
-      case AuthState.importWalletCreateBiometrics:
-        return <AuthCreateBiometrics isActive={isActive} method={method} />;
-      case AuthState.importWalletConfirmBiometrics:
-        return (
-          <AuthConfirmBiometrics
-            isActive={isActive}
-            isLoading={isLoading}
-            error={error}
-            biometricsStep={biometricsStep}
-          />
-        );
       case AuthState.about:
         return (
           <SettingsAbout
@@ -209,7 +185,7 @@ const Auth = ({
 
 export default memo(withGlobal((global): StateProps => {
   const authProps = pick(global.auth, [
-    'state', 'biometricsStep', 'error', 'mnemonic', 'mnemonicCheckIndexes', 'isLoading', 'method',
+    'state', 'error', 'mnemonic', 'mnemonicCheckIndexes', 'isLoading', 'method',
     'hardwareSelectedIndices',
   ]);
   const isBiometricAuthEnabled = selectIsBiometricAuthEnabled(global);

@@ -7,7 +7,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
-class EmptyCell(context: Context) : WCell(context), WThemedView {
+class EmptyCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     val emptyView = WEmptyView(
         context,

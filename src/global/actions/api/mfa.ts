@@ -3,6 +3,7 @@ import { buildMfaStartParam } from '../../../util/mfa';
 import { callApi } from '../../../api';
 import { openSite } from '../../../components/explore/helpers/utils';
 import { addActionHandler, getGlobal, setGlobal } from '../..';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { updateAccount, updateInstallMfa, updateRemoveMfa, updateSettings } from '../../reducers';
 import { selectCurrentAccount, selectCurrentAccountId } from '../../selectors';
 
@@ -19,7 +20,7 @@ addActionHandler('updateInstallMfaRequest', async (global) => {
   }
 });
 
-addActionHandler('submitInstallMfa', async (global, actions, { password }) => {
+addActionHandler('submitInstallMfa', withEnclaveSessionRelease(async (global, actions, { enclaveToken }) => {
   const accountId = selectCurrentAccountId(global)!;
   const account = selectCurrentAccount(global)!;
   const { user } = global.settings.installMfa!;
@@ -29,7 +30,7 @@ addActionHandler('submitInstallMfa', async (global, actions, { password }) => {
   global = updateSettings(global, { installMfa: undefined });
   setGlobal(global);
 
-  const result = await callApi('installMfaFromRequest', accountId, user, password);
+  const result = await callApi('installMfaFromRequest', accountId, user, enclaveToken);
   if (typeof result === 'object' && 'error' in result) return;
 
   global = getGlobal();
@@ -47,17 +48,17 @@ addActionHandler('submitInstallMfa', async (global, actions, { password }) => {
     },
   );
   setGlobal(global);
-});
+}));
 
 addActionHandler('clearMfaRequests', (global) => {
   global = updateSettings(global, { installMfa: undefined, removeMfa: undefined });
   setGlobal(global);
 });
 
-addActionHandler('submitRemoveMfa', async (global, _, { password }) => {
+addActionHandler('submitRemoveMfa', withEnclaveSessionRelease(async (global, _, { enclaveToken }) => {
   const accountId = selectCurrentAccountId(global)!;
 
-  const result = await callApi('publishRemoveMfaRequest', accountId, password);
+  const result = await callApi('publishRemoveMfaRequest', accountId, enclaveToken);
   if (!result || 'error' in result) return;
 
   global = getGlobal();
@@ -67,7 +68,7 @@ addActionHandler('submitRemoveMfa', async (global, _, { password }) => {
   const url = new URL(MFA_BOT_URL);
   url.searchParams.set('startapp', buildMfaStartParam(result.reqId));
   openSite(url.toString(), true);
-});
+}));
 
 addActionHandler('updateRemoveMfaRequest', async (global) => {
   const accountId = selectCurrentAccountId(global)!;

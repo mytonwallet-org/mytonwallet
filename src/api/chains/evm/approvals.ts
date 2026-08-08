@@ -308,7 +308,7 @@ async function revokeEvmApproval(
 ): Promise<{ txId: string } | { error: ApiAnyDisplayError }> {
   const {
     accountId,
-    password = '',
+    enclaveToken = '',
     tokenAddress,
     spenderAddress,
   } = options;
@@ -342,7 +342,7 @@ async function revokeEvmApproval(
       return { error: ApiTransactionError.InsufficientBalance };
     }
 
-    const privateKey = await fetchPrivateKeyString(chain, accountId, password, account);
+    const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
 
     if (!privateKey) {
       return { error: ApiCommonError.InvalidPassword };
@@ -365,7 +365,7 @@ async function revokeEvmDelegation(
 ): Promise<{ txId: string } | { error: ApiAnyDisplayError }> {
   const {
     accountId,
-    password = '',
+    enclaveToken = '',
     delegateAddress,
   } = options;
   const { network } = parseAccountId(accountId);
@@ -395,7 +395,7 @@ async function revokeEvmDelegation(
       return { error: ApiTransactionError.WrongNetwork };
     }
 
-    const privateKey = await fetchPrivateKeyString(chain, accountId, password, account);
+    const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
 
     if (!privateKey) {
       return { error: ApiCommonError.InvalidPassword };

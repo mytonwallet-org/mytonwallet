@@ -44,5 +44,4 @@ open class WAlertLabel(
         setPaddingDp(16, 10, 12, 8)
         setBackgroundColor(alertColor.colorWithAlpha(bgAlpha), rounding, true)
     }
-
 }

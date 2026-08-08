@@ -8,6 +8,7 @@ import WalletContext
 public final class CrosschainToWalletVC: WViewController {
 
     private let payment: CrosschainToWalletPayment
+    private let fixedNow: Date?
     private var didApplyExpiredTitle = false
 
     private var overviewVC: UIHostingController<SwapOverviewView>?
@@ -69,8 +70,9 @@ public final class CrosschainToWalletVC: WViewController {
         )
     }
 
-    init(payment: CrosschainToWalletPayment) {
+    init(payment: CrosschainToWalletPayment, fixedNow: Date? = nil) {
         self.payment = payment
+        self.fixedNow = fixedNow
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -98,7 +100,7 @@ public final class CrosschainToWalletVC: WViewController {
 
     private func setupViews() {
         navigationItem.hidesBackButton = true
-        updateNavigationTitle(isExpired: payment.isExpired(at: Date()))
+        updateNavigationTitle(isExpired: payment.isExpired(at: fixedNow ?? Date()))
         addCloseNavigationItemIfNeeded()
 
         let scrollView = UIScrollView()
@@ -130,9 +132,11 @@ public final class CrosschainToWalletVC: WViewController {
         ])
         headerVC.didMove(toParent: self)
 
-        let toTonVC = UIHostingController(rootView: CrosschainToWalletView(payment: payment) { [weak self] in
-            self?.applyExpiredTitle()
-        })
+        let toTonVC = UIHostingController(
+            rootView: CrosschainToWalletView(payment: payment, fixedNow: fixedNow) { [weak self] in
+                self?.applyExpiredTitle()
+            }
+        )
         crossChainToTonVC = toTonVC
         addChild(toTonVC)
         let toTonView: UIView = toTonVC.view

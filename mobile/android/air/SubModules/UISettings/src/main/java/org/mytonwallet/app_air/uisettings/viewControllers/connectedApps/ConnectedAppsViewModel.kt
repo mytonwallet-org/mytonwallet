@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uisettings.viewControllers.connectedApps
 
 import androidx.lifecycle.ViewModel
@@ -16,7 +18,9 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 
-class ConnectedAppsViewModel : ViewModel(), WalletCore.EventObserver {
+class ConnectedAppsViewModel :
+    ViewModel(),
+    WalletCore.EventObserver {
     private val _accountIdFlow = MutableStateFlow(AccountStore.activeAccountId)
 
     val uiItemsFlow =
@@ -39,7 +43,6 @@ class ConnectedAppsViewModel : ViewModel(), WalletCore.EventObserver {
         super.onCleared()
     }
 
-
     fun deleteConnectedApp(dapp: ApiDapp) {
         val accountId = _accountIdFlow.value ?: return
         viewModelScope.launch {
@@ -49,16 +52,14 @@ class ConnectedAppsViewModel : ViewModel(), WalletCore.EventObserver {
                         ApiMethod.DApp.DeleteDapp(
                             accountId,
                             dapp.sse?.appClientId ?: "jsbridge",
-                            dappUrl,
+                            dappUrl
                         )
                     )
                 }
                 WalletCore.notifyEvent(WalletEvent.DappRemoved(dapp))
                 WalletCore.requestDAppList()
             } catch (_: JSWebViewBridge.ApiError) {
-
             } catch (_: IllegalArgumentException) {
-
             }
         }
     }
@@ -70,9 +71,7 @@ class ConnectedAppsViewModel : ViewModel(), WalletCore.EventObserver {
                 WalletCore.call(ApiMethod.DApp.DeleteAllDapps(accountId))
                 WalletCore.requestDAppList()
             } catch (e: JSWebViewBridge.ApiError) {
-
             } catch (e: IllegalArgumentException) {
-
             }
         }
     }

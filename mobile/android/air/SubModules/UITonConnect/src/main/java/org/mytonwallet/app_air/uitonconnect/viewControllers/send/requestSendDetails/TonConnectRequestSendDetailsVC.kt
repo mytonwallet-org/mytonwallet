@@ -6,6 +6,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.CustomListDecorator
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -26,14 +28,12 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
-class TonConnectRequestSendDetailsVC(
-    context: Context,
-    private val items: List<BaseListItem>
-) : WViewController(context), WalletCore.EventObserver {
+class TonConnectRequestSendDetailsVC(context: Context, private val items: List<BaseListItem>) :
+    WViewController(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "TonConnectRequestSendDetails"
 
     private val rvAdapter = Adapter().apply {
@@ -111,15 +111,13 @@ class TonConnectRequestSendDetailsVC(
         }
     }
 
-    private fun rebuildItems(): List<BaseListItem> {
-        return items.map { item ->
-            when (item) {
-                is TonConnectItem.Address -> item.copy(
-                    addressName = resolveAddressName(item.address, item.chain)
-                )
+    private fun rebuildItems(): List<BaseListItem> = items.map { item ->
+        when (item) {
+            is TonConnectItem.Address -> item.copy(
+                addressName = resolveAddressName(item.address, item.chain)
+            )
 
-                else -> item
-            }
+            else -> item
         }
     }
 

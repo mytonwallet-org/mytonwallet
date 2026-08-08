@@ -13,6 +13,7 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.core.widget.doAfterTextChanged
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
 import org.mytonwallet.app_air.uicomponents.helpers.EditTextTint
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -20,14 +21,14 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 open class WEditText(
     context: Context,
     delegate: Delegate? = null,
-    private val multilinePaste: Boolean,
-) : AppCompatEditText(context), WThemedView {
+    private val multilinePaste: Boolean
+) : AppCompatEditText(context),
+    WThemedView {
     var useCustomEmoji = true
         set(value) {
             if (field == value) return
@@ -47,10 +48,11 @@ open class WEditText(
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         val ic = super.onCreateInputConnection(outAttrs)
-        return if (multilinePaste)
+        return if (multilinePaste) {
             PasteInterceptingInputConnection(ic, true)
-        else
+        } else {
             ic
+        }
     }
 
     override fun getAutofillType(): Int {
@@ -80,8 +82,7 @@ open class WEditText(
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: Rect?) {
         super.onFocusChanged(focused, direction, previouslyFocusedRect)
-        if (focused)
-            textIsAcceptable = true
+        if (focused) textIsAcceptable = true
     }
 
     var textIsAcceptable = true
@@ -95,10 +96,10 @@ open class WEditText(
             val clipboard: ClipboardManager =
                 context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             if (clipboard != null && clipboard.hasText()) {
-                val pasteData = clipboard.getText().toString();
+                val pasteData = clipboard.getText().toString()
                 if (pasteData.contains("\n") || pasteData.contains(" ")) {
                     handlePaste(pasteData)
-                    return true;
+                    return true
                 }
             }
         }
@@ -114,7 +115,6 @@ open class WEditText(
             try {
                 if (currentEditText.nextFocusView?.get() != null) {
                     currentEditText = currentEditText.nextFocusView?.get()!!
-
                 } else {
                     break
                 }

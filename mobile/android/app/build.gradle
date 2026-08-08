@@ -110,6 +110,7 @@ dependencies {
   implementation "androidx.webkit:webkit:$androidxWebkitVersion"
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion"
   testImplementation "junit:junit:$junitVersion"
+  testImplementation libs.kotlin.reflect
   androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
   androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
   implementation "com.google.android.gms:play-services-mlkit-barcode-scanning:$playServicesMlkitBarcodeScanningVersion"

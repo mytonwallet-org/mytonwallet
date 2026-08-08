@@ -44,6 +44,8 @@ export type WorkerMessageError = {
   name: string;
   message: string;
   stack?: string;
+  // Carried across the hop so that a failure typed by its producer stays branchable by the receiver
+  code?: string;
 };
 
 export type WorkerMessageData = {

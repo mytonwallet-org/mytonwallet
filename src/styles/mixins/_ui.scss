@@ -6,7 +6,7 @@
   content: '';
 
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
 
   width: 100%;
   height: 0.0625rem;
@@ -14,15 +14,15 @@
   box-shadow: $inset 0 $position-offset 0 0 var(--color-separator);
 }
 
-@mixin separator-list-base($edge, $left-offset: 0) {
+@mixin separator-list-base($edge, $inline-start-offset: 0) {
   content: '';
 
   position: absolute;
-  #{$edge}: 0;
-  right: 0;
-  left: $left-offset;
+  inset-inline-start: $inline-start-offset;
+  inset-inline-end: 0;
 
   height: 0.0625rem;
+  #{$edge}: 0;
 
   @if $edge == 'top' {
     box-shadow: inset 0 0.03rem 0 0 var(--color-separator);
@@ -49,14 +49,14 @@
   }
 }
 
-@mixin separatorBottomSettings($left-offset: 0, $right-offset: 0, $bottom-offset: 0) {
+@mixin separatorBottomSettings($inline-start-offset: 0, $inline-end-offset: 0, $bottom-offset: 0) {
   &:not(:last-child):not(:has(+ :global(.collapsible:not(.open))))::after {
     content: '';
 
     position: absolute;
-    right: $right-offset;
     bottom: $bottom-offset;
-    left: $left-offset;
+    inset-inline-start: $inline-start-offset;
+    inset-inline-end: $inline-end-offset;
 
     height: 0.0625rem;
 
@@ -64,15 +64,15 @@
   }
 }
 
-@mixin separatorList($left-offset: 0) {
+@mixin separatorList($inline-start-offset: 0) {
   &:not(:last-child)::after {
-    @include separator-list-base('bottom', $left-offset);
+    @include separator-list-base('bottom', $inline-start-offset);
   }
 }
 
-@mixin separatorListTop($left-offset: 0) {
+@mixin separatorListTop($inline-start-offset: 0) {
   &:not(:first-child)::before {
-    @include separator-list-base('top', $left-offset);
+    @include separator-list-base('top', $inline-start-offset);
   }
 }
 
@@ -160,6 +160,9 @@
 // place them before this include so they stay ahead of the nested rules it emits.
 
 @mixin glass-capsule() {
+  // `Pill` reads this to match the grid column geometry
+  --capsule-padding-x: 0.25rem;
+
   pointer-events: auto;
   touch-action: none;
 
@@ -170,7 +173,7 @@
   grid-auto-flow: column;
 
   width: 100%;
-  padding: 0.25rem;
+  padding: 0.25rem var(--capsule-padding-x);
   border-radius: 5rem;
 
   background-color: var(--color-app-background);
@@ -194,6 +197,14 @@
   &.dragging {
     cursor: grabbing;
     transform: scale(1.02);
+  }
+}
+
+// Mirror directional icons (back chevrons, carets) horizontally in RTL layouts
+
+@mixin rtl-mirror() {
+  :global(html[dir="rtl"]) & {
+    transform: scaleX(-1);
   }
 }
 
@@ -254,4 +265,13 @@
     overflow-wrap: break-word;
     white-space: normal;
   }
+}
+
+// The `AccountSwitcherPill` position in the corner of a modal header
+
+@mixin accountPillPosition() {
+  position: absolute;
+  z-index: 1;
+  top: 0.5625rem;
+  inset-inline-start: 0.5625rem;
 }

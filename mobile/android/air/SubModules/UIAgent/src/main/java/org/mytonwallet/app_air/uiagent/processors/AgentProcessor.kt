@@ -4,8 +4,8 @@ import org.json.JSONObject
 
 data class AgentUserAddress(
     val name: String,
-    val addresses: List<String>,  // e.g. ["ton:UQ...", "solana:addr", "tron:addr"]
-    val accountType: String? = null,  // "mnemonic", "hardware", "view"
+    val addresses: List<String>, // e.g. ["ton:UQ...", "solana:addr", "tron:addr"]
+    val accountType: String? = null, // "mnemonic", "hardware", "view"
     val isActive: Boolean = false
 )
 
@@ -16,10 +16,7 @@ sealed class AgentStreamEvent {
     data class Error(val error: String, val message: String) : AgentStreamEvent()
 }
 
-data class AgentResultDeeplink(
-    val title: String,
-    val url: String
-)
+data class AgentResultDeeplink(val title: String, val url: String)
 
 data class AgentResult(
     val type: String,
@@ -28,12 +25,7 @@ data class AgentResult(
     val raw: JSONObject
 )
 
-data class AgentHint(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val prompt: String
-)
+data class AgentHint(val id: String, val title: String, val subtitle: String, val prompt: String)
 
 interface AgentProcessor {
     suspend fun streamMessage(

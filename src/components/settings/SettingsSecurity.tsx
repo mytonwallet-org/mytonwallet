@@ -1,96 +1,70 @@
 import React, { memo, useEffect, useLayoutEffect, useState } from '../../lib/teact/teact';
-import { getActions, withGlobal } from '../../global';
+import { getActions, getGlobal, withGlobal } from '../../global';
 
-import type { AutolockValueType } from '../../global/types';
-import { SettingsState } from '../../global/types';
+import type { AutolockValueType, GlobalState } from '../../global/types';
+import { BiometricsState } from '../../global/types';
 
 import {
-  ANIMATED_STICKER_BIG_SIZE_PX,
-  ANIMATED_STICKER_HUGE_SIZE_PX,
   APP_ENV,
-  APP_NAME,
-  AUTO_CONFIRM_DURATION_MINUTES,
-  AUTOLOCK_OPTIONS_LIST,
   DEFAULT_AUTOLOCK_OPTION,
   IS_GRAM_WALLET,
-  PIN_LENGTH,
 } from '../../config';
 import {
+  selectAccount,
   selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsAllowSuspiciousActions,
   selectIsBiometricAuthEnabled,
+  selectIsEnclaveSessionValid,
   selectIsMnemonicAccount,
   selectIsMultichainAccount,
-  selectIsNativeBiometricAuthEnabled,
 } from '../../global/selectors';
-import { getHasInMemoryPassword, getInMemoryPassword } from '../../util/authApi/inMemoryPasswordStore';
-import { getDoesUsePinPad, getIsNativeBiometricAuthSupported } from '../../util/biometrics';
+import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { vibrateOnSuccess } from '../../util/haptics';
-import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
-import { pause } from '../../util/schedulers';
-import { getIsTelegramBiometricsRestricted } from '../../util/telegram';
-import { IS_BIOMETRIC_AUTH_SUPPORTED, IS_ELECTRON } from '../../util/windowEnvironment';
-import { callApi } from '../../api';
-import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
+import { CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY } from '../../util/windowEnvironment';
+import { getTokenAuthType } from '../../enclave';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import usePrevious from '../../hooks/usePrevious';
-import useScrolledState from '../../hooks/useScrolledState';
 
-import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
-import Collapsible from '../ui/Collapsible';
 import CreatePasswordForm from '../ui/CreatePasswordForm';
-import Dropdown, { type DropdownItem } from '../ui/Dropdown';
+import ModalHeader from '../ui/ModalHeader';
 import PasswordForm from '../ui/PasswordForm';
-import PinPad from '../ui/PinPad';
-import Switcher from '../ui/Switcher';
 import Transition from '../ui/Transition';
-import Backup from './backup/Backup';
-import BackupPrivateKey from './backup/BackupPrivateKey';
-import BackupSafetyRules from './backup/BackupSafetyRules';
-import BackupSecretWords from './backup/BackupSecretWords';
-import NativeBiometricsToggle from './biometrics/NativeBiometricsToggle';
 import Mfa from './mfa/Mfa';
 import MfaInstalled from './mfa/MfaInstalled';
 import MfaPassword from './mfa/MfaPassword';
-import SettingsHeader from './SettingsHeader';
+import BackupFlow, { BackupSlide } from './security/BackupFlow';
+import BiometricsFlow, { BiometricsSlide } from './security/BiometricsFlow';
+import BiometricsWarningModal from './security/BiometricsWarningModal';
+import ChangePasscodeFlow, { ChangePasscodeSlide } from './security/ChangePasscodeFlow';
+import SecuritySettingsMain from './security/SecurityMain';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Settings.module.scss';
 
-import mfaImg from '../../assets/settings/settings_2fa.svg';
-import backupImg from '../../assets/settings/settings_backup.svg';
-import biometricsImg from '../../assets/settings/settings_biometrics.svg';
-
-export const enum SLIDES {
-  password,
+const enum SLIDES {
   settings,
-  newPassword,
-  createNewPin,
-  confirmNewPin,
-  passwordChanged,
+  password,
+  changePasscode,
   backup,
-  safetyRules,
-  privateKey,
-  secretWords,
+  biometrics,
+  disableBiometricsCreatePassword,
   mfa,
   confirmMfaInstallation,
   mfaInstalled,
 }
 
-const SWITCH_CONFIRM_PASSCODE_PAUSE_MS = 500;
 const SHOULD_FORCE_SHOW_MFA_IN_DEV = APP_ENV === 'development';
-const CHANGE_PASSWORD_PAUSE_MS = 1500;
-
 interface OwnProps {
   isActive: boolean;
+  isInsideModal?: boolean;
   isAutoUpdateEnabled: boolean;
   onBackClick: NoneToVoidFunction;
   onAutoUpdateEnabledToggle: NoneToVoidFunction;
@@ -99,7 +73,6 @@ interface OwnProps {
 
 interface StateProps {
   isBiometricAuthEnabled: boolean;
-  isNativeBiometricAuthEnabled: boolean;
   isPasswordNumeric?: boolean;
   isMultichainAccount: boolean;
   isAppLockEnabled?: boolean;
@@ -109,16 +82,16 @@ interface StateProps {
   shouldShowBackup: boolean;
   isLoading?: boolean;
   currentAccountId: string;
+  biometricsState: BiometricsState;
+  biometricsError?: string;
   isMfaEnabled: boolean;
   hasCurrentAccountMfa: boolean;
 }
 
-const INITIAL_CHANGE_PASSWORD_SLIDE = getDoesUsePinPad() ? SLIDES.createNewPin : SLIDES.newPassword;
-
 function SettingsSecurity({
   isActive,
+  isInsideModal,
   isBiometricAuthEnabled,
-  isNativeBiometricAuthEnabled,
   isPasswordNumeric,
   isMultichainAccount,
   isAppLockEnabled,
@@ -132,51 +105,81 @@ function SettingsSecurity({
   onAutoUpdateEnabledToggle,
   isLoading,
   shouldShowBackup,
+  biometricsState,
+  biometricsError,
   isMfaEnabled,
   hasCurrentAccountMfa,
 }: OwnProps & StateProps) {
   const {
     setIsPinAccepted,
     clearIsPinAccepted,
-    disableNativeBiometrics,
-    enableNativeBiometrics,
     openBiometricsTurnOffWarning,
-    openBiometricsTurnOn,
-    setSettingsState,
+    enableBiometrics,
+    disableBiometrics,
+    closeBiometricSettings,
     setAppLockValue,
     setIsAutoConfirmEnabled,
     setIsAllowSuspiciousActions,
-    setIsAuthLoading,
-    setInMemoryPassword,
   } = getActions();
 
   const lang = useLang();
-  const {
-    isScrolled,
-    handleScroll: handleContentScroll,
-  } = useScrolledState();
 
-  const [currentSlide, setCurrentSlide] = useState<SLIDES>(SLIDES.password);
+  const [currentSlide, setCurrentSlide] = useState<SLIDES>(SLIDES.settings);
   const previousSlide = usePrevious(currentSlide);
   const [nextKey, setNextKey] = useState<SLIDES | undefined>(SLIDES.settings);
+  const [backupSlide, setBackupSlide] = useState(BackupSlide.Menu);
+  const [backupInitialType, setBackupInitialType] = useState<'key' | 'words'>('words');
+  const [hasBackupMnemonic, setBackupHasMnemonic] = useState(false);
+
   const [passwordError, setPasswordError] = useState<string>();
-  const [password, setPassword] = useState<string>();
-  const [backupType, setBackupType] = useState<'key' | 'words' | undefined>(undefined);
-  const [hasMnemonicWallet, setHasMnemonicWallet] = useState<boolean>(false);
+  const [pinPadTitle, setPinPadTitle] = useState<string>();
+  // Callback to execute after the user has entered the password or biometrics
+  const [pendingProceedCb, setPendingProceedCb] = useState<(() => void | Promise<void>) | undefined>(undefined);
+  const [passwordPurpose, setPasswordPurpose] = useState<'default' | 'biometricsTurnOn' | 'changePasscode'>('default');
 
-  const [pinValue, setPinValue] = useState<string>('');
-  const [confirmPinValue, setConfirmPinValue] = useState<string>('');
+  const [isTurnOnWarningOpen, setIsTurnOnWarningOpen] = useState(false);
 
-  const clearPasswordError = useLastCallback(() => {
+  // Sub-flow slide states
+  const [changePasscodeSlide, setChangePasscodeSlide] = useState(ChangePasscodeSlide.NewPassword);
+  const [biometricsSlide, setBiometricsSlide] = useState<BiometricsSlide | undefined>(undefined);
+
+  const cleanup = useLastCallback(() => {
+    setPinPadTitle(undefined);
     setPasswordError(undefined);
+    setPendingProceedCb(undefined);
+    setPasswordPurpose('default');
+    clearIsPinAccepted();
   });
 
-  const cleanup = useLastCallback((shouldKeepCurrentPassword?: boolean) => {
-    if (!shouldKeepCurrentPassword) setPassword(undefined);
-    setPinValue('');
-    setConfirmPinValue('');
-    clearPasswordError();
-    clearIsPinAccepted();
+  // `forcePasscode` ensures the user re-authenticates with their passcode even when a valid
+  // biometric session exists. This is critical for `changePasscode`: `migrateAuth` resolves the
+  // current auth type from the token prefix, so passing a biometric token while replacing
+  // passcode would destroy the biometric auth on the native side instead of the old passcode.
+  const ensureAuthenticatedAction = useLastCallback((
+    proceedCb: () => void | Promise<void>,
+    options?: { forcePasscode?: boolean },
+  ) => {
+    if (currentSlide === SLIDES.password) return;
+
+    const global = getGlobal();
+    const isSessionValid = selectIsEnclaveSessionValid(global);
+    const isPasscodeSession = global.enclaveSession?.token
+      ? getTokenAuthType(global.enclaveSession.token) === 'passcode'
+      : false;
+
+    if (isSessionValid && (!options?.forcePasscode || isPasscodeSession)) {
+      void proceedCb();
+    } else {
+      setPendingProceedCb(() => proceedCb);
+      setCurrentSlide(SLIDES.password);
+      setNextKey(SLIDES.settings);
+    }
+  });
+
+  const openSettingsSlide = useLastCallback(() => {
+    setCurrentSlide(SLIDES.settings);
+    setNextKey(undefined);
+    cleanup();
   });
 
   const handleBackToSettingsClick = useLastCallback(() => {
@@ -184,130 +187,93 @@ function SettingsSecurity({
     cleanup();
   });
 
-  const openConfirmNewPinSlide = useLastCallback(() => {
-    setCurrentSlide(SLIDES.confirmNewPin);
-    setNextKey(SLIDES.settings);
+  const handleBiometricsClose = useLastCallback(() => {
+    closeBiometricSettings();
+    openSettingsSlide();
   });
 
-  const openSettingsSlide = useLastCallback(() => {
-    setCurrentSlide(SLIDES.settings);
-    setNextKey(undefined);
-    cleanup(true);
-  });
-
-  const openBackupPage = useLastCallback(() => {
-    if (!isMultichainAccount) {
+  const handleHistoryBack = useLastCallback(() => {
+    if (currentSlide === SLIDES.settings) {
+      handleBackToSettingsClick();
+    } else if (currentSlide === SLIDES.biometrics) {
+      handleBiometricsClose();
+    } else {
       openSettingsSlide();
-      return;
     }
-
-    setCurrentSlide(SLIDES.backup);
-    setNextKey(SLIDES.safetyRules);
-  });
-
-  const openNewPasswordSlide = useLastCallback(() => {
-    setCurrentSlide(INITIAL_CHANGE_PASSWORD_SLIDE);
-    setNextKey(SLIDES.settings);
-  });
-
-  const openPasswordChangedSlide = useLastCallback(() => {
-    setCurrentSlide(SLIDES.passwordChanged);
-    setNextKey(SLIDES.settings);
   });
 
   useLayoutEffect(() => {
-    if (password === undefined && isActive) {
-      setCurrentSlide(SLIDES.password);
-    } else if (!isActive) cleanup();
-  }, [password, isActive]);
+    if (!isActive) cleanup();
+  }, [isActive]);
 
-  useHistoryBack({ isActive, onBack: handleBackToSettingsClick });
+  useHistoryBack({ isActive, onBack: handleHistoryBack });
 
-  const handlePasswordSubmit = useLastCallback(async (enteredPassword: string) => {
-    const result = await callApi('verifyPassword', enteredPassword);
-
-    if (!result) {
-      const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
-      setPasswordError(error);
+  // Sync biometrics global state → local slides
+  useEffect(() => {
+    if (biometricsState === BiometricsState.TurnOnComplete
+      || biometricsState === BiometricsState.TurnOffComplete) {
+      handleBiometricsClose();
       return;
     }
 
+    const biometricsSlideMap: Partial<Record<BiometricsState, BiometricsSlide>> = {
+      [BiometricsState.TurnOnRegistration]: BiometricsSlide.Registration,
+      [BiometricsState.TurnOnVerification]: BiometricsSlide.Verification,
+    };
+
+    const targetSlide = biometricsSlideMap[biometricsState];
+    if (targetSlide !== undefined) {
+      setBiometricsSlide(targetSlide);
+      setCurrentSlide(SLIDES.biometrics);
+      setNextKey(SLIDES.settings);
+    }
+  }, [biometricsState]);
+
+  const handleAuthorize = useLastCallback(async () => {
     if (getDoesUsePinPad()) {
       setIsPinAccepted();
       await vibrateOnSuccess(true);
     }
 
-    openSettingsSlide();
-    setPassword(enteredPassword);
-  });
+    const proceed = pendingProceedCb;
+    const purpose = passwordPurpose;
+    setPendingProceedCb(undefined);
 
-  const handleNewPasswordSubmit = useLastCallback(async (enteredPassword: string) => {
-    await callApi('changePassword', password!, enteredPassword);
-    setIsAuthLoading({ isLoading: true });
-    setPassword(enteredPassword);
-    setInMemoryPassword({ password: enteredPassword });
-    if (isNativeBiometricAuthEnabled) {
-      disableNativeBiometrics();
-      enableNativeBiometrics({ password: enteredPassword });
-    }
-    if (getDoesUsePinPad()) {
+    if (proceed) {
+      if (purpose === 'biometricsTurnOn') {
+        setBiometricsSlide(BiometricsSlide.Registration);
+        setCurrentSlide(SLIDES.biometrics);
+        setNextKey(SLIDES.settings);
+      }
+      void proceed();
+    } else {
       openSettingsSlide();
-    } else {
-      openPasswordChangedSlide();
-    }
-    setIsAuthLoading({ isLoading: undefined });
-  });
-
-  const handlePinSubmit = useLastCallback(async (enteredPassword: string) => {
-    setPinValue(enteredPassword);
-    await vibrateOnSuccess(true);
-    await pause(SWITCH_CONFIRM_PASSCODE_PAUSE_MS);
-    openConfirmNewPinSlide();
-  });
-
-  const handleConfirmPinSubmit = useLastCallback(async (enteredPassword: string) => {
-    if (enteredPassword === pinValue) {
-      setPasswordError(lang('New code set successfully'));
-      await pause(CHANGE_PASSWORD_PAUSE_MS);
-      await handleNewPasswordSubmit(enteredPassword);
-    } else {
-      setPasswordError(lang('Codes don’t match'));
-      await pause(CHANGE_PASSWORD_PAUSE_MS);
-      cleanup(true);
-      setCurrentSlide(SLIDES.createNewPin);
     }
   });
 
   const handleChangePasswordClick = useLastCallback(() => {
-    setNextKey(INITIAL_CHANGE_PASSWORD_SLIDE);
-    openNewPasswordSlide();
-  });
-
-  const handleOpenPrivateKeySafetyRules = useLastCallback(() => {
-    setBackupType('key');
-    setCurrentSlide(SLIDES.safetyRules);
-    setNextKey(SLIDES.privateKey);
-  });
-
-  const handleOpenSecretWordsSafetyRules = useLastCallback(() => {
-    setBackupType('words');
-    setCurrentSlide(SLIDES.safetyRules);
-    setNextKey(SLIDES.secretWords);
+    setPasswordPurpose('changePasscode');
+    const initialSlide = getDoesUsePinPad()
+      ? ChangePasscodeSlide.CreateNewPin
+      : ChangePasscodeSlide.NewPassword;
+    setChangePasscodeSlide(initialSlide);
+    ensureAuthenticatedAction(() => {
+      setCurrentSlide(SLIDES.changePasscode);
+      setNextKey(SLIDES.settings);
+    }, { forcePasscode: true });
   });
 
   const handleOpenBackupWallet = useLastCallback(() => {
-    if (!isMultichainAccount) {
-      if (hasMnemonicWallet) {
-        handleOpenSecretWordsSafetyRules();
-      } else {
-        handleOpenPrivateKeySafetyRules();
-      }
-      return;
-    }
-
-    setCurrentSlide(SLIDES.backup);
-    // Resetting next key to undefined unmounts and destroys components with mnemonic and private key
-    setNextKey(undefined);
+    ensureAuthenticatedAction(() => {
+      const { slide, backupType, hasMnemonicWallet } = getInitialBackupState(
+        getGlobal(), currentAccountId, isMultichainAccount,
+      );
+      setBackupSlide(slide);
+      setBackupInitialType(backupType);
+      setBackupHasMnemonic(hasMnemonicWallet);
+      setCurrentSlide(SLIDES.backup);
+      setNextKey(SLIDES.settings);
+    });
   });
 
   const handleOpenMfa = useLastCallback(() => {
@@ -323,444 +289,227 @@ function SettingsSecurity({
     setNextKey(SLIDES.mfa);
   });
 
-  const handleOpenPrivateKey = useLastCallback(() => {
-    setCurrentSlide(SLIDES.privateKey);
-    setNextKey(SLIDES.backup);
-  });
-
-  const handleOpenSecretWords = useLastCallback(() => {
-    setCurrentSlide(SLIDES.secretWords);
-    setNextKey(SLIDES.backup);
-  });
-
   const handleAppLockToggle = useLastCallback(() => {
-    setAppLockValue({ value: autolockValue, isEnabled: !isAppLockEnabled });
+    ensureAuthenticatedAction(() => {
+      setAppLockValue({ value: autolockValue, isEnabled: !isAppLockEnabled });
+      openSettingsSlide();
+    });
   });
 
   const handleAutolockChange = useLastCallback((value: AutolockValueType) => {
-    setAppLockValue({ value, isEnabled: true });
+    ensureAuthenticatedAction(() => {
+      setAppLockValue({ value, isEnabled: true });
+      openSettingsSlide();
+    });
   });
 
   const handleAutoConfirmToggle = useLastCallback(() => {
-    setIsAutoConfirmEnabled({ isEnabled: !isAutoConfirmEnabled });
+    ensureAuthenticatedAction(() => {
+      setIsAutoConfirmEnabled({ isEnabled: !isAutoConfirmEnabled });
+      openSettingsSlide();
+    });
   });
 
   const handleAllowSuspiciousActionsToggle = useLastCallback(() => {
-    setIsAllowSuspiciousActions({ isEnabled: !isAllowSuspiciousActions });
+    ensureAuthenticatedAction(() => {
+      setIsAllowSuspiciousActions({ isEnabled: !isAllowSuspiciousActions });
+      openSettingsSlide();
+    });
   });
 
-  // Biometrics
+  const handleAutoUpdateToggle = useLastCallback(() => {
+    ensureAuthenticatedAction(() => {
+      onAutoUpdateEnabledToggle();
+      openSettingsSlide();
+    });
+  });
+
+  const handleDisableBiometricsProceed = useLastCallback(() => {
+    closeBiometricSettings();
+    if (CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY) {
+      ensureAuthenticatedAction(() => {
+        setCurrentSlide(SLIDES.disableBiometricsCreatePassword);
+        setNextKey(SLIDES.settings);
+      });
+    } else {
+      disableBiometrics();
+    }
+  });
+
+  const handleDisableBiometricsCreatePassword = useLastCallback((password: string, isNumeric?: boolean) => {
+    disableBiometrics({ newPassword: password, isPasswordNumeric: isNumeric });
+  });
+
+  const handleBiometricTurnOnConfirm = useLastCallback(() => {
+    setIsTurnOnWarningOpen(false);
+    setPasswordPurpose('biometricsTurnOn');
+    ensureAuthenticatedAction(() => {
+      enableBiometrics();
+    });
+  });
+
   const handleBiometricAuthToggle = useLastCallback(() => {
     if (isBiometricAuthEnabled) {
       openBiometricsTurnOffWarning();
+    } else if (CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY) {
+      setIsTurnOnWarningOpen(true);
     } else {
-      openBiometricsTurnOn();
+      setPasswordPurpose('biometricsTurnOn');
+      ensureAuthenticatedAction(() => {
+        enableBiometrics();
+      });
     }
   });
-  const handleNativeBiometricsTurnOnOpen = useLastCallback(() => {
-    if (getIsNativeBiometricAuthSupported()) {
-      setSettingsState({ state: SettingsState.NativeBiometricsTurnOn });
-    }
-  });
-
-  useEffect(() => {
-    if (!password) return;
-
-    void callApi('fetchMnemonic', currentAccountId, password).then((mnemonic) => {
-      setHasMnemonicWallet(Boolean(mnemonic && !isMnemonicPrivateKey(mnemonic)));
-    });
-  }, [hasMnemonicWallet, currentAccountId, password]);
-
-  // The `getIsTelegramBiometricsRestricted` case is required to display a toggle switch.
-  // When activated, it will show a warning to the user indicating that they need to grant
-  // the appropriate permissions for biometric authentication to function properly.
-  const shouldRenderNativeBiometrics = (
-    getIsNativeBiometricAuthSupported() || getIsTelegramBiometricsRestricted()
-  );
-  const isAutoConfirmAvailable = !isBiometricAuthEnabled;
-
-  function renderSettings() {
-    return (
-      <div className={styles.slide}>
-        <SettingsHeader title={lang('Security')} isScrolled={isScrolled} onBackClick={handleBackToSettingsClick} />
-        <div
-          className={buildClassName(styles.content, 'custom-scroll')}
-          onScroll={handleContentScroll}
-        >
-          {shouldShowBackup && (
-            <div className={styles.settingsBlock}>
-              <div className={buildClassName(styles.item)} onClick={handleOpenBackupWallet}>
-                <img className={styles.menuIcon} src={backupImg} alt={lang('$back_up_security')} />
-                <span className={styles.itemTitle}>{lang('$back_up_security')}</span>
-
-                <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
-              </div>
-            </div>
-          )}
-
-          {shouldRenderNativeBiometrics && (
-            <NativeBiometricsToggle
-              onEnable={handleNativeBiometricsTurnOnOpen}
-            />
-          )}
-          {IS_BIOMETRIC_AUTH_SUPPORTED && (
-            <>
-              <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-                <div className={styles.item} onClick={handleBiometricAuthToggle}>
-                  <img className={styles.menuIcon} src={biometricsImg} alt={lang('Biometric Authentication')} />
-                  <span className={styles.itemTitle}>{lang('Biometric Authentication')}</span>
-
-                  <Switcher
-                    className={styles.menuSwitcher}
-                    label={lang('Biometric Authentication')}
-                    checked={isBiometricAuthEnabled}
-                  />
-                </div>
-              </div>
-              <p className={styles.blockDescription}>{
-                lang(getDoesUsePinPad()
-                  ? 'To avoid entering the passcode every time, you can use biometrics.'
-                  : 'To avoid entering the password every time, you can use biometrics.')
-              }
-              </p>
-            </>
-          )}
-
-          {!(isBiometricAuthEnabled && !isNativeBiometricAuthEnabled) && (
-            <>
-              <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-                <Button
-                  className={styles.changePasswordButton}
-                  isSimple
-                  onClick={handleChangePasswordClick}
-                >
-                  <span className={buildClassName(styles.itemTitle, styles.itemTitle_accent)}>
-                    {getDoesUsePinPad() ? lang('Change Passcode') : lang('Change Password')}
-                  </span>
-                </Button>
-              </div>
-              <p className={styles.blockDescription}>{
-                lang(getDoesUsePinPad()
-                  ? 'The passcode will be changed for all your wallets.'
-                  : 'The password will be changed for all your wallets.')
-              }
-              </p>
-            </>
-          )}
-
-          {(SHOULD_FORCE_SHOW_MFA_IN_DEV || (IS_GRAM_WALLET && isMfaEnabled) || hasCurrentAccountMfa) && (
-            <>
-              <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-                <div className={buildClassName(styles.item)} onClick={handleOpenMfa}>
-                  <img className={styles.menuIcon} src={mfaImg} alt={lang('2FA with Telegram')} />
-
-                  <span className={styles.textWithBadge}>
-                    {lang('2FA with Telegram')}
-                    <span className={styles.badge}>TON</span>
-                  </span>
-
-                  <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
-                </div>
-              </div>
-              <p className={styles.blockDescription}>{lang('Confirm operations in Telegram as a second step.')}</p>
-            </>
-          )}
-
-          <>
-            <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-              <div
-                className={buildClassName(styles.item, styles.itemSmall, !isAppLockEnabled && styles.isLast)}
-                onClick={handleAppLockToggle}
-              >
-                <span className={styles.itemTitle}>{lang('App Lock')}</span>
-
-                <Switcher
-                  className={styles.menuSwitcher}
-                  label={lang('Allow App Lock')}
-                  checked={isAppLockEnabled}
-                />
-              </div>
-              <Collapsible isShown={!!isAppLockEnabled}>
-                <Dropdown
-                  label={lang('Auto-Lock')}
-                  items={AUTOLOCK_OPTIONS_LIST as unknown as DropdownItem<AutolockValueType>[]}
-                  selectedValue={autolockValue}
-                  theme="light"
-                  shouldTranslateOptions
-                  className={buildClassName(styles.item, styles.item_small, styles.itemAutoLock)}
-                  labelClassName={styles.itemAutoLockLabel}
-                  onChange={handleAutolockChange}
-                />
-              </Collapsible>
-            </div>
-            <p className={styles.blockDescription}>{lang('$app_lock_description', { app_name: APP_NAME })}</p>
-
-            <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-              <div
-                className={buildClassName(
-                  styles.item,
-                  styles.itemSmall,
-                  !isAutoConfirmAvailable && styles.itemDisabled,
-                )}
-                onClick={isAutoConfirmAvailable ? handleAutoConfirmToggle : undefined}
-              >
-                <span className={styles.itemTitle}>
-                  {getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
-                </span>
-
-                <Switcher
-                  className={styles.menuSwitcher}
-                  label={getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
-                  checked={isAutoConfirmAvailable && isAutoConfirmEnabled}
-                />
-              </div>
-            </div>
-            <p className={styles.blockDescription}>
-              {
-                lang(
-                  'App will not ask for signature for %1$d minutes after last entry.',
-                  AUTO_CONFIRM_DURATION_MINUTES,
-                )
-              }
-              {!isAutoConfirmAvailable && ` ${lang('Not available with biometrics.')}`}
-            </p>
-          </>
-
-          {IS_ELECTRON && (
-            <>
-              <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-                <div className={buildClassName(styles.item, styles.item_small)} onClick={onAutoUpdateEnabledToggle}>
-                  <span className={styles.itemTitle}>{lang('Auto-Updates')}</span>
-
-                  <Switcher
-                    className={styles.menuSwitcher}
-                    label={lang('Auto-Updates')}
-                    checked={isAutoUpdateEnabled}
-                  />
-                </div>
-              </div>
-              <p className={styles.blockDescription}>
-                {lang('Turn this off so you can manually download updates and verify signatures.')}
-              </p>
-            </>
-          )}
-
-          <>
-            <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-              <div
-                className={buildClassName(styles.item, styles.itemSmall)}
-                onClick={handleAllowSuspiciousActionsToggle}
-              >
-                <span className={styles.itemTitle}>{lang('Allow Suspicious Actions')}</span>
-
-                <Switcher
-                  className={styles.menuSwitcher}
-                  label={lang('Allow Suspicious Actions')}
-                  checked={isAllowSuspiciousActions}
-                />
-              </div>
-            </div>
-            <p className={styles.blockDescription}>
-              {lang('$allow_suspicious_actions_description')}
-            </p>
-          </>
-        </div>
-      </div>
-    );
-  }
 
   function renderContent(isSlideActive: boolean, isFrom: boolean, currentKey: SLIDES) {
     switch (currentKey) {
       case SLIDES.settings:
-        return renderSettings();
-      case SLIDES.password:
-        if (getHasInMemoryPassword()) {
-          setCurrentSlide(SLIDES.settings);
-          void getInMemoryPassword().then((memoizedPassword) => setPassword(memoizedPassword));
+        return (
+          <SecuritySettingsMain
+            isInsideModal={isInsideModal}
+            isBiometricAuthEnabled={isBiometricAuthEnabled}
+            isAppLockEnabled={isAppLockEnabled}
+            autolockValue={autolockValue}
+            isAutoConfirmEnabled={isAutoConfirmEnabled}
+            isAllowSuspiciousActions={isAllowSuspiciousActions}
+            isAutoUpdateEnabled={isAutoUpdateEnabled}
+            shouldShowBackup={shouldShowBackup}
+            isMfaVisible={SHOULD_FORCE_SHOW_MFA_IN_DEV || (IS_GRAM_WALLET && isMfaEnabled) || hasCurrentAccountMfa}
+            onBackClick={handleBackToSettingsClick}
+            onChangePasswordClick={handleChangePasswordClick}
+            onOpenBackupWallet={handleOpenBackupWallet}
+            onOpenMfa={handleOpenMfa}
+            onBiometricAuthToggle={handleBiometricAuthToggle}
+            onAppLockToggle={handleAppLockToggle}
+            onAutolockChange={handleAutolockChange}
+            onAutoConfirmToggle={handleAutoConfirmToggle}
+            onAllowSuspiciousActionsToggle={handleAllowSuspiciousActionsToggle}
+            onAutoUpdateToggle={handleAutoUpdateToggle}
+          />
+        );
 
-          return undefined;
-        }
+      case SLIDES.password: {
+        const isBiometricsTurnOn = passwordPurpose === 'biometricsTurnOn';
+        const isChangePasscode = passwordPurpose === 'changePasscode';
+        const passwordTitle = isBiometricsTurnOn
+          ? lang('Turn On Biometrics')
+          : (isPasswordNumeric || getDoesUsePinPad()
+            ? lang('Confirm Passcode')
+            : lang('Confirm Password'));
         return (
           <>
-            <SettingsHeader
-              title={lang(getDoesUsePinPad() ? 'Enter Passcode' : 'Enter Password')}
-              onBackClick={handleBackToSettingsClick}
-            />
+            {isInsideModal ? (
+              <ModalHeader
+                title={passwordTitle}
+                onBackButtonClick={openSettingsSlide}
+                className={styles.modalHeader}
+              />
+            ) : (
+              <div className={styles.header}>
+                <Button isSimple isText onClick={openSettingsSlide} className={styles.headerBack}>
+                  <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
+                  <span>{lang('Back')}</span>
+                </Button>
+                <span className={styles.headerTitle}>{passwordTitle}</span>
+              </div>
+            )}
             <PasswordForm
               isActive={isSlideActive && isActive}
               error={passwordError}
+              pinPadTitle={pinPadTitle}
               containerClassName={styles.passwordFormWithHeaderOffset}
+              forceBiometricsInMain={isBiometricsTurnOn ? false : !isInsideModal}
+              noBiometrics={isChangePasscode}
+              operationType={isBiometricsTurnOn ? 'turnOnBiometrics' : undefined}
               placeholder={lang('Enter your current password')}
               submitLabel={lang('Continue')}
               noAutoConfirm
-              onCancel={handleBackToSettingsClick}
-              onSubmit={handlePasswordSubmit}
-              onUpdate={clearPasswordError}
+              onAuthorize={handleAuthorize}
+              onError={setPasswordError}
+              onCancel={openSettingsSlide}
             />
           </>
         );
-      case SLIDES.newPassword:
-        return (
-          <>
-            <SettingsHeader title={lang('Change Password')} onBackClick={openSettingsSlide} />
-            <div className={buildClassName(
-              modalStyles.transitionContent,
-              styles.content,
-            )}
-            >
-              <AnimatedIconWithPreview
-                tgsUrl={ANIMATED_STICKERS_PATHS.guard}
-                previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
-                play={isSlideActive}
-                size={ANIMATED_STICKER_BIG_SIZE_PX}
-                nonInteractive
-                noLoop={false}
-                className={styles.sticker}
-              />
-              <CreatePasswordForm
-                isActive={isSlideActive}
-                isLoading={isLoading}
-                onSubmit={handleNewPasswordSubmit}
-                onCancel={openSettingsSlide}
-                formId="auth-create-password"
-              />
-            </div>
-          </>
-        );
-      case SLIDES.createNewPin:
-        return (
-          <>
-            <SettingsHeader onBackClick={openSettingsSlide} />
+      }
 
-            <div className={styles.pinPadHeader}>
-              <AnimatedIconWithPreview
-                play={isActive}
-                tgsUrl={ANIMATED_STICKERS_PATHS.guard}
-                previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
-                noLoop={false}
-                size={ANIMATED_STICKER_HUGE_SIZE_PX}
-                nonInteractive
-              />
-              <div className={styles.pinPadTitle}>{lang('Change Passcode')}</div>
-            </div>
-            <PinPad
-              isActive={isActive}
-              title={lang('Enter your new code')}
-              length={PIN_LENGTH}
-              value={pinValue}
-              onChange={setPinValue}
-              onSubmit={handlePinSubmit}
-            />
-          </>
-        );
-      case SLIDES.confirmNewPin:
+      case SLIDES.changePasscode:
         return (
-          <>
-            <SettingsHeader onBackClick={openSettingsSlide} />
-
-            <div className={styles.pinPadHeader}>
-              <AnimatedIconWithPreview
-                play={isActive}
-                tgsUrl={ANIMATED_STICKERS_PATHS.guard}
-                previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
-                noLoop={false}
-                size={ANIMATED_STICKER_HUGE_SIZE_PX}
-                nonInteractive
-              />
-              <div className={styles.pinPadTitle}>
-                {
-                  passwordError && pinValue === confirmPinValue
-                    ? lang('Passcode Changed!')
-                    : lang('Change Passcode')
-                }
-              </div>
-            </div>
-
-            <PinPad
-              isActive={isActive}
-              title={!passwordError ? lang('Re-enter your new code') : passwordError}
-              type={passwordError ? (pinValue === confirmPinValue ? 'success' : 'error') : undefined}
-              length={PIN_LENGTH}
-              value={confirmPinValue}
-              onChange={setConfirmPinValue}
-              onSubmit={handleConfirmPinSubmit}
-            />
-          </>
+          <ChangePasscodeFlow
+            isActive={isActive}
+            isSlideActive={isSlideActive}
+            currentSlide={changePasscodeSlide}
+            isInsideModal={isInsideModal}
+            isLoading={isLoading}
+            onSlideChange={setChangePasscodeSlide}
+            onComplete={openSettingsSlide}
+            onCancel={openSettingsSlide}
+          />
         );
-      case SLIDES.passwordChanged:
-        return (
-          <>
-            <SettingsHeader title={lang('Password Changed!')} className={styles.onlyTextHeader} />
-            <div className={styles.content}>
-              <AnimatedIconWithPreview
-                tgsUrl={ANIMATED_STICKERS_PATHS.yeee}
-                previewUrl={ANIMATED_STICKERS_PATHS.yeeePreview}
-                play={isActive}
-                size={ANIMATED_STICKER_HUGE_SIZE_PX}
-                nonInteractive
-                noLoop={false}
-                className={buildClassName(styles.sticker, styles.stickerHuge)}
-              />
 
-              <div className={modalStyles.buttons}>
-                <Button isPrimary onClick={openSettingsSlide} className={modalStyles.customSubmitButton}>
-                  {lang('Done')}
-                </Button>
-              </div>
-            </div>
-          </>
-        );
       case SLIDES.backup:
         return (
-          <Backup
-            isActive={isActive && isSlideActive}
+          <BackupFlow
+            isActive={isActive}
+            isSlideActive={isSlideActive}
+            currentSlide={backupSlide}
+            isInsideModal={isInsideModal}
             isMultichainAccount={isMultichainAccount}
-            hasMnemonicWallet={hasMnemonicWallet}
-            onBackClick={handleBackToSettingsClick}
-            onOpenSecretWordsSafetyRules={handleOpenSecretWordsSafetyRules}
-            onOpenPrivateKeySafetyRules={handleOpenPrivateKeySafetyRules}
-            onOpenSettingsSlide={openSettingsSlide}
-          />
-        );
-      case SLIDES.safetyRules:
-        return (
-          <BackupSafetyRules
-            isActive={isActive && isSlideActive}
-            backupType={backupType!}
-            onBackClick={openBackupPage}
-            onSubmit={
-              backupType === 'key'
-                ? handleOpenPrivateKey
-                : handleOpenSecretWords
-            }
-          />
-        );
-      case SLIDES.secretWords:
-        return (
-          <BackupSecretWords
-            isActive={isActive && isSlideActive}
-            isBackupSlideActive={currentKey === SLIDES.secretWords || currentKey === SLIDES.safetyRules}
-            enteredPassword={password}
             currentAccountId={currentAccountId}
-            onBackClick={openBackupPage}
-            onSubmit={onSettingsClose}
+            initialBackupType={backupInitialType}
+            initialHasMnemonicWallet={hasBackupMnemonic}
+            onSlideChange={setBackupSlide}
+            onClose={openSettingsSlide}
+            onSettingsClose={onSettingsClose}
           />
         );
-      case SLIDES.privateKey:
+
+      case SLIDES.biometrics:
         return (
-          <BackupPrivateKey
-            isActive={isActive && isSlideActive}
-            isBackupSlideActive={currentKey === SLIDES.privateKey || currentKey === SLIDES.safetyRules}
-            enteredPassword={password}
-            currentAccountId={currentAccountId}
-            onBackClick={openBackupPage}
-            onSubmit={onSettingsClose}
+          <BiometricsFlow
+            isSlideActive={isSlideActive}
+            currentSlide={biometricsSlide}
+            isInsideModal={isInsideModal}
+            biometricsError={biometricsError}
+            onClose={handleBiometricsClose}
           />
         );
+
+      case SLIDES.disableBiometricsCreatePassword: {
+        const createPasswordTitle = lang('Create Password');
+        return (
+          <>
+            {isInsideModal ? (
+              <ModalHeader
+                title={createPasswordTitle}
+                onBackButtonClick={openSettingsSlide}
+                className={styles.modalHeader}
+              />
+            ) : (
+              <div className={styles.header}>
+                <Button isSimple isText onClick={openSettingsSlide} className={styles.headerBack}>
+                  <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
+                  <span>{lang('Back')}</span>
+                </Button>
+                <span className={styles.headerTitle}>{createPasswordTitle}</span>
+              </div>
+            )}
+            <CreatePasswordForm
+              isActive={isSlideActive && isActive}
+              isLoading={isLoading}
+              formId="settings_disable_biometrics_create_password"
+              containerClassName={styles.passwordFormWithHeaderOffset}
+              onCancel={openSettingsSlide}
+              onSubmit={handleDisableBiometricsCreatePassword}
+            />
+          </>
+        );
+      }
+
       case SLIDES.mfa:
         return (
           <Mfa
             isActive={isActive}
+            isInsideModal={isInsideModal}
             onBackClick={openSettingsSlide}
             currentAccountId={currentAccountId}
             isSlideActive={isSlideActive}
@@ -772,6 +521,7 @@ function SettingsSecurity({
         return (
           <MfaPassword
             isActive={isActive}
+            isInsideModal={isInsideModal}
             onBackClick={handleOpenMfa}
             openMfaInstalled={handleOpenMfaInstalled}
             openMfa={handleOpenMfa}
@@ -784,21 +534,46 @@ function SettingsSecurity({
             onClick={handleOpenMfa}
           />
         );
+
+      default:
+        return undefined;
     }
   }
 
   return (
-    <Transition
-      direction={previousSlide === SLIDES.password && currentSlide === SLIDES.settings ? 1 : 'auto'}
-      name={resolveSlideTransitionName()}
-      className={buildClassName(modalStyles.transition, 'custom-scroll')}
-      slideClassName={styles.slide}
-      activeKey={currentSlide}
-      nextKey={nextKey}
-      shouldCleanup
-    >
-      {renderContent}
-    </Transition>
+    <>
+      <Transition
+        direction={previousSlide === SLIDES.password && currentSlide === SLIDES.settings ? -1 : 'auto'}
+        name={resolveSlideTransitionName()}
+        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        slideClassName={buildClassName(styles.slide, isInsideModal && modalStyles.transitionSlide)}
+        activeKey={currentSlide}
+        nextKey={nextKey}
+        shouldCleanup
+      >
+        {renderContent}
+      </Transition>
+      <BiometricsWarningModal
+        isOpen={biometricsState === BiometricsState.TurnOffWarning}
+        title={lang('Turn Off Biometrics')}
+        description={CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
+          ? lang(getDoesUsePinPad()
+            ? 'If you turn off biometric protection, you will need to create a passcode.'
+            : 'If you turn off biometric protection, you will need to create a password.')
+          : lang('Are you sure you want to disable biometric authentication?')}
+        onClose={handleBiometricsClose}
+        onConfirm={handleDisableBiometricsProceed}
+      />
+      <BiometricsWarningModal
+        isOpen={isTurnOnWarningOpen}
+        title={lang('Turn On Biometrics')}
+        description={lang(getDoesUsePinPad()
+          ? 'Enabling biometric confirmation will reset the passcode.'
+          : 'Enabling biometric confirmation will reset the password.')}
+        onClose={() => setIsTurnOnWarningOpen(false)}
+        onConfirm={handleBiometricTurnOnConfirm}
+      />
+    </>
   );
 }
 
@@ -809,7 +584,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
 
   const currentAccountId = selectCurrentAccountId(global)!;
   const isBiometricAuthEnabled = selectIsBiometricAuthEnabled(global);
-  const isNativeBiometricAuthEnabled = selectIsNativeBiometricAuthEnabled(global);
   const isAllowSuspiciousActions = selectIsAllowSuspiciousActions(global, currentAccountId);
   const isMultichainAccount = selectIsMultichainAccount(global, currentAccountId);
   const isMnemonicAccount = selectIsMnemonicAccount(global);
@@ -819,7 +593,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
 
   return {
     isBiometricAuthEnabled,
-    isNativeBiometricAuthEnabled,
     isMultichainAccount,
     isPasswordNumeric,
     isAppLockEnabled,
@@ -829,7 +602,32 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     shouldShowBackup: isMnemonicAccount,
     isLoading: global.auth.isLoading,
     currentAccountId,
+    biometricsState: global.biometrics.state,
+    biometricsError: global.biometrics.error,
     isMfaEnabled,
     hasCurrentAccountMfa,
   };
 })(SettingsSecurity));
+
+function getInitialBackupState(
+  global: GlobalState,
+  currentAccountId: string,
+  isMultichainAccount: boolean,
+): { slide: BackupSlide; backupType: 'key' | 'words'; hasMnemonicWallet: boolean } {
+  const account = selectAccount(global, currentAccountId);
+  const hasMnemonicWallet = !account?.isPrivateKeyBased;
+
+  if (!isMultichainAccount) {
+    return {
+      slide: BackupSlide.SafetyRules,
+      backupType: hasMnemonicWallet ? 'words' : 'key',
+      hasMnemonicWallet,
+    };
+  }
+
+  return {
+    slide: BackupSlide.Menu,
+    backupType: 'words',
+    hasMnemonicWallet,
+  };
+}

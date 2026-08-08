@@ -8,6 +8,7 @@ import { logDebugError } from '../../../util/logs';
 import { createTaskQueue } from '../../../util/schedulers';
 import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
 import { parseTonapiioNft } from './util/metadata';
+import { getSigner } from './util/signer';
 import { getDnsItemDomain, toBase64Address } from './util/tonCore';
 import { DnsItem } from './contracts/DnsItem';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
@@ -41,17 +42,24 @@ export async function checkDnsRenewalDraft(accountId: string, nftAddresses: stri
   return { realFee };
 }
 
-export async function* submitDnsRenewal(accountId: string, password: string | undefined, nftAddresses: string[]) {
+export async function* submitDnsRenewal(
+  accountId: string, enclaveToken: string | undefined, nftAddresses: string[],
+) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
   const maxMessages = getMaxMessagesInTransaction(account);
   const nftBatches = split(nftAddresses, maxMessages);
+  if (!nftBatches.length) return;
+
+  // All the batches share one signer: the renewal is one operation and holds one Enclave session
+  // usage, so a signer per batch would run the session dry after the first one.
+  const signer = getSigner(accountId, account, enclaveToken);
 
   for (const nftBatch of nftBatches) {
     const messages: TonTransferParams[] = nftBatch.map(makeRenewMessage);
 
     yield {
       addresses: nftBatch,
-      result: await submitMultiTransferWithMfa({ accountId, password, messages }),
+      result: await submitMultiTransferWithMfa({ accountId, signer, messages }),
     };
   }
 }
@@ -66,15 +74,17 @@ export async function checkDnsChangeWalletDraft(accountId: string, nftAddress: s
   return { realFee: result.emulation.networkFee + TON_GAS.changeDns };
 }
 
-export function submitDnsChangeWallet(
+export async function submitDnsChangeWallet(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   nftAddress: string,
   address: string,
 ) {
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+
   return submitMultiTransferWithMfa({
     accountId,
-    password,
+    signer: getSigner(accountId, account, enclaveToken),
     messages: [makeChangeMessage(nftAddress, address)],
   });
 }
@@ -133,6 +143,10 @@ export async function fetchDomains(accountId: string) {
 async function verifyTonDnsLinkedAddress(network: ApiNetwork, nftAddress: string, linkedAddress: string) {
   try {
     const domain = await getDnsItemDomain(network, nftAddress);
+    if (!domain) {
+      return undefined;
+    }
+
     const resolvedLinkedAddress = await resolveAddressByDomain(network, domain);
 
     if (!resolvedLinkedAddress) {

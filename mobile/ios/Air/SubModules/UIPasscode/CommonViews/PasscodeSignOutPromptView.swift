@@ -21,19 +21,21 @@ final class PasscodeSignOutPromptView: UIView {
 
     private func setupViews(promptTextColor: UIColor, actionTextColor: UIColor) {
         let promptLabel = UILabel()
-        promptLabel.font = .systemFont(ofSize: 14)
+        promptLabel.applyTextStyle(.supporting)
         promptLabel.text = lang("Can't confirm?")
         promptLabel.textColor = promptTextColor
 
         let actionLabel = UILabel()
-        actionLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        actionLabel.applyTextStyle(.supportingStrong)
         actionLabel.text = lang("Exit all wallets")
         actionLabel.textColor = actionTextColor
 
         let chevronImageView = UIImageView(
             image: UIImage(
-                systemName: "chevron.right",
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+                systemName: "chevron.forward",
+                withConfiguration: UIImage.SymbolConfiguration(
+                    font: WTypography.uiFont(.supportingStrong, content: .technical)
+                )
             )?.withRenderingMode(.alwaysTemplate)
         )
         chevronImageView.tintColor = actionTextColor

@@ -44,9 +44,11 @@ final class CrosschainFromWalletVC: WViewController {
             NavigationHeader {
                 HStack(spacing: 4) {
                     Text(model.sellingToken.type.symbol)
+                        .textStyle(.bodyStrong, content: .technical)
                     Image(systemName: "chevron.forward")
-                        .font(.system(size: 11, weight: .semibold))
+                        .textStyle(.caption2Strong, content: .technical)
                     Text(model.buyingToken.type.symbol)
+                        .textStyle(.bodyStrong, content: .technical)
                 }
             }
         }

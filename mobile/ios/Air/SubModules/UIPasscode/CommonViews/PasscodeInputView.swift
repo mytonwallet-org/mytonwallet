@@ -65,6 +65,7 @@ class PasscodeInputView: UIStackView {
     
     private func setupView() {
         translatesAutoresizingMaskIntoConstraints = false
+        semanticContentAttribute = .forceLeftToRight
 
         // spacing between inputs
         spacing = 16

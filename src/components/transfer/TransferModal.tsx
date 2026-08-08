@@ -8,6 +8,7 @@ import { TransferState } from '../../global/types';
 
 import { BURN_ADDRESS, NFT_BATCH_SIZE } from '../../config';
 import {
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
 } from '../../global/selectors';
@@ -16,6 +17,7 @@ import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
+import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { shortenAddress } from '../../util/shortenAddress';
 
@@ -24,6 +26,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import usePrevious from '../../hooks/usePrevious';
 
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import TransactionBanner from '../common/TransactionBanner';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
@@ -41,6 +44,7 @@ import styles from './Transfer.module.scss';
 
 interface StateProps {
   currentTransfer: GlobalState['currentTransfer'];
+  currentAccountId?: string;
   tokens?: UserToken[];
   savedAddresses?: SavedAddress[];
   isMediaViewerOpen?: boolean;
@@ -61,6 +65,7 @@ function TransferModal({
     diesel,
     isNftBurn,
   },
+  currentAccountId,
   tokens,
   savedAddresses,
   isMediaViewerOpen,
@@ -71,6 +76,7 @@ function TransferModal({
     setTransferScreen,
     cancelTransfer,
     showActivityInfo,
+    switchTransferAccount,
   } = getActions();
 
   const lang = useLang();
@@ -81,6 +87,9 @@ function TransferModal({
   const renderedTransactionAmount = usePrevious(amount, true);
   const symbol = selectedToken?.symbol || '';
   const isNftTransfer = Boolean(nfts?.length);
+  // A transfer of more NFTs than fit in one transaction is sent as one API call per batch, and every
+  // call signs on its own, so the batches past the first need a secret read each
+  const extraNftBatchCount = nfts?.length ? Math.ceil(nfts.length / NFT_BATCH_SIZE) - 1 : 0;
   const isBurning = toAddress === BURN_ADDRESS || isNftBurn;
   // After confirming the transaction, `toAddress` is set to empty string, so we need to use the previous value
   const renderedToAddress = usePrevious(toAddress || undefined, true);
@@ -93,8 +102,8 @@ function TransferModal({
       : undefined
   ), [state, submitTransferConfirm]);
 
-  const handleTransferSubmit = useLastCallback((password: string) => {
-    submitTransfer({ password });
+  const handleTransferSubmit = useLastCallback((enclaveToken: string) => {
+    submitTransfer({ enclaveToken });
   });
 
   const handleBackClick = useLastCallback(() => {
@@ -119,11 +128,29 @@ function TransferModal({
     submitTransfer();
   });
 
+  const handleSelectAccount = useLastCallback((accountId: string) => {
+    switchTransferAccount({ accountId });
+  });
+
+  const handleSelectAccountBack = useLastCallback(() => {
+    setTransferScreen({ state: TransferState.Initial });
+  });
+
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: TransferState) {
     switch (currentKey) {
       case TransferState.Initial:
         return (
-          <TransferInitial />
+          <TransferInitial key={currentAccountId} />
+        );
+      case TransferState.SelectAccount:
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            getIsAccountDisabled={getIsViewAccountDisabled}
+            onAccountSelect={handleSelectAccount}
+            onBack={handleSelectAccountBack}
+            onClose={handleClose}
+          />
         );
       case TransferState.Confirm:
         return (
@@ -142,7 +169,8 @@ function TransferModal({
             isLoading={isLoading}
             isBurning={isBurning}
             error={error}
-            onSubmit={handleTransferSubmit}
+            extraAuthUsages={extraNftBatchCount}
+            onAuthorize={handleTransferSubmit}
             onCancel={handleClose}
             isGaslessWithStars={diesel?.status === 'stars-fee'}
           >
@@ -181,6 +209,7 @@ function TransferModal({
           <TransferComplete
             isActive={isActive}
             nfts={nfts}
+            isNftBurn={isNftBurn}
             amount={renderedTransactionAmount}
             symbol={symbol}
             txId={txId}
@@ -230,7 +259,7 @@ function TransferModal({
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}
@@ -247,6 +276,7 @@ export default memo(withGlobal((global): StateProps => {
 
   return {
     currentTransfer: global.currentTransfer,
+    currentAccountId: selectCurrentAccountId(global),
     tokens: selectCurrentAccountTokens(global),
     savedAddresses: accountState?.savedAddresses,
     isMediaViewerOpen: Boolean(global.mediaViewer.mediaId),

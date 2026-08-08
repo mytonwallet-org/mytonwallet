@@ -131,6 +131,26 @@ public struct TappableAddress: View {
     }
 }
 
+public struct TappableAddressLine: View {
+    private let title: String
+    private let account: AccountContext
+    private let model: AddressViewModel
+
+    public init(title: String, account: AccountContext, model: AddressViewModel) {
+        self.title = title
+        self.account = account
+        self.model = model
+    }
+
+    public var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(title)
+                .font17h22()
+            TappableAddress(account: account, model: model)
+        }
+    }
+}
+
 public struct TappableAddressFull: View {
     
     var accountContext: AccountContext
@@ -209,6 +229,13 @@ public struct TappableAddressFull: View {
 }
 
 private enum AddressTextStyle {
-    static let uiFont = UIFont.systemFont(ofSize: 17, weight: .regular)
-    static let font = Font(uiFont)
+    @MainActor
+    static var uiFont: UIFont {
+        WTypography.uiFont(.body, content: .technical)
+    }
+
+    @MainActor
+    static var font: Font {
+        WTypography.font(.body, content: .technical)
+    }
 }

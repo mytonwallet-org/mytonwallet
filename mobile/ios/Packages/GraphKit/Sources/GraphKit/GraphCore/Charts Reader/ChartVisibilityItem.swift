@@ -52,7 +52,7 @@ enum ChatVisibilityItemConstants {
     static let itemSpacing: CGFloat = 8
     static let labelTextApproxInsets: CGFloat = 40
     static let insets = NSEdgeInsets(top: 0, left: 16, bottom: 16, right: 16)
-    static let textFont = NSFont.systemFont(ofSize: 14, weight: .medium)
+    static var textFont: NSFont { GraphTypography.supportingEmphasizedFont }
 }
 
 public struct ChartDetailsViewModel {

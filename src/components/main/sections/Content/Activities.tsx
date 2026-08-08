@@ -34,12 +34,11 @@ import {
   selectCurrentAccountState,
   selectIsHistoryEndReached,
 } from '../../../../global/selectors';
-import { getActivityIdReplacements, getIsHiddenNftActivity } from '../../../../util/activities';
+import { getIsHiddenNftActivity } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
 import { formatHumanDay, getDayStartAt } from '../../../../util/dateFormat';
 import generateUniqueId from '../../../../util/generateUniqueId';
 import { isKeyCountGreater } from '../../../../util/isEmptyObject';
-import { compact, swapKeysAndValues } from '../../../../util/iteratees';
 import { getIsTransactionWithPoisoning } from '../../../../util/poisoningHash';
 import { REM } from '../../../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
@@ -71,7 +70,7 @@ import styles from './Activities.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  totalTokensAmount: number;
+  totalTokensAmount?: number;
   scrollContainerSelector?: string;
   isWidget?: boolean;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -82,11 +81,13 @@ type StateProps = {
   slug?: string;
   accountChains?: Partial<Record<ApiChain, unknown>>;
   areTinyTransfersHidden?: boolean;
+  areUnverifiedNftsHidden?: boolean;
   byId?: Record<string, ApiActivity>;
   allActivityIds?: string[];
   tokensBySlug: Record<string, ApiTokenWithPrice>;
   swapTokensBySlug?: Record<string, ApiSwapAsset>;
   currentActivityId?: string;
+  activityIdReplacements?: Record<string, string>;
   savedAddresses?: SavedAddress[];
   isHistoryEndReached: boolean;
   alwaysShownSlugs?: string[];
@@ -135,7 +136,9 @@ function Activities({
   tokensBySlug,
   swapTokensBySlug,
   areTinyTransfersHidden,
+  areUnverifiedNftsHidden,
   currentActivityId,
+  activityIdReplacements,
   savedAddresses,
   isHistoryEndReached,
   alwaysShownSlugs,
@@ -175,6 +178,7 @@ function Activities({
       alwaysShownSlugs,
       blacklistedNftAddresses,
       whitelistedNftAddresses,
+      areUnverifiedNftsHidden,
     );
 
     if (!activityIds.length && !isHistoryEndReached) {
@@ -185,13 +189,13 @@ function Activities({
     return addDatesToActivityIds(activityIds, byId);
   }, [
     areTinyTransfersHidden, byId, alwaysShownSlugs, allActivityIds, slug, tokensBySlug, isHistoryEndReached,
-    blacklistedNftAddresses, whitelistedNftAddresses,
+    blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden,
   ]);
 
   const firstListItemId = listItemIds?.[0];
 
   const loadMore = useLastCallback(() => {
-    fetchPastActivities({ slug, shouldLoadWithBudget: true });
+    fetchPastActivities({ accountId: currentAccountId, slug, shouldLoadWithBudget: true });
   });
 
   const [viewportIds, getMore, resetScroll] = useInfiniteScroll({
@@ -202,7 +206,7 @@ function Activities({
     isActive,
   });
 
-  const getListItemKey = useListItemKeys(viewportIds ?? EMPTY_ARRAY, byId ?? EMPTY_DICTIONARY);
+  const getListItemKey = useListItemKeys(viewportIds ?? EMPTY_ARRAY, activityIdReplacements);
 
   // The move animation should remain only for the case when new transactions appear in the feed.
   // At the same time, the smooth feed appearance animation should be kept when the loading is completed.
@@ -406,7 +410,6 @@ function Activities({
       ref={containerRef}
       className={buildClassName(
         'custom-scroll',
-        'inner-scroll',
         styles.listGroup,
         scrollContainerSelector && styles.listGroupExternalScroll,
       )}
@@ -447,9 +450,11 @@ export default memo(
         tokensBySlug: global.tokenInfo.bySlug,
         swapTokensBySlug: global.swapTokenInfo?.bySlug,
         areTinyTransfersHidden: global.settings.areTinyTransfersHidden,
+        areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
         savedAddresses: accountState?.savedAddresses,
         isHistoryEndReached,
         currentActivityId: accountState?.currentActivityId,
+        activityIdReplacements: activities?.activityIdReplacements,
         alwaysShownSlugs: accountSettings?.alwaysShownSlugs,
         theme: global.settings.theme,
         baseCurrency: global.settings.baseCurrency,
@@ -465,6 +470,7 @@ export default memo(
     (global, { totalTokensAmount, isWidget }, stickToFirst) => {
       const accountState = selectCurrentAccountState(global);
       const shouldShowSeparateAssetsPanel = getIsPortrait()
+        && totalTokensAmount !== undefined
         && totalTokensAmount <= PORTRAIT_MIN_ASSETS_TAB_VIEW;
 
       return stickToFirst((
@@ -485,6 +491,7 @@ function filterActivityIds(
   alwaysShownSlugs?: string[],
   blacklistedNftAddresses?: string[],
   whitelistedNftAddresses?: string[],
+  areUnverifiedNftsHidden?: boolean,
 ) {
   return allActivityIds.filter((id) => {
     const activity = byId?.[id];
@@ -503,7 +510,9 @@ function filterActivityIds(
           || !getIsTinyOrScamTransaction(activity, tokensBySlug[activity.slug])
           || alwaysShownSlugs?.includes(activity.slug)
         )
-        && !getIsHiddenNftActivity(activity, blacklistedNftAddresses, whitelistedNftAddresses)
+        && !getIsHiddenNftActivity(
+          activity, blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden,
+        )
         && !getIsTransactionWithPoisoning(activity);
     }
   });
@@ -536,21 +545,35 @@ function addDatesToActivityIds(activityIds: readonly string[], byId: Record<stri
  * Pending activity ids may change. If the ids are used as the list keys, excessive blinking animations occur.
  * This hook creates stable keys for the list items, which prevents the excessive animations.
  */
-function useListItemKeys(viewportIds: readonly string[], activityById: Record<string, ApiActivity>) {
+function useListItemKeys(
+  viewportIds: readonly string[],
+  activityIdReplacements: Record<string, string> | undefined,
+) {
   const keyByIdRef = useRef<Record<string, string>>();
   keyByIdRef.current ??= {};
 
-  useSyncEffectWithPrevDeps(([oldViewportIds = [], oldActivityById = {}]) => {
+  useSyncEffectWithPrevDeps(() => {
     const keyById = keyByIdRef.current!;
-    const oldActivities = compact(oldViewportIds.map((id) => oldActivityById[id]));
-    const newActivities = compact(viewportIds.map((id) => activityById[id]));
+    const oldIdByNewId = new Map<string, string>();
+    for (const [oldId, newId] of Object.entries(activityIdReplacements ?? {})) {
+      oldIdByNewId.set(newId, oldId);
+    }
 
-    // Transfer the keys from the old activities to the new activities. Besides the obvious goal, `swapKeysAndValues`
-    // ensures that the `idReplacements` values are unique, which results into unique output keys.
-    const idReplacements = swapKeysAndValues(getActivityIdReplacements(oldActivities, newActivities));
-    for (const { id: newActivityId } of newActivities) {
-      const oldActivityId = idReplacements[newActivityId];
-      keyById[newActivityId] = (oldActivityId && keyById[oldActivityId]) ?? generateUniqueId();
+    for (const itemId of viewportIds) {
+      if (keyById[itemId]) continue;
+
+      let oldId = oldIdByNewId.get(itemId);
+      const visitedIds = new Set<string>();
+      while (oldId && !visitedIds.has(oldId)) {
+        if (keyById[oldId]) {
+          keyById[itemId] = keyById[oldId];
+          break;
+        }
+        visitedIds.add(oldId);
+        oldId = oldIdByNewId.get(oldId);
+      }
+
+      keyById[itemId] ??= generateUniqueId();
     }
 
     // Clean the memory
@@ -560,7 +583,7 @@ function useListItemKeys(viewportIds: readonly string[], activityById: Record<st
         delete keyById[itemId];
       }
     }
-  }, [viewportIds, activityById]);
+  }, [viewportIds, activityIdReplacements]);
 
   return useLastCallback((itemId: string) => keyByIdRef.current?.[itemId] ?? itemId);
 }

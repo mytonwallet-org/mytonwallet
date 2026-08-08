@@ -44,7 +44,7 @@ function SecretWordsList({
         {lang('Copy to Clipboard')}
       </Button>
 
-      <ol className={styles.words}>
+      <ol className={styles.words} dir="ltr">
         {mnemonic?.map((word, i) => (
 
           <li key={i} className={styles.word}>{word}</li>

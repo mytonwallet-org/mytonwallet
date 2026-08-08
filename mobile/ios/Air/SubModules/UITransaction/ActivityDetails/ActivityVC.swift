@@ -203,13 +203,13 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     @objc func decryptMessage() {
         UnlockVC.presentAuth(
             on: self,
-            onDone: { [weak self] passcode in
+            onDone: { [weak self] enclaveToken in
                 guard let self,
                       case .transaction(let tx) = self.activity else { return }
                 Task {
                     do {
                         let accountId = self.viewModel.accountContext.accountId
-                        self.decryptedComment = try await Api.decryptComment(accountId: accountId, activity: tx, password: passcode)
+                        self.decryptedComment = try await Api.decryptComment(accountId: accountId, activity: tx, enclaveToken: enclaveToken)
                         self.hostingController?.rootView = self.makeView()
                     } catch {
                         self.showAlert(error: error) {

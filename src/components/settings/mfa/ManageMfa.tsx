@@ -1,9 +1,8 @@
 import React, { memo } from '../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../global';
+import { getActions, getGlobal, withGlobal } from '../../../global';
 
 import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../../config';
-import { selectCurrentAccount } from '../../../global/selectors';
-import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
+import { selectCurrentAccount, selectEnclaveToken, selectIsEnclaveSessionValid } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { ANIMATED_STICKERS_PATHS } from '../../ui/helpers/animatedAssets';
 
@@ -54,9 +53,12 @@ function ManageMfa({
   const telegramAccountName = mfa.user?.name ?? lang('My Telegram Account');
   const telegramAccountUsername = mfa.user?.username ? `@${mfa.user.username}` : lang('Without username');
 
-  const onClick = useLastCallback(async () => {
-    if (getHasInMemoryPassword()) {
-      submitRemoveMfa({ password: await getInMemoryPassword() });
+  const onClick = useLastCallback(() => {
+    const global = getGlobal();
+    const enclaveToken = selectEnclaveToken(global);
+
+    if (selectIsEnclaveSessionValid(global) && enclaveToken) {
+      submitRemoveMfa({ enclaveToken });
     } else {
       openMfaPassword();
     }

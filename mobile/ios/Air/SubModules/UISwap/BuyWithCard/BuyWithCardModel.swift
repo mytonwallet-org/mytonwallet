@@ -9,10 +9,8 @@ import Perception
 @Perceptible @MainActor 
 final class BuyWithCardModel {
     
-    static let allSupportedCurrencies: [MBaseCurrency] = [.USD, .EUR, .RUB]
-
     static func supportedCurrencies(for chain: ApiChain) -> [MBaseCurrency] {
-        allSupportedCurrencies.filter { chain != .tron || $0 != .RUB }
+        OnRampCurrencyPolicy.supportedCurrencies(for: chain)
     }
 
     let chain: ApiChain
@@ -25,10 +23,16 @@ final class BuyWithCardModel {
     @PerceptionIgnored
     @AccountContext var account: MAccount
     
-    init(accountContext: AccountContext, chain: ApiChain, selectedCurrency: MBaseCurrency?) {
+    /// Nil when the policy offers no currency on this chain, which is the only correct answer: a model
+    /// holding a currency the server withdrew is what would put it in front of the user.
+    init?(accountContext: AccountContext, chain: ApiChain, selectedCurrency: MBaseCurrency?) {
+        let prefersRUB = selectedCurrency == .RUB || ConfigStore.shared.config?.countryCode == "RU"
+        let preferences: [MBaseCurrency] = prefersRUB ? [.RUB, .USD] : [.USD]
+        guard let currency = OnRampCurrencyPolicy.preferredCurrency(for: chain, preferences: preferences) else {
+            return nil
+        }
         self._account = accountContext
         self.chain = chain
-        let defaultCurrency: MBaseCurrency = selectedCurrency == .RUB || ConfigStore.shared.config?.countryCode == "RU" ? .RUB : .USD
-        self.selectedCurrency = Self.supportedCurrencies(for: chain).contains(defaultCurrency) ? defaultCurrency : .USD
+        self.selectedCurrency = currency
     }
 }

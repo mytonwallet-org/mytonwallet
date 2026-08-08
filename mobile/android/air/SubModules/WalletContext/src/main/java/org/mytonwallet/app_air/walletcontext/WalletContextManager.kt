@@ -3,10 +3,10 @@ package org.mytonwallet.app_air.walletcontext
 import android.content.Context
 import android.content.Intent
 import android.view.View
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
-import java.lang.ref.WeakReference
 
 enum class DeeplinkOpenSource {
     OS_EXTERNAL,
@@ -38,9 +38,11 @@ interface WalletContextManagerDelegate {
 
     fun getWalletsTabsVC(viewMode: MWalletSettingsViewMode): Any
 
+    fun getCustomizeTabsVC(): Any
+
     fun themeChanged(animated: Boolean = true)
     fun protectedModeChanged()
-    fun lockScreen()
+    fun lockScreen(startWithBiometrics: Boolean = true)
     fun isAppUnlocked(): Boolean
     fun handleDeeplink(
         deeplink: String,
@@ -55,14 +57,13 @@ interface WalletContextManagerDelegate {
     fun walletIsReady()
     fun isWalletReady(): Boolean
     fun showError(error: String?)
-    fun switchToLegacy()
     fun recreateBridge()
 
     fun bindQrCodeButton(
         context: Context,
         button: View,
         onResult: (String) -> Unit,
-        parseDeepLinks: Boolean = true,
+        parseDeepLinks: Boolean = true
     )
 }
 
@@ -70,26 +71,11 @@ object WalletContextManager {
     var delegate: WeakReference<WalletContextManagerDelegate>? = null
         private set
 
-    private var pendingSwitchToLegacy = false
-
-    fun scheduleSwitchToLegacy() {
-        delegate?.get()?.switchToLegacy() ?: run { pendingSwitchToLegacy = true }
-    }
-
     fun setDelegate(delegate: WalletContextManagerDelegate?) {
         this.delegate = delegate?.let { WeakReference(it) }
-        if (delegate != null && pendingSwitchToLegacy) {
-            pendingSwitchToLegacy = false
-            delegate.switchToLegacy()
-        }
     }
 
-    fun getMainActivityIntent(context: Context): Intent {
-        val launchIntent = checkNotNull(
-            context.packageManager.getLaunchIntentForPackage(context.packageName)
-        ) { "No launch intent for own package" }
-        return launchIntent.apply {
-            putExtra("switchToLegacy", true)
-        }
-    }
+    fun getMainActivityIntent(context: Context): Intent = checkNotNull(
+        context.packageManager.getLaunchIntentForPackage(context.packageName)
+    ) { "No launch intent for own package" }
 }

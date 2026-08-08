@@ -2,11 +2,19 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { configureStorage } from './index';
+import { configureStorage, registerNodeFileStorageFactory } from './index';
+import { createNodeFileStorage } from './nodeFile';
 
 const STORAGE_FILE_NAME = 'headless-storage.json';
 
 describe('storage selection', () => {
+  // Node-only storage reaches the facade the same way it does in production: the host that can
+  // import it hands it over. Nothing registers it on behalf of a browser build, which is what keeps
+  // `node:*` out of their module graphs.
+  beforeAll(() => {
+    registerNodeFileStorageFactory(createNodeFileStorage);
+  });
+
   afterEach(() => {
     configureStorage(undefined);
   });

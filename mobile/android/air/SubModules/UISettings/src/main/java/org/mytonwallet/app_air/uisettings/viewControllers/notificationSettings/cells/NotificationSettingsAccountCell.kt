@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.notificationSettings.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -12,9 +11,10 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -28,9 +28,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MAccount
 
-class NotificationSettingsAccountCell(
-    context: Context,
-) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+class NotificationSettingsAccountCell(context: Context) :
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     private var account: MAccount? = null
     private var isChecked: Boolean = false
@@ -104,8 +104,10 @@ class NotificationSettingsAccountCell(
             constrainedWidth(subtitleLabel.id, true)
 
             createVerticalChain(
-                ConstraintSet.PARENT_ID, ConstraintSet.TOP,
-                ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.TOP,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.BOTTOM,
                 intArrayOf(titleLabel.id, subtitleLabel.id),
                 null,
                 ConstraintSet.CHAIN_PACKED
@@ -153,9 +155,9 @@ class NotificationSettingsAccountCell(
 
         setConstraints {
             val badgeWidth =
-                if (badgeLabel.isGone)
+                if (badgeLabel.isGone) {
                     0
-                else {
+                } else {
                     badgeLabel.measure(0.unspecified, 0.unspecified)
                     badgeLabel.measuredWidth
                 }
@@ -181,5 +183,4 @@ class NotificationSettingsAccountCell(
         checkboxDrawable.checkedColor = WColor.Tint.color
         checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
     }
-
 }

@@ -5,12 +5,15 @@ import path from 'path';
 import type { AppLayout } from '../global/types';
 import { ElectronAction } from './types';
 
-import { BASE_URL, DEFAULT_LANDSCAPE_WINDOW_SIZE, DEFAULT_PORTRAIT_WINDOW_SIZE, IS_PRODUCTION } from '../config';
+import {
+  BASE_URL, DEFAULT_LANDSCAPE_WINDOW_SIZE, DEFAULT_PORTRAIT_WINDOW_SIZE, IS_PRODUCTION, IS_STAGING,
+} from '../config';
 import { AUTO_UPDATE_SETTING_KEY, getIsAutoUpdateEnabled, setupAutoUpdates } from './autoUpdates';
 import { processDeeplink } from './deeplink';
 import { validateIpcSender } from './ipcSecurity';
 import { captureStorage, restoreStorage } from './storageUtils';
 import tray from './tray';
+import { shouldStartUpdater } from './updateChannel';
 import {
   checkIsWebContentsUrlAllowed,
   forceQuit,
@@ -26,6 +29,14 @@ import {
 } from './utils';
 
 const ALLOWED_DEVICE_ORIGINS = ['http://localhost:4321', 'file://', BASE_URL];
+
+function maybeSetupAutoUpdates() {
+  if (shouldStartUpdater({
+    isProduction: IS_PRODUCTION, isStaging: IS_STAGING, isPreview: IS_PREVIEW, isMacOs: IS_MAC_OS,
+  })) {
+    setupAutoUpdates(); // idempotent (isUpdateCheckStarted)
+  }
+}
 
 export function createWindow() {
   const windowState = windowStateKeeper({
@@ -97,9 +108,7 @@ export function createWindow() {
   mainWindow.webContents.once('dom-ready', async () => {
     processDeeplink();
 
-    if (IS_PRODUCTION) {
-      setupAutoUpdates();
-    }
+    maybeSetupAutoUpdates();
 
     if (!IS_FIRST_RUN && getIsAutoUpdateEnabled() === undefined) {
       store.set(AUTO_UPDATE_SETTING_KEY, true);

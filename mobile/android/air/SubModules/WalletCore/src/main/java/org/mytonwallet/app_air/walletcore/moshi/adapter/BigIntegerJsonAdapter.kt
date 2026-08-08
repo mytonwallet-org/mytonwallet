@@ -7,7 +7,7 @@ import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.ToJson
 import java.math.BigInteger
 
-class BigIntegerJsonAdapter: JsonAdapter<BigInteger>() {
+class BigIntegerJsonAdapter : JsonAdapter<BigInteger>() {
     @ToJson
     override fun toJson(writer: JsonWriter, value: BigInteger?) {
         val bigint = value ?: run {

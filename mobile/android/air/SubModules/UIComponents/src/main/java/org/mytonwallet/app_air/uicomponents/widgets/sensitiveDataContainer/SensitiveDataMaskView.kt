@@ -10,10 +10,10 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.view.View
 import androidx.core.math.MathUtils.clamp
-import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 
 @SuppressLint("ViewConstructor")
 class SensitiveDataMaskView(context: Context) : View(context) {
@@ -35,7 +35,7 @@ class SensitiveDataMaskView(context: Context) : View(context) {
             Skin.LIGHT_THEME to intArrayOf(120, 121, 122),
             Skin.DARK_THEME to intArrayOf(240, 241, 242),
             Skin.GREEN to intArrayOf(83, 163, 13),
-            Skin.RED to intArrayOf(255, 59, 48),
+            Skin.RED to intArrayOf(255, 59, 48)
         )
     }
 
@@ -43,7 +43,7 @@ class SensitiveDataMaskView(context: Context) : View(context) {
         LIGHT_THEME,
         DARK_THEME,
         GREEN,
-        RED,
+        RED
     }
 
     var skin: Skin? = null
@@ -86,7 +86,7 @@ class SensitiveDataMaskView(context: Context) : View(context) {
     fun initMask(): Boolean {
         val isAlreadyInitialized =
             stepsMatrix.size == rows &&
-                (rows == 0 && cols == 0 || stepsMatrix.firstOrNull()?.size == cols)
+                ((rows == 0 && cols == 0) || stepsMatrix.firstOrNull()?.size == cols)
 
         if (isAlreadyInitialized) return false
 
@@ -187,8 +187,7 @@ class SensitiveDataMaskView(context: Context) : View(context) {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         shouldAnimate = true
-        if (isIntersecting)
-            animator.start()
+        if (isIntersecting) animator.start()
     }
 
     override fun onDetachedFromWindow() {
@@ -212,10 +211,7 @@ class SensitiveDataMaskView(context: Context) : View(context) {
     fun setIntersecting(intersecting: Boolean) {
         isIntersecting = intersecting
         if (intersecting && shouldAnimate) {
-            if (animator.isPaused)
-                animator.resume()
-            else
-                animator.start()
+            if (animator.isPaused) animator.resume() else animator.start()
         } else if (!intersecting && animator.isRunning) {
             animator.pause()
         }

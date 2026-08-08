@@ -4,6 +4,7 @@ import type { GlobalState } from '../../types';
 import { DomainLinkingState, DomainRenewalState } from '../../types';
 
 import { callApi } from '../../../api';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { isErrorTransferResult } from '../../helpers/transfer';
 import { handleTransferResults, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -76,7 +77,8 @@ addActionHandler('checkDomainsRenewalDraft', async (global, actions, { nfts }) =
   setGlobal(global);
 });
 
-addActionHandler('submitDomainsRenewal', async (global, actions, { password } = {}) => {
+addActionHandler('submitDomainsRenewal', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
   const accountId = selectCurrentAccountId(global)!;
   const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
   if (!nftsByAddress) return;
@@ -89,11 +91,11 @@ addActionHandler('submitDomainsRenewal', async (global, actions, { password } = 
 
   if (!nfts.length) return;
 
-  if (!await prepareTransfer(DomainRenewalState.ConfirmHardware, updateCurrentDomainRenewal, password)) {
+  if (!prepareTransfer(DomainRenewalState.ConfirmHardware, updateCurrentDomainRenewal)) {
     return;
   }
 
-  const result = await callApi('submitDnsRenewal', accountId, password, nfts, realFee) ?? [undefined];
+  const result = await callApi('submitDnsRenewal', accountId, enclaveToken, nfts, realFee) ?? [undefined];
 
   handleDomainOperationResult<'renewal'>(
     result.map((subResult) => (
@@ -105,7 +107,7 @@ addActionHandler('submitDomainsRenewal', async (global, actions, { password } = 
     DomainRenewalState.Complete,
     DomainRenewalState.ConfirmMfa,
   );
-});
+}));
 
 addActionHandler('checkDomainLinkingDraft', async (global, actions, { nft }) => {
   const accountId = selectCurrentAccountId(global)!;
@@ -122,7 +124,8 @@ addActionHandler('checkDomainLinkingDraft', async (global, actions, { nft }) => 
   setGlobal(global);
 });
 
-addActionHandler('submitDomainLinking', async (global, actions, { password } = {}) => {
+addActionHandler('submitDomainLinking', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
   const accountId = selectCurrentAccountId(global)!;
   const network = selectCurrentNetwork(global);
   const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
@@ -141,14 +144,14 @@ addActionHandler('submitDomainLinking', async (global, actions, { password } = {
     return;
   }
 
-  if (!await prepareTransfer(DomainLinkingState.ConfirmHardware, updateCurrentDomainLinking, password)) {
+  if (!prepareTransfer(DomainLinkingState.ConfirmHardware, updateCurrentDomainLinking)) {
     return;
   }
 
   const result = await callApi(
     'submitDnsChangeWallet',
     accountId,
-    password,
+    enclaveToken,
     nft,
     checkAddressResult.resolvedAddress,
     realFee,
@@ -162,7 +165,7 @@ addActionHandler('submitDomainLinking', async (global, actions, { password } = {
     DomainLinkingState.Complete,
     DomainLinkingState.ConfirmMfa,
   );
-});
+}));
 
 addActionHandler('checkLinkingAddress', async (global, actions, { address }) => {
   if (!address) {

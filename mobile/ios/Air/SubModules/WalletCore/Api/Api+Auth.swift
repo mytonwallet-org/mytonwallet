@@ -20,12 +20,12 @@ extension Api {
     }
     
     /// - Important: Do not call this method directly, use **AccountStore** instead
-    internal static func importMnemonic(networks: [ApiNetwork], mnemonic: [String], password: String, isNewMnemonic: Bool) async throws -> [ApiAddWalletResult] {
-        try await bridge.callApi("importMnemonic", networks, mnemonic, password, isNewMnemonic, decoding: [ApiAddWalletResult].self)
+    internal static func importMnemonic(networks: [ApiNetwork], mnemonic: [String]) async throws -> [ApiAddWalletResult] {
+        return try await bridge.callApi("importMnemonic", networks, mnemonic, decoding: [ApiAddWalletResult].self)
     }
     
-    internal static func importPrivateKey(chain: ApiChain, networks: [ApiNetwork], privateKey: String, password: String) async throws -> [ApiAddWalletResult] {
-        try await bridge.callApi("importPrivateKey", chain, networks, privateKey, password, decoding: [ApiAddWalletResult].self)
+    internal static func importPrivateKey(chain: ApiChain, networks: [ApiNetwork], privateKey: String) async throws -> [ApiAddWalletResult] {
+        return try await bridge.callApi("importPrivateKey", chain, networks, privateKey, decoding: [ApiAddWalletResult].self)
     }
 
     public static func addressFromPublicKey(publicKey: [UInt8], network: ApiNetwork, version: ApiTonWalletVersion?) async throws -> ApiTonWallet {
@@ -49,6 +49,25 @@ extension Api {
     /// - Important: Do not call this methods directly, use **AccountStore** instead
     internal static func removeAccount(accountId: String, nextAccountId: String, newestActivityTimestamps: ApiActivityTimestamps?) async throws {
         try await bridge.callApiVoid("removeAccount", accountId, nextAccountId, newestActivityTimestamps)
+    }
+
+    internal static func waitDataPreload() async throws {
+        try await bridge.callApiVoid("waitDataPreload")
+    }
+
+    internal static func repairInvalidBip39TonAuthTokens() async throws {
+        try await bridge.callApiVoid("repairInvalidBip39TonAuthTokens")
+    }
+
+    internal static func getMultichainUpgradeCandidateIds() async throws -> [String] {
+        try await bridge.callApi(
+            "getMultichainUpgradeCandidateIds",
+            decoding: [String].self
+        )
+    }
+
+    internal static func upgradeMultichainAccounts(enclaveToken: EnclaveToken) async throws {
+        try await bridge.callApiVoid("upgradeMultichainAccounts", enclaveToken)
     }
 
     /// - Important: updates **keychain credentials**

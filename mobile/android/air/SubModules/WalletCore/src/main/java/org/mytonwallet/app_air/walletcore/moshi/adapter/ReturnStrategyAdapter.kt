@@ -24,12 +24,11 @@ class ReturnStrategyAdapter : JsonAdapter<ReturnStrategy>() {
     }
 
     @FromJson
-    override fun fromJson(reader: JsonReader): ReturnStrategy {
-        return when (val url = reader.nextString()) {
+    override fun fromJson(reader: JsonReader): ReturnStrategy =
+        when (val url = reader.nextString()) {
             "none" -> ReturnStrategy.None
             "back" -> ReturnStrategy.Back
             "empty" -> ReturnStrategy.Empty
             else -> ReturnStrategy.Url(url)
         }
-    }
 }

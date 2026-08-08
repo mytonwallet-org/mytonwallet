@@ -10,22 +10,25 @@ public class HiddenNftsVC: WViewController, Sendable {
     
     enum Section {
         case hiddenByUser
+        case unverified
         case likelyScam
         
         var localizedTitle: String {
             switch self {
             case .hiddenByUser: lang("Hidden By Me")
+            case .unverified: lang("Unverified")
             case .likelyScam: lang("Probably Scam")
             }
         }
     }
     enum Row: Hashable {
         case hiddenByUser(String)
+        case unverified(String)
         case likelyScam(String)
         
         var stringValue: String {
             switch self {
-            case .hiddenByUser(let string), .likelyScam(let string):
+            case .hiddenByUser(let string), .unverified(let string), .likelyScam(let string):
                 return string
             }
         }
@@ -33,18 +36,17 @@ public class HiddenNftsVC: WViewController, Sendable {
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>!
-    
-    private var animateIfPossible: Bool { false }
-    private var isAppActive: Bool = true
-    private var isVisible: Bool = true
-    
-    private var cornerRadius: CGFloat = 12
-
-    private let horizontalMargins: CGFloat = 16
-    private let spacing: CGFloat = 16
-    private let compactSpacing: CGFloat = 8
-    
-    private var contextMenuExtraBlurView: UIView?
+    private let emptyStateLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = lang("No hidden NFTs.")
+        label.applyTextStyle(.body)
+        label.textColor = .air.secondaryLabel
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.isHidden = true
+        return label
+    }()
 
     private let onUnhideNft: ((String) -> Void)?
 
@@ -83,11 +85,17 @@ public class HiddenNftsVC: WViewController, Sendable {
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            collectionView.rightAnchor.constraint(equalTo: view.rightAnchor)
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         collectionView.clipsToBounds = false
         collectionView.delaysContentTouches = false
+        view.addSubview(emptyStateLabel)
+        NSLayoutConstraint.activate([
+            emptyStateLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyStateLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            emptyStateLabel.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, constant: -48)
+        ])
 
         let hiddenByUserRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { [weak self] cell, _, itemIdentifier in
             guard let self, let state = cellStates[itemIdentifier] else { return }
@@ -98,7 +106,7 @@ public class HiddenNftsVC: WViewController, Sendable {
                         self?.openNftDetails(nftId: state.displayNft.id)
                     }, action: { isHiddenByUser in
                         if let accountId = AccountStore.accountId {
-                            NftStore.setHiddenByUser(accountId: accountId, nftId: state.displayNft.id, isHidden: isHiddenByUser)
+                            NftStore.setHiddenByUser(accountId: accountId, nft: state.displayNft.nft, isHidden: isHiddenByUser)
                         }
                         if !isHiddenByUser { onUnhideNft?(state.displayNft.id) }
                     })
@@ -116,7 +124,7 @@ public class HiddenNftsVC: WViewController, Sendable {
                         self?.openNftDetails(nftId: state.displayNft.id)
                     }, action: { isUnhiddenByUser in
                         if let accountId = AccountStore.accountId {
-                            NftStore.setHiddenByUser(accountId: accountId, nftId: state.displayNft.id, isHidden: !isUnhiddenByUser)
+                            NftStore.setHiddenByUser(accountId: accountId, nft: state.displayNft.nft, isHidden: !isUnhiddenByUser)
                         }
                         if isUnhiddenByUser { onUnhideNft?(state.displayNft.id) }
                     })
@@ -129,6 +137,7 @@ public class HiddenNftsVC: WViewController, Sendable {
             guard let section = self?.dataSource.sectionIdentifier(for: indexPath.section) else { return }
             var content = UIListContentConfiguration.groupedHeader()
             content.text = section.localizedTitle
+            content.applyTextStyle(.sectionHeader, scaling: .dynamic)
             cell.contentConfiguration = content
         }
         let sectionFooter = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: UICollectionView.elementKindSectionFooter) { [weak self] cell, _, indexPath in
@@ -138,13 +147,14 @@ public class HiddenNftsVC: WViewController, Sendable {
             }
             var content = UIListContentConfiguration.groupedFooter()
             content.text = lang("$settings_nft_probably_scam_description")
+            content.applyTextStyle(.footnote, scaling: .dynamic)
             cell.contentConfiguration = content
         }
         dataSource = .init(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier {
             case .hiddenByUser(let nftId):
                 collectionView.dequeueConfiguredReusableCell(using: hiddenByUserRegistration, for: indexPath, item: nftId)
-            case .likelyScam(let nftId):
+            case .unverified(let nftId), .likelyScam(let nftId):
                 collectionView.dequeueConfiguredReusableCell(using: likelyScamRegistration, for: indexPath, item: nftId)
             }
         }
@@ -203,26 +213,45 @@ public class HiddenNftsVC: WViewController, Sendable {
         // Discover items that belong in the list but aren't tracked yet.
         let trackedIds = Set(trackedRows.map(\.stringValue))
         var newHiddenByUser: [Row] = []
+        var newUnverified: [Row] = []
         var newLikelyScam: [Row] = []
         for (id, displayNft) in latestNfts where !trackedIds.contains(id) {
             if displayNft.isHiddenByUser {
                 newHiddenByUser.append(.hiddenByUser(id))
-            } else if displayNft.nft.isScam == true {
+            } else if displayNft.nft.isHidden == true {
                 newLikelyScam.append(.likelyScam(id))
+            } else if AppStorageHelper.hideUnverifiedNfts, displayNft.nft.isUnverified == true {
+                newUnverified.append(.unverified(id))
             }
         }
 
-        let hasNewItems = !newHiddenByUser.isEmpty || !newLikelyScam.isEmpty
+        let hasNewItems = !newHiddenByUser.isEmpty || !newUnverified.isEmpty || !newLikelyScam.isEmpty
         if hasNewItems {
             // Prepend new items to the front of their respective section.
             let existingHidden = trackedRows.filter { if case .hiddenByUser = $0 { true } else { false } }
+            let existingUnverified = trackedRows.filter { if case .unverified = $0 { true } else { false } }
             let existingScam = trackedRows.filter { if case .likelyScam = $0 { true } else { false } }
-            trackedRows = newHiddenByUser + existingHidden + newLikelyScam + existingScam
+            trackedRows = newHiddenByUser + existingHidden
+                + newUnverified + existingUnverified
+                + newLikelyScam + existingScam
             // Create cell state objects for new items.
-            for row in newHiddenByUser + newLikelyScam {
+            for row in newHiddenByUser + newUnverified + newLikelyScam {
                 if let nft = latestNfts[row.stringValue] {
                     cellStates[row.stringValue] = HiddenNftCellViewModel(nft)
                 }
+            }
+        }
+
+        // Turning the setting off makes the unverified rows disappear from the list
+        var didRemoveRows = false
+        if !AppStorageHelper.hideUnverifiedNfts {
+            let unverifiedRows = trackedRows.filter { if case .unverified = $0 { true } else { false } }
+            if !unverifiedRows.isEmpty {
+                trackedRows.removeAll { if case .unverified = $0 { true } else { false } }
+                for row in unverifiedRows {
+                    cellStates[row.stringValue] = nil
+                }
+                didRemoveRows = true
             }
         }
 
@@ -232,7 +261,8 @@ public class HiddenNftsVC: WViewController, Sendable {
             }
         }
 
-        if hasNewItems {
+        emptyStateLabel.isHidden = !trackedRows.isEmpty
+        if hasNewItems || didRemoveRows {
             applySnapshot(makeSnapshot(), animated: true)
         }
     }
@@ -242,11 +272,16 @@ public class HiddenNftsVC: WViewController, Sendable {
         guard !trackedRows.isEmpty else { return snapshot }
 
         let hiddenByUser = trackedRows.filter { if case .hiddenByUser = $0 { true } else { false } }
+        let unverified = trackedRows.filter { if case .unverified = $0 { true } else { false } }
         let likelyScam = trackedRows.filter { if case .likelyScam = $0 { true } else { false } }
 
         if !hiddenByUser.isEmpty {
             snapshot.appendSections([.hiddenByUser])
             snapshot.appendItems(hiddenByUser)
+        }
+        if !unverified.isEmpty {
+            snapshot.appendSections([.unverified])
+            snapshot.appendItems(unverified)
         }
         if !likelyScam.isEmpty {
             snapshot.appendSections([.likelyScam])
@@ -271,6 +306,8 @@ extension HiddenNftsVC: WalletCoreData.EventsObserver {
         Task { @MainActor in
             switch event {
             case .nftsChanged(let accountId) where accountId == AccountStore.currentAccountId:
+                updateNfts()
+            case .hideUnverifiedNftsChanged:
                 updateNfts()
             default:
                 break

@@ -27,8 +27,7 @@ sealed class LedgerDevice {
                     }
                 }.toMap()
 
-            fun fromValue(value: String?): Model? =
-                value?.lowercase()?.let { map[it] }
+            fun fromValue(value: String?): Model? = value?.lowercase()?.let { map[it] }
         }
     }
 

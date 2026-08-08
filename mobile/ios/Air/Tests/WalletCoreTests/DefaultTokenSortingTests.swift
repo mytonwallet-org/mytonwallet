@@ -9,6 +9,7 @@ struct DefaultTokenSortingTests {
         let account = makeAccount(chains: ApiChain.allCases)
         let defaultSlugs = ApiToken.defaultSlugs(forNetwork: .mainnet, account: account)
         let tokenBalances = [
+            MTokenBalance(tokenSlug: ROBINHOOD_SLUG, balance: 0, isStaking: false),
             MTokenBalance(tokenSlug: MONAD_SLUG, balance: 0, isStaking: false),
             MTokenBalance(tokenSlug: ARBITRUM_SLUG, balance: 0, isStaking: false),
             MTokenBalance(tokenSlug: AVALANCHE_SLUG, balance: 0, isStaking: false),
@@ -28,12 +29,13 @@ struct DefaultTokenSortingTests {
             HYPERLIQUID_SLUG,
             TONCOIN_SLUG,
             TRX_SLUG,
-            BASE_SLUG,
             BNB_SLUG,
+            BASE_SLUG,
+            ROBINHOOD_SLUG,
+            MONAD_SLUG,
+            ARBITRUM_SLUG,
             POLYGON_SLUG,
             AVALANCHE_SLUG,
-            ARBITRUM_SLUG,
-            MONAD_SLUG,
         ])
 
         let sorted = MTokenBalance.sortedForBalanceData(
@@ -49,12 +51,13 @@ struct DefaultTokenSortingTests {
             HYPERLIQUID_SLUG,
             TONCOIN_SLUG,
             TRX_SLUG,
-            BASE_SLUG,
             BNB_SLUG,
+            BASE_SLUG,
+            ROBINHOOD_SLUG,
+            MONAD_SLUG,
+            ARBITRUM_SLUG,
             POLYGON_SLUG,
             AVALANCHE_SLUG,
-            ARBITRUM_SLUG,
-            MONAD_SLUG,
         ])
     }
 
@@ -99,46 +102,54 @@ struct DefaultTokenSortingTests {
     }
 
     @Test
-    func `token picker sorts by usd value before default priority`() {
+    func `shared presentation puts pinned tokens before higher value tokens`() {
         let account = makeAccount(chains: [.ton])
-        let defaultSlugs = ApiToken.defaultSlugs(forNetwork: .mainnet, account: account)
         let tokenBalances = [
             MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: 0, isStaking: false),
             MTokenBalance(tokenSlug: TON_USDT_SLUG, balance: 1_000_000, isStaking: false),
             MTokenBalance(tokenSlug: TON_USDT_TESTNET_SLUG, balance: 2_000_000, isStaking: false),
         ]
+        var preferences = MAssetsAndActivityData.empty
+        preferences.saveTokenPinning(slug: TONCOIN_SLUG, isStaking: false, isPinned: true)
 
-        let sorted = MTokenBalance.sortedForTokenPicker(
-            tokenBalances: tokenBalances,
-            defaultTokenSlugs: defaultSlugs
+        let presentation = MTokenBalance.presentationForUI(
+            walletTokens: tokenBalances,
+            account: account,
+            assetsAndActivityData: preferences,
+            hidesTokensWithNoCost: false
         )
 
-        #expect(sorted.map(\.tokenSlug) == [TON_USDT_TESTNET_SLUG, TON_USDT_SLUG, TONCOIN_SLUG])
+        #expect(presentation.visible.map(\.tokenSlug) == [
+            TONCOIN_SLUG,
+            TON_USDT_TESTNET_SLUG,
+            TON_USDT_SLUG,
+        ])
+        #expect(presentation.hidden.isEmpty)
     }
 
     @Test
-    func `token picker tie breaks by default priority then name then slug`() {
-        let account = makeAccount(chains: [.ton, .tron])
-        let defaultSlugs = ApiToken.defaultSlugs(forNetwork: .mainnet, account: account)
+    func `shared presentation groups hidden tokens without changing their order`() {
+        let account = makeAccount(chains: [.ton])
         let tokenBalances = [
-            MTokenBalance(tokenSlug: TRON_USDT_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: TRX_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: TON_USDT_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: MYCOIN_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: 0, isStaking: false),
+            MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: 1, isStaking: false),
+            MTokenBalance(tokenSlug: TON_USDT_SLUG, balance: 1_000_000, isStaking: false),
+            MTokenBalance(tokenSlug: TON_USDT_TESTNET_SLUG, balance: 1, isStaking: false),
         ]
+        var preferences = MAssetsAndActivityData.empty
+        preferences.saveTokenPinning(slug: TONCOIN_SLUG, isStaking: false, isPinned: true)
+        preferences.saveTokenHidden(slug: TON_USDT_TESTNET_SLUG, isStaking: false, isHidden: true)
 
-        let sorted = MTokenBalance.sortedForTokenPicker(
-            tokenBalances: tokenBalances,
-            defaultTokenSlugs: defaultSlugs
+        let presentation = MTokenBalance.presentationForUI(
+            walletTokens: tokenBalances,
+            account: account,
+            assetsAndActivityData: preferences,
+            hidesTokensWithNoCost: true
         )
 
-        #expect(sorted.map(\.tokenSlug) == [
+        #expect(presentation.visible.map(\.tokenSlug) == [TON_USDT_SLUG])
+        #expect(presentation.hidden.map(\.tokenSlug) == [
             TONCOIN_SLUG,
-            TRX_SLUG,
-            MYCOIN_SLUG,
-            TON_USDT_SLUG,
-            TRON_USDT_SLUG,
+            TON_USDT_TESTNET_SLUG,
         ])
     }
 

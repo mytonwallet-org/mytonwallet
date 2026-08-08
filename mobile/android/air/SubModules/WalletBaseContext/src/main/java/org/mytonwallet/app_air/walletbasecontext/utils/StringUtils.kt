@@ -10,12 +10,15 @@ import android.text.SpannedString
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import androidx.core.net.toUri
-import org.mytonwallet.app_air.walletbasecontext.theme.WColorGradients
 import java.net.URLDecoder
 import java.text.BreakIterator
 import java.util.Locale
 import kotlin.math.max
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
+import org.mytonwallet.app_air.walletbasecontext.theme.WColorGradients
 
+@Suppress("PropertyName")
 private const val dots = "···"
 const val NBSP = "\u00A0"
 const val WORD_JOIN = "\u2060"
@@ -52,9 +55,7 @@ fun String.formatStartEndAddress(prefix: Int = 6, suffix: Int = 6): String {
     return "$start$dots$end"
 }
 
-fun String.trimAddress(keepCount: Int): String {
-    return trimAddressToResult(keepCount).trimmed
-}
+fun String.trimAddress(keepCount: Int): String = trimAddressToResult(keepCount).trimmed
 
 fun String.trimAddressToResult(keepCount: Int): TrimResult {
     if (keepCount <= 0) {
@@ -83,9 +84,8 @@ fun String.trimAddressToResult(keepCount: Int): TrimResult {
     )
 }
 
-fun String.trimDomain(keepCount: Int, keepTopLevelDomain: Boolean = true): String {
-    return trimDomainToResult(keepCount, keepTopLevelDomain).trimmed
-}
+fun String.trimDomain(keepCount: Int, keepTopLevelDomain: Boolean = true): String =
+    trimDomainToResult(keepCount, keepTopLevelDomain).trimmed
 
 fun String.trimDomainToResult(keepCount: Int, keepTopLevelDomain: Boolean = true): TrimResult {
     if (keepCount <= 0) {
@@ -160,58 +160,42 @@ val String.breakToTwoLines: String
         return "$firstLine\n$secondLine"
     }
 
-/*private val numerals = listOf(
-    Triple("0", "٠", "۰"),
-    Triple("1", "١", "۱"),
-    Triple("2", "٢", "۲"),
-    Triple("3", "٣", "۳"),
-    Triple("4", "٤", "۴"),
-    Triple("5", "٥", "۵"),
-    Triple("6", "٦", "۶"),
-    Triple("7", "٧", "۷"),
-    Triple("8", "٨", "۸"),
-    Triple("9", "٩", "۹"),
-    Triple(",", "٫", "٫")
-)
+private val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
+private val arabicDigits = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩')
 
-val String.normalizeArabicPersianNumeralStringToWestern: String
-    get() {
-        var string = this
-
-        for ((western, arabic, persian) in numerals) {
-            string = string.replace(arabic, western)
-            string = string.replace(persian, western)
-        }
-
-        return string
+private val WLanguage.localizedDigitGlyphs: CharArray?
+    get() = when (this) {
+        WLanguage.PERSIAN -> persianDigits
+        WLanguage.ARABIC -> arabicDigits
+        else -> null
     }
 
 val String.withLocalizedNumbers: String
     get() {
-        var string = this
-
-        for ((western, arabic, persian) in numerals) {
-            when (LocaleController.activeLanguage.langCode) {
-                "fa" -> {
-                    string = string.replace(western, persian)
-                    string = string.replace(arabic, persian)
-                }
-
-                else -> {
-                    string = string.replace(arabic, western)
-                    string = string.replace(persian, western)
-                }
+        val glyphs = LocaleController.activeLanguage.localizedDigitGlyphs ?: return this
+        if (none { it in '0'..'9' }) return this
+        return buildString(length) {
+            for (c in this@withLocalizedNumbers) {
+                append(if (c in '0'..'9') glyphs[c - '0'] else c)
             }
         }
+    }
 
-        return string
-    }*/
+fun String.withLocalizedNumbers(isLocalized: Boolean): String =
+    if (isLocalized) withLocalizedNumbers else this
+
+val Int.withLocalizedNumbers: String
+    get() = toString().withLocalizedNumbers
+
+val Float.withLocalizedNumbers: String
+    get() = toString().withLocalizedNumbers
+
+val Double.withLocalizedNumbers: String
+    get() = toString().withLocalizedNumbers
 
 fun String.takeIfNotBlank(): String? = takeIf { it.isNotBlank() }
 
-fun String.isNumeric(): Boolean {
-    return this.matches(Regex("[0-9.]+"))
-}
+fun String.isNumeric(): Boolean = this.matches(Regex("[0-9.]+"))
 
 fun String.boldSubstring(target: String): SpannableString {
     val spannable = SpannableString(this)
@@ -288,6 +272,18 @@ fun String.firstGrapheme(): String {
     val start = it.first()
     val end = it.next()
     return if (end != BreakIterator.DONE) substring(start, end) else ""
+}
+
+fun CharSequence.startsWithRtlChar(): Boolean {
+    for (char in this) {
+        when (Character.getDirectionality(char)) {
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> return true
+
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT -> return false
+        }
+    }
+    return false
 }
 
 fun String.toUriOrNull(): Uri? = try {
@@ -400,24 +396,20 @@ data class TrimResult(
 
     companion object {
 
-        fun fullTrim(original: String): TrimResult {
-            return TrimResult(
-                original = original,
-                trimmed = "",
-                isTrimmed = true,
-                originalPrefixCount = 0,
-                originalPostfixCount = 0
-            )
-        }
+        fun fullTrim(original: String): TrimResult = TrimResult(
+            original = original,
+            trimmed = "",
+            isTrimmed = true,
+            originalPrefixCount = 0,
+            originalPostfixCount = 0
+        )
 
-        fun noTrim(original: String): TrimResult {
-            return TrimResult(
-                original = original,
-                trimmed = original,
-                isTrimmed = false,
-                originalPrefixCount = original.length,
-                originalPostfixCount = original.length
-            )
-        }
+        fun noTrim(original: String): TrimResult = TrimResult(
+            original = original,
+            trimmed = original,
+            isTrimmed = false,
+            originalPrefixCount = original.length,
+            originalPostfixCount = original.length
+        )
     }
 }

@@ -17,6 +17,9 @@ import android.view.Gravity
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
+import java.math.BigInteger
+import java.util.Date
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -24,19 +27,17 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
 import org.mytonwallet.app_air.walletbasecontext.utils.findMatches
 import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletbasecontext.utils.isSameYearAs
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import java.math.BigInteger
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlin.math.roundToInt
 
-open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
+open class WLabel(context: Context) :
+    AppCompatTextView(context),
+    WThemedView {
     init {
         if (id == NO_ID) {
             id = generateViewId()
@@ -73,25 +74,26 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
     }
 
     private val datePattern by lazy {
-        when (WGlobalStorage.getLangCode()) {
-            "ru" -> "d MMMM"
-            else -> "MMMM d"
-        }
+        if (WDateFormatter.isDayBeforeMonth(WGlobalStorage.getLangCode())) "d MMMM" else "MMMM d"
     }
 
     private val fullDatePattern by lazy {
-        when (WGlobalStorage.getLangCode()) {
-            "ru" -> "d MMMM yyyy"
-            else -> "MMMM d, yyyy"
+        if (WDateFormatter.isDayBeforeMonth(
+                WGlobalStorage.getLangCode()
+            )
+        ) {
+            "d MMMM yyyy"
+        } else {
+            "MMMM d, yyyy"
         }
     }
 
     private val monthAndDayFormat by lazy {
-        SimpleDateFormat(datePattern, Locale(WGlobalStorage.getLangCode()))
+        WDateFormatter.of(datePattern, WGlobalStorage.getLangCode())
     }
 
     private val fullDateFormat by lazy {
-        SimpleDateFormat(fullDatePattern, Locale(WGlobalStorage.getLangCode()))
+        WDateFormatter.of(fullDatePattern, WGlobalStorage.getLangCode())
     }
 
     private var textOffset = 0
@@ -112,18 +114,23 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
         currencyDecimals: Int,
         smartDecimals: Boolean,
         showPositiveSign: Boolean = false,
-        forceCurrencyToRight: Boolean = false,
+        forceCurrencyToRight: Boolean = false
     ) {
         val newText = amount.toString(
             decimals = decimals,
             currency = currency,
-            currencyDecimals = if (smartDecimals) amount.smartDecimalsCount(currencyDecimals) else currencyDecimals,
+            currencyDecimals = if (smartDecimals) {
+                amount.smartDecimalsCount(
+                    currencyDecimals
+                )
+            } else {
+                currencyDecimals
+            },
             showPositiveSign = showPositiveSign,
             forceCurrencyToRight = forceCurrencyToRight,
             roundUp = false
         )
-        if (text != newText)
-            text = newText
+        if (text != newText) text = newText
     }
 
     fun setAmount(
@@ -144,8 +151,7 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
     }
 
     fun setTextIfChanged(newText: String?) {
-        if (text == newText)
-            return
+        if (text == newText) return
         text = newText
     }
 
@@ -180,8 +186,7 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
     }
 
     fun animateTextColor(endColor: Int, duration: Long = AnimationConstants.VERY_QUICK_ANIMATION) {
-        if (currentTextColor == endColor)
-            return
+        if (currentTextColor == endColor) return
         val colorAnimator = ValueAnimator.ofArgb(currentTextColor, endColor)
         colorAnimator.duration = duration
         colorAnimator.addUpdateListener { animator ->

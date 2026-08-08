@@ -12,7 +12,6 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -27,8 +26,12 @@ class ReversedCornerViewUpsideDown(
     context: Context,
     private var blurRootView: ViewGroup?,
     private val forceBlurView: Boolean = false,
-    private val additionalTabletPadding: Boolean = true,
-) : BaseReversedCornerView(context), WThemedView {
+    private val additionalTabletPadding: Boolean = true
+) : BaseReversedCornerView(context),
+    WThemedView {
+
+    override val appliesAdditionalTabletPadding: Boolean
+        get() = additionalTabletPadding
 
     init {
         id = generateViewId()
@@ -85,7 +88,7 @@ class ReversedCornerViewUpsideDown(
         if (isGradientMode) {
             rebuildGradientDrawable()
         } else {
-            blurryBackgroundView?.setOverlayColor(color ?: Color.TRANSPARENT) ?: run {
+            blurryBackgroundView?.setTintOverlayColor(color) ?: run {
                 backgroundView.setBackgroundColor(color ?: WColor.SecondaryBackground.color)
             }
         }
@@ -96,8 +99,7 @@ class ReversedCornerViewUpsideDown(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         resumeBlurring()
-        if (configured)
-            return
+        if (configured) return
         updateTheme()
     }
 
@@ -138,14 +140,7 @@ class ReversedCornerViewUpsideDown(
         path.lineTo(0f, height)
         path.close()
 
-        val tabletPadding =
-            if (additionalTabletPadding) ViewConstants.ADDITIONAL_TABLET_PADDING.toFloat() else 0f
-        rectF.setLocalized(
-            cutoutStart(width, tabletPadding),
-            0f,
-            cutoutEnd(width),
-            cornerRadius
-        )
+        setCutoutRect(rectF, 0f, cornerRadius)
         cornerPath.addRoundRect(rectF, radii, Path.Direction.CCW)
 
         path.op(cornerPath, Path.Op.DIFFERENCE)
@@ -164,8 +159,11 @@ class ReversedCornerViewUpsideDown(
     }
 
     private fun rebuildGradientDrawable() {
-        val bgColor = overlayColor
-            ?: if (ThemeManager.isDark) WColor.SecondaryBackground.color else WColor.Background.color
+        val bgColor = overlayColor ?: if (ThemeManager.isDark) {
+            WColor.SecondaryBackground.color
+        } else {
+            WColor.Background.color
+        }
         val drawable = StickyBottomGradientDrawable(
             intArrayOf(
                 bgColor.colorWithAlpha(0),
@@ -196,8 +194,9 @@ class ReversedCornerViewUpsideDown(
                 if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
             }
             blurryBackgroundView = null
-            if (backgroundView.parent != null)
+            if (backgroundView.parent != null) {
                 (backgroundView.parent as ViewGroup).removeView(backgroundView)
+            }
             attachGradientView()
             return
         }
@@ -208,8 +207,9 @@ class ReversedCornerViewUpsideDown(
         if (blurEnabled && blurryBackgroundView == null) {
             blurryBackgroundView =
                 WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
-            if (backgroundView.parent != null)
+            if (backgroundView.parent != null) {
                 (backgroundView.parent as ViewGroup).removeView(backgroundView)
+            }
             if (isPlaying) {
                 isPlaying = false
                 resumeBlurring()
@@ -220,18 +220,19 @@ class ReversedCornerViewUpsideDown(
                 if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
             }
             blurryBackgroundView = null
-            if (backgroundView.parent == null)
+            if (backgroundView.parent == null) {
                 addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            }
         } else if (!blurEnabled && blurryBackgroundView == null) {
-            if (backgroundView.parent == null)
+            if (backgroundView.parent == null) {
                 addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            }
         }
     }
 
     fun refreshModeFromSettings() {
         val next = !forceBlurView && WGlobalStorage.isGradientNavigationBarActive()
-        if (next == isGradientMode)
-            return
+        if (next == isGradientMode) return
         isGradientMode = next
         clipChildren = !isGradientMode
         pathDirty = true
@@ -246,8 +247,7 @@ class ReversedCornerViewUpsideDown(
             rebuildGradientDrawable()
         } else {
             val bgColor = overlayColor ?: WColor.SecondaryBackground.color
-            if (blurryBackgroundView == null)
-                backgroundView.setBackgroundColor(bgColor)
+            if (blurryBackgroundView == null) backgroundView.setBackgroundColor(bgColor)
             blurryBackgroundView?.updateTheme()
         }
 
@@ -256,8 +256,7 @@ class ReversedCornerViewUpsideDown(
     }
 
     private fun updateRadius() {
-        if (cornerRadius == ViewConstants.TOOLBAR_RADIUS.dp)
-            return
+        if (cornerRadius == ViewConstants.TOOLBAR_RADIUS.dp) return
         cornerRadius = ViewConstants.TOOLBAR_RADIUS.dp
         radii = floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
         pathDirty = true
@@ -287,8 +286,9 @@ class ReversedCornerViewUpsideDown(
             }
             it.resumeBlurring()
         } ?: run {
-            if (backgroundView.parent == null)
+            if (backgroundView.parent == null) {
                 addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            }
         }
 
         postInvalidateOnAnimation()

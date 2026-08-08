@@ -14,7 +14,7 @@ class DirectionalTouchHandler(
     private val interceptedViews: List<View>,
     private val interceptedByVerticalScrollViews: List<View>,
     private val isDirectionalScrollAllowed: (isVertical: Boolean, event: MotionEvent?) -> Boolean,
-    private val horizontalScrollAngle: Double = 45.0,
+    private val horizontalScrollAngle: Double = 45.0
 ) {
 
     private val touchSlop = ViewConfiguration.get(verticalView.context).scaledTouchSlop
@@ -28,16 +28,19 @@ class DirectionalTouchHandler(
 
     private var activeScroller: View? = null
     fun dispatchTouch(view: View, event: MotionEvent): Boolean? {
-        if (activeScroller != null && activeScroller != view)
-            return null
+        if (activeScroller != null && activeScroller != view) return null
         activeScroller =
-            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) null else view
+            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
+                null
+            } else {
+                view
+            }
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> handleActionDown(event)
-
             MotionEvent.ACTION_MOVE -> return handleActionMove(view, event)
-
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> return handleActionUp(view, event)
         }
         return null
@@ -46,8 +49,12 @@ class DirectionalTouchHandler(
     fun stopScroll() {
         val currentTime = SystemClock.uptimeMillis()
         val cancelEvent = MotionEvent.obtain(
-            currentTime, currentTime,
-            MotionEvent.ACTION_CANCEL, 0f, 0f, 0
+            currentTime,
+            currentTime,
+            MotionEvent.ACTION_CANCEL,
+            0f,
+            0f,
+            0
         )
 
         verticalView.dispatchTouchEvent(cancelEvent)
@@ -138,11 +145,16 @@ class DirectionalTouchHandler(
     private fun interceptViews(event: MotionEvent) {
         val cancelTime = SystemClock.uptimeMillis()
         val cancelEvent = MotionEvent.obtain(
-            cancelTime, cancelTime,
-            MotionEvent.ACTION_CANCEL, event.x, event.y, 0
+            cancelTime,
+            cancelTime,
+            MotionEvent.ACTION_CANCEL,
+            event.x,
+            event.y,
+            0
         )
         interceptedViews.forEach { it.dispatchTouchEvent(cancelEvent) }
-        if (isVerticalScroll)
+        if (isVerticalScroll) {
             interceptedByVerticalScrollViews.forEach { it.dispatchTouchEvent(cancelEvent) }
+        }
     }
 }

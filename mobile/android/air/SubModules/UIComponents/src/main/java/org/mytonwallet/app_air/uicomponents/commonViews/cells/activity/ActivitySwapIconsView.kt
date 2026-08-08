@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -14,9 +15,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import kotlin.math.roundToInt
 
-class ActivitySwapIconsView(context: Context) : WFrameLayout(context), WThemedView {
+class ActivitySwapIconsView(context: Context) :
+    WFrameLayout(context),
+    WThemedView {
 
     private val viewHeight = 30.dp
     private val iconWidth = 18.dp
@@ -32,12 +34,18 @@ class ActivitySwapIconsView(context: Context) : WFrameLayout(context), WThemedVi
     init {
         id = generateViewId()
         setWillNotDraw(false)
-        addView(fromIconView, LayoutParams(iconWidth, iconWidth).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-        addView(toIconView, LayoutParams(iconWidth, iconWidth).apply {
-            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-        })
+        addView(
+            fromIconView,
+            LayoutParams(iconWidth, iconWidth).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        addView(
+            toIconView,
+            LayoutParams(iconWidth, iconWidth).apply {
+                gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            }
+        )
     }
 
     fun configure(swap: MApiTransaction.Swap) {

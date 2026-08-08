@@ -1,17 +1,18 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.helper.widget.Flow
 import androidx.core.view.children
+import kotlin.random.Random
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -21,13 +22,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
-import kotlin.random.Random
 
 @SuppressLint("ViewConstructor")
-class WordCheckerView(
-    context: Context,
-    val onSelect: () -> Unit
-) : WView(context), WThemedView {
+class WordCheckerView(context: Context, val onSelect: () -> Unit) :
+    WView(context),
+    WThemedView {
 
     private val indexLabel = WLabel(context).apply {
         setStyle(17f)
@@ -125,8 +124,7 @@ class WordCheckerView(
                 )
                 addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
                 setOnClickListener {
-                    if (selectedIndex == wordIndex)
-                        return@setOnClickListener
+                    if (selectedIndex == wordIndex) return@setOnClickListener
                     isValidatedAndWrong = false
                     selectedIndex?.let {
                         animateWordColor(it, WColor.PrimaryText.color, false)
@@ -203,10 +201,7 @@ class WordCheckerView(
     fun validate(): Boolean {
         val isCorrect = wordOptions?.getOrNull(selectedIndex ?: -1) == correctWord
         animateToColor(selectedIndex!!, if (isCorrect) WColor.Green.color else WColor.Red.color)
-        if (isCorrect)
-            lockView()
-        else
-            isValidatedAndWrong = true
+        if (isCorrect) lockView() else isValidatedAndWrong = true
         return isCorrect
     }
 }

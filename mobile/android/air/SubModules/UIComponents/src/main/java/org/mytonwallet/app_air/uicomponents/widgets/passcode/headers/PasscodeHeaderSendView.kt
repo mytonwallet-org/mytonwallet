@@ -8,6 +8,7 @@ import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.LinearLayout
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -27,7 +28,6 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class PasscodeHeaderSendView(
@@ -90,7 +90,9 @@ class PasscodeHeaderSendView(
 
         val scale = if (desiredHeight > availableHeight) {
             availableHeight.toFloat() / desiredHeight.toFloat()
-        } else 1f
+        } else {
+            1f
+        }
 
         // Scaled values
         val scaledImageSize = (imageSize * scale).toInt()
@@ -98,13 +100,17 @@ class PasscodeHeaderSendView(
         val scaledChainGap = imageChainGap * scale
 
         val scaledTitleSizePx = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_SP, titleSizeSp * scale, resources.displayMetrics
+            TypedValue.COMPLEX_UNIT_SP,
+            titleSizeSp * scale,
+            resources.displayMetrics
         )
         val scaledTitleLineHeight = (titleLineHeightDp * scale).toInt()
         val scaledTitleTopMargin = (titleTopMargin * scale).toInt()
 
         val scaledSubtitleSizePx = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_SP, subtitleSizeSp * scale, resources.displayMetrics
+            TypedValue.COMPLEX_UNIT_SP,
+            subtitleSizeSp * scale,
+            resources.displayMetrics
         )
         val scaledSubtitleLineHeight = (subtitleLineHeightDp * scale).toInt()
         val scaledSubtitleTopMargin = (subtitleTopMargin * scale).toInt()

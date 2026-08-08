@@ -45,8 +45,6 @@ import {
   updateStoredWallet,
 } from '../common/accounts';
 import {
-  decryptMnemonic,
-  encryptMnemonic,
   generateBip39Mnemonic,
   getMnemonic,
   validateBip39Mnemonic,
@@ -78,6 +76,27 @@ function getWalletForReplacement<
   return walletWithoutAuthToken as TWallet;
 }
 
+/**
+ * Signs the backend auth token using the already decrypted mnemonic, so creating it costs
+ * no extra Enclave export. Returns `undefined` when the token does not match the wallet's
+ * stored public key (e.g. the mnemonic holds a private key of another chain).
+ */
+async function buildTonBackendAuthToken(mnemonic: string[], account: ApiAccountWithMnemonic) {
+  const tonWallet = account.byChain.ton;
+  if (!tonWallet?.publicKey || tonWallet.authToken) return undefined;
+
+  try {
+    const keyPair = await ton.getKeyPairFromStoredMnemonic(mnemonic, account);
+    const authToken = ton.buildBackendAuthToken(keyPair.secretKey);
+
+    return isBackendAuthTokenValid(authToken, tonWallet.publicKey) ? authToken : undefined;
+  } catch (err) {
+    logDebugError('buildTonBackendAuthToken', err);
+
+    return undefined;
+  }
+}
+
 export function initAuth(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
 }
@@ -100,8 +119,7 @@ export async function validateMnemonic(mnemonic: string[]) {
 export async function importMnemonic(
   networks: ApiNetwork[],
   mnemonic: string[],
-  password: string,
-  isNewMnemonic = false,
+  shouldSkipDiscovery?: boolean,
 ) {
   const isBip39Mnemonic = validateBip39Mnemonic(mnemonic);
   const isTonMnemonic = await ton.validateMnemonic(mnemonic);
@@ -110,22 +128,16 @@ export async function importMnemonic(
     throw new Error('Invalid mnemonic');
   }
 
-  const mnemonicEncrypted = await getEncryptedMnemonic(mnemonic, password);
-  if (typeof mnemonicEncrypted !== 'string') {
-    return mnemonicEncrypted;
-  }
-
   try {
     // Phase 1: derive every network's wallets without touching storage. The TON history probe can throw on an
     // unreachable node, so deriving up front means such a failure aborts before anything is persisted; a partial
-    // write would otherwise leave a ghost account that a retry duplicates and that shadows `verifyPassword`, which
-    // authenticates against the first stored mnemonic account.
+    // write would otherwise leave a ghost account that a retry duplicates.
     const derivedByNetwork = await Promise.all(networks.map(async (network) => {
       let accounts: (ApiAccountWithMnemonic & { derivedFromIndex?: number })[] = [];
       let tonWallet: ApiTonWallet & { lastTxId?: string } | undefined;
       let shouldForceTonMnemonic = false;
 
-      if (!isNewMnemonic && isBip39Mnemonic && isTonMnemonic) {
+      if (!shouldSkipDiscovery && isBip39Mnemonic && isTonMnemonic) {
         // On-chain history is the only tiebreaker between the two derivations, and they yield different addresses.
         // An unreachable node must therefore abort the import (the caller turns it into a retriable error) rather
         // than read as "no history" and quietly hand the user a BIP39 address instead of their funded one.
@@ -136,12 +148,11 @@ export async function importMnemonic(
       }
 
       if (isBip39Mnemonic && !shouldForceTonMnemonic) {
-        accounts = await buildBip39Accounts(network, mnemonic, mnemonicEncrypted, isNewMnemonic);
+        accounts = await buildBip39Accounts(network, mnemonic, shouldSkipDiscovery);
       } else {
         tonWallet ||= await ton.getWalletFromMnemonic(network, mnemonic);
         accounts = [{
           type: 'ton',
-          mnemonicEncrypted,
           byChain: {
             ton: tonWallet,
           },
@@ -168,6 +179,14 @@ export async function importMnemonic(
         delete accountToSave.id;
         delete accountToSave.derivedFromIndex;
 
+        const authToken = await buildTonBackendAuthToken(mnemonic, accountToSave);
+        if (authToken) {
+          accountToSave.byChain = {
+            ...accountToSave.byChain,
+            ton: { ...accountToSave.byChain.ton!, authToken },
+          };
+        }
+
         const accountId = await addAccount(network, accountToSave);
         firstPrimaryAccountId ??= accountId;
 
@@ -190,14 +209,12 @@ export async function importMnemonic(
 async function buildBip39Accounts(
   network: ApiNetwork,
   mnemonic: string[],
-  mnemonicEncrypted: string,
-  isNewMnemonic: boolean,
+  shouldSkipDiscovery?: boolean,
 ): Promise<(ApiAccountWithMnemonic & { derivedFromIndex?: number })[]> {
-  if (isNewMnemonic) {
+  if (shouldSkipDiscovery) {
     return [{
       derivedFromIndex: 0,
       type: 'bip39',
-      mnemonicEncrypted,
       byChain: await getNewMnemonicWallets(network, mnemonic),
     }];
   }
@@ -207,7 +224,6 @@ async function buildBip39Accounts(
   return Array.from(walletsByDerivationIndex, ([index, wallets]) => ({
     derivedFromIndex: index,
     type: 'bip39' as const,
-    mnemonicEncrypted,
     byChain: Object.fromEntries(wallets.map((e) => [e.chain, e])),
   }));
 }
@@ -310,18 +326,11 @@ export async function importPrivateKey(
   chain: ApiChain,
   networks: ApiNetwork[],
   privateKey: string,
-  password: string,
 ) {
-  const privateKeyEncrypted = await getEncryptedMnemonic([privateKey], password);
-  if (typeof privateKeyEncrypted !== 'string') {
-    return privateKeyEncrypted;
-  }
-
   return Promise.all(networks.map(async (network) => {
     const wallet = await chains[chain].getWalletFromPrivateKey(network, privateKey);
     const account: ApiBip39Account = {
       type: 'bip39',
-      mnemonicEncrypted: privateKeyEncrypted,
       byChain: { [chain]: wallet },
     };
     const accountId = await addAccount(network, account);
@@ -332,20 +341,6 @@ export async function importPrivateKey(
       byChain: getAccountChains(account),
     };
   }));
-}
-
-async function getEncryptedMnemonic(mnemonic: string[], password: string) {
-  const mnemonicEncrypted = await encryptMnemonic(mnemonic, password);
-
-  // This is a defensive approach against potential corrupted encryption reported by some users
-  const decryptedMnemonic = await decryptMnemonic(mnemonicEncrypted, password)
-    .catch(() => undefined);
-
-  if (!password || !decryptedMnemonic) {
-    return { error: ApiCommonError.DebugError };
-  }
-
-  return mnemonicEncrypted;
 }
 
 export async function importLedgerAccount(network: ApiNetwork, accountInfo: ApiLedgerAccountInfo) {
@@ -443,84 +438,97 @@ export async function removeAccount(
   }
 }
 
-export async function changePassword(oldPassword: string, password: string) {
-  for (const [accountId, account] of Object.entries(await fetchStoredAccounts())) {
-    if (!('mnemonicEncrypted' in account)) continue;
+function findMultichainUpgradeCandidates(accounts: Record<string, ApiAccountAny>) {
+  const supportedChains = getSupportedChains();
 
-    const mnemonic = await decryptMnemonic(account.mnemonicEncrypted, oldPassword);
-    const encryptedMnemonic = await encryptMnemonic(mnemonic, password);
+  return Object.entries(accounts).filter(([, account]) => {
+    if (account.type !== 'bip39' && account.type !== 'ton') return false;
 
-    await updateStoredAccount<ApiAccountWithMnemonic>(accountId, {
-      mnemonicEncrypted: encryptedMnemonic,
-    });
-  }
+    const hasMissingChains = account.type === 'bip39'
+      && supportedChains.some(
+        (chain) => !account.byChain?.[chain]?.derivation && getChainConfig(chain).isSubwalletsSupported,
+      );
+
+    const tonWallet = account.byChain?.ton;
+    const hasMissingAuthToken = Boolean(tonWallet?.publicKey && !tonWallet.authToken);
+
+    return hasMissingChains || hasMissingAuthToken;
+  }) as [string, ApiAccountWithMnemonic][];
 }
 
-export async function upgradeMultichainAccounts(password: string) {
+export async function getMultichainUpgradeCandidateIds() {
+  const accounts = await fetchStoredAccounts();
+
+  return findMultichainUpgradeCandidates(accounts).map(([accountId]) => accountId);
+}
+
+export async function upgradeMultichainAccounts(enclaveToken: string) {
   const supportedChains = getSupportedChains();
 
   const accounts = await fetchStoredAccounts();
 
-  const accountsToUpgrade = Object.entries(accounts)
-    .filter(([, account]) => account.type === 'bip39'
-      && supportedChains.some((chain) =>
-        !account.byChain?.[chain]?.derivation
-        && getChainConfig(chain).isSubwalletsSupported,
-      ),
-    ) as [string, ApiBip39Account][];
+  const accountsToUpgrade = findMultichainUpgradeCandidates(accounts);
 
   if (accountsToUpgrade.length) {
     logDebug('Upgrade multichain accounts', accountsToUpgrade.map((e) => e[0]));
   }
 
   for (const [accountId, account] of accountsToUpgrade) {
-    const mnemonic = await getMnemonic(accountId, password, account);
+    const mnemonic = await getMnemonic(accountId, enclaveToken);
 
     if (!mnemonic) {
       return { error: ApiCommonError.InvalidPassword };
     }
 
-    if (isMnemonicPrivateKey(mnemonic)) {
+    // The mnemonic is already decrypted here, so creating the missing auth token costs no extra Enclave export
+    const backfilledAuthToken = await buildTonBackendAuthToken(mnemonic, account);
+    if (backfilledAuthToken) {
+      await updateStoredWallet(accountId, 'ton', { authToken: backfilledAuthToken });
+    }
+
+    if (isMnemonicPrivateKey(mnemonic) || account.type !== 'bip39') {
       continue;
     }
 
     const { network } = parseAccountId(accountId);
 
-    for (const chain of supportedChains) {
-      if (!getChainConfig(chain).isSubwalletsSupported) {
-        continue;
-      }
+    const chainsToAdd = supportedChains.filter(
+      (chain) => getChainConfig(chain).isSubwalletsSupported && !account.byChain?.[chain]?.derivation,
+    );
 
-      if (account.byChain?.[chain]?.derivation) {
-        continue;
-      }
-
+    const derived = await Promise.all(chainsToAdd.map(async (chain) => {
       try {
         const [wallet] = await (chains[chain].getWalletFromBip39Mnemonic as any)(network, mnemonic, undefined, true);
-
-        if (!wallet) {
-          continue;
-        }
-
-        const fresh = await fetchStoredAccount<ApiBip39Account>(accountId);
-        if (fresh.byChain?.[chain]?.derivation) {
-          continue;
-        }
-
-        await updateStoredAccount<ApiBip39Account>(accountId, {
-          byChain: { ...(fresh.byChain ?? {}), [chain]: wallet },
-        });
-
-        onUpdate({
-          type: 'updateAccount',
-          accountId,
-          chain,
-          address: wallet.address,
-          derivation: wallet.derivation,
-        });
+        return wallet ? { chain, wallet } : undefined;
       } catch (err) {
         logDebugError('upgradeMultichainAccounts: chain failed', { accountId, chain }, err);
+        return undefined;
       }
+    }));
+
+    const addedWallets = derived.filter(Boolean);
+    if (!addedWallets.length) {
+      continue;
+    }
+
+    // Re-read before writing so changes made meanwhile (e.g. in another tab) are not lost
+    const fresh = await fetchStoredAccount<ApiBip39Account>(accountId);
+    const mergedByChain = { ...(fresh.byChain ?? {}) };
+    const persistedWallets = addedWallets.filter(({ chain }) => !mergedByChain[chain]?.derivation);
+    for (const { chain, wallet } of persistedWallets) {
+      (mergedByChain as Record<ApiChain, ApiWalletByChain[ApiChain]>)[chain] = wallet;
+    }
+
+    await updateStoredAccount<ApiBip39Account>(accountId, { byChain: mergedByChain });
+
+    for (const { chain, wallet } of persistedWallets) {
+      onUpdate({
+        type: 'updateAccount',
+        accountId,
+        chain,
+        address: wallet.address,
+        derivation: wallet.derivation,
+      });
     }
   }
 }
@@ -806,7 +814,7 @@ export async function getWalletVariants(
   return pageGroups;
 }
 
-export async function createSubWallet(accountId: string, password: string) {
+export async function createSubWallet(accountId: string, enclaveToken: string) {
   try {
     const account = await fetchStoredAccount<ApiBip39Account>(accountId);
 
@@ -814,7 +822,7 @@ export async function createSubWallet(accountId: string, password: string) {
       return { error: ApiCommonError.Unexpected };
     }
 
-    const mnemonic = await getMnemonic(accountId, password, account);
+    const mnemonic = await getMnemonic(accountId, enclaveToken);
 
     if (!mnemonic) {
       return { error: ApiCommonError.InvalidPassword };
@@ -828,8 +836,7 @@ export async function createSubWallet(accountId: string, password: string) {
     const stored = await fetchStoredAccounts();
 
     const siblings = Object.entries(stored).filter(([id, acc]) => {
-      if (!('mnemonicEncrypted' in acc)) return false;
-      if (acc.mnemonicEncrypted !== account.mnemonicEncrypted) return false;
+      if (acc.type !== 'bip39') return false;
 
       return parseAccountId(id).network === network;
     }).map(([, acc]) => acc);
@@ -886,8 +893,6 @@ export async function createSubWallet(accountId: string, password: string) {
 
     const duplicateEntry = Object.entries(stored).find(([id, acc]) => {
       if (id === accountId || acc.type === 'view') return false;
-      if (!('mnemonicEncrypted' in acc)) return false;
-      if (acc.mnemonicEncrypted !== account.mnemonicEncrypted) return false;
       if (parseAccountId(id).network !== network) return false;
 
       const sameAddresses = chainKeys.every((c) => acc.byChain[c]?.address === newByChain[c]?.address);
@@ -917,9 +922,16 @@ export async function createSubWallet(accountId: string, password: string) {
 
     const newAccountData: ApiBip39Account = {
       type: 'bip39',
-      mnemonicEncrypted: account.mnemonicEncrypted,
       byChain: newByChain,
     };
+
+    const authToken = await buildTonBackendAuthToken(mnemonic, newAccountData);
+    if (authToken) {
+      newAccountData.byChain = {
+        ...newAccountData.byChain,
+        ton: { ...newAccountData.byChain.ton!, authToken },
+      };
+    }
 
     const newAccountId = await addAccount(network, newAccountData);
 
@@ -968,8 +980,6 @@ export async function addSubWallet(
 
   const duplicate = Object.entries(accounts).find(([id, acc]) => {
     if (id === accountId || acc.type === 'view') return false;
-    if (!('mnemonicEncrypted' in acc)) return false;
-    if (acc.mnemonicEncrypted !== account.mnemonicEncrypted) return false;
     if (parseAccountId(id).network !== network) return false;
 
     return chainKeys.every((c) => acc.byChain[c]?.address === partialByChain[c]?.address);
@@ -1001,7 +1011,6 @@ export async function addSubWallet(
 
   const newAccountData: ApiBip39Account = {
     type: 'bip39',
-    mnemonicEncrypted: account.mnemonicEncrypted,
     byChain: newByChain,
   };
 

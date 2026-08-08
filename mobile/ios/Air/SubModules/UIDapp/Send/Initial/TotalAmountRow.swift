@@ -25,8 +25,7 @@ public struct TotalAmountRow: View {
         var terms: [String] = []
 
         if info.nftsCount > 0 {
-            let nftLabel = info.nftsCount == 1 ? "1 NFT" : "\(info.nftsCount) NFTs"
-            terms.append(nftLabel)
+            terms.append(lang("%amount% NFTs", arg1: info.nftsCount))
         }
 
         for tokenSlug in info.tokenOrder {
@@ -59,7 +58,7 @@ public struct TotalAmountRow: View {
     public var body: some View {
         InsetCell {
             Text(summaryText)
-                .font(.system(size: 16, weight: .medium))
+                .textStyle(.calloutEmphasized, content: .technical)
                 .foregroundStyle(Color.air.primaryLabel)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 3)

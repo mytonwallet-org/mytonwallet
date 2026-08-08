@@ -1,14 +1,23 @@
 import type { ApiActivity, ApiChain, ApiSwapActivity, ApiSwapHistoryItem } from '../types';
+import type { WalletOperationIntent } from './activities/reconciler/types';
 
-import { MW_AGGREGATOR_QUERY_ID, SWAP_API_VERSION, TONCOIN } from '../../config';
-import { Big } from '../../lib/big.js';
+import { SWAP_API_VERSION, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
-import { buildBackendSwapId, getActivityTokenSlugs, getIsBackendSwapId, parseTxId } from '../../util/activities';
+import { buildBackendSwapId, getActivityTokenSlugs, parseTxId } from '../../util/activities';
 import { mergeSortedActivities, sortActivities } from '../../util/activities/order';
 import { getIsSupportedChain, getOrderedAccountChains, getSlugsSupportingCexSwap } from '../../util/chain';
+import { HOUR, MINUTE } from '../../util/dateFormat';
 import { unique } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { findNativeToken, getChainBySlug } from '../../util/tokens';
+import { rememberActiveCexSwaps } from './activities/reconciler/activeCexSwapState';
+import { getBackendDexSwapIdsRepresentedByTonAggregates } from './activities/reconciler/backendDexIdentity';
+import {
+  getCexSwapIdsRepresentedBySourceActivities,
+  projectCexSwapActivities,
+} from './activities/reconciler/cexSwapReconciler';
+import { buildSwapOperationId, getWalletOperationIntents } from './activities/reconciler/operationIntentStore';
+import { reconcileTonAggregatorActivitiesForAccount } from './activities/reconciler/tonTraceReconciler';
 import { fetchStoredAccount } from './accounts';
 import { callBackendGet, callBackendPost } from './backend';
 import { getBackendConfigCache } from './cache';
@@ -52,30 +61,48 @@ export async function swapGetHistoryByAddresses(addressByChain: SwapHistoryAddre
   return items.map(convertSwapItemToTrusted);
 }
 
-export async function swapGetHistoryItem(address: string, id: string): Promise<ApiSwapHistoryItem> {
+export async function swapGetHistoryItem(
+  address: string,
+  id: string,
+  options: { authToken?: string; forceProviderRefresh?: boolean } = {},
+): Promise<ApiSwapHistoryItem> {
   const { swapVersion } = await getBackendConfigCache();
 
   const item = await callBackendGet<ApiSwapHistoryItem>(`/swap/history/${address}/${id}`, {
     swapVersion: swapVersion ?? SWAP_API_VERSION,
-  });
+    forceProviderRefresh: options.forceProviderRefresh || undefined,
+  }, options.authToken ? { 'X-Auth-Token': options.authToken } : undefined);
 
   return convertSwapItemToTrusted(item);
 }
 
-export function swapItemToActivity(swap: ApiSwapHistoryItem): ApiSwapActivity {
+export function swapItemToActivity(swap: ApiSwapHistoryItem, chain?: ApiChain): ApiSwapActivity {
+  const from = getSwapItemSlug(swap.from, chain);
+  const to = getSwapItemSlug(swap.to, chain);
+
   return {
     ...swap,
     id: buildBackendSwapId(swap.id),
     kind: 'swap',
-    from: getSwapItemSlug(swap.from),
-    to: getSwapItemSlug(swap.to),
+    from,
+    to,
     shouldLoadDetails: !swap.cex,
+    ...(swap.cex && {
+      extra: {
+        reconciliation: {
+          operationId: buildSwapOperationId(swap.id),
+          sourceActionIds: [buildBackendSwapId(swap.id)],
+          hiddenSourceActionIds: [],
+          reason: 'cex-swap' as const,
+        },
+      },
+    }),
   };
 }
 
 // FIXME: TON renaming
 export function getSwapItemSlug(asset: string, legacyChain?: ApiChain) {
-  if (asset === 'TON') {
+  if (asset === 'TON' || asset === TONCOIN.symbol) {
     return TONCOIN.slug;
   }
 
@@ -117,10 +144,11 @@ export async function patchSwapItem(options: {
   swapId: string;
   authToken: string;
   msgHash?: string;
+  msgHashNormalized?: string;
   error?: string;
 }) {
   const {
-    address, swapId, authToken, msgHash, error,
+    address, swapId, authToken, msgHash, msgHashNormalized, error,
   } = options;
 
   const { swapVersion } = await getBackendConfigCache();
@@ -128,6 +156,7 @@ export async function patchSwapItem(options: {
   await callBackendPost(`/swap/history/${address}/${swapId}/update`, {
     swapVersion: swapVersion ?? SWAP_API_VERSION,
     msgHash,
+    msgHashNormalized,
     error,
   }, {
     method: 'PATCH',
@@ -140,15 +169,136 @@ export async function swapReplaceActivities(
   activities: ApiActivity[],
   slug?: string,
   isToNow?: boolean,
+  options: { incompleteTonTraceIds?: readonly string[] } = {},
 ): Promise<ApiActivity[]> {
-  const cexActivities = await swapReplaceCexActivities(accountId, activities, slug, isToNow);
-  return aggregateTonSwapActivities(cexActivities);
+  // Both projections ask the same question of the intent store, and on the native platforms every read of it crosses
+  // the bridge, so one read serves the whole pass.
+  const intents = activities.length && parseAccountId(accountId).network !== 'testnet'
+    ? await getWalletOperationIntents(accountId)
+    : [];
+  const cexActivities = await swapReplaceCexActivities(accountId, activities, intents, slug, isToNow);
+  // TON trace aggregation owns the canonical on-chain representation. Run it before backend DEX projection so an
+  // explicitly-identical backend row is suppressed against the aggregate on every platform, not only web reducers.
+  const tonActivities = await aggregateTonSwapActivities(accountId, cexActivities, options.incompleteTonTraceIds);
+  return swapReplaceBackendDexActivities(accountId, tonActivities, intents, slug, isToNow);
+}
+
+const IN_FLIGHT_INTENT_LOOKBACK = HOUR;
+const INTENT_TIMESTAMP_MARGIN = MINUTE;
+
+/**
+ * A swap row is created moments before its chain transactions, and until finalization it carries no chain hash the
+ * request could find it by. A slice that starts at those transactions therefore misses the row of the very trade the
+ * slice belongs to. The submit intents name the rows this wallet is waiting for, so the fetch reaches back to cover
+ * them. Only the fetch window widens: row visibility keeps the original slice bounds, and a row pulled in this way
+ * surfaces only through a transaction that explicitly represents it.
+ */
+export function getBackendDexHistoryFetchFromTime(
+  fromTime: number,
+  intents: readonly WalletOperationIntent[],
+  now = Date.now(),
+) {
+  let fetchFromTime = fromTime;
+
+  for (const intent of intents) {
+    if (intent.swap?.type !== 'dex' || !intent.swap.submittedHashes?.length) continue;
+    if (intent.createdAt < now - IN_FLIGHT_INTENT_LOOKBACK) continue;
+    fetchFromTime = Math.min(fetchFromTime, intent.createdAt - INTENT_TIMESTAMP_MARGIN);
+  }
+
+  return fetchFromTime;
+}
+
+async function swapReplaceBackendDexActivities(
+  accountId: string,
+  /** Must be sorted */
+  activities: ApiActivity[],
+  intents: readonly WalletOperationIntent[],
+  slug?: string,
+  isToNow?: boolean,
+): Promise<ApiActivity[]> {
+  if (
+    !activities.length
+    || parseAccountId(accountId).network === 'testnet'
+    || !canHaveBackendDexSwap(slug, activities)
+  ) {
+    return activities;
+  }
+
+  try {
+    const { byChain: { ton: { address } = {} } } = await fetchStoredAccount(accountId);
+    if (!address) return activities;
+
+    const firstTimestamp = activities[0].timestamp;
+    const lastTimestamp = activities[activities.length - 1].timestamp;
+    const [fromTime, toTime] = firstTimestamp < lastTimestamp
+      ? [firstTimestamp, isToNow ? Date.now() : lastTimestamp]
+      : [lastTimestamp, isToNow ? Date.now() : firstTimestamp];
+
+    const hashes = unique(activities.flatMap((activity) => [
+      parseTxId(activity.id).hash,
+      activity.externalMsgHashNorm,
+    ].filter((hash): hash is string => Boolean(hash))));
+    if (!hashes.length) return activities;
+
+    const swaps = (await swapGetHistory(address, {
+      fromTimestamp: getBackendDexHistoryFetchFromTime(fromTime, intents),
+      toTimestamp: toTime,
+      asset: slug ? getTokenBySlug(slug)?.tokenAddress ?? TONCOIN.symbol : undefined,
+      hashes,
+      isCex: false,
+    })).filter((swap) => !swap.cex);
+
+    if (!swaps.length) return activities;
+
+    const swapsWithSubmittedHashes = swaps.map((swap) => {
+      return {
+        ...swap,
+        hashes: unique([
+          ...(swap.hashes ?? []),
+          swap.msgHash,
+        ].filter((hash): hash is string => Boolean(hash))),
+      };
+    });
+    const backendSwapActivities = swapsWithSubmittedHashes.map((swap) => withBackendDexReconciliationMetadata(
+      swapItemToActivity(swap),
+      [],
+    ));
+    const visibleSwapIds = new Set<string>();
+
+    for (const swap of swapsWithSubmittedHashes) {
+      const isSwapHere = swap.timestamp > fromTime && swap.timestamp < toTime;
+      if (isSwapHere) visibleSwapIds.add(swapItemToActivity(swap).id);
+    }
+
+    for (const swapId of getCexSwapIdsRepresentedBySourceActivities(
+      activities,
+      backendSwapActivities,
+      intents,
+      true,
+    )) {
+      visibleSwapIds.add(swapId);
+    }
+
+    const { projectedSourceActivities, projectedSwapActivities } = projectBackendDexSwapActivities(
+      activities,
+      backendSwapActivities,
+      visibleSwapIds,
+      intents,
+    );
+
+    return mergeSortedActivities(sortActivities(projectedSwapActivities), projectedSourceActivities);
+  } catch (err) {
+    logDebugError('swapReplaceBackendDexActivities', err);
+    return activities;
+  }
 }
 
 async function swapReplaceCexActivities(
   accountId: string,
   /** Must be sorted */
   activities: ApiActivity[],
+  intents: readonly WalletOperationIntent[],
   slug?: string,
   isToNow?: boolean,
 ): Promise<ApiActivity[]> {
@@ -177,9 +327,11 @@ async function swapReplaceCexActivities(
       ? [firstTimestamp, isToNow ? Date.now() : lastTimestamp]
       : [lastTimestamp, isToNow ? Date.now() : firstTimestamp];
 
-    const hashes = activities.map(({ id }) => parseTxId(id).hash);
+    const hashes = unique(activities.flatMap((activity) => [
+      parseTxId(activity.id).hash,
+      activity.externalMsgHashNorm,
+    ].filter((hash): hash is string => Boolean(hash))));
 
-    // FIXME: TON renaming
     const swaps = await swapGetHistoryByAddresses(addressByChain, {
       fromTimestamp: fromTime,
       toTimestamp: toTime,
@@ -192,33 +344,155 @@ async function swapReplaceCexActivities(
       return activities;
     }
 
-    const swapActivities: ApiActivity[] = [];
-    const allSwapHashes = new Set<string>();
+    await rememberActiveCexSwaps(accountId, swaps);
+
+    const allCexSwapActivities = swaps.map((swap) => swapItemToActivity(swap));
+    const visibleCexSwapIds = new Set<string>();
 
     for (const swap of swaps) {
-      swap.hashes.forEach((hash) => allSwapHashes.add(hash));
-
       const isSwapHere = swap.timestamp > fromTime && swap.timestamp < toTime;
       if (isSwapHere) {
-        swapActivities.push(swapItemToActivity(swap));
+        visibleCexSwapIds.add(swapItemToActivity(swap).id);
       }
     }
 
-    const otherActivities = activities.map((activity) => {
-      if (activity.kind === 'transaction' && allSwapHashes.has(parseTxId(activity.id).hash)) {
-        return { ...activity, shouldHide: true };
-      } else {
-        return activity;
-      }
-    });
+    // If the backend found a CEX swap through one of this page's raw transaction hashes, emit the canonical swap even
+    // when the swap timestamp is just outside the activity page. Otherwise the raw payin/payout could be hidden or
+    // filtered without a visible replacement after reload/pagination.
+    for (const swapId of getCexSwapIdsRepresentedBySourceActivities(
+      activities,
+      allCexSwapActivities,
+      intents,
+    )) {
+      visibleCexSwapIds.add(swapId);
+    }
+
+    const { projectedSourceActivities, projectedSwapActivities } = projectCexSwapActivities(
+      activities,
+      allCexSwapActivities,
+      visibleCexSwapIds,
+      intents,
+    );
 
     // Even though the swap activities returned by the backend are sorted by timestamp, the client-side sorting may differ.
     // It's important to enforce our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
-    return mergeSortedActivities(sortActivities(swapActivities), otherActivities);
+    return mergeSortedActivities(sortActivities(projectedSwapActivities), projectedSourceActivities);
   } catch (err) {
     logDebugError('swapReplaceCexActivities', err);
     return activities;
   }
+}
+
+function canHaveBackendDexSwap(slug: string | undefined, activities: ApiActivity[]) {
+  if (slug) return isTonSlug(slug);
+
+  return activities.some((activity) => {
+    return getActivityTokenSlugs(activity).some(isTonSlug);
+  });
+}
+
+function isTonSlug(slug: string) {
+  try {
+    return getChainBySlug(slug) === 'ton';
+  } catch {
+    return false;
+  }
+}
+
+export function projectBackendDexSwapActivities(
+  sourceActivities: readonly ApiActivity[],
+  backendSwapActivities: readonly ApiSwapActivity[],
+  visibleSwapIds: ReadonlySet<string>,
+  intents: readonly WalletOperationIntent[],
+) {
+  const duplicateBackendSwapIds = getBackendDexSwapIdsDuplicatedByTonAggregates(
+    sourceActivities,
+    backendSwapActivities,
+    intents,
+  );
+  const effectiveVisibleSwapIds = new Set(
+    [...visibleSwapIds].filter((id) => !duplicateBackendSwapIds.has(id)),
+  );
+  const { projectedSourceActivities, projectedSwapActivities } = projectCexSwapActivities(
+    sourceActivities,
+    backendSwapActivities,
+    effectiveVisibleSwapIds,
+    intents,
+    true,
+  );
+  const hiddenSourceIdsByOperationId = new Map<string, string[]>();
+  const swapIdByOperationId = new Map(projectedSwapActivities.map((swap) => [
+    buildSwapOperationId(parseTxId(swap.id).hash),
+    swap.id,
+  ]));
+
+  for (const activity of projectedSourceActivities) {
+    const operationId = activity.extra?.reconciliation?.operationId;
+    if (!activity.shouldHide || !operationId) continue;
+    hiddenSourceIdsByOperationId.set(operationId, [
+      ...(hiddenSourceIdsByOperationId.get(operationId) ?? []),
+      activity.id,
+    ]);
+  }
+
+  return {
+    projectedSourceActivities: projectedSourceActivities.map((activity) => {
+      if (!activity.shouldHide) return activity;
+      const operationId = activity.extra?.reconciliation?.operationId;
+      if (!operationId) return activity;
+      return withBackendDexReconciliationMetadata(
+        activity,
+        hiddenSourceIdsByOperationId.get(operationId) ?? [activity.id],
+        operationId,
+        swapIdByOperationId.get(operationId) ?? activity.id,
+      );
+    }),
+    projectedSwapActivities: projectedSwapActivities.map((swap) => {
+      return withBackendDexReconciliationMetadata(
+        swap,
+        hiddenSourceIdsByOperationId.get(buildSwapOperationId(parseTxId(swap.id).hash)) ?? [],
+      );
+    }),
+  };
+}
+
+export function getBackendDexSwapIdsDuplicatedByTonAggregates(
+  sourceActivities: readonly ApiActivity[],
+  backendSwapActivities: readonly ApiSwapActivity[],
+  intents: readonly WalletOperationIntent[],
+) {
+  return getBackendDexSwapIdsRepresentedByTonAggregates(
+    sourceActivities.filter(isVisibleTonAggregateSwap),
+    backendSwapActivities,
+    intents,
+  );
+}
+
+function isVisibleTonAggregateSwap(activity: ApiActivity): activity is ApiSwapActivity {
+  return activity.kind === 'swap'
+    && activity.shouldHide !== true
+    && Boolean(activity.extra?.mtwAggregator)
+    && activity.extra?.reconciliation?.reason === 'ton-aggregated-swap';
+}
+
+function withBackendDexReconciliationMetadata<T extends ApiActivity>(
+  activity: T,
+  hiddenSourceActionIds: string[],
+  operationId = buildSwapOperationId(parseTxId(activity.id).hash),
+  sourceActivityId = activity.id,
+): T {
+  return {
+    ...activity,
+    extra: {
+      ...activity.extra,
+      reconciliation: {
+        operationId,
+        sourceActionIds: unique([sourceActivityId, ...hiddenSourceActionIds]),
+        hiddenSourceActionIds,
+        reason: 'ton-aggregated-swap',
+      },
+    },
+  };
 }
 
 function canHaveCexSwap(slug: string | undefined, activities: ApiActivity[]): boolean {
@@ -244,194 +518,15 @@ export function convertSwapItemToTrusted(swap: ApiSwapHistoryItem): ApiSwapHisto
   };
 }
 
-function aggregateTonSwapActivities(activities: ApiActivity[]) {
-  if (!activities.length) {
-    return activities;
-  }
-
-  const aggregatorTraceIds = getAggregatorTraceIdsStorage();
-
-  const traceMap = new Map<string, {
-    swaps: { activity: ApiSwapActivity; index: number }[];
-    hasAggregatorMarker: boolean;
-  }>();
-
-  activities.forEach((activity, index) => {
-    const traceId = parseTxId(activity.id).hash;
-    const group = traceMap.get(traceId) ?? { swaps: [], hasAggregatorMarker: false };
-
-    if (
-      !getIsBackendSwapId(activity.id)
-      && activity.kind === 'swap'
-      && getChainBySlug(activity.from) === 'ton'
-      && getChainBySlug(activity.to) === 'ton'
-    ) {
-      group.swaps.push({ activity, index });
-    }
-
-    if (
-      activity.extra?.queryId === MW_AGGREGATOR_QUERY_ID
-      || activity.extra?.isOurSwapFee
-    ) {
-      group.hasAggregatorMarker = true;
-    }
-
-    traceMap.set(traceId, group);
-  });
-
-  const replacements = new Map<number, ApiActivity>();
-  const skipIndices = new Set<number>();
-
-  traceMap.forEach((group, traceId) => {
-    const aggregated = buildAggregatedSwap(traceId, group, aggregatorTraceIds.has(traceId));
-    if (!aggregated) {
-      return;
-    }
-
-    aggregatorTraceIds.add(traceId);
-    const { aggregatedActivity, primaryIndex, swapIndices } = aggregated;
-
-    replacements.set(primaryIndex, aggregatedActivity);
-    swapIndices.forEach((swapIndex) => {
-      if (swapIndex !== primaryIndex) {
-        skipIndices.add(swapIndex);
-      }
-    });
-  });
-
-  if (!replacements.size && !skipIndices.size) {
-    return activities;
-  }
-
-  const result: ApiActivity[] = [];
-
-  activities.forEach((activity, index) => {
-    if (skipIndices.has(index) && !replacements.has(index)) {
-      return;
-    }
-
-    const replacement = replacements.get(index);
-    result.push(replacement ?? activity);
-  });
-
-  return sortActivities(result);
-}
-
-function buildAggregatedSwap(
-  traceId: string,
-  group: {
-    swaps: { activity: ApiSwapActivity; index: number }[];
-    hasAggregatorMarker: boolean;
-  },
-  isKnownAggregatorTrace: boolean,
+export async function aggregateTonSwapActivities(
+  accountId: string,
+  activities: readonly ApiActivity[],
+  incompleteTraceIds: readonly string[] = [],
 ) {
-  const { swaps, hasAggregatorMarker } = group;
-
-  if (!isKnownAggregatorTrace && (!hasAggregatorMarker || swaps.length < 2)) {
-    return undefined;
-  }
-
-  if (swaps.some(({ activity }) => activity.status !== 'completed')) {
-    return undefined;
-  }
-
-  const swapIds = swaps.map(({ activity }) => activity.id);
-  const primaryIndex = Math.min(...swaps.map(({ index }) => index));
-  const primarySwap = swaps.find(({ index }) => index === primaryIndex)?.activity ?? swaps[0].activity;
-
-  const totals = new Map<string, Big>();
-  let timestamp = 0;
-  let networkFee = Big(0);
-  let swapFee = Big(0);
-  let ourFee = Big(0);
-
-  swaps.forEach(({ activity }) => {
-    timestamp = Math.max(timestamp, activity.timestamp);
-
-    totals.set(activity.from, (totals.get(activity.from) || Big(0)).minus(activity.fromAmount));
-    totals.set(activity.to, (totals.get(activity.to) || Big(0)).add(activity.toAmount));
-
-    networkFee = networkFee.add(activity.networkFee);
-    swapFee = swapFee.add(activity.swapFee);
-    ourFee = ourFee.add(activity.ourFee || '0');
-  });
-
-  const aggregatedAmounts = resolveAggregatedAmounts(totals, swaps.map(({ activity }) => activity));
-  if (!aggregatedAmounts) {
-    return undefined;
-  }
-
-  const aggregatedActivity: ApiSwapActivity = {
-    ...primarySwap,
-    ...aggregatedAmounts,
-    timestamp,
-    networkFee: networkFee.toString(),
-    swapFee: swapFee.toString(),
-    ourFee: ourFee.toString(),
-    hashes: unique(swaps.flatMap(({ activity }) => activity.hashes)),
-    extra: {
-      ...primarySwap.extra,
-      mtwAggregator: {
-        traceId,
-        swapIds,
-        from: aggregatedAmounts.from,
-        to: aggregatedAmounts.to,
-      },
-    },
-  };
-
-  return {
-    aggregatedActivity,
-    primaryIndex,
-    swapIndices: swaps.map(({ index }) => index),
-  };
+  const result = await reconcileTonAggregatorActivitiesForAccount(
+    accountId,
+    activities,
+    { incompleteTraceIds },
+  );
+  return result.activities;
 }
-
-function resolveAggregatedAmounts(
-  totals: Map<string, Big>,
-  swaps: ApiSwapActivity[],
-) {
-  let fromSlug = swaps[0]?.from;
-  let toSlug = swaps[swaps.length - 1]?.to;
-  let minEntry: [string, Big] | undefined;
-  let maxEntry: [string, Big] | undefined;
-
-  totals.forEach((value, slug) => {
-    if (!minEntry || value.lt(minEntry[1])) {
-      minEntry = [slug, value];
-    }
-    if (!maxEntry || value.gt(maxEntry[1])) {
-      maxEntry = [slug, value];
-    }
-  });
-
-  const fromAmount = minEntry && minEntry[1].lt(0) ? minEntry[1].times(-1) : Big(swaps[0].fromAmount);
-  const toAmount = maxEntry && maxEntry[1].gt(0) ? maxEntry[1] : Big(swaps[swaps.length - 1].toAmount);
-
-  if (minEntry && minEntry[1].lt(0)) {
-    fromSlug = minEntry[0];
-  }
-  if (maxEntry && maxEntry[1].gt(0)) {
-    toSlug = maxEntry[0];
-  }
-
-  if (!fromSlug || !toSlug) {
-    return undefined;
-  }
-
-  return {
-    from: fromSlug,
-    to: toSlug,
-    fromAmount: fromAmount.toString(),
-    toAmount: toAmount.toString(),
-  };
-}
-
-function getAggregatorTraceIdsStorage() {
-  // Module-level storage to reuse knowledge about aggregator traces between different slices
-  // (e.g., token-specific pagination that may miss TON-fee markers).
-  aggregatorTraceIdsStorage ??= new Set<string>();
-  return aggregatorTraceIdsStorage;
-}
-
-let aggregatorTraceIdsStorage: Set<string> | undefined;

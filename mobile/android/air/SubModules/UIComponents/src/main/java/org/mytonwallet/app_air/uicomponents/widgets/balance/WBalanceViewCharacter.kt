@@ -10,7 +10,7 @@ data class WBalanceViewCharacter(
 
     val isDecimalPart: Boolean,
     val isBaseCurrency: Boolean,
-    val left: Float,
+    val left: Float
 ) {
     val isDecimalOrBaseCurrency: Boolean
         get() {

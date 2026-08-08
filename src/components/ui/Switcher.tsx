@@ -11,6 +11,7 @@ type OwnProps = {
   value?: string;
   label?: string;
   checked?: boolean;
+  isDisabled?: boolean;
   className?: string;
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
   onCheck?: (isChecked: boolean) => void;
@@ -23,6 +24,7 @@ function Switcher({
   value,
   label,
   checked = false,
+  isDisabled,
   className,
   onChange,
   onCheck,
@@ -35,7 +37,7 @@ function Switcher({
 
   return (
     <label
-      className={buildClassName(styles.container, className)}
+      className={buildClassName(styles.container, isDisabled && styles.disabled, className)}
       title={label}
       aria-label={label}
       onClick={shouldStopPropagation ? (e) => e.stopPropagation() : undefined}
@@ -48,6 +50,7 @@ function Switcher({
         name={name}
         value={value}
         checked={checked}
+        disabled={isDisabled}
         className={styles.input}
         onChange={handleChange}
       />

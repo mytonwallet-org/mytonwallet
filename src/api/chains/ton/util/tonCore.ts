@@ -334,16 +334,17 @@ export async function getDnsItemDomain(network: ApiNetwork, address: Address | s
 
   const contract = getTonClient(network)
     .open(new DnsItem(address));
-  const nftData = await contract.getNftData();
-  const collectionAddress = toBase64Address(nftData.collectionAddress, true);
+  const { collectionAddress } = await contract.getNftData();
 
-  const zone = getDnsZoneByCollection(collectionAddress);
+  const zone = collectionAddress && getDnsZoneByCollection(toBase64Address(collectionAddress, true));
+  if (!zone) {
+    return undefined;
+  }
 
-  const base = zone?.isTelemint
+  // Telemint contracts return the full domain, the other contracts return only the part before the zone suffix
+  return zone.isTelemint
     ? await contract.getTelemintDomain()
-    : await contract.getDomain();
-
-  return `${base}.${zone?.suffixes[0]}`;
+    : `${await contract.getDomain()}.${zone.suffixes[0]}`;
 }
 
 export function buildJettonUnstakePayload(jettonsToUnstake: bigint, forceUnstake?: boolean, queryId?: bigint) {

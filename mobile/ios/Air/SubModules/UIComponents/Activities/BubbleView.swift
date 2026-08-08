@@ -26,7 +26,7 @@ public final class BubbleView: UIView {
         }
     }
     
-    public var fontSize: CGFloat = 16.0
+    public var textStyle: WTextStyle = .callout
     
     public var lineLimit: Int {
         get { label.numberOfLines }
@@ -81,15 +81,20 @@ public final class BubbleView: UIView {
         super.layoutSubviews()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let tailIsOnLeft = (direction == .incoming) != isRightToLeft
         var bubbleBounds = bounds
         if bubbleBounds.height <= 40 {
             bubbleBounds.size.height = 32
         }
-        bubbleBounds = bubbleBounds.offsetBy(dx: direction == .incoming ? -4 : 4, dy: 0)
+        bubbleBounds = bubbleBounds.offsetBy(dx: tailIsOnLeft ? -4 : 4, dy: 0)
         if bubbleBounds != bubbleLayer.frame {
             bubbleLayer.frame = bubbleBounds
             bubbleLayer.path = makeShape(bounds: bubbleLayer.bounds)
         }
+        bubbleLayer.transform = isRightToLeft
+            ? CATransform3DScale(direction.transform, -1, 1, 1)
+            : direction.transform
         CATransaction.commit()
     }
 
@@ -104,7 +109,11 @@ public final class BubbleView: UIView {
     public func setComment(_ text: String, direction: Direction, isError: Bool) {
         let attr = NSMutableAttributedString()
         
-        _sharedSetText(attr: attr, text: text.trimmingCharacters(in: .whitespacesAndNewlines), font: .systemFont(ofSize: fontSize))
+        _sharedSetText(
+            attr: attr,
+            text: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            font: WTypography.uiFont(textStyle)
+        )
         
         label.transform = .init(translationX: 0, y: 0.333)
         
@@ -122,7 +131,10 @@ public final class BubbleView: UIView {
 
         attr.appendSpacer(2)
         
-        _sharedSetText(attr: attr, text: lang("Encrypted Message"), font: .italicSystemFont(ofSize: fontSize))
+        let baseFont = WTypography.uiFont(textStyle)
+        let italicFont = baseFont.fontDescriptor.withSymbolicTraits(.traitItalic)
+            .map { UIFont(descriptor: $0, size: baseFont.pointSize) } ?? baseFont
+        _sharedSetText(attr: attr, text: lang("Encrypted Message"), font: italicFont)
         
         label.transform = .init(translationX: 0, y: -0.333)
         
@@ -154,7 +166,6 @@ public final class BubbleView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         bubbleLayer.fillColor =  isError ? errorColor.cgColor : direction.color.cgColor
-        bubbleLayer.transform = direction.transform
         CATransaction.commit()
         setNeedsLayout()
     }
@@ -164,6 +175,7 @@ public final class BubbleView: UIView {
         CATransaction.setDisableActions(true)
         bubbleLayer.fillColor =  isError ? errorColor.cgColor : direction.color.cgColor
         CATransaction.commit()
+        setNeedsLayout()
     }
 }
 
@@ -270,7 +282,7 @@ public struct SBubbleView: UIViewRepresentable {
     
     public func makeUIView(context: Context) -> BubbleView {
         let bubbleView = BubbleView()
-        bubbleView.fontSize = 17
+        bubbleView.textStyle = .body
         bubbleView.lineLimit = 30
         return bubbleView
     }

@@ -123,16 +123,16 @@ private struct ViewAccountMenuRow: View {
             VStack(alignment: .leading) {
                 if let name {
                     Text(name)
-                        .font(.system(size: 17))
+                        .textStyle(.body)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Text(formatStartEndAddress(address, prefix: 6, suffix: 6))
-                        .font(.system(size: 13))
+                        .textStyle(.footnote, content: .technical)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 } else {
                     Text(formatStartEndAddress(address, prefix: 6, suffix: 6))
-                        .font(.system(size: 17))
+                        .textStyle(.body, content: .technical)
                         .lineLimit(1)
                 }
             }

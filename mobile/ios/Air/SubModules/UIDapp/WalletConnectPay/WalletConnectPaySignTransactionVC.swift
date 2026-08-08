@@ -2,6 +2,7 @@ import Perception
 import SwiftNavigation
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import WalletCore
 import WalletContext
@@ -9,7 +10,7 @@ import WalletContext
 final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentationControllerDelegate {
     private let request: ApiUpdate.WalletConnectPaySignTransaction
     private let dappRequest: ApiUpdate.DappSendTransactions
-    private let onSubmit: (ApiUpdate.WalletConnectPaySignTransaction, String?) async throws -> ApiSignDappTransfersResult
+    private let onSubmit: (ApiUpdate.WalletConnectPaySignTransaction, EnclaveToken?) async throws -> ApiSignDappTransfersResult
     private var onCancel: (() -> Void)?
     private var isWaitingForNextStep = false
     private var sendButtonObserver: ObserveToken?
@@ -20,7 +21,7 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
 
     init(
         request: ApiUpdate.WalletConnectPaySignTransaction,
-        onSubmit: @escaping (ApiUpdate.WalletConnectPaySignTransaction, String?) async throws -> ApiSignDappTransfersResult,
+        onSubmit: @escaping (ApiUpdate.WalletConnectPaySignTransaction, EnclaveToken?) async throws -> ApiSignDappTransfersResult,
         onCancel: @escaping () -> Void
     ) {
         self.request = request
@@ -60,7 +61,7 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
     private lazy var errorLabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 14, weight: .regular)
+        lbl.applyTextStyle(.supporting)
         lbl.textAlignment = .center
         lbl.textColor = .air.error
         lbl.numberOfLines = 2
@@ -157,32 +158,17 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
     }
 
     private func submit() {
-        Task {
-            do {
-                _ = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: account,
-                    title: lang("Confirm Sending"),
-                    headerView: WalletConnectPayAuthHeaderView(
-                        merchant: request.merchant,
-                        paymentContext: WalletConnectPayPaymentContext(
-                            paymentInfo: request.paymentInfo,
-                            paymentOption: request.paymentOption
-                        ),
-                        accountContext: _account
-                    ),
-                    passwordAction: { password in
-                        try await self.onSubmit(self.request, password)
-                    },
-                    completionBehavior: .keepAuthForReplacement,
-                    prefersNavigationTitleWithCustomHeader: true,
-                    mfaTitle: lang("Confirm Sending")
-                )
-                finishConfirm()
-            } catch is CancellationError {
-            } catch {
-                showAlert(error: error)
+        let protectedAction = ProtectedAction.walletConnectPayTransaction(
+            account: account,
+            accountContext: _account,
+            request: request,
+            submit: onSubmit,
+            onCommitted: { [weak self] in
+                self?.finishConfirm()
             }
+        )
+        Task {
+            _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
 
@@ -324,7 +310,7 @@ private struct WalletConnectPayTransferRow: View {
                     Image.airBundle("ScamBadge")
                 }
                 Text(rowText)
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized, content: .technical)
                     .foregroundStyle(Color.air.primaryLabel)
                     .opacity(transfer.isScam == true ? 0.7 : 1)
                     .frame(maxWidth: .infinity, alignment: .leading)

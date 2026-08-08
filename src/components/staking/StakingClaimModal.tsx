@@ -12,6 +12,7 @@ import {
   selectAccountStakingState,
   selectCurrentAccountId,
   selectCurrentAccountTokens,
+  selectHasMultipleAccounts,
   selectIsHardwareAccount,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
@@ -19,6 +20,7 @@ import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { getTonStakingFees } from '../../util/fee/getTonOperationFees';
 import { formatCurrency } from '../../util/formatNumber';
+import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { shortenAddress } from '../../util/shortenAddress';
 
@@ -27,6 +29,8 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
 import MfaConfirm from '../common/MfaConfirm';
 import TransactionBanner from '../common/TransactionBanner';
 import TransferResult from '../common/TransferResult';
@@ -35,10 +39,12 @@ import LedgerConnect from '../ledger/LedgerConnect';
 import Button from '../ui/Button';
 import Fee from '../ui/Fee';
 import Modal from '../ui/Modal';
+import ModalHeader from '../ui/ModalHeader';
 import PasswordForm from '../ui/PasswordForm';
 import Transition from '../ui/Transition';
 
 import modalStyles from '../ui/Modal.module.scss';
+import stakingStyles from './Staking.module.scss';
 import styles from './StakingClaimModal.module.scss';
 
 interface StateProps {
@@ -52,6 +58,9 @@ interface StateProps {
   mfaRequestHash?: string;
   isHardwareAccount?: boolean;
   isSensitiveDataHidden?: true;
+  accountId?: string;
+  accountTitle?: string;
+  hasMultipleAccounts?: boolean;
 }
 
 const IS_OPEN_STATES = new Set([
@@ -60,6 +69,7 @@ const IS_OPEN_STATES = new Set([
   StakingState.ClaimConnectHardware,
   StakingState.ClaimConfirmMfa,
   StakingState.ClaimComplete,
+  StakingState.ClaimSelectAccount,
 ]);
 
 function StakingClaimModal({
@@ -73,8 +83,19 @@ function StakingClaimModal({
   mfaRequestHash,
   isHardwareAccount,
   isSensitiveDataHidden,
+  accountId,
+  accountTitle,
+  hasMultipleAccounts,
 }: StateProps) {
-  const { submitStakingClaim, cancelStakingClaim, clearStakingError, updateStakingMfaRequestStatus } = getActions();
+  const {
+    submitStakingClaim,
+    cancelStakingClaim,
+    clearStakingError,
+    updateStakingMfaRequestStatus,
+    setStakingScreen,
+    startStakingClaim,
+    switchStakingAccount,
+  } = getActions();
 
   const {
     tokenSlug,
@@ -93,14 +114,7 @@ function StakingClaimModal({
   const { gas: networkFee, real: realNetworkFee } = getTonStakingFees(stakingState?.type).claim!;
   const isNativeEnough = nativeBalance > networkFee;
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, Boolean(isOpen));
-  const withModalHeader = state === StakingState.ClaimComplete || (!isHardwareAccount && !getDoesUsePinPad());
-  const modalTitle = withModalHeader
-    ? lang(state === StakingState.ClaimComplete
-      ? 'Coins have been unstaked!'
-      : stakingState?.type === 'ethena'
-        ? 'Confirm Unstaking'
-        : 'Confirm Rewards Claim')
-    : undefined;
+  const confirmTitle = lang(stakingState?.type === 'ethena' ? 'Confirm Unstaking' : 'Confirm Rewards Claim');
 
   useInterval(() => {
     if (state === StakingState.ClaimConfirmMfa && mfaRequestHash) {
@@ -108,14 +122,26 @@ function StakingClaimModal({
     }
   }, state === StakingState.ClaimConfirmMfa ? 1000 : undefined);
 
-  const handleSubmit = useLastCallback((password: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     if (!isNativeEnough) return;
-    submitStakingClaim({ password });
+    submitStakingClaim({ enclaveToken });
   });
 
   const handleHardwareSubmit = useLastCallback(() => {
     if (!isNativeEnough) return;
     submitStakingClaim();
+  });
+
+  const handleOpenAccountSelector = useLastCallback(() => {
+    setStakingScreen({ state: StakingState.ClaimSelectAccount });
+  });
+
+  const handleSelectAccount = useLastCallback((nextAccountId: string) => {
+    switchStakingAccount({ accountId: nextAccountId, mode: 'claim' });
+  });
+
+  const handleSelectAccountBack = useLastCallback(() => {
+    startStakingClaim();
   });
 
   function renderInfo() {
@@ -174,24 +200,58 @@ function StakingClaimModal({
 
       case StakingState.ClaimPassword:
         return (
-          <PasswordForm
-            isActive={Boolean(isOpen)}
-            isLoading={isLoading}
-            withCloseButton
-            operationType="claim"
-            error={!isNativeEnough ? lang('Insufficient Balance for Fee') : error}
-            submitLabel={lang('Confirm')}
-            onSubmit={handleSubmit}
-            onCancel={cancelStakingClaim}
-            onUpdate={clearStakingError}
-          >
-            {renderInfo()}
-          </PasswordForm>
+          <>
+            {!getDoesUsePinPad() && (
+              <div
+                className={buildClassName(
+                  stakingStyles.initialHeader,
+                  hasMultipleAccounts && stakingStyles.initialHeaderWithSwitcher,
+                )}
+              >
+                <ModalHeader title={confirmTitle} onClose={cancelStakingClaim} />
+                {hasMultipleAccounts && accountId && (
+                  <AccountSwitcherPill
+                    accountId={accountId}
+                    title={accountTitle}
+                    className={stakingStyles.accountPill}
+                    onClick={!isLoading ? handleOpenAccountSelector : undefined}
+                  />
+                )}
+              </div>
+            )}
+            <PasswordForm
+              isActive={Boolean(isOpen)}
+              isLoading={isLoading}
+              withCloseButton
+              operationType="claim"
+              error={!isNativeEnough ? lang('Insufficient Balance for Fee') : error}
+              submitLabel={lang('Confirm')}
+              onAuthorize={handleAuthorize}
+              onCancel={cancelStakingClaim}
+              onUpdate={clearStakingError}
+            >
+              {renderInfo()}
+            </PasswordForm>
+          </>
+        );
+
+      case StakingState.ClaimSelectAccount:
+        return (
+          <AccountSwitcherSlide
+            isActive={isActive}
+            getIsAccountDisabled={getIsViewAccountDisabled}
+            onAccountSelect={handleSelectAccount}
+            onBack={handleSelectAccountBack}
+            onClose={cancelStakingClaim}
+          />
         );
 
       case StakingState.ClaimConfirmMfa:
         return (
           <>
+            {!isHardwareAccount && !getDoesUsePinPad() && (
+              <ModalHeader title={confirmTitle} onClose={cancelStakingClaim} />
+            )}
             <MfaConfirm
               onClose={cancelStakingClaim}
               mfaRequestHash={mfaRequestHash}
@@ -201,25 +261,28 @@ function StakingClaimModal({
 
       case StakingState.ClaimComplete:
         return (
-          <div className={modalStyles.transitionContent}>
-            <TransferResult
-              isSensitiveDataHidden={isSensitiveDataHidden}
-              color="green"
-              playAnimation={isActive}
-              amount={rewardAmount}
-              tokenSymbol={token?.symbol}
-              decimals={token?.decimals}
-              noSign
-            />
+          <>
+            <ModalHeader title={lang('Unstaked')} onClose={cancelStakingClaim} />
+            <div className={modalStyles.transitionContent}>
+              <TransferResult
+                isSensitiveDataHidden={isSensitiveDataHidden}
+                color="green"
+                playAnimation={isActive}
+                amount={rewardAmount}
+                tokenSymbol={token?.symbol}
+                decimals={token?.decimals}
+                noSign
+              />
 
-            <div className={styles.unstakeInfo}>
-              {lang('$unstake_information_instantly')}
-            </div>
+              <div className={styles.unstakeInfo}>
+                {lang('$unstake_information_instantly')}
+              </div>
 
-            <div className={modalStyles.buttons}>
-              <Button onClick={cancelStakingClaim} isPrimary>{lang('Close')}</Button>
+              <div className={modalStyles.buttons}>
+                <Button onClick={cancelStakingClaim} isPrimary>{lang('Close')}</Button>
+              </div>
             </div>
-          </div>
+          </>
         );
     }
   }
@@ -227,14 +290,12 @@ function StakingClaimModal({
   return (
     <Modal
       isOpen={isOpen}
-      title={modalTitle}
-      hasCloseButton={withModalHeader}
       contentClassName={styles.passwordModalDialog}
       onClose={cancelStakingClaim}
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}
@@ -248,7 +309,7 @@ function StakingClaimModal({
 
 export default memo(withGlobal((global): StateProps => {
   const accountId = selectCurrentAccountId(global);
-  const { byChain } = selectAccount(global, accountId!) || {};
+  const { byChain, title: accountTitle } = selectAccount(global, accountId!) || {};
   const isHardwareAccount = selectIsHardwareAccount(global);
 
   const {
@@ -273,5 +334,8 @@ export default memo(withGlobal((global): StateProps => {
     address: byChain?.ton?.address,
     isHardwareAccount,
     isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
+    accountId,
+    accountTitle,
+    hasMultipleAccounts: selectHasMultipleAccounts(global),
   };
 })(StakingClaimModal));

@@ -4,10 +4,7 @@ import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 
 @JsonClass(generateAdapter = true)
-data class WcPayMerchant(
-    val name: String,
-    val iconUrl: String? = null
-)
+data class WcPayMerchant(val name: String, val iconUrl: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class WcPayAmountDisplay(
@@ -54,10 +51,7 @@ data class WcPayAmount(
 }
 
 @JsonClass(generateAdapter = true)
-data class WcPayPaymentInfo(
-    val expiresAt: Long,
-    val amount: WcPayAmount? = null
-)
+data class WcPayPaymentInfo(val expiresAt: Long, val amount: WcPayAmount? = null)
 
 @JsonClass(generateAdapter = true)
 data class WcPayPaymentOption(

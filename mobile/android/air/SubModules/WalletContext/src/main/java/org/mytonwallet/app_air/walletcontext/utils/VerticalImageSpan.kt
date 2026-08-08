@@ -6,16 +6,23 @@ import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.text.style.ImageSpan
 import androidx.core.graphics.withSave
+import kotlin.math.roundToInt
 
 class VerticalImageSpan(
     drawable: Drawable,
     private val shouldFlipForRTL: Boolean = false,
     private val startPadding: Int = 0,
     private val endPadding: Int = 0,
-    private val verticalAlignment: VerticalAlignment = VerticalAlignment.ASCENT_DESCENT
+    private val verticalAlignment: VerticalAlignment = VerticalAlignment.ASCENT_DESCENT,
+    private val verticalOffsetEm: Float = 0f,
+    private val isRTL: Boolean = false
 ) : ImageSpan(drawable) {
 
-    constructor(drawable: Drawable, isRTL: Boolean) : this(drawable, shouldFlipForRTL = isRTL)
+    constructor(drawable: Drawable, isRTL: Boolean) : this(
+        drawable,
+        shouldFlipForRTL = isRTL,
+        isRTL = isRTL
+    )
 
     constructor(drawable: Drawable, startPadding: Int, endPadding: Int) : this(
         drawable,
@@ -37,17 +44,29 @@ class VerticalImageSpan(
         val drawable = drawable
         val rect: Rect = drawable.bounds
         if (fontMetricsInt != null) {
-            val fmPaint = paint.fontMetricsInt
-            val fontHeight = fmPaint.descent - fmPaint.ascent
             val drHeight = rect.bottom - rect.top
-            val centerY = fmPaint.ascent + fontHeight / 2
+            val drawableTop = getDrawableTop(paint)
+            val drawableBottom = drawableTop + drHeight
 
-            fontMetricsInt.ascent = centerY - drHeight / 2
-            fontMetricsInt.top = fontMetricsInt.ascent
-            fontMetricsInt.bottom = centerY + drHeight / 2
-            fontMetricsInt.descent = fontMetricsInt.bottom
+            fontMetricsInt.ascent = drawableTop
+            fontMetricsInt.top = drawableTop
+            fontMetricsInt.bottom = drawableBottom
+            fontMetricsInt.descent = drawableBottom
         }
         return rect.right + startPadding + endPadding
+    }
+
+    private fun getDrawableTop(paint: Paint): Int {
+        val fontMetrics = paint.fontMetricsInt
+        val centerY = when (verticalAlignment) {
+            VerticalAlignment.ASCENT_DESCENT ->
+                fontMetrics.descent - (fontMetrics.descent - fontMetrics.ascent) / 2
+
+            VerticalAlignment.TOP_BOTTOM ->
+                fontMetrics.bottom - (fontMetrics.bottom - fontMetrics.top) / 2
+        }
+        val verticalOffset = (paint.textSize * verticalOffsetEm).roundToInt()
+        return centerY - drawable.bounds.height() / 2 + verticalOffset
     }
 
     /**
@@ -76,18 +95,8 @@ class VerticalImageSpan(
     ) {
         val drawable = drawable
         canvas.withSave {
-            val fmPaint = paint.fontMetricsInt
-            val fontHeight: Int
-            val centerY: Int
-            if (verticalAlignment == VerticalAlignment.ASCENT_DESCENT) {
-                fontHeight = fmPaint.descent - fmPaint.ascent
-                centerY = y + fmPaint.descent - fontHeight / 2
-            } else {
-                fontHeight = fmPaint.bottom - fmPaint.top
-                centerY = y + fmPaint.bottom - fontHeight / 2
-            }
-            val transY = centerY - (drawable.bounds.bottom - drawable.bounds.top) / 2
-            translate(x + startPadding, transY.toFloat())
+            val leftPadding = if (isRTL) endPadding else startPadding
+            translate(x + leftPadding, (y + getDrawableTop(paint)).toFloat())
 
             if (shouldFlipForRTL) {
                 val drawableWidth = drawable.bounds.width()
@@ -101,6 +110,7 @@ class VerticalImageSpan(
     }
 
     enum class VerticalAlignment {
-        ASCENT_DESCENT, TOP_BOTTOM
+        ASCENT_DESCENT,
+        TOP_BOTTOM
     }
 }

@@ -31,7 +31,9 @@ class StackLinearChartData : ChartData {
 
             val removed = ArrayList<Line>()
             for (k in lines.indices) {
-                if (total != 0L && totalCount[k] / total.toDouble() < 0.01 && emptyCount[k] > x.size / 2f) {
+                if (total != 0L && totalCount[k] / total.toDouble() < 0.01 &&
+                    emptyCount[k] > x.size / 2f
+                ) {
                     removed.add(lines[k])
                 }
             }
@@ -73,7 +75,7 @@ class StackLinearChartData : ChartData {
                     id = source.id,
                     name = source.name,
                     color = source.color,
-                    colorDark = source.colorDark,
+                    colorDark = source.colorDark
                 )
             )
         }

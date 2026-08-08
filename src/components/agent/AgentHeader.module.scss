@@ -4,7 +4,7 @@
   position: absolute !important;
   z-index: 3;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   display: grid;
   grid-template-columns: 1fr max-content 1fr;

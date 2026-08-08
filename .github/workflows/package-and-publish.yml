@@ -222,6 +222,16 @@ jobs:
         id: branch-name
         uses: tj-actions/branch-names@v7
 
+      # Staging has no publish block in config.yml. Mutate the single canonical config in place (rather
+      # than a second file that would duplicate the funds-critical appId/productName) so the generic
+      # provider bakes the feed URL into app-update.yml. This URL must equal BETA_UPDATE_URL in config.ts.
+      - name: Point staging electron-builder at the beta feed
+        if: env.PUBLISH_REPO == ''
+        run: |
+          yq -i '.publish = {"provider":"generic","url":"https://s3.mywallet.io/public/desktop-beta"} | .mac.artifactName = "MyWallet-${version}-${arch}.${ext}"' src/electron/config.yml
+          echo "Effective staging publish/artifactName:"
+          yq '.publish, .mac.artifactName' src/electron/config.yml
+
       - name: Build, package and publish
         env:
           ELECTRON_TONCENTER_MAINNET_KEY: ${{ secrets.ELECTRON_TONCENTER_MAINNET_KEY }}
@@ -273,18 +283,32 @@ jobs:
             echo "Removed unsigned $NAME"
           done
 
+      # The mac dmgs are globbed by name here and re-globbed as `mac-*-dmg` by the beta publish job. The
+      # `*` matches both the production fixed name (MyWallet-x64.dmg) and the staging versioned one
+      # (MyWallet-<version>-x64.dmg); the default productName "My Wallet" has a space and would not.
       - name: Upload macOS x64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME_BASE }}-x64.dmg
-          path: dist-electron/${{ env.ARTIFACT_NAME_BASE }}-x64.dmg
+          name: mac-x64-dmg
+          path: dist-electron/MyWallet-*x64.dmg
           if-no-files-found: error
 
       - name: Upload macOS arm64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME_BASE }}-arm64.dmg
-          path: dist-electron/${{ env.ARTIFACT_NAME_BASE }}-arm64.dmg
+          name: mac-arm64-dmg
+          path: dist-electron/MyWallet-*arm64.dmg
+          if-no-files-found: error
+
+      - name: Upload mac feed for beta publish
+        if: env.PUBLISH_REPO == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-feed
+          path: |
+            dist-electron/MyWallet-*.zip
+            dist-electron/MyWallet-*.zip.blockmap
+            dist-electron/latest-mac.yml
           if-no-files-found: error
 
       - name: Upload Linux artifact
@@ -352,6 +376,79 @@ jobs:
         with:
           name: ${{ env.FILE_NAME_X64 }}
           path: ${{ steps.download-x64.outputs.download-path }}/${{ env.FILE_NAME_X64 }}
+
+  electron-beta-publish:
+    name: Publish beta desktop feed to MinIO
+    needs: electron-release
+    if: github.ref == 'refs/heads/master' && vars.PUBLISH_REPO == ''
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    # A publish writes several files to one feed in sequence. Serialize runs and never cancel one
+    # mid-way: an interrupted publish leaves the feed half-rewritten, mixing files of two versions.
+    concurrency:
+      group: beta-feed-publish
+      cancel-in-progress: false
+    steps:
+      - name: Download mac feed
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-feed
+          path: feed
+      - name: Download mac DMGs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mac-*-dmg
+          path: feed
+          merge-multiple: true
+      - name: Prepare MinIO client
+        uses: mytonwallet-org/shared-actions/prepare_minio@master
+        with:
+          endpoint: ${{ secrets.S3_ENDPOINT }}
+          access-key: ${{ vars.S3_ACCESS_KEY }}
+          secret-key: ${{ secrets.S3_SECRET_KEY }}
+          mc-version: ${{ vars.MC_VERSION }}
+      - name: Skip if this version is already published
+        id: guard
+        run: |
+          set -euo pipefail
+          BUILD_VER=$(yq '.version' feed/latest-mac.yml)
+          GATE=$(mc cat s3/public/desktop-beta/electronVersion.txt 2>/dev/null || echo "0.0.0")
+          HIGHEST=$(printf '%s\n%s\n' "$GATE" "$BUILD_VER" | sort -V | tail -1)
+          echo "build=$BUILD_VER gate=$GATE highest=$HIGHEST"
+          # electronVersion.txt is the gate the client polls before it downloads, so a build no newer than
+          # the gate can never reach a tester - skip it. sort -V compares versions, not strings; the second
+          # branch (highest still the gate) also catches an out-of-order run trying to roll the feed back.
+          if [ "$GATE" = "$BUILD_VER" ] || [ "$HIGHEST" = "$GATE" ]; then
+            echo "::warning::gate ($GATE) >= build ($BUILD_VER); the build cannot reach testers - skipping publish"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "build_ver=$BUILD_VER" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish feed
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          D=s3/public/desktop-beta
+          # Order is load-bearing: payloads and manifest first, the gate (electronVersion.txt) LAST. The
+          # client polls the gate every few minutes; raising it before its files are up sends a client that
+          # polls in the gap to fetch a version the feed cannot serve yet.
+          mc cp feed/MyWallet-*.zip feed/MyWallet-*.zip.blockmap "$D/"
+          mc cp feed/MyWallet-*x64.dmg   "$D/MyWallet-x64.dmg"
+          mc cp feed/MyWallet-*arm64.dmg "$D/MyWallet-arm64.dmg"
+          mc cp feed/latest-mac.yml "$D/latest-mac.yml"
+          printf '%s' "${{ steps.guard.outputs.build_ver }}" | mc pipe "$D/electronVersion.txt"
+      - name: Prune old beta payloads
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          D=s3/public/desktop-beta
+          for arch in x64 arm64; do
+            mc ls "$D/" | awk '{print $NF}' | grep -E "^MyWallet-.*-${arch}\.zip$" | sort -V | head -n -3 | while read -r f; do
+              mc rm "$D/$f" "$D/$f.blockmap" || true
+            done
+          done
 
   # Runs on every path that creates a draft release (the same `PUBLISH_REPO` condition that makes
   # electron-builder publish one), not only on the master push that `publish-release` is gated to.
@@ -702,6 +799,10 @@ jobs:
         if: env.PUBLISH_REPO == ''
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Run Android JVM tests
+        working-directory: mobile/android
+        run: ./gradlew testDebugUnitTest
+
       - name: Package and publish
         env:
           ANDROID_API_KEY_BASE64: ${{ secrets.ANDROID_API_KEY_BASE64 }}
@@ -783,8 +884,10 @@ jobs:
               echo "IOS_APP_NAME=MyTonWallet" >> "$GITHUB_ENV"
               echo "IOS_APP_IDENTIFIER=org.mytonwallet.app" >> "$GITHUB_ENV"
               echo "IOS_APP_IDENTIFIER_WIDGET=org.mytonwallet.app.AirWidget" >> "$GITHUB_ENV"
+              echo "IOS_APP_IDENTIFIER_NOTIFICATION=org.mytonwallet.app.notification-service" >> "$GITHUB_ENV"
               echo "IOS_SCHEME=MyTonWallet" >> "$GITHUB_ENV"
               echo "IOS_WIDGET_SCHEME=AirWidgetExtension" >> "$GITHUB_ENV"
+              echo "IOS_NOTIFICATION_SCHEME=MyTonWalletNotificationServiceExtension" >> "$GITHUB_ENV"
               echo "IOS_PLIST_PATH=../../App/App/Resources/MyTonWallet/Info.plist" >> "$GITHUB_ENV"
               echo "IOS_TESTFLIGHT_GROUP=${IOS_TESTFLIGHT_GROUP:-MTW external group}" >> "$GITHUB_ENV"
               ;;
@@ -792,8 +895,10 @@ jobs:
               echo "IOS_APP_NAME=Gram Wallet" >> "$GITHUB_ENV"
               echo "IOS_APP_IDENTIFIER=io.gramwallet.app" >> "$GITHUB_ENV"
               echo "IOS_APP_IDENTIFIER_WIDGET=io.gramwallet.app.widget" >> "$GITHUB_ENV"
+              echo "IOS_APP_IDENTIFIER_NOTIFICATION=io.gramwallet.app.notification-service" >> "$GITHUB_ENV"
               echo "IOS_SCHEME=GramWallet" >> "$GITHUB_ENV"
               echo "IOS_WIDGET_SCHEME=GramWalletWidgetExtension" >> "$GITHUB_ENV"
+              echo "IOS_NOTIFICATION_SCHEME=GramWalletNotificationServiceExtension" >> "$GITHUB_ENV"
               echo "IOS_PLIST_PATH=../../App/App/Resources/GramWallet/Info.plist" >> "$GITHUB_ENV"
               echo "IOS_TESTFLIGHT_GROUP=${IOS_GRAM_TESTFLIGHT_GROUP:-Gram Wallet external group}" >> "$GITHUB_ENV"
               ;;
@@ -837,10 +942,12 @@ jobs:
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
           IOS_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
           IOS_GRAM_CERTIFICATE_BASE64: ${{ secrets.IOS_GRAM_CERTIFICATE_BASE64 }}
           IOS_GRAM_CERTIFICATE_PASSWORD: ${{ secrets.IOS_GRAM_CERTIFICATE_PASSWORD }}
           IOS_GRAM_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_BASE64 }}
           IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
           IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
@@ -849,12 +956,14 @@ jobs:
           CERTIFICATE_PASSWORD="$IOS_CERTIFICATE_PASSWORD"
           PROVISION_PROFILE_BASE64="$IOS_PROVISION_PROFILE_BASE64"
           PROVISION_PROFILE_WIDGET_BASE64="$IOS_PROVISION_PROFILE_WIDGET_BASE64"
+          PROVISION_PROFILE_NOTIFICATION_BASE64="$IOS_PROVISION_PROFILE_NOTIFICATION_BASE64"
 
           if [ "$APP_VARIANT" = "gram" ]; then
             CERTIFICATE_BASE64="${IOS_GRAM_CERTIFICATE_BASE64:-$IOS_CERTIFICATE_BASE64}"
             CERTIFICATE_PASSWORD="${IOS_GRAM_CERTIFICATE_PASSWORD:-$IOS_CERTIFICATE_PASSWORD}"
             PROVISION_PROFILE_BASE64="$IOS_GRAM_PROVISION_PROFILE_BASE64"
             PROVISION_PROFILE_WIDGET_BASE64="$IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64"
+            PROVISION_PROFILE_NOTIFICATION_BASE64="$IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64"
           fi
 
           if [ -z "$CERTIFICATE_BASE64" ]; then
@@ -865,7 +974,7 @@ jobs:
             echo "::error::Missing iOS distribution certificate password for $APP_VARIANT"
             exit 1
           fi
-          if [ -z "$PROVISION_PROFILE_BASE64" ] || [ -z "$PROVISION_PROFILE_WIDGET_BASE64" ]; then
+          if [ -z "$PROVISION_PROFILE_BASE64" ] || [ -z "$PROVISION_PROFILE_WIDGET_BASE64" ] || [ -z "$PROVISION_PROFILE_NOTIFICATION_BASE64" ]; then
             echo "::error::Missing iOS provisioning profiles for $APP_VARIANT"
             exit 1
           fi
@@ -874,12 +983,14 @@ jobs:
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           PP_WIDGET_PATH=$RUNNER_TEMP/build_pp_widget.mobileprovision
+          PP_NOTIFICATION_PATH=$RUNNER_TEMP/build_pp_notification.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate and provisioning profile from secrets
           echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
           echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
           echo -n "$PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode -o $PP_WIDGET_PATH
+          echo -n "$PROVISION_PROFILE_NOTIFICATION_BASE64" | base64 --decode -o $PP_NOTIFICATION_PATH
 
           # create temporary keychain
           security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -894,18 +1005,23 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_WIDGET_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_NOTIFICATION_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
           # print keychain contents
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
           security cms -D -i "$PP_PATH" > /tmp/app_profile.plist
           security cms -D -i "$PP_WIDGET_PATH" > /tmp/widget_profile.plist
+          security cms -D -i "$PP_NOTIFICATION_PATH" > /tmp/notification_profile.plist
           APP_PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/app_profile.plist)
           WIDGET_PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/widget_profile.plist)
+          NOTIFICATION_PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/notification_profile.plist)
           echo "IOS_PROFILE_NAME=$APP_PROFILE_NAME" >> "$GITHUB_ENV"
           echo "IOS_PROFILE_NAME_WIDGET=$WIDGET_PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "IOS_PROFILE_NAME_NOTIFICATION=$NOTIFICATION_PROFILE_NAME" >> "$GITHUB_ENV"
           /usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/app_profile.plist
           /usr/libexec/PlistBuddy -c 'Print :Name' /tmp/app_profile.plist
           /usr/libexec/PlistBuddy -c 'Print :Name' /tmp/widget_profile.plist
+          /usr/libexec/PlistBuddy -c 'Print :Name' /tmp/notification_profile.plist
 
       - name: "iOS: Package and publish"
         env:

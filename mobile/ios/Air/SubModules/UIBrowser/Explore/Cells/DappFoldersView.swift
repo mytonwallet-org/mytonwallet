@@ -68,7 +68,7 @@ struct DappFolderView: View {
             // MARK: Folder name
 
             Text(vm.categoryName)
-                .font(.system(size: 12, weight: .medium))
+                .textStyle(.captionEmphasized)
                 .frame(height: 12)
         }
     }

@@ -13,6 +13,10 @@ import android.os.Bundle
 import android.widget.RemoteViews
 import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
+import java.util.Date
+import java.util.LinkedList
+import java.util.Queue
+import kotlin.math.absoluteValue
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
@@ -35,10 +39,6 @@ import org.mytonwallet.app_air.widgets.utils.ImageUtils
 import org.mytonwallet.app_air.widgets.utils.TextUtils
 import org.mytonwallet.app_air.widgets.utils.colorWithAlpha
 import org.mytonwallet.app_air.widgets.utils.dp
-import java.util.Date
-import java.util.LinkedList
-import java.util.Queue
-import kotlin.math.absoluteValue
 
 class PriceWidget : AppWidgetProvider() {
     companion object {
@@ -94,27 +94,26 @@ class PriceWidget : AppWidgetProvider() {
             }(),
             cachedChartDt = config?.optLong("cachedChartDt") ?: 0,
             cachedChartCurrency = config?.optString("cachedChartCurrency"),
-            isShown = config?.optBoolean("isShown") ?: false,
+            isShown = config?.optBoolean("isShown") ?: false
         )
 
-        fun toJson(): JSONObject =
-            JSONObject()
-                .put("token", token)
-                .put("period", period?.value)
-                .put("appWidgetMinWidth", appWidgetMinWidth)
-                .put("appWidgetMinHeight", appWidgetMinHeight)
-                .put("appWidgetMaxWidth", appWidgetMaxWidth)
-                .put("appWidgetMaxHeight", appWidgetMaxHeight).apply {
-                    val chartArray = cachedChart.map { array ->
-                        array.fold(JSONArray()) { jsonArr, value ->
-                            jsonArr.put(value)
-                        }
+        fun toJson(): JSONObject = JSONObject()
+            .put("token", token)
+            .put("period", period?.value)
+            .put("appWidgetMinWidth", appWidgetMinWidth)
+            .put("appWidgetMinHeight", appWidgetMinHeight)
+            .put("appWidgetMaxWidth", appWidgetMaxWidth)
+            .put("appWidgetMaxHeight", appWidgetMaxHeight).apply {
+                val chartArray = cachedChart.map { array ->
+                    array.fold(JSONArray()) { jsonArr, value ->
+                        jsonArr.put(value)
                     }
-                    put("cachedChart", JSONArray(chartArray))
-                    put("cachedChartDt", cachedChartDt)
-                    put("cachedChartCurrency", cachedChartCurrency)
-                    put("isShown", isShown)
                 }
+                put("cachedChart", JSONArray(chartArray))
+                put("cachedChartDt", cachedChartDt)
+                put("cachedChartCurrency", cachedChartCurrency)
+                put("isShown", isShown)
+            }
 
         val tokenChain: String?
             get() {
@@ -136,8 +135,7 @@ class PriceWidget : AppWidgetProvider() {
             get() {
                 if (tokenChain == "ton") {
                     tokenAddress?.let {
-                        if (!it.isEmpty())
-                            return it
+                        if (!it.isEmpty()) return it
                     }
                 }
                 return token?.optString("symbol") ?: DEFAULT_TOKEN_ASSET_ID
@@ -179,23 +177,25 @@ class PriceWidget : AppWidgetProvider() {
         val minHeight = newOptions.getInt("appWidgetMinHeight")
         val maxWidth = newOptions.getInt("appWidgetMaxWidth")
         val maxHeight = newOptions.getInt("appWidgetMaxHeight")
-        if (minWidth == 0 || minHeight == 0 || maxWidth == 0 || maxHeight == 0)
-            return
+        if (minWidth == 0 || minHeight == 0 || maxWidth == 0 || maxHeight == 0) return
         ApplicationContextHolder.update(context.applicationContext)
         WBaseStorage.init(context)
         val config = Config(WBaseStorage.getWidgetConfigurations(appWidgetId) ?: JSONObject())
-        WBaseStorage.setWidgetConfigurations(appWidgetId, config.apply {
-            appWidgetMinWidth = minWidth
-            appWidgetMinHeight = minHeight
-            appWidgetMaxWidth = maxWidth
-            appWidgetMaxHeight = maxHeight
-        }.toJson())
+        WBaseStorage.setWidgetConfigurations(
+            appWidgetId,
+            config.apply {
+                appWidgetMinWidth = minWidth
+                appWidgetMinHeight = minHeight
+                appWidgetMaxWidth = maxWidth
+                appWidgetMaxHeight = maxHeight
+            }.toJson()
+        )
         appWidgetManager?.let {
             updateAppWidget(
                 context,
                 appWidgetManager,
                 appWidgetId,
-                config,
+                config
             )
         }
     }
@@ -203,7 +203,7 @@ class PriceWidget : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
+        appWidgetIds: IntArray
     ) {
         updateAppWidgets(context, appWidgetManager, appWidgetIds, null)
     }
@@ -256,7 +256,7 @@ class PriceWidget : AppWidgetProvider() {
                     context,
                     appWidgetManager,
                     appWidgetId,
-                    config,
+                    config
                 )
                 processNextWidget()
             } ?: run {
@@ -265,13 +265,14 @@ class PriceWidget : AppWidgetProvider() {
                     return
                 }
                 // Update with latest chart data available if base currencies match
-                if (config.cachedChartCurrency == baseCurrency.currencyCode)
+                if (config.cachedChartCurrency == baseCurrency.currencyCode) {
                     updateAppWidget(
                         context,
                         appWidgetManager,
                         appWidgetId,
-                        config,
+                        config
                     )
+                }
                 // Ignore requesting again if it's updated less than a minute ago
                 if (config.cachedChart.isNotEmpty() &&
                     config.cachedChartDt > System.currentTimeMillis() - 60_000 &&
@@ -304,7 +305,7 @@ class PriceWidget : AppWidgetProvider() {
                                 context,
                                 appWidgetManager,
                                 appWidgetId,
-                                config,
+                                config
                             )
                             processNextWidget()
                         }
@@ -323,7 +324,7 @@ class PriceWidget : AppWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        config: Config,
+        config: Config
     ) {
         val orientation = context.resources.configuration.orientation
         val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -358,13 +359,17 @@ class PriceWidget : AppWidgetProvider() {
             config.token?.optString("image", ""),
             onBitmapReady = { image ->
                 try {
+                    val widgetWidth =
+                        if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth
+                    val widgetHeight =
+                        if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight
                     appWidgetManager.updateAppWidget(
                         appWidgetId,
                         generateRemoteViews(
                             context,
                             config,
-                            if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth,
-                            if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight,
+                            widgetWidth,
+                            widgetHeight,
                             image,
                             appWidgetId
                         )
@@ -377,7 +382,8 @@ class PriceWidget : AppWidgetProvider() {
                             "size=${config.appWidgetMinWidth}x${config.appWidgetMaxHeight}: $t"
                     )
                 }
-            })
+            }
+        )
     }
 
     @SuppressLint("DefaultLocale")
@@ -402,10 +408,7 @@ class PriceWidget : AppWidgetProvider() {
         // PREPARE VALUES //////////////////////////////////////////////////////////////////////////
         val priceChartData = config.cachedChart.toTypedArray()
         val baseColor = config.token?.optString("color", DEFAULT_COLOR)?.let {
-            if (it != "null")
-                it.toColorInt()
-            else
-                DEFAULT_COLOR.toColorInt()
+            if (it != "null") it.toColorInt() else DEFAULT_COLOR.toColorInt()
         } ?: DEFAULT_COLOR.toColorInt()
         val firstEntry = priceChartData.firstOrNull {
             it[1] != 0.0
@@ -417,7 +420,9 @@ class PriceWidget : AppWidgetProvider() {
                 priceChangeValue = priceChartData.last()[1] - firstPrice
                 priceChangeValue * 100 / firstPrice
             }
-        } else null
+        } else {
+            null
+        }
 
         image?.let {
             views.setImageViewBitmap(R.id.image_symbol, it)
@@ -433,20 +438,24 @@ class PriceWidget : AppWidgetProvider() {
             change < 0 -> "-$signSpace"
             else -> ""
         }
-        val priceChangeAndDateBitmap = if (priceChangePercent != null) TextUtils.textToBitmap(
-            context,
-            TextUtils.DrawableText(
-                "$sign${
-                    String.format(
-                        "%.2f",
-                        kotlin.math.abs(priceChangePercent)
-                    )
-                }% · ${Date(priceChartData.last()[0].toLong() * 1000).formatTime()}",
-                size = 15,
-                color = Color.WHITE.colorWithAlpha(191),
-                FontUtils.regular(context)
+        val priceChangeAndDateBitmap = if (priceChangePercent != null) {
+            TextUtils.textToBitmap(
+                context,
+                TextUtils.DrawableText(
+                    "$sign${
+                        String.format(
+                            "%.2f",
+                            kotlin.math.abs(priceChangePercent)
+                        )
+                    }% · ${Date(priceChartData.last()[0].toLong() * 1000).formatTime()}",
+                    size = 15,
+                    color = Color.WHITE.colorWithAlpha(191),
+                    FontUtils.regular(context)
+                )
             )
-        ) else null
+        } else {
+            null
+        }
         val symbolBitmap = TextUtils.textToBitmap(
             context,
             TextUtils.DrawableText(
@@ -457,54 +466,71 @@ class PriceWidget : AppWidgetProvider() {
             )
         )
         val baseCurrency =
-            if (config.cachedChartCurrency != config.tokenSymbol)
+            if (config.cachedChartCurrency != config.tokenSymbol) {
                 config.cachedChartCurrency?.let { MBaseCurrency.parse(it) }
-            else
+            } else {
                 MBaseCurrency.USD
-        val firstPriceSmallBitmap = if (forcedCompact) null else TextUtils.textToBitmap(
-            context,
-            TextUtils.DrawableText(
-                firstEntry?.get(1)
-                    ?.toString(9, baseCurrency?.sign ?: "", 9, true) ?: "",
-                size = 18,
-                color = Color.WHITE,
-                FontUtils.balance(context)
+            }
+        val firstPriceSmallBitmap = if (forcedCompact) {
+            null
+        } else {
+            TextUtils.textToBitmap(
+                context,
+                TextUtils.DrawableText(
+                    firstEntry?.get(1)
+                        ?.toString(9, baseCurrency?.sign ?: "", 9, true) ?: "",
+                    size = 18,
+                    color = Color.WHITE,
+                    FontUtils.balance(context)
+                )
             )
-        )
-        val currentPriceSmallBitmap = if (forcedCompact) null else TextUtils.textToBitmap(
-            context,
-            TextUtils.DrawableText(
-                priceChartData
-                    .lastOrNull()
-                    ?.get(1)
-                    ?.toString(9, baseCurrency?.sign ?: "", 9, true) ?: "",
-                size = 18,
-                color = Color.WHITE,
-                FontUtils.balance(context)
+        }
+        val currentPriceSmallBitmap = if (forcedCompact) {
+            null
+        } else {
+            TextUtils.textToBitmap(
+                context,
+                TextUtils.DrawableText(
+                    priceChartData
+                        .lastOrNull()
+                        ?.get(1)
+                        ?.toString(9, baseCurrency?.sign ?: "", 9, true) ?: "",
+                    size = 18,
+                    color = Color.WHITE,
+                    FontUtils.balance(context)
+                )
             )
-        )
-        val priceDate1SmallBitmap = if (forcedCompact) null else TextUtils.textToBitmap(
-            context,
-            TextUtils.DrawableText(
-                Date(firstEntry!![0].toLong() * 1000).formatDateAndTime(
-                    config.period ?: MHistoryTimePeriod.DAY
-                ),
-                size = 14,
-                color = Color.WHITE.colorWithAlpha(191),
-                FontUtils.regular(context)
+        }
+        val priceDate1SmallBitmap = if (forcedCompact) {
+            null
+        } else {
+            TextUtils.textToBitmap(
+                context,
+                TextUtils.DrawableText(
+                    Date(firstEntry!![0].toLong() * 1000).formatDateAndTime(
+                        config.period ?: MHistoryTimePeriod.DAY
+                    ),
+                    size = 14,
+                    color = Color.WHITE.colorWithAlpha(191),
+                    FontUtils.regular(context)
+                )
             )
-        )
-        val priceDate2SmallBitmap = if (forcedCompact) null else TextUtils.textToBitmap(
-            context,
-            TextUtils.DrawableText(
-                Date(priceChartData.last()[0].toLong() * 1000).formatDateAndTime(
-                    config.period ?: MHistoryTimePeriod.DAY
-                ),
-                size = 14,
-                color = Color.WHITE.colorWithAlpha(191),
-                FontUtils.regular(context)
+        }
+        val priceDate2SmallBitmap = if (forcedCompact) {
+            null
+        } else {
+            TextUtils.textToBitmap(
+                context,
+                TextUtils.DrawableText(
+                    Date(priceChartData.last()[0].toLong() * 1000).formatDateAndTime(
+                        config.period ?: MHistoryTimePeriod.DAY
+                    ),
+                    size = 14,
+                    color = Color.WHITE.colorWithAlpha(191),
+                    FontUtils.regular(context)
+                )
             )
-        )
+        }
         val smallHeaderRowSize =
             (symbolBitmap?.width ?: 0) + (priceChangeAndDateBitmap?.width ?: 0) + 74.dp
         val smallTopRowSize =
@@ -529,7 +555,8 @@ class PriceWidget : AppWidgetProvider() {
             views.setImageViewBitmap(R.id.text_change, null)
             // Price on left
             views.setImageViewBitmap(
-                R.id.text_left, TextUtils.textToBitmap(
+                R.id.text_left,
+                TextUtils.textToBitmap(
                     context,
                     TextUtils.DrawableText(
                         priceChartData
@@ -552,7 +579,8 @@ class PriceWidget : AppWidgetProvider() {
         } else {
             drawChart(context, views, priceChartData, baseColor, width, height, false)
             views.setImageViewBitmap(
-                R.id.text_change, TextUtils.textToBitmap(
+                R.id.text_change,
+                TextUtils.textToBitmap(
                     context,
                     TextUtils.DrawableText(
                         "$sign${
@@ -575,10 +603,12 @@ class PriceWidget : AppWidgetProvider() {
                 )
             )
             views.setImageViewBitmap(
-                R.id.text_left, firstPriceSmallBitmap
+                R.id.text_left,
+                firstPriceSmallBitmap
             )
             views.setImageViewBitmap(
-                R.id.text_bottom_left, priceDate1SmallBitmap
+                R.id.text_bottom_left,
+                priceDate1SmallBitmap
             )
             views.setImageViewBitmap(R.id.text_right, currentPriceSmallBitmap)
             views.setImageViewBitmap(R.id.text_bottom_right, priceDate2SmallBitmap)
@@ -598,7 +628,7 @@ class PriceWidget : AppWidgetProvider() {
     ) {
         val chartWidth = width?.dp ?: 0
         val chartHeight = (height?.dp ?: 0) - 130.dp
-        if (chartWidth > 0 && chartHeight > 0)
+        if (chartWidth > 0 && chartHeight > 0) {
             views.setImageViewBitmap(
                 R.id.chart,
                 ChartUtils.chartToBitmap(
@@ -610,6 +640,7 @@ class PriceWidget : AppWidgetProvider() {
                     paddingBottom = if (isCompact) 80.dp else 68.dp
                 )
             )
+        }
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray?) {

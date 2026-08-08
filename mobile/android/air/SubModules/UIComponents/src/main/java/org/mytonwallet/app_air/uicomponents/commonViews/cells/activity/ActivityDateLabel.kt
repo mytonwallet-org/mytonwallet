@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells.activity
 
 import android.content.Context
+import java.util.Date
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -10,7 +11,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
-import java.util.Date
 
 class ActivityDateLabel(context: Context) : WLabel(context) {
 
@@ -42,5 +42,4 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, 40.dp.exactly)
     }
-
 }

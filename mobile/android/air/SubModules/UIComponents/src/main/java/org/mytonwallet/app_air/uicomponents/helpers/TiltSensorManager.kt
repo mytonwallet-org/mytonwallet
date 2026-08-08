@@ -5,10 +5,10 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import kotlin.math.abs
 import kotlin.math.pow
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 
 object TiltSensorManager {
     interface TiltObserver {
@@ -62,8 +62,7 @@ object TiltSensorManager {
 
     fun removeObserver(observer: TiltObserver) {
         observers.remove(observer)
-        if (observers.isEmpty())
-            stop()
+        if (observers.isEmpty()) stop()
     }
 
     fun onAppPause() {
@@ -81,7 +80,9 @@ object TiltSensorManager {
             isListening ||
             observers.isEmpty() ||
             !DevicePerformanceClassifier.isHighClass
-        ) return
+        ) {
+            return
+        }
 
         val context = ApplicationContextHolder.applicationContext
         sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager

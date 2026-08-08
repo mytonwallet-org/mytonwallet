@@ -127,10 +127,11 @@ export async function getAccountChains(
   })));
 }
 
-/** EIP-5792 `wallet_getCapabilities`: normalize hex chain id (no leading zero digits after `0x`). */
+/** EIP-5792 `wallet_getCapabilities`: normalize chain id (no leading zero digits after `0x`). */
 export function normalizeEip155HexChainId(hex: string): string {
-  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
-  return `0x${BigInt(withPrefix).toString(16)}`;
+  const value = String(hex ?? '');
+  if (!value) throw new TypeError('Invalid chain ID');
+  return `0x${BigInt(value).toString(16)}`;
 }
 
 export function caip2ToHexChainId(caip2: string): string {
@@ -142,8 +143,9 @@ export function caip2ToHexChainId(caip2: string): string {
 }
 
 export function hexToEip155Caip2(hex: string): string {
-  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
-  return `eip155:${BigInt(withPrefix)}`;
+  const value = String(hex ?? '');
+  if (!value) throw new TypeError('Invalid chain ID');
+  return `eip155:${BigInt(value)}`;
 }
 
 function getWalletConnectAuthMethodsForNamespace(namespace: string): string[] {

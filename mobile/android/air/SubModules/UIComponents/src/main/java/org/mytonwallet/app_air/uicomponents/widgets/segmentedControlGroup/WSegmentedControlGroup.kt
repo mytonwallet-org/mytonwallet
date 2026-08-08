@@ -20,7 +20,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedView {
+class WSegmentedControlGroup(context: Context) :
+    LinearLayout(context),
+    WThemedView {
 
     private var selectedButtonIndex = 0
     private var buttonWidth = 0
@@ -44,7 +46,6 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
     private var dividerStrokeWidth = 1f
     private var dividerMargin = 0
     private var inset: Float = 0F
-
 
     private var animator: ValueAnimator? = null
     private var cancelledPosition: Float? = null
@@ -90,7 +91,9 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
         setSelectedIndexCallback = callback@{
             when {
                 index == selectedButtonIndex -> return@callback
+
                 shouldAnimate -> animateButtonMovement(newPositionIndex = index)
+
                 else -> {
                     selectedButtonIndex = index
                     updateChildrenTheme(selectedButtonIndex)
@@ -129,11 +132,12 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
         val actionIndex = event.actionIndex
 
         when (event.actionMasked) {
-
             MotionEvent.ACTION_DOWN -> {
                 lastTouchX = event.getX(actionIndex)
                 activePointerId = event.getPointerId(0)
-                if (lastTouchX >= sliderPosition + inset && lastTouchX <= sliderPosition + buttonWidth - inset) {
+                if (lastTouchX >= sliderPosition + inset &&
+                    lastTouchX <= sliderPosition + buttonWidth - inset
+                ) {
                     isSliderTouched = true
                 }
             }
@@ -186,7 +190,9 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
         }
 
         val endPos = childCount - 1
-        if (endPos > 0 && optionPositionsMap[endPos] != null && pointerPosX > optionPositionsMap[endPos]!!) {
+        if (endPos > 0 && optionPositionsMap[endPos] != null &&
+            pointerPosX > optionPositionsMap[endPos]!!
+        ) {
             newPositionIndex = endPos
         }
 
@@ -220,7 +226,6 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
         }
 
         animator = ValueAnimator.ofFloat(lastPosition, newPosition).apply {
-
             interpolator = DecelerateInterpolator(1f)
 
             addUpdateListener {
@@ -277,12 +282,15 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
     private fun drawDivider(canvas: Canvas?, buttonWidth: Int) {
         for (i in 1 until childCount) {
             val lineTranslationX = buttonWidth * i.toFloat()
-            if (lineTranslationX < sliderPosition || lineTranslationX > sliderPosition + buttonWidth) {
+            if (lineTranslationX < sliderPosition ||
+                lineTranslationX > sliderPosition + buttonWidth
+            ) {
                 canvas?.drawLine(
                     lineTranslationX,
                     dividerMargin.toFloat(),
                     lineTranslationX,
-                    height.toFloat() - dividerMargin.toFloat(), dividerPaint
+                    height.toFloat() - dividerMargin.toFloat(),
+                    dividerPaint
                 )
             }
         }
@@ -350,10 +358,11 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
     private fun updateChildrenTheme(selectedIndex: Int, animated: Boolean = false) {
         children.forEachIndexed { index, view ->
             (view as? WLabel)?.let {
-                val targetColor = if (index == selectedIndex)
+                val targetColor = if (index == selectedIndex) {
                     WColor.PrimaryText.color
-                else
+                } else {
                     WColor.SecondaryText.color
+                }
                 if (it.currentTextColor != targetColor) {
                     if (animated) {
                         it.animateTextColor(targetColor, 300)

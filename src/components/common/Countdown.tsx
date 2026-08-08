@@ -4,6 +4,7 @@ import type { LangFn } from '../../hooks/useLang';
 
 import buildClassName from '../../util/buildClassName';
 import { SECOND } from '../../util/dateFormat';
+import { toNativeDigits } from '../../util/nativeDigits';
 import { setCancellableTimeout } from '../../util/schedulers';
 
 import useLang from '../../hooks/useLang';
@@ -64,7 +65,7 @@ function formatTime(lang: LangFn, seconds: number): string {
   formattedTime += `${hours > 0 ? pad(minutes) : minutes}:`;
   formattedTime += pad(remainingSeconds);
 
-  return formattedTime;
+  return toNativeDigits(formattedTime);
 }
 
 export default memo(Countdown);

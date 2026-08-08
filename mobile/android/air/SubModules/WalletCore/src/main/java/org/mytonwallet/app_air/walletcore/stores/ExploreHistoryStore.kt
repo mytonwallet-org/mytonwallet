@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import java.util.concurrent.Executors
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
-import java.util.concurrent.Executors
 
 object ExploreHistoryStore : IStore {
 
@@ -32,7 +32,8 @@ object ExploreHistoryStore : IStore {
             it.title.lowercase() == text.lowercase()
         }
         exploreHistory?.searchHistory?.add(
-            0, MExploreHistory.HistoryItem(text, System.currentTimeMillis())
+            0,
+            MExploreHistory.HistoryItem(text, System.currentTimeMillis())
         )
         saveBrowserHistory(accountId, exploreHistory)
     }
@@ -51,8 +52,7 @@ object ExploreHistoryStore : IStore {
     }
 
     private fun saveBrowserHistory(accountId: String?, browserHistory: MExploreHistory?) {
-        if (AccountStore.activeAccountId != accountId)
-            return
+        if (AccountStore.activeAccountId != accountId) return
         accountId?.let {
             WCacheStorage.setExploreHistory(accountId, adapter.toJson(browserHistory))
         }

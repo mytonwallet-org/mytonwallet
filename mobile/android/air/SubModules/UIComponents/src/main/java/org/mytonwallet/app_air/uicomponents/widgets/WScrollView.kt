@@ -6,15 +6,14 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.widget.ScrollView
-import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import java.lang.ref.WeakReference
 import kotlin.math.max
+import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 
 @SuppressLint("ViewConstructor")
-open class WScrollView(
-    private val viewController: WeakReference<WViewController>
-) : ScrollView(viewController.get()!!.context) {
+open class WScrollView(private val viewController: WeakReference<WViewController>) :
+    ScrollView(viewController.get()!!.context) {
 
     companion object {
         const val SCROLL_STATE_IDLE = 0
@@ -57,9 +56,7 @@ open class WScrollView(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         if (onScrollStateChange != null) {
-
             when (ev.actionMasked) {
-
                 MotionEvent.ACTION_DOWN -> {
                     scrollStateHandler.removeCallbacks(scrollStateRunnable)
                     setScrollState(SCROLL_STATE_DRAGGING)
@@ -67,7 +64,6 @@ open class WScrollView(
 
                 MotionEvent.ACTION_UP,
                 MotionEvent.ACTION_CANCEL -> {
-
                     lastScrollY = scrollY
 
                     scrollStateHandler.postDelayed(
@@ -134,5 +130,4 @@ open class WScrollView(
             post { smoothScrollTo(0, target.coerceIn(0, maxScroll)) }
         }
     }
-
 }

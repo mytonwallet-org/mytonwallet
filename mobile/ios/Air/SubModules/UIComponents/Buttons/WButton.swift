@@ -21,11 +21,20 @@ public enum WButtonStyle {
 public class WButton: WBaseButton {
 
     public static let defaultHeight: CGFloat = 50
+    public static let glassHeight: CGFloat = 52
     public static let compactHeight: CGFloat = 42
     static let borderRadius: CGFloat = 12
-    public static let font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-    public static let capsuleFont = UIFont.systemFont(ofSize: 17, weight: .medium)
-    public static let compactFont = UIFont.systemFont(ofSize: 15, weight: .medium)
+    public static var font: UIFont {
+        WTypography.uiFont(.button)
+    }
+
+    public static var capsuleFont: UIFont {
+        WTypography.uiFont(.capsuleButton)
+    }
+
+    public static var compactFont: UIFont {
+        WTypography.uiFont(.compactButton)
+    }
 
     public static func font(for style: WButtonStyle) -> UIFont {
         switch style {
@@ -40,10 +49,22 @@ public class WButton: WBaseButton {
 
     public private(set) var style = WButtonStyle.primary
 
+    public var customTintColor: UIColor? {
+        didSet {
+            updateTheme()
+        }
+    }
+
+    public var customTitleFont: UIFont? {
+        didSet {
+            updateTitleAppearance()
+        }
+    }
+
     private var hasCustomDisabledAttributedTitle = false
 
     private var accentColor: UIColor {
-        window?.tintColor ?? AirTintColor
+        customTintColor ?? window?.tintColor ?? AirTintColor
     }
 
     public convenience init(style: WButtonStyle = .primary) {
@@ -51,16 +72,16 @@ public class WButton: WBaseButton {
         self.style = style
         self.setup()
     }
-    
+
     private func setup() {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             switch style {
             case .clearBackground, .secondary:
                 configuration = .glass()
-                
+
             case .primary:
                 configuration = .prominentGlass()
-                
+
             case .destructive:
                 var config = UIButton.Configuration.prominentGlass()
                 config.baseBackgroundColor = destructiveColor
@@ -69,14 +90,14 @@ public class WButton: WBaseButton {
 
             case .compactCapsule:
                 setupCompactGlassCapsule()
-                
+
             case .thickCapsule:
                 setupThickGlassCapsule(enabledForeground: nil)
 
             case .thickDestructiveCapsule:
                 setupThickGlassCapsule(enabledForeground: destructiveColor)
             }
-            
+
         } else {
             // disable default styling of iOS 15+ to prevent tint/font set conflict issues
             // setting configuration to .none on interface builder makes text disappear
@@ -89,7 +110,7 @@ public class WButton: WBaseButton {
 
             case .thickDestructiveCapsule:
                 setupThickCapsule(enabledForeground: destructiveColor, disabledForeground: .air.secondaryLabel)
-                
+
             default:
                 configuration = .none
                 layer.cornerRadius = Self.borderRadius
@@ -100,7 +121,7 @@ public class WButton: WBaseButton {
         heightConstraint.priority = UILayoutPriority(800)
         heightConstraint.isActive = true
 
-        titleLabel?.font = Self.font(for: style)
+        titleLabel?.font = resolvedTitleFont
         updateTheme()
     }
 
@@ -109,10 +130,14 @@ public class WButton: WBaseButton {
         case .compactCapsule:
             compactHeight
         default:
-            defaultHeight
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                glassHeight
+            } else {
+                defaultHeight
+            }
         }
     }
-    
+
     private var primaryButtonTint: UIColor {
         if accentColor == .label {
             return .air.background
@@ -154,7 +179,7 @@ public class WButton: WBaseButton {
             .air.secondaryLabel
         }
     }
-    
+
     private var destructiveColor: UIColor { .air.error }
 
     private var usesGlassButtonStyling: Bool {
@@ -164,14 +189,42 @@ public class WButton: WBaseButton {
         return false
     }
 
+    private var resolvedTitleFont: UIFont {
+        customTitleFont ?? Self.font(for: style)
+    }
+
+    private var configuredTitleForegroundColor: UIColor? {
+        if style == .destructive || (customTintColor != nil && style == .primary) {
+            .white
+        } else {
+            nil
+        }
+    }
+
+    private func applyTitleAppearance(to config: inout UIButton.Configuration) {
+        let font = resolvedTitleFont
+        let foregroundColor = configuredTitleForegroundColor
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = font
+            if let foregroundColor {
+                outgoing.foregroundColor = foregroundColor
+            }
+            return outgoing
+        }
+    }
+
+    private func updateTitleAppearance() {
+        titleLabel?.font = resolvedTitleFont
+        guard var config = configuration else { return }
+        applyTitleAppearance(to: &config)
+        configuration = config
+    }
+
     private func applyThickCapsuleAppearance(to config: inout UIButton.Configuration) {
         config.cornerStyle = .capsule
         config.titleLineBreakMode = .byTruncatingTail
-        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var outgoing = incoming
-            outgoing.font = WButton.font(for: self.style)
-            return outgoing
-        }
+        applyTitleAppearance(to: &config)
         config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
     }
 
@@ -180,12 +233,10 @@ public class WButton: WBaseButton {
         config.titleLineBreakMode = .byTruncatingTail
         config.imagePlacement = .leading
         config.imagePadding = 6
-        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var outgoing = incoming
-            outgoing.font = WButton.font(for: self.style)
-            return outgoing
-        }
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
+            font: WTypography.uiFont(.calloutEmphasized, content: .technical)
+        )
+        applyTitleAppearance(to: &config)
         config.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 18, bottom: 10, trailing: 18)
     }
 
@@ -263,7 +314,21 @@ public class WButton: WBaseButton {
 
     private func updateTheme() {
         if usesGlassButtonStyling {
-            tintColor = .tintColor
+            tintColor = customTintColor ?? .tintColor
+            if var config = configuration {
+                switch style {
+                case .primary:
+                    config.baseBackgroundColor = customTintColor
+                    config.baseForegroundColor = customTintColor == nil ? nil : .white
+                case .destructive:
+                    config.baseBackgroundColor = customTintColor ?? destructiveColor
+                    config.baseForegroundColor = .white
+                default:
+                    break
+                }
+                applyTitleAppearance(to: &config)
+                configuration = config
+            }
         } else {
             switch style {
             case .primary:
@@ -325,10 +390,10 @@ public class WButton: WBaseButton {
             updateTheme()
         }
     }
-    
+
     public override func layoutSubviews() {
         super.layoutSubviews()
-        
+
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             //
         } else {
@@ -337,7 +402,7 @@ public class WButton: WBaseButton {
             }
         }
     }
-    
+
     // MARK: - Loading View
 
     private var loadingView: WActivityIndicator?
@@ -374,7 +439,7 @@ public class WButton: WBaseButton {
         loadingView = indicator
         return indicator
     }
-    
+
     public func apply(config: WButtonConfig) {
         self.setTitle(config.title, for: .normal)
         self.isEnabled = config.isEnabled

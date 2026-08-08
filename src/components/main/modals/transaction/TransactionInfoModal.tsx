@@ -143,8 +143,8 @@ function TransactionInfoModal({
     {
       closePasswordSlide: closePasswordSlideBase,
       clearPasswordError,
-      handlePasswordSubmit,
-      openHiddenComment,
+      handleAuthorizeComment,
+      handleCommentReveal,
       resetDecryptedComment,
     },
   ] = useEncryptedComment({
@@ -318,7 +318,7 @@ function TransactionInfoModal({
             encryptedComment={encryptedComment}
             decryptedComment={decryptedComment}
             canDecryptComment={canDecryptComment}
-            onDecryptComment={openHiddenComment}
+            onDecryptComment={handleCommentReveal}
           />
         </>
       );
@@ -357,7 +357,7 @@ function TransactionInfoModal({
         isActive={isActive}
         error={passwordError}
         childClassName={styles.scrollableContent}
-        onSubmit={handlePasswordSubmit}
+        onAuthorize={handleAuthorizeComment}
         onCancel={closePasswordSlide}
         onUpdate={clearPasswordError}
         onClose={handleClose}

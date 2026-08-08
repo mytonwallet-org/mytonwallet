@@ -6,6 +6,7 @@ import type { DropdownItem } from './Dropdown';
 
 import buildClassName from '../../util/buildClassName';
 
+import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import DropdownMenu from './DropdownMenu';
@@ -39,6 +40,7 @@ function Tab({
   onMenuItemClick,
   onActiveClick,
 }: OwnProps) {
+  const lang = useLang();
   const menuRef = useRef<HTMLDivElement>();
   const contentRef = useRef<HTMLDivElement>();
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition | undefined>();
@@ -68,7 +70,9 @@ function Tab({
     if (isMenuOpen) {
       closeMenu();
     } else {
-      const { right: x, y, height } = contentRef.current!.getBoundingClientRect();
+      const { left, right, y, height } = contentRef.current!.getBoundingClientRect();
+      // RTL: mirror the anchor edge
+      const x = lang.isRtl ? left : right;
       setMenuAnchor({ x, y: y + height });
     }
   });

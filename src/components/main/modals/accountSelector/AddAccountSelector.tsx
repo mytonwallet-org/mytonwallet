@@ -2,6 +2,7 @@ import React, { memo } from '../../../../lib/teact/teact';
 
 import { IS_FEATURE_LIMITED } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
+import { toNativeDigits } from '../../../../util/nativeDigits';
 import { IS_LEDGER_SUPPORTED } from '../../../../util/windowEnvironment';
 
 import useLang from '../../../../hooks/useLang';
@@ -80,7 +81,7 @@ function AddAccountSelector({
         <ListItem
           icon="key"
           label={lang('$secret_words')}
-          description={lang('Restore wallet from 12 or 24 words')}
+          description={toNativeDigits(lang('Restore wallet from 12 or 24 words'))}
           onClick={onImportAccountClick}
           isLoading={isNewAccountImporting && isLoading}
         />

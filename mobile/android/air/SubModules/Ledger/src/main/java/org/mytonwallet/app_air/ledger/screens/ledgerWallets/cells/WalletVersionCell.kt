@@ -1,7 +1,8 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
@@ -10,11 +11,13 @@ import androidx.core.view.isGone
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.LedgerWalletsVC
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -25,11 +28,10 @@ import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import kotlin.math.roundToInt
 
-class LedgerWalletCell(
-    context: Context,
-) : WCell(context), WThemedView {
+class LedgerWalletCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     private var item: LedgerWalletsVC.Item? = null
     var onTap: ((item: LedgerWalletsVC.Item) -> Unit)? = null
@@ -112,11 +114,7 @@ class LedgerWalletCell(
     private var contentAlphaMultiplier: Float = 1f
     private var pendingInsertRunnable: Runnable? = null
 
-    fun configure(
-        item: LedgerWalletsVC.Item,
-        isAdded: Boolean = false,
-        animationDelay: Long = 0L,
-    ) {
+    fun configure(item: LedgerWalletsVC.Item, isAdded: Boolean = false, animationDelay: Long = 0L) {
         pendingInsertRunnable?.let(::removeCallbacks)
         pendingInsertRunnable = null
 
@@ -134,11 +132,15 @@ class LedgerWalletCell(
                 styleDots()
             }
         bottomLeftLabel.text =
-            if (item.title != null) SpannableStringBuilder(
-                item.wallet.wallet.address.formatStartEndAddress()
-            ).apply {
-                styleDots()
-            } else null
+            if (item.title != null) {
+                SpannableStringBuilder(
+                    item.wallet.wallet.address.formatStartEndAddress()
+                ).apply {
+                    styleDots()
+                }
+            } else {
+                null
+            }
         bottomLeftLabel.isGone = bottomLeftLabel.text.isNullOrEmpty()
         val toncoin = TokenStore.getToken(TONCOIN_SLUG)
         toncoin?.price?.let { price ->
@@ -204,5 +206,4 @@ class LedgerWalletCell(
             start()
         }
     }
-
 }

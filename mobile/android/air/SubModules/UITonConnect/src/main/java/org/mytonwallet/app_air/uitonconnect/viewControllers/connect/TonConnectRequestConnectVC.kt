@@ -6,10 +6,11 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
-import androidx.core.view.isVisible
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import kotlin.math.max
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -36,33 +37,38 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
+import org.mytonwallet.app_air.walletcore.helpers.DappDeeplinkReturnTracker
+import org.mytonwallet.app_air.walletcore.helpers.WalletCreationVM
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TonConnectRequestConnectVC(
     context: Context,
     private var update: ApiUpdate.ApiUpdateDappConnect? = null
-) : WViewController(context) {
+) : WViewController(context),
+    WalletCreationVM.Delegate {
+    @Suppress("PropertyName")
     override val TAG = "TonConnectRequestConnect"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = false
 
     private val requestView = ConnectRequestView(context).apply {
-        configure(update?.dapp)
+        configure(update?.dapp, update?.needsNewMultichainWallet == true)
     }
 
     private val headerView = HeaderCell(context).apply {
@@ -75,7 +81,7 @@ class TonConnectRequestConnectVC(
 
     private val warningView = WLabel(context).apply {
         setStyle(14f, WFont.Regular)
-        setTextColor(WColor.Red.color)
+        setTextColor(WColor.Orange.color)
         visibility = View.GONE
         text = LocaleController.getString("No matching chains")
         gravity = Gravity.CENTER
@@ -89,13 +95,15 @@ class TonConnectRequestConnectVC(
         orientation = LinearLayout.VERTICAL
 
         addView(
-            requestView, ConstraintLayout.LayoutParams(
+            requestView,
+            ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
         addView(
-            headerView, LinearLayout.LayoutParams(
+            headerView,
+            LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 48.dp
             ).apply {
@@ -104,7 +112,8 @@ class TonConnectRequestConnectVC(
             }
         )
         addView(
-            accountView, LinearLayout.LayoutParams(
+            accountView,
+            LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 SettingsAccountCell.heightForItem(true)
             ).apply {
@@ -113,23 +122,25 @@ class TonConnectRequestConnectVC(
                 rightMargin = 10.dp
             }
         )
+        addView(
+            warningView,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                leftMargin = 20.dp
+                topMargin = 12.dp
+                rightMargin = 20.dp
+            }
+        )
     }
 
     private val bottomContainer = LinearLayout(context).apply {
         id = View.generateViewId()
         orientation = LinearLayout.VERTICAL
         addView(
-            warningView, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                leftMargin = 20.dp
-                topMargin = 5.5f.dp.roundToInt()
-                rightMargin = 20.dp
-                bottomMargin = 6.dp
-            })
-        addView(
-            buttonView, LinearLayout.LayoutParams(
+            buttonView,
+            LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
@@ -137,7 +148,8 @@ class TonConnectRequestConnectVC(
                 topMargin = 8.dp
                 rightMargin = 20.dp
                 bottomMargin = 15.dp
-            })
+            }
+        )
     }
 
     private val scrollView = ScrollView(context).apply {
@@ -145,7 +157,8 @@ class TonConnectRequestConnectVC(
         isVerticalScrollBarEnabled = false
         clipToPadding = false
         addView(
-            scrollingContentView, ConstraintLayout.LayoutParams(
+            scrollingContentView,
+            ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
@@ -161,13 +174,15 @@ class TonConnectRequestConnectVC(
         }
 
         view.addView(
-            scrollView, ConstraintLayout.LayoutParams(
+            scrollView,
+            ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
         view.addView(
-            bottomContainer, ConstraintLayout.LayoutParams(
+            bottomContainer,
+            ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
@@ -178,6 +193,7 @@ class TonConnectRequestConnectVC(
             toBottom(bottomContainer)
         }
 
+        normalizeSelectedAccount()
         updateButtonState()
         updateHeaderView()
         updateAccountView()
@@ -186,6 +202,16 @@ class TonConnectRequestConnectVC(
 
         buttonView.setOnClickListener {
             val update = update ?: return@setOnClickListener
+
+            if (update.needsNewMultichainWallet) {
+                createMultichainWallet(update)
+                return@setOnClickListener
+            }
+
+            if (!isSelectedAccountCompatible()) {
+                openWalletSelection()
+                return@setOnClickListener
+            }
 
             val account = AccountStore.accountById(update.accountId)
 
@@ -210,7 +236,7 @@ class TonConnectRequestConnectVC(
             if (!requiresSigning) {
                 connectConfirm(
                     update.promiseId,
-                    passcode = ""
+                    enclaveToken = ""
                 ) { success, _ ->
                     if (success) {
                         window!!.dismissLastNav()
@@ -238,7 +264,7 @@ class TonConnectRequestConnectVC(
             0f,
             true
         )
-        warningView.setTextColor(WColor.Red.color)
+        warningView.setTextColor(WColor.Orange.color)
     }
 
     override fun insetsUpdated() {
@@ -248,7 +274,10 @@ class TonConnectRequestConnectVC(
             (navigationController?.imeInsetBottom ?: 0)
         )
         bottomContainer.setPaddingRelative(
-            systemBarStartInset, 0, systemBarEndInset, bottomInset
+            systemBarStartInset,
+            0,
+            systemBarEndInset,
+            bottomInset
         )
         scrollView.setPaddingRelative(
             systemBarStartInset,
@@ -301,10 +330,14 @@ class TonConnectRequestConnectVC(
                     proof = update.proof!!
                 ),
                 onDone = {
+                    isConfirmed = true
                     window!!.dismissLastNav {
-                        window!!.dismissLastNav()
+                        window!!.dismissLastNav {
+                            returnToDappIfNeeded(update.promiseId)
+                        }
                     }
-                }),
+                }
+            ),
             headerView = ConnectRequestConfirmView(context).apply { configure(update.dapp) }
         )
         val nav = WNavigationController(
@@ -324,12 +357,13 @@ class TonConnectRequestConnectVC(
             PasscodeViewState.CustomHeader(
                 ConnectRequestConfirmView(context).apply { configure(update.dapp) },
                 LocaleController.getString("Confirm")
-            ), task = { passcode ->
+            ),
+            task = { enclaveToken ->
                 val accountHasMfa = AccountStore.accountById(update.accountId)
                     ?.byChain?.get(TON_CHAIN)?.mfa != null
                 connectConfirm(
                     update.promiseId,
-                    passcode,
+                    enclaveToken,
                     { success, mfaHash ->
                         if (!success) return@connectConfirm
                         if (mfaHash != null) {
@@ -342,6 +376,13 @@ class TonConnectRequestConnectVC(
                                     onConfirmed = { _ ->
                                         finalizeMfaDappConnect()
                                     },
+                                    onClosedBeforeFinish = { wasMfaConfirmed, _ ->
+                                        if (wasMfaConfirmed) {
+                                            finalizeMfaDappConnect()
+                                        } else {
+                                            cancelMfaDappConnect()
+                                        }
+                                    }
                                 )
                             navVC.push(mfaVC, onCompletion = {
                                 navVC.removePrevViewControllerOnly()
@@ -356,7 +397,8 @@ class TonConnectRequestConnectVC(
                         window.dismissLastNav()
                     }
                 }
-            })
+            }
+        )
         navVC = WNavigationController(
             window,
             WNavigationController.PresentationConfig.PreferredFullScreen
@@ -368,7 +410,7 @@ class TonConnectRequestConnectVC(
     var isConfirmed = false
     private fun connectConfirm(
         promiseId: String,
-        passcode: String,
+        enclaveToken: String,
         onCompletion: (success: Boolean, mfaRequestHash: String?) -> Unit
     ) {
         val update = update ?: return
@@ -378,21 +420,25 @@ class TonConnectRequestConnectVC(
         fun callback(account: MAccount) {
             window!!.lifecycleScope.launch {
                 try {
-                    val signResult = if (update.proof != null) WalletCore.call(
-                        ApiMethod.DApp.SignDappProof(
-                            listOfNotNull(account.dappChain(TON_CHAIN)),
-                            account.accountId,
-                            update.proof,
-                            passcode
+                    val signResult = if (update.proof != null) {
+                        WalletCore.call(
+                            ApiMethod.DApp.SignDappProof(
+                                listOfNotNull(account.dappChain(TON_CHAIN)),
+                                account.accountId,
+                                update.proof,
+                                enclaveToken
+                            )
                         )
-                    ) else null
+                    } else {
+                        null
+                    }
 
                     val accountMfa = account.byChain[TON_CHAIN]?.mfa
                     if (accountMfa != null) {
                         val mfaResult = WalletCore.call(
                             ApiMethod.DApp.CreateDappConnectMfaRequest(
                                 accountId = account.accountId,
-                                password = passcode,
+                                enclaveToken = enclaveToken
                             )
                         )
                         val hash = mfaResult.mfaRequestHash
@@ -407,7 +453,7 @@ class TonConnectRequestConnectVC(
                             promiseId = promiseId,
                             accountId = account.accountId,
                             proofSignatures = signResult?.signatures,
-                            hash = hash,
+                            hash = hash
                         )
                         onCompletion(true, hash)
                         return@launch
@@ -423,6 +469,7 @@ class TonConnectRequestConnectVC(
                         )
                     )
                     onCompletion(true, null)
+                    returnToDappIfNeeded(promiseId)
                 } catch (err: JSWebViewBridge.ApiError) {
                     Logger.e(Logger.LogTag.TON_CONNECT, "submitConnect: $err")
                     isConfirmed = false
@@ -439,7 +486,7 @@ class TonConnectRequestConnectVC(
                 notifySDK = true
             ) { activatedAccount, _ ->
                 val activatedAccount = activatedAccount ?: return@activateAccount
-                callback(activatedAccount);
+                callback(activatedAccount)
             }
         }
     }
@@ -448,7 +495,7 @@ class TonConnectRequestConnectVC(
         val promiseId: String,
         val accountId: String,
         val proofSignatures: List<String>?,
-        val hash: String,
+        val hash: String
     )
 
     private var pendingMfaConnect: PendingMfaConnect? = null
@@ -464,21 +511,165 @@ class TonConnectRequestConnectVC(
                         pending.promiseId,
                         ApiMethod.DApp.ConfirmDappRequestConnect.Request(
                             pending.accountId,
-                            pending.proofSignatures,
-                        ),
+                            pending.proofSignatures
+                        )
                     )
                 )
             } catch (err: JSWebViewBridge.ApiError) {
                 Logger.e(Logger.LogTag.TON_CONNECT, "finishConnect: $err")
+                return@launch
             }
-            navigationController?.let { window.dismissNav(it) }
+            navigationController?.let {
+                window.dismissNav(it)
+                returnToDappIfNeeded(pending.promiseId)
+            }
+        }
+    }
+
+    private fun cancelMfaDappConnect() {
+        val pending = pendingMfaConnect ?: return
+        pendingMfaConnect = null
+        val window = window ?: return
+        window.lifecycleScope.launch {
+            try {
+                WalletCore.call(
+                    ApiMethod.DApp.CancelDappRequest(
+                        promiseId = pending.promiseId,
+                        reason = "user reject"
+                    )
+                )
+            } catch (err: JSWebViewBridge.ApiError) {
+                Logger.e(Logger.LogTag.TON_CONNECT, "cancelMfaConnect: $err")
+            }
+            navigationController?.let(window::dismissNav)
+            returnToDappIfNeeded(pending.promiseId)
+        }
+    }
+
+    private fun createMultichainWallet(update: ApiUpdate.ApiUpdateDappConnect) {
+        val window = window ?: return
+        if (!WGlobalStorage.isPasscodeSet()) {
+            // Express creation needs an existing passcode; fall back to the full add-wallet flow.
+            cancelAndOpenAddWallet(update)
+            return
+        }
+        lateinit var passcodeConfirmVC: PasscodeConfirmVC
+        passcodeConfirmVC = PasscodeConfirmVC(
+            context,
+            PasscodeViewState.Default(
+                LocaleController.getString("Enter Passcode"),
+                "",
+                LocaleController.getString("Create Multichain Wallet"),
+                showNavigationSeparator = false,
+                startWithBiometrics = true
+            ),
+            task = { enclaveToken ->
+                createWalletAndResume(passcodeConfirmVC, update, enclaveToken)
+            }
+        )
+        passcodeConfirmVC.isTaskAsync = true
+        val nav = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
+        nav.setRoot(passcodeConfirmVC)
+        window.present(nav)
+    }
+
+    private val walletCreationVM by lazy {
+        WalletCreationVM(this)
+    }
+    private var creationPasscodeConfirmVC: PasscodeConfirmVC? = null
+    private var creationDappUpdate: ApiUpdate.ApiUpdateDappConnect? = null
+
+    private fun createWalletAndResume(
+        passcodeConfirmVC: PasscodeConfirmVC,
+        update: ApiUpdate.ApiUpdateDappConnect,
+        enclaveToken: String
+    ) {
+        passcodeConfirmVC.view.lockView()
+        creationPasscodeConfirmVC = passcodeConfirmVC
+        creationDappUpdate = update
+        WalletCore.call(ApiMethod.Auth.GenerateMnemonic(), callback = { words, err ->
+            val window = window
+            if (words == null || window == null) {
+                passcodeConfirmVC.view.unlockView()
+                passcodeConfirmVC.showError(err?.parsed)
+                return@call
+            }
+            walletCreationVM.finalizeAccount(
+                window,
+                MBlockchainNetwork.ofAccountId(update.accountId),
+                words,
+                0,
+                enclaveToken
+            )
+        })
+    }
+
+    override fun showError(error: MBridgeError?) {
+        val passcodeConfirmVC = creationPasscodeConfirmVC
+        if (passcodeConfirmVC != null) {
+            passcodeConfirmVC.view.unlockView()
+            passcodeConfirmVC.showError(error)
+            return
+        }
+        super.showError(error)
+    }
+
+    override fun finalizedCreation(createdAccount: MAccount, importedAccountsCount: Int) {
+        creationPasscodeConfirmVC = null
+        WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+        // Keep the connect request pending and resume it with the new wallet.
+        creationDappUpdate?.let { pendingUpdate ->
+            setDappUpdate(
+                pendingUpdate.copy(
+                    accountId = createdAccount.accountId,
+                    multichainResolution = null
+                )
+            )
+        }
+        creationDappUpdate = null
+        window?.dismissLastNav()
+    }
+
+    private fun cancelAndOpenAddWallet(update: ApiUpdate.ApiUpdateDappConnect) {
+        isConfirmed = true
+        DappDeeplinkReturnTracker.consumeCompletedRequest(update.promiseId)
+        window?.lifecycleScope?.launch {
+            try {
+                WalletCore.call(
+                    ApiMethod.DApp.CancelDappRequest(
+                        promiseId = update.promiseId,
+                        reason = LocaleController.getString("Canceled by the user")
+                    )
+                )
+            } catch (err: JSWebViewBridge.ApiError) {
+                Logger.e(Logger.LogTag.TON_CONNECT, "createMultichainWallet cancel: $err")
+            }
+        }
+
+        val window = window ?: return
+        val network = MBlockchainNetwork.ofAccountId(update.accountId)
+        val addAccountVC = WalletContextManager.delegate?.get()
+            ?.getAddAccountVC(network) as? WViewController ?: return
+        window.dismissLastNav {
+            val nav = WNavigationController(
+                window,
+                WNavigationController.PresentationConfig(
+                    style = WNavigationController.PresentationStyle.BottomSheet
+                )
+            )
+            nav.setRoot(addAccountVC)
+            window.present(nav)
         }
     }
 
     private fun connectReject() {
         val update = update ?: return
+        val window = window ?: return
         WalletCore.recordTonConnectEvent("wallet-connect-rejected", update.promiseId)
-        window!!.lifecycleScope.launch {
+        window.lifecycleScope.launch {
             try {
                 WalletCore.call(
                     ApiMethod.DApp.CancelDappRequest(
@@ -489,19 +680,26 @@ class TonConnectRequestConnectVC(
             } catch (err: JSWebViewBridge.ApiError) {
                 Logger.e(Logger.LogTag.TON_CONNECT, "cancelConnect: $err")
             }
+            returnToDappIfNeeded(update.promiseId)
+        }
+    }
+
+    private fun returnToDappIfNeeded(promiseId: String) {
+        if (DappDeeplinkReturnTracker.consumeCompletedRequest(promiseId)) {
+            window?.moveTaskToBack(true)
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
-        if (!isConfirmed)
-            connectReject()
+        if (!isConfirmed) connectReject()
     }
 
     fun setDappUpdate(update: ApiUpdate.ApiUpdateDappConnect) {
         this.update = update
-        requestView.configure(update.dapp)
+        normalizeSelectedAccount()
+        requestView.configure(update.dapp, update.needsNewMultichainWallet)
         updateButtonState()
         updateHeaderView()
         updateAccountView()
@@ -509,9 +707,19 @@ class TonConnectRequestConnectVC(
         accountView.fadeIn()
     }
 
-    private fun requiredChains(): List<ApiDappSessionChain> {
-        return update?.dapp?.chains ?: emptyList()
+    // When the requested account can't serve the required chains (and we're not
+    // creating a new multichain wallet), fall back to the active account instead
+    // of the dapp-provided one.
+    private fun normalizeSelectedAccount() {
+        val update = update ?: return
+        if (update.needsNewMultichainWallet) return
+        if (isSelectedAccountCompatible()) return
+        val activeAccountId = AccountStore.activeAccount?.accountId ?: return
+        if (activeAccountId == update.accountId) return
+        this.update = update.copy(accountId = activeAccountId)
     }
+
+    private fun requiredChains(): List<ApiDappSessionChain> = update?.dapp?.chains ?: emptyList()
 
     private fun isSelectedAccountCompatible(): Boolean {
         val account = AccountStore.accountById(update?.accountId) ?: return false
@@ -519,9 +727,19 @@ class TonConnectRequestConnectVC(
     }
 
     private fun updateButtonState() {
-        val isEnabled = isSelectedWalletConnectable()
-        buttonView.isEnabled = isEnabled
-        buttonView.alpha = if (isEnabled) 1.0f else 0.5f
+        if (update?.needsNewMultichainWallet == true) {
+            buttonView.isEnabled = true
+            buttonView.alpha = 1.0f
+            buttonView.type = WButton.Type.PRIMARY
+            buttonView.text = LocaleController.getString("Create Multichain Wallet")
+            if (warningView.isVisible) {
+                warningView.isVisible = false
+                bottomContainer.post {
+                    navigationController?.onBottomSheetHeightChanged()
+                }
+            }
+            return
+        }
 
         val shouldShowWarning = update != null && !isSelectedAccountCompatible()
         if (warningView.isVisible != shouldShowWarning) {
@@ -530,6 +748,21 @@ class TonConnectRequestConnectVC(
                 navigationController?.onBottomSheetHeightChanged()
             }
         }
+
+        if (shouldShowWarning) {
+            buttonView.isEnabled = true
+            buttonView.alpha = 1.0f
+            buttonView.type = WButton.Type.PRIMARY
+            buttonView.setText(
+                LocaleController.getString("Select Multichain Wallet"),
+                isAnimated = false
+            )
+            return
+        }
+
+        val isEnabled = isSelectedWalletConnectable()
+        buttonView.isEnabled = isEnabled
+        buttonView.alpha = if (isEnabled) 1.0f else 0.5f
 
         val isDangerous =
             update?.dapp?.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS

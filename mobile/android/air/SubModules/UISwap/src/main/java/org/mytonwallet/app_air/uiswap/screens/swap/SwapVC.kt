@@ -22,10 +22,16 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.isGone
 import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.ViewModelProvider
+import java.math.BigInteger
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -41,7 +47,6 @@ import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.Token
 import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
-import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -54,7 +59,6 @@ import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapCexProviderInfoView
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimatedHeader
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimatedInfo
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapSwapAssetsButton
-import org.mytonwallet.app_air.uiswap.screens.swap.views.dexAggregatorDialog.DexAggregatorDialog
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -62,15 +66,13 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.boldSubstring
-import kotlinx.coroutines.launch
+import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.math.BigInteger
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class SwapVC(
@@ -78,14 +80,22 @@ class SwapVC(
     defaultSendingToken: MApiSwapAsset? = null,
     defaultReceivingToken: MApiSwapAsset? = null,
     amountIn: Double? = null
-) :
-    WViewControllerWithModelStore(context) {
+) : WViewControllerWithModelStore(context) {
+    @Suppress("PropertyName")
     override val TAG = "Swap"
 
-    override val displayedAccount =
+    override var displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     private val swapViewModel by lazy { ViewModelProvider(this)[SwapViewModel::class.java] }
+
+    private val accountSelectorView by lazy {
+        AccountSelectorView(
+            context,
+            accountsProvider = { switchableAccounts() },
+            onAccountSelected = ::switchAccount
+        )
+    }
 
     override val shouldDisplayBottomBar = false
 
@@ -112,8 +122,7 @@ class SwapVC(
 
     private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
         ReversedCornerViewUpsideDown(context, scrollView).apply {
-            if (ignoreSideGuttering)
-                setHorizontalPadding(0f)
+            if (ignoreSideGuttering) setHorizontalPadding(0f)
         }
 
     private val cexProviderInfoView = SwapCexProviderInfoView(context)
@@ -124,30 +133,7 @@ class SwapVC(
         expanded = true
     }
     private val estShowMore = SwapEstimatedHeader(context)
-    private val estLayout = SwapEstimatedInfo(context, onDexPopupPressed = {
-        swapViewModel.getLastResponse()?.let { res ->
-            res.dex?.let { dex ->
-                if ((dex.all?.size ?: 0) < 2)
-                    return@SwapEstimatedInfo
-                val bestDexLabel = dex.bestDexLabel ?: dex.dexLabel ?: return@SwapEstimatedInfo
-                val selectedDex = res.dex.dexLabel ?: return@SwapEstimatedInfo
-                lateinit var dialogRef: WDialog
-                dialogRef = DexAggregatorDialog.create(
-                    context,
-                    res.request.tokenToSend,
-                    res.request.tokenToReceive,
-                    dex.all ?: emptyList(),
-                    bestDexLabel,
-                    selectedDex,
-                    onSelect = {
-                        swapViewModel.setDex(if (it == dex.bestDexLabel) null else it)
-                        dialogRef.dismiss()
-                    }
-                )
-                dialogRef.presentOn(this)
-            }
-        }
-    }, onSlippageChange = {
+    private val estLayout = SwapEstimatedInfo(context, onSlippageChange = {
         swapViewModel.setSlippage(it)
     }, onDialogShowListener = { title, info ->
         showAlert(title, info, LocaleController.getString("Close"))
@@ -182,14 +168,11 @@ class SwapVC(
     }
 
     init {
-        if (defaultSendingToken != null)
-            swapViewModel.setTokenToSend(defaultSendingToken)
+        swapViewModel.setDefaultTokens(defaultSendingToken, defaultReceivingToken)
         if (defaultReceivingToken != null) {
             estLayout.setEstimated(null, toToken = defaultReceivingToken)
-            swapViewModel.setTokenToReceive(defaultReceivingToken)
         }
-        if (amountIn != null)
-            swapViewModel.setAmount(amountIn)
+        if (amountIn != null) swapViewModel.setAmount(amountIn)
     }
 
     override fun setupViews() {
@@ -198,6 +181,11 @@ class SwapVC(
         setNavTitle(LocaleController.getString("Swap"))
         setupNavBar(true)
         navigationBar?.addCloseButton()
+        if (isAccountSwitchingAllowed()) {
+            AccountStore.activeAccount?.let { accountSelectorView.config(it) }
+            navigationBar?.addLeadingView(accountSelectorView)
+        }
+        navigationBar?.setTitleGravity(Gravity.CENTER)
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
 
@@ -216,7 +204,8 @@ class SwapVC(
             FrameLayout.LayoutParams(32.dp, 32.dp).apply {
                 gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
                 topMargin = 80.dp + topSpace
-            })
+            }
+        )
 
         sendAmount.setMode(SwapAssetInputView.Mode.SELL)
 
@@ -231,14 +220,14 @@ class SwapVC(
             alertView,
             LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                 topMargin = ViewConstants.GAP.dp
-            })
+            }
+        )
 
         linearLayout.addView(
             View(context),
             ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp)
         )
 
-        linearLayout.addView(cexProviderInfoView)
         estShowMoreContainer.addView(estShowMore)
         estOuterContainer.addView(estLayout, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         estOuterContainer.addView(
@@ -251,6 +240,13 @@ class SwapVC(
             toBottom(estLayout)
         }
         linearLayout.addView(estOuterContainer)
+
+        linearLayout.addView(
+            View(context),
+            ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp)
+        )
+
+        linearLayout.addView(cexProviderInfoView)
 
         view.addView(
             bottomReversedCornerViewUpsideDown,
@@ -268,7 +264,8 @@ class SwapVC(
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                continueButton, 20.dp + max(
+                continueButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -328,6 +325,7 @@ class SwapVC(
             val lastCex = swapViewModel.getLastResponse()?.cex
             cexProviderInfoView.setProviderInfo(
                 lastCex?.providerName,
+                lastCex?.cexLabel,
                 lastCex?.termsOfUseUrl,
                 lastCex?.privacyPolicyUrl,
                 lastCex?.amlKycPolicyUrl
@@ -375,6 +373,7 @@ class SwapVC(
         collectFlow(swapViewModel.simulatedSwapFlow) { est ->
             cexProviderInfoView.setProviderInfo(
                 est?.cex?.providerName,
+                est?.cex?.cexLabel,
                 est?.cex?.termsOfUseUrl,
                 est?.cex?.privacyPolicyUrl,
                 est?.cex?.amlKycPolicyUrl
@@ -433,16 +432,41 @@ class SwapVC(
                 continueButton.text = it.button.title
             }
 
-            receiveAmount.amountEditText.isLoading.animatedValue = it.tokenToReceive.isLoading
-                && (receiveAmount.amountEditText.text?.isNotEmpty() == true)
+            receiveAmount.amountEditText.isLoading.animatedValue = it.tokenToReceive.isLoading &&
+                (receiveAmount.amountEditText.text?.isNotEmpty() == true)
             receiveAmount.amountEditText.isError.animatedValue = it.tokenToReceive.isError
 
-            sendAmount.amountEditText.isLoading.animatedValue = it.tokenToSend.isLoading
-                && (sendAmount.amountEditText.text?.isNotEmpty() == true)
+            sendAmount.amountEditText.isLoading.animatedValue = it.tokenToSend.isLoading &&
+                (sendAmount.amountEditText.text?.isNotEmpty() == true)
             sendAmount.amountEditText.isError.animatedValue = it.tokenToSend.isError
         }
 
         collectFlow(swapViewModel.eventsFlow, this::onEvent)
+    }
+
+    private fun switchableAccounts(): List<MAccount> = WalletCore.getAllAccounts().filter {
+        it.supportsSwap
+    }
+
+    private fun isAccountSwitchingAllowed(): Boolean = !AccountStore.isPushedTemporary &&
+        switchableAccounts().any { it.accountId != AccountStore.activeAccountId }
+
+    private fun switchAccount(account: MAccount) {
+        accountSelectorView.setLoading(true)
+        WalletCore.ensureAccountActivated(account.accountId) { accountChanged ->
+            if (accountChanged) {
+                WalletCore.notifyEvent(
+                    WalletEvent.AccountChangedInApp(persistedAccountsModified = false)
+                )
+            }
+            view.post { onAccountSwitched(account) }
+        }
+    }
+
+    private fun onAccountSwitched(account: MAccount) {
+        displayedAccount = DisplayedAccount(account.accountId, isPushedTemporary = false)
+        accountSelectorView.setLoading(false)
+        accountSelectorView.config(account)
     }
 
     override fun updateTheme() {
@@ -472,7 +496,7 @@ class SwapVC(
                         event.assets,
                         showMyAssets = true,
                         showChain = true,
-                        secondaryAmountMode = TokenSelectorCell.SecondaryAmountMode.TOKEN_PRICE,
+                        secondaryAmountMode = TokenSelectorCell.SecondaryAmountMode.TOKEN_PRICE
                     ).apply {
                         setOnAssetSelectListener { asset ->
                             if (event.mode == SwapViewModel.Mode.SEND) {
@@ -482,7 +506,8 @@ class SwapVC(
                                 swapViewModel.setTokenToReceive(asset)
                             }
                         }
-                    })
+                    }
+                )
             }
 
             is SwapViewModel.Event.ShowAddressToReceiveInput -> {
@@ -495,7 +520,8 @@ class SwapVC(
                         callback = { address ->
                             swapViewModel.openSwapConfirmation(address)
                         }
-                    ))
+                    )
+                )
             }
 
             is SwapViewModel.Event.ShowAddressToSend -> {
@@ -542,8 +568,7 @@ class SwapVC(
                 val success = event.success
                 Logger.d(Logger.LogTag.SWAP, "onEvent: SwapComplete success=$success")
                 if (success) {
-                    if (isSwapDone)
-                        return
+                    if (isSwapDone) return
                     isSwapDone = true
                     if (window?.topNavigationController != navigationController) {
                         window?.dismissNav(navigationController)
@@ -551,12 +576,25 @@ class SwapVC(
                     }
                     window?.dismissLastNav {
                         event.activity?.let { activity ->
-                            WalletCore.notifyEvent(
-                                WalletEvent.OpenActivity(
-                                    displayedAccount?.accountId!!,
-                                    activity
+                            val accountId = displayedAccount.accountId
+                            if (accountId != null) {
+                                WalletCore.notifyEvent(
+                                    WalletEvent.OpenActivity(
+                                        accountId,
+                                        activity,
+                                        if (event.isOnchain) {
+                                            LocaleController.getString("Swapped")
+                                        } else {
+                                            null
+                                        }
+                                    )
                                 )
-                            )
+                            } else {
+                                Logger.e(
+                                    Logger.LogTag.SWAP,
+                                    "Swap activity could not be opened: displayed account is missing"
+                                )
+                            }
                         }
                     }
                 } else {
@@ -586,7 +624,7 @@ class SwapVC(
         val chipText = listOf(
             "$fromAmountStr ${from.symbol ?: ""}".trim(),
             "→",
-            "$toAmountStr ${to.symbol ?: ""}".trim(),
+            "$toAmountStr ${to.symbol ?: ""}".trim()
         ).joinToString(" ")
         val swapId = event.swapId
         val accountId = AccountStore.activeAccountId
@@ -603,19 +641,28 @@ class SwapVC(
                                 ApiMethod.Swap.ConfirmSwapMfaRequest(
                                     accountId,
                                     swapId,
-                                    txHash,
+                                    txHash
                                 )
                             )
-                        } catch (t: Throwable) {
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: JSWebViewBridge.ApiError) {
                             Logger.e(
                                 Logger.LogTag.ACCOUNT,
-                                "confirmSwapMfaRequest failed for swapId=$swapId: $t",
+                                "confirmSwapMfaRequest failed for swapId=$swapId " +
+                                    "apiError=${e.parsed.type}"
+                            )
+                        } catch (e: Exception) {
+                            Logger.e(
+                                Logger.LogTag.ACCOUNT,
+                                "confirmSwapMfaRequest failed for swapId=$swapId " +
+                                    "error=${e.javaClass.simpleName}"
                             )
                         }
                     }
                 }
                 swapViewModel.onMfaConfirmed()
-            },
+            }
         )
         navigationController?.push(mfaVC, onCompletion = {
             navigationController?.removePrevViewControllerOnly()
@@ -651,7 +698,8 @@ class SwapVC(
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                continueButton, 20.dp + max(
+                continueButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -678,9 +726,11 @@ class SwapVC(
                     )
                 },
                 LocaleController.getString("Confirm")
-            ), task = { passcode ->
+            ),
+            task = { passcode ->
                 swapViewModel.doSend(passcode, request, event.addressToReceive)
-            })
+            }
+        )
         push(confirmActionVC)
     }
 
@@ -692,7 +742,9 @@ class SwapVC(
             )
         )
         val hintText =
-            LocaleController.getString("We do not recommend to perform an exchange, try to specify a lower amount.")
+            LocaleController.getString(
+                "We do not recommend to perform an exchange, try to specify a lower amount."
+            )
         val fullText = "$impactValueText\n$hintText"
         return fullText.boldSubstring(impactValueText)
     }

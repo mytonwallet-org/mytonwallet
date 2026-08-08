@@ -25,9 +25,10 @@ struct ActivityNavigationHeader: View {
                     }
                 } subtitle: {
                     Text(viewModel.activity.timestamp.dateTimeString)
+                        .textStyle(.footnote, content: .technical)
                 }
 
-            case .sendConfirmation, .sendNftConfirmation, .swapConfirmation, .stakeConfirmation, .unstakeConfirmation, .unstakeRequestConfirmation, .burnNftConfirmation:
+            case .sendConfirmation, .swapConfirmation, .onchainSwapConfirmation, .stakeConfirmation, .unstakeConfirmation, .unstakeRequestConfirmation:
                 NavigationHeader {
                     if let title = viewModel.context.displayTitle {
                         Text(title)
@@ -72,7 +73,7 @@ struct ActivityStatusBadge: View {
     var body: some View {
         if let status {
             Text(status.displayString)
-                .font(.system(size: 12, weight: .semibold))
+                .textStyle(.captionStrong)
                 .padding(.horizontal, 3)
                 .padding(.vertical, 2.5)
                 .background {

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization
 
 import android.animation.ValueAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
@@ -13,6 +12,9 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.LinearLayout
 import androidx.core.graphics.toColorInt
 import androidx.core.view.updateLayoutParams
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -20,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.DirectionalTouchHandler
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
@@ -45,18 +48,21 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
-class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) :
-    WViewController(context), WalletCore.EventObserver {
+class WalletCustomizationVC private constructor(
+    context: Context,
+    defaultSelectedAccountId: String,
+    private val accounts: List<MAccount>
+) : WViewController(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "WalletCustomization"
 
     override val shouldDisplayBottomBar = true
@@ -65,7 +71,6 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
     override val isSwipeBackAllowed = false
     override val isEdgeSwipeBackAllowed = true
 
-    private val accounts = WalletCore.getAllAccounts()
     private var tintColor: Int = 0
     private var tintId: Int? = null
         set(value) {
@@ -87,7 +92,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
     }
 
     private var selectedAccount =
-        accounts.firstOrNull { it.accountId == defaultSelectedAccountId } ?: accounts.first()
+        accounts.first { it.accountId == defaultSelectedAccountId }
         set(value) {
             field = value
             tintId = WGlobalStorage.getNftAccentColorIndex(value.accountId)
@@ -103,13 +108,25 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
     private var tabHeights = mutableMapOf<Int, Int>()
     private var hintVisibilities = mutableMapOf<Int, Float>()
 
+    companion object {
+        fun create(context: Context, defaultSelectedAccountId: String): WalletCustomizationVC? {
+            val accounts = WalletCore.getAllAccounts()
+            if (accounts.none { it.accountId == defaultSelectedAccountId }) return null
+            return WalletCustomizationVC(context, defaultSelectedAccountId, accounts)
+        }
+    }
+
     private val availableCardsHeight: Int
         get() {
             return lerp(
-                (tabHeights[leftIndex]
-                    ?: WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp).toFloat(),
-                (tabHeights[rightIndex]
-                    ?: WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp).toFloat(),
+                (
+                    tabHeights[leftIndex]
+                        ?: WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
+                    ).toFloat(),
+                (
+                    tabHeights[rightIndex]
+                        ?: WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
+                    ).toFloat(),
                 offsetPercent
             ).roundToInt()
         }
@@ -130,9 +147,8 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
 
     private val cardsView: WalletCustomizationCardsView by lazy {
         object : WalletCustomizationCardsView(context, accounts, selectedAccount.accountId) {
-            override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-                return touchHandler.dispatchTouch(cardsView, ev) ?: super.dispatchTouchEvent(ev)
-            }
+            override fun dispatchTouchEvent(ev: MotionEvent): Boolean =
+                touchHandler.dispatchTouch(cardsView, ev) ?: super.dispatchTouchEvent(ev)
         }.apply {
             onItemChangeListener =
                 object : WalletCustomizationCardsView.OnItemChangeListener {
@@ -179,8 +195,9 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
         ).apply {
             onCardChanged = { accountId, nft ->
                 cardsView.reload(accountId)
-                if (AccountStore.activeAccountId == accountId || isPresentedOverWalletTabs)
+                if (AccountStore.activeAccountId == accountId || isPresentedOverWalletTabs) {
                     WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
+                }
             }
         }
     }
@@ -188,7 +205,9 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
     private val hintLabel by lazy {
         WLabel(context).apply {
             text =
-                LocaleController.getString("This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.")
+                LocaleController.getString(
+                    "This card will be installed for this wallet and will be displayed on the home screen and in the wallets list."
+                )
             setTextColor(WColor.SecondaryText)
             setStyle(14f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
@@ -202,7 +221,9 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                     AppearancePaletteItemView.State.LOCKED -> {
                         showAlert(
                             LocaleController.getString("Unlock New Palettes"),
-                            LocaleController.getString("Get a unique My Wallet Card to unlock new palettes.")
+                            LocaleController.getString(
+                                "Get a unique My Wallet Card to unlock new palettes."
+                            )
                         )
                     }
 
@@ -244,8 +265,10 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                     !account.isViewOnly &&
                     ConfigStore.isLimited != true
                 val canMint = eligible && accountId != null &&
-                    (WGlobalStorage.getCardsInfo(accountId) != null ||
-                        NftStore.isCardMinting(accountId))
+                    (
+                        WGlobalStorage.getCardsInfo(accountId) != null ||
+                            NftStore.isCardMinting(accountId)
+                        )
                 if (canMint) {
                     navigationController?.let { MintCardVC.present(it) }
                     return@setOnClickListener
@@ -266,44 +289,56 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                     WalletCustomizationCardsView.heightForWidth(window!!.windowView.width)
                 ).apply {
                     topMargin = 17.dp
-                })
+                }
+            )
             addView(
                 availableCardsView,
                 LinearLayout.LayoutParams(MATCH_PARENT, availableCardsHeight).apply {
                     topMargin = (-3).dp
                     leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
                     rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-                })
+                }
+            )
             addView(
-                hintLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                hintLabel,
+                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     topMargin = 4.dp
                     leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
                     rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                })
+                }
+            )
             addView(
                 appPaletteView,
                 LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     topMargin = ViewConstants.GAP.dp
                     leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
                     rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-                })
+                }
+            )
             addView(
                 WLabel(context).apply {
                     text =
-                        LocaleController.getString("Get a unique My Wallet Card to unlock new palettes.")
+                        LocaleController.getString(
+                            "Get a unique My Wallet Card to unlock new palettes."
+                        )
                     setTextColor(WColor.SecondaryText)
                     setStyle(14f)
                     setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-                }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                },
+                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     topMargin = 4.dp
                     leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
                     rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                })
-            addView(getMoreCardsButton, LinearLayout.LayoutParams(MATCH_PARENT, 50.dp).apply {
-                topMargin = ViewConstants.GAP.dp
-                leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-                rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-            })
+                }
+            )
+            addView(
+                getMoreCardsButton,
+                LinearLayout.LayoutParams(MATCH_PARENT, 50.dp).apply {
+                    topMargin = ViewConstants.GAP.dp
+                    leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
+                    rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
+                }
+            )
             addView(
                 WLabel(context).apply {
                     text =
@@ -311,19 +346,20 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                     setTextColor(WColor.SecondaryText)
                     setStyle(14f)
                     setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-                }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                },
+                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     topMargin = 4.dp
                     leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
                     rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                })
+                }
+            )
         }
     }
 
     private val scrollView: WScrollView by lazy {
         object : WScrollView(WeakReference(this@WalletCustomizationVC)) {
-            override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-                return touchHandler.dispatchTouch(scrollView, ev) ?: super.dispatchTouchEvent(ev)
-            }
+            override fun dispatchTouchEvent(ev: MotionEvent): Boolean =
+                touchHandler.dispatchTouch(scrollView, ev) ?: super.dispatchTouchEvent(ev)
         }.apply {
             addView(
                 contentView,
@@ -409,12 +445,14 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
         val accountId = accountId ?: return
         loadedCards[accountId]?.let { loadedCards ->
             if (selectedAccount.accountId == accountId) {
-                val finalHeight = if (loadedCards.isNotEmpty())
+                val finalHeight = if (loadedCards.isNotEmpty()) {
                     WalletCustomizationAvailableCardsView.calculateHeight(
                         view.width,
                         loadedCards.size + 1
                     )
-                else WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
+                } else {
+                    WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
+                }
                 val accountIndex =
                     accounts.indexOfFirst { it.accountId == selectedAccount.accountId }
                 tabHeights[accountIndex] = finalHeight
@@ -436,8 +474,10 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
             loadingCards.add(accountId)
             WalletCore.call(
                 ApiMethod.Nft.FetchNftsFromCollection(
-                    accountId, ApiMethod.Nft.FetchNftsFromCollection.Collection(
-                        chain = MBlockchain.ton.name, address = MTW_CARDS_COLLECTION
+                    accountId,
+                    ApiMethod.Nft.FetchNftsFromCollection.Collection(
+                        chain = MBlockchain.ton.name,
+                        address = MTW_CARDS_COLLECTION
                     )
                 )
             ) { _, _ -> }
@@ -453,25 +493,32 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
             }
 
             is WalletEvent.CollectionNftsReceived -> {
-                if (walletEvent.collectionAddress != MTW_CARDS_COLLECTION)
-                    return
+                if (walletEvent.collectionAddress != MTW_CARDS_COLLECTION) return
                 loadedCards[walletEvent.accountId] = walletEvent.nfts
                 loadingCards.remove(walletEvent.accountId)
                 if (walletEvent.accountId == selectedAccount.accountId) {
                     availableCardsView.configure(
                         selectedAccount.accountId,
-                        if (walletEvent.nfts.isNotEmpty()) listOf(null) + walletEvent.nfts else listOf()
+                        if (walletEvent.nfts.isNotEmpty()) {
+                            listOf(
+                                null
+                            ) + walletEvent.nfts
+                        } else {
+                            listOf()
+                        }
                     )
                     appPaletteView.updatePaletteView(walletEvent.accountId, walletEvent.nfts)
                     updateGetMoreCardsButton(walletEvent.nfts.isEmpty())
                 }
                 val finalHeight =
-                    if (walletEvent.nfts.isNotEmpty())
+                    if (walletEvent.nfts.isNotEmpty()) {
                         WalletCustomizationAvailableCardsView.calculateHeight(
                             view.width,
                             walletEvent.nfts.size + 1
                         )
-                    else WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
+                    } else {
+                        WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
+                    }
                 val targetHintVisibility = if (walletEvent.nfts.isEmpty()) 0f else 1f
                 val accountIndex =
                     accounts.indexOfFirst { it.accountId == walletEvent.accountId }
@@ -521,7 +568,8 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
         appPaletteView.layoutParams =
             (appPaletteView.layoutParams as ViewGroup.MarginLayoutParams).apply {
                 topMargin =
-                    ViewConstants.GAP.dp - ((hintLabel.height + 4.dp) * (1 - hintVisibility)).roundToInt()
+                    ViewConstants.GAP.dp -
+                    ((hintLabel.height + 4.dp) * (1 - hintVisibility)).roundToInt()
             }
     }
 }

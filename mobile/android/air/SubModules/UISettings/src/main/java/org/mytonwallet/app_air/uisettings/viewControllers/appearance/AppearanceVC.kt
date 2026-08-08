@@ -13,6 +13,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
@@ -27,10 +29,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme.AppearanceAppThemeView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -42,10 +44,12 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import kotlin.math.max
+import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 
-class AppearanceVC(context: Context) : WViewController(context), WalletCore.EventObserver {
+class AppearanceVC(context: Context) :
+    WViewController(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "Appearance"
 
     override val shouldDisplayBottomBar = true
@@ -59,12 +63,9 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         AppearancePaletteAndCardView(context).apply {
             onCustomizePressed = {
                 AccountStore.activeAccountId?.let { accountId ->
-                    navigationController?.push(
-                        WalletCustomizationVC(
-                            context,
-                            accountId
-                        )
-                    )
+                    WalletCustomizationVC.create(context, accountId)?.let {
+                        navigationController?.push(it)
+                    }
                 }
             }
             configure(AccountStore.activeAccount)
@@ -82,7 +83,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             LocaleController.getString("App Font"),
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = false,
+            isLast = false
         ).apply {
             setValueView(appFontDropdownView)
             setOnClickListener {
@@ -133,6 +134,25 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         val v = AppearanceAppIconView(window!!.applicationContext)
         v
     }*/
+
+    private val customizeTabsRow: KeyValueRowView by lazy {
+        KeyValueRowView(
+            context,
+            LocaleController.getString("Customize Tabs"),
+            "",
+            KeyValueRowView.Mode.PRIMARY,
+            isLast = true
+        ).apply {
+            setOnClickListener {
+                (
+                    WalletContextManager.delegate?.get()
+                        ?.getCustomizeTabsVC() as? WViewController
+                    )?.let {
+                    navigationController?.push(it)
+                }
+            }
+        }
+    }
 
     private val gradientNavigationBarRow = SwitchCell(
         context,
@@ -210,7 +230,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                         topItem.setBackgroundColor(
                             WColor.Background.color,
                             radius,
-                            ViewConstants.BLOCK_RADIUS.dp,
+                            ViewConstants.BLOCK_RADIUS.dp
                         )
                     }
 
@@ -320,6 +340,9 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         val v = WView(context)
         v.addView(appThemeView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appPaletteView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+        if (DEBUG_MODE || EnvironmentStore.isBeta) {
+            v.addView(customizeTabsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        }
         v.addView(gradientNavigationBarRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedCornersRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedToolbarsRow, ConstraintLayout.LayoutParams(0, 50.dp))
@@ -339,8 +362,16 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             toCenterX(appThemeView)
             topToBottom(appPaletteView, appThemeView, ViewConstants.GAP.toFloat())
             toCenterX(appPaletteView)
+            if (DEBUG_MODE || EnvironmentStore.isBeta) {
+                topToBottom(customizeTabsRow, appPaletteView, ViewConstants.GAP.toFloat())
+                toCenterX(customizeTabsRow)
+            }
             // Group 1: Gradient Navigation Bar, Rounded Corners, Rounded Toolbars, Side Gutters
-            topToBottom(gradientNavigationBarRow, appPaletteView, ViewConstants.GAP.toFloat())
+            topToBottom(
+                gradientNavigationBarRow,
+                if (DEBUG_MODE || EnvironmentStore.isBeta) customizeTabsRow else appPaletteView,
+                ViewConstants.GAP.toFloat()
+            )
             toCenterX(gradientNavigationBarRow)
             topToBottom(roundedCornersRow, gradientNavigationBarRow)
             toCenterX(roundedCornersRow)
@@ -402,10 +433,18 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
         appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
 
+        if (DEBUG_MODE || EnvironmentStore.isBeta) {
+            customizeTabsRow.setBackgroundColor(
+                WColor.Background.color,
+                ViewConstants.BLOCK_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp
+            )
+        }
+
         appThemeView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.TOOLBAR_RADIUS.dp,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
@@ -442,5 +481,4 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             else -> {}
         }
     }
-
 }

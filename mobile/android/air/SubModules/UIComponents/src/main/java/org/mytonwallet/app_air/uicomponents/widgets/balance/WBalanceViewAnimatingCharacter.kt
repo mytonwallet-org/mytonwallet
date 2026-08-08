@@ -1,21 +1,22 @@
 package org.mytonwallet.app_air.uicomponents.widgets.balance
 
 import androidx.core.graphics.ColorUtils
-import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
-
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 
 data class WBalanceViewAnimatingCharacter(
     val prevChar: WBalanceViewCharacter?,
     val nextChar: WBalanceViewCharacter?,
     val change: Change,
     var delay: Int = 0,
-    var charAnimationDuration: Int = 0,
+    var charAnimationDuration: Int = 0
 ) {
     enum class Change {
-        INC, DEC, NONE
+        INC,
+        DEC,
+        NONE
     }
 
     var totalSteps: Int
@@ -71,8 +72,7 @@ data class WBalanceViewAnimatingCharacter(
     }
 
     fun normalizedLeft(scale1: Float, scale2: Float, left: Float, integerPartWidth: Float): Float {
-        if (left <= integerPartWidth)
-            return left * scale1
+        if (left <= integerPartWidth) return left * scale1
         return integerPartWidth * scale1 + (left - integerPartWidth) * scale2
     }
 
@@ -83,7 +83,7 @@ data class WBalanceViewAnimatingCharacter(
         offset2: Float,
         prevIntegerPartWidth: Float,
         integerPartWidth: Float,
-        decimalsAlpha: Int,
+        decimalsAlpha: Int
     ): List<WBalanceViewDrawingCharacterRect> {
         val easedProgress = ((elapsed - delay) / charAnimationDuration.toFloat()).coerceIn(0f, 1f)
 
@@ -122,11 +122,19 @@ data class WBalanceViewAnimatingCharacter(
 
         val alphaMult = lerp(
             if (prevChar?.isDecimalOrBaseCurrency
-                    ?: nextChar!!.isDecimalOrBaseCurrency
-            ) decimalsAlpha.toFloat() else 255f,
+                ?: nextChar!!.isDecimalOrBaseCurrency
+            ) {
+                decimalsAlpha.toFloat()
+            } else {
+                255f
+            },
             if (nextChar?.isDecimalOrBaseCurrency
-                    ?: prevChar!!.isDecimalOrBaseCurrency
-            ) decimalsAlpha.toFloat() else 255f,
+                ?: prevChar!!.isDecimalOrBaseCurrency
+            ) {
+                decimalsAlpha.toFloat()
+            } else {
+                255f
+            },
             easedProgress
         )
 
@@ -144,7 +152,6 @@ data class WBalanceViewAnimatingCharacter(
 
         val startNum = startNum
         if (totalSteps <= 1 || startNum == null) {
-
             val rects = mutableListOf<WBalanceViewDrawingCharacterRect>()
 
             val rect1 = WBalanceViewDrawingCharacterRect(
@@ -154,7 +161,10 @@ data class WBalanceViewAnimatingCharacter(
                 char = prevChar?.char,
                 textSize = textSize,
                 color = color,
-                alpha = (alphaMult * ((if (endWith0Alpha) 1 - easedProgress else 1f) * (1 - easedProgress))).roundToInt(),
+                alpha = (
+                    alphaMult *
+                        ((if (endWith0Alpha) 1 - easedProgress else 1f) * (1 - easedProgress))
+                    ).roundToInt(),
                 scaleMultiplier = scaleMultiplier
             )
             rects.add(rect1)
@@ -163,11 +173,20 @@ data class WBalanceViewAnimatingCharacter(
                 val rect2 = WBalanceViewDrawingCharacterRect(
                     leftOffset = currentLeftOffset,
                     offsetY = offsetY,
-                    yOffsetPercent = if (change == Change.INC) -1 + easedProgress else 1 - easedProgress,
+                    yOffsetPercent = if (change ==
+                        Change.INC
+                    ) {
+                        -1 + easedProgress
+                    } else {
+                        1 - easedProgress
+                    },
                     char = nextChar?.char,
                     textSize = textSize,
                     color = color,
-                    alpha = (alphaMult * ((if (endWith0Alpha) 1 - easedProgress else 1f) * easedProgress)).roundToInt(),
+                    alpha = (
+                        alphaMult *
+                            ((if (endWith0Alpha) 1 - easedProgress else 1f) * easedProgress)
+                        ).roundToInt(),
                     scaleMultiplier = scaleMultiplier
                 )
                 rects.add(rect2)
@@ -179,9 +198,36 @@ data class WBalanceViewAnimatingCharacter(
         val currentStep = easedProgress * totalSteps
         val stepProgress = currentStep - floor(currentStep)
         val currentStepChar =
-            ('0'.code + norm(startNum + (currentStep * if (change == Change.INC) 1 else -1).toInt()) % 10).toChar()
+            (
+                '0'.code +
+                    norm(
+                        startNum + (
+                            currentStep * if (change ==
+                                Change.INC
+                            ) {
+                                1
+                            } else {
+                                -1
+                            }
+                            ).toInt()
+                    ) % 10
+                ).toChar()
         val nextStepChar =
-            ('0'.code + norm(startNum + ((currentStep + 1) * if (change == Change.INC) 1 else -1).toInt()) % 10).toChar()
+            (
+                '0'.code +
+                    norm(
+                        startNum + (
+                            (currentStep + 1) * if (change ==
+                                Change.INC
+                            ) {
+                                1
+                            } else {
+                                -1
+                            }
+                            ).toInt()
+                    ) %
+                    10
+                ).toChar()
 
         val rects = mutableListOf<WBalanceViewDrawingCharacterRect>()
 
@@ -192,13 +238,18 @@ data class WBalanceViewAnimatingCharacter(
             char = currentStepChar,
             textSize = textSize,
             color = color,
-            alpha = (alphaMult * (if (endWith0Alpha) (1 - easedProgress) else 1f) *
-                (if (startFrom0Alpha && currentStep < 1) 0f else 1 - stepProgress)).roundToInt(),
+            alpha = (
+                alphaMult * (if (endWith0Alpha) (1 - easedProgress) else 1f) *
+                    (if (startFrom0Alpha && currentStep < 1) 0f else 1 - stepProgress)
+                ).roundToInt(),
             scaleMultiplier = scaleMultiplier
         )
         rects.add(rect1)
 
         if (easedProgress > 0) {
+            val targetAlpha =
+                (alphaMult * (if (endWith0Alpha) 1 - easedProgress else 1f) * stepProgress)
+                    .roundToInt()
             val rect2 = WBalanceViewDrawingCharacterRect(
                 leftOffset = currentLeftOffset,
                 offsetY = offsetY,
@@ -206,7 +257,7 @@ data class WBalanceViewAnimatingCharacter(
                 char = nextStepChar,
                 textSize = textSize,
                 color = color,
-                alpha = (alphaMult * (if (endWith0Alpha) (1 - easedProgress) else 1f) * stepProgress).roundToInt(),
+                alpha = targetAlpha,
                 scaleMultiplier = scaleMultiplier
             )
             rects.add(rect2)
@@ -215,7 +266,5 @@ data class WBalanceViewAnimatingCharacter(
         return rects
     }
 
-    private fun norm(value: Int): Int {
-        return if (value >= 10) value else 10 + value
-    }
+    private fun norm(value: Int): Int = if (value >= 10) value else 10 + value
 }

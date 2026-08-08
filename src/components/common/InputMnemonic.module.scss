@@ -66,12 +66,13 @@
 
   min-width: 2em;
   margin: 0;
-  padding: 0 0 0 0.75rem;
+  padding-block: 0;
+  padding-inline: 0.75rem 0;
 
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-gray-3);
-  text-align: right;
+  text-align: end;
 
   :global(html:not(.is-ios)) & {
     position: relative;

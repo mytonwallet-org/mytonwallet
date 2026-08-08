@@ -24,7 +24,8 @@ class CellAddressAction {
 
         private val container = (itemView as FrameLayout).apply {
             addView(
-                view, FrameLayout.LayoutParams(
+                view,
+                FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {

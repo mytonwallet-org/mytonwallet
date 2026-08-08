@@ -13,9 +13,9 @@ import { createMfaRequest } from '../../common/mfa';
 import { getTokenBySlug } from '../../common/tokens';
 import { signTransfers } from './transfer';
 
-export async function signConnectionProof(accountId: string, proof: TonConnectProof, password?: string) {
+export async function signConnectionProof(accountId: string, proof: TonConnectProof, enclaveToken?: string) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
-  const signer = getSigner(accountId, account, password);
+  const signer = getSigner(accountId, account, enclaveToken);
   const signature = await signer.signTonProof(proof);
   if ('error' in signature) return signature;
 
@@ -26,12 +26,12 @@ export async function signDappTransfers(
   accountId: string,
   messages: ApiDappTransfer[],
   options: {
-    password?: string;
+    enclaveToken?: string;
     vestingAddress?: string;
     /** Unix seconds */
     validUntil?: number;
   } = {}) {
-  const { password, validUntil, vestingAddress } = options;
+  const { enclaveToken, validUntil, vestingAddress } = options;
 
   const preparedMessages = messages.map(({
     toAddress,
@@ -54,7 +54,7 @@ export async function signDappTransfers(
   const result = await signTransfers(
     accountId,
     preparedMessages,
-    password,
+    enclaveToken,
     validUntil,
     vestingAddress,
     true,
@@ -83,7 +83,7 @@ export async function signDappData(
   accountId: string,
   dappUrl: string,
   payloadToSign: UnifiedSignDataPayload,
-  password?: string,
+  enclaveToken?: string,
 ) {
   if (payloadToSign.type === 'eip712') {
     return { error: ApiCommonError.Unexpected };
@@ -93,7 +93,7 @@ export async function signDappData(
   const domain = new URL(dappUrl).host;
 
   const account = await fetchStoredChainAccount(accountId, 'ton');
-  const signer = getSigner(accountId, account, password);
+  const signer = getSigner(accountId, account, enclaveToken);
   const signature = await signer.signData(timestamp, domain, payloadToSign);
   if ('error' in signature) return signature;
 

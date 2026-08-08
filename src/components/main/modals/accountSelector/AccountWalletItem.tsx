@@ -1,6 +1,6 @@
 import React, { type ElementRef, useRef } from '../../../../lib/teact/teact';
 
-import type { ApiNft } from '../../../../api/types';
+import type { ApiChain, ApiNft } from '../../../../api/types';
 import type { Account, AccountType } from '../../../../global/types';
 import type { AccountBalance } from '../../../../hooks/useAccountsBalances';
 import type { Layout } from '../../../../hooks/useMenuPosition';
@@ -25,6 +25,7 @@ interface OwnProps {
   isTestnet?: boolean;
   accountId: string;
   byChain: Account['byChain'];
+  visibleChains?: ApiChain[];
   accountType: AccountType;
   title?: string;
   balanceData?: AccountBalance;
@@ -51,6 +52,7 @@ function AccountWalletItem({
   isTestnet,
   accountId,
   byChain,
+  visibleChains,
   accountType,
   title,
   balanceData,
@@ -160,6 +162,7 @@ function AccountWalletItem({
         <AccountRowInner
           accountId={accountId}
           byChain={byChain}
+          visibleChains={visibleChains}
           accountType={accountType}
           title={title}
           isTestnet={isTestnet}

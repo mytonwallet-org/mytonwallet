@@ -8,10 +8,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
 import org.mytonwallet.app_air.walletbasecontext.utils.vec2i
-import kotlin.math.roundToInt
 
 @SuppressLint("ClickableViewAccessibility")
 fun View.setOnLongHoldListener(delayMs: Long, action: () -> Unit) {
@@ -20,8 +20,13 @@ fun View.setOnLongHoldListener(delayMs: Long, action: () -> Unit) {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 runnable?.let { v.removeCallbacks(it) }
-                runnable = Runnable { runnable = null; action() }.also { v.postDelayed(it, delayMs) }
+                runnable =
+                    Runnable {
+                        runnable = null
+                        action()
+                    }.also { v.postDelayed(it, delayMs) }
             }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 runnable?.let { v.removeCallbacks(it) }
                 runnable = null
@@ -121,8 +126,7 @@ fun FrameLayout.LayoutParams.setPaddingDp(size: Float) {
 }
 
 fun View.asImage(): Bitmap? {
-    if (width == 0 || height == 0)
-        return null
+    if (width == 0 || height == 0) return null
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     draw(canvas)

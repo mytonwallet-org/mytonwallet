@@ -17,7 +17,10 @@ class WFadedEdgeView(context: Context) : FrameLayout(context) {
 
     private val fadeShader: LinearGradient
         get() = LinearGradient(
-            0f, 0f, 0f, height.toFloat(),
+            0f,
+            0f,
+            0f,
+            height.toFloat(),
             intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK),
             floatArrayOf(0f, topEdge, 1f),
             Shader.TileMode.CLAMP

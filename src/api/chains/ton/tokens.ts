@@ -386,8 +386,8 @@ function buildTokenByMetadata(address: string, metadata: JettonMetadata): ApiTok
 
   return {
     slug: buildTokenSlug('ton', address),
-    name,
-    symbol,
+    name: name ?? UNKNOWN_TOKEN.symbol,
+    symbol: symbol ?? name ?? UNKNOWN_TOKEN.symbol,
     decimals: decimals === undefined ? DEFAULT_DECIMALS : Number(decimals),
     chain: 'ton',
     tokenAddress: address,

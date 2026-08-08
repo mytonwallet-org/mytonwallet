@@ -63,7 +63,7 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         addressTextView.translatesAutoresizingMaskIntoConstraints = false
         addressTextView.isScrollEnabled = false
         addressTextView.backgroundColor = .clear
-        addressTextView.font = .systemFont(ofSize: 17)
+        addressTextView.applyTextStyle(.body, content: .technical)
         addressTextView.autocorrectionType = .no
         addressTextView.autocapitalizationType = .none
         addressTextView.keyboardType = .webSearch
@@ -72,7 +72,7 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         addressTextView.textContainer.lineFragmentPadding = 0
         addressTextView.textContainer.maximumNumberOfLines = 0
         addressTextView.typingAttributes = [
-            .font: UIFont.systemFont(ofSize: 17),
+            .font: WTypography.uiFont(.body, content: .technical),
             .foregroundColor: UIColor.label,
         ]
         addressTextView.dataDetectorTypes = []
@@ -87,14 +87,14 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         placeholderLabel = UILabel()
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
         placeholderLabel.text = lang("Wallet address or domain")
-        placeholderLabel.font = .systemFont(ofSize: 17)
+        placeholderLabel.applyTextStyle(.body)
         placeholderLabel.textColor = UIColor.placeholderText
         addressContainer.addSubview(placeholderLabel)
         
         pasteButton = UIButton(type: .system)
         pasteButton.translatesAutoresizingMaskIntoConstraints = false
         pasteButton.setTitle(lang("Paste"), for: .normal)
-        pasteButton.titleLabel?.font = .systemFont(ofSize: 17)
+        pasteButton.titleLabel?.applyTextStyle(.body)
         pasteButton.tintColor = .tintColor
         pasteButton.addTarget(self, action: #selector(onPaste), for: .touchUpInside)
         addressContainer.addSubview(pasteButton)
@@ -268,7 +268,7 @@ extension AddViewWalletVC: UITextViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let introModel = IntroModel(network: .mainnet, password: nil)
+    let introModel = IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup)
     AddViewWalletVC(introModel: introModel)
 }
 #endif

@@ -1,5 +1,4 @@
-import type {
-  Base58EncodedBytes } from '@solana/kit';
+import type { Base58EncodedBytes } from '@solana/kit';
 import {
   getBase58Decoder,
   getBase58Encoder,
@@ -20,13 +19,15 @@ import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 export async function signPayload(
   accountId: string,
   payloadToSign: UnifiedSignDataPayload,
-  password?: string,
+  enclaveToken?: string,
 ): Promise<{ result: string } | { error: ApiAnyDisplayError }> {
-  if (password === undefined) return { error: ApiCommonError.InvalidPassword };
+  if (enclaveToken === undefined) return { error: ApiCommonError.InvalidPassword };
 
   const { network } = parseAccountId(accountId);
 
-  const privateKey = (await fetchPrivateKeyString(accountId, password))!;
+  const privateKey = await fetchPrivateKeyString(accountId, enclaveToken);
+  if (!privateKey) return { error: ApiCommonError.InvalidPassword };
+
   const signer = getSignerFromPrivateKey(network, privateKey);
 
   if (payloadToSign.type !== 'binary') {
@@ -75,23 +76,35 @@ export function partiallySignTransaction(
   return { signedBytes: new Uint8Array(signedBytes), signatureBytes };
 }
 
-export async function signTransfer(
+export async function signTransfers(
   accountId: string,
-  transaction: string,
-  password?: string,
+  transactions: string[],
+  enclaveToken?: string,
   isLegacyOutput?: boolean,
 ): Promise<ApiSignedTransfer<DappProtocolType.WalletConnect>[] | { error: ApiAnyDisplayError }> {
-  if (password === undefined) return { error: ApiCommonError.InvalidPassword };
+  if (enclaveToken === undefined) return { error: ApiCommonError.InvalidPassword };
 
   const { network } = parseAccountId(accountId);
 
-  const privateKey = (await fetchPrivateKeyString(accountId, password))!;
+  const privateKey = await fetchPrivateKeyString(accountId, enclaveToken);
+  if (!privateKey) return { error: ApiCommonError.InvalidPassword };
 
-  const { signedBytes, signatureBytes } = partiallySignTransaction(
-    network,
-    privateKey,
-    transaction,
+  return transactions.flatMap((transaction) =>
+    signTransferWithPrivateKey(network, privateKey, transaction, isLegacyOutput),
   );
+}
+
+export function signTransfer(accountId: string, transaction: string, enclaveToken?: string, isLegacyOutput?: boolean) {
+  return signTransfers(accountId, [transaction], enclaveToken, isLegacyOutput);
+}
+
+function signTransferWithPrivateKey(
+  network: ApiNetwork,
+  privateKey: string,
+  transaction: string,
+  isLegacyOutput?: boolean,
+): ApiSignedTransfer<DappProtocolType.WalletConnect>[] {
+  const { signedBytes, signatureBytes } = partiallySignTransaction(network, privateKey, transaction);
 
   const outputDecoder = isLegacyOutput ? getBase58Decoder() : getBase64Decoder();
 

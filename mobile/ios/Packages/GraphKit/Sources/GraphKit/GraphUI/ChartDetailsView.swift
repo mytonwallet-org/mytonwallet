@@ -27,17 +27,17 @@ private final class ChartDetailsRowView: UIView {
 
         isUserInteractionEnabled = false
 
-        prefixLabel.font = UIFont.systemFont(ofSize: 12, weight: .bold)
+        prefixLabel.font = GraphTypography.technicalCaptionBoldFont
         prefixLabel.textAlignment = .right
         prefixLabel.numberOfLines = 2
         prefixLabel.lineBreakMode = .byWordWrapping
 
-        titleLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        titleLabel.font = GraphTypography.captionFont
         titleLabel.textAlignment = .left
         titleLabel.numberOfLines = 2
         titleLabel.lineBreakMode = .byWordWrapping
 
-        valueLabel.font = UIFont.systemFont(ofSize: 12, weight: .bold)
+        valueLabel.font = GraphTypography.technicalCaptionBoldFont
         valueLabel.textAlignment = .right
         valueLabel.numberOfLines = 1
 
@@ -85,7 +85,7 @@ class ChartDetailsView: UIControl {
         layer.shadowOffset = .zero
 
         addTarget(self, action: #selector(didTapWhole), for: .touchUpInside)
-        titleLabel.font = UIFont.systemFont(ofSize: 12, weight: .bold)
+        titleLabel.font = GraphTypography.technicalCaptionBoldFont
         arrowView.image = ChartImageFactory.chevronRight(color: theme.chartDetailsArrowColor)
         arrowView.contentMode = .scaleAspectFit
 
@@ -280,7 +280,7 @@ class ChartDetailsView: UIControl {
     private func makeLayoutMetrics(for viewModel: ChartDetailsViewModel) -> LayoutMetrics {
         let rowModels = viewModel.values + (viewModel.totalValue.map { [$0] } ?? [])
         let widestValueWidth = rowModels.reduce(CGFloat.zero) { partialResult, value in
-            max(partialResult, ceil((value.value as NSString).size(withAttributes: [.font: UIFont.systemFont(ofSize: 12, weight: .bold)]).width))
+            max(partialResult, ceil((value.value as NSString).size(withAttributes: [.font: GraphTypography.technicalCaptionBoldFont]).width))
         }
 
         return LayoutMetrics(

@@ -1,26 +1,26 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.subwallets.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.isVisible
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
-import kotlin.math.roundToInt
 
 data class SubwalletRowData(
     val identifier: String,
@@ -33,9 +33,9 @@ data class SubwalletRowData(
     val totalBalance: String
 )
 
-class SubwalletCell(
-    context: Context,
-) : WCell(context), WThemedView {
+class SubwalletCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     var identifier: String = ""
         private set
@@ -111,8 +111,7 @@ class SubwalletCell(
             0f,
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
-        if (onTap != null)
-            addRippleEffect(WColor.SecondaryBackground.color)
+        if (onTap != null) addRippleEffect(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
         badgeLabel.setTextColor(WColor.SecondaryText.color)
         badgeLabel.setBackgroundColor(WColor.SecondaryBackground.color, 4f.dp)
@@ -149,7 +148,7 @@ class SubwalletCell(
             style = WMultichainAddressLabel.cardRowWalletStyle
         )
 
-        totalBalanceLabel.text = "≥ ${rowData.totalBalance}"
+        totalBalanceLabel.text = "\u202D≥ ${rowData.totalBalance}"
         nativeAmountLabel.text = rowData.nativeAmount
         updateTheme()
 

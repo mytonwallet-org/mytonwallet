@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.appcompat.widget.AppCompatImageView
-import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -18,9 +18,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 @SuppressLint("ViewConstructor")
-class TitleSubtitleSelectionCell(
-    context: Context
-) : WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
+class TitleSubtitleSelectionCell(context: Context) :
+    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)),
+    WThemedView {
 
     private val selectionImageView: AppCompatImageView by lazy {
         val img = AppCompatImageView(context)
@@ -99,5 +99,4 @@ class TitleSubtitleSelectionCell(
         subtitleLabel.text = subtitle
         this.onClick = onClick
     }
-
 }

@@ -1,0 +1,40 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.icon {
+  margin-bottom: 0.75rem;
+}
+
+.amount {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1875;
+  color: var(--color-black);
+}
+
+.amountSecondary {
+  font-size: 1.5rem;
+  color: var(--color-gray-2);
+}
+
+.value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-gray-2);
+}
+
+.change {
+  white-space: nowrap;
+}
+
+.positive {
+  color: var(--color-activity-green-text);
+}
+
+.negative {
+  color: var(--color-activity-red-text);
+}

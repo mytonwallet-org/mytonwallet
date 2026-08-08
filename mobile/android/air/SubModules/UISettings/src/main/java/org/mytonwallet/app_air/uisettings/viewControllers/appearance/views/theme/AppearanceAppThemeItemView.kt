@@ -22,10 +22,9 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
-class AppearanceAppThemeItemView(
-    context: Context,
-    val identifier: String
-) : WView(context), WThemedView {
+class AppearanceAppThemeItemView(context: Context, val identifier: String) :
+    WView(context),
+    WThemedView {
 
     var isActive: Boolean = false
 
@@ -108,5 +107,4 @@ class AppearanceAppThemeItemView(
         imageView.setPadding(borderPadding)
         nameLabel.setTextColor((if (isActive) WColor.Tint else WColor.SecondaryText).color)
     }
-
 }

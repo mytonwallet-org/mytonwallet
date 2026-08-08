@@ -1,14 +1,14 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.cacheStorage.PortfolioCacheKey
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
-import kotlinx.coroutines.suspendCancellableCoroutine
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
 
 // Caches portfolio history responses with a time-bucketed key. Each period stays valid for the
 // duration of its sampling density (DAY -> 5m, WEEK -> 1h, everything coarser -> 1d): the cache
@@ -29,7 +29,9 @@ object PortfolioStore : IStore {
 
     private fun MHistoryTimePeriod.cacheWindowSeconds(): Long = when (this) {
         MHistoryTimePeriod.DAY -> 5L * 60
+
         MHistoryTimePeriod.WEEK -> 60L * 60
+
         MHistoryTimePeriod.MONTH,
         MHistoryTimePeriod.THREE_MONTHS,
         MHistoryTimePeriod.YEAR,
@@ -43,20 +45,20 @@ object PortfolioStore : IStore {
         methodName: String,
         accountId: String,
         baseCurrency: MBaseCurrency,
-        period: MHistoryTimePeriod,
+        period: MHistoryTimePeriod
     ): String = PortfolioCacheKey(
         methodName = methodName,
         accountId = accountId,
         currencyCode = baseCurrency.currencyCode,
         periodValue = period.value,
-        bucket = currentBucket(period),
+        bucket = currentBucket(period)
     ).toString()
 
     suspend fun get(
         methodName: String,
         accountId: String,
         baseCurrency: MBaseCurrency,
-        period: MHistoryTimePeriod,
+        period: MHistoryTimePeriod
     ): ApiPortfolioHistoryResponse? {
         val key = cacheKey(methodName, accountId, baseCurrency, period)
         memoryCache[key]?.let { return it }
@@ -75,7 +77,7 @@ object PortfolioStore : IStore {
         accountId: String,
         baseCurrency: MBaseCurrency,
         period: MHistoryTimePeriod,
-        response: ApiPortfolioHistoryResponse,
+        response: ApiPortfolioHistoryResponse
     ) {
         val key = cacheKey(methodName, accountId, baseCurrency, period)
         // Drop the chart's prior entries (older buckets / other currencies) so it keeps one entry.

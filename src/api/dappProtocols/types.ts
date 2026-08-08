@@ -489,14 +489,14 @@ export interface ChainDappSupport<T extends ApiChain = any> {
   signConnectionProof?(
     accountId: string,
     proof: DappProofRequest,
-    password?: string,
+    enclaveToken?: string,
   ): Promise<{ signature: string } | { error: ApiAnyDisplayError }>;
 
   signDappTransfers(
     accountId: string,
     transactions: ApiDappTransfer[],
     options: {
-      password?: string;
+      enclaveToken?: string;
       validUntil?: number;
       vestingAddress?: string;
       isLegacyOutput?: boolean;
@@ -512,7 +512,7 @@ export interface ChainDappSupport<T extends ApiChain = any> {
     accountId: string,
     url: string,
     payload: UnifiedSignDataPayload,
-    password?: string
+    enclaveToken?: string
   ): Promise<DappSignDataResult | { error: ApiAnyDisplayError }>;
 
   parseTransactionForPreview?(

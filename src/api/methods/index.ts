@@ -4,6 +4,7 @@ export { destroy } from './init';
 export * from './activities';
 export * from './analytics';
 export * from './auth';
+export * from './legacyAuth';
 export * from './wallet';
 export * from './transfer';
 export * from './nfts';

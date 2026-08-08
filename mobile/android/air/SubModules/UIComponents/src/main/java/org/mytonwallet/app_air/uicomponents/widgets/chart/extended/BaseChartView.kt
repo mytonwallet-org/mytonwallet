@@ -1,3 +1,5 @@
+@file:Suppress("PropertyName")
+
 package org.mytonwallet.app_air.uicomponents.widgets.chart.extended
 
 import android.animation.Animator
@@ -25,20 +27,23 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.animation.AccelerateDecelerateInterpolator
-import org.mytonwallet.app_air.uicomponents.R
-import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.util.Arrays
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
+import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
-abstract class BaseChartView<T : ChartData, L : LineViewData>(
-    context: Context,
-) : View(context), ChartPickerDelegate.Listener, WThemedView {
+abstract class BaseChartView<T : ChartData, L : LineViewData>(context: Context) :
+    View(context),
+    ChartPickerDelegate.Listener,
+    WThemedView {
     protected val HORIZONTAL_PADDING get() = Companion.HORIZONTAL_PADDING
     protected val SIGNATURE_TEXT_HEIGHT get() = Companion.SIGNATURE_TEXT_HEIGHT
     protected val PICKER_PADDING get() = Companion.PICKER_PADDING
@@ -245,10 +250,13 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         selectedLinePaint.strokeWidth = SELECTED_LINE_WIDTH
 
         signaturePaint.textSize = SIGNATURE_TEXT_SIZE
+        signaturePaint.typeface = WFont.Regular.typeface
         signaturePaint2.textSize = SIGNATURE_TEXT_SIZE
         signaturePaint2.textAlign = Paint.Align.RIGHT
+        signaturePaint2.typeface = WFont.Regular.typeface
         bottomSignaturePaint.textSize = SIGNATURE_TEXT_SIZE
         bottomSignaturePaint.textAlign = Paint.Align.CENTER
+        bottomSignaturePaint.typeface = WFont.Regular.typeface
 
         selectionBackgroundPaint.strokeWidth = 6f.dp
         selectionBackgroundPaint.strokeCap = Paint.Cap.ROUND
@@ -268,11 +276,10 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         updateTheme()
     }
 
-    protected open fun createLegendView(): LegendSignatureView {
-        return LegendSignatureView(context).apply {
+    protected open fun createLegendView(): LegendSignatureView =
+        LegendSignatureView(context).apply {
             this.style = this@BaseChartView.style
         }
-    }
 
     override fun updateTheme() {
         signaturePaint.color =
@@ -372,7 +379,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
 
         updateLineSignature()
         chartBottom = 100.dp
-        legendSignatureView.setMaxChartHeight((measuredHeight - chartBottom - 16.dp).coerceAtLeast(0))
+        legendSignatureView.setMaxChartHeight(
+            (measuredHeight - chartBottom - 16.dp).coerceAtLeast(0)
+        )
         chartArea.set(
             chartStart - HORIZONTAL_PADDING,
             0f,
@@ -439,7 +448,8 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 currentMaxHeight = animateToMaxHeight
             } else {
                 currentMaxHeight =
-                    startFromMaxH + (animateToMaxHeight - startFromMaxH) * INTERPOLATOR.getInterpolation(
+                    startFromMaxH +
+                    (animateToMaxHeight - startFromMaxH) * INTERPOLATOR.getInterpolation(
                         startFromMax
                     )
             }
@@ -452,7 +462,8 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 currentMinHeight = animateToMinHeight
             } else {
                 currentMinHeight =
-                    startFromMinH + (animateToMinHeight - startFromMinH) * INTERPOLATOR.getInterpolation(
+                    startFromMinH +
+                    (animateToMinHeight - startFromMinH) * INTERPOLATOR.getInterpolation(
                         startFromMin
                     )
             }
@@ -487,28 +498,41 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                     continue
                 }
                 val xPercentage =
-                    (data.x[i] - data.x[0]).toFloat() / (data.x[data.x.size - 1] - data.x[0]).toFloat()
+                    (data.x[i] - data.x[0]).toFloat() /
+                        (data.x[data.x.size - 1] - data.x[0]).toFloat()
                 val xPoint = xPercentage * chartFullWidth - offset
                 val xPointOffset = xPoint - BOTTOM_SIGNATURE_OFFSET
                 if (xPointOffset > 0 && xPointOffset <= chartWidth + HORIZONTAL_PADDING) {
                     bottomSignaturePaint.alpha = when {
                         xPointOffset < BOTTOM_SIGNATURE_START_ALPHA -> {
                             val a =
-                                1f - (BOTTOM_SIGNATURE_START_ALPHA - xPointOffset) / BOTTOM_SIGNATURE_START_ALPHA
-                            (signatureData.alpha * a * bottomSignaturePaintAlpha * transitionAlpha).toInt()
+                                1f -
+                                    (BOTTOM_SIGNATURE_START_ALPHA - xPointOffset) /
+                                    BOTTOM_SIGNATURE_START_ALPHA
+                            (
+                                signatureData.alpha * a * bottomSignaturePaintAlpha *
+                                    transitionAlpha
+                                ).toInt()
                         }
 
                         xPointOffset > chartWidth -> {
                             val a = 1f - (xPointOffset - chartWidth) / HORIZONTAL_PADDING
-                            (signatureData.alpha * a * bottomSignaturePaintAlpha * transitionAlpha).toInt()
+                            (
+                                signatureData.alpha * a * bottomSignaturePaintAlpha *
+                                    transitionAlpha
+                                ).toInt()
                         }
 
-                        else -> (signatureData.alpha * bottomSignaturePaintAlpha * transitionAlpha).toInt()
+                        else ->
+                            (signatureData.alpha * bottomSignaturePaintAlpha * transitionAlpha)
+                                .toInt()
                     }
+                    val signatureBaseline =
+                        measuredHeight - chartBottom + BOTTOM_SIGNATURE_TEXT_HEIGHT + 3.dp
                     canvas.drawText(
                         data.getDayString(i),
                         xPoint,
-                        measuredHeight - chartBottom + BOTTOM_SIGNATURE_TEXT_HEIGHT + 3.dp.toFloat(),
+                        signatureBaseline.toFloat(),
                         bottomSignaturePaint
                     )
                 }
@@ -531,7 +555,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         val zeroLabel = formatZeroAxisLabel().toString()
         val textX = HORIZONTAL_PADDING
         val textY = (y - textOffset).toFloat()
-        //val backgroundAlpha = (signaturePaint.alpha * horizontalLabelBackgroundAlpha).toInt()
+        // val backgroundAlpha = (signaturePaint.alpha * horizontalLabelBackgroundAlpha).toInt()
         /*if (backgroundAlpha > 0) {
             val textWidth = signaturePaint.measureText(zeroLabel)
             val top = textY + signaturePaint.ascent()
@@ -572,9 +596,11 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                     continue
                 }
                 val yPercentage =
-                    (line.line.y[selectedIndex] - currentMinHeight) / (currentMaxHeight - currentMinHeight)
+                    (line.line.y[selectedIndex] - currentMinHeight) /
+                        (currentMaxHeight - currentMinHeight)
                 val yPoint =
-                    measuredHeight - chartBottom - yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT)
+                    measuredHeight - chartBottom -
+                        yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT)
                 line.selectionPaint.alpha = (255 * line.alpha * selectionA).toInt()
                 selectionBackgroundPaint.alpha = (255 * line.alpha * selectionA).toInt()
                 canvas.drawPoint(xPoint, yPoint, line.selectionPaint)
@@ -607,7 +633,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         val start = if (useMinHeight) 0 else 1
         for (i in start until n) {
             val y =
-                (measuredHeight - chartBottom) - chartHeight * ((a.values[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight))
+                (measuredHeight - chartBottom) -
+                    chartHeight *
+                    ((a.values[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight))
             canvas.drawLine(chartStart, y, chartEnd, y, linePaint)
         }
     }
@@ -637,7 +665,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         val start = if (useMinHeight) 0 else 1
         for (i in start until n) {
             val y =
-                (measuredHeight - chartBottom) - chartHeight * ((a.values[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight))
+                (measuredHeight - chartBottom) -
+                    chartHeight *
+                    ((a.values[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight))
             drawHorizontalLineSignature(
                 canvas = canvas,
                 linesData = a,
@@ -645,7 +675,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 index = i,
                 x = HORIZONTAL_PADDING,
                 y = y - textOffset,
-                paint = signaturePaint,
+                paint = signaturePaint
             )
             if (a.valuesStr2 != null) {
                 drawHorizontalLineSignature(
@@ -655,7 +685,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                     index = i,
                     x = measuredWidth - HORIZONTAL_PADDING,
                     y = y - textOffset,
-                    paint = signaturePaint2,
+                    paint = signaturePaint2
                 )
             }
         }
@@ -668,7 +698,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         index: Int,
         x: Float,
         y: Float,
-        paint: TextPaint,
+        paint: TextPaint
     ) {
         /*val backgroundAlpha = (paint.alpha * horizontalLabelBackgroundAlpha).toInt()
         if (backgroundAlpha > 0 && linesData.getTextBounds(
@@ -699,7 +729,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         val top = measuredHeight - pikerHeight - PICKER_PADDING
         val isSinglePicker = pickerMode == ChartPickerDelegate.PickerMode.SINGLE
         val singleMorphProgress =
-            if (isSinglePicker && transitionMode == TRANSITION_MODE_CHILD && transitionParams != null) {
+            if (isSinglePicker && transitionMode == TRANSITION_MODE_CHILD &&
+                transitionParams != null
+            ) {
                 transitionParams?.progress ?: 1f
             } else if (isSinglePicker) {
                 1f
@@ -736,7 +768,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
             if (transitionMode == TRANSITION_MODE_NONE) {
                 if (shouldAnimatePickerDuringLineAnimation()) {
                     for (l in lines) {
-                        if ((l.animatorIn?.isRunning == true) || (l.animatorOut?.isRunning == true)) {
+                        if ((l.animatorIn?.isRunning == true) ||
+                            (l.animatorOut?.isRunning == true)
+                        ) {
                             instantDraw = true
                             break
                         }
@@ -786,7 +820,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                         bottom = bottom,
                         start = start,
                         end = end,
-                        alphaFraction = singleRangeOverlayAlpha,
+                        alphaFraction = singleRangeOverlayAlpha
                     )
                 }
                 if (singleFullOverlayAlpha > 0f) {
@@ -794,7 +828,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                         canvas = canvas,
                         top = top,
                         bottom = bottom,
-                        alphaFraction = singleFullOverlayAlpha,
+                        alphaFraction = singleFullOverlayAlpha
                     )
                 }
             } else {
@@ -804,7 +838,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                     bottom = bottom,
                     start = start,
                     end = end,
-                    alphaFraction = 1f,
+                    alphaFraction = 1f
                 )
             }
         } else {
@@ -861,13 +895,14 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                         top = (pickerRect.top - DP_1).toFloat(),
                         right = barRight,
                         bottom = (pickerRect.bottom + DP_1).toFloat(),
-                        alphaFraction = singleBarAlpha,
+                        alphaFraction = singleBarAlpha
                     )
                 }
 
                 pickerDelegate.getMiddleCaptured()?.let { middleCap ->
                     val rippleRadius =
-                        ((pickerRect.bottom - pickerRect.top) shr 1) * middleCap.aValue - DP_2.toFloat()
+                        ((pickerRect.bottom - pickerRect.top) shr 1) * middleCap.aValue -
+                            DP_2.toFloat()
                     if (rippleRadius > 0f) {
                         canvas.drawCircle(
                             centerX,
@@ -881,7 +916,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 pickerDelegate.middlePickerArea.set(pickerRect)
 
                 canvas.drawPath(
-                    RoundedRect(
+                    roundedRect(
                         pathTmp,
                         pickerRect.left.toFloat(),
                         (pickerRect.top - DP_1).toFloat(),
@@ -893,10 +928,11 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                         false,
                         false,
                         true
-                    ), pickerSelectorPaint
+                    ),
+                    pickerSelectorPaint
                 )
                 canvas.drawPath(
-                    RoundedRect(
+                    roundedRect(
                         pathTmp,
                         (pickerRect.right - DP_12).toFloat(),
                         (pickerRect.top - DP_1).toFloat(),
@@ -908,7 +944,8 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                         true,
                         true,
                         false
-                    ), pickerSelectorPaint
+                    ),
+                    pickerSelectorPaint
                 )
 
                 canvas.drawRect(
@@ -989,7 +1026,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         bottom: Int,
         start: Int,
         end: Int,
-        alphaFraction: Float,
+        alphaFraction: Float
     ) {
         if (alphaFraction <= 0f) return
         val previousAlpha = unactiveBottomChartPaint.alpha
@@ -1017,7 +1054,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         canvas: Canvas,
         top: Int,
         bottom: Int,
-        alphaFraction: Float,
+        alphaFraction: Float
     ) {
         if (alphaFraction <= 0f) return
         val previousAlpha = unactiveBottomChartPaint.alpha
@@ -1038,7 +1075,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         top: Float,
         right: Float,
         bottom: Float,
-        alphaFraction: Float,
+        alphaFraction: Float
     ) {
         if (alphaFraction <= 0f) return
 
@@ -1050,7 +1087,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         val previousAlpha = pickerSelectorPaint.alpha
         pickerSelectorPaint.alpha = (previousAlpha * alphaFraction).toInt()
         canvas.drawPath(
-            RoundedRect(
+            roundedRect(
                 pathTmp,
                 left,
                 top,
@@ -1074,7 +1111,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         top: Float,
         right: Float,
         bottom: Float,
-        alphaFraction: Float,
+        alphaFraction: Float
     ) {
         val alpha = (255 * alphaFraction).toInt()
         singlePickerDrawable?.let { drawable ->
@@ -1103,7 +1140,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         whiteLinePaint.alpha = (previousWhiteAlpha * alphaFraction).toInt()
 
         canvas.drawPath(
-            RoundedRect(
+            roundedRect(
                 pathTmp,
                 pickerRect.left.toFloat(),
                 (pickerRect.top - DP_1).toFloat(),
@@ -1115,10 +1152,11 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 false,
                 false,
                 true
-            ), pickerSelectorPaint
+            ),
+            pickerSelectorPaint
         )
         canvas.drawPath(
-            RoundedRect(
+            roundedRect(
                 pathTmp,
                 (pickerRect.right - DP_12).toFloat(),
                 (pickerRect.top - DP_1).toFloat(),
@@ -1130,7 +1168,8 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 true,
                 true,
                 false
-            ), pickerSelectorPaint
+            ),
+            pickerSelectorPaint
         )
 
         canvas.drawRect(
@@ -1170,7 +1209,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
     private fun drawRangePickerFrameWithResources(
         canvas: Canvas,
         pickerRect: Rect,
-        alphaFraction: Float,
+        alphaFraction: Float
     ) {
         val alpha = (255 * alphaFraction).toInt()
         val top = (pickerRect.top - DP_1).toFloat()
@@ -1232,7 +1271,10 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         var newMaxHeight = newMaxHeightIn
         var newMinHeight = newMinHeightIn
         var heightChanged = true
-        if (abs(ChartHorizontalLinesData.lookupHeight(newMaxHeight) - animateToMaxHeight) < thresholdMaxHeight || newMaxHeight == 0L) {
+        if (abs(ChartHorizontalLinesData.lookupHeight(newMaxHeight) - animateToMaxHeight) <
+            thresholdMaxHeight ||
+            newMaxHeight == 0L
+        ) {
             heightChanged = false
         }
         if (!heightChanged && newMaxHeight.toFloat() == animateToMinHeight) {
@@ -1325,15 +1367,19 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
             }
         }
 
-        alphaAnimator = createAnimator(0f, 255f, ValueAnimator.AnimatorUpdateListener { animation ->
-            newData.alpha = (animation.animatedValue as Float).toInt()
-            for (a in horizontalLines) {
-                if (a !== newData) {
-                    a.alpha = ((a.fixedAlpha / 255f) * (255 - newData.alpha)).toInt()
+        alphaAnimator = createAnimator(
+            0f,
+            255f,
+            ValueAnimator.AnimatorUpdateListener { animation ->
+                newData.alpha = (animation.animatedValue as Float).toInt()
+                for (a in horizontalLines) {
+                    if (a !== newData) {
+                        a.alpha = ((a.fixedAlpha / 255f) * (255 - newData.alpha)).toInt()
+                    }
                 }
+                invalidate()
             }
-            invalidate()
-        }).apply {
+        ).apply {
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     horizontalLines.clear()
@@ -1350,7 +1396,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         formatter: Int
     ): ChartHorizontalLinesData {
         val data = chartData
-            ?: throw IllegalStateException("Chart data must be set before creating horizontal lines")
+            ?: throw IllegalStateException(
+                "Chart data must be set before creating horizontal lines"
+            )
         return ChartHorizontalLinesData(
             newMaxHeight,
             newMinHeight,
@@ -1363,9 +1411,8 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         )
     }
 
-    protected open fun formatZeroAxisLabel(): CharSequence {
-        return valueFormatter?.formatZeroAxisValue(signaturePaint) ?: "0"
-    }
+    protected open fun formatZeroAxisLabel(): CharSequence =
+        valueFormatter?.formatZeroAxisValue(signaturePaint) ?: "0"
 
     protected open fun shouldAnimatePickerDuringLineAnimation(): Boolean = true
 
@@ -1373,12 +1420,10 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         f1: Float,
         f2: Float,
         listener: ValueAnimator.AnimatorUpdateListener
-    ): ValueAnimator {
-        return ValueAnimator.ofFloat(f1, f2).apply {
-            duration = ANIM_DURATION
-            interpolator = INTERPOLATOR
-            addUpdateListener(listener)
-        }
+    ): ValueAnimator = ValueAnimator.ofFloat(f1, f2).apply {
+        duration = ANIM_DURATION
+        interpolator = INTERPOLATOR
+        addUpdateListener(listener)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -1439,7 +1484,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
 
                 if (chartCaptured) {
                     val disable =
-                        if (canCaptureChartSelection && System.currentTimeMillis() - capturedTime > 200) {
+                        if (canCaptureChartSelection &&
+                            System.currentTimeMillis() - capturedTime > 200
+                        ) {
                             true
                         } else {
                             abs(dx) > abs(dy) || abs(dy) < touchSlop
@@ -1456,10 +1503,17 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                             chartCaptured = true
                             parent.requestDisallowInterceptTouchEvent(true)
                             selectXOnChart(x, y)
-                        } else if (abs(dyCaptured) > touchSlop && abs(dyCaptured) > abs(dxCaptured)) {
+                        } else if (abs(dyCaptured) > touchSlop &&
+                            abs(dyCaptured) > abs(dxCaptured)
+                        ) {
                             parent.requestDisallowInterceptTouchEvent(false)
                         }
-                    } else if (sqrt((dxCaptured * dxCaptured + dyCaptured * dyCaptured).toDouble()) > touchSlop || System.currentTimeMillis() - capturedTime > 200) {
+                    } else if (sqrt(
+                            (dxCaptured * dxCaptured + dyCaptured * dyCaptured).toDouble()
+                        ) >
+                        touchSlop ||
+                        System.currentTimeMillis() - capturedTime > 200
+                    ) {
                         chartCaptured = true
                         selectXOnChart(x, y)
                     }
@@ -1655,7 +1709,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                     pickerDelegate.pickerEnd = 1f
                 } else {
                     pickerDelegate.minDistance = getMinDistance()
-                    if (pickerDelegate.pickerEnd - pickerDelegate.pickerStart < pickerDelegate.minDistance) {
+                    if (pickerDelegate.pickerEnd - pickerDelegate.pickerStart <
+                        pickerDelegate.minDistance
+                    ) {
                         pickerDelegate.pickerStart =
                             pickerDelegate.pickerEnd - pickerDelegate.minDistance
                         if (pickerDelegate.pickerStart < 0f) {
@@ -1675,7 +1731,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
             pickerMaxHeight = 0f
             pickerMinHeight = Int.MAX_VALUE.toFloat()
             initPickerMaxHeight()
-            if (chartData.yTooltipFormatter == ChartData.FORMATTER_TON || chartData.yTooltipFormatter == ChartData.FORMATTER_XTR) {
+            if (chartData.yTooltipFormatter == ChartData.FORMATTER_TON ||
+                chartData.yTooltipFormatter == ChartData.FORMATTER_XTR
+            ) {
                 legendSignatureView.setSize(2 * lines.size)
             } else {
                 legendSignatureView.setSize(lines.size)
@@ -1821,17 +1879,21 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
             }
 
             alphaBottomAnimator =
-                createAnimator(0f, 1f, ValueAnimator.AnimatorUpdateListener { animation ->
-                    val alpha = animation.animatedValue as Float
-                    for (a in bottomSignatureDate) {
-                        if (a === data) {
-                            data.alpha = (255 * alpha).toInt()
-                        } else {
-                            a.alpha = ((1f - alpha) * a.fixedAlpha).toInt()
+                createAnimator(
+                    0f,
+                    1f,
+                    ValueAnimator.AnimatorUpdateListener { animation ->
+                        val alpha = animation.animatedValue as Float
+                        for (a in bottomSignatureDate) {
+                            if (a === data) {
+                                data.alpha = (255 * alpha).toInt()
+                            } else {
+                                a.alpha = ((1f - alpha) * a.fixedAlpha).toInt()
+                            }
                         }
+                        invalidate()
                     }
-                    invalidate()
-                }).apply {
+                ).apply {
                     duration = 200
                     addListener(object : AnimatorListenerAdapter() {
                         override fun onAnimationEnd(animation: Animator) {
@@ -1930,7 +1992,13 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 minValue = line.line.minValue
             }
         }
-        if ((minValue != Int.MAX_VALUE.toLong() && minValue.toFloat() != animatedToPickerMinHeight) || (maxValue > 0 && maxValue.toFloat() != animatedToPickerMaxHeight)) {
+        if (
+            (
+                minValue != Int.MAX_VALUE.toLong() &&
+                    minValue.toFloat() != animatedToPickerMinHeight
+                ) ||
+            (maxValue > 0 && maxValue.toFloat() != animatedToPickerMaxHeight)
+        ) {
             animatedToPickerMaxHeight = maxValue.toFloat()
             animatedToPickerMinHeight = minValue.toFloat()
             pickerAnimator?.cancel()
@@ -2119,9 +2187,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         fun onDateSelected(date: Long)
     }
 
-    class SharedUiComponents(
-        var style: ChartStyle = ChartStyle.default(),
-    ) {
+    class SharedUiComponents(var style: ChartStyle = ChartStyle.default()) {
         private var pickerRoundBitmap: Bitmap? = null
         private var canvas: Canvas? = null
         private val rectF = RectF()
@@ -2168,10 +2234,18 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
             if (style.isDark) R.drawable.ic_chart_thumb_dark else R.drawable.ic_chart_thumb
         )?.mutate()
         rangePickerRightDrawable = context.getDrawableCompat(
-            if (style.isDark) R.drawable.ic_chart_thumb_right_dark else R.drawable.ic_chart_thumb_right
+            if (style.isDark) {
+                R.drawable.ic_chart_thumb_right_dark
+            } else {
+                R.drawable.ic_chart_thumb_right
+            }
         )?.mutate()
         singlePickerDrawable = context.getDrawableCompat(
-            if (style.isDark) R.drawable.ic_chart_thumb_single_dark else R.drawable.ic_chart_thumb_single
+            if (style.isDark) {
+                R.drawable.ic_chart_thumb_single_dark
+            } else {
+                R.drawable.ic_chart_thumb_single
+            }
         )?.mutate()
     }
 
@@ -2208,7 +2282,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         const val TRANSITION_MODE_NONE = 0
         private const val BOTTOM_SIGNATURE_COUNT = 6
 
-        fun RoundedRect(
+        fun roundedRect(
             path: Path,
             left: Float,
             top: Float,

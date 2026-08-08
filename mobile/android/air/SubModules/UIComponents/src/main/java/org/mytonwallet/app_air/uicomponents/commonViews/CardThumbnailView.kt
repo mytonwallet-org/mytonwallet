@@ -83,7 +83,7 @@ class CardThumbnailView(context: Context) : WFrameLayout(context) {
                     Content(
                         Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card),
                         scaleType = ScalingUtils.ScaleType.FIT_XY
-                    ),
+                    )
                 )
                 updateMiniPlaceholderColors(Color.WHITE, Color.WHITE)
             } else {

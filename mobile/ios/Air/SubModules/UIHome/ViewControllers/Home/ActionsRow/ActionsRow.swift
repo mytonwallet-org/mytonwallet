@@ -5,7 +5,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let log = Log("Home-Actions")
 private let actionsRowFadeDuration: TimeInterval = 0.3
 
 @MainActor let actionsRowHeight = WScalableButton.preferredHeight
@@ -151,13 +150,7 @@ final class ActionsView: ButtonsToolbar {
                     cornerCurve: .continuous
                 ),
                 showsBackdropCutout: true
-            ),
-            onWillPresent: {
-                sendButton.cancelCurrentInteractionAndSuppressNextTap()
-            },
-            onDidDismiss: {
-                sendButton.consumeSuppressedTapIfNeeded()
-            }
+            )
         ) { [weak self] _ in
             self?.makeSendMenuConfiguration() ?? ContextMenuConfiguration(
                 rootPage: ContextMenuPage(items: []),

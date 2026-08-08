@@ -27,9 +27,7 @@ public struct WKeyboardDisplayInfo {
 }
 
 @MainActor public class WKeyboardObserver {
-    
-    @MainActor private weak var delegate: WKeyboardObserverDelegate?
-    
+
     public static var displayedKeyboardOnce: Bool = false
     public static var keyboardHeight: CGFloat {
         get { CGFloat(UserDefaults.standard.float(forKey: "keyboardHeight"))  }

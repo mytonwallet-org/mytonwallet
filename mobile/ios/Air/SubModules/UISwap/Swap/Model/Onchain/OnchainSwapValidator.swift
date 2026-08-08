@@ -90,7 +90,6 @@ struct OnchainSwapFeeStatus {
             tokenIn: sellingToken,
             networkFee: swapEstimate.networkFee,
             realNetworkFee: swapEstimate.realNetworkFee,
-            ourFee: swapEstimate.ourFee,
             dieselStatus: swapEstimate.dieselStatus,
             dieselFee: swapEstimate.dieselFee,
             nativeTokenInBalance: nativeTokenInBalance

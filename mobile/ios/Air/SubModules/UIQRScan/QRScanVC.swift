@@ -103,8 +103,8 @@ public final class QRScanVC: WViewController {
         if qrScanView.superview == nil {
             view.insertSubview(qrScanView, at: 0)
             NSLayoutConstraint.activate([
-                qrScanView.leftAnchor.constraint(equalTo: view.leftAnchor),
-                qrScanView.rightAnchor.constraint(equalTo: view.rightAnchor),
+                qrScanView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                qrScanView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                 qrScanView.topAnchor.constraint(equalTo: view.topAnchor),
                 qrScanView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             ])
@@ -120,8 +120,8 @@ public final class QRScanVC: WViewController {
         if noAccessView.superview == nil {
             view.insertSubview(noAccessView, at: 0)
             NSLayoutConstraint.activate([
-                noAccessView.leftAnchor.constraint(equalTo: view.leftAnchor),
-                noAccessView.rightAnchor.constraint(equalTo: view.rightAnchor),
+                noAccessView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                noAccessView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                 noAccessView.topAnchor.constraint(equalTo: view.topAnchor),
                 noAccessView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             ])

@@ -11,7 +11,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class WTagView(context: Context) : WFrameLayout(context), WThemedView {
+class WTagView(context: Context) :
+    WFrameLayout(context),
+    WThemedView {
 
     private val icon = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(0f)
@@ -27,16 +29,16 @@ class WTagView(context: Context) : WFrameLayout(context), WThemedView {
 
     init {
         addView(icon, LayoutParams(28.dp, 28.dp))
-        addView(title, LayoutParams(LayoutParams.WRAP_CONTENT, 28.dp).apply {
-            setMargins(28.dp, 0, 0, 0)
-        })
+        addView(
+            title,
+            LayoutParams(LayoutParams.WRAP_CONTENT, 28.dp).apply {
+                setMargins(28.dp, 0, 0, 0)
+            }
+        )
         updateTheme()
     }
 
-    fun configure(
-        image: Content?,
-        title: CharSequence?
-    ) {
+    fun configure(image: Content?, title: CharSequence?) {
         image?.let {
             icon.set(image)
         } ?: run {

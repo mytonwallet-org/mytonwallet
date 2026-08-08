@@ -11,7 +11,7 @@ import type {
   ApiToken,
 } from './api/types';
 import type { TOKEN_CARD_COLORS } from './components/main/helpers/cardColors';
-import type { AutolockValueType, LangCode, LangItem, TokenPeriod } from './global/types';
+import type { AutolockValueType, LangCode, LangItem } from './global/types';
 
 export const APP_ENV = process.env.APP_ENV || 'production';
 
@@ -45,6 +45,7 @@ export const TEST_MNEMONIC = process.env.TEST_MNEMONIC?.trim();
 export const TEST_PASSWORD = process.env.TEST_PASSWORD || 'test';
 
 export const IS_PRODUCTION = APP_ENV === 'production';
+export const IS_STAGING = APP_ENV === 'staging';
 export const IS_TEST = APP_ENV === 'test';
 export const IS_PERF = APP_ENV === 'perf';
 export const IS_EXTENSION = process.env.IS_EXTENSION === '1';
@@ -55,11 +56,15 @@ export const IS_ANDROID_DIRECT = process.env.IS_ANDROID_DIRECT === '1';
 export const IS_AIR_APP = process.env.IS_AIR_APP === '1';
 export const IS_TELEGRAM_APP = process.env.IS_TELEGRAM_APP === '1';
 export const IS_EXPLORER = process.env.IS_EXPLORER === '1';
+export const IS_HEADLESS = process.env.IS_HEADLESS === '1';
 
 export const ELECTRON_HOST_URL = 'https://dumb-host';
 export const INACTIVE_MARKER = '[Inactive]';
 export const PRODUCTION_URL = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://web.mywallet.io';
 export const BETA_URL = IS_CORE_WALLET ? 'https://beta.wallet.ton.org' : 'https://beta.mywallet.io';
+// Beta desktop auto-update feed base. This is BOTH the staging gate poll base and the value baked
+// into app-update.yml by the generic electron-builder provider - the two must agree.
+export const BETA_UPDATE_URL = 'https://s3.mywallet.io/public/desktop-beta';
 // The pre-rebrand host still serves this very build - it is an extra domain of the same site, kept alive because
 // outdated desktop clients poll it for update manifests. Listed explicitly rather than derived by negating
 // PRODUCTION_URL, which would also match self-hosted installations.
@@ -90,8 +95,9 @@ export const STRICTERDOM_ENABLED = DEBUG && !IS_PACKAGED_ELECTRON;
 export const DEBUG_ALERT_MSG = 'Shoot!\nSomething went wrong, please see the error details in Dev Tools Console.';
 
 export const PIN_LENGTH = 4;
-export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'My Wallet';
-export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://web.mywallet.io';
+
+/** If true, legacy auth data (mnemonicEncrypted, authConfig) will be removed after migration to Enclave */
+export const SHOULD_CLEANUP_LEGACY_AUTH = false;
 export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in My Wallet';
 
 /**
@@ -264,7 +270,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-324';
+export const LANG_CACHE_NAME = 'mtw-lang-330';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -316,6 +322,16 @@ export const LANG_LIST: LangItem[] = [{
   name: 'Polish',
   nativeName: 'Polski',
   rtl: false,
+}, {
+  langCode: 'ar',
+  name: 'Arabic',
+  nativeName: 'العربية',
+  rtl: true,
+}, {
+  langCode: 'fa',
+  name: 'Persian',
+  nativeName: 'فارسی',
+  rtl: true,
 }];
 
 export const IS_STAKING_DISABLED = IS_FEATURE_LIMITED;
@@ -479,6 +495,15 @@ export const HYPERLIQUID = {
   chain: 'hyperliquid',
 } as const;
 
+export const ROBINHOOD = {
+  name: 'Robinhood',
+  symbol: 'ETH',
+  slug: 'robinhood',
+  decimals: 18,
+  chain: 'robinhood',
+  label: 'Robinhood',
+} as const;
+
 export const MYCOIN_MAINNET = {
   name: 'My Wallet Coin',
   symbol: 'MY',
@@ -499,6 +524,9 @@ export const MYCOIN_TESTNET = {
 export const STAKED_TON_SLUG = 'ton-eqcqc6ehrj';
 export const STAKED_MYCOIN_SLUG = 'ton-eqcbzvsfwq';
 export const MYCOIN_STAKING_POOL = 'EQC3roTiRRsoLzfYVK7yVVoIZjTEqAjQU3ju7aQ7HWTVL5o5';
+
+// Tokens that do not accept new stakes; existing positions stay fully withdrawable
+export const NEW_STAKE_DISABLED_TOKEN_SLUGS: ReadonlySet<string> = new Set([MYCOIN_MAINNET.slug, MYCOIN_TESTNET.slug]);
 
 export const ETHENA_STAKING_VAULT = 'EQChGuD1u0e7KUWHH5FaYh_ygcLXhsdG2nSHPXHW8qqnpZXW';
 export const ETHENA_STAKING_MIN_AMOUNT = 1_000_000; // 1 USDe
@@ -710,6 +738,10 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
     fontIcon: 'icon-chain-base',
     cardColor: 'blue',
   },
+  [ROBINHOOD.slug]: {
+    fontIcon: 'icon-chain-robinhood',
+    cardColor: 'green',
+  },
   [STAKED_TON_SLUG]: {
     cardColor: 'green',
   },
@@ -730,12 +762,13 @@ export const PRIORITY_TOKENS = [
   HYPERLIQUID,
   TONCOIN,
   TRX,
-  BASE,
   BNB,
+  BASE,
+  ROBINHOOD,
+  MONAD,
+  ARBITRUM,
   POLYGON,
   AVALANCHE,
-  ARBITRUM,
-  MONAD,
 ] as ApiToken[];
 
 export const INIT_SWAP_ASSETS: Record<'in' | 'out', ApiSwapAsset> = {
@@ -757,7 +790,6 @@ export const DEFAULT_TRANSFER_TOKEN_SLUG = TONCOIN.slug;
 export const SWAP_DEX_LABELS: Record<ApiSwapDexLabel, string> = {
   dedust: 'DeDust',
   ston: 'STON.fi',
-  jupiter: 'Jupiter',
 };
 
 export const ACTIVE_TAB_STORAGE_KEY = IS_CORE_WALLET
@@ -827,8 +859,6 @@ export const POPULAR_WALLET_VERSIONS: readonly ApiTonWalletVersion[] = ['v3R1', 
 export const DEFAULT_TIMEOUT = 10000;
 export const DEFAULT_RETRIES = 3;
 export const DEFAULT_ERROR_PAUSE = 500;
-
-export const HISTORY_PERIODS: TokenPeriod[] = ['1D', '7D', '1M', '3M', '1Y', 'ALL'];
 
 export const BROWSER_HISTORY_LIMIT = 10;
 
@@ -970,8 +1000,8 @@ export const HELP_CENTER_URL = {
     ru: 'https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy',
   },
   ethenaStaking: {
-    en: 'https://help.mywallet.io/intro/staking/what-is-usde-how-does-usde-staking-work',
-    ru: 'https://help.mywallet.io/ru/baza-znanii/steiking/chto-takoe-usde-kak-rabotaet-steiking-usde',
+    en: 'https://help.mywallet.io/intro/staking/what-is-usde-how-does-the-ethena-protocol-work',
+    ru: 'https://help.mywallet.io/ru/baza-znanii/steiking/chto-takoe-usde-kak-rabotaet-protokol-ethena',
   },
 };
 

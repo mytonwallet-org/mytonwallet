@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.math.BigInteger
 
 class BigIntegerUtilsTest {
 
@@ -16,13 +16,13 @@ class BigIntegerUtilsTest {
         roundUp: Boolean = true,
         zeroCountSubscriptMinCount: Int? = 6
     ) = value.toString(
-        decimals,
-        currency,
-        currencyDecimals,
-        showPositiveSign,
-        forceCurrencyToRight,
-        roundUp,
-        zeroCountSubscriptMinCount
+        decimals = decimals,
+        currency = currency,
+        currencyDecimals = currencyDecimals,
+        showPositiveSign = showPositiveSign,
+        forceCurrencyToRight = forceCurrencyToRight,
+        roundUp = roundUp,
+        zeroCountSubscriptMinCount = zeroCountSubscriptMinCount
     )
 
     @Test

@@ -47,6 +47,10 @@
     }
   }
 
+  &.itemActive {
+    background-color: var(--color-interactive-item-hover);
+  }
+
   &:not(:last-child)::after {
     @include mixins.separator-list-base(bottom, 3.875rem);
   }
@@ -78,4 +82,13 @@
 .itemIcon {
   font-size: 1.5rem;
   line-height: 1;
+}
+
+.menu {
+  --offset-y-value: -0.125rem;
+  --offset-y-bottom-value: -0.125rem;
+}
+
+.menuIcon {
+  font-size: 1.5rem;
 }

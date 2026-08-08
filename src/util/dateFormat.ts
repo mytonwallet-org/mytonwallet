@@ -1,6 +1,7 @@
 import type { LangCode } from '../global/types';
 import type { LangFn } from './langProvider';
 
+import { toNativeDigits } from './nativeDigits';
 import withCache from './withCache';
 
 export const SECOND = 1000;
@@ -109,7 +110,7 @@ export function formatDateRange(langCode: LangCode, startTs: number, endTs: numb
 export function formatTime(datetime: string | number) {
   const date = new Date(datetime);
 
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return toNativeDigits(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`);
 }
 
 export function getCountDaysToDate(datetime: string | number | Date) {

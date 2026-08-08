@@ -8,16 +8,16 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.ViewConfiguration
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import kotlin.math.abs
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.abs
 import me.everything.android.ui.overscroll.OverScrollBounceEffectDecoratorBase
 import me.everything.android.ui.overscroll.VerticalOverScrollBounceEffectDecorator
 import me.everything.android.ui.overscroll.adapters.RecyclerViewOverScrollDecorAdapter
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 open class WRecyclerView(context: Context) : RecyclerView(context) {
@@ -36,19 +36,21 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
                 super.onScrollStateChanged(recyclerView, newState)
                 if (newState == SCROLL_STATE_IDLE) {
                     Handler(Looper.getMainLooper()).postDelayed({
-                        if (recyclerView.scrollState == SCROLL_STATE_IDLE)
+                        if (recyclerView.scrollState == SCROLL_STATE_IDLE) {
                             viewControllerRef?.get()?.heavyAnimationDone()
+                        }
                     }, 100)
-                } else
+                } else {
                     viewControllerRef?.get()?.heavyAnimationInProgress()
+                }
             }
         })
     }
 
-    private fun canScrollDown(): Boolean {
-        return ((layoutManager as? LinearLayoutManager)?.findLastCompletelyVisibleItemPosition() !=
-            (adapter?.itemCount ?: 0) - 1)
-    }
+    private fun canScrollDown(): Boolean = (
+        (layoutManager as? LinearLayoutManager)?.findLastCompletelyVisibleItemPosition() !=
+            (adapter?.itemCount ?: 0) - 1
+        )
 
     override fun canScrollVertically(direction: Int): Boolean {
         if (direction == 1) {
@@ -72,8 +74,7 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
     private var overscrollListener: OnItemTouchListener? = null
 
     fun disallowInterceptOnOverscroll() {
-        if (overscrollListener != null)
-            return
+        if (overscrollListener != null) return
         overscrollListener = object : OnItemTouchListener {
             private var startX = 0f
             private var startY = 0f
@@ -88,14 +89,12 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
                     }
 
                     MotionEvent.ACTION_MOVE -> {
-                        if (overscrollDetected)
-                            return false
+                        if (overscrollDetected) return false
 
                         val deltaX = e.x - startX
                         val deltaY = e.y - startY
 
-                        if (abs(deltaX) > abs(deltaY))
-                            return false
+                        if (abs(deltaX) > abs(deltaY)) return false
 
                         val atTop = !rv.canScrollVertically(-1)
                         val atBottom = !rv.canScrollVertically(1)
@@ -141,21 +140,25 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
         verticalOverScrollBounceEffectDecorator = VerticalOverScrollBounceEffectDecorator(
             object : RecyclerViewOverScrollDecorAdapter(this) {
                 override fun isInAbsoluteStart(): Boolean {
-                    if (layoutManager?.canScrollVertically() == false)
-                        return false
+                    if (layoutManager?.canScrollVertically() == false) return false
                     return super.isInAbsoluteStart()
                 }
 
                 override fun isInAbsoluteEnd(): Boolean {
-                    if (layoutManager?.canScrollVertically() == false)
-                        return false
+                    if (layoutManager?.canScrollVertically() == false) return false
                     return super.isInAbsoluteEnd()
                 }
             },
             OverScrollBounceEffectDecoratorBase.DEFAULT_DECELERATE_FACTOR
         )
 
-        verticalOverScrollBounceEffectDecorator?.setOverScrollUpdateListener { _, isTouchActive, newState, offset, velocity ->
+        verticalOverScrollBounceEffectDecorator?.setOverScrollUpdateListener {
+                _,
+                isTouchActive,
+                newState,
+                offset,
+                velocity
+            ->
             onOverScrollListener?.invoke(isTouchActive, newState, offset, velocity)
         }
     }
@@ -171,9 +174,8 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
         verticalOverScrollBounceEffectDecorator?.setMaxOffset(value)
     }
 
-    fun getOverScrollOffset(): Float {
-        return verticalOverScrollBounceEffectDecorator?.overScrollOffset ?: 0f
-    }
+    fun getOverScrollOffset(): Float =
+        verticalOverScrollBounceEffectDecorator?.overScrollOffset ?: 0f
 
     private var onOverScrollListener: ((Boolean, Int, Float, Float) -> Unit)? = null
     fun setOnOverScrollListener(onOverScrollListener: ((Boolean, Int, Float, Float) -> Unit)?) {

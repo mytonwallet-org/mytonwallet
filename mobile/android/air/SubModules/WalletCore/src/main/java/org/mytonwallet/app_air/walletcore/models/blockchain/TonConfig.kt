@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
-import java.math.BigDecimal
 import androidx.core.graphics.toColorInt
+import java.math.BigDecimal
 
 object TonConfig : MBlockchainConfig {
 
@@ -25,7 +25,7 @@ object TonConfig : MBlockchainConfig {
     override val displayColor = "#2C92F0".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#158AA0".toColorInt(),
-        "#13499C".toColorInt(),
+        "#13499C".toColorInt()
     )
 
     override val feeCheckAddress = "UQBE5NzPPnfb6KAy7Rba2yQiuUnihrfcFw96T-p5JtZjAl_c"
@@ -54,8 +54,7 @@ object TonConfig : MBlockchainConfig {
         return zones.any { it.matches(address) }
     }
 
-    override fun idToTxHash(id: String?): String? =
-        id?.substringBefore(":")
+    override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
     override fun transactionExplorers() =
         listOf(MBlockchainExplorer.TONSCAN, MBlockchainExplorer.TONVIEWER)
@@ -63,9 +62,7 @@ object TonConfig : MBlockchainConfig {
     override fun addressExplorers() =
         listOf(MBlockchainExplorer.TONSCAN, MBlockchainExplorer.TONVIEWER)
 
-    override fun tokenExplorer() =
-        MBlockchainExplorer.TONSCAN
+    override fun tokenExplorer() = MBlockchainExplorer.TONSCAN
 
-    override fun nftExplorer() =
-        MBlockchainExplorer.TONSCAN
+    override fun nftExplorer() = MBlockchainExplorer.TONSCAN
 }

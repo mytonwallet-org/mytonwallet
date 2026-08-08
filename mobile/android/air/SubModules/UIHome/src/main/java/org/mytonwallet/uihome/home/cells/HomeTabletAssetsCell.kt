@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.uihome.home.cells
 
 import android.annotation.SuppressLint
@@ -13,30 +15,34 @@ import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
+import org.mytonwallet.app_air.uiassets.viewControllers.assets.title
 import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.ISortableView
+import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.base.ISortableView
-import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
@@ -45,10 +51,6 @@ import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
-import org.mytonwallet.app_air.uiassets.viewControllers.assets.title
-import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
-import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
-import java.lang.ref.WeakReference
 
 /**
  * Wide-screen (tablet) counterpart of [HomePhoneAssetsCell].
@@ -70,7 +72,10 @@ class HomeTabletAssetsCell(
     private val heightChanged: () -> Unit,
     private val onAssetsShown: () -> Unit,
     private val onReorderingRequested: (reordering: Boolean) -> Unit,
-    private val onSelectionRequested: (selectedCount: Int, shouldShowTransferActions: Boolean) -> Unit,
+    private val onSelectionRequested: (
+        selectedCount: Int,
+        shouldShowTransferActions: Boolean
+    ) -> Unit,
     private val onSelectionChanged: (
         selectedCount: Int,
         animationMode: TitleAnimationMode?,
@@ -78,8 +83,11 @@ class HomeTabletAssetsCell(
         shouldShowTransferActions: Boolean
     ) -> Unit,
     private val onDetailsOpened: () -> Unit,
-    private val onHorizontalScroll: () -> Unit,
-) : WCell(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource, IHomeAssetsCell,
+    private val onHorizontalScroll: () -> Unit
+) : WCell(context),
+    WThemedView,
+    WRecyclerViewAdapter.WRecyclerViewDataSource,
+    IHomeAssetsCell,
     IHomeAssetsHost {
 
     companion object {
@@ -100,7 +108,7 @@ class HomeTabletAssetsCell(
         val viewController: WViewController,
         val identifier: String?,
         val title: String,
-        val onMenuPressed: ((v: View) -> Unit)?,
+        val onMenuPressed: ((v: View) -> Unit)?
     )
 
     private var columns: List<Column> = emptyList()
@@ -195,7 +203,13 @@ class HomeTabletAssetsCell(
                     state: RecyclerView.State
                 ) {
                     val position = parent.getChildAdapterPosition(view)
-                    outRect.left = if (position == 0) 0 else COLUMN_GUTTER_DP.dp
+                    if (position > 0) {
+                        if (parent.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                            outRect.right = COLUMN_GUTTER_DP.dp
+                        } else {
+                            outRect.left = COLUMN_GUTTER_DP.dp
+                        }
+                    }
                 }
             })
         }
@@ -207,10 +221,7 @@ class HomeTabletAssetsCell(
             override fun isLongPressDragEnabled() = false // started manually from the header
             override fun isItemViewSwipeEnabled() = false
 
-            override fun getMovementFlags(
-                rv: RecyclerView,
-                holder: RecyclerView.ViewHolder
-            ): Int {
+            override fun getMovementFlags(rv: RecyclerView, holder: RecyclerView.ViewHolder): Int {
                 if (!dragMode) return 0
                 return makeMovementFlags(ItemTouchHelper.START or ItemTouchHelper.END, 0)
             }
@@ -291,8 +302,11 @@ class HomeTabletAssetsCell(
         val items = mutableListOf<Column>()
         val isActiveAccount = NftStore.nftData?.accountId == showingAccountId
         val hasBlacklistNft =
-            if (isActiveAccount) NftStore.nftData?.blacklistedNftAddresses?.isNotEmpty() == true
-            else WGlobalStorage.getBlacklistedNftAddresses(showingAccountId).isNotEmpty()
+            if (isActiveAccount) {
+                NftStore.nftData?.blacklistedNftAddresses?.isNotEmpty() == true
+            } else {
+                WGlobalStorage.getBlacklistedNftAddresses(showingAccountId).isNotEmpty()
+            }
         val nftCollections = NftStore.getCollections(showingAccountId)
         val hiddenNFTsExist = NftStore.getHasHiddenNft(showingAccountId) || hasBlacklistNft
         val showCollectionsMenu = !nftCollections.isEmpty() || hiddenNFTsExist
@@ -321,26 +335,36 @@ class HomeTabletAssetsCell(
                         onSelectTapped = { openSelectionMode(collectiblesVC) }
                     )
                 }
-            } else null
+            } else {
+                null
+            }
         )
 
-        if (!homeNftCollections.any { it.address == AssetsTabVC.TAB_COINS })
+        if (!homeNftCollections.any { it.address == AssetsTabVC.TAB_COINS }) {
             items.add(tokensColumn())
-        if (!homeNftCollections.any { it.address == AssetsTabVC.TAB_COLLECTIBLES })
+        }
+        if (!homeNftCollections.any { it.address == AssetsTabVC.TAB_COLLECTIBLES }) {
             items.add(collectiblesColumn())
+        }
 
         if (homeNftCollections.isNotEmpty()) {
             homeNftCollections.forEach { homeNftCollection ->
                 when (homeNftCollection.address) {
                     AssetsTabVC.TAB_COINS -> items.add(tokensColumn())
+
                     AssetsTabVC.TAB_COLLECTIBLES -> items.add(collectiblesColumn())
+
                     else -> {
                         val collectionMode =
-                            if (homeNftCollection.address == NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION) {
+                            if (homeNftCollection.address ==
+                                NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
+                            ) {
                                 AssetsVC.CollectionMode.TelegramGifts
                             } else {
                                 nftCollections.find { it.address == homeNftCollection.address }
-                                    ?.let { AssetsVC.CollectionMode.SingleCollection(collection = it) }
+                                    ?.let {
+                                        AssetsVC.CollectionMode.SingleCollection(collection = it)
+                                    }
                             }
                         if (collectionMode != null) {
                             // Pinned VC comes from the shared pool (survives layout switches); its
@@ -360,7 +384,7 @@ class HomeTabletAssetsCell(
                                             onSelectTapped = { openSelectionMode(vc) },
                                             onRemoveTapped = { mode -> remove(mode) }
                                         )
-                                    },
+                                    }
                                 )
                             )
                         }
@@ -368,6 +392,7 @@ class HomeTabletAssetsCell(
                 }
             }
         }
+        items.forEach { it.viewController.isDisappeared = false }
         return items
     }
 
@@ -388,8 +413,9 @@ class HomeTabletAssetsCell(
         // Let each visible column fill the cell height so the tallest one drives the rest.
         for (i in 0 until recyclerView.childCount) {
             val child = recyclerView.getChildAt(i) as? ColumnCell ?: continue
-            if (child.layoutParams.height != MATCH_PARENT)
+            if (child.layoutParams.height != MATCH_PARENT) {
                 child.updateLayoutParams { height = MATCH_PARENT }
+            }
         }
     }
 
@@ -432,7 +458,9 @@ class HomeTabletAssetsCell(
         for (i in 0 until recyclerView.childCount) {
             (recyclerView.getChildAt(i) as? ColumnCell)?.detachContent()
         }
-        columns.forEach { (it.viewController.view.parent as? ViewGroup)?.removeView(it.viewController.view) }
+        columns.forEach {
+            (it.viewController.view.parent as? ViewGroup)?.removeView(it.viewController.view)
+        }
     }
 
     override val isDraggingCollectible: Boolean
@@ -487,6 +515,7 @@ class HomeTabletAssetsCell(
         val orderedCollections = columns.mapNotNull { column ->
             when (val vc = column.viewController) {
                 is TokensVC -> MCollectionTab(MBlockchain.ton.name, AssetsTabVC.TAB_COINS)
+
                 is AssetsVC -> when (val mode = vc.collectionMode) {
                     is AssetsVC.CollectionMode.SingleCollection ->
                         MCollectionTab(mode.collection.chain, mode.collection.address)
@@ -602,11 +631,9 @@ class HomeTabletAssetsCell(
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = columns.size
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): Type =
-        COLUMN_CELL
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): Type = COLUMN_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: Type): WCell =
-        ColumnCell(context)
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: Type): WCell = ColumnCell(context)
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -622,7 +649,9 @@ class HomeTabletAssetsCell(
 
     // COLUMN CELL /////////////////////////////////////////////////////////////////////////////////
     @SuppressLint("ViewConstructor")
-    private inner class ColumnCell(context: Context) : WCell(context), WThemedView {
+    private inner class ColumnCell(context: Context) :
+        WCell(context),
+        WThemedView {
         private val titleLabel = WLabel(context).apply {
             setStyle(16f, WFont.Medium)
             setSingleLine()
@@ -685,7 +714,14 @@ class HomeTabletAssetsCell(
         private fun startShake() {
             if (shakeAnimator?.isRunning == true) return
             shakeAnimator = android.animation.ObjectAnimator.ofFloat(
-                headerView, "rotation", 0f, -0.6f, 0.6f, -0.6f, 0.6f, 0f
+                headerView,
+                "rotation",
+                0f,
+                -0.6f,
+                0.6f,
+                -0.6f,
+                0.6f,
+                0f
             ).apply {
                 duration = AnimationConstants.SLOW_ANIMATION
                 repeatCount = android.animation.ObjectAnimator.INFINITE
@@ -707,13 +743,16 @@ class HomeTabletAssetsCell(
             titleLabel.setOnClickListener(
                 if (column.onMenuPressed != null) {
                     { v -> column.onMenuPressed.invoke(v) }
-                } else null
+                } else {
+                    null
+                }
             )
             setEditing(dragMode)
-            if (column.onMenuPressed != null)
+            if (column.onMenuPressed != null) {
                 titleLabel.addRippleEffect(WColor.BackgroundRipple.color, 12f.dp)
-            else
+            } else {
                 titleLabel.background = null
+            }
             updateLayoutParams { width = COLUMN_WIDTH_DP.dp }
             val vcView = column.viewController.view
             if (vcView.parent !== contentContainer) {
@@ -726,8 +765,7 @@ class HomeTabletAssetsCell(
             }
             (column.viewController as? TokensVC)?.onFullyVisible()
             (column.viewController as? AssetsVC)?.onFullyVisible()
-            if (dragMode)
-                (column.viewController as? ISortableView)?.startSorting()
+            if (dragMode) (column.viewController as? ISortableView)?.startSorting()
         }
 
         private fun applyTitle(title: String, hasMenu: Boolean) {
@@ -736,7 +774,7 @@ class HomeTabletAssetsCell(
                 return
             }
             val icon = context.requireDrawableCompat(
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_expand
+                org.mytonwallet.app_air.icons.R.drawable.ic_expand
             ).apply {
                 setTint(WColor.SecondaryText.color)
                 setBounds(0, 0, 14.dp, 14.dp)

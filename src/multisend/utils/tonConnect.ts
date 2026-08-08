@@ -7,7 +7,7 @@ import { initIframeBridgeConnector } from '../../util/embeddedDappBridge/connect
 import { shortenAddress } from '../../util/shortenAddress';
 import { sendTransaction as sendTransactionBase } from '../../util/tonConnectForDapps';
 
-const MANIFEST_URL = 'https://multisend.mytonwallet.io/mytonwallet-multisend-tonconnect-manifest.json';
+const MANIFEST_URL = 'https://multisend.mywallet.io/mytonwallet-multisend-tonconnect-manifest.json';
 const PRETTIFY_SYMBOL_COUNT = 6;
 
 declare global {

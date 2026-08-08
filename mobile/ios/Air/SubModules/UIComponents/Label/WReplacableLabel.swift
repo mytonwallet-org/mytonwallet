@@ -75,7 +75,7 @@ public class WReplacableLabel: UIView {
         attr.append(NSAttributedString(
             string: text,
             attributes: [
-                .font: label.font ?? .systemFont(ofSize: 15),
+                .font: label.font ?? WTypography.uiFont(.subheadline),
                 .foregroundColor: label.textColor ?? UIColor.label
             ]
         ))

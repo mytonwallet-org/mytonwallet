@@ -20,6 +20,10 @@ final class CustomFontsProvider {
         registerFont(named: "CalSans-Regular", withExtension: "ttf")
         registerFont(named: "SFCompactDisplayMedium", withExtension: "otf")
         registerFont(named: "SFCompactRoundedBold", withExtension: "otf")
+        registerFont(named: "Vazirmatn-Regular", withExtension: "ttf")
+        registerFont(named: "Vazirmatn-Medium", withExtension: "ttf")
+        registerFont(named: "Vazirmatn-SemiBold", withExtension: "ttf")
+        registerFont(named: "Vazirmatn-Bold", withExtension: "ttf")
     }
 
     @usableFromInline

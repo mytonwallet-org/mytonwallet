@@ -47,10 +47,10 @@ class ChartDetailsRenderer: BaseChartRenderer, ChartThemeContainer {
     private var margins: CGFloat = 10
     private let cornerRadius: CGFloat = 5
     private var rowHeight: CGFloat = 20
-    private let titleFont = NSFont.systemFont(ofSize: 14, weight: .bold)
-    private let prefixFont = NSFont.systemFont(ofSize: 14, weight: .bold)
-    private let labelsFont = NSFont.systemFont(ofSize: 14, weight: .medium)
-    private let valuesFont = NSFont.systemFont(ofSize: 14, weight: .bold)
+    private let titleFont = GraphTypography.technicalSupportingBoldFont
+    private let prefixFont = GraphTypography.technicalSupportingBoldFont
+    private let labelsFont = GraphTypography.supportingEmphasizedFont
+    private let valuesFont = GraphTypography.technicalSupportingBoldFont
     private let labelsColor: GColor = .black
     
     private(set) var previousRenderBannerFrame: CGRect = .zero

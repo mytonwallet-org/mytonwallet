@@ -49,11 +49,12 @@ class ScreenRecordProtectionView(
         } else {
             addView(
                 WBaseView(context).apply {
-                    if (viewController.isSplitDetailPanel)
+                    if (viewController.isSplitDetailPanel) {
                         background =
                             TabletEdgeFadeDrawable(WColor.Background.color, dimWhenWide = false)
-                    else
+                    } else {
                         setBackground(WColor.Background)
+                    }
                 }
             )
         }
@@ -102,8 +103,11 @@ class ScreenRecordProtectionView(
                 toBottom(goBackButton)
             }
         }
-        addView(contentView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.CENTER
-        })
+        addView(
+            contentView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER
+            }
+        )
     }
 }

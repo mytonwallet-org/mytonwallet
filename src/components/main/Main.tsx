@@ -1,10 +1,8 @@
-import React, {
-  memo, useEffect, useRef, useState,
-} from '../../lib/teact/teact';
+import React, { memo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiStakingState, ApiTokenWithPrice } from '../../api/types';
-import { ContentTab, type Theme, type TokenChartMode } from '../../global/types';
+import type { ApiStakingState } from '../../api/types';
+import type { Theme } from '../../global/types';
 
 import { IS_EXPLORER, IS_FEATURE_LIMITED } from '../../config';
 import {
@@ -12,20 +10,17 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
+  selectDefaultOffRampChain,
+  selectDefaultOnRampChain,
   selectIsCurrentAccountViewMode,
   selectIsOffRampAllowed,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
-  selectToken,
 } from '../../global/selectors';
 import { useAccentColor } from '../../util/accentColor';
-import { isNetWorthChartAvailable } from '../../util/assets/netWorth';
 import buildClassName from '../../util/buildClassName';
-import { captureEvents, SwipeDirection } from '../../util/captureEvents';
 import { getStakingStateStatus } from '../../util/staking';
-import {
-  IS_ELECTRON, IS_TOUCH_ENV, REM,
-} from '../../util/windowEnvironment';
+import { IS_ELECTRON, REM } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from './helpers/calcSafeAreaTop';
 
 import useAppTheme from '../../hooks/useAppTheme';
@@ -73,8 +68,6 @@ interface OwnProps {
 }
 
 type StateProps = {
-  currentTokenSlug?: string;
-  currentToken?: ApiTokenWithPrice;
   stakingState?: ApiStakingState;
   isTestnet?: boolean;
   isViewMode: boolean;
@@ -94,7 +87,6 @@ const UPDATE_SWAPS_INTERVAL = 3000; // 3 sec
 
 function Main({
   isActive,
-  currentTokenSlug,
   stakingState,
   isTestnet,
   isViewMode,
@@ -107,12 +99,9 @@ function Main({
   isAppReady,
   theme,
   accentColorIndex,
-  currentToken,
 }: OwnProps & StateProps) {
   const {
-    selectToken,
     openBackupWalletModal,
-    setActiveContentTab,
     closeStakingInfo,
     openStakingInfoOrStart,
     changeCurrentStaking,
@@ -128,7 +117,6 @@ function Main({
   const safeAreaTop = calcSafeAreaTop();
   const [isFocused, markIsFocused, unmarkIsFocused] = useFlag(!isBackgroundModeActive());
   const [areTabsStuck, setAreTabsStuck] = useState(false);
-  const [tokenChartMode, setTokenChartMode] = useState<TokenChartMode>('price');
   const intersectionRootMarginTop = HEADER_HEIGHT_REM * REM + safeAreaTop;
 
   const stakingStatus = stakingState ? getStakingStateStatus(stakingState) : 'inactive';
@@ -161,41 +149,6 @@ function Main({
     rootMargin: `-${intersectionRootMarginTop}px 0px 0px 0px`,
   });
 
-  const handleChartCardClose = useLastCallback(() => {
-    selectToken({ slug: undefined });
-    setActiveContentTab({ tab: ContentTab.Assets });
-  });
-
-  const isNetWorthChartSupported = isNetWorthChartAvailable(currentToken);
-
-  useEffect(() => {
-    if (!currentTokenSlug || !isNetWorthChartSupported) {
-      setTokenChartMode('price');
-    }
-  }, [currentTokenSlug, isNetWorthChartSupported]);
-
-  const handleTokenChartModeChange = useLastCallback((mode: TokenChartMode) => {
-    setTokenChartMode(mode);
-  });
-
-  useEffect(() => {
-    if (!IS_TOUCH_ENV || !isPortrait || !portraitContainerRef.current || !currentTokenSlug) {
-      return undefined;
-    }
-
-    return captureEvents(portraitContainerRef.current, {
-      excludedClosestSelector: '.chart-card',
-      onSwipe: (e, direction) => {
-        if (direction === SwipeDirection.Right) {
-          handleChartCardClose();
-          return true;
-        }
-
-        return false;
-      },
-    });
-  }, [currentTokenSlug, handleChartCardClose, isPortrait]);
-
   const appTheme = useAppTheme(theme);
   useAccentColor(isPortrait ? portraitContainerRef : landscapeContainerRef, appTheme, accentColorIndex);
 
@@ -215,19 +168,9 @@ function Main({
             withBalance={!shouldHideBalanceInHeader}
             areTabsStuck={areTabsStuck}
             isScrolled={!isPageAtTop}
-            isChartCardOpen={Boolean(currentTokenSlug)}
-            tokenChartMode={tokenChartMode}
-            isNetWorthChartAvailable={isNetWorthChartSupported}
-            onChartCardBack={handleChartCardClose}
-            onTokenChartModeChange={handleTokenChartModeChange}
           />
 
-          <Card
-            ref={cardRef}
-            onChartCardClose={handleChartCardClose}
-            tokenChartMode={tokenChartMode}
-            onYieldClick={handleEarnClick}
-          />
+          <Card ref={cardRef} onYieldClick={handleEarnClick} />
 
           {!isViewMode && (
             <PortraitActions
@@ -254,23 +197,13 @@ function Main({
 
   function renderLandscapeLayout() {
     return (
-      <div ref={landscapeContainerRef} className={styles.landscapeContainer}>
+      <div ref={landscapeContainerRef} className={styles.landscapeContainer} dir={lang.isRtl ? 'rtl' : 'ltr'}>
         <div className={buildClassName(styles.sidebar, 'custom-scroll')}>
           <Warnings onOpenBackupWallet={openBackupWalletModal} />
 
-          <Header
-            isChartCardOpen={Boolean(currentTokenSlug)}
-            tokenChartMode={tokenChartMode}
-            isNetWorthChartAvailable={isNetWorthChartSupported}
-            onChartCardBack={handleChartCardClose}
-            onTokenChartModeChange={handleTokenChartModeChange}
-          />
+          <Header />
 
-          <Card
-            onChartCardClose={handleChartCardClose}
-            tokenChartMode={tokenChartMode}
-            onYieldClick={handleEarnClick}
-          />
+          <Card onYieldClick={handleEarnClick} />
 
           <LandscapeNavBar />
           {/* Core is single-account, and its `Add Wallet` would be dead anyway: AccountSelectorModal is not rendered below. */}
@@ -324,10 +257,7 @@ export default memo(
     (global): StateProps => {
       const currentAccountId = selectCurrentAccountId(global);
       const accountState = selectCurrentAccountState(global);
-      const { currentTokenSlug, isAppReady } = accountState ?? {};
-      const currentToken = currentTokenSlug ? selectToken(global, currentTokenSlug) : undefined;
-
-      const { isOnRampDisabled } = global.restrictions;
+      const { isAppReady } = accountState ?? {};
 
       const stakingState = currentAccountId
         ? selectAccountStakingState(global, currentAccountId)
@@ -335,16 +265,15 @@ export default memo(
 
       return {
         stakingState,
-        currentTokenSlug,
-        currentToken,
         isTestnet: global.settings.isTestnet,
         isViewMode: selectIsCurrentAccountViewMode(global),
         isStakingInfoModalOpen: global.isStakingInfoModalOpen,
         isMediaViewerOpen: Boolean(global.mediaViewer?.mediaId),
         isSwapDisabled: selectIsSwapDisabled(global),
         isStakingDisabled: selectIsStakingDisabled(global),
-        isOnRampDisabled,
-        isOffRampAllowed: selectIsOffRampAllowed(global),
+        // Both labels stand for the ramps reachable from this account, so they read the very chain each would open
+        isOnRampDisabled: !selectDefaultOnRampChain(global),
+        isOffRampAllowed: selectIsOffRampAllowed(global, selectDefaultOffRampChain(global)),
         isAppReady,
         theme: global.settings.theme,
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,

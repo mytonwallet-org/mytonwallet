@@ -9,9 +9,7 @@ import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
 object MultisendLauncher {
-    fun launch(
-        caller: WViewController,
-    ) {
+    fun launch(caller: WViewController) {
         val window = caller.window ?: return
         val multisendUrl = caller.view.context.getString(BaseR.string.app_multisend_url)
         if (multisendUrl.isEmpty()) return
@@ -31,7 +29,7 @@ object MultisendLauncher {
                 injectDarkModeStyles = true,
                 topBarColorMode = InAppBrowserConfig.TopBarColorMode.SYSTEM,
                 forceCloseOnBack = true,
-                allowDownloads = true,
+                allowDownloads = true
             )
         )
         nav.setRoot(browserVC)

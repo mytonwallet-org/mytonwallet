@@ -26,17 +26,17 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewOutlineProvider
 import android.view.ViewParent
-import android.widget.HorizontalScrollView
-import android.widget.ScrollView
-import androidx.core.widget.NestedScrollView
-import androidx.recyclerview.widget.RecyclerView
 import android.view.animation.TranslateAnimation
 import android.view.inputmethod.InputMethodManager
+import android.widget.HorizontalScrollView
+import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Guideline
 import androidx.core.view.children
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.widget.NestedScrollView
+import androidx.recyclerview.widget.RecyclerView
 import me.vkryl.android.AnimatorUtils
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -44,6 +44,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -53,8 +54,7 @@ import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 open class WView(
     context: Context,
     layoutParams: ViewGroup.LayoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-) :
-    ConstraintLayout(context) {
+) : ConstraintLayout(context) {
     init {
         id = generateViewId()
         this.layoutParams = layoutParams
@@ -65,8 +65,7 @@ open class WView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (configured)
-            return
+        if (configured) return
         setupViews()
         didSetupViews()
         configured = true
@@ -76,9 +75,7 @@ open class WView(
 
     open fun didSetupViews() {}
 
-    fun constraintSet(): WConstraintSet {
-        return WConstraintSet(this)
-    }
+    fun constraintSet(): WConstraintSet = WConstraintSet(this)
 
     fun setConstraints(block: WConstraintSet.() -> Unit) {
         constraintSet().apply(block).layout()
@@ -156,10 +153,11 @@ open class WView(
 
     @Deprecated("Use WRippleDrawable")
     fun addRippleEffect(rippleColor: Int, topRadius: Float = 0f, bottomRadius: Float? = null) {
-        val mask = if (topRadius == 0f && bottomRadius == 0f)
+        val mask = if (topRadius == 0f && bottomRadius == 0f) {
             ShapeDrawable()
-        else
+        } else {
             ViewHelpers.roundedShapeDrawable(topRadius, bottomRadius ?: topRadius)
+        }
         mask.paint.color = Color.WHITE
 
         val rippleDrawable = RippleDrawable(
@@ -192,23 +190,16 @@ open class WView(
     open fun lockView() {
         isEnabled = false
         children.forEach {
-            if (it is WView)
-                it.lockView()
-            else
-                it.isEnabled = false
+            if (it is WView) it.lockView() else it.isEnabled = false
         }
     }
 
     open fun unlockView() {
         isEnabled = true
         children.forEach {
-            if (it is WView)
-                it.unlockView()
-            else
-                it.isEnabled = true
+            if (it is WView) it.unlockView() else it.isEnabled = true
         }
     }
-
 }
 
 fun View.fadeOut(
@@ -386,7 +377,7 @@ fun View.fadeOutObjectAnimator(): ObjectAnimator? {
         alpha = 0f
         return null
     }
-    return ObjectAnimator.ofFloat(this, "alpha", 1f, 0f);
+    return ObjectAnimator.ofFloat(this, "alpha", 1f, 0f)
 }
 
 fun View.fadeInObjectAnimator(): ObjectAnimator? {
@@ -395,7 +386,7 @@ fun View.fadeInObjectAnimator(): ObjectAnimator? {
         alpha = 1f
         return null
     }
-    return ObjectAnimator.ofFloat(this, "alpha", 0f, 1f);
+    return ObjectAnimator.ofFloat(this, "alpha", 0f, 1f)
 }
 
 fun View.setAlpha(
@@ -484,10 +475,14 @@ fun View.setBackgroundColor(
     gradientDrawable.setColor(color)
 
     gradientDrawable.cornerRadii = floatArrayOf(
-        topLeftRadius, topLeftRadius,
-        topRightRadius, topRightRadius,
-        bottomRightRadius, bottomRightRadius,
-        bottomLeftRadius, bottomLeftRadius,
+        topLeftRadius,
+        topLeftRadius,
+        topRightRadius,
+        topRightRadius,
+        bottomRightRadius,
+        bottomRightRadius,
+        bottomLeftRadius,
+        bottomLeftRadius
     )
 
     if (strokeColor != null && strokeWidth > 0) {
@@ -502,12 +497,19 @@ fun View.setBackgroundColor(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val path = Path().apply {
                         addRoundRect(
-                            0f, 0f, view.width.toFloat(), view.height.toFloat(),
+                            0f,
+                            0f,
+                            view.width.toFloat(),
+                            view.height.toFloat(),
                             floatArrayOf(
-                                topLeftRadius, topLeftRadius,
-                                topRightRadius, topRightRadius,
-                                bottomRightRadius, bottomRightRadius,
-                                bottomLeftRadius, bottomLeftRadius,
+                                topLeftRadius,
+                                topLeftRadius,
+                                topRightRadius,
+                                topRightRadius,
+                                bottomRightRadius,
+                                bottomRightRadius,
+                                bottomLeftRadius,
+                                bottomLeftRadius
                             ),
                             Path.Direction.CW
                         )
@@ -533,10 +535,27 @@ fun View.setBackgroundColor(
     topLeft: Float,
     topRight: Float,
     bottomRight: Float,
-    bottomLeft: Float,
+    bottomLeft: Float
 ) {
     background =
         ViewHelpers.roundedShapeDrawable(color, topLeft, topRight, bottomRight, bottomLeft)
+}
+
+fun View.setBackgroundColorLocalized(
+    color: Int,
+    topLeading: Float,
+    topTrailing: Float,
+    bottomTrailing: Float,
+    bottomLeading: Float
+) {
+    background =
+        ViewHelpers.roundedShapeDrawable(
+            color,
+            if (LocaleController.isRTL) topTrailing else topLeading,
+            if (LocaleController.isRTL) topLeading else topTrailing,
+            if (LocaleController.isRTL) bottomLeading else bottomTrailing,
+            if (LocaleController.isRTL) bottomTrailing else bottomLeading
+        )
 }
 
 fun View.setBackgroundColor(color: Int, radius: Float, borderColor: Int, borderWidth: Float) {
@@ -599,8 +618,10 @@ fun View.hideKeyboard() {
 
 fun View.shakeView(duration: Long = AnimationConstants.SUPER_QUICK_ANIMATION) {
     val shake = TranslateAnimation(
-        0f, 10f,
-        0f, 0f
+        0f,
+        10f,
+        0f,
+        0f
     )
     shake.duration = duration
     shake.repeatCount = 5
@@ -641,10 +662,7 @@ fun View.addRippleEffect(rippleColor: Int, cornerRadius: Float) {
 fun View.lockView() {
     isEnabled = false
     ((this as? ViewGroup)?.children)?.forEach {
-        if (it is WView)
-            it.lockView()
-        else
-            it.isEnabled = false
+        if (it is WView) it.lockView() else it.isEnabled = false
     }
 }
 
@@ -673,8 +691,7 @@ fun View.cancelAncestorTouches() {
 }
 
 fun View.animateHeight(newValue: Int) {
-    if (measuredHeight == newValue)
-        return
+    if (measuredHeight == newValue) return
     animateHeight(measuredHeight, newValue)
 }
 
@@ -700,27 +717,23 @@ fun View.frameAsRectF(padding: Float): RectF {
     )
 }
 
-fun View.frameAsPath(roundRadius: Float = 0f, offset: Float = 0f): Path {
-    return frameAsPath(
-        roundRadius = roundRadius,
-        horizontalOffset = offset,
-        verticalOffset = offset
-    )
-}
+fun View.frameAsPath(roundRadius: Float = 0f, offset: Float = 0f): Path = frameAsPath(
+    roundRadius = roundRadius,
+    horizontalOffset = offset,
+    verticalOffset = offset
+)
 
 fun View.frameAsPath(
     roundRadius: Float = 0f,
     horizontalOffset: Float = 0f,
     verticalOffset: Float = 0f
-): Path {
-    return frameAsPath(
-        roundRadius = roundRadius,
-        leftOffset = horizontalOffset,
-        rightOffset = horizontalOffset,
-        topOffset = verticalOffset,
-        bottomOffset = verticalOffset
-    )
-}
+): Path = frameAsPath(
+    roundRadius = roundRadius,
+    leftOffset = horizontalOffset,
+    rightOffset = horizontalOffset,
+    topOffset = verticalOffset,
+    bottomOffset = verticalOffset
+)
 
 fun View.frameAsPath(
     roundRadius: Float = 0f,
@@ -748,11 +761,10 @@ fun View.frameAsPath(
 @SuppressLint("NotifyDataSetChanged")
 fun updateThemeForChildren(parentView: ViewGroup, onlyTintedViews: Boolean) {
     for (child in parentView.children) {
-        if (child is WThemedView && (!onlyTintedViews || child.isTinted))
-            child.updateTheme()
-        if (child is ViewGroup && child !is WRecyclerView)
+        if (child is WThemedView && (!onlyTintedViews || child.isTinted)) child.updateTheme()
+        if (child is ViewGroup && child !is WRecyclerView) {
             updateThemeForChildren(child, onlyTintedViews)
-        else if (child is WRecyclerView && !onlyTintedViews) {
+        } else if (child is WRecyclerView && !onlyTintedViews) {
             (child.adapter as? WRecyclerViewAdapter)?.updateTheme() ?: run {
                 child.adapter?.notifyDataSetChanged()
             }
@@ -779,4 +791,3 @@ inline fun <reified T : ViewGroup.LayoutParams> View.updateLayoutParamsIfExists(
     block(params)
     layoutParams = params
 }
-

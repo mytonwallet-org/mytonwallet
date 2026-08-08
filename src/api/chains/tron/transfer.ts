@@ -3,7 +3,7 @@
 import type { TronWeb } from 'tronweb';
 import { DIESEL_NOT_AVAILABLE } from '../../common/other';
 
-import { ApiTransactionDraftError, ApiTransactionError } from '../../types';
+import { ApiCommonError, ApiTransactionDraftError, ApiTransactionError } from '../../types';
 import type {
   ApiCheckTransactionDraftOptions,
   ApiCheckTransactionDraftResult,
@@ -118,7 +118,7 @@ export async function submitGasfullTransfer(
   options: ApiSubmitGasfullTransferOptions,
 ): Promise<ApiSubmitGasfullTransferResult | { error: string }> {
   const {
-    accountId, password = '', toAddress, amount, fee = 0n, tokenAddress, payload, noFeeCheck,
+    accountId, enclaveToken = '', toAddress, amount, fee = 0n, tokenAddress, payload, noFeeCheck,
   } = options;
   const { network } = parseAccountId(accountId);
 
@@ -147,7 +147,8 @@ export async function submitGasfullTransfer(
       // todo: Check that the amount ≤ the token balance (in case of a token transfer)
     }
 
-    const privateKey = (await fetchPrivateKeyString(accountId, password, account))!;
+    const privateKey = await fetchPrivateKeyString(accountId, enclaveToken, account);
+    if (!privateKey) return { error: ApiCommonError.InvalidPassword };
 
     if (tokenAddress) {
       const { transaction } = await buildTrc20Transfer(tronWeb, {
@@ -157,7 +158,7 @@ export async function submitGasfullTransfer(
       const signedTx = await tronWeb.trx.sign(transaction, privateKey);
       const result = await tronWeb.trx.sendRawTransaction(signedTx);
 
-      return { txId: result.transaction.txID };
+      return { txId: result.transaction.txID, msgHashForCexSwap: result.transaction.txID };
     } else {
       const result = await tronWeb.trx.sendTransaction(toAddress, Number(amount), {
         privateKey,
@@ -173,7 +174,7 @@ export async function submitGasfullTransfer(
         return { error };
       }
 
-      return { txId: result.transaction.txID };
+      return { txId: result.transaction.txID, msgHashForCexSwap: result.transaction.txID };
     }
   } catch (err: any) {
     logDebugError('submitTransfer', err);

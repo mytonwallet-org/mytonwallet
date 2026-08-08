@@ -1,10 +1,10 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcore.models.SwapType
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigDecimal
 
 class FeeEstimationHelpers private constructor() {
     data class NetworkFeeData(

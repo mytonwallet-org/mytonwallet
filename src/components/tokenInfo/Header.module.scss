@@ -1,0 +1,74 @@
+@use "../../styles/mixins";
+
+.root {
+  display: grid;
+  grid-template-columns: 1fr max-content 1fr;
+  flex-shrink: 0;
+  align-items: center;
+
+  height: 3rem;
+  padding: 0 0.25rem;
+
+  // The screen sits on the app background, so the header only gains a surface once content scrolls under it
+  background: transparent;
+
+  @include mixins.transition(background-color 300ms);
+
+  @include mixins.respond-above(xs) {
+    // The header caps the content card, so it repeats its top corners
+    border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+  }
+
+  &:global(.is-scrolled) {
+    background-color: var(--color-background-tab-bar);
+    backdrop-filter: var(--filter-blur-bar);
+  }
+}
+
+.backButton {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  align-items: center;
+  justify-self: start;
+
+  height: 3rem;
+  padding: 0.125rem 0.5rem 0;
+
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.backIcon {
+  font-size: 1.5rem;
+
+  @include mixins.rtl-mirror();
+}
+
+.title {
+  overflow: hidden;
+
+  margin: 0;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menuButton {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+
+  width: 3rem;
+  height: 3rem;
+
+  font-size: 1.25rem;
+  color: var(--color-accent);
+}

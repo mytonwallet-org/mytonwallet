@@ -95,7 +95,7 @@ describe('importMnemonic', () => {
   it('aborts with a server error and persists nothing when the history probe cannot reach the node', async () => {
     ton.getWalletFromMnemonic.mockRejectedValue(new ApiServerError('node unreachable'));
 
-    const result = await importMnemonic(['mainnet'], DUAL_VALID, 'password');
+    const result = await importMnemonic(['mainnet'], DUAL_VALID);
 
     // A failed probe must surface as a retriable error, never fall through to a silent BIP39 import at a
     // different address than the user's funded TON wallet.
@@ -111,12 +111,12 @@ describe('importMnemonic', () => {
         : Promise.resolve({ address: 'EQ-ton', publicKey: 'pk', version: 'W5', index: 0 })
     ));
 
-    const result = await importMnemonic(['mainnet', 'testnet'], DUAL_VALID, 'password');
+    const result = await importMnemonic(['mainnet', 'testnet'], DUAL_VALID);
     await flushPromises();
 
     // The multi-network import derives every network before writing, so a transient failure on one network
-    // cannot leave a ghost account behind on the other (which a retry would duplicate and which would shadow
-    // `verifyPassword`). Flushing first defeats the version where the surviving branch persists after the error.
+    // cannot leave a ghost account behind on the other (which a retry would duplicate). Flushing first defeats
+    // the version where the surviving branch persists after the error.
     expect(result).toEqual({ error: expect.any(String) });
     expect(setAccountValue).not.toHaveBeenCalled();
   });
@@ -126,7 +126,7 @@ describe('importMnemonic', () => {
       address: 'EQ-ton', publicKey: 'pk', version: 'W5', index: 0, lastTxId: 'tx1',
     });
 
-    await importMnemonic(['mainnet'], DUAL_VALID, 'password');
+    await importMnemonic(['mainnet'], DUAL_VALID);
 
     expect(setAccountValue).toHaveBeenCalledWith('0-mainnet', 'accounts', expect.objectContaining({ type: 'ton' }));
   });

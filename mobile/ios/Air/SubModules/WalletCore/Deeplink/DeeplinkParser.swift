@@ -280,7 +280,10 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
 
     case "buy-with-card":
         return .buyWithCard
-        
+
+    case "sell-on-card":
+        return .sellOnCard
+
     case Deeplink.Sell.urlHost:
         return .sell(.init(url))
 

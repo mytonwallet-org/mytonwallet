@@ -62,16 +62,16 @@ private struct BaseCurrencyMenuRowView: View {
     var body: some View {
         HStack(spacing: 8.0) {
             Image(systemName: "checkmark")
-                .font(.system(size: 15.0, weight: .semibold))
+                .textStyle(.subheadlineStrong, content: .technical)
                 .opacity(isSelected ? 1.0 : 0.0)
                 .frame(width: 32.0)
 
             VStack(alignment: .leading, spacing: 2.0) {
                 Text(title)
-                    .font(.system(size: 17.0))
+                    .textStyle(.body)
                     .lineLimit(1)
                 Text(subtitle)
-                    .font(.system(size: 15.0))
+                    .textStyle(.subheadline, content: .technical)
                     .padding(.bottom, 1.0)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)

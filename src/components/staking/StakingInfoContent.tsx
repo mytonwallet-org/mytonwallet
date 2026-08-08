@@ -29,7 +29,7 @@ import { formatRelativeHumanDateTime } from '../../util/dateFormat';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
 import { openUrl } from '../../util/openUrl';
-import { getStakingStateStatus, getUnstakeTime } from '../../util/staking';
+import { getIsNewStakeAllowed, getStakingStateStatus, getUnstakeTime } from '../../util/staking';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../hooks/useAppTheme';
@@ -189,6 +189,7 @@ function StakingInfoContent({
     shouldUseNominators,
     selectedStakingId: stakingId,
     isViewMode,
+    shouldKeepActiveBlockedStates: true,
     baseCurrency,
     currencyRates,
   });
@@ -377,14 +378,16 @@ function StakingInfoContent({
                       !!unclaimedRewards && styles.stakingInfoButtonsWithMargin,
                     )}
                   >
-                    <Button
-                      className={styles.stakingInfoButton}
-                      isPrimary
-                      isDisabled={isLoading}
-                      onClick={handleStakeClick}
-                    >
-                      {lang('Stake More')}
-                    </Button>
+                    {getIsNewStakeAllowed(tokenSlug) && (
+                      <Button
+                        className={styles.stakingInfoButton}
+                        isPrimary
+                        isDisabled={isLoading}
+                        onClick={handleStakeClick}
+                      >
+                        {lang('Stake More')}
+                      </Button>
+                    )}
                     {(stakingType !== 'ethena' || !canBeClaimed) && (
                       <Button
                         className={styles.stakingInfoButton}

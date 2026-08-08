@@ -8,6 +8,7 @@ import { Big } from '../../lib/big.js';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, formatNumber, getShortCurrencySymbol } from '../../util/formatNumber';
+import { toNativeDigits } from '../../util/nativeDigits';
 
 import useLang from '../../hooks/useLang';
 
@@ -59,10 +60,10 @@ function StakingDetails({
       <div className={styles.detailsCard}>
         <div className={styles.detailsRow}>
           <span className={styles.detailsLabel}>
-            {lang('Current APY')}
+            {stakingState.yieldType === 'APR' ? lang('Current APR') : lang('Current APY')}
           </span>
           <span className={buildClassName(styles.detailsValue, styles.detailsValue_highlightBlock)}>
-            {annualYieldText}
+            {toNativeDigits(annualYieldText)}
           </span>
         </div>
 

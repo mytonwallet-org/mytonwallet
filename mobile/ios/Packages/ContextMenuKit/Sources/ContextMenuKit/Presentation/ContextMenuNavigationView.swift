@@ -14,6 +14,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
 
     private let style: ContextMenuStyle
     private let customRowContext: ContextMenuCustomRowContext
+    private let sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection
     private let panelView: ContextMenuPanelView
     private let pageClipView = UIView()
     private let navigationPanRecognizer: ContextMenuInteractivePanGestureRecognizer
@@ -36,18 +37,21 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         rootPage: ContextMenuPage,
         style: ContextMenuStyle,
         sourceUserInterfaceStyle: UIUserInterfaceStyle,
+        sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection,
         customRowContext: ContextMenuCustomRowContext
     ) {
         self.style = style
         self.customRowContext = customRowContext
+        self.sourceUserInterfaceLayoutDirection = sourceUserInterfaceLayoutDirection
         self.panelView = ContextMenuPanelView(style: style)
         self.navigationPanRecognizer = ContextMenuInteractivePanGestureRecognizer(target: nil, action: nil, allowedDirections: { _ in
-            [.right]
+            sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft ? [.left] : [.right]
         })
 
         super.init(frame: .zero)
 
         self.overrideUserInterfaceStyle = sourceUserInterfaceStyle
+        self.semanticContentAttribute = sourceUserInterfaceLayoutDirection.contextMenuSemanticContentAttribute
 
         self.addSubview(self.panelView)
         self.panelView.contentView.addSubview(self.pageClipView)
@@ -102,6 +106,9 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         let previousSize = self.hosts.count > 1
             ? self.hosts[self.hosts.count - 2].pageView.preferredSize(constrainedTo: self.constrainedPanelSize)
             : nil
+        let transitionWidth = self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft
+            ? currentSize.width
+            : previousSize?.width ?? currentSize.width
 
         for (index, host) in self.hosts.enumerated() {
             let isCurrent = index == self.hosts.count - 1
@@ -117,7 +124,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
                 host.pageView.allowsBackNavigationGesture = self.hosts.count > 1
                 let width = currentSize.width
                 let frame = CGRect(
-                    x: (previousSize?.width ?? width) * self.transitionProgress,
+                    x: self.navigationDirectionMultiplier * transitionWidth * self.transitionProgress,
                     y: 0.0,
                     width: width,
                     height: panelSize.height
@@ -128,7 +135,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
             } else if isPrevious, let previousSize {
                 host.pageView.allowsBackNavigationGesture = false
                 let frame = CGRect(
-                    x: -previousSize.width * (1.0 - self.transitionProgress),
+                    x: -self.navigationDirectionMultiplier * transitionWidth * (1.0 - self.transitionProgress),
                     y: 0.0,
                     width: previousSize.width,
                     height: panelSize.height
@@ -205,12 +212,12 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
             self.animator = nil
             self.isTransitioningPages = true
 
-            let translation = max(0.0, recognizer.translation(in: self).x)
+            let translation = max(0.0, self.directionalBackNavigationTranslation(recognizer.translation(in: self).x))
             self.transitionProgress = min(1.0, translation / currentWidth)
             self.requestLayout?()
         case .ended, .cancelled:
-            let translation = max(0.0, recognizer.translation(in: self).x)
-            let velocity = recognizer.velocity(in: self).x
+            let translation = max(0.0, self.directionalBackNavigationTranslation(recognizer.translation(in: self).x))
+            let velocity = self.directionalBackNavigationTranslation(recognizer.velocity(in: self).x)
             let completionProgress = min(1.0, translation / currentWidth)
             if completionProgress > 0.2 || velocity > 520.0 {
                 self.animatePopCompletion()
@@ -223,7 +230,12 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
     }
 
     private func pushRootPage(_ rootPage: ContextMenuPage) {
-        let pageView = ContextMenuPageView(page: rootPage, style: self.style, customRowContext: self.customRowContext)
+        let pageView = ContextMenuPageView(
+            page: rootPage,
+            style: self.style,
+            sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection,
+            customRowContext: self.customRowContext
+        )
         pageView.delegate = self
         self.pageClipView.addSubview(pageView)
         self.hosts = [PageHost(page: rootPage, pageView: pageView)]
@@ -234,7 +246,12 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
         self.animator = nil
         self.clearSelections()
 
-        let pageView = ContextMenuPageView(page: page, style: self.style, customRowContext: self.customRowContext)
+        let pageView = ContextMenuPageView(
+            page: page,
+            style: self.style,
+            sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection,
+            customRowContext: self.customRowContext
+        )
         pageView.delegate = self
         self.pageClipView.addSubview(pageView)
         self.hosts.append(PageHost(page: page, pageView: pageView))
@@ -308,5 +325,13 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
 
     private func updateNavigationGestureState() {
         self.navigationPanRecognizer.isEnabled = self.hosts.count > 1
+    }
+
+    private var navigationDirectionMultiplier: CGFloat {
+        self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft ? -1.0 : 1.0
+    }
+
+    private func directionalBackNavigationTranslation(_ translationX: CGFloat) -> CGFloat {
+        self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft ? -translationX : translationX
     }
 }

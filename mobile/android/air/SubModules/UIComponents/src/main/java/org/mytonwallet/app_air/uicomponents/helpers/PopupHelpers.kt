@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.uicomponents.helpers
 
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WNavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WPopupHost
-import java.lang.ref.WeakReference
 
 object PopupHelpers {
 
@@ -38,8 +38,7 @@ object PopupHelpers {
     }
 
     fun onBackPressed(): Boolean {
-        if (popups.isEmpty())
-            return false
+        if (popups.isEmpty()) return false
         popups.lastOrNull()?.get()?.onBackPressed() ?: return false
         return true
     }

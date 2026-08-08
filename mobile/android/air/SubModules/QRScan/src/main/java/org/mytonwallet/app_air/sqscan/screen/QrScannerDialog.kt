@@ -21,25 +21,27 @@ import org.mytonwallet.app_air.walletcontext.helpers.CustomLifecycleOwner
 class QrScannerDialog private constructor(
     private val context: Context,
     private val listener: QrScannerListener
-) : Dialog(context), DialogInterface.OnDismissListener, QrScannerListener {
+) : Dialog(context),
+    DialogInterface.OnDismissListener,
+    QrScannerListener {
     private val lifecycleOwner = CustomLifecycleOwner()
     private val qrScannerView by lazy { QrScannerView(context) }
 
     companion object {
-        fun build(context: Context, listener: (String) -> Unit): QrScannerDialog {
-            return build(context, object : QrScannerListener {
+        fun build(context: Context, listener: (String) -> Unit): QrScannerDialog = build(
+            context,
+            object : QrScannerListener {
                 override fun onQrScanComplete(qrCode: String) {
                     listener.invoke(qrCode)
                 }
-            })
-        }
+            }
+        )
 
-        fun build(context: Context, listener: QrScannerListener): QrScannerDialog {
-            return QrScannerDialog(context, listener).apply {
+        fun build(context: Context, listener: QrScannerListener): QrScannerDialog =
+            QrScannerDialog(context, listener).apply {
                 setCanceledOnTouchOutside(false)
                 setCancelable(true)
             }
-        }
     }
 
     override fun show() {
@@ -47,8 +49,13 @@ class QrScannerDialog private constructor(
             val permission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
             if (permission != PackageManager.PERMISSION_GRANTED) {
                 val activity = context as? WWindow ?: return
-                activity.requestPermissions(arrayOf(Manifest.permission.CAMERA)) { _, grantResults ->
-                    if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                activity.requestPermissions(arrayOf(Manifest.permission.CAMERA)) {
+                        _,
+                        grantResults
+                    ->
+                    if (grantResults.isNotEmpty() &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    ) {
                         super.show()
                     } else {
                         // todo show dialog
@@ -63,9 +70,7 @@ class QrScannerDialog private constructor(
     }
 
     private var qrScanResult: String? = null
-    override fun onQrScanValidate(qrCode: String): Boolean {
-        return listener.onQrScanValidate(qrCode)
-    }
+    override fun onQrScanValidate(qrCode: String): Boolean = listener.onQrScanValidate(qrCode)
 
     override fun onQrScanComplete(qrCode: String) {
         qrScanResult = qrCode
@@ -102,9 +107,11 @@ class QrScannerDialog private constructor(
             height = ViewGroup.LayoutParams.MATCH_PARENT
 
             flags = flags and WindowManager.LayoutParams.FLAG_DIM_BEHIND.inv()
-            flags = flags or (WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
-                WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            flags = flags or (
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
+                    WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
+                )
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
@@ -116,8 +123,8 @@ class QrScannerDialog private constructor(
         window.statusBarColor = Color.TRANSPARENT
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             window.decorView.systemUiVisibility =
@@ -130,7 +137,9 @@ class QrScannerDialog private constructor(
 
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, insets ->
             val systemBars =
-                insets.getInsets(WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars())
+                insets.getInsets(
+                    WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
+                )
             qrScannerView.setPadding(
                 systemBars.left,
                 systemBars.top,
@@ -152,7 +161,6 @@ class QrScannerDialog private constructor(
         lifecycleOwner.resume()
         lifecycleOwner.stop()
     }
-
 
     /* Dismiss */
 

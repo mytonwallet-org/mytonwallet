@@ -52,15 +52,19 @@ function caip2ToHexChainId(caip2: string): string {
 }
 
 function hexToEip155Caip2(hex: string): string {
-  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
+  const value = String(hex ?? '');
 
-  return `eip155:${BigInt(withPrefix)}`;
+  if (!value) throw new TypeError('Invalid chain ID');
+
+  return `eip155:${BigInt(value)}`;
 }
 
 function normalizeHexChainId(hex: string): string {
-  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
+  const value = String(hex ?? '');
 
-  return `0x${BigInt(withPrefix).toString(16)}`;
+  if (!value) throw new TypeError('Invalid chain ID');
+
+  return `0x${BigInt(value).toString(16)}`;
 }
 
 function getCaip2ForSessionChain(chain: ApiChain, network: ApiNetwork): string | undefined {

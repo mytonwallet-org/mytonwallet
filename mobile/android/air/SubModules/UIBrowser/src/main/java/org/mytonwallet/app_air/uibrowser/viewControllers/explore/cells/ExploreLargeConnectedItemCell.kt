@@ -27,9 +27,8 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 class ExploreLargeConnectedItemCell(
     context: Context,
     cellWidth: Int,
-    private val onDAppTap: (site: ApiDapp?) -> Unit,
-) :
-    WCell(context, LayoutParams(cellWidth, WRAP_CONTENT)),
+    private val onDAppTap: (site: ApiDapp?) -> Unit
+) : WCell(context, LayoutParams(cellWidth, WRAP_CONTENT)),
     WThemedView {
 
     private val ripple = WRippleDrawable.create(16f.dp)

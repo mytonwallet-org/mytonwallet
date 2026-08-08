@@ -9,7 +9,7 @@ object DevicePerformanceClassifier {
     enum class PerformanceClass(val code: Int) {
         LOW(1),
         MEDIUM(2),
-        HIGH(3),
+        HIGH(3)
     }
 
     var performanceClass: PerformanceClass? = null
@@ -66,16 +66,14 @@ object DevicePerformanceClassifier {
         return activityManager.memoryClass // MB
     }
 
-    private fun getTotalRamBytes(): Long {
-        return try {
-            val reader = File("/proc/meminfo").bufferedReader()
-            val line = reader.readLine()
-            val parts = line.split(Regex("\\s+"))
-            val memTotalKb = parts[1].toLong()
-            memTotalKb * 1024
-        } catch (_: Exception) {
-            -1L
-        }
+    private fun getTotalRamBytes(): Long = try {
+        val reader = File("/proc/meminfo").bufferedReader()
+        val line = reader.readLine()
+        val parts = line.split(Regex("\\s+"))
+        val memTotalKb = parts[1].toLong()
+        memTotalKb * 1024
+    } catch (_: Exception) {
+        -1L
     }
 
     private fun getMaxCpuFreqMHz(): Int {

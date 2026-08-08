@@ -8,9 +8,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.HorizontalScrollView
 
 @SuppressLint("ViewConstructor")
-class AutoScaleContainerView(
-    private val contentView: View
-) : HorizontalScrollView(contentView.context) {
+class AutoScaleContainerView(private val contentView: View) :
+    HorizontalScrollView(contentView.context) {
 
     var maxAllowedWidth = 0
     var minPadding = 0
@@ -22,10 +21,23 @@ class AutoScaleContainerView(
         contentView.layoutParams =
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         removeAllViews()
-        addView(contentView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-        contentView.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+        addView(
+            contentView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        contentView.addOnLayoutChangeListener {
+                _,
+                left,
+                top,
+                right,
+                bottom,
+                oldLeft,
+                oldTop,
+                oldRight,
+                oldBottom
+            ->
             val oldWidth = oldRight - oldLeft
             val newWidth = right - left
             if (newWidth != oldWidth) {
@@ -34,14 +46,10 @@ class AutoScaleContainerView(
         }
     }
 
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        return false
-    }
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = false
 
     @SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(ev: MotionEvent): Boolean {
-        return ev.action == MotionEvent.ACTION_MOVE
-    }
+    override fun onTouchEvent(ev: MotionEvent): Boolean = ev.action == MotionEvent.ACTION_MOVE
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -52,8 +60,7 @@ class AutoScaleContainerView(
         val child = contentView
         val contentWidth = child.width + additionalRightPadding
         val visibleWidth = maxAllowedWidth - minPadding * 2
-        if (visibleWidth <= 0)
-            return
+        if (visibleWidth <= 0) return
 
         if (contentWidth > visibleWidth) {
             contentView.pivotX = contentView.width / 2f + additionalRightPadding / 2

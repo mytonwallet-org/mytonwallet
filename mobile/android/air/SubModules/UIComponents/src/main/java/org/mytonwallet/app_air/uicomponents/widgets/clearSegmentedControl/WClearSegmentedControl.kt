@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
@@ -20,6 +21,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.animation.doOnEnd
+import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
 import androidx.core.view.doOnPreDraw
@@ -29,6 +31,9 @@ import androidx.dynamicanimation.animation.SpringForce
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.max
 import me.vkryl.core.fromTo
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -41,22 +46,22 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.recyclerView.CustomItemTouchHelper
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import androidx.core.graphics.ColorUtils
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.max
 
 // TODO: Refactor this class to improve performance and readability.
 @SuppressLint("ViewConstructor")
 class WClearSegmentedControl(
     context: Context,
     private val horizontalPaddingDp: Float = 11f,
-) : FrameLayout(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
+    private val isTransparent: Boolean = false
+) : FrameLayout(context),
+    WThemedView,
+    WRecyclerViewAdapter.WRecyclerViewDataSource {
     data class Item(
         val title: String,
         // Called whenever user taps on remove icon
@@ -65,7 +70,7 @@ class WClearSegmentedControl(
         var onClick: ((v: View) -> Unit)?,
         var arrowVisibility: Float? = null,
         var badge: String? = null,
-        val color: Int? = null,
+        val color: Int? = null
     )
 
     var horizontalFadingEdge: Boolean
@@ -74,7 +79,7 @@ class WClearSegmentedControl(
         }
         set(value) {
             // TODO:: Handle this
-            //recyclerView.isHorizontalFadingEdgeEnabled = value
+            // recyclerView.isHorizontalFadingEdgeEnabled = value
         }
 
     companion object {
@@ -184,11 +189,13 @@ class WClearSegmentedControl(
                 val fromPosition = viewHolder.adapterPosition
                 val toPosition = target.adapterPosition
 
-                if (fromPosition == RecyclerView.NO_POSITION || toPosition == RecyclerView.NO_POSITION) {
+                if (fromPosition == RecyclerView.NO_POSITION ||
+                    toPosition == RecyclerView.NO_POSITION
+                ) {
                     return false
                 }
 
-                moveItem(fromPosition, toPosition)
+                moveItem(mapPosition(fromPosition), mapPosition(toPosition))
                 return true
             }
 
@@ -232,26 +239,30 @@ class WClearSegmentedControl(
                 recyclerView: RecyclerView,
                 current: RecyclerView.ViewHolder,
                 target: RecyclerView.ViewHolder
-            ): Boolean {
-                return isDragAllowed && super.canDropOver(recyclerView, current, target)
-            }
+            ): Boolean = isDragAllowed && super.canDropOver(recyclerView, current, target)
         })
     }
 
     private val gestureDetector =
-        GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapUp(e: MotionEvent): Boolean {
-                val childView = recyclerView.findChildViewUnder(e.x, e.y)
-                if (childView != null) {
-                    val position = recyclerView.getChildAdapterPosition(childView)
-                    if (position != RecyclerView.NO_POSITION) {
-                        handleCellClick(position, childView as WClearSegmentedControlItemView)
-                        return true
+        GestureDetector(
+            context,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onSingleTapUp(e: MotionEvent): Boolean {
+                    val childView = recyclerView.findChildViewUnder(e.x, e.y)
+                    if (childView != null) {
+                        val position = recyclerView.getChildAdapterPosition(childView)
+                        if (position != RecyclerView.NO_POSITION) {
+                            handleCellClick(
+                                mapPosition(position),
+                                childView as WClearSegmentedControlItemView
+                            )
+                            return true
+                        }
                     }
+                    return false
                 }
-                return false
             }
-        })
+        )
 
     private val recyclerViewTouchListener = object : RecyclerView.OnItemTouchListener {
         private var startedDrag = false
@@ -318,15 +329,17 @@ class WClearSegmentedControl(
         id = generateViewId()
         clipChildren = false
         clipToPadding = false
-        addView(recyclerView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            gravity = Gravity.CENTER
-        })
+        addView(
+            recyclerView,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER
+            }
+        )
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w != oldw && oldw > 0)
-            updateItemsTrailingViews()
+        if (w != oldw && oldw > 0) updateItemsTrailingViews()
     }
 
     private fun createRecyclerView() = object : WRecyclerView(context) {
@@ -384,7 +397,7 @@ class WClearSegmentedControl(
             }
 
             val textView = itemView.textView
-            val itemColor = items.getOrNull(position)?.color
+            val itemColor = items.getOrNull(mapPosition(position))?.color
             textView.setTextColor(
                 if (isDrawThumb) (itemColor ?: primaryTextColor) else secondaryTextColor
             )
@@ -406,8 +419,9 @@ class WClearSegmentedControl(
                         itemView.x + textView.x,
                         itemView.top + textView.top.toFloat()
                     )
+                    val lineLeftOffset = textView.layout?.getLineLeft(0) ?: 0f
                     translate(
-                        textView.compoundPaddingLeft.toFloat(),
+                        textView.compoundPaddingLeft.toFloat() - lineLeftOffset,
                         textView.extendedPaddingTop.toFloat()
                     )
                     if (itemView.scaleX != 1f || itemView.scaleY != 1f) {
@@ -425,12 +439,12 @@ class WClearSegmentedControl(
         }
 
         override fun canScrollHorizontally(direction: Int): Boolean {
-            if (isInDragMode)
-                return false
+            if (isInDragMode) return false
             return super.canScrollHorizontally(direction)
         }
     }.apply {
         adapter = rvAdapter
+        layoutDirection = LAYOUT_DIRECTION_LTR
         val layoutManager = LinearLayoutManager(context).apply {
             isSmoothScrollbarEnabled = true
             orientation = RecyclerView.HORIZONTAL
@@ -449,9 +463,7 @@ class WClearSegmentedControl(
             delegate?.enterReorderingMode()
         }
         itemTouchHelper.setExternalTouchListener(object : RecyclerView.OnItemTouchListener {
-            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                return false
-            }
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean = false
 
             override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
                 if (isInDragMode) {
@@ -515,13 +527,14 @@ class WClearSegmentedControl(
     var removingItem = false
     fun removeItem(index: Int, nextIndex: Int, onCompletion: () -> Unit) {
         removingItem = true
-        val viewHolder = recyclerView.findViewHolderForAdapterPosition(index) ?: run {
+        val viewHolder = recyclerView.findViewHolderForAdapterPosition(mapPosition(index)) ?: run {
             items.removeAt(index)
             rvAdapter.reloadData()
             if (index == selectedItem) {
                 selectedItem = nextIndex
                 updateThumbPosition(
-                    selectedItem.toFloat(), selectedItem,
+                    selectedItem.toFloat(),
+                    selectedItem,
                     animated = true,
                     force = false,
                     isAnimatingToPosition = true
@@ -542,7 +555,8 @@ class WClearSegmentedControl(
         if (index == selectedItem) {
             selectedItem = nextIndex
             updateThumbPosition(
-                selectedItem.toFloat(), nextIndex,
+                selectedItem.toFloat(),
+                nextIndex,
                 animated = true,
                 force = false,
                 isAnimatingToPosition = true
@@ -613,14 +627,13 @@ class WClearSegmentedControl(
     fun setBadge(index: Int, badge: String?) {
         if (!isValidIndex(index)) return
         items[index].badge = badge
-        val cell = recyclerView.findViewHolderForAdapterPosition(index)?.itemView
+        val cell = recyclerView.findViewHolderForAdapterPosition(mapPosition(index))?.itemView
             as? WClearSegmentedControlItemView
         cell?.setBadge(badge)
     }
 
     fun updateOnMenuPressed(index: Int, onMenuPressed: ((v: View) -> Unit)?) {
-        if (!isEnabled)
-            return
+        if (!isEnabled) return
         if (isValidIndex(index)) {
             items[index].onClick = onMenuPressed
             Handler(Looper.getMainLooper()).post {
@@ -637,7 +650,9 @@ class WClearSegmentedControl(
     }
 
     fun moveItem(fromPosition: Int, toPosition: Int) {
-        if (!isValidIndex(fromPosition) || !isValidIndex(toPosition) || fromPosition == toPosition) {
+        if (!isValidIndex(fromPosition) || !isValidIndex(toPosition) ||
+            fromPosition == toPosition
+        ) {
             return
         }
 
@@ -646,16 +661,21 @@ class WClearSegmentedControl(
 
         selectedItem = when (selectedItem) {
             fromPosition -> toPosition
+
             in (minOf(fromPosition, toPosition)..maxOf(fromPosition, toPosition)) -> {
-                if (fromPosition < toPosition && selectedItem > fromPosition) selectedItem - 1
-                else if (fromPosition > toPosition && selectedItem < fromPosition) selectedItem + 1
-                else selectedItem
+                if (fromPosition < toPosition && selectedItem > fromPosition) {
+                    selectedItem - 1
+                } else if (fromPosition > toPosition && selectedItem < fromPosition) {
+                    selectedItem + 1
+                } else {
+                    selectedItem
+                }
             }
 
             else -> selectedItem
         }
 
-        rvAdapter.notifyItemMoved(fromPosition, toPosition)
+        rvAdapter.notifyItemMoved(mapPosition(fromPosition), mapPosition(toPosition))
 
         updateThumbPosition(
             selectedItem.toFloat(),
@@ -670,11 +690,24 @@ class WClearSegmentedControl(
 
     private fun isValidIndex(index: Int) = index in 0 until items.size
 
+    private fun mapPosition(index: Int): Int =
+        if (LocaleController.isRTL && items.isNotEmpty()) items.size - 1 - index else index
+
+    private fun mapPosition(position: Float): Float =
+        if (LocaleController.isRTL && items.isNotEmpty()) (items.size - 1) - position else position
+
     override fun updateTheme() {
-        primaryTextColor = WColor.PrimaryText.color
-        secondaryTextColor = WColor.SecondaryText.color
+        primaryTextColor =
+            if (isTransparent) Color.WHITE else WColor.PrimaryText.color
+        secondaryTextColor =
+            if (isTransparent) Color.WHITE.colorWithAlpha(153) else WColor.SecondaryText.color
         if (paintColor == null) {
-            paint.color = WColor.TrinaryBackground.color
+            paint.color =
+                if (isTransparent) {
+                    Color.WHITE.colorWithAlpha(38)
+                } else {
+                    WColor.TrinaryBackground.color
+                }
         }
         rvAdapter.reloadData()
         requestLayout()
@@ -687,26 +720,33 @@ class WClearSegmentedControl(
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
         ITEM_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return WClearSegmentedControlItemView(context)
-    }
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        WClearSegmentedControlItemView(context).apply {
+            layoutDirection =
+                if (LocaleController.isRTL) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
+        }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
         cellHolder: WCell.Holder,
         indexPath: IndexPath
     ) {
-        val item = items[indexPath.row]
-        val onRemove = items[indexPath.row].onRemove
+        val logicalRow = mapPosition(indexPath.row)
+        val item = items[logicalRow]
+        val onRemove = items[logicalRow].onRemove
         val cell = cellHolder.cell as WClearSegmentedControlItemView
-        val isSelected = selectedItem == indexPath.row
+        val isSelected = selectedItem == logicalRow
         // Workaround to handle first appearance ui glitches
         if (item.arrowVisibility == null) {
             item.arrowVisibility =
                 if (item.onClick != null &&
                     !isInDragMode &&
                     ((!isAnimatingDragMode && isSelected) || item.onRemove != null)
-                ) 1f else 0f
+                ) {
+                    1f
+                } else {
+                    0f
+                }
         }
         cell.configure(
             item,
@@ -721,12 +761,8 @@ class WClearSegmentedControl(
         cell.setBadge(item.badge)
     }
 
-    private fun handleCellClick(
-        row: Int,
-        cell: WClearSegmentedControlItemView
-    ) {
-        if (isInDragMode || !isEnabled)
-            return
+    private fun handleCellClick(row: Int, cell: WClearSegmentedControlItemView) {
+        if (isInDragMode || !isEnabled) return
         if (selectedItem == row) {
             items[row].onClick?.invoke(cell)
         } else {
@@ -740,7 +776,8 @@ class WClearSegmentedControl(
         offset: Float,
         targetIndex: Int?,
         force: Boolean,
-        isAnimatingToPosition: Boolean
+        isAnimatingToPosition: Boolean,
+        animateScroll: Boolean = true
     ) {
         if (items.isEmpty() || !isValidIndex(index)) return
         selectedItem = index
@@ -750,7 +787,8 @@ class WClearSegmentedControl(
             targetPosition = targetIndex,
             animated = false,
             force = force,
-            isAnimatingToPosition = isAnimatingToPosition
+            isAnimatingToPosition = isAnimatingToPosition,
+            animateScroll = animateScroll
         )
     }
 
@@ -760,6 +798,7 @@ class WClearSegmentedControl(
         animated: Boolean,
         force: Boolean,
         isAnimatingToPosition: Boolean,
+        animateScroll: Boolean = true
     ) {
         if (items.isEmpty()) return
 
@@ -776,7 +815,8 @@ class WClearSegmentedControl(
             updateThumbPositionInternal(
                 clampedPosition,
                 ensureVisibleThumb = !isAnimatingToPosition,
-                if (isAnimatingToPosition) targetPosition else null
+                if (isAnimatingToPosition) targetPosition else null,
+                animateScroll = animateScroll
             )
         }
         lastPosition = clampedPosition
@@ -790,15 +830,17 @@ class WClearSegmentedControl(
     private fun updateThumbPositionInternal(
         position: Float,
         ensureVisibleThumb: Boolean = true,
-        targetIndex: Int?
+        targetIndex: Int?,
+        animateScroll: Boolean = true
     ) {
         if (items.isEmpty()) return
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
-        val (index, nextIndex, fraction) = calculatePositionParams(position)
+        val (index, nextIndex, fraction) = calculatePositionParams(mapPosition(position))
+        val visualTargetIndex = targetIndex?.let { mapPosition(it) }
 
-        val color1 = items.getOrNull(index)?.color
+        val color1 = items.getOrNull(mapPosition(index))?.color
         if (color1 != null) {
-            val color2 = items.getOrNull(nextIndex)?.color ?: color1
+            val color2 = items.getOrNull(mapPosition(nextIndex))?.color ?: color1
             paint.color =
                 ColorUtils.blendARGB(color1.colorWithAlpha(20), color2.colorWithAlpha(20), fraction)
         } else {
@@ -807,16 +849,20 @@ class WClearSegmentedControl(
 
         val (currentView, nextView) = getViews(layoutManager, index, nextIndex)
 
-        if (ensureVisibleThumb)
-            ensureItemVisible(index, nextIndex, fraction)
+        if (ensureVisibleThumb) ensureItemVisible(index, nextIndex, fraction, animateScroll)
 
         val thumbBounds = calculateThumbBounds(currentView, nextView, fraction, index, nextIndex)
         updatePaths(thumbBounds)
-        updateItemArrowVisibility(index, nextIndex, fraction, targetIndex)
+        updateItemArrowVisibility(index, nextIndex, fraction, visualTargetIndex)
         recyclerView.invalidate()
     }
 
-    private fun ensureItemVisible(index: Int, nextIndex: Int, fraction: Float) {
+    private fun ensureItemVisible(
+        index: Int,
+        nextIndex: Int,
+        fraction: Float,
+        animateScroll: Boolean = true
+    ) {
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
 
         val targetIndex = if (fraction < 0.5f) index else nextIndex
@@ -824,7 +870,11 @@ class WClearSegmentedControl(
         val targetView = layoutManager.findViewByPosition(targetIndex)
 
         if (targetView == null) {
-            recyclerView.smoothScrollToPosition(targetIndex)
+            if (animateScroll) {
+                recyclerView.smoothScrollToPosition(targetIndex)
+            } else {
+                recyclerView.scrollToPosition(targetIndex)
+            }
             return
         }
 
@@ -850,7 +900,11 @@ class WClearSegmentedControl(
                 else -> scrollX
             }
 
-            recyclerView.smoothScrollBy(targetScrollX - scrollX, 0)
+            if (animateScroll) {
+                recyclerView.smoothScrollBy(targetScrollX - scrollX, 0)
+            } else {
+                recyclerView.scrollBy(targetScrollX - scrollX, 0)
+            }
         }
     }
 
@@ -881,9 +935,11 @@ class WClearSegmentedControl(
         val scrollOffset = recyclerView.scrollX.toFloat()
         val w = calculateWidth(currentView, nextView, fraction, index, nextIndex)
         val h = THUMB_HEIGHT.dp
-        val x = (currentView?.let {
-            calculateX(currentView, nextView, fraction, index, nextIndex, scrollOffset)
-        } ?: ((nextView?.left ?: 0) - (w * (1 - fraction))))
+        val x = (
+            currentView?.let {
+                calculateX(currentView, nextView, fraction, index, nextIndex, scrollOffset)
+            } ?: ((nextView?.left ?: 0) - (w * (1 - fraction)))
+            )
         val y = recyclerView.height / 2f - CORNER_RADIUS.dp
 
         return RectF(x, y, x + w, y + h)
@@ -896,12 +952,10 @@ class WClearSegmentedControl(
         index: Int,
         nextIndex: Int,
         scrollOffset: Float
-    ): Float {
-        return if (nextView != null && index != nextIndex) {
-            currentView.left + (nextView.left - currentView.left) * fraction - scrollOffset
-        } else {
-            currentView.left.toFloat() + currentView.width * fraction - scrollOffset
-        }
+    ): Float = if (nextView != null && index != nextIndex) {
+        currentView.left + (nextView.left - currentView.left) * fraction - scrollOffset
+    } else {
+        currentView.left.toFloat() + currentView.width * fraction - scrollOffset
     }
 
     private fun calculateWidth(
@@ -910,15 +964,13 @@ class WClearSegmentedControl(
         fraction: Float,
         index: Int,
         nextIndex: Int
-    ): Float {
-        return currentView?.let {
-            if (nextView != null && index != nextIndex) {
-                fromTo(currentView.width.toFloat(), nextView.width.toFloat(), fraction)
-            } else {
-                currentView.width.toFloat()
-            }
-        } ?: nextView?.width?.toFloat() ?: 0f
-    }
+    ): Float = currentView?.let {
+        if (nextView != null && index != nextIndex) {
+            fromTo(currentView.width.toFloat(), nextView.width.toFloat(), fraction)
+        } else {
+            currentView.width.toFloat()
+        }
+    } ?: nextView?.width?.toFloat() ?: 0f
 
     private fun updatePaths(bounds: RectF) {
         rect.set(bounds.left, bounds.top, bounds.right, bounds.bottom)
@@ -935,7 +987,7 @@ class WClearSegmentedControl(
         index: Int,
         nextIndex: Int,
         fraction: Float,
-        limitArrowToPosition: Int?,
+        limitArrowToPosition: Int?
     ) {
         for (i in 0 until recyclerView.childCount) {
             val childView = recyclerView.getChildAt(i)
@@ -946,9 +998,15 @@ class WClearSegmentedControl(
                 val showingRemoveButton = isInDragMode || isAnimatingDragMode
                 itemView?.setTrailingButton(
                     if (item?.onRemove != null &&
-                        (isInDragMode || (isAnimatingDragMode && selectedItem != position))
-                    )
-                        WClearSegmentedControlItemView.TrailingButton.Remove else WClearSegmentedControlItemView.TrailingButton.Arrow
+                        (
+                            isInDragMode ||
+                                (isAnimatingDragMode && selectedItem != mapPosition(position))
+                            )
+                    ) {
+                        WClearSegmentedControlItemView.TrailingButton.Remove
+                    } else {
+                        WClearSegmentedControlItemView.TrailingButton.Arrow
+                    }
                 )
                 var arrowVisibility = when {
                     item?.onClick == null -> 0f
@@ -956,14 +1014,16 @@ class WClearSegmentedControl(
                     position == nextIndex && fraction >= 0.5f -> (fraction - 0.5f) * 2f
                     else -> 0f
                 }
-                if (showingRemoveButton)
-                    arrowVisibility = if (item?.onRemove != null)
+                if (showingRemoveButton) {
+                    arrowVisibility = if (item?.onRemove != null) {
                         arrowVisibility.coerceAtLeast(dragModePresentationFraction)
-                    else
+                    } else {
                         max(
                             0f,
                             arrowVisibility - dragModePresentationFraction
                         ) // Reduce width animated
+                    }
+                }
                 val shouldShowTrailingButton =
                     showingRemoveButton ||
                         limitArrowToPosition == null || limitArrowToPosition == position
@@ -985,7 +1045,13 @@ class WClearSegmentedControl(
             dragModeAnimator.apply {
                 setFloatValues(dragModePresentationFraction, 1f)
                 duration =
-                    if (animated && WGlobalStorage.getAreAnimationsActive()) AnimationConstants.VERY_QUICK_ANIMATION else 0
+                    if (animated &&
+                        WGlobalStorage.getAreAnimationsActive()
+                    ) {
+                        AnimationConstants.VERY_QUICK_ANIMATION
+                    } else {
+                        0
+                    }
                 interpolator = AccelerateDecelerateInterpolator()
                 start()
             }
@@ -993,7 +1059,13 @@ class WClearSegmentedControl(
             dragModeAnimator.apply {
                 setFloatValues(dragModePresentationFraction, 0f)
                 duration =
-                    if (animated && WGlobalStorage.getAreAnimationsActive()) AnimationConstants.VERY_QUICK_ANIMATION else 0
+                    if (animated &&
+                        WGlobalStorage.getAreAnimationsActive()
+                    ) {
+                        AnimationConstants.VERY_QUICK_ANIMATION
+                    } else {
+                        0
+                    }
                 interpolator = AccelerateDecelerateInterpolator()
                 start()
             }

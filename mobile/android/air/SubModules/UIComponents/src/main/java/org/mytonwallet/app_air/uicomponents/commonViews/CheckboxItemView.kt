@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.util.TypedValue
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -10,6 +9,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -23,8 +23,7 @@ class CheckboxItemView(
     val isEnabledInitially: Boolean,
     val horizontalGapDp: Float = 16f,
     val labelGapDp: Float = 16f
-) :
-    WView(context),
+) : WView(context),
     WThemedView {
 
     private val ripple = WRippleDrawable.create(ViewConstants.BLOCK_RADIUS.dp)
@@ -101,7 +100,6 @@ class CheckboxItemView(
                 .alpha(if (value) 1f else DISABLED_ALPHA_VALUE)
                 .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
                 .start()
-            if (!value)
-                isChecked = false
+            if (!value) isChecked = false
         }
 }

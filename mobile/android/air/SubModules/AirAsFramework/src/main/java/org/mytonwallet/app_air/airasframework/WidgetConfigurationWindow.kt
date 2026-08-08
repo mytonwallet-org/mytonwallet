@@ -77,8 +77,12 @@ class WidgetConfigurationWindow : WWindow() {
             windowView,
             forcedRecreation = forcedRecreation,
             isOnAirApp = false
-        ) {
-            setAppFocusedState()
+        ) { isReady ->
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "Widget restartBridge: setup completed forced=$forcedRecreation isReady=$isReady"
+            )
+            if (isReady) setAppFocusedState()
         }
     }
 

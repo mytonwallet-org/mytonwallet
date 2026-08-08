@@ -115,6 +115,7 @@ final class PermissionsListVC: SettingsBaseVC, WSegmentedControllerContent, UICo
         ) { [weak self] cell, _, _ in
             var content = UIListContentConfiguration.groupedHeader()
             content.text = self?.sectionHeaderTitle
+            content.applyTextStyle(.sectionHeader, scaling: .dynamic)
             cell.contentConfiguration = content
         }
 
@@ -206,7 +207,7 @@ final class PermissionsListVC: SettingsBaseVC, WSegmentedControllerContent, UICo
                 description: nil,
                 compactMode: true
             )
-            emptyView.lblTitle.font = .systemFont(ofSize: 17, weight: .medium)
+            emptyView.lblTitle.applyTextStyle(.bodyEmphasized)
             view.addSubview(emptyView)
             NSLayoutConstraint.activate([
                 emptyView.widthAnchor.constraint(equalToConstant: 220),
@@ -238,12 +239,12 @@ final class PermissionsListVC: SettingsBaseVC, WSegmentedControllerContent, UICo
 
     private func revoke(_ permission: ApiWalletPermission) async {
         guard account.id == AccountStore.accountId else { return }
-        guard let password = await UnlockVC.presentAuthAsync(on: self, title: lang("Confirm Revoking")) else { return }
+        guard let enclaveToken = await UnlockVC.presentAuthAsync(on: self, title: lang("Confirm Revoking")) else { return }
 
         do {
             let options = ApiRevokeWalletPermissionOptions(
                 accountId: account.id,
-                password: password,
+                enclaveToken: enclaveToken,
                 permission: permission
             )
             let result = try await Api.revokeWalletPermission(chain: permission.chain, options: options)
@@ -342,18 +343,18 @@ private struct ApprovalCellContent: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(approval.tokenName)
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
                 Text(lang("Approved to %name%", arg1: approval.spenderLabel))
-                    .font(.system(size: 14))
+                    .textStyle(.supporting)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(amountText)
-                .font(.system(size: 14))
+                .textStyle(.supporting, content: approval.isUnlimited ? .default : .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -379,11 +380,11 @@ private struct DelegationCellContent: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(delegation.delegateLabel)
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
                 Text(lang("Wallet Delegation"))
-                    .font(.system(size: 14))
+                    .textStyle(.supporting)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
             }
@@ -398,7 +399,7 @@ private struct PluginCellContent: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "puzzlepiece.extension")
-                .font(.system(size: 20, weight: .medium))
+                .textStyle(.largeSymbol, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .frame(width: 40, height: 40)
                 .background(Color.air.secondaryFill)
@@ -406,11 +407,11 @@ private struct PluginCellContent: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(plugin.name?.nilIfEmpty ?? lang("Unknown Plugin"))
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
                 Text(formatStartEndAddress(plugin.address))
-                    .font(.system(size: 14))
+                    .textStyle(.supporting, content: .technical)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
             }

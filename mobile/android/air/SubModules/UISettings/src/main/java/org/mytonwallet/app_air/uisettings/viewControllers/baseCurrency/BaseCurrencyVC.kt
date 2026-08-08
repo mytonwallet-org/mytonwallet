@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
@@ -24,16 +25,21 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
-import java.lang.ref.WeakReference
 
-class BaseCurrencyVC(context: Context) : WViewController(context),
+class BaseCurrencyVC(context: Context) :
+    WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "BaseCurrency"
 
     companion object {
         val baseCurrencies = arrayOf(
-            MBaseCurrency.USD, MBaseCurrency.EUR, MBaseCurrency.RUB,
-            MBaseCurrency.CNY, MBaseCurrency.BTC, MBaseCurrency.TON
+            MBaseCurrency.USD,
+            MBaseCurrency.EUR,
+            MBaseCurrency.RUB,
+            MBaseCurrency.CNY,
+            MBaseCurrency.BTC,
+            MBaseCurrency.TON
         )
 
         val HEADER_CELL = WCell.Type(1)
@@ -60,8 +66,7 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
         })
@@ -105,26 +110,21 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
         )
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 2
+
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        0 -> 1
+        else -> baseCurrencies.size
     }
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            0 -> 1
-            else -> baseCurrencies.size
-        }
-    }
-
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             0 -> HEADER_CELL
             else -> BASE_CURRENCY_CELL
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
                 HeaderCell(
                     context,
@@ -136,7 +136,6 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
                 TitleSubtitleSelectionCell(context)
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -156,7 +155,8 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
                 (cellHolder.cell as TitleSubtitleSelectionCell).configure(
                     title = baseCurrency.currencySymbol,
                     subtitle = baseCurrency.currencyName,
-                    isSelected = WalletCore.baseCurrency.currencySymbol == baseCurrency.currencySymbol,
+                    isSelected =
+                        WalletCore.baseCurrency.currencySymbol == baseCurrency.currencySymbol,
                     isFirst = false,
                     isLast = indexPath.row == baseCurrencies.size - 1
                 ) {
@@ -173,5 +173,4 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
             }
         }
     }
-
 }

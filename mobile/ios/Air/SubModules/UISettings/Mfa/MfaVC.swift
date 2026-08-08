@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import WalletCore
 import WalletContext
@@ -32,17 +33,17 @@ final class MfaVC: SettingsBaseVC {
             self?.showConfirmation(
                 title: lang("Confirm Connection"),
                 user: user,
-                useBioOnPresent: false
-            ) { viewModel, passcode in
-                try await viewModel.confirmInstall(passcode: passcode)
+                biometricPolicy: .disabled
+            ) { viewModel, enclaveToken in
+                try await viewModel.confirmInstall(enclaveToken: enclaveToken)
             }
         }
         flowModel.onRemoveConfirmationRequested = { [weak self] user in
             self?.showConfirmation(
                 title: lang("Confirm Disconnection"),
                 user: user
-            ) { viewModel, passcode in
-                try await viewModel.confirmRemove(passcode: passcode)
+            ) { viewModel, enclaveToken in
+                try await viewModel.confirmRemove(enclaveToken: enclaveToken)
             }
         }
     }
@@ -50,33 +51,26 @@ final class MfaVC: SettingsBaseVC {
     private func showConfirmation(
         title: String,
         user: AccountMfa.User?,
-        useBioOnPresent: Bool = true,
-        action: @escaping @MainActor (MfaFlowModel, String) async throws -> Void
+        biometricPolicy: BiometricPolicy = .onAuthorizationScreen,
+        action: @escaping @MainActor (MfaFlowModel, EnclaveToken) async throws -> Void
     ) {
         guard navigationController?.topViewController === self else {
             return
         }
 
         let account = accountContext.account
+        let protectedAction = ProtectedAction.mfaSettings(
+            account: account,
+            title: title,
+            user: user,
+            biometricPolicy: biometricPolicy,
+            flowModel: flowModel,
+            action: action
+        )
         Task {
-            do {
-                _ = try await AppActions.authorizeProtectedAction(
-                    on: self,
-                    account: account,
-                    title: title,
-                    headerView: MfaConfirmHeaderView(account: account, title: title, user: user),
-                    passwordAction: { [weak self] passcode in
-                        guard let self else { throw CancellationError() }
-                        try await action(self.flowModel, passcode)
-                        return ApiMfaProtectedResult()
-                    },
-                    useBioOnPresent: useBioOnPresent,
-                    mfaTitle: title
-                )
-            } catch is CancellationError {
-            } catch {
+            let outcome = await ProtectedActionExecutor.execute(protectedAction, on: self)
+            if case .failed(let error) = outcome {
                 log.error("MFA confirmation failed: \(error, .public)")
-                showAlert(error: error)
             }
         }
     }

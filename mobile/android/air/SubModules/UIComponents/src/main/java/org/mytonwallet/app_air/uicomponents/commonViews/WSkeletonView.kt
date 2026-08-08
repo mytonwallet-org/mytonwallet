@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.animation.ValueAnimator
@@ -24,8 +26,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.y
 class SkeletonView(
     context: Context,
     val isVertical: Boolean = true,
-    val forcedLight: Boolean = false,
-) : View(context), WThemedView {
+    val forcedLight: Boolean = false
+) : View(context),
+    WThemedView {
 
     private var gradientPaint: Paint = Paint()
     private var gradientColors: IntArray = intArrayOf()
@@ -54,13 +57,11 @@ class SkeletonView(
 
         canvas.save()
         for ((index, view) in maskViews.withIndex()) {
-            if (!view.isShown)
-                continue
+            if (!view.isShown) continue
 
             view.getLocationOnScreen(location)
 
-            if (location.x == 0 && location.y == 0)
-                continue
+            if (location.x == 0 && location.y == 0) continue
 
             val left = location.x.toFloat() - myLocation.x
             val top = location.y.toFloat() - myLocation.y
@@ -110,13 +111,17 @@ class SkeletonView(
                 repeatCount = ValueAnimator.INFINITE
                 addUpdateListener { animation ->
                     val animatedValue = animation.animatedValue as Float
-                    if (isVertical)
+                    if (isVertical) {
                         gradientPaint.shader = LinearGradient(
-                            0f, animatedValue, 0f, animatedValue + height.toFloat(),
-                            gradientColors, floatArrayOf(0.0f, 0.1f, 0.2f),
+                            0f,
+                            animatedValue,
+                            0f,
+                            animatedValue + height.toFloat(),
+                            gradientColors,
+                            floatArrayOf(0.0f, 0.1f, 0.2f),
                             Shader.TileMode.CLAMP
                         )
-                    else
+                    } else {
                         gradientPaint.shader = LinearGradient(
                             animatedValue,
                             animatedValue,
@@ -126,6 +131,7 @@ class SkeletonView(
                             floatArrayOf(0.0f, 0.1f, 0.2f),
                             Shader.TileMode.CLAMP
                         )
+                    }
                     invalidate()
                 }
                 start()
@@ -147,10 +153,11 @@ class SkeletonView(
     }
 
     override fun updateTheme() {
-        gradientColors = if (!forcedLight && ThemeManager.isDark)
+        gradientColors = if (!forcedLight && ThemeManager.isDark) {
             intArrayOf(0x00000000, WColor.Background.color, 0x00000000)
-        else
+        } else {
             intArrayOf(0x00FFFFFF, 0x44FFFFFF, 0x00FFFFFF)
+        }
     }
 
     fun onDestroy() {

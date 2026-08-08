@@ -5,10 +5,8 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 class SDKMoshiBuilder {
     companion object {
-        fun build(): Moshi {
-            return Moshi.Builder()
-                .addLast(KotlinJsonAdapterFactory())
-                .build()
-        }
+        fun build(): Moshi = Moshi.Builder()
+            .addLast(KotlinJsonAdapterFactory())
+            .build()
     }
 }

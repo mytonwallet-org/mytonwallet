@@ -3,7 +3,7 @@
 .root {
   position: absolute;
   top: calc(0.75rem + var(--safe-area-top, 0px));
-  right: calc(0.75rem + var(--safe-area-right, 0px));
+  inset-inline-end: calc(0.75rem + var(--safe-area-inline-end, 0px));
 
   display: flex;
   gap: 1rem;
@@ -16,7 +16,7 @@
 .qrScannerButton {
   position: absolute;
   top: calc(0.75rem + var(--safe-area-top, 0px));
-  left: calc(0.75rem + var(--safe-area-left, 0px));
+  inset-inline-start: calc(0.75rem + var(--safe-area-inline-start, 0px));
 }
 
 .button {

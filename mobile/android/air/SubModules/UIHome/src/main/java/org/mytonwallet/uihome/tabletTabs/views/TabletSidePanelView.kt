@@ -22,7 +22,10 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import me.everything.android.ui.overscroll.IOverScrollState
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HighlightOverlayView
@@ -51,31 +54,28 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.uihome.home.WalletNameMenuHelper
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
-import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TabletSidePanelView(
     private val viewController: WViewController,
-    private val tabDefs: List<TabDef>,
+    private var tabDefs: List<TabDef>,
     private val onTabSelected: (id: Int) -> Unit,
     private val onTabReselected: (id: Int) -> Unit,
     private val onAccountSelected: (account: MAccount) -> Unit,
     private val onWalletSettings: () -> Unit,
     private val onAddAccount: () -> Unit,
-    private val onHeaderSwipe: (progress: Float, verticalOffset: Int, actionsFadeInPercent: Float) -> Unit,
-) : WFrameLayout(viewController.context), WThemedView,
+    private val onHeaderSwipe: (
+        progress: Float,
+        verticalOffset: Int,
+        actionsFadeInPercent: Float
+    ) -> Unit
+) : WFrameLayout(viewController.context),
+    WThemedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource {
-    data class TabDef(
-        val id: Int,
-        val iconRes: Int,
-        val filledIconRes: Int,
-        val labelKey: String,
-    )
+    data class TabDef(val id: Int, val iconRes: Int, val filledIconRes: Int, val labelKey: String)
 
     companion object {
         private val HEADER_CELL = WCell.Type(1)
@@ -108,7 +108,7 @@ class TabletSidePanelView(
                     viewController = viewController,
                     anchor = this,
                     account = account,
-                    onManageWallets = onWalletSettings,
+                    onManageWallets = onWalletSettings
                 )
             }
         }
@@ -124,7 +124,7 @@ class TabletSidePanelView(
             onHeaderSwipe(progress, verticalOffset, actionsFadeInPercent)
         },
         wideHomeHeaderView = true,
-        topInsetOverride = (-2).dp,
+        topInsetOverride = (-2).dp
     )
 
     private val recyclerView = WRecyclerView(viewController)
@@ -174,23 +174,27 @@ class TabletSidePanelView(
     val contentBottomInset: Int
         get() = bottomInset()
 
-    private fun headerCellHeight(): Int {
-        return headerView.collapsedMinHeight +
-            if (isHeightLocked || rvMode == HomeHeaderView.Mode.Expanded)
-                headerView.expandedContentHeight.toInt()
-            else
-                headerView.collapsedHeight
-    }
+    private fun headerCellHeight(): Int = headerView.collapsedMinHeight +
+        if (isHeightLocked || rvMode == HomeHeaderView.Mode.Expanded) {
+            headerView.expandedContentHeight.toInt()
+        } else {
+            headerView.collapsedHeight
+        }
 
     private fun spacerHeight(): Int {
         val diffPx = headerView.diffPx.toInt()
         val viewport = recyclerView.height
         if (viewport <= 0) return diffPx.coerceAtLeast(1)
         val headerCellContent = headerView.collapsedMinHeight +
-            if (isHeightLocked) headerView.expandedContentHeight.toInt() else headerView.collapsedHeight
+            if (isHeightLocked) {
+                headerView.expandedContentHeight.toInt()
+            } else {
+                headerView.collapsedHeight
+            }
         val tabsHeight = (tabDefs.size * TAB_ROW_HEIGHT).dp - 4.dp
         val accountsHeight =
-            accounts.size * PanelAccountItemView.HEIGHT_DP.dp + (if (accounts.isNotEmpty()) 12.dp else 0)
+            accounts.size * PanelAccountItemView.HEIGHT_DP.dp +
+                (if (accounts.isNotEmpty()) 12.dp else 0)
         val addAccountHeight = PanelAccountItemView.HEIGHT_DP.dp
         val collapsedContent = headerCellContent + tabsHeight + accountsHeight + addAccountHeight
         return (viewport - collapsedContent).coerceAtLeast(bottomInset() + 1) +
@@ -206,11 +210,10 @@ class TabletSidePanelView(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0,
+            0
         )
         recyclerView.adapter = rvAdapter
-        if (rvMode == HomeHeaderView.Mode.Collapsed)
-            recyclerView.setupOverScroll()
+        if (rvMode == HomeHeaderView.Mode.Collapsed) recyclerView.setupOverScroll()
 
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
@@ -237,8 +240,8 @@ class TabletSidePanelView(
                     headerView.isExpandAllowed = false
                     ignoreScrolls =
                         rvMode == HomeHeaderView.Mode.Expanded &&
-                            headerView.mode == HomeHeaderView.Mode.Collapsed &&
-                            rv.computeVerticalScrollOffset() < headerView.diffPx
+                        headerView.mode == HomeHeaderView.Mode.Collapsed &&
+                        rv.computeVerticalScrollOffset() < headerView.diffPx
                     if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                         scrollEnded()
                     } else if (
@@ -272,7 +275,11 @@ class TabletSidePanelView(
                 val prevOverscroll = recyclerView.getOverScrollOffset()
                 if (headerView.mode == HomeHeaderView.Mode.Expanded) {
                     val newOffset =
-                        if (!expandingProgrammatically) (headerView.diffPx - prevOverscroll).toInt() else 0
+                        if (!expandingProgrammatically) {
+                            (headerView.diffPx - prevOverscroll).toInt()
+                        } else {
+                            0
+                        }
                     expandingProgrammatically = false
                     ignoreScrolls = true
                     recyclerView.scrollBy(0, newOffset)
@@ -283,7 +290,10 @@ class TabletSidePanelView(
                     ignoreScrolls = true
                     recyclerView.scrollBy(
                         0,
-                        (headerView.collapsedHeight - headerView.expandedContentHeight - prevOverscroll).toInt()
+                        (
+                            headerView.collapsedHeight - headerView.expandedContentHeight -
+                                prevOverscroll
+                            ).toInt()
                     )
                     recyclerView.smoothScrollBy(0, -recyclerView.computeVerticalScrollOffset())
                 }
@@ -301,16 +311,17 @@ class TabletSidePanelView(
         }
 
         recyclerView.onFlingListener = object : RecyclerView.OnFlingListener() {
-            override fun onFling(velocityX: Int, velocityY: Int): Boolean {
-                return if (headerView.mode == HomeHeaderView.Mode.Expanded)
+            override fun onFling(velocityX: Int, velocityY: Int): Boolean =
+                if (headerView.mode == HomeHeaderView.Mode.Expanded) {
                     adjustScrollingPosition()
-                else
+                } else {
                     false
-            }
+                }
         }
 
         addView(
-            recyclerView, ViewGroup.LayoutParams(
+            recyclerView,
+            ViewGroup.LayoutParams(
                 MATCH_PARENT,
                 MATCH_PARENT
             )
@@ -379,14 +390,15 @@ class TabletSidePanelView(
         underCardFadeView.background = PaintDrawable().apply {
             shape = RectShape()
             shaderFactory = object : ShapeDrawable.ShaderFactory() {
-                override fun resize(width: Int, height: Int): Shader {
-                    return LinearGradient(
-                        0f, 0f, 0f, height.toFloat(),
-                        intArrayOf(solid, solid, transparent),
-                        floatArrayOf(0f, solidStop, 1f),
-                        Shader.TileMode.CLAMP
-                    )
-                }
+                override fun resize(width: Int, height: Int): Shader = LinearGradient(
+                    0f,
+                    0f,
+                    0f,
+                    height.toFloat(),
+                    intArrayOf(solid, solid, transparent),
+                    floatArrayOf(0f, solidStop, 1f),
+                    Shader.TileMode.CLAMP
+                )
             }
         }
     }
@@ -423,6 +435,14 @@ class TabletSidePanelView(
         tabRows.forEach { (rowId, row) -> row.setSelectedState(rowId == id) }
     }
 
+    fun updateTabs(defs: List<TabDef>) {
+        tabDefs = defs
+        tabRows.clear()
+        rvAdapter.reloadData()
+        recyclerView.doOnPreDraw { updateBottomBlur() }
+        updateSpacerHeight()
+    }
+
     fun refreshAccountSelection() {
         for (i in 0 until recyclerView.childCount) {
             val cell = recyclerView.getChildAt(i) as? PanelAccountItemView ?: continue
@@ -444,8 +464,7 @@ class TabletSidePanelView(
             reconcileAfterUnlock()
         }
         wasHeightLocked = isHeightLocked
-        if (lockChanged)
-            applyStatusAppearance(animated = false)
+        if (lockChanged) applyStatusAppearance(animated = false)
         applyMaxOverscroll()
         applyBottomInset()
         updateHeaderCellHeight()
@@ -477,7 +496,11 @@ class TabletSidePanelView(
             moveHeaderViewToCell()
             updateBottomBlur()
         }
-        headerView.doOnPreDraw { applyMaxOverscroll(); updateHeaderCellHeight(); updateSpacerHeight() }
+        headerView.doOnPreDraw {
+            applyMaxOverscroll()
+            updateHeaderCellHeight()
+            updateSpacerHeight()
+        }
         headerView.onLayoutRecalculated = {
             applyMaxOverscroll()
             updateHeaderCellHeight()
@@ -487,10 +510,11 @@ class TabletSidePanelView(
     }
 
     private fun applyMaxOverscroll() {
-        if (isHeightLocked || !headerView.canExpandForHeight)
+        if (isHeightLocked || !headerView.canExpandForHeight) {
             recyclerView.setMaxOverscrollOffset(0f)
-        else if (headerView.diffPx > 0f)
+        } else if (headerView.diffPx > 0f) {
             recyclerView.setMaxOverscrollOffset(headerView.diffPx)
+        }
     }
 
     val pausedBlurViews: Boolean
@@ -510,7 +534,11 @@ class TabletSidePanelView(
 
     private fun updateBottomBlur() {
         if (recyclerView.canScrollVertically(1)) {
-            if (bottomBlurReversedCornerView.isPlaying && !bottomBlurReversedCornerView.isGone) return
+            if (bottomBlurReversedCornerView.isPlaying &&
+                !bottomBlurReversedCornerView.isGone
+            ) {
+                return
+            }
             bottomBlurReversedCornerView.resumeBlurring()
         } else {
             if (!bottomBlurReversedCornerView.isPlaying) return
@@ -526,11 +554,11 @@ class TabletSidePanelView(
 
     private fun applyBottomInset() {
         val blurHeight = bottomBlurHeight()
-        if (bottomBlurReversedCornerView.layoutParams?.height != blurHeight)
+        if (bottomBlurReversedCornerView.layoutParams?.height != blurHeight) {
             bottomBlurReversedCornerView.updateLayoutParams { height = blurHeight }
+        }
         val bottomInset = bottomInset()
-        if (appliedBottomInset == bottomInset)
-            return
+        if (appliedBottomInset == bottomInset) return
         appliedBottomInset = bottomInset
         updateSpacerHeight()
     }
@@ -550,8 +578,7 @@ class TabletSidePanelView(
             headerView.mode == HomeHeaderView.Mode.Expanded
         ) {
             (headerView.parent as? ViewGroup)?.removeView(headerView)
-            if (headerView.id == NO_ID)
-                headerView.id = generateViewId()
+            if (headerView.id == NO_ID) headerView.id = generateViewId()
             headerCell.addView(
                 headerView,
                 ConstraintLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT)
@@ -618,7 +645,8 @@ class TabletSidePanelView(
     private fun applyStatusAppearance(animated: Boolean) {
         val state = statusState ?: return
         val isShowing =
-            state is UpdateStatusView.State.Updated && headerView.mode == HomeHeaderView.Mode.Collapsed
+            state is UpdateStatusView.State.Updated &&
+                headerView.mode == HomeHeaderView.Mode.Collapsed
         updateStatusView.setAppearance(isShowing = !isShowing, animated = animated)
         updateStatusView.setState(state, animated)
         updateStatusView.isClickable = !isShowing
@@ -646,8 +674,7 @@ class TabletSidePanelView(
     private fun updateHeaderScroll(dy: Int, velocity: Float? = null, isGoingBack: Boolean = false) {
         if (isHeightLocked) {
             hideTopBlur()
-            if (headerView.parent == headerCell)
-                moveHeaderViewToParent()
+            if (headerView.parent == headerCell) moveHeaderViewToParent()
             headerView.y = 0f
             headerView.updateScroll(0)
             updateUnderCardFade()
@@ -664,7 +691,8 @@ class TabletSidePanelView(
             hideTopBlur()
         }
         val scrollY =
-            dy - (if (rvMode == HomeHeaderView.Mode.Expanded) headerView.diffPx else 0f).roundToInt()
+            dy -
+                (if (rvMode == HomeHeaderView.Mode.Expanded) headerView.diffPx else 0f).roundToInt()
         val acceptNegativeScrollY =
             dy < 0 ||
                 headerView.mode == HomeHeaderView.Mode.Expanded ||
@@ -711,11 +739,9 @@ class TabletSidePanelView(
             }
         } else {
             adjustScrollingPosition()
-            if (headerView.mode == HomeHeaderView.Mode.Expanded)
-                recyclerView.removeOverScroll()
+            if (headerView.mode == HomeHeaderView.Mode.Expanded) recyclerView.removeOverScroll()
         }
-        if (headerView.mode == HomeHeaderView.Mode.Expanded)
-            moveHeaderViewToCell()
+        if (headerView.mode == HomeHeaderView.Mode.Expanded) moveHeaderViewToCell()
     }
 
     private fun adjustScrollingPosition(): Boolean {
@@ -766,32 +792,37 @@ class TabletSidePanelView(
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int =
         1 + tabDefs.size + accounts.size + 2
 
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
-        when {
-            indexPath.row == 0 -> HEADER_CELL
-            indexPath.row <= tabDefs.size -> TAB_CELL
-            indexPath.row < 1 + tabDefs.size + accounts.size -> ACCOUNT_CELL
-            indexPath.row == 1 + tabDefs.size + accounts.size -> ADD_ACCOUNT_CELL
-            else -> SPACER_CELL
-        }
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type = when {
+        indexPath.row == 0 -> HEADER_CELL
+        indexPath.row <= tabDefs.size -> TAB_CELL
+        indexPath.row < 1 + tabDefs.size + accounts.size -> ACCOUNT_CELL
+        indexPath.row == 1 + tabDefs.size + accounts.size -> ADD_ACCOUNT_CELL
+        else -> SPACER_CELL
+    }
 
-    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
-        when {
-            indexPath.row == 0 -> "header"
-            indexPath.row <= tabDefs.size -> "tab:${tabDefs[indexPath.row - 1].id}"
-            indexPath.row < 1 + tabDefs.size + accounts.size ->
-                accounts[indexPath.row - 1 - tabDefs.size].accountId
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? = when {
+        indexPath.row == 0 -> "header"
 
-            indexPath.row == 1 + tabDefs.size + accounts.size -> "addAccount"
-            else -> "spacer"
-        }
+        indexPath.row <= tabDefs.size -> "tab:${tabDefs[indexPath.row - 1].id}"
+
+        indexPath.row < 1 + tabDefs.size + accounts.size ->
+            accounts[indexPath.row - 1 - tabDefs.size].accountId
+
+        indexPath.row == 1 + tabDefs.size + accounts.size -> "addAccount"
+
+        else -> "spacer"
+    }
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
         when (cellType) {
             HEADER_CELL -> headerCell
+
             TAB_CELL -> TabRowCell(context)
+
             ACCOUNT_CELL -> PanelAccountItemView(context)
+
             ADD_ACCOUNT_CELL -> AddAccountCell(context)
+
             SPACER_CELL -> WCell(
                 context,
                 ViewGroup.LayoutParams(MATCH_PARENT, 0)
@@ -813,8 +844,7 @@ class TabletSidePanelView(
                 cell.bind(def)
                 cell.setSelectedState(def.id == selectedTabId)
                 cell.setOnClickListener {
-                    if (def.id == selectedTabId) onTabReselected(def.id)
-                    else onTabSelected(def.id)
+                    if (def.id == selectedTabId) onTabReselected(def.id) else onTabSelected(def.id)
                 }
                 (cell.layoutParams as? MarginLayoutParams)?.let { lp ->
                     val target = if (indexPath.row == 1) (-4).dp else 0
@@ -876,7 +906,7 @@ class TabletSidePanelView(
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            org.mytonwallet.uihome.R.drawable.ic_pen,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_pen,
                             tintColor = WColor.SecondaryText
                         ),
                         title = LocaleController.getString("Rename")
@@ -884,7 +914,8 @@ class TabletSidePanelView(
                     hasSeparator = false,
                     onTap = {
                         AccountDialogHelpers.presentRename(viewController, account)
-                    }),
+                    }
+                ),
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
@@ -899,15 +930,18 @@ class TabletSidePanelView(
                         window?.let {
                             AccountDialogHelpers.presentSignOut(it, account)
                         }
-                    })
+                    }
+                )
             ),
             xOffset = 72.dp,
             yOffset = (-20).dp,
             positioning = WMenuPopup.Positioning.BELOW,
             centerHorizontally = true,
-            windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(Path().apply {
-                addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
-            }),
+            windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(
+                Path().apply {
+                    addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
+                }
+            ),
             backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             usePillShadow = true,
             onWillDismiss = {
@@ -923,7 +957,8 @@ class TabletSidePanelView(
     // Cells ///////////////////////////////////////////////////////////////////////////////////////
     @SuppressLint("ViewConstructor")
     private inner class TabRowCell(context: Context) :
-        WCell(context, LayoutParams(MATCH_PARENT, TAB_ROW_HEIGHT.dp)), WThemedView {
+        WCell(context, LayoutParams(MATCH_PARENT, TAB_ROW_HEIGHT.dp)),
+        WThemedView {
         private var def: TabDef? = null
         private val icon = ImageView(context).apply {
             id = generateViewId()
@@ -978,7 +1013,7 @@ class TabletSidePanelView(
         private val icon = ImageView(context).apply {
             id = generateViewId()
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageResource(org.mytonwallet.app_air.uisettings.R.drawable.ic_add)
+            setImageResource(org.mytonwallet.app_air.icons.R.drawable.ic_add)
         }
         private val label = WLabel(context).apply {
             id = generateViewId()

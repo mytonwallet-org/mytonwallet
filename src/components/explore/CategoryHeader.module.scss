@@ -83,6 +83,8 @@
 
 .backIcon {
   font-size: 1.5rem;
+
+  @include mixins.rtl-mirror();
 }
 
 .title {

@@ -21,21 +21,21 @@ extension View {
     
     public func font13() -> some View {
         self
-            .font(.footnote)
+            .textStyle(.footnote, scaling: .dynamic)
             .lineSpacing(2)
             .padding(.top, 2)
     }
     
     public func font14h18() -> some View {
         self
-            .font(.system(size: 14))
+            .textStyle(.supporting)
             .lineSpacing(2)
             .padding(.top, 1)
     }
     
     public func font16h22() -> some View {
         self
-            .font(.callout)
+            .textStyle(.callout, scaling: .dynamic)
             .lineSpacing(3)
             .padding(.top, 2)
             .padding(.bottom, 1)
@@ -43,21 +43,9 @@ extension View {
     
     public func font17h22() -> some View {
         self
-            .font(.body)
+            .textStyle(.body, scaling: .dynamic)
             .lineSpacing(1)
             .frame(minHeight: 22)
-    }
-    
-    public func airFont15h18(weight: Font.Weight) -> some View {
-        self
-            .font(.system(size: 15, weight: weight))
-            .frame(minHeight: 18)
-    }
-    
-    public func airFont24h32(weight: Font.Weight) -> some View {
-        self
-            .font(.system(size: 24, weight: weight))
-            .frame(minHeight: 32)
     }
     
     public func navigationBarInset(_ inset: CGFloat?) -> some View {

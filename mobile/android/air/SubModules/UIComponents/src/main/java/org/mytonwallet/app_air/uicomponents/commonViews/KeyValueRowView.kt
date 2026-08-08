@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.text.TextUtils
@@ -19,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell.Compa
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -41,8 +41,9 @@ class KeyValueRowView(
     val key: String,
     private var value: CharSequence,
     val mode: Mode,
-    private var isLast: Boolean,
-) : WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    private var isLast: Boolean
+) : WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     private val ripple = WRippleDrawable.create(0f)
 
@@ -81,8 +82,7 @@ class KeyValueRowView(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             isSelected = true
-            if (LocaleController.isRTL)
-                gravity = Gravity.LEFT
+            if (LocaleController.isRTL) gravity = Gravity.LEFT
             setPaddingDp(8, 4, 8, 4)
         }
         WSensitiveDataContainer(

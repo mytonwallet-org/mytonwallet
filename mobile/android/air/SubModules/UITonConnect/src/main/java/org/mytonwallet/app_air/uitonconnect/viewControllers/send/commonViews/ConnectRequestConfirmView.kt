@@ -1,17 +1,17 @@
 package org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -19,7 +19,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 
-class ConnectRequestConfirmView(context: Context) : WView(context), WThemedView {
+class ConnectRequestConfirmView(context: Context) :
+    WView(context),
+    WThemedView {
     private val imageView = WImageView(context, 20.dp)
 
     private val titleTextView = WLabel(context).apply {
@@ -44,11 +46,14 @@ class ConnectRequestConfirmView(context: Context) : WView(context), WThemedView 
     init {
         setPaddingDp(20, 24, 20, 24)
 
-        addView(imageView, LayoutParams(80.dp, 80.dp).apply {
-            topToTop = LayoutParams.PARENT_ID
-            startToStart = LayoutParams.PARENT_ID
-            endToEnd = LayoutParams.PARENT_ID
-        })
+        addView(
+            imageView,
+            LayoutParams(80.dp, 80.dp).apply {
+                topToTop = LayoutParams.PARENT_ID
+                startToStart = LayoutParams.PARENT_ID
+                endToEnd = LayoutParams.PARENT_ID
+            }
+        )
 
         addView(
             titleTextView,
@@ -57,7 +62,8 @@ class ConnectRequestConfirmView(context: Context) : WView(context), WThemedView 
                 topMargin = 24.dp
                 startToStart = LayoutParams.PARENT_ID
                 endToEnd = LayoutParams.PARENT_ID
-            })
+            }
+        )
 
         addView(
             infoTextView,
@@ -66,7 +72,8 @@ class ConnectRequestConfirmView(context: Context) : WView(context), WThemedView 
                 topMargin = 12.dp
                 startToStart = LayoutParams.PARENT_ID
                 endToEnd = LayoutParams.PARENT_ID
-            })
+            }
+        )
 
         updateTheme()
     }

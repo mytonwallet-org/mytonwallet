@@ -26,6 +26,14 @@ $labelSidePadding: 0.5rem;
   }
 }
 
+.headerWithPill {
+  position: relative;
+}
+
+.accountPill {
+  @include mixins.accountPillPosition();
+}
+
 .dapp {
   display: flex;
   gap: 0.625rem;
@@ -204,63 +212,10 @@ $labelSidePadding: 0.5rem;
   text-align: center;
 }
 
-.accountSelectorTitle {
-  margin-bottom: 0.375rem;
-  margin-left: 0.5rem;
-
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1.125rem;
-  color: var(--color-gray-2);
-
-  &_2 {
-    display: flex;
-    gap: 0.25rem;
-    align-items: center;
-    margin-top: 1rem;
-  }
-}
-
-.accountSelectorButton {
-  margin-bottom: 0.5rem;
-  border-radius: var(--border-radius-default);
-}
-
-.accountSelectorChevron {
-  flex-shrink: 0;
-
-  margin-top: -0.0625rem;
-  margin-left: -0.625rem; // gap between the balance and the chevron
-
-  font-size: 1rem;
-  color: var(--color-gray-2);
-}
-
-// Account list in selection slide
-.accountList {
-  overflow: hidden;
-  width: 100%;
-  border-radius: var(--border-radius-default);
-  background-color: var(--color-background-first);
-}
-
-.accountListItem {
-  position: relative;
-}
-
-.accountListItem + .accountListItem {
-  &::before {
-    content: '';
-
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 4rem;
-
-    height: 0.0625rem;
-
-    box-shadow: inset 0 -0.025rem 0 0 var(--color-separator);
-  }
+.accountSlideSubtitle {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
 }
 
 .dappHostWarningIcon {
@@ -359,11 +314,14 @@ $labelSidePadding: 0.5rem;
 
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
+  inset-inline-end: 0;
 
   padding: 0.875rem 0.75rem;
-  border-radius: 0 var(--border-radius-default) var(--border-radius-default) 0;
+  border-start-start-radius: 0;
+  border-start-end-radius: var(--border-radius-default);
+  border-end-start-radius: 0;
+  border-end-end-radius: var(--border-radius-default);
 
   font-size: 1rem;
   font-weight: 600;
@@ -376,8 +334,8 @@ $labelSidePadding: 0.5rem;
 
     position: absolute;
     top: 0;
-    right: 100%;
     bottom: 0;
+    inset-inline-end: 100%;
 
     width: 3rem;
 
@@ -406,7 +364,8 @@ $labelSidePadding: 0.5rem;
   justify-content: flex-start;
 
   min-height: 3rem;
-  padding: 0.75rem 2rem 0.75rem 1rem;
+  padding-block: 0.75rem;
+  padding-inline: 1rem 2rem;
 
   font-size: 1rem;
   font-weight: 600;
@@ -418,13 +377,13 @@ $labelSidePadding: 0.5rem;
   }
 
   &:first-child {
-    border-top-left-radius: var(--border-radius-default);
-    border-top-right-radius: var(--border-radius-default);
+    border-start-start-radius: var(--border-radius-default);
+    border-start-end-radius: var(--border-radius-default);
   }
 
   &:last-child {
-    border-bottom-right-radius: var(--border-radius-default);
-    border-bottom-left-radius: var(--border-radius-default);
+    border-end-start-radius: var(--border-radius-default);
+    border-end-end-radius: var(--border-radius-default);
   }
 
   @media (hover: hover) {
@@ -440,8 +399,8 @@ $labelSidePadding: 0.5rem;
 
     position: absolute;
     top: 0;
-    right: 0;
-    left: 1rem;
+    inset-inline-start: 1rem;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -462,7 +421,7 @@ $labelSidePadding: 0.5rem;
 .transactionRowChevron {
   position: absolute;
   top: 50%;
-  right: 0.75rem;
+  inset-inline-end: 0.75rem;
   transform: translateY(-50%);
 }
 
@@ -473,7 +432,7 @@ $labelSidePadding: 0.5rem;
 .scamImage {
   width: 2.75rem;
   height: 1.0625rem;
-  margin-right: 0.25rem;
+  margin-inline-end: 0.25rem;
   vertical-align: bottom;
 }
 
@@ -502,11 +461,14 @@ $labelSidePadding: 0.5rem;
 
     position: absolute;
     top: 0;
-    left: calc(50% - 1.5rem / 2);
+    inset-inline-start: calc(50% - 1.5rem / 2);
 
     width: calc(50% + 1.5rem / 2);
     height: 100%;
-    border-radius: 0 var(--border-radius-default) var(--border-radius-default) 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: var(--border-radius-default);
+    border-end-start-radius: 0;
+    border-end-end-radius: var(--border-radius-default);
 
     background: url("../../assets/transfer_dapp_info_bg.svg") no-repeat 0 0;
     background-size: cover;
@@ -593,7 +555,7 @@ $labelSidePadding: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.4375rem;
-  margin-left: 1rem;
+  margin-inline-start: 1rem;
 }
 
 .transactionDirectionRightSkeleton {
@@ -604,7 +566,7 @@ $labelSidePadding: 0.5rem;
   justify-self: flex-end;
 
   width: 8.125rem;
-  margin-right: 0.6875rem;
+  margin-inline-end: 0.6875rem;
 }
 
 .dappInfoDataSkeleton {
@@ -627,7 +589,8 @@ $labelSidePadding: 0.5rem;
 .rowLabelSkeleton {
   width: 3.0625rem;
   height: $labelSkeletonHeight;
-  margin: 0 auto ($labelGap + ($labelLineHeight - $labelSkeletonHeight)) $labelSidePadding;
+  margin-block: 0 ($labelGap + ($labelLineHeight - $labelSkeletonHeight));
+  margin-inline: $labelSidePadding auto;
   border-radius: var(--border-radius-tiny);
 }
 
@@ -638,7 +601,8 @@ $labelSidePadding: 0.5rem;
 .rowFeeSkeleton {
   width: 4.5rem;
   height: $labelSkeletonHeight;
-  margin: $labelGap $labelSidePadding 0 auto;
+  margin-block: $labelGap 0;
+  margin-inline: auto $labelSidePadding;
   border-radius: var(--border-radius-tiny);
 }
 
@@ -657,7 +621,7 @@ $labelSidePadding: 0.5rem;
 }
 
 .multichainWarning {
-  margin-top: 0.75rem;
+  margin-top: -0.75rem;
 }
 
 .warning {
@@ -665,7 +629,8 @@ $labelSidePadding: 0.5rem;
 
   overflow: hidden;
 
-  padding: 0.5625rem 0.75rem 0.625rem 1rem;
+  padding-block: 0.5625rem 0.625rem;
+  padding-inline: 1rem 0.75rem;
   border-radius: var(--border-radius-small);
 
   font-size: 0.8125rem;
@@ -680,7 +645,7 @@ $labelSidePadding: 0.5rem;
 
     position: absolute;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
 
     display: block;
 
@@ -700,7 +665,7 @@ $labelSidePadding: 0.5rem;
 
   &Fee {
     margin: $labelGap $labelSidePadding $fieldGap;
-    text-align: right !important;
+    text-align: end !important;
   }
 }
 

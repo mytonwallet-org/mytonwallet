@@ -12,7 +12,7 @@
     &-to {
       position: absolute;
       top: 0;
-      left: 0;
+      inset-inline-start: 0;
     }
 
     &-from,
@@ -40,7 +40,7 @@
     #root & > .Transition_slide {
       position: absolute;
       top: 0;
-      left: 0;
+      inset-inline-start: 0;
       transform: scale(0);
 
       transition: transform var(--slide-transition);

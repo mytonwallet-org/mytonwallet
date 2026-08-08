@@ -2,11 +2,11 @@ package org.mytonwallet.uihome.home.views.header
 
 import android.content.Context
 import android.view.Gravity
-import androidx.core.view.doOnPreDraw
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.core.view.doOnPreDraw
 import com.facebook.drawee.drawable.ScalingUtils
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -15,12 +15,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.uihome.R
 
 class PromoCardOverlayView(context: Context) : FrameLayout(context) {
@@ -108,7 +108,7 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
         mascotView.set(
             Content(
                 image = Content.Image.Url(mascotIcon.url),
-                scaleType = ScalingUtils.ScaleType.FIT_CENTER,
+                scaleType = ScalingUtils.ScaleType.FIT_CENTER
             )
         )
 

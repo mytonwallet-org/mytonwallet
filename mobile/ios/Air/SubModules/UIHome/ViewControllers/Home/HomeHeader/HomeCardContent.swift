@@ -40,8 +40,14 @@ struct HomeCardContent: View {
                     .id(accountContext.accountId)
                     .animation(.default, value: accountContext.balance)
 
-                _AddressLine(accountContext: accountContext)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
+                Group {
+                    if headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs {
+                        _WalletTitleLine(accountContext: accountContext)
+                    } else {
+                        _AddressLine(accountContext: accountContext)
+                    }
+                }
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .top) {
@@ -128,7 +134,7 @@ private struct _BalanceViewContent: View, Equatable {
     
 }
 
-private struct _BalanceChange: View {
+struct _BalanceChange: View {
 
     let accountContext: AccountContext
 
@@ -217,8 +223,9 @@ private struct _BalanceChangeContent: View, Equatable {
         return Button(action: onTap) {
             HStack(spacing: 4) {
                 Text(text)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .environment(\.layoutDirection, .leftToRight)
+                Image(systemName: "chevron.forward")
+                    .textStyle(.caption2Strong, content: .technical)
             }
             .font(.compactDisplay(size: 17, weight: .medium))
             .foregroundStyle(textColor)
@@ -254,6 +261,44 @@ private struct _BalanceChangeContent: View, Equatable {
     private func emptyView() -> some View {
         Color.clear
             .frame(width: 76, height: 26)
+    }
+}
+
+private struct _WalletTitleLine: View {
+
+    let accountContext: AccountContext
+
+    var body: some View {
+        WithPerceptionTracking {
+            HStack(spacing: 4) {
+                Text(accountContext.account.displayName)
+                    .lineLimit(1)
+
+                Image.airBundle("QRIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+                    .accessibilityHidden(true)
+            }
+            .textStyle(.bodyStrong)
+            .opacity(MtwCardAddressLine.Style.homeCard.textOpacity)
+            .sourceAtop {
+                MtwCardCenteredGradient(nft: accountContext.nft)
+            }
+            .padding(.horizontal, 40)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .contextMenuSource(
+                triggers: [.tap],
+                configuration: makeAddressesMenuConfig(accountContext: accountContext)
+            )
+            .padding(.bottom, 6)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(accountContext.account.displayName)
+            .accessibilityHint(lang("Open addresses"))
+        }
     }
 }
 

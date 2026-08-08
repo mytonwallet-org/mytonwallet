@@ -80,8 +80,9 @@ public struct TipView<Content: View>: View {
                 icon
                 
                 Text(title)
-                    .fontWeight(.semibold)
-                    .font17h22()
+                    .textStyle(.bodyStrong, scaling: .dynamic)
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
                     .frame(maxWidth: .infinity)
 
                 content()
@@ -100,12 +101,13 @@ public struct TipView<Content: View>: View {
             
             Button(action: dismiss) {
                 Text(lang("OK"))
-                    .fontWeight(.semibold)
-                    .font17h22()
+                    .textStyle(.bodyStrong, scaling: .dynamic)
+                    .lineSpacing(1)
+                    .frame(minHeight: 22)
                     .foregroundStyle(.tint)
                     .tint(.accentColor)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 44)
+                    .frame(minHeight: 44)
                     .contentShape(.rect)
                     .background(Color.air.modularBackground)
             }

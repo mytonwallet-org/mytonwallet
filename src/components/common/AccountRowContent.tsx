@@ -1,7 +1,7 @@
-import type { TeactNode } from '../../lib/teact/teact';
+import type { ElementRef, TeactNode } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
-import type { ApiNft } from '../../api/types';
+import type { ApiChain, ApiNft } from '../../api/types';
 import type { Account, AccountType } from '../../global/types';
 import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
@@ -14,8 +14,10 @@ import AccountRowInner from './AccountRowInner';
 import styles from './AccountRowContent.module.scss';
 
 export interface AccountRowContentProps {
+  ref?: ElementRef<HTMLDivElement>;
   accountId: string;
   byChain: Account['byChain'];
+  visibleChains?: ApiChain[];
   accountType: AccountType;
   title?: string;
   isTestnet?: boolean;
@@ -29,15 +31,15 @@ export interface AccountRowContentProps {
   avatarClassName?: string;
   avatarUrl?: string;
   onClick?: (accountId: string) => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-/**
- * Renders a complete account row with wrapper div.
- * For use in lists where the component manages its own wrapper element.
- */
 function AccountRowContent({
+  ref,
   accountId,
   byChain,
+  visibleChains,
   accountType,
   title,
   isTestnet,
@@ -51,6 +53,8 @@ function AccountRowContent({
   avatarClassName,
   avatarUrl,
   onClick,
+  onMouseDown,
+  onContextMenu,
 }: AccountRowContentProps) {
   const handleClick = useLastCallback(() => {
     onClick?.(accountId);
@@ -66,14 +70,18 @@ function AccountRowContent({
 
   return (
     <div
+      ref={ref}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick && !isDisabled ? 0 : -1}
       className={fullClassName}
       onClick={!isDisabled ? handleClick : undefined}
+      onMouseDown={onMouseDown}
+      onContextMenu={onContextMenu}
     >
       <AccountRowInner
         accountId={accountId}
         byChain={byChain}
+        visibleChains={visibleChains}
         accountType={accountType}
         title={title}
         isTestnet={isTestnet}

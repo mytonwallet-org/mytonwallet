@@ -96,8 +96,8 @@ function RenewDomainModal({
     }
   }, [domainNfts, isOpen]);
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
-    submitDomainsRenewal({ password });
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
+    submitDomainsRenewal({ enclaveToken });
   });
 
   const handleHardwareSubmit = useLastCallback(() => {
@@ -170,7 +170,7 @@ function RenewDomainModal({
           isLoading={isLoading}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Cancel')}
-          onSubmit={handlePasswordSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={cancelDomainsRenewal}
           onUpdate={clearDomainsRenewalError}
         >
@@ -192,7 +192,7 @@ function RenewDomainModal({
     return (
       <>
         <ModalHeader
-          title={domainNfts.length > 1 ? lang('Domains have been renewed!') : lang('Domain has been renewed!')}
+          title={domainNfts.length > 1 ? lang('Domains Renewed') : lang('Domain Renewed')}
           onClose={cancelDomainsRenewal}
         />
 

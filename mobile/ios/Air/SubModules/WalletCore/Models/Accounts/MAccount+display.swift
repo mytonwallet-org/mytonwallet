@@ -244,48 +244,6 @@ public extension MAccount {
     }
 }
 
-public extension AccountContext {
-    var orderedChains: [(ApiChain, AccountChain)] {
-        let defaultOrderedChains = account.orderedChains
-        guard defaultOrderedChains.count > 1 else {
-            return defaultOrderedChains
-        }
-
-        let defaultOrder = Dictionary(uniqueKeysWithValues: defaultOrderedChains.enumerated().map { offset, element in
-            (element.0, offset)
-        })
-        let chainBalances = balanceUsdByChain ?? [:]
-
-        return defaultOrderedChains.sorted { lhs, rhs in
-            let lhsBalance = chainBalances[lhs.0] ?? 0
-            let rhsBalance = chainBalances[rhs.0] ?? 0
-
-            if lhsBalance != rhsBalance {
-                return lhsBalance > rhsBalance
-            }
-
-            return defaultOrder[lhs.0, default: Int.max] < defaultOrder[rhs.0, default: Int.max]
-        }
-    }
-
-    var addressLine: MAccount.AddressLine {
-        account.addressLine(orderedChains: orderedChains, tokenChains: addressLineTokenChains)
-    }
-
-    private var addressLineTokenChains: Set<ApiChain>? {
-        guard let tokens = walletTokensData?.orderedTokenBalances else { return nil }
-        var chains: Set<ApiChain> = []
-        for token in tokens {
-            guard let chain = getChainBySlug(token.tokenSlug) ?? token.token?.chain else {
-                return nil
-            }
-            chains.insert(chain)
-        }
-        return chains
-    }
-}
-
-
 public enum AvatarContent {
     case initial(String)
     case sixCharacters(String, String)

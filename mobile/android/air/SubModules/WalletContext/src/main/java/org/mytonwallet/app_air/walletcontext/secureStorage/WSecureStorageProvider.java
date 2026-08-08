@@ -59,7 +59,8 @@ class WSecureStorageProvider {
         try {
             isInitialized = passwordStorage.init(context);
         } catch (Exception ex) {
-            Logger.INSTANCE.e(LOG_TAG, "PasswordStorage initialisation error:" + ex.getMessage());
+            Logger.INSTANCE.e(LOG_TAG, "Password storage initialization failed error=" +
+                ex.getClass().getSimpleName());
         }
 
         if (!isInitialized && passwordStorage instanceof PasswordStorageHelper_SDK18) {
@@ -194,7 +195,8 @@ class WSecureStorageProvider {
                     try {
                         byteArrayOutputStream.write(tmpData);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        Logger.INSTANCE.e(LOG_TAG, "RSA encryption buffer write failed error=" +
+                            e.getClass().getSimpleName());
                     }
                     position += limit;
                 }
@@ -227,7 +229,8 @@ class WSecureStorageProvider {
                     try {
                         byteArrayOutputStream.write(tmpData);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        Logger.INSTANCE.e(LOG_TAG, "RSA decryption buffer write failed error=" +
+                            e.getClass().getSimpleName());
                     }
                     position += limit;
                 }
@@ -259,6 +262,8 @@ class WSecureStorageProvider {
                     }
                 }
             } catch (Exception ex) {
+                Logger.INSTANCE.w(LOG_TAG, "Android keystore initialization failed error=" +
+                    ex.getClass().getSimpleName());
                 return false;
             }
 
@@ -298,7 +303,9 @@ class WSecureStorageProvider {
                 kpGenerator.generateKeyPair();
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException |
                      NoSuchProviderException e) {
-                e.printStackTrace();
+                Logger.INSTANCE.e(LOG_TAG, "Keystore key generation failed error=" +
+                    e.getClass().getSimpleName());
+                return false;
             }
 
             // Check if device support Hardware-backed keystore
@@ -316,6 +323,8 @@ class WSecureStorageProvider {
                 Logger.INSTANCE.d(LOG_TAG, "Hardware-Backed Keystore Supported: " + isHardwareBackedKeystoreSupported);
             } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException |
                      InvalidKeySpecException | NoSuchProviderException e) {
+                Logger.INSTANCE.w(LOG_TAG, "Hardware-backed keystore check failed error=" +
+                    e.getClass().getSimpleName());
             }
 
             return true;
@@ -339,7 +348,8 @@ class WSecureStorageProvider {
             } catch (NoSuchAlgorithmException | InvalidKeyException | NoSuchPaddingException
                      | IllegalBlockSizeException | BadPaddingException | NoSuchProviderException
                      | InvalidKeySpecException | KeyStoreException e) {
-                e.printStackTrace();
+                Logger.INSTANCE.e(LOG_TAG, "Secure storage write failed error=" +
+                    e.getClass().getSimpleName());
             }
         }
 
@@ -352,7 +362,8 @@ class WSecureStorageProvider {
                      | UnrecoverableEntryException | InvalidKeyException | NoSuchPaddingException
                      | IllegalBlockSizeException | BadPaddingException |
                      NoSuchProviderException e) {
-                e.printStackTrace();
+                Logger.INSTANCE.e(LOG_TAG, "Secure storage read failed error=" +
+                    e.getClass().getSimpleName());
             }
             return null;
         }

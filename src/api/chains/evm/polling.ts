@@ -353,7 +353,6 @@ async function loadInitialActivities(
       undefined,
       FIRST_TRANSACTIONS_LIMIT,
     );
-
     // Merge cross-chain CEX swaps into the feed, the way TON/Solana/Tron do on initial load. The
     // on-chain leg of such a swap arrives here as a plain transfer; without this the live EVM feed
     // shows it un-merged until the user paginates deep enough to hit the shared history path
@@ -432,7 +431,6 @@ async function loadNewActivities(
     newestActivityTimestamp,
     FIRST_TRANSACTIONS_LIMIT,
   );
-
   const result: ApiActivityTimestamps = {};
   if (!rawActivities.length) return result;
 

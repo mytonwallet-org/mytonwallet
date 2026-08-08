@@ -29,9 +29,13 @@
   aspect-ratio: 1;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: var(--border-radius-mini) 0 0 var(--border-radius-mini);
+  border-start-start-radius: var(--border-radius-mini);
+  border-start-end-radius: 0;
+  border-end-start-radius: var(--border-radius-mini);
+  border-end-end-radius: 0;
 
   object-fit: cover;
+  background-color: var(--color-background-second);
 }
 
 .name {

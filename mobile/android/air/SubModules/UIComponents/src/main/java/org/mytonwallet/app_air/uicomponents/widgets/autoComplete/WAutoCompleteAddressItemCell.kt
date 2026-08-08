@@ -30,7 +30,9 @@ data class AutoCompleteAddressItem(
     val animationState: AnimationState = AnimationState.IDLE
 ) {
     enum class AnimationState {
-        IDLE, DISAPPEARING, CORNER_ROUNDING
+        IDLE,
+        DISAPPEARING,
+        CORNER_ROUNDING
     }
 }
 

@@ -74,9 +74,7 @@ class DNSHelpers {
             return null
         }
 
-        fun isDnsDomain(value: String): Boolean {
-            return getDnsDomainZone(value) != null
-        }
+        fun isDnsDomain(value: String): Boolean = getDnsDomainZone(value) != null
 
         fun telegramAvatarUrl(domain: String?): String? {
             if (!ApplicationContextHolder.isGramApp) return null

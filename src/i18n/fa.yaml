@@ -1,0 +1,1770 @@
+$auth_intro: |
+  دارایی‌های رمزارزی را **به‌صورت امن** ذخیره کنید و پرداخت‌های بلاک‌چینی را
+  **با سرعت نور** انجام دهید.
+Create New Wallet: ساخت کیف پول جدید
+Import From %1$d Secret Words: افزودن با %1$d کلمه محرمانه
+More about %app_name%: اطلاعات بیشتر درباره %app_name%
+Creating Wallet...: در حال ساخت کیف پول...
+On the count of three...: با شمارش تا سه...
+$back_up_auth: پشتیبان‌گیری
+$back_up_security: پشتیبان‌گیری
+Confirm with: تأیید با
+Add an extra layer of security for your wallet in TON network.: یک لایه امنیتی اضافی برای کیف پول خود در شبکه TON اضافه کنید.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: انتقال‌ها و اقدامات مهم را با رمز عبور خود امضا کنید، سپس آن‌ها را در تلگرام تأیید نمایید.
+This helps protect your funds even if your recovery phrase or keys are compromised.: این کار حتی در صورت لو رفتن عبارت بازیابی یا کلیدهای شما، از دارایی‌هایتان محافظت می‌کند.
+"Connection Fee:": "کارمزد اتصال:"
+Connect Telegram: اتصال تلگرام
+Add in Gram Wallet: افزودن در Gram Wallet
+Telegram will be used to confirm transfers and important actions.: از تلگرام برای تأیید انتقال‌ها و اقدامات مهم استفاده خواهد شد.
+My Telegram Account: حساب تلگرام من
+Without username: بدون نام کاربری
+Unlink Account: قطع اتصال حساب
+An extra security layer requires confirming actions in Telegram after signing.: یک لایه امنیتی اضافی نیازمند تأیید اقدامات در تلگرام پس از امضا است.
+Confirm Connection: تأیید اتصال
+Confirm Disconnection: تأیید قطع اتصال
+$2fa_security: احراز هویت دومرحله‌ای با تلگرام
+2FA with Telegram: احراز هویت دومرحله‌ای با تلگرام
+Confirm operations in Telegram as a second step.: عملیات‌ها را به‌عنوان مرحله دوم در تلگرام تأیید کنید.
+Passwords must be equal.: رمزهای عبور باید یکسان باشند.
+To protect your wallet as much as possible, use a password with: برای محافظت هرچه بیشتر از کیف پول خود، از رمز عبوری استفاده کنید که شامل
+$auth_password_rule_8chars: حداقل ۸ کاراکتر
+$auth_password_rule_one_small_char: یک حرف کوچک
+$auth_password_rule_one_capital_char: یک حرف بزرگ
+$auth_password_rule_one_digit: یک رقم
+$auth_password_rule_one_special_char: و یک کاراکتر ویژه
+Create a password to protect it.: برای محافظت از آن یک رمز عبور بسازید.
+Enter your password: رمز عبور خود را وارد کنید
+Enter your password...: رمز عبور خود را وارد کنید...
+...and repeat it: ...و آن را تکرار کنید
+Cancel: لغو
+Insecure Password: رمز عبور ناامن
+Your have entered an insecure password, which can be easily guessed by scammers.: شما رمز عبوری ناامن وارد کرده‌اید که می‌تواند به‌راحتی توسط کلاهبرداران حدس زده شود.
+Continue or change password to something more secure?: ادامه می‌دهید یا رمز عبور را به گزینه‌ای امن‌تر تغییر می‌دهید؟
+Change: تغییر
+"%1$d Secret Words": "%1$d کلمه محرمانه"
+Secret Words: کلمات محرمانه
+$auth_import_mnemonic_description: |
+  می‌توانید با وارد کردن **%counts% کلمه محرمانه‌ای** که هنگام ساخت کیف پول یادداشت کرده‌اید، دسترسی به کیف پول خود را بازیابی کنید.
+Let’s make sure your secrets words are recorded correctly.: بیایید مطمئن شویم که کلمات محرمانه شما به‌درستی ثبت شده‌اند.
+$check_words_description: حالا بررسی کنیم که کلمات محرمانه خود را به‌درستی نوشته‌اید.
+$mnemonic_list_description: این کلمات را به **ترتیب درست** یادداشت کنید و در **مکانی امن** نگه دارید.
+$private_key_description: این کلید خصوصی را **به‌درستی** ذخیره کنید و در **مکانی امن** نگه دارید.
+$mnemonic_warning: |
+  آن را برای کسی ارسال یا به کسی نشان ندهید،
+  و در هیچ‌جا وارد نکنید.
+View Secret Words: مشاهده کلمات محرمانه
+View %chain% Private Key: مشاهده کلید خصوصی %chain%
+Can be imported to non-multichain wallets for %chain%.: قابل افزودن به کیف پول‌های غیرچندزنجیره‌ای برای %chain% است.
+Can be imported to any multichain wallet supporting %chain%.: قابل افزودن هر کیف پول چندزنجیره‌ای که از %chain% پشتیبانی کند است.
+Let's Check: بیایید بررسی کنیم
+Let's Check!: بیایید بررسی کنیم!
+Safety Rules: قوانین ایمنی
+$safety_rules_private_key_one: |
+  در صفحه بعد **کلید خصوصی %chain%** را خواهید دید. آن را به‌درستی ذخیره کنید و **در مکانی امن نگه دارید**.
+$safety_rules_private_key_two: این کلید به شما اجازه می‌دهد در صورت فراموشی رمز عبور یا از دست دادن دسترسی به این دستگاه، **کیف پول خود را باز کنید**.
+$safety_rules_private_key_three: اگر هر کس دیگری این کلید خصوصی را ببیند، ممکن است دارایی‌های شما **به سرقت برود**. **آن را برای کسی ارسال یا به کسی نشان ندهید**، حتی به توسعه‌دهندگان یا پشتیبانی فنی.
+$safety_rules_one: |
+  در صفحه بعد **کلمات محرمانه** را خواهید دید. آن‌ها را به ترتیب درست یادداشت کنید و **در مکانی امن نگه دارید**.
+$safety_rules_two: آن‌ها به شما اجازه می‌دهند در صورت فراموشی رمز عبور یا از دست دادن دسترسی به این دستگاه، **کیف پول خود را باز کنید**.
+$safety_rules_three: اگر هر کس دیگری این کلمات را ببیند، ممکن است دارایی‌های شما **به سرقت برود**. **آن‌ها را برای کسی ارسال نکنید**، حتی به توسعه‌دهندگان یا پشتیبانی فنی.
+Continue: ادامه
+Close: بستن
+Back: بازگشت
+Search...: جستجو...
+Main menu: منوی اصلی
+TON Proxy: پروکسی TON
+Toggle TON Proxy: تغییر وضعیت پروکسی TON
+Back Up Secret Words: پشتیبان‌گیری از کلمات محرمانه
+Settings: تنظیمات
+About %app_name%: درباره %app_name%
+Exit: خروج
+Remove Wallet: حذف کیف پول
+Remove Wallets: حذف کیف پول‌ها
+Something went wrong.: مشکلی پیش آمد.
+Something went wrong: مشکلی پیش آمد
+Logo: لوگو
+$about_description1: دارایی‌های رمزارزی را به‌صورت امن ذخیره کنید، اپلیکیشن‌های غیرمتمرکز را کاوش کنید و پرداخت‌های بلاک‌چینی را **با سرعت نور** انجام دهید.
+$about_description2: این کیف پول **غیرامانی و امن** است. توسعه‌دهندگان به دارایی‌ها، تاریخچه مرورگر یا هیچ اطلاعات دیگر شما دسترسی **ندارند**.
+What is TON Proxy?: پروکسی TON چیست؟
+$about_extension_description1: پروکسی TON با امکان دسترسی ناشناس به سایت‌های TON، راهی به سوی **اینترنت غیرمتمرکز** باز می‌کند.
+More info and demo.: اطلاعات بیشتر و دموی نمایشی.
+$about_proxy_magic_description: برای لذت بردن از **اینترنت غیرمتمرکز** و دسترسی به **سایت‌های TON**، می‌توانید %extension_link% را نصب کنید.
+$about_extension_link_text: "**افزونه %app_name%**"
+Is it open source?: آیا متن‌باز است؟
+$about_wallet_github: بله، همین‌طور است. می‌توانید %github_link% ما را کاوش کنید.
+$about_github_link_text: "**مخزن گیت‌هاب**"
+Is there a community?: آیا انجمنی وجود دارد؟
+$about_wallet_community: البته، به %community_link% ما خوش آمدید.
+$about_community_link_text: "**کانال تلگرام**"
+Currency History: تاریخچه ارز
+Net Worth: ارزش خالص دارایی
+Price: قیمت
+Enter Password: رمز عبور را وارد کنید
+Send: ارسال
+Add Wallet: افزودن کیف پول
+Done: انجام شد
+Delete: حذف
+Delete Saved Address: حذف آدرس ذخیره‌شده
+Are you sure you want to remove this address from your saved ones?: آیا مطمئن هستید که می‌خواهید این آدرس را از آدرس‌های ذخیره‌شده حذف کنید؟
+Address removed from saved: آدرس از ذخیره‌شده‌ها حذف شد
+Warning!: هشدار!
+$logout_without_backup_warning: شما از این کیف پول پشتیبان نگرفته‌اید. اگر اکنون آن را حذف کنید، دسترسی به توکن‌ها و NFTهای خود را از دست خواهید داد.
+$logout_accounts_without_backup_warning: شما از %links% پشتیبان نگرفته‌اید. اگر ادامه دهید، دسترسی به توکن‌ها و NFTهای خود را از دست خواهید داد.
+$logout_current_wallet_warning: این کار کیف پول فعلی را از اپلیکیشن حذف می‌کند.
+$logout_selected_wallet_warning: این کار کیف پول انتخاب‌شده را از اپلیکیشن حذف می‌کند.
+$logout_selected_wallets_warning: این کار کیف پول‌های انتخاب‌شده را از اپلیکیشن حذف می‌کند.
+$logout_all_wallets_warning: این کار همه کیف پول‌ها را از اپلیکیشن حذف می‌کند.
+$secret_words_backup_reminder: مطمئن شوید که از **کلمات محرمانه** خود پشتیبان گرفته‌اید.
+$all_secret_words_backup_reminder: مطمئن شوید که از همه **کلمات محرمانه** خود پشتیبان گرفته‌اید.
+Create Deposit Link: ساخت لینک واریز
+$receive_invoice_description: |
+  می‌توانید مبلغ و هدف پرداخت را مشخص کنید
+  تا در وقت فرستنده صرفه‌جویی شود.
+Amount: مبلغ
+Comment: نظر
+Comment or Memo: نظر یا یادداشت
+Share this URL to receive %token%: این آدرس را برای دریافت %token% به اشتراک بگذارید
+Invoice Link Copied: لینک فاکتور کپی شد
+Theme: پوسته
+Language: زبان
+Enable Animations: فعال‌سازی انیمیشن‌ها
+Enable Seasonal Theming: فعال‌سازی پوسته‌بندی فصلی
+Enable Landscape Mode: فعال‌سازی حالت افقی
+Disable Seasonal Theming: غیرفعال‌سازی پوسته‌بندی فصلی
+You can always enable seasonal theming again in the appearance settings.: همیشه می‌توانید پوسته‌بندی فصلی را دوباره در تنظیمات ظاهر فعال کنید.
+Base Currency: ارز پایه
+Investor View: نمای سرمایه‌گذار
+Toggle Investor View: تغییر وضعیت نمای سرمایه‌گذار
+Hide Tiny Transfers: پنهان کردن انتقال‌های ناچیز
+Toggle Hide Tiny Transfers: تغییر وضعیت پنهان کردن انتقال‌های ناچیز
+Network: شبکه
+Developer Options: گزینه‌های توسعه‌دهنده
+All Wallet Versions: همه نسخه‌های کیف پول
+Confirmation: تأیید
+Signing Data: امضای داده
+Contract Initialization Data: داده مقداردهی اولیه قرارداد
+$dont_have_required_token: شما توکن مورد نیاز برای ارسال را ندارید، اما می‌توان آن را مبادله کرد.
+$unknown_token_address: آدرس توکن ناشناخته.
+$dont_have_required_nft: شما NFT مورد نیاز برای ارسال را ندارید.
+$state_init_invalid: داده مقداردهی اولیه قرارداد نامعتبر است.
+$signature_warning: امضای داده سفارشی بسیار خطرناک است. تنها در صورتی از آن استفاده کنید که به منبع آن اعتماد دارید.
+Sign: امضا
+Done!: انجام شد!
+Signing Confirmed: امضا تأیید شد
+Activity Details: جزئیات فعالیت
+No activities found: هیچ فعالیتی یافت نشد
+Comment Copied: نظر کپی شد
+Copy Text: کپی متن
+Copy Description: کپی توضیحات
+Description Copied: توضیحات کپی شد
+Message Copied: پیام کپی شد
+Sender: فرستنده
+Recipient: گیرنده
+"%chain% Address Copied": "آدرس %chain% کپی شد"
+Repeat: تکرار
+Switch Account: تغییر حساب
+Copy wallet address: کپی آدرس کیف پول
+View address on %explorer_name%: مشاهده آدرس در %explorer_name%
+You have just created a new wallet: شما به‌تازگی یک کیف پول جدید ساختید
+Assets: دارایی‌ها
+Activity: فعالیت
+NFT: NFT
+No NFTs yet: هنوز NFTی وجود ندارد
+No hidden NFTs.: هیچ NFT پنهانی وجود ندارد.
+$nft_explore_offer: |
+  برای کشف مجموعه‌های موجود NFT،
+  یک بازارگاه را کاوش کنید.
+Received: دریافت‌شده
+Sent: ارسال‌شده
+$transaction_from: از %address%
+$transaction_to: به %address%
+$transaction_on: در %address%
+Wallet is not backed up: از کیف پول پشتیبان گرفته نشده است
+Testnet Version: نسخه تست‌نت
+Error reading clipboard: خطا در خواندن کلیپ‌بورد
+$fee_value: کارمزد %fee%
+$fee_value_with_colon: "کارمزد: ‭%fee%"
+Pay fee with %stars_symbol%: پرداخت کارمزد با %stars_symbol%
+Loading...: در حال بارگذاری...
+No price data: داده قیمتی وجود ندارد
+Price Copied: قیمت کپی شد
+Recipient Address: آدرس گیرنده
+Wallet address or domain: آدرس کیف پول یا دامنه
+Incorrect address: آدرس نادرست
+Incorrect address.: آدرس نادرست.
+Paste: چسباندن
+Insufficient balance: موجودی ناکافی
+Insufficient Balance: موجودی ناکافی
+$seed_phrase_scam_warning: "این کیف پول موجودی کافی برای پوشش کارمزدهای برداشت توکن ندارد.\n\nاین به نظر یک **کلاهبرداری** رایج می‌رسد که در آن از شما خواسته می‌شود برای پوشش کارمزدها، دارایی‌های خود را واریز کنید.\n\n**دارایی‌های خود را واریز نکنید**، چرا که ممکن است آن‌ها را از دست بدهید!\_درباره این و دیگر کلاهبرداری‌ها در %help_center_link% ما بیشتر بدانید.\n"
+$help_center_prepositional: مرکز راهنمایی
+Optional: اختیاری
+$send_token_symbol: ارسال %1$s
+Is it all ok?: آیا همه‌چیز درست است؟
+Receiving Address: آدرس دریافت
+Fee: کارمزد
+Edit: ویرایش
+Confirm: تأیید
+Data Signed: داده امضا شد
+Details: جزئیات
+View details: مشاهده جزئیات
+Change password visibility: تغییر نمایش رمز عبور
+Amount value: مقدار مبلغ
+Save Address: ذخیره آدرس
+Name: نام
+Save: ذخیره
+Copy: کپی
+Remove from Saved: حذف از ذخیره‌شده‌ها
+View on Explorer: مشاهده در اکسپلورر
+No suggestions, you're on your own!: هیچ پیشنهادی نیست، خودت تنهایی!
+Play Sounds: پخش صداها
+Focus on asset value rather than current balance: تمرکز بر ارزش دارایی به‌جای موجودی فعلی
+$logout_confirm: حذف **همه** کیف پول‌ها
+$tiny_transfers_help: "انتقال‌های با ارزش کمتر از %value% دلار را پنهان کنید. به یاد داشته باشید: مبالغ کوچک اغلب توسط اسپمرها و کلاهبرداران ارسال می‌شوند."
+Today: امروز
+Total: مجموع
+Zoom Out: تمام دوره
+Yesterday: دیروز
+Now: اکنون
+$receive_description: این کد QR را اسکن کنید یا آدرس را برای شارژ موجودی کیف پول به اشتراک بگذارید.
+Wrong password, please try again.: رمز عبور اشتباه است، لطفاً دوباره تلاش کنید.
+Appearance: ظاهر
+Light: روشن
+Dark: تیره
+System: سیستم
+$stake_asset: استیک %symbol%
+Add Stake: افزودن استیک
+Earn from your tokens while holding them: از نگهداری توکن‌های خود درآمد کسب کنید
+Current APY: بازده سالانه فعلی
+Est. Yearly Earnings: درآمد سالانه تخمینی
+Staking Details: جزئیات استیکینگ
+Why this is safe: چرا این امن است
+$safe_staking_description1: استیکینگ **کاملاً غیرمتمرکز** است و توسط قراردادهای هوشمند **استیکینگ نقدی رسمی TON** اداره می‌شود.
+$safe_staking_description2: استیک واریزشده به‌عنوان بخشی از ماهیت **اثبات سهام** آن، برای اعتبارسنجی شبکه %chain% استفاده خواهد شد.
+$safe_staking_description3: می‌توانید استیک خود را در **هر زمان** برداشت کنید و ظرف **دو روز** به حساب شما بازگردانده خواهد شد.
+$safe_staking_description_jetton1: استیکینگ توکن **کاملاً غیرمتمرکز** است و توسط قراردادهای هوشمند **متن‌باز** توسعه‌یافته توسط %jvault_link% که **ممیزی‌های امنیتی** را گذرانده‌اند، اداره می‌شود.
+$safe_staking_description_jetton2: می‌توانید استیک خود را در **هر زمان** برداشت کنید و **بلافاصله** به حساب شما بازگردانده خواهد شد.
+$min_value: حداقل %value%
+Est. balance in a year: موجودی تخمینی در یک سال
+Confirm Staking: تأیید استیکینگ
+View: مشاهده
+Stake More: استیک بیشتر
+Staking: استیکینگ
+Currently Staked: استیک‌شده فعلی
+Total Staked: مجموع استیک‌شده
+Total Stakers: مجموع استیک‌کنندگان
+Unstake: برداشت استیک
+Earning History: تاریخچه درآمد
+$total: "مجموع: %value%"
+$unstake_asset: برداشت استیک %symbol%
+Amount to unstake: مقدار برای برداشت استیک
+Confirm Unstaking: تأیید برداشت استیک
+$unstaking_when_receive: شما سپرده برداشت‌شده خود را در %time% دریافت خواهید کرد.
+$unstaking_when_receive_with_amount: شما %amount% برداشت‌شده خود را در %time% دریافت خواهید کرد.
+$unstaking_when_receive_with_amount_ethena: شما قادر خواهید بود %amount% برداشت‌شده خود را در %time% دریافت کنید.
+$unstake_insufficient_balance: برای ادامه برداشت استیک باید %balance% در موجودی اصلی خود داشته باشید.
+at %annual_yield%: با %annual_yield%
+Est. %annual_yield%: تخمینی %annual_yield%
+Staked: استیک‌شده
+$stake_action: استیک
+Unstaked: برداشت‌شده
+Not staked: استیک نشده
+Unstaking: در حال برداشت استیک
+$unstake_action: برداشت استیک
+The network fee has slightly changed, try sending again.: کارمزد شبکه کمی تغییر کرده است، دوباره ارسال را امتحان کنید.
+Transfer was unsuccessful. Try again later.: انتقال ناموفق بود. بعداً دوباره تلاش کنید.
+Action Partially Completed: عملیات تا حدی تکمیل شد
+$action_partially_completed_description: "%completed% از %total% عملیات تکمیل شد. عملیات باقی‌مانده تکمیل نشد. پیش از تلاش دوباره، فعالیت‌های خود را بررسی کنید."
+Action Status Unknown: وضعیت عملیات نامشخص است
+$action_status_unknown_description: "وضعیت تکمیل قابل تأیید نبود. پیش از تلاش دوباره، فعالیت‌ها و موجودی خود را بررسی کنید؛ تلاش دوباره در حال حاضر ممکن است باعث شود عملیات دو بار ارسال شود."
+Invalid amount: مبلغ نامعتبر
+Invalid address: آدرس نامعتبر
+Domain is not connected to a wallet: دامنه به کیف پولی متصل نیست
+Unexpected error: خطای غیرمنتظره
+Unexpected Error: خطای غیرمنتظره
+Earn: کسب درآمد
+Earning: کسب درآمد
+Unexpected: خطای غیرمنتظره
+You can save this address for quick access while sending.: می‌توانید این آدرس را برای دسترسی سریع هنگام ارسال ذخیره کنید.
+Stake Again: استیک دوباره
+Earned: کسب‌شده
+$staking_history_earned: کسب‌شده
+Select wallet to use on this app: کیف پولی را برای استفاده در این اپلیکیشن انتخاب کنید
+Connect: اتصال
+Already Connected: قبلاً متصل شده
+Return to the dapp to proceed, or reconnect.: برای ادامه به اپلیکیشن غیرمتمرکز بازگردید یا دوباره متصل شوید.
+Dapp Disconnected: اپلیکیشن غیرمتمرکز قطع شد
+Please reconnect your wallet from the dapp.: لطفاً کیف پول خود را از اپلیکیشن غیرمتمرکز دوباره متصل کنید.
+Dapp Not Responding: اپلیکیشن غیرمتمرکز پاسخ نمی‌دهد
+You may need to reconnect your wallet from the dapp if this keeps happening.: اگر این اتفاق ادامه یابد، ممکن است لازم باشد کیف پول خود را از اپلیکیشن غیرمتمرکز دوباره متصل کنید.
+Payload: محموله
+$many_transactions:
+  zeroValue: بدون انتقال
+  oneValue: "%1$d انتقال"
+  otherValue: "%1$d انتقال"
+Total Amount: مبلغ کل
+$unstaking_short: در حال برداشت استیک
+Handle ton:// links: مدیریت لینک‌های ton://
+Back up wallet to have full access to it: برای دسترسی کامل به کیف پول، از آن پشتیبان بگیرید
+Consider More Secure Version: نسخه امن‌تر را در نظر بگیرید
+Install our native app or browser extension.: اپلیکیشن بومی یا افزونه مرورگر ما را نصب کنید.
+Scam: کلاهبرداری
+Scam comment is hidden.: نظر کلاهبرداری پنهان شده است.
+Display: نمایش
+Disconnect All Apps: قطع اتصال همه اپلیکیشن‌ها
+Disconnect: قطع اتصال
+Disconnect App: قطع اتصال اپلیکیشن
+Disconnect Apps: قطع اتصال اپلیکیشن‌ها
+Are you sure you want to disconnect?: آیا مطمئن هستید که می‌خواهید %dappname% را قطع کنید؟
+Are you sure you want to disconnect all websites?: آیا مطمئن هستید که می‌خواهید اتصال همه وب‌سایت‌ها را قطع کنید؟
+Logged in with %app_name%: واردشده با %app_name%
+No active connections: هیچ اتصال فعالی وجود ندارد
+Other: سایر
+Portfolio: سبد دارایی‌ها
+Performance, insights and P&L: عملکرد، بینش‌ها و سود و زیان
+Overview: نمای کلی
+Total Balance: موجودی کل
+Net Change: تغییر خالص
+No data: داده‌ای وجود ندارد
+Total Value: ارزش کل
+Tracked asset value over time.: ارزش دارایی پیگیری‌شده در طول زمان.
+Total P&L: سود و زیان کل
+Daily P&L: سود و زیان روزانه
+Portfolio Share: سهم در سبد دارایی‌ها
+Current allocation across tracked assets.: تخصیص فعلی بین دارایی‌های پیگیری‌شده.
+Deep history analysis will be available in upcoming updates.: تحلیل عمیق تاریخچه در به‌روزرسانی‌های آینده در دسترس خواهد بود.
+By Chain: بر اساس زنجیره
+No chain balances: موجودی زنجیره‌ای وجود ندارد
+Native: بومی
+Stablecoins: استیبل‌کوین‌ها
+Altcoins: آلت‌کوین‌ها
+Asset Mix: ترکیب دارایی
+No asset balances: موجودی دارایی وجود ندارد
+No staked assets: دارایی استیک‌شده‌ای وجود ندارد
+Entire Period: کل دوره
+"Asset %1$@": "دارایی %1$@"
+Assets & Activity: دارایی‌ها و فعالیت
+Token Settings: تنظیمات توکن
+Add Token: افزودن توکن
+Delete Token: حذف توکن
+Are you sure you want to delete?: آیا مطمئن هستید که می‌خواهید %token% را حذف کنید؟
+Hide Tokens With No Cost: پنهان کردن توکن‌های بدون ارزش
+Localized Token Names: نام‌های محلی
+Sort By Cost: مرتب‌سازی بر اساس ارزش
+Update %app_name%: به‌روزرسانی %app_name%
+Connect Ledger: اتصال لجر
+Connecting to your Ledger...: در حال اتصال به لجر شما...
+Failed to connect: اتصال ناموفق بود
+Ledger Connected!: لجر متصل شد!
+Select Ledger Wallets: انتخاب کیف پول‌های لجر
+"%1$d Selected": "%1$d انتخاب‌شده"
+Add: افزودن
+Try Again: تلاش دوباره
+Driver: درایور
+Unlock it and open the %chain% App: آن را باز کنید و اپلیکیشن %chain% را اجرا کنید
+Maybe you need to check the password or change the driver.: شاید لازم باشد رمز عبور را بررسی یا درایور را تغییر دهید.
+Confirm via Ledger: تأیید از طریق لجر
+$ledger_confirm_progress: "تأیید %1$d از %2$d"
+Declined: رد شد
+Switch to the newly opened tab to connect Ledger.: برای اتصال لجر به تب تازه باز شده بروید.
+Once connected, switch back to this window to proceed.: پس از اتصال، برای ادامه به این پنجره بازگردید.
+The time on your device is incorrect, sync it and try again.: زمان دستگاه شما نادرست است، آن را همگام‌سازی کنید و دوباره تلاش کنید.
+Name or Address...: نام یا آدرس...
+Such error, many tabs: چنین خطایی، تب‌های زیاد
+$many_tabs_error_description: |
+  %app_name% تنها از یک تب فعال با اپلیکیشن پشتیبانی می‌کند.
+  لطفاً این صفحه را برای ادامه استفاده از این تب بارگذاری مجدد کنید یا آن را ببندید.
+Reload App: بارگذاری مجدد اپلیکیشن
+Token Not Found: توکن یافت نشد
+Try another keyword or address.: کلمه کلیدی یا آدرس دیگری را امتحان کنید.
+Decrypt: رمزگشایی
+Encrypted Message: پیام رمزگذاری‌شده
+Message is encrypted: پیام رمزگذاری شده است
+Agree: موافقم
+$swap_action: مبادله
+$swap_activity_title: مبادله
+Swap: مبادله
+You sell: شما می‌فروشید
+You buy: شما می‌خرید
+Swap Details: جزئیات مبادله
+Blockchain Fee: کارمزد بلاک‌چین
+Included: شامل
+Price Impact: تأثیر قیمت
+Minimum Received: حداقل دریافتی
+Slippage: لغزش قیمت
+$swap_from_to: مبادله %from% %icon% %to%
+The exchange rate is below market value!: نرخ مبادله %value% کمتر از ارزش بازار است!
+Invalid Pair: جفت‌ارز نامعتبر
+We do not recommend to perform an exchange, try to specify a lower amount.: انجام این مبادله را توصیه نمی‌کنیم، مبلغ کمتری را امتحان کنید.
+$swap_minimum_received_tooltip1: این کمترین مقدار توکن جدیدی است که از این مبادله دریافت خواهید کرد، با در نظر گرفتن شرایط فعلی بازار، تحمل لغزش قیمت و تأثیر احتمالی قیمت.
+$swap_minimum_received_tooltip2: این یک حداقل مورد انتظار است، اما اگر شرایط در حین پردازش مبادله شما به‌شدت تغییر کند، مبلغ نهایی ممکن است کمتر باشد.
+$swap_price_impact_tooltip1: این نشان می‌دهد که معامله شما چقدر ممکن است قیمت توکن را تغییر دهد.
+$swap_price_impact_tooltip2: معاملات بزرگ می‌توانند قیمت را بیشتر بالا یا پایین ببرند. معمولاً کمتر بهتر است.
+$swap_slippage_tooltip1: این تعیین می‌کند که قیمت قبل از پردازش مبادله شما چقدر مجاز به تغییر است.
+$swap_slippage_tooltip2: اگر در حین پردازش مبادله شما قیمت بیش از این مقدار تغییر کند، سفارش شما لغو خواهد شد.
+Slippage not specified: لغزش قیمت مشخص نشده است
+Slippage too high: لغزش قیمت بیش از حد بالا است
+Not Enough %symbol%: مقدار %symbol% کافی نیست
+Use Responsibly: مسئولانه استفاده کنید
+$auth_responsibly_description1: |
+  %app_name% یک کیف پول **خودامانی** است، به این معنی که **تنها شما** کنترل کامل و مهم‌تر از همه، **مسئولیت کامل** دارایی‌های خود را دارید.
+$auth_responsibly_description2: |
+  کلیدهای خصوصی شما روی دستگاه‌تان ذخیره می‌شوند و در معرض **حملات هکری** هستند. اگر رایانه شما به **بدافزار** آلوده شود، احتمال سرقت دارایی‌های شما وجود دارد.
+$auth_responsibly_description3: |
+  تیم %app_name% **مسئول** ایمنی دارایی‌های شما **نیست**، همان‌طور که سازنده رایانه یا ارائه‌دهنده اینترنت شما مسئول نیست.
+$auth_responsibly_description4: |
+  **هرگز** همه دارایی‌های خود را در یک مکان نگه ندارید. **تنوع‌بخشی** کنید و از نرم‌افزارها و سخت‌افزارهای مختلف استفاده کنید. همیشه **تحقیق شخصی** انجام دهید و درباره امنیت کریپتو بیشتر بیاموزید.
+Start Wallet: شروع کیف پول
+$auth_backup_warning_notice: |
+  اکنون باید به‌صورت دستی از **کلیدهای محرمانه** پشتیبان بگیرید تا در صورت فراموشی رمز عبور یا از دست دادن دسترسی به این دستگاه آماده باشید.
+$ledger_verify_address: همیشه آدرس چسبانده‌شده را با دستگاه لجر خود تأیید کنید.
+$ledger_not_ready: لجر متصل نیست یا اپلیکیشن %chain% باز نیست.
+Verify now: اکنون تأیید کنید
+Invalid address format. Only URL Safe Base64 format is allowed.: قالب آدرس نامعتبر است. تنها قالب URL Safe Base64 مجاز است.
+Swap Placed: مبادله ثبت شد
+Swapping: در حال مبادله
+Swapped: مبادله‌شده
+Swap Again: مبادله دوباره
+Terms of Use: شرایط استفاده
+Privacy Policy: سیاست حفظ حریم خصوصی
+Insufficient liquidity: نقدینگی ناکافی
+This address is new and never received transfers before.: این آدرس جدید است و قبلاً هرگز انتقالی دریافت نکرده است.
+Create Backup: ساخت پشتیبان
+Sending: در حال ارسال
+$send_action: ارسال
+Failed: ناموفق
+Refunded: بازپرداخت‌شده
+On Hold: در انتظار
+Expired: منقضی‌شده
+In Progress: در حال انجام
+Waiting for Payment: در انتظار پرداخت
+Processing Payment: در حال پردازش پرداخت
+It may take a few seconds: ممکن است چند ثانیه طول بکشد
+Blockchain: بلاک‌چین
+Your address on another blockchain: آدرس شما در یک بلاک‌چین دیگر
+Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: لطفاً آدرس کیف پول خود در بلاک‌چین %blockchain% را برای دریافت توکن‌های خریداری‌شده ارائه دهید.
+The time for sending coins is over.: زمان ارسال کوین‌ها به پایان رسیده است.
+You have not sent the coins to the specified address.: شما کوین‌ها را به آدرس مشخص‌شده ارسال نکرده‌اید.
+$swap_cex_to_wallet_description: مبلغ %value% را ظرف %time% به این آدرس در بلاک‌چین %blockchain% ارسال کنید
+$swap_changelly_to_wallet_description1: مبلغ %value% را ظرف %time% به این آدرس در بلاک‌چین %blockchain% ارسال کنید
+Exchange failed and coins were refunded to your wallet.: مبادله ناموفق بود و کوین‌ها به کیف پول شما بازپرداخت شدند.
+$swap_changelly_kyc_security: "لطفاً با **%email%** تماس بگیرید و **شناسه تراکنش** را برای گذراندن فرآیند KYC ارائه دهید:"
+Swap Expired: مبادله منقضی شد
+Address for %blockchain% transfer: آدرس برای انتقال %blockchain%
+Cross-chain exchange provided by %provider%: مبادله بین‌زنجیره‌ای ارائه‌شده توسط %provider%
+$swap_cex_terms_of_use: شرایط استفاده
+$swap_cex_privacy_policy: سیاست حفظ حریم خصوصی
+$swap_cex_aml_kyc_policy: AML/KYC
+$swap_cex_legal_message: "با ادامه دادن، شما با %terms% و %policy% موافقت می‌کنید."
+$swap_cex_legal_message_with_aml: با ادامه دادن، شما با %terms% و %policy% موافقت می‌کنید و می‌پذیرید که انتقال ممکن است طبق %aml% فرآیند تأیید را آغاز کند.
+Cross-chain exchange provided by Changelly: مبادله بین‌زنجیره‌ای ارائه‌شده توسط Changelly
+$swap_changelly_terms_of_use: شرایط استفاده
+$swap_changelly_privacy_policy: سیاست حفظ حریم خصوصی
+Password must contain %length% digits.: رمز عبور باید شامل %length% رقم باشد.
+Deposit Link: لینک واریز
+$swap_cex_from_wallet_description: "توکن‌ها به‌زودی به آدرس شما در بلاک‌چین %blockchain% ارسال خواهند شد:"
+$swap_changelly_from_wallet_description: "توکن‌ها به‌زودی به آدرس شما در بلاک‌چین %blockchain% ارسال خواهند شد:"
+Please note that it may take up to a few hours for tokens to appear in your wallet.: لطفاً توجه داشته باشید که ممکن است چند ساعت طول بکشد تا توکن‌ها در کیف پول شما ظاهر شوند.
+Minimum amount: حداقل %value%
+Maximum amount: حداکثر %value%
+Display Tray Icon: نمایش آیکون سینی
+Auto-Updates: به‌روزرسانی‌های خودکار
+Biometric Authentication: احراز هویت بیومتریک
+If you turn off biometric protection, you will need to create a password.: اگر محافظت بیومتریک را خاموش کنید، باید یک رمز عبور بسازید.
+Enter your current password: رمز عبور فعلی خود را وارد کنید
+Turn On Biometrics: روشن کردن بیومتریک
+Enabling biometric confirmation will reset the password.: فعال‌سازی تأیید بیومتریک رمز عبور را بازنشانی می‌کند.
+Biometric Registration: ثبت بیومتریک
+Step 1 of 2. Registration: مرحله ۱ از ۲. ثبت
+Step 2 of 2. Verification: مرحله ۲ از ۲. تأیید
+Download Logs: دانلود گزارش‌ها
+Copy Logs: کپی گزارش‌ها
+Logs Copied: گزارش‌ها کپی شدند
+Biometric setup failed.: راه‌اندازی بیومتریک ناموفق بود.
+Biometric confirmation failed.: تأیید بیومتریک ناموفق بود.
+Failed to disable biometrics.: غیرفعال‌سازی بیومتریک ناموفق بود.
+Biometric Confirmation: تأیید بیومتریک
+Create Password: ساخت رمز عبور
+Complete: تکمیل
+Verification: تأیید
+Connect Biometrics: اتصال بیومتریک
+Use Password: استفاده از رمز عبور
+Biometrics Disabled: بیومتریک غیرفعال شد
+Biometrics Enabled: بیومتریک فعال شد
+A request is already pending: یک درخواست در حال حاضر در انتظار است
+Please confirm action using biometrics: لطفاً اقدام را با استفاده از بیومتریک تأیید کنید
+Scan QR Code: اسکن کد QR
+Open the QR scanner.: اسکنر QR را باز کنید.
+"Open scanner in ${applicationName}": باز کردن اسکنر در ${applicationName}
+"Scan a code with ${applicationName}": اسکن یک کد با ${applicationName}
+Scan QR: اسکن QR
+"Scan QR with ${applicationName}": اسکن QR با ${applicationName}
+Account: حساب
+Accounts: حساب‌ها
+Networks: شبکه‌ها
+Blockchains: بلاک‌چین‌ها
+All Chains: همه بلاک‌چین‌ها
+"You will still be able to receive and send tokens in hidden chains.": "همچنان می‌توانید توکن‌ها را در بلاک‌چین‌های پنهان دریافت و ارسال کنید."
+"Sort by Value": "مرتب‌سازی بر اساس ارزش"
+"Automatically sort and hide chains based on your portfolio.": "بلاک‌چین‌ها را بر اساس پرتفوی شما به‌طور خودکار مرتب و مخفی می‌کند."
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "بلاک‌چین‌های مخفی همچنان برای دریافت و ارسال توکن در دسترس خواهند بود، اما در فهرست اصلی نمایش داده نمی‌شوند."
+"Move Up": "انتقال به بالا"
+"Move Down": "انتقال به پایین"
+Tokens: توکن‌ها
+Receive Funds: دریافت دارایی
+Open the receive screen.: صفحه دریافت را باز کنید.
+"Receive with ${applicationName}": دریافت با ${applicationName}
+"Add crypto with ${applicationName}": افزودن کریپتو با ${applicationName}
+"Open receive in ${applicationName}": باز کردن دریافت در ${applicationName}
+Send Token: ارسال توکن
+Open Token: باز کردن توکن
+"Open ${target} in ${applicationName}": باز کردن ${target} در ${applicationName}
+"Show ${target} in ${applicationName}": نمایش ${target} در ${applicationName}
+Open the token screen.: صفحه توکن را باز کنید.
+Open the send screen.: صفحه ارسال را باز کنید.
+"Send token with ${applicationName}": ارسال توکن با ${applicationName}
+"Send crypto with ${applicationName}": ارسال کریپتو با ${applicationName}
+"Open send in ${applicationName}": باز کردن ارسال در ${applicationName}
+Permission denied. Please grant camera permission to use the QR code scanner.: دسترسی رد شد. لطفاً برای استفاده از اسکنر کد QR، دسترسی دوربین را اعطا کنید.
+This QR Code is not supported: این کد QR پشتیبانی نمی‌شود
+An error on the server side. Please try again.: خطایی در سمت سرور رخ داد. لطفاً دوباره تلاش کنید.
+Address Saved: آدرس ذخیره شد
+US Dollar: دلار آمریکا
+Euro: یورو
+Russian Ruble: روبل روسیه
+Chinese Yuan: یوان چین
+Bitcoin: بیت‌کوین
+$max_balance: "حداکثر: %balance%"
+$available_balance: "موجود: %balance%"
+$send_recipient_invalid: نامعتبر
+$send_recipient_not_compatible: ناسازگار
+$unstake_information_instantly: سپرده خود را بلافاصله دریافت خواهید کرد
+Select Token: انتخاب توکن
+$token_picker_hidden: پنهان‌شده
+MY: من
+Popular: محبوب
+Not Found: یافت نشد
+Wallet is ready!: کیف پول آماده است!
+Wallet is imported!: کیف پول وارد شد!
+Create a code to protect it: برای محافظت از آن یک رمز عبور بسازید
+Enter your code again: رمز عبور خود را دوباره وارد کنید
+Code set successfully: رمز عبور با موفقیت تنظیم شد
+Use Biometrics: استفاده از بیومتریک
+Use Touch ID: استفاده از Touch ID
+Use Face ID: استفاده از Face ID
+Connect Touch ID: اتصال Touch ID
+Connect Face ID: اتصال Face ID
+Not Now: اکنون نه
+Touch ID: Touch ID
+Face ID: Face ID
+Turn Off Touch ID: خاموش کردن Touch ID
+Turn Off Face ID: خاموش کردن Face ID
+Turn Off Biometrics: خاموش کردن بیومتریک
+Enter code: رمز عبور را وارد کنید
+Enter code or use Face ID: رمز عبور را وارد کنید یا از Face ID استفاده کنید
+Enter code or use Touch ID: رمز عبور را وارد کنید یا از Touch ID استفاده کنید
+Enter code or use biometrics: رمز عبور را وارد کنید یا از بیومتریک استفاده کنید
+Wrong code, please try again: رمز عبور اشتباه است، لطفاً دوباره تلاش کنید
+Scan your fingerprint: اثر انگشت خود را اسکن کنید
+Incorrect code, please try again.: رمز عبور نادرست است، لطفاً دوباره تلاش کنید.
+Correct: درست
+Confirm Action: تأیید اقدام
+$classic_confirm_actions: تأیید اقدامات
+Confirm Swap: تأیید مبادله
+Confirm Rewards Claim: تأیید دریافت پاداش‌ها
+"%amount% to %address%": "%amount% به %address%"
+"%amount_from% to %amount_to%": "%amount_from% به %amount_to%"
+Failed to enable biometrics.: فعال‌سازی بیومتریک ناموفق بود.
+Please try to confirm your biometrics again: لطفاً دوباره بیومتریک خود را تأیید کنید
+Unknown error: خطای ناشناخته
+Are you sure you want to disable Face ID?: آیا مطمئن هستید که می‌خواهید Face ID را غیرفعال کنید؟
+Are you sure you want to disable Touch ID?: آیا مطمئن هستید که می‌خواهید Touch ID را غیرفعال کنید؟
+Are you sure you want to disable biometrics?: آیا مطمئن هستید که می‌خواهید بیومتریک را غیرفعال کنید؟
+"Yes": "بله"
+Biometric confirmation failed: تأیید بیومتریک ناموفق بود
+No Activity: بدون فعالیت
+Fund: واریز
+Buy with Card: خرید با کارت
+Buy with Crypto: خرید با کریپتو
+Cannot load widget: ابزارک بارگذاری نمی‌شود
+Error: خطا
+Explore: کاوش
+$lockdown_mode_enabled_title: حالت قفل امنیتی فعال است
+$lockdown_mode_walletconnect_unavailable: "\u200FWalletConnect در حالت قفل امنیتی در دسترس نیست. برای استفاده از آن، حالت قفل امنیتی را برای %app_name% در Settings > Privacy & Security > Lockdown Mode > Configure Web Browsing غیرفعال کنید."
+No partners yet: هنوز شریکی وجود ندارد
+Clear: پاک کردن
+Unavailable: در دسترس نیست
+$unstake_up_to_information: "بلافاصله – تا ‭%value%"
+$all_balance: "همه: %balance%"
+$unstaking_not_enough_balance: برای ادامه برداشت استیک باید %value% در موجودی اصلی خود داشته باشید.
+$ledger_verify_address_on_device: لطفاً آدرس را روی لجر خود تأیید کنید.
+Wallet Versions: نسخه‌های کیف پول
+$read_more_about_wallet_version: درباره انواع قراردادهای کیف پول در %link% بیشتر بخوانید.
+$current_wallet_version: نسخه فعلی کیف پول شما %version% است.
+You have tokens on other versions of your wallet. You can import them from here.: شما توکن‌هایی روی نسخه‌های دیگر کیف پول خود دارید. می‌توانید آن‌ها را از اینجا وارد کنید.
+$wallet_switch_version_1: همچنین می‌توانید %action%.
+$wallet_switch_version_2: به نسخه دیگری از کیف پول تغییر دهید
+or import from: یا افزودن با
+Insufficient fee: کارمزد ناکافی
+$insufficient_fee: "کارمزد ناکافی: %fee%"
+$dapp_insufficient_network_fee_warning: موجودی %token% برای پوشش کارمزد شبکه کافی نیست
+Required: مورد نیاز
+Comment is too long.: نظر بیش از حد طولانی است.
+Memo: یادداشت
+Memo Copied: یادداشت کپی شد
+$hide_tokens_no_cost_help: "توکن‌های با ارزش کمتر از %value% دلار را پنهان کنید. به یاد داشته باشید: توکن‌های بی‌ارزش اغلب توسط اسپمرها و کلاهبرداران ارسال می‌شوند. در همان صفحه پایین‌تر، می‌توانید توکن‌های جداگانه را پنهان کنید."
+No internet connection. Please check your connection and try again.: اتصال اینترنت وجود ندارد. لطفاً اتصال خود را بررسی کنید و دوباره تلاش کنید.
+To use this feature, first enable Face ID in your phone settings.: برای استفاده از این قابلیت، ابتدا Face ID را در تنظیمات تلفن خود فعال کنید.
+To use this feature, first enable biometrics in your phone settings.: برای استفاده از این قابلیت، ابتدا بیومتریک را در تنظیمات تلفن خود فعال کنید.
+Open Settings: باز کردن تنظیمات
+No Price: بدون قیمت
+$dapp_transfer_tokens_burn: سوزاندن %amount%
+$dapp_dns_set_wallet_payload: تغییر کیف پول مرتبط دامنه %domain% به %address%
+$dapp_dns_delete_wallet_payload: حذف کیف پول مرتبط دامنه %domain%
+$dapp_dns_change_record_payload: تغییر رکورد "%category%" دامنه %domain% به %value%
+$dapp_dns_delete_record_payload: حذف رکورد "%category%" دامنه %domain%
+$dapp_token_bridge_pay_swap_payload: تأیید مبادله از طریق پل بین‌زنجیره‌ای
+$dapp_liquid_staking_deposit_payload: واریز به استیکینگ نقدی
+$dapp_liquid_staking_vote_payload: رأی "%vote%" برای پیشنهاد %votingAddress%
+$dapp_single_nominator_change_validator_payload: تغییر آدرس اعتبارسنج قرارداد استیکینگ SingleNominator به %address%
+$dapp_single_nominator_withdraw_payload: برداشت %amount% از قرارداد استیکینگ SingleNominator
+$dapp_vesting_add_whitelist_payload: افزودن %address% به فهرست سفید کیف پول وستینگ
+Connecting apps is not yet supported by Ledger.: اتصال اپلیکیشن‌ها هنوز توسط لجر پشتیبانی نمی‌شود.
+Time synchronization issue. Please ensure your device's time settings are correct.: مشکل همگام‌سازی زمان. لطفاً مطمئن شوید که تنظیمات زمان دستگاه شما صحیح است.
+Data Copied: داده کپی شد
+URL Copied: آدرس کپی شد
+Private Key Copied: کلید خصوصی کپی شد
+Contract Initialization Data Copied: داده مقداردهی اولیه قرارداد کپی شد
+Open NFT Collection: باز کردن مجموعه NFT
+Previous: قبلی
+Next: بعدی
+Updating: در حال به‌روزرسانی
+Insufficient %token% for fee.%fee%: مقدار %token% برای کارمزد ناکافی است.%fee%
+Send NFT: ارسال NFT
+Send Collectible: ارسال کالکتیبل
+Send Collectibles: ارسال کالکتیبل‌ها
+$nfts_sent:
+  zeroValue: "%1$d NFT ارسال شد!"
+  oneValue: "%1$d NFT ارسال شد!"
+  otherValue: "%1$d NFT ارسال شدند!"
+$nfts_burned:
+  zeroValue: "%count% NFT سوزانده شد"
+  oneValue: "%count% NFT سوزانده شد"
+  otherValue: "%count% NFT سوزانده شدند"
+No NFT selected: هیچ NFTی انتخاب نشده است
+Cannot be sent: قابل ارسال نیست
+NFT is for sale: "\u200FNFT برای فروش گذاشته شده است"
+More actions: اقدامات بیشتر
+Open on %explorer_name%: باز کردن در %explorer_name%
+Swap is not supported in Testnet.: مبادله در تست‌نت پشتیبانی نمی‌شود.
+Swap is not yet supported by Ledger.: مبادله هنوز توسط لجر پشتیبانی نمی‌شود.
+Buying with card is not supported in Testnet.: خرید با کارت در تست‌نت پشتیبانی نمی‌شود.
+Staking is not supported in Testnet.: استیکینگ در تست‌نت پشتیبانی نمی‌شود.
+Get Support: دریافت پشتیبانی
+$transfer_link_expired: لینک انتقال منقضی شده است
+$transfer_text_and_bin_exclusive: نمی‌توان همزمان از هر دو پارامتر text و bin استفاده کرد
+$unsupported_deeplink_parameter: این دیپ‌لینک شامل پارامترهای پشتیبانی‌نشده است.
+$unsupported_chain: بلاک‌چین پشتیبانی‌نشده.
+Successfully: با موفقیت
+Unstake More: برداشت استیک بیشتر
+Are you sure you want to burn this NFT? It will be lost forever.: |
+  آیا مطمئن هستید که می‌خواهید این NFT را بسوزانید؟
+  این NFT برای همیشه از بین خواهد رفت.
+$multi_burn_nft_warning: |
+  شما در حال سوزاندن %amount% NFT هستید. این فرآیند ممکن است حدود %duration% طول بکشد. لطفاً تا پایان کار اپلیکیشن را نبندید و کیف پول‌ها را تغییر ندهید.
+
+  این NFTها برای همیشه از بین خواهند رفت.
+$duration_minutes:
+  zeroValue: "%1$d دقیقه"
+  oneValue: "%1$d دقیقه"
+  otherValue: "%1$d دقیقه"
+$multi_send_nft_warning: این فرآیند ممکن است حدود %duration% دقیقه طول بکشد. لطفاً تا پایان کار اپلیکیشن را نبندید و حساب‌ها را تغییر ندهید.
+Burn NFT: سوزاندن NFT
+Burn Collectibles: سوزاندن کالکتیبل‌ها
+Burn: سوزاندن
+Private Key: کلید خصوصی
+"%amount% NFTs": "%amount% NFT"
+1 NFT: ۱ NFT
+1 NFT Selected: ۱ NFT انتخاب شد
+"%amount% NFTs Selected": "%amount% NFT انتخاب شدند"
+For sale. Cannot be sent and burned: برای فروش. قابل ارسال و سوزاندن نیست
+Select: انتخاب
+Send All: ارسال همه
+Burn All: سوزاندن همه
+Select All: انتخاب همه
+Collection: مجموعه
+Unnamed Collection: مجموعه بدون نام
+Transaction ID Copied: شناسه تراکنش کپی شد
+External Exchange ID Copied: شناسه صرافی خارجی کپی شد
+$swap_cex_support: "در صورت بروز مشکل، با %support% تماس بگیرید و این **شناسه صرافی خارجی** را ارائه دهید:"
+$swap_cex_hold_support: "لطفاً با %support% تماس بگیرید و این **شناسه صرافی خارجی** را برای گذراندن بررسی ارائه‌دهنده ارائه دهید:"
+$swap_cex_provider_support: "پشتیبانی %provider%"
+Email: ایمیل
+$swap_changelly_support: "در صورت بروز هرگونه مشکل، لطفاً با %livechat% یا %email% تماس بگیرید و **شناسه تراکنش** را ارائه دهید:"
+Changelly Live Chat: چت زنده Changelly
+Your %blockchain% Address: آدرس %blockchain% شما
+My %blockchain% Address: آدرس %blockchain% من
+"%blockchain% Address": "آدرس %blockchain%"
+$view_only_wallet_receive_warning: |
+  **حالت مشاهده: این کیف پول شما نیست**
+  پیش از ارسال دارایی‌ها با دقت تأیید کنید.
+Vesting: وستینگ
+Vesting Balance: موجودی وستینگ
+Ready to Unfreeze: آماده برای رفع انجماد
+You will receive your unfrozen coins in a few minutes.: کوین‌های رفع انجماد شده خود را ظرف چند دقیقه دریافت خواهید کرد.
+Vesting Schedule: زمان‌بندی وستینگ
+Loyal User Airdrop: ایردراپ کاربر وفادار
+Unfrozen: رفع انجماد شده
+Missed: از دست رفته
+Frozen: منجمد
+until %date%: تا %date%
+Until %date%: تا %date%
+"%volume% in %amount% parts": "%volume% در %amount% بخش"
+Unfreeze: رفع انجماد
+Claim: دریافت
+Confirm Unfreezing: تأیید رفع انجماد
+Insufficient Balance for Fee: موجودی ناکافی برای کارمزد
+$fee_value_bold: "**کارمزد:** %fee%"
+"%app_name% Features": "قابلیت‌های %app_name%"
+Security: امنیت
+To avoid entering the passcode every time, you can use biometrics.: برای جلوگیری از وارد کردن رمز عبور در هر بار، می‌توانید از بیومتریک استفاده کنید.
+To avoid entering the password every time, you can use biometrics.: برای جلوگیری از وارد کردن رمز عبور در هر بار، می‌توانید از بیومتریک استفاده کنید.
+Change Passcode: تغییر رمز عبور
+Change Password: تغییر رمز عبور
+Confirm Password: تأیید رمز عبور
+The passcode will be changed for all your wallets.: رمز عبور برای همه کیف پول‌های شما تغییر خواهد کرد.
+The password will be changed for all your wallets.: رمز عبور برای همه کیف پول‌های شما تغییر خواهد کرد.
+Password Changed!: رمز عبور تغییر کرد!
+Passcode Changed!: رمز عبور تغییر کرد!
+New code set successfully: کد جدید با موفقیت تنظیم شد
+Codes don’t match: کدها مطابقت ندارند
+Enter your new code: کد جدید خود را وارد کنید
+Re-enter your new code: کد جدید خود را دوباره وارد کنید
+Install on Desktop: نصب روی دسکتاپ
+Install on Mobile: نصب روی موبایل
+Install App: نصب اپلیکیشن
+Hide: پنهان کردن
+Hide and Report: پنهان و گزارش کردن
+Hide and Report NFT: پنهان و گزارش کردن NFT
+Report: گزارش
+Report NFT: گزارش NFT
+This NFT will remain hidden on this device and be reported.: این NFT در این دستگاه پنهان می‌ماند و گزارش خواهد شد.
+Only Hide: فقط پنهان کردن
+Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device.: آیا می‌خواهید این NFT را نیز به‌عنوان نامناسب گزارش کنید؟ سپس برای همیشه از این دستگاه حذف خواهد شد.
+This NFT will be permanently hidden on this device and reported.: این NFT برای همیشه در این دستگاه پنهان و گزارش خواهد شد.
+Hidden NFTs: "\u200FNFT های پنهان‌شده"
+Hidden By Me: پنهان‌شده توسط من
+Probably Scam: احتمالاً کلاهبرداری
+$settings_nft_probably_scam_description: این NFTها به‌صورت خودکار توسط محافظت ضدکلاهبرداری غیرفعال شده‌اند. اگر فکر می‌کنید به اشتباه در این فهرست قرار گرفته‌اند، می‌توانید موارد لازم را به صفحه اصلی بازگردانید.
+Unhide: نمایش
+Hide All: پنهان کردن همه
+Hide NFT: پنهان کردن NFT
+Reload Page: بارگذاری مجدد صفحه
+Open in Safari: باز کردن در Safari
+Open in Browser: باز کردن در مرورگر
+CopyURL: کپی آدرس
+Share: اشتراک‌گذاری
+Unhide NFT: نمایش NFT
+The NFT has been hidden: "\u200FNFT پنهان شد"
+The NFT is no longer hidden: "\u200FNFT دیگر پنهان نیست"
+$unhide_nft_warning: آیا مطمئن هستید که می‌خواهید %name% را نمایش دهید؟ این NFT مشکوک به نظر می‌رسد و ممکن است با نام و توضیحات خود مطابقت نداشته باشد.
+Hide NFTs: پنهان کردن NFTها
+Are you sure you want to hide this NFT collection containing %number% NFTs?: آیا مطمئن هستید که می‌خواهید این مجموعه NFT شامل %number% NFT را پنهان کنید؟
+Are you sure you want to hide these %number% NFTs?: آیا مطمئن هستید که می‌خواهید این %number% NFT را پنهان کنید؟
+Show: نمایش
+Confirm Sending: تأیید ارسال
+Confirm Burning: تأیید سوزاندن
+Confirm Passcode: تأیید رمز عبور
+Enter your code: کد خود را وارد کنید
+$hardware_blind_sign_not_enabled: برای ادامه، گزینه "Blind Signing" را در تنظیمات اپلیکیشن %chain% روی لجر فعال کنید.
+Switch to W5: تغییر به W5
+Not Scam: کلاهبرداری نیست
+Untitled: بدون عنوان
+Multichain: چندزنجیره‌ای
+$swap_too_small_amount: مبلغ بیش از حد کوچک
+$swap_slippage_violation: شبیه‌سازی مبادله به دلیل نقض لغزش قیمت ناموفق بود. لطفاً دوباره تلاش کنید.
+Not enough %symbol%: مقدار %symbol% کافی نیست
+Enter Secret Words: کلمات محرمانه را وارد کنید
+Turn this off so you can manually download updates and verify signatures.: این را خاموش کنید تا بتوانید به‌صورت دستی به‌روزرسانی‌ها را دانلود و امضاها را تأیید کنید.
+InvalidMnemonic: کلمات بازیابی شما نامعتبر هستند
+NFT Menu: منوی NFT
+Connection Type: نوع اتصال
+Ledger is not supported on this device: لجر روی این دستگاه پشتیبانی نمی‌شود
+Connect your Ledger: لجر خود را متصل کنید
+$app_lock_description: وقتی قفل اپلیکیشن فعال باشد، یک آیکون قفل روی کارت در صفحه اصلی ظاهر می‌شود. از آن برای قفل کردن %app_name% استفاده کنید.
+App Lock: قفل اپلیکیشن
+Auto-Lock: قفل خودکار
+Disabled: غیرفعال
+30 seconds: ۳۰ ثانیه
+3 minutes: ۳ دقیقه
+10 minutes: ۱۰ دقیقه
+If away for 30 sec: اگر ۳۰ ثانیه دور باشید
+If away for 3 min: اگر ۳ دقیقه دور باشید
+If away for 10 min: اگر ۱۰ دقیقه دور باشید
+Unlock: باز کردن قفل
+This address mimics another address that you previously interacted with.: این آدرس شبیه آدرس دیگری است که قبلاً با آن تعامل داشته‌اید.
+Biometric authentication failed: احراز هویت بیومتریک ناموفق بود
+Authentication is already configured: احراز هویت قبلاً تنظیم شده است
+Reset biometrics in security settings, or use a passcode.: بیومتریک را در تنظیمات امنیتی بازنشانی کنید یا از رمز عبور استفاده کنید.
+Add Tokens: افزودن توکن‌ها
+No tokens yet: هنوز توکنی وجود ندارد
+$no_tokens_description: توکن‌ها را از کیف پول دیگری دریافت کنید، یا به‌سادگی توکن‌های مورد نظر خود را در تنظیمات برای پایش فعال کنید.
+Exchange Rate: نرخ مبادله
+Install Card: نصب کارت
+Reset Card: بازنشانی کارت
+Apply Palette: نصب پالت
+Reset Palette: بازنشانی پالت
+Notifications & Sounds: اعلان‌ها و صداها
+Sounds: صداها
+Push Notifications: اعلان‌های فوری
+Select up to %count% wallets for notifications: تا %count% کیف پول را برای اعلان‌ها انتخاب کنید
+Accumulated Rewards: پاداش‌های انباشته
+$swap_reverse_prohibited: تعیین مبلغ خرید برای این جفت توکن ممکن نیست
+Blockchain Fee Details: جزئیات کارمزد بلاک‌چین
+Final Fee: کارمزد نهایی
+Excess: مازاد
+$fee_details: |
+  مبلغ ‭%full_fee%‬ باید بلافاصله برای پرداخت کارمزد از کیف پول شما کسر شود. بخشی از این مبلغ ظرف چند دقیقه به‌صورت **%excess_symbol% مازاد** به شما بازگردانده خواهد شد.
+
+  این نحوه کار بلاک‌چین %chain_name% است.
+Got It: متوجه شدم
+Wallet: کیف پول
+Trending: پرطرفدار
+No Data: داده‌ای وجود ندارد
+Toggle fullscreen: تغییر وضعیت تمام‌صفحه
+Transaction ID: شناسه تراکنش
+Outgoing Transaction ID: شناسه تراکنش خروجی
+Incoming Transaction ID: شناسه تراکنش ورودی
+Help Center: مرکز راهنمایی
+"%app_name% Tips": "نکات %app_name%"
+Open %nft_marketplace%: باز کردن %nft_marketplace%
+Link Copied: لینک کپی شد
+Share Link: اشتراک‌گذاری لینک
+$dapp_return_details: |
+  مبلغ ‭%fee_amount%‬ بلافاصله برای پرداخت کارمزد از کیف پول شما کسر خواهد شد.
+
+  مبلغ ‭%received_amount%‬ ظرف چند دقیقه به شما بازگردانده خواهد شد.
+$dapp_return_disclaimer: مبلغ بازگشتی نمایش‌داده‌شده تضمین‌شده نیست و ممکن است توسط برنامه‌های غیرمتمرکز مخرب دستکاری شود. اگر از قابل اعتماد بودن این سرویس مطمئن نیستید، عملیات را لغو کنید.
+Additional Amount Sent: مبلغ اضافی ارسال شد
+Show Sensitive Data: نمایش داده‌های حساس
+Hide Sensitive Data: پنهان کردن داده‌های حساس
+Copy Address: کپی آدرس
+Copy Transaction ID: کپی شناسه تراکنش
+Requesting Unstake: در حال درخواست برداشت استیک
+Requested Unstake: درخواست برداشت استیک
+Unstake Requested: درخواست برداشت استیک
+$request_unstake_action: درخواست برداشت استیک
+Calling Contract: در حال فراخوانی قرارداد
+Called Contract: قرارداد فراخوانی‌شده
+$call_contract_action: فراخوانی قرارداد
+Deploying Contract: در حال استقرار قرارداد
+Deployed Contract: قرارداد مستقرشده
+$deploy_contract_action: استقرار قرارداد
+Minting: در حال ضرب
+Minted: ضرب‌شده
+$mint_action: ضرب
+Burning: در حال سوزاندن
+Burned: سوزانده‌شده
+$burn_action: سوزاندن
+Updating Address: در حال به‌روزرسانی آدرس
+Updated Address: آدرس به‌روزرسانی‌شده
+$update_address_action: به‌روزرسانی آدرس
+Updating Site: در حال به‌روزرسانی سایت
+Updated Site: سایت به‌روزرسانی‌شده
+$update_site_action: به‌روزرسانی سایت
+Updating Subdomains: در حال به‌روزرسانی زیردامنه‌ها
+Updated Subdomains: زیردامنه‌های به‌روزرسانی‌شده
+$update_subdomains_action: به‌روزرسانی زیردامنه‌ها
+Updating Storage: در حال به‌روزرسانی فضای ذخیره‌سازی
+Updated Storage: فضای ذخیره‌سازی به‌روزرسانی‌شده
+$update_storage_action: به‌روزرسانی فضای ذخیره‌سازی
+Deleting Domain Record: در حال حذف رکورد دامنه
+Deleted Domain Record: رکورد دامنه حذف‌شده
+$delete_domain_record_action: حذف رکورد دامنه
+Renewing Domain: در حال تمدید دامنه
+Renewed Domain: دامنه تمدیدشده
+$renew_domain_action: تمدید دامنه
+Providing Liquidity: در حال تأمین نقدینگی
+Provided Liquidity: نقدینگی تأمین‌شده
+$provide_liquidity_action: تأمین نقدینگی
+Withdrawing Liquidity: در حال برداشت نقدینگی
+Withdrawn Liquidity: نقدینگی برداشت‌شده
+$withdraw_liquidity_action: برداشت نقدینگی
+Bounced: برگشت‌خورده
+Bouncing: در حال برگشت
+$bounce_action: برگشت
+NFT Auction Bid: پیشنهاد حراج NFT
+Bidding at NFT Auction: در حال پیشنهاد در حراج NFT
+Buying NFT: در حال خرید NFT
+Bought NFT: "\u200FNFT خریداری‌شده"
+$buy_nft_action: خرید NFT
+Sold NFT: "\u200FNFT فروخته‌شده"
+Selling NFT: در حال فروش NFT
+$sell_nft_action: فروش NFT
+Receiving: زمان دریافت
+$receive_action: دریافت
+Change Palette: تغییر پالت
+Palette: پالت
+Unlock New Palettes: باز کردن پالت‌های جدید
+Get a unique My Wallet Card to unlock new palettes.: یک کارت My Wallet منحصربه‌فرد بگیرید تا پالت‌های جدید را باز کنید.
+Mint Cards: ضرب کارت‌ها
+Card has been upgraded!: کارت ارتقا یافت!
+$mint_card_result: کارت NFT ظرف یک دقیقه **ضرب** و **به‌صورت خودکار نصب** خواهد شد.
+Unique: منحصربه‌فرد
+Get a card with unique background and personalized palette for wallet interface.: یک کارت با پس‌زمینه منحصربه‌فرد و پالت شخصی‌سازی‌شده برای رابط کیف پول بگیرید.
+Transferable: قابل انتقال
+Easily send your upgraded card to any of your friends.: کارت ارتقایافته خود را به‌راحتی به هر یک از دوستانتان ارسال کنید.
+Tradable: قابل معامله
+Sell or auction your card on third-party NFT marketplaces.: کارت خود را در بازارگاه‌های NFT شخص ثالث بفروشید یا به حراج بگذارید.
+Upgrade for %amount% %currency%: ارتقا با %amount% %currency%
+"%amount% left": "%amount% باقی‌مانده"
+"%amount% sold": "%amount% فروخته‌شده"
+This card has been sold out: این کارت به‌طور کامل فروخته شده است
+Import Existing Wallet: افزودن کیف پول موجود
+View Any Address: مشاهده هر آدرس
+View Mode: حالت مشاهده
+"%counts% Secret Words": "%counts% کلمه محرمانه"
+Address or Domain: آدرس یا دامنه
+$import_view_account_note: "**هر** آدرسی را برای **پایش** فعالیت آن اضافه کنید."
+$view_mode: مشاهده
+Import Wallet: افزودن کیف پول
+Please top up your %token% balance.: لطفاً موجودی %token% خود را شارژ کنید.
+Remember Passcode: به‌خاطر سپردن رمز عبور
+Remember Password: به‌خاطر سپردن رمز عبور
+Not available with biometrics.: با بیومتریک در دسترس نیست.
+App will not ask for signature for %1$d minutes after last entry.: اپلیکیشن تا %1$d دقیقه پس از آخرین ورود، درخواست امضا نخواهد کرد.
+Remember for %1$d minutes: به‌خاطر سپردن برای %1$d دقیقه
+Preview: پیش‌نمایش
+$preview_not_guaranteed: نتیجه پیش‌نمایش **تضمین‌شده نیست** و **می‌تواند توسط سرویس جعل شود**.
+Unverified Source: منبع تأییدنشده
+DappurlTrustStatusInvalidTitle: عدم تطابق دامنه
+$DappurlTrustStatusInvalidHelp: مبدأ با دامنه تأییدشده این اپلیکیشن مطابقت ندارد. تنها در صورتی ادامه دهید که به این سایت اعتماد دارید.
+DappurlTrustStatusDangerousTitle: سایت بالقوه مخرب
+$DappurlTrustStatusDangerousHelp: این دامنه توسط بررسی‌های امنیتی به‌عنوان خطرناک علامت‌گذاری شده است. اتصال ممکن است دارایی‌های شما را در معرض خطر قرار دهد. تنها در صورتی ادامه دهید که کاملاً مطمئن هستید.
+$reopen_in_iab: لطفاً برای جلوگیری از این هشدار، از %mobileAppButton% یا %browserExtensionButton% مربوط به %app_name% استفاده کنید.
+$reopen_in_iab_explore: لطفاً هنگام مرور اپلیکیشن‌ها برای جلوگیری از این هشدار، از بخش %exploreTab% استفاده کنید.
+My Wallet Browser: مرورگر My Wallet
+mobile app: اپلیکیشن موبایل
+browser extension: افزونه مرورگر
+Exit all wallets: خروج از همه کیف پول‌ها
+Can't confirm?: نمی‌توانید تأیید کنید؟
+$safe_staking_ethena_description1: استیکینگ کاملاً غیرمتمرکز است و توسط قراردادهای هوشمند **استیکینگ نقدی رسمی Ethena** که ممیزی شده‌اند، اداره می‌شود.
+$safe_staking_ethena_description2: استیک USDe واریزشده در **استراتژی‌های معاملاتی و سرمایه‌گذاری** Ethena برای کسب پاداش به‌صورت خودکار و شفاف استفاده می‌شود.
+$safe_staking_ethena_description3: می‌توانید استیک خود را به همراه پاداش‌ها در هر زمان **برداشت** کنید و طبق دوره برداشت استاندارد Ethena، **ظرف ۷ روز** به حساب شما بازگردانده خواهد شد.
+Unstake %amount%: برداشت استیک %amount%
+Request Unstaking: درخواست برداشت استیک
+$unstaking_when_receive_ethena: شما قادر خواهید بود سپرده برداشت‌شده خود را **ظرف ۷ روز** دریافت کنید.
+Confirm Upgrading: تأیید ارتقا
+How does it work?: چگونه کار می‌کند؟
+Multisend: ارسال گروهی
+Renew All: تمدید همه
+Renew: تمدید
+Renew Domain: تمدید دامنه
+Renew Domains: تمدید دامنه‌ها
+Some domains are about to expire: برخی دامنه‌ها در حال انقضا هستند
+$domain_expire: "**%domain%** %days% منقضی می‌شود"
+"%token% Staking": "استیکینگ %token%"
+Add Tab: افزودن تب
+Customize Tabs: سفارشی‌سازی تب‌ها
+Remove Tab: حذف تب
+Reset: بازنشانی
+Tabs: تب‌ها
+Tap or drag to add tabs.: برای افزودن تب‌ها ضربه بزنید یا بکشید.
+$iab_tabs_count:
+  zeroValue: "%1$d تب"
+  oneValue: "%1$d تب"
+  otherValue: "%1$d تب"
+$domains_amount %1$d:
+  zeroValue: بدون دامنه
+  oneValue: "%1$d دامنه"
+  otherValue: "%1$d دامنه"
+Stake: استیک
+Manage Tokens: مدیریت توکن‌ها
+Claim Rewards: دریافت پاداش‌ها
+Configure DNS: پیکربندی DNS
+Link to Wallet: اتصال به کیف پول
+Change Wallet: تغییر کیف پول
+Change Linked Wallet: تغییر کیف پول مرتبط
+Domain Renewed: دامنه تمدید شد
+Domains Renewed: دامنه‌ها تمدید شدند
+Linked Wallet: کیف پول مرتبط
+Domain Linked: دامنه متصل شد
+Link: اتصال
+Confirm Renewing: تأیید تمدید
+Confirm Linking: تأیید اتصال
+$domains_expire:
+  zeroValue: هیچ دامنه‌ای %days% منقضی نمی‌شود
+  oneValue: "**دامنه %domain%** %days% منقضی می‌شود"
+  otherValue: "**دامنه‌های %domain%** %days% منقضی می‌شوند"
+$in_days:
+  zeroValue: در %1$d روز
+  oneValue: در %1$d روز
+  otherValue: در %1$d روز
+$domain_was_expired: "**%domain%** منقضی شده است"
+$domains_was_expired:
+  zeroValue: هیچ دامنه‌ای منقضی نشده است
+  oneValue: "**دامنه %domain%** منقضی شده است"
+  otherValue: "**دامنه‌های %domain%** منقضی شده‌اند"
+Reload: بارگذاری مجدد
+Copy Link: کپی لینک
+Check eligibility for max APY: بررسی واجد شرایط بودن برای حداکثر بازده سالانه
+Check eligibility: بررسی واجد شرایط بودن
+$expired_many: منقضی‌شده
+$one_domain_expires %days%: "%days% منقضی می‌شود"
+$multiple_domains_expire %days%: "%days% منقضی می‌شوند"
+Message: پیام
+Binary Data: داده باینری
+The binary data content is unclear. Sign it only if you trust the service.: محتوای داده باینری مشخص نیست. تنها در صورتی آن را امضا کنید که به سرویس اعتماد دارید.
+Cell Schema: شمای سلول
+Cell Data: داده سلول
+Sign Data: امضای داده
+EIP-712 typed data: داده نوع‌دار EIP-712
+Domain: دامنه
+Primary type: نوع اصلی
+Please confirm signature on your Ledger: لطفاً امضا را روی لجر خود تأیید کنید
+Utilities: ابزارها
+Games: بازی‌ها
+Entertainment: سرگرمی
+Toggle to landscape layout: تغییر به چیدمان افقی
+Toggle to portrait layout: تغییر به چیدمان عمودی
+Attributes: ویژگی‌ها
+Show All: نمایش همه
+Description: توضیحات
+No additional data.: داده اضافی وجود ندارد.
+"%chain% Domain Copied": "دامنه %chain% کپی شد"
+$in_currency: به %currency%
+Rename Wallet: تغییر نام کیف پول
+You can rename this wallet for easier identification.: می‌توانید این کیف پول را برای شناسایی آسان‌تر تغییر نام دهید.
+$storage_cleared_title: فضای ذخیره‌سازی اپلیکیشن پاک شد
+$storage_cleared_message: |
+  داده‌های کیف پول شما به دلیل مشکلات مرتبط با مرورگر یا فضای دیسک پاک شده‌اند. لطفاً از همه کیف پول‌ها خارج شوید و سپس آن‌ها را به‌صورت دستی با استفاده از کلمات محرمانه خود دوباره وارد کنید.
+
+  اگر به کمک نیاز دارید، لطفاً با %support_link% تماس بگیرید.
+Telegram Gifts: هدایای تلگرام
+Collectibles: کالکتیبل‌ها
+Bluetooth unavailable: بلوتوث در دسترس نیست
+$bluetooth_enable_guide: بلوتوث را در تنظیمات دستگاه روشن کنید و به اپلیکیشن اجازه دسترسی به بلوتوث را بدهید.
+Canceled by the user: لغوشده توسط کاربر
+The proof for signing provided by the app is too large: اثبات ارائه‌شده برای امضا توسط اپلیکیشن بیش از حد بزرگ است
+$domain_like_scam_warning: |
+  آدرس واردشده احتمالاً یک **کلاهبرداری** است. این **آدرس** هیچ صرافی یا کیف پول توکن شما **نیست**.
+
+  این یک **دامنه** طولانی است که **کلاهبرداران** برای قانع کردن مردم به ارسال توکن به یک آدرس شناخته‌شده استفاده می‌کنند.
+
+  این انتقال را **لغو** کنید و **هرگز** به غریبه‌ها اعتماد نکنید. درباره این و دیگر کلاهبرداری‌ها در %help_center_link% ما بیشتر بدانید.
+Allow Suspicious Actions: اجازه اقدامات مشکوک
+$allow_suspicious_actions_description: اجازه ارسال به آدرس‌های مشکوک و تعامل با قراردادهای بالقوه ناامن.
+Multisig Wallet Detected: کیف پول چندامضایی شناسایی شد
+$multisig_warning_text: این کیف پول برای انجام انتقال‌ها به چند امضا نیاز دارد. شما **نمی‌توانید** هیچ دارایی را در اینجا با استفاده از %app_name% **برداشت** کنید. مطمئن شوید که متعلق به شماست — در غیر این صورت، ممکن است بخشی از یک کلاهبرداری باشد. %multisig_warning_link%
+$multisig_warning_link: برای اطلاعات بیشتر ضربه بزنید
+Multisig sending disabled: ارسال چندامضایی غیرفعال است
+$try_new_air_version: تجربه اپلیکیشن بومی را امتحان کنید — سبک‌تر، سریع‌تر و ساخته‌شده برای دستگاه شما. هر زمان بخواهید می‌توانید بازگردید.
+$accept_terms_with_link: من با %link% موافقم
+use the wallet responsibly: مسئولانه از کیف پول استفاده کنید
+"%app_name% Resources": "منابع %app_name%"
+"Resources": منابع
+Watch Video about Features: تماشای ویدیو درباره قابلیت‌ها
+Enjoy Monthly Updates in Blog: از به‌روزرسانی‌های ماهانه در وبلاگ لذت ببرید
+Learn New Things in Help Center: چیزهای جدید را در مرکز راهنمایی بیاموزید
+Frequent Questions & Answers: پرسش‌ها و پاسخ‌های متداول
+Paste from Clipboard: چسباندن
+Use biometric authentication or create a password to protect it.: از احراز هویت بیومتریک استفاده کنید یا برای محافظت از آن یک رمز عبور بسازید.
+Go to Words: رفتن به کلمات
+Copy to Clipboard: کپی کردن
+$mnemonic_check_words_list: "لطفاً کلمات درست %word_numbers% را انتخاب کنید:"
+$mnemonic_check_error: کلمات مطابقت ندارند، لطفاً دوباره تلاش کنید.
+Open Wallet: باز کردن کیف پول
+All Set!: همه‌چیز آماده است!
+$wallet_create_done: انجام شد! شما یک کیف پول ساختید.
+$wallet_import_done:
+  zeroValue: انجام شد! شما یک کیف پول افزودید.
+  oneValue: انجام شد! شما یک کیف پول افزودید.
+  otherValue: انجام شد! شما %1$d کیف پول افزودید.
+$wallet_done_description: اکنون می‌توانید کوین‌ها و دیگر دارایی‌های دیجیتال را به‌صورت امن ذخیره، دریافت و ارسال کنید.
+Security Warning: هشدار امنیتی
+Go back to Words: بازگشت به کلمات
+I’m sure. Continue: مطمئنم. ادامه
+$copy_mnemonic_warning: ذخیره کلمات در محیط دیجیتال، از جمله **کلیپ‌بورد**، امن نیست. مطمئن شوید که کلمات محرمانه خود را به‌صورت امن ذخیره کرده‌اید.
+$screenshot_mnemonic_warning: ذخیره کلمات در محیط دیجیتال، از جمله **اسکرین‌شات**، امن نیست. مطمئن شوید که کلمات محرمانه خود را به‌صورت امن ذخیره کرده‌اید.
+Other apps will be able to read your secret words!: اپلیکیشن‌های دیگر قادر خواهند بود کلمات محرمانه شما را بخوانند!
+I’m sure. Copy anyway: مطمئنم. به‌هرحال کپی کن
+$auth_biometric_info: می‌توانید داده‌های بیومتریک خود را برای **راحتی بیشتر** متصل کنید.
+Open wallet without checking: باز کردن کیف پول بدون بررسی
+Make sure you have your secret words securely saved.: مطمئن شوید که کلمات محرمانه خود را به‌صورت امن ذخیره کرده‌اید.
+Without it, you won't be able to access your wallet.: بدون آن، قادر به دسترسی به کیف پول خود نخواهید بود.
+$ledger_connection_broken: اتصال لجر قطع شده است. لطفاً دوباره متصل شوید و تلاش کنید.
+$ledger_wrong_device: حساب فعلی با کلمات محرمانه یا عبارت عبور متفاوت لجر راه‌اندازی شده، یا روی دستگاه لجر دیگری ذخیره شده است
+Show More: نمایش بیشتر
+Search app or enter address: جستجوی اپلیکیشن یا وارد کردن آدرس
+Connected Apps: اپلیکیشن‌های متصل
+Connected Sites: سایت‌های متصل
+Popular Apps: اپلیکیشن‌های محبوب
+Popular Sites: سایت‌های محبوب
+$wallets_amount:
+  zeroValue: بدون کیف پول
+  oneValue: "%1$d کیف پول"
+  otherValue: "%1$d کیف پول"
+$total_balance: "مجموع %balance%"
+No wallets: بدون کیف پول
+View as List: نمایش به‌صورت فهرست
+View as Cards: نمایش به‌صورت کارت
+Reorder: تغییر ترتیب
+Reorder Tabs: تغییر ترتیب تب‌ها
+Rename: تغییر نام
+Customize: سفارشی‌سازی
+Manage Wallets: مدیریت کیف پول‌ها
+i18n_dragToSort: برای مرتب‌سازی بکشید
+My: من
+All: همه
+$view_accounts: مشاهده
+Add your first one to begin.: برای شروع اولین مورد را اضافه کنید.
+You don’t have any wallets yet: شما هنوز هیچ کیف پولی ندارید
+Add Ledger Wallet: افزودن کیف پول لجر
+Add View Wallet: افزودن کیف پول مشاهده
+No Ledger wallets yet: هنوز کیف پول لجری وجود ندارد
+No view wallets yet: هنوز کیف پول مشاهده‌ای وجود ندارد
+View wallets can receive assets, but you cannot use them to send or sign transactions.: کیف پول‌های مشاهده می‌توانند دارایی دریافت کنند، اما نمی‌توانید از آن‌ها برای ارسال یا امضای تراکنش‌ها استفاده کنید.
+Add the first one to track balances and activity for any address.: اولین مورد را برای پیگیری موجودی و فعالیت هر آدرس اضافه کنید.
+Customize Wallet: سفارشی‌سازی کیف پول
+"Select the card stored in this wallet:": "کارت ذخیره‌شده در این کیف پول را انتخاب کنید:"
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: این کارت برای این کیف پول نصب خواهد شد و در صفحه اصلی و در فهرست کیف پول‌ها نمایش داده می‌شود.
+Get More Cards: دریافت کارت‌های بیشتر
+Browse My Wallet Cards available for purchase.: کارت‌های My Wallet موجود برای خرید را مرور کنید.
+You don’t have any cards to customize yet: شما هنوز هیچ کارتی برای سفارشی‌سازی ندارید
+My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: کارت‌های My Wallet می‌توانند برای کیف پول‌ها نصب شوند و در صفحه اصلی و در فهرست کیف پول نمایش داده شوند.
+Get First Card: دریافت اولین کارت
+Palette and Card: پالت و کارت
+Customize the wallet's home screen and color accents the way you like.: صفحه اصلی کیف پول و رنگ‌های تأکیدی را آن‌طور که دوست دارید سفارشی کنید.
+Address doesn't exist: آدرس وجود ندارد
+The address is not a token minter address: این آدرس، آدرس ضرب‌کننده توکن نیست
+$joining_comma: "، "
+$joining_and: " و "
+$joining_or: " یا "
+View in App: مشاهده در اپلیکیشن
+Save Account: ذخیره حساب
+$invalid_address_format: قالب آدرس نامعتبر
+$no_valid_view_addresses: هیچ آدرس معتبری برای مشاهده وجود ندارد
+Account Saved: حساب ذخیره شد
+Share Wallet Link: اشتراک‌گذاری لینک کیف پول
+Address: آدرس
+Remove: حذف
+$missing_offramp_deposit_address: آدرس واریز برای خروج از کریپتو وجود ندارد.
+Buy: خرید
+Sell: فروش
+Sell on Card: فروش به کارت
+Sell %symbol%: فروش %symbol%
+$connect_dapp_description: اپلیکیشن‌های متصل تنها می‌توانند آدرس کیف پول شما را ببینند و بدون اجازه قادر به جابه‌جایی دارایی‌های شما نخواهند بود.
+$connect_dapp_title: اتصال به %name%؟
+Choose Wallet: انتخاب کیف پول
+Wallet to use on %host%: کیف پول مورد استفاده در %host%
+Selected Wallet: کیف پول انتخاب‌شده
+Wallet to use for payment: کیف پول مورد استفاده برای پرداخت
+$wallet_connect_pay_no_options: گزینه‌ای برای پرداخت با این کیف پول وجود ندارد.
+$wallet_connect_pay_try_another_wallet: کیف پول دیگری را انتخاب کنید.
+Connect Wallet: اتصال کیف پول
+Connect Anyway: به‌هرحال متصل شو
+Insufficient Fee: کارمزد ناکافی
+Waiting for a View deeplink to display a wallet address.: در انتظار یک دیپ‌لینک مشاهده برای نمایش آدرس کیف پول.
+Adding wallets is not available in explorer mode: افزودن کیف پول‌ها در حالت اکسپلورر در دسترس نیست
+$explorer_mode_warning: "حالت اکسپلورر: در انتظار یک دیپ‌لینک مشاهده برای باز کردن یک آدرس"
+This command is not supported in explorer mode: این فرمان در حالت اکسپلورر پشتیبانی نمی‌شود
+$saved_addresses_header: ذخیره‌شده
+confirm an action in My Wallet: تأیید یک اقدام در My Wallet
+Timed out waiting for account to be ready: زمان انتظار برای آماده شدن حساب به پایان رسید
+$connected_apps:
+  otherValue: "%1$d متصل"
+Night Mode, Palette, Card: حالت شب، پالت، کارت
+Back Up, Passcode, Auto-Lock: پشتیبان‌گیری، رمز عبور، قفل خودکار
+Back Up, Password, Auto-Lock: پشتیبان‌گیری، رمز عبور، قفل خودکار
+Base Currency, Token Order, Hidden NFTs: ارز پایه، ترتیب توکن، NFTهای پنهان
+Your assets on other contracts: دارایی‌های شما در قراردادهای دیگر
+Wallets, Sounds: کیف پول‌ها، صداها
+Help: راهنما
+About: درباره
+Wallets: کیف پول‌ها
+Open: باز کردن
+Open in %app_name%: باز کردن در %app_name%
+Blog: وبلاگ
+Apps: اپلیکیشن‌ها
+Permissions: مجوزها
+Token approvals and wallet permissions: تأییدیه‌های توکن و مجوزهای کیف پول
+Approvals & Delegations: تأییدیه‌ها و نمایندگی‌ها
+Plugins: افزونه‌ها
+No Permissions: بدون مجوز
+Unlimited: نامحدود
+Approved to %name%: تأییدشده برای %name%
+Wallet Delegation: نمایندگی کیف پول
+Wallet Delegation to %name%: نمایندگی کیف پول به %name%
+Revoke Delegation: لغو نمایندگی
+Are you sure you want to revoke delegation for %name%?: آیا مطمئن هستید که می‌خواهید نمایندگی %name% را لغو کنید؟
+Revoke: لغو
+Revoke Approval: لغو تأییدیه
+Are you sure you want to revoke approval for %token%?: آیا مطمئن هستید که می‌خواهید تأییدیه %token% را لغو کنید؟
+Confirm Revoking: تأیید لغو
+Unknown Plugin: افزونه ناشناخته
+$nft_not_found: "\u200FNFT یافت نشد"
+You will be able to save it again via Transfer Info with this address.: می‌توانید آن را دوباره از طریق اطلاعات انتقال با این آدرس ذخیره کنید.
+Transfer Info: اطلاعات انتقال
+Transfer not found: انتقال یافت نشد
+Failed to fetch transfer: دریافت انتقال ناموفق بود
+Transfer in progress: انتقال در حال انجام
+Please confirm transfer on your Ledger: لطفاً انتقال را روی لجر خود تأیید کنید
+Please confirm action on your Ledger: لطفاً اقدام را روی لجر خود تأیید کنید
+Not all transfers were sent successfully: همه انتقال‌ها با موفقیت ارسال نشدند
+$swap_changelly_agreement_message: با ادامه دادن، شما با %terms% و %policy% موافقت می‌کنید و می‌پذیرید که انتقال ممکن است طبق %kyc% فرآیند تأیید را آغاز کند.
+Please confirm transfer using biometrics: لطفاً انتقال را با استفاده از بیومتریک تأیید کنید
+$transfer_inactive_contract_error: |
+  شما آدرسی در قالب "EQ..." وارد کرده‌اید، اما این آدرس فعال نیست، بنابراین انتقال انجام نخواهد شد.
+  اگر قطعاً می‌خواهید به این آدرس ارسال کنید، آدرس را در قالب "UQ..." وارد کنید.
+$transaction_not_found: انتقال یافت نشد.
+$could_not_determine_address: تشخیص آدرس کیف پول از روی انتقال ممکن نبود
+WrongAddress: اپلیکیشن از کیف پول دیگری درخواست اقدامی کرد.
+WrongNetwork: اپلیکیشن از شبکه دیگری درخواست اقدامی کرد.
+Another transfer was sent from this wallet simultaneously. Please try again.: انتقال دیگری به‌طور همزمان از این کیف پول ارسال شد. لطفاً دوباره تلاش کنید.
+Confirm action with your password: اقدام را با رمز عبور خود تأیید کنید
+$dapps-description: می‌توانید در اپلیکیشن‌هایی که از %app_name% پشتیبانی می‌کنند وارد شوید. آن‌ها می‌توانند آدرس کیف پول، موجودی را ببینند و درخواست اقدام کنند.
+Please verify the action.: لطفاً اقدام را تأیید کنید.
+$service_token_transfer_warning: شما در حال انتقال یک توکن خدماتی مهم هستید که برای برداشت سپرده یا تکمیل اقدامات خدماتی لازم است. لطفاً مطمئن شوید که این همان اقدامی است که قصد انجام آن را دارید.
+$ledger_outdated: این اقدام توسط نسخه اپلیکیشن لجر %chain% شما پشتیبانی نمی‌شود. لطفاً آن را با استفاده از Ledger Live به‌روزرسانی کنید.
+$hardware_payload_warning: "**یک سرویس شخص ثالث در حال درخواست دسترسی به کیف پول شماست.** این می‌تواند منجر به از دست رفتن دارایی‌ها شود. اگر درباره قابل‌اعتماد بودن این سرویس مطمئن نیستید، اقدام را لغو کنید."
+Pin: سنجاق کردن
+Unpin: حذف سنجاق
+My Assets: دارایی‌های من
+Owner: مالک
+Show All Wallets: نمایش همه کیف پول‌ها
+Ask a Question: یک سؤال بپرسید
+Ask anything: هر چیزی بپرسید
+Agent: دستیار
+Learn more: بیشتر بدانید
+Data shared with Agent: داده‌های به اشتراک گذاشته‌شده با عامل
+$agent_consent_allow_button: اجازه دادن به عامل
+$agent_consent_subtitle: از عامل برای کمک درباره کیف پول، اطلاعات توکن و اقدامات پشتیبانی‌شده بپرسید.
+$agent_consent_feature_answers: پاسخ‌هایی درباره %app_name%، توکن‌ها و فعالیت کیف پول دریافت کنید.
+$agent_consent_feature_actions: اقدامات پشتیبانی‌شده مانند ارسال، دریافت و استیکینگ را آماده کنید.
+$agent_consent_feature_context: از زمینه کیف پول استفاده کنید تا پاسخ‌ها بتوانند به دارایی‌ها و آدرس‌های مرتبط ارجاع دهند.
+$agent_consent_disclosure_text: با ضربه زدن روی اجازه دادن به عامل، به %app_name% اجازه می‌دهید که پیام‌های عامل و زمینه مرتبط کیف پول شما را به %app_name% Agent (agent.mywallet.io) و Anthropic Claude API، ارائه‌دهنده هوش مصنوعی شخص ثالث ما، برای پردازش درخواست‌های شما ارسال کند. زمینه کیف پول ممکن است شامل آدرس‌های کیف پول، موجودی‌ها، توکن‌ها، فعالیت و جزئیات اقدام درخواست‌شده باشد. داده‌ها تنها برای ارائه پاسخ‌های عامل و آماده‌سازی اقداماتی که درخواست می‌کنید استفاده می‌شوند.
+$agent_consent_debug_reset_button: بازنشانی وضعیت رضایت عامل
+$agent_consent_debug_reset_footer: هنگام باز کردن تب عامل، صفحه رضایت عامل را دوباره نمایش می‌دهد.
+Clear Chat: پاک کردن گفتگو
+Unsupported link: لینک پشتیبانی‌نشده
+My Wallet Features: قابلیت‌های My Wallet
+Notifications: اعلان‌ها
+Wrong passcode, please try again: رمز عبور اشتباه است، لطفاً دوباره تلاش کنید
+Use biometric authentication or create a passcode to protect it.: از احراز هویت بیومتریک استفاده کنید یا برای محافظت از آن یک رمز عبور بسازید.
+Use Passcode: استفاده از رمز عبور
+Create Passcode: ساخت رمز عبور
+Create a passcode to protect it.: برای محافظت از آن یک رمز عبور بسازید.
+Enter Passcode: رمز عبور را وارد کنید
+If you turn off biometric protection, you will need to create a passcode.: اگر محافظت بیومتریک را خاموش کنید، باید یک رمز عبور بسازید.
+Enabling biometric confirmation will reset the passcode.: فعال‌سازی تأیید بیومتریک رمز عبور را بازنشانی می‌کند.
+Confirm action with your passcode: اقدام را با رمز عبور خود تأیید کنید
+No Image: بدون تصویر
+Different blockchain. Cannot be selected: بلاک‌چین متفاوت. قابل انتخاب نیست
+$address_suggestion_no_chain: بدون %chain%
+Subwallets: زیرکیف‌پول‌ها
+Other addresses for this wallet: آدرس‌های دیگر برای این کیف پول
+Current Wallet: کیف پول فعلی
+Add Subwallet: افزودن زیرکیف‌پول
+Create Subwallet: ساخت زیرکیف‌پول
+Add All Found: افزودن همه موارد یافت‌شده
+You have tokens on other subwallets. You can switch to them here.: شما توکن‌هایی روی زیرکیف‌پول‌های دیگر دارید. می‌توانید در اینجا به آن‌ها تغییر دهید.
+Subwallet Created: زیرکیف‌پول ساخته شد
+Subwallet Added: زیرکیف‌پول اضافه شد
+Subwallet Switched: زیرکیف‌پول تغییر کرد
+Top 5: ۵ مورد برتر
+Top 10: ۱۰ مورد برتر
+Top 30: ۳۰ مورد برتر
+Manage Assets: مدیریت دارایی‌ها
+Pulse: نبض
+Edit Message: ویرایش پیام
+Toggle Hints: تغییر وضعیت راهنمایی‌ها
+AgentErrorResponseFailed: "خطا: دریافت پاسخ ناموفق بود"
+AgentErrorConnectionFailed: "خطا: اتصال ناموفق بود"
+Scroll To Bottom: پیمایش به پایین
+$agent_clear_chat_confirm: آیا مطمئن هستید که می‌خواهید تاریخچه گفتگو را پاک کنید؟
+$unknown_swap_token: توکن ناشناخته در لینک مبادله. از توکن‌های پیش‌فرض استفاده شد.
+$action_not_available_view_mode: این اقدام برای کیف پول‌های مشاهده در دسترس نیست
+Deposit: واریز
+Trade: معامله
+Show All Assets: نمایش همه دارایی‌ها
+Show All Collectibles: نمایش همه کالکتیبل‌ها
+Show All %collection_name%: نمایش همه %collection_name%
+Scanning for subwallets...: در حال جستجوی زیرکیف‌پول‌ها...
+This process may take up to a minute. Please wait.: این فرآیند ممکن است تا یک دقیقه طول بکشد. لطفاً صبر کنید.
+Your assets on other TON contracts: دارایی‌های شما در قراردادهای دیگر TON
+No existing subwallets found: هیچ زیرکیف‌پول موجودی یافت نشد
+You can create a new subwallet if you need another address on the same secret words.: اگر به آدرس دیگری با همان کلمات محرمانه نیاز دارید، می‌توانید یک زیرکیف‌پول جدید بسازید.
+You have tokens on other subwallets. Each subwallet has its own address.: شما توکن‌هایی روی زیرکیف‌پول‌های دیگر دارید. هر زیرکیف‌پول آدرس خاص خود را دارد.
+Scanning...: در حال جستجو...
+No collectibles yet: هنوز کالکتیبلی وجود ندارد
+Hide Tab: پنهان کردن تب
+Show Collectibles: نمایش کالکتیبل‌ها
+Show Assets: نمایش دارایی‌ها
+Top %amount%: "%amount% مورد برتر"
+No subwallets yet.: هنوز زیرکیف‌پولی وجود ندارد.
+$subwallets_found:
+  oneValue: "یافت‌شده: %1$d"
+  otherValue: "یافت‌شده: %1$d"
+$subwallet_scan_no_native_balances: بدون موجودی بومی
+$subwallet_scan_other_tokens_suffix:
+  oneValue: " + %1$d توکن دیگر"
+  otherValue: " + %1$d توکن دیگر"
+Send, receive, and trade tokens and collectibles.: توکن‌ها و کالکتیبل‌ها را ارسال، دریافت و معامله کنید.
+$overview_cell_size_small: کوچک
+$overview_cell_size_medium: متوسط
+$overview_cell_size_big: بزرگ
+Set Name: تنظیم نام
+Wallet Created: کیف پول ساخته شد
+Wallet Imported: کیف پول وارد شد
+View Wallet Added: کیف پول مشاهده اضافه شد
+Scroll Left: پیمایش به چپ
+Scroll Right: پیمایش به راست
+Sent NFT: "\u200FNFT ارسال‌شده"
+Sending NFT: در حال ارسال NFT
+$send_nft_action: ارسال NFT
+Received NFT: "\u200FNFT دریافت‌شده"
+Receiving NFT: در حال دریافت NFT
+$receive_nft_action: دریافت NFT
+Minted NFT: "\u200FNFT ضرب‌شده"
+Minting NFT: در حال ضرب NFT
+$mint_nft_action: ضرب NFT
+Burned NFT: "\u200FNFT سوزانده‌شده"
+Burning NFT: در حال سوزاندن NFT
+$burn_nft_action: سوزاندن NFT
+New Wallet: کیف پول جدید
+From new secret words: از کلمات محرمانه جدید
+New Subwallet: زیرکیف‌پول جدید
+From current secret words: از کلمات محرمانه فعلی
+$secret_words: کلمات محرمانه
+Restore wallet from 12 or 24 words: بازیابی کیف پول از ۱۲ یا ۲۴ کلمه
+Connect your hardware wallet: کیف پول سخت‌افزاری خود را متصل کنید
+Watch wallet in read-only mode: مشاهده کیف پول در حالت فقط‌خواندنی
+More: بیشتر
+at: در
+I agree to %term%: من با %term% موافقم
+See Words: مشاهده کلمات
+Wrong Phrase: عبارت اشتباه
+Permission Denied: دسترسی رد شد
+USB: USB
+Bluetooth: بلوتوث
+Locked: قفل‌شده
+Enter passcode or use fingerprint: رمز عبور را وارد کنید یا از اثر انگشت استفاده کنید
+Use PIN: استفاده از پین
+Try again in %1$@: در %1$@ دیگر دوباره تلاش کنید
+Try again in %1$@ and %2$@: در %1$@ و %2$@ دیگر دوباره تلاش کنید
+Screen Recording Detected: ضبط صفحه شناسایی شد
+$screen_recording_info: |
+  شما در حال حاضر صفحه خود را ضبط می‌کنید.
+  این صفحه ممکن است حاوی اطلاعات حساس یا خصوصی باشد.
+  لطفاً مطمئن شوید که از آنچه به اشتراک گذاشته خواهد شد آگاه هستید.
+Screen Recording: ضبط صفحه
+Disable Screen Record Warning: غیرفعال‌سازی هشدار ضبط صفحه
+I Understand, Proceed: متوجه شدم، ادامه می‌دهم
+Waiting for Network: در انتظار شبکه
+My Wallet: My Wallet
+$no_activity_history: |
+  هنوز هیچ تاریخچه فعالیتی در این کیف پول وجود ندارد.
+Standalone: مستقل
+"Enter wallet name:": "نام کیف پول را وارد کنید:"
+All Telegram Gifts: همه هدایای تلگرام
+Add Crypto: افزودن کریپتو
+Share QR Code: اشتراک‌گذاری کد QR
+$send_only_ton: تنها Gram (GRAM) یا دارایی‌های مبتنی بر TON را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+$send_only_chain: تنها %chain% (%symbol%) یا دارایی‌های مبتنی بر %chain% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+Buying with card is not supported for this account.: خرید با کارت برای این حساب پشتیبانی نمی‌شود.
+Swapped at: مبادله‌شده در
+Price per: قیمت هر واحد
+Swap ID: شناسه مبادله
+Swap ID for %provider%: شناسه مبادله برای %provider%
+Copy Swap ID: کپی شناسه مبادله
+Swap ID Copied: شناسه مبادله کپی شد
+Changelly ID: شناسه Changelly
+Copy Changelly ID: کپی شناسه Changelly
+Changelly ID Copied!: شناسه Changelly کپی شد!
+from: از
+to: به
+Currency: ارز
+Select Token to Send: انتخاب توکن برای ارسال
+Send to: ارسال به
+Add a message, if needed: در صورت نیاز یک پیام اضافه کنید
+Collapse: جمع کردن
+Expand: گسترش
+Standalone NFT: "\u200FNFT مستقل"
+$nft_select: "انتخاب"
+$nft_batch_on_sale: کالکتیبل‌های انتخاب‌شده برای فروش گذاشته شده‌اند.
+$nft_batch_different_chains: کالکتیبل‌های انتخاب‌شده در زنجیره‌های متفاوتی هستند.
+$nft_expired: "منقضی‌شده"
+Linked Address: آدرس مرتبط
+Enter Address: آدرس را وارد کنید
+D: روز
+W: هفته
+M: ماه
+3M: ۳ ماه
+Y: سال
+$amount_K: "%amount%هزار"
+$amount_M: "%amount%م"
+Happening Now: در حال وقوع
+No Dapps Found!: هیچ اپلیکیشن غیرمتمرکزی یافت نشد!
+Edit Wallet Name: ویرایش نام کیف پول
+Wallet Name: نام کیف پول
+App Icon: آیکون اپلیکیشن
+Rounded Toolbars: نوارابزارهای گرد
+Side Gutters: حاشیه‌های کناری
+Gradient Navigation Bar: نوار پیمایش گرادیانی
+Tokens on Home Screen: توکن‌ها در صفحه اصلی
+Current Wallet Version: نسخه فعلی کیف پول
+Tokens on Other Versions: توکن‌ها در نسخه‌های دیگر
+Show Secret Words: نمایش کلمات محرمانه
+Passcode: رمز عبور
+Lock the app after: قفل کردن اپلیکیشن پس از
+Never: هرگز
+"%1$@ seconds": "%1$@ ثانیه"
+"%1$@ minutes": "%1$@ دقیقه"
+Unstake Request: درخواست برداشت استیک
+History: تاریخچه
+Earn up to %1$@ per year from your tokens: تا %1$@ در سال از توکن‌های خود درآمد کسب کنید
+Insufficient %1$@ Balance: "موجودی %1$@ ناکافی"
+Instant Withdrawal: برداشت فوری
+Instantly: فوری
+Up to %1$@: "تا ‭%1$@"
+up to %1$@: "تا ‭%1$@"
+Current APR: نرخ درصد سالانه فعلی
+in: در
+Network Error: خطای شبکه
+Enter Amount: مبلغ را وارد کنید
+"Swap %1$@ to %2$@": "مبادله %1$@ به %2$@"
+"%1$@ to %2$@": "%1$@ به %2$@"
+"Max %1$@": "حداکثر %1$@"
+"Authorize %1$@ fee": "تأیید کارمزد %1$@"
+Pending previous fee: در انتظار کارمزد قبلی
+AML/KYC: AML/KYC
+Receive to: دریافت به
+Enter %1$@ address: آدرس %1$@ را وارد کنید
+"Send %1$@ this address:": "%1$@ را به این آدرس ارسال کنید:"
+Swap is not supported on this account.: مبادله در این حساب پشتیبانی نمی‌شود.
+"%1$@ will be returned": "%1$@ بازگردانده خواهد شد"
+Connecting your wallet: در حال اتصال کیف پول شما
+Action is not possible on a view-only wallet.: این اقدام روی کیف پول فقط‌مشاهده ممکن نیست.
+No matching chains: هیچ شبکه سازگاری وجود ندارد
+Logged in with My Wallet: واردشده با My Wallet
+You have no apps connected to this wallet.: هیچ اپلیکیشنی به این کیف پول متصل نیست.
+Asset: دارایی
+Sent to: ارسال‌شده به
+via %agg%: از طریق %agg%
+Switch to Legacy Version: تغییر به نسخه کلاسیک
+Received from: دریافت‌شده از
+Your Secret Words: کلمات محرمانه شما
+day:
+  zeroValue: "%1$d روز"
+  oneValue: "%1$d روز"
+  otherValue: "%1$d روز"
+hour:
+  zeroValue: "%1$d ساعت"
+  oneValue: "%1$d ساعت"
+  otherValue: "%1$d ساعت"
+minute:
+  zeroValue: دقیقه
+  oneValue: دقیقه
+  otherValue: "%1$d دقیقه"
+second:
+  zeroValue: "%1$d ثانیه"
+  oneValue: "%1$d ثانیه"
+  otherValue: "%1$d ثانیه"
+transfer:
+  zeroValue: "%1$d انتقال"
+  oneValue: "%1$d انتقال"
+  otherValue: "%1$d انتقال"
+Confirm Actions:
+  zeroValue: "تأیید %1$d اقدام"
+  oneValue: تأیید اقدام
+  otherValue: تأیید اقدامات
+"A ~ Z": "الف ~ ی"
+"Biometric authentication not available.": "احراز هویت بیومتریک در دسترس نیست."
+Payment Address: آدرس پرداخت
+"Changelly Payment Address": "آدرس پرداخت Changelly"
+"Wallet to use on": "کیف پول مورد استفاده در"
+"Clipboard empty": "کلیپ‌بورد خالی است"
+"Confirm Connect": "تأیید اتصال"
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": "اپلیکیشن‌های متصل تنها می‌توانند آدرس کیف پول شما را ببینند و بدون اجازه قادر به جابه‌جایی دارایی‌های شما نخواهند بود."
+"Connect to %1$@?": "اتصال به %1$@؟"
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": "توکن‌های با ارزش کمتر از ۰٫۰۱ دلار را در حساب خود نمایش نده. همچنین می‌توانید با استفاده از فهرست زیر، توکن‌های خاص را به‌صورت انتخابی فعال و غیرفعال کنید."
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": "تراکنش‌های کمتر از ۰٫۰۱ دلار را نمایش نده. چنین تراکنش‌های کوچکی اغلب برای اسپم و کلاهبرداری استفاده می‌شوند."
+"Enter your Wallet Passcode": "رمز عبور کیف پول خود را وارد کنید"
+"Import failed": "افزودن ناموفق بود"
+"Install Palette": "نصب پالت"
+Ledger: لجر
+"Moving to staking balance": "در حال انتقال به موجودی استیکینگ"
+My Wallet uses biometric authentication to unlock and authorize transactions: "\u200FMy Wallet از احراز هویت بیومتریک برای باز کردن قفل و تأیید تراکنش‌ها استفاده می‌کند"
+"Network error": "خطای شبکه"
+"No Camera Access": "بدون دسترسی به دوربین"
+"Not all transactions were sent successfully.": "همه تراکنش‌ها با موفقیت ارسال نشدند."
+OK: تأیید
+"Open in Explorer": "باز کردن در اکسپلورر"
+"Open in...": "باز کردن در..."
+"Passcode changed": "رمز عبور تغییر کرد"
+"Please make sure your internet connection is working and try again.": "لطفاً مطمئن شوید که اتصال اینترنت شما کار می‌کند و دوباره تلاش کنید."
+"Please set a passcode on your device, and then try to use biometric authentication.": "لطفاً یک رمز عبور روی دستگاه خود تنظیم کنید و سپس از احراز هویت بیومتریک استفاده کنید."
+Please try again: لطفاً دوباره تلاش کنید
+"Please wait...": "لطفاً صبر کنید..."
+"Preview is currently unavailable.": "پیش‌نمایش در حال حاضر در دسترس نیست."
+Read-only account: حساب فقط‌خواندنی
+"Request for unstaking": "درخواست برداشت استیک"
+Set a passcode: یک رمز عبور تنظیم کنید
+"Show All %1$@": "نمایش همه %1$@"
+"TON Wallet Versions": "نسخه‌های کیف پول TON"
+"Tap to reveal": "برای نمایش ضربه بزنید"
+"The current version of Ledger only supports English-language comments without special characters.": "نسخه فعلی لجر تنها از نظرات انگلیسی‌زبان بدون کاراکترهای ویژه پشتیبانی می‌کند."
+"There is no activity history for this wallet yet.": "هنوز هیچ تاریخچه فعالیتی برای این کیف پول وجود ندارد."
+"This type of transaction is not yet supported by Ledger.": "این نوع تراکنش هنوز توسط لجر پشتیبانی نمی‌شود."
+"Transaction to this smart contract is not yet supported by Ledger.": "تراکنش به این قرارداد هوشمند هنوز توسط لجر پشتیبانی نمی‌شود."
+"Transferring NFT is not yet supported by Ledger.": "انتقال NFT هنوز توسط لجر پشتیبانی نمی‌شود."
+Connect your Ledger via Bluetooth: لجر خود را از طریق بلوتوث متصل کنید
+Discovering wallets: در حال کشف کیف پول‌ها
+Bluetooth Access Denied: دسترسی بلوتوث رد شد
+Bluetooth access is needed to connect Ledger.: برای اتصال لجر به دسترسی بلوتوث نیاز است.
+Address not resolved: آدرس تشخیص داده نشد
+Sending more than one NFT isn't supported by Ledger: ارسال بیش از یک NFT توسط لجر پشتیبانی نمی‌شود
+"Updating…": "در حال به‌روزرسانی…"
+This is how the TON Blockchain works.: این نحوه کار بلاک‌چین TON است.
+"Waiting for network…": "در انتظار شبکه…"
+Wallet is Locked: کیف پول قفل است
+Warning: هشدار
+Wear: Wear
+Passcodes don't match. Please try again.: رمزهای عبور مطابقت ندارند. لطفاً دوباره تلاش کنید.
+Secret phrase was copied to clipboard: عبارت محرمانه در کلیپ‌بورد کپی شد
+Copy Anyway: به‌هرحال کپی کن
+12 Words: ۱۲ کلمه
+24 Words: ۲۴ کلمه
+"Words don’t match, please try again.": کلمات مطابقت ندارند، لطفاً دوباره تلاش کنید.
+Load 5 More Wallets: بارگذاری ۵ کیف پول دیگر
+$n_wallets_selected:
+  zeroValue: "%1$d انتخاب‌شده"
+  oneValue: "%1$d انتخاب‌شده"
+  otherValue: "%1$d انتخاب‌شده"
+Are you sure you want to unpin %tab%?: آیا مطمئن هستید که می‌خواهید سنجاق %tab% را بردارید؟
+add: افزودن
+send: ارسال
+swap: مبادله
+earn: کسب درآمد
+Actions: اقدامات
+$actions_description: به رایج‌ترین اقدامات به‌سرعت دسترسی پیدا کنید.
+Rate: نرخ
+$rate_description: نرخ فعلی هر توکن انتخاب‌شده را مشاهده کنید.
+Rate with Chart: نرخ همراه با نمودار
+$rate_with_chart_description: نرخ فعلی هر توکن انتخاب‌شده را مشاهده و عملکرد آن را پیگیری کنید.
+Style: سبک
+Neutral: خنثی
+Vivid: زنده
+Chart Period: دوره نمودار
+$period_all: تمام دوره
+$period_day: ۱ روز
+$period_week: ۱ هفته
+$period_month: ۱ ماه
+$period_3months: ۳ ماه
+$period_year: ۱ سال
+Token: توکن
+All Tokens: همه توکن‌ها
+Customize Widget: سفارشی‌سازی ابزارک
+Recent Searches: جستجوهای اخیر
+Clear All: پاک کردن همه
+Suggestions: پیشنهادها
+Popular and connected apps: اپلیکیشن‌های محبوب و متصل
+Connected Dapp: اپلیکیشن غیرمتمرکز متصل
+$ago: "%1$d پیش"
+$visited_ago: "%1$d پیش بازدید شد"
+Notifications are disabled: اعلان‌ها غیرفعال هستند
+Enable in Settings: فعال‌سازی در تنظیمات
+Open Link: باز کردن لینک
+Open in App: باز کردن در اپلیکیشن
+Search in Google: جستجو در گوگل
+$remove_wallets:
+  zeroValue: "حذف کیف پول"
+  oneValue: "حذف کیف پول"
+  otherValue: "حذف %1$d کیف پول"
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: رمزگذاری ممکن نیست. گیرنده یک کیف پول نیست یا هیچ تراکنش خروجی ندارد.
+just now: همین الان
+"No": "خیر"
+Search: جستجو
+State init supplied without message body: داده مقداردهی اولیه بدون بدنه پیام ارائه شد
+Swap Failed: مبادله ناموفق بود
+The wallet is ready: کیف پول آماده است
+Unexpected error. Please let the support know.: خطای غیرمنتظره. لطفاً پشتیبانی را مطلع کنید.
+Unlock it and open the TON App: آن را باز کنید و اپلیکیشن TON را اجرا کنید
+Use 4-digit Passcode: استفاده از رمز عبور ۴ رقمی
+Use 6-digit Passcode: استفاده از رمز عبور ۶ رقمی
+Authorize %token% Fee: تأیید کارمزد %token%
+Awaiting Previous Fee: در انتظار کارمزد قبلی
+Lock: قفل
+My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: کارت‌های My Wallet می‌توانند برای کیف پول‌ها نصب شوند و در صفحه اصلی و در فهرست کیف پول نمایش داده شوند.
+Receive: دریافت
+Scan: اسکن
+$web_permission_prompt: به %origin% اجازه استفاده از %permissions% شما داده شود؟
+$web_permission_allow: اجازه دادن
+$web_permission_deny: "اجازه نده"
+$web_permission_camera: دوربین
+$web_permission_microphone: میکروفون
+$web_permission_location: موقعیت مکانی
+$web_permission_device_features: قابلیت‌های دستگاه
+$web_permission_this_site: این سایت
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: ارسال %amount% %symbol%
+push_activity_token_received: دریافت %amount% %symbol%
+push_activity_contract_called: قرارداد هوشمند فراخوانی شد
+push_activity_contract_deployed: قرارداد هوشمند مستقر شد
+push_activity_token_minted: ضرب %amount% %symbol%
+push_activity_token_burned: سوزاندن %amount% %symbol%
+push_activity_nft_sent: "\u200FNFT ارسال شد"
+push_activity_nft_sent_named: "\u200FNFT ارسال شد: %name%"
+push_activity_nft_received: "\u200FNFT دریافت شد"
+push_activity_nft_received_named: "\u200FNFT دریافت شد: %name%"
+push_activity_nft_minted: "\u200FNFT ضرب شد"
+push_activity_nft_minted_named: "\u200FNFT ضرب شد: %name%"
+push_activity_liquidity_deposited: نقدینگی تأمین شد
+push_activity_liquidity_withdrawn: نقدینگی برداشت شد
+push_activity_stake_deposit: استیک %amount% %symbol%
+push_activity_stake_withdrawal: برداشت استیک %amount% %symbol%
+push_activity_stake_withdrawal_request: درخواست برداشت استیکینگ ثبت شد
+push_activity_auction_bid: ثبت پیشنهاد حراج %amount% %symbol%
+push_activity_dns_changed: رکورد DNS به‌روزرسانی شد
+push_activity_dns_deleted: رکورد DNS حذف شد
+push_activity_dns_renewed: "\u200FDNS تمدید شد"
+push_activity_subscription_started: اشتراک آغاز شد
+push_activity_subscription_payment_received: دریافت پرداخت اشتراک %amount% %symbol%
+push_activity_subscription_canceled: اشتراک لغو شد
+push_activity_swap_completed: مبادله %from_symbol% → %to_symbol%
+push_activity_swap_failed: مبادله %from_symbol% → %to_symbol% ناموفق بود
+push_activity_swap_expired: مبادله %from_symbol% → %to_symbol% منقضی شد
+push_activity_swap_pending: مبادله %from_symbol% → %to_symbol% %status%
+push_activity_staking_profit: سود استیکینگ %amount% GRAM
+push_activity_staking_loyalty_profit: سود وفاداری استیکینگ %amount% GRAM
+push_domain_title_renew: دامنه خود را تمدید کنید
+push_domain_expired_yesterday: دامنه %domain% شما دیروز منقضی شد. لطفاً برای جلوگیری از از دست دادن دسترسی، در اسرع وقت آن را تمدید کنید
+push_domain_expired_days_ago: دامنه %domain% شما %days% روز پیش منقضی شد. لطفاً برای جلوگیری از از دست دادن دسترسی، در اسرع وقت آن را تمدید کنید
+push_domain_expires_today: دامنه %domain% شما امروز منقضی می‌شود. لطفاً برای جلوگیری از از دست دادن دسترسی، آن را تمدید کنید
+push_domain_expires_tomorrow: دامنه %domain% شما فردا منقضی می‌شود. لطفاً برای جلوگیری از از دست دادن دسترسی، آن را تمدید کنید
+push_domain_expires_in_days: دامنه %domain% شما %days% روز دیگر منقضی می‌شود. لطفاً برای جلوگیری از از دست دادن دسترسی، آن را تمدید کنید
+$more_nfts:
+  zeroValue: بدون NFT
+  oneValue: "+۱ NFT"
+  otherValue: "+%1$d NFT"
+
+$subwallets_hint: از زیرکیف‌پول‌ها برای دریافت آدرس‌های اضافی بدون ساخت مجموعه جدیدی از کلمات محرمانه استفاده کنید.
+$subwallets_created_wallets: اگر قبلاً زیرکیف‌پول ساخته‌اید، آن‌ها در فهرست زیر ظاهر خواهند شد.
+$subwallets_none: هنوز زیرکیف‌پولی وجود ندارد.
+Tracked asset value over time: ارزش دارایی پیگیری‌شده در طول زمان
+Current allocation across tracked assets: تخصیص فعلی بین دارایی‌های پیگیری‌شده
+Limited history: تاریخچه محدود
+Cumulative profit and loss over time: سود و زیان تجمعی در طول زمان
+Day-by-day profit and loss: سود و زیان روز به روز
+This action is not supported in explorer mode.: این اقدام در حالت اکسپلورر پشتیبانی نمی‌شود.
+$relative_today: امروز
+$relative_tomorrow: فردا
+P&L Change: تغییر سود و زیان
+Choose Token: انتخاب توکن
+You don't have any eligible tokens for this payment: توکن واجد شرایطی برای این پرداخت ندارید
+Buy, swap, or receive a supported token to continue.: برای ادامه، یک توکن پشتیبانی‌شده بخرید، مبادله یا دریافت کنید.
+Are you sure you want to cancel the payment?: آیا مطمئن هستید که می‌خواهید پرداخت را لغو کنید؟
+Cancel Payment: لغو پرداخت
+Paid: پرداخت شد
+Payment: پرداخت
+$chart_months_short: ژانویه,فوریه,مارس,آوریل,مه,ژوئن,ژوئیه,اوت,سپتامبر,اکتبر,نوامبر,دسامبر
+$chart_week_days: یکشنبه,دوشنبه,سه‌شنبه,چهارشنبه,پنجشنبه,جمعه,شنبه
+$chart_week_days_short: ۱ش,۲ش,۳ش,۴ش,۵ش,ج,ش
+Select multichain wallet: انتخاب کیف پول چندزنجیره‌ای
+Rounded Corners: گوشه‌های گرد
+Enable Blur: فعال‌سازی محو‌شدگی
+App Font: فونت اپلیکیشن
+Rounded Balance Font: فونت موجودی گرد
+My Wallet Cards NFT: My Wallet Cards NFT
+Selling to card is not supported in Testnet.: فروش به کارت در تست‌نت پشتیبانی نمی‌شود.
+Selling to card is not supported for this account.: فروش به کارت برای این حساب پشتیبانی نمی‌شود.
+Copy Wallet Link: کپی لینک کیف پول
+$connect_dapp_no_compatible_wallets_found: این اتصال به کیف پول چندزنجیره‌ای نیاز دارد. کیف پول فعلی شما فقط از TON پشتیبانی می‌کند و کیف پول چندزنجیره‌ای دیگری ندارید. برای ساخت کیف پول چندزنجیره‌ای جدید از دکمه زیر استفاده کنید.
+Create Multichain Wallet: ساخت کیف پول چندزنجیره‌ای
+push_domain_expired_days_ago_number:
+  zeroValue: دامنه شما %domain% %days% روز پیش منقضی شد. لطفاً برای از دست ندادن دسترسی، هرچه زودتر آن را تمدید کنید
+  oneValue: دامنه شما %domain% %days% روز پیش منقضی شد. لطفاً برای از دست ندادن دسترسی، هرچه زودتر آن را تمدید کنید
+  otherValue: دامنه شما %domain% %days% روز پیش منقضی شد. لطفاً برای از دست ندادن دسترسی، هرچه زودتر آن را تمدید کنید
+push_domain_expires_in_days_number:
+  zeroValue: دامنه شما %domain% تا %days% روز دیگر منقضی می‌شود. لطفاً برای از دست ندادن دسترسی آن را تمدید کنید
+  oneValue: دامنه شما %domain% تا %days% روز دیگر منقضی می‌شود. لطفاً برای از دست ندادن دسترسی آن را تمدید کنید
+  otherValue: دامنه شما %domain% تا %days% روز دیگر منقضی می‌شود. لطفاً برای از دست ندادن دسترسی آن را تمدید کنید
+Unsupported Chain: بلاک‌چین پشتیبانی‌نشده
+Please upgrade to multichain to use this app.: لطفاً برای استفاده از این اپلیکیشن به کیف پول چندزنجیره‌ای ارتقا دهید.
+Deprecated Website: وب‌سایت منسوخ‌شده
+This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.: این نسخه منسوخ شده است. کیف پول‌های خود را در %new_domain% دوباره اضافه کنید یا %download_app%.
+download the app: اپلیکیشن را دانلود کنید
+Migration was rolled back: انتقال به حالت قبل بازگردانده شد
+Rollback Enclave Migration: بازگردانی انتقال Enclave
+Unable to migrate wallet data. Please contact support.: انتقال داده‌های کیف پول ممکن نیست. لطفاً با پشتیبانی تماس بگیرید.
+Failed to retrieve password from biometrics: دریافت رمز عبور از بیومتریک ناموفق بود
+Migration failed. Please try again.: انتقال ناموفق بود. لطفاً دوباره تلاش کنید.
+Chains: زنجیره‌ها
+enclave_use_biometrics: استفاده از بیومتریک
+Copy Storage Data: کپی داده‌های ذخیره‌سازی
+Rollback Migration: بازگردانی انتقال
+Enclave session expired: نشست Enclave منقضی شده است
+Failed to setup auth: راه‌اندازی احراز هویت ناموفق بود
+Failed to setup biometric auth: راه‌اندازی احراز هویت بیومتریک ناموفق بود
+No enclave session token available: توکن نشست Enclave در دسترس نیست
+Missing authorization: مجوز موجود نیست
+$enclave_use_biometrics: استفاده از بیومتریک
+$enclave_enter_passcode_or_use_biometrics: رمز عبور را وارد کنید یا از اثر انگشت استفاده کنید
+$enclave_use_pin: استفاده از PIN
+$enclave_cancel: لغو
+Open %new_domain%: باز کردن %new_domain%
+"Why is %tokenName% %direction% %timeframe%?": "چرا قیمت %tokenName% %timeframe% %direction%؟"
+up: افزایش یافت
+down: کاهش یافت
+today: امروز
+this week: این هفته
+this month: این ماه
+Info: اطلاعات
+Market: بازار
+Market Cap: ارزش بازار
+Created: ایجاد شده
+Expanded: باز
+Collapsed: بسته
+Circulating / Total Supply: عرضه در گردش / کل
+Circulating Supply: عرضه در گردش
+Total Supply: عرضه کل
+Volume · 24h: حجم · ۲۴ ساعت
+Token Info Mock: اطلاعات آزمایشی توکن
+Design: طرح
+Localized Description: توضیحات بومی‌شده
+Long / Sparse: طولانی / ناقص
+Loading: در حال بارگذاری
+Missing Description: توضیحات موجود نیست
+Missing Token Info: اطلاعات توکن موجود نیست
+Website: وب‌سایت
+Documentation: مستندات
+Source Code: کد منبع
+Translated from English: ترجمه‌شده از انگلیسی
+Show Original: نمایش متن اصلی
+Show Translation: نمایش ترجمه
+Original Text: متن اصلی
+$token_info_market_cap_hint: ارزش کل بازار عرضه در گردش توکن.
+$token_info_supply_hint: تعداد توکن‌های در گردش در مقایسه با عرضه کل.
+$token_info_volume_hint: ارزش کل معاملات در ۲۴ ساعت گذشته.
+$token_info_expand_hint: اطلاعات توکن را باز می‌کند.
+$token_info_collapse_hint: اطلاعات توکن را می‌بندد.
+$token_info_open_in_browser_hint: در مرورگر باز می‌کند.
+$token_info_fallback_description: اطلاعات عمومی در دسترس نیست
+$token_info_no_description: توضیحی در دسترس نیست
+$swap_cex_aml_kyc_policy_with_provider: AML/KYC %provider%
+$enclave_migration_damaged_title: داده‌های کیف پول آسیب دیده است
+$enclave_migration_damaged_message: |
+  مشکل از رمز عبور نیست. داده‌های ذخیره‌شده یکی از کیف پول‌های شما خوانده نمی‌شود، بنابراین به‌روزرسانی متوقف شد و بقیه کیف پول‌های شما در قالب پیشین باقی ماندند.
+
+  برنامه را دوباره نصب نکنید و داده‌های آن را پاک نکنید، چون کیف پول‌هایی که هنوز سالم‌اند از بین می‌روند. لطفاً با %support_link% تماس بگیرید تا در بازیابی آن‌ها کمک کنیم.
+$enclave_migration_interrupted_title: به‌روزرسانی نیمه‌کاره ماند
+$enclave_migration_interrupted_message: |
+  تلاش پیشین برای به‌روزرسانی داده‌های کیف پول شما در میانه متوقف شد و از این صفحه نمی‌توان آن را ادامه داد. تلاش دوباره در اینجا کمکی نمی‌کند.
+
+  برنامه را دوباره نصب نکنید و داده‌های آن را پاک نکنید، کیف پول‌های شما همچنان روی این دستگاه ذخیره شده‌اند. لطفاً با %support_link% تماس بگیرید تا به‌روزرسانی را کامل کنیم.
+$enclave_migration_storage_title: ذخیره داده‌های کیف پول ممکن نشد
+$enclave_migration_storage_message: |
+  داده‌های به‌روزشده کیف پول روی این دستگاه ذخیره نشد. آزاد کردن مقداری فضای دیسک ممکن است کمک کند.
+
+  برنامه را دوباره نصب نکنید و داده‌های آن را پاک نکنید، کیف پول‌های شما همچنان روی آن ذخیره شده‌اند. اگر این وضعیت تکرار شد، لطفاً با %support_link% تماس بگیرید.
+Hide Unverified NFTs: پنهان کردن NFTهای تأییدنشده
+Unverified: تأییدنشده

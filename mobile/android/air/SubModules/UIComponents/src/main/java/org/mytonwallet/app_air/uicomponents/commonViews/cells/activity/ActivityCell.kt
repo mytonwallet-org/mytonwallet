@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.commonViews.cells.activity
 
 import android.annotation.SuppressLint
@@ -17,19 +19,21 @@ import androidx.core.view.updateLayoutParams
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
+import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
-import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
-import org.mytonwallet.app_air.uicomponents.base.ITabsVC
-import org.mytonwallet.app_air.uicomponents.base.WWindow
-import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.helpers.NftActionHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -49,17 +53,15 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class ActivityCell(
     val parentView: View,
     val withoutTagAndComment: Boolean,
     val isFirstInDay: Boolean?
-) :
-    WCell(parentView.context, LayoutParams(MATCH_PARENT, 0)), WThemedView {
+) : WCell(parentView.context, LayoutParams(MATCH_PARENT, 0)),
+    WThemedView {
 
     companion object {
         const val FIRST_DAY_MAIN_CONTENT_HEIGHT = 100
@@ -101,6 +103,7 @@ class ActivityCell(
 
     var allowNftMenu: Boolean = false
     private var transaction: MApiTransaction? = null
+    private var accountId: String? = null
     private var transactionAddressName: String? = null
     private var positioning: Positioning? = null
     private var baseCurrency: MBaseCurrency? = null
@@ -142,14 +145,12 @@ class ActivityCell(
         val isLastInDay: Boolean,
         val isLast: Boolean,
         val isAdded: Boolean = false,
-        val isAddedAsNewDay: Boolean = false,
+        val isAddedAsNewDay: Boolean = false
     ) {
-        fun matches(comparing: Positioning): Boolean {
-            return this.isFirst == comparing.isFirst &&
-                this.isFirstInDay == comparing.isFirstInDay &&
-                this.isLast == comparing.isLast &&
-                this.isLastInDay == comparing.isLastInDay
-        }
+        fun matches(comparing: Positioning): Boolean = this.isFirst == comparing.isFirst &&
+            this.isFirstInDay == comparing.isFirstInDay &&
+            this.isLast == comparing.isLast &&
+            this.isLastInDay == comparing.isLastInDay
     }
 
     fun configure(
@@ -160,6 +161,7 @@ class ActivityCell(
     ) {
         if (this.transaction?.isSame(transaction) == true &&
             this.transaction?.isChanged(transaction) == false &&
+            this.accountId == accountId &&
             this.transactionAddressName == transaction.addressName() &&
             WalletCore.baseCurrency == baseCurrency &&
             TokenStore.baseCurrencyRate == baseCurrencyRate &&
@@ -173,6 +175,7 @@ class ActivityCell(
             return
         }
         this.transaction = transaction
+        this.accountId = accountId
         this.transactionAddressName = transaction.addressName()
         this.baseCurrency = WalletCore.baseCurrency
         this.baseCurrencyRate = TokenStore.baseCurrencyRate
@@ -243,8 +246,9 @@ class ActivityCell(
                 commentView?.measure(widthSpec, heightSpec)
                 targetHeight += commentView?.measuredHeight ?: 0
             }
-            if (singleTagView?.isVisible == true || commentView?.isVisible == true)
+            if (singleTagView?.isVisible == true || commentView?.isVisible == true) {
                 targetHeight += SPACING_BELOW_TAG_AND_COMMENT.dp
+            }
         }
 
         val startHeight = if (positioning.isFirstInDay && !positioning.isAddedAsNewDay) {
@@ -265,8 +269,9 @@ class ActivityCell(
                     height = value.toInt()
                 }
                 val appearanceStartHeight = 0.7f * mainContentViewBottom
+                val appearanceHeight = targetHeight - appearanceStartHeight
                 val fraction =
-                    ((value - appearanceStartHeight) / (targetHeight - appearanceStartHeight)).coerceIn(
+                    ((value - appearanceStartHeight) / appearanceHeight).coerceIn(
                         0f,
                         1f
                     )
@@ -281,7 +286,10 @@ class ActivityCell(
                 if (!withoutTagAndComment) {
                     singleTagView?.let { singleTagView ->
                         val fraction =
-                            ((value - mainContentViewBottom) / (targetHeight - mainContentViewBottom)).coerceIn(
+                            (
+                                (value - mainContentViewBottom) /
+                                    (targetHeight - mainContentViewBottom)
+                                ).coerceIn(
                                 0.7f,
                                 1f
                             )
@@ -312,10 +320,11 @@ class ActivityCell(
                 }
 
                 val newHeight = if (cellHeight > 0) cellHeight else WRAP_CONTENT
-                if (layoutParams.height != newHeight)
+                if (layoutParams.height != newHeight) {
                     updateLayoutParams {
                         height = newHeight
                     }
+                }
             }
         }
         heightSpringAnimation?.start()
@@ -348,10 +357,17 @@ class ActivityCell(
                 this,
                 listOf(
                     WMenuPopup.Item(
-                        org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden,
-                        LocaleController.getString("Hide NFT"),
+                        WMenuPopup.Item.Config.Item(
+                            icon = WMenuPopup.Item.Config.Icon(
+                                org.mytonwallet.app_air.icons.R.drawable.ic_flag_30,
+                                WColor.Red
+                            ),
+                            title = LocaleController.getString("Hide and Report"),
+                            titleColor = WColor.Red.color
+                        )
                     ) {
-                        NftStore.hideNft(nft)
+                        val accountId = accountId ?: return@Item
+                        NftActionHelpers.hideAndReportNft(context as? WWindow, accountId, nft)
                     }
                 ),
                 popupWidth = WRAP_CONTENT,
@@ -362,7 +378,7 @@ class ActivityCell(
                     contentCutoutPath(roundRadius = bigRadius)
                 ),
                 backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
-                usePillShadow = true,
+                usePillShadow = true
             )
             true
         }
@@ -442,15 +458,17 @@ class ActivityCell(
             commentLabel.maxWidth = recyclerWidth - 172.dp
         } else {
             commentContainer.background = OutgoingCommentDrawable().apply {
-                if (transaction.status == ApiTransactionStatus.FAILED)
+                if (transaction.status == ApiTransactionStatus.FAILED) {
                     setBubbleColor(WColor.Red.color.colorWithAlpha(38))
+                }
             }
             commentLabel.setPaddingDpLocalized(12, 6, 18, 6)
             commentLabel.maxWidth = recyclerWidth - 118.dp
         }
         (commentContainer.background as ICommentDrawable).apply {
-            if (transaction.status == ApiTransactionStatus.FAILED)
+            if (transaction.status == ApiTransactionStatus.FAILED) {
                 setBubbleColor(WColor.Red.color.colorWithAlpha(38))
+            }
         }
         commentLabel.setTextColor(
             if (transaction.status == ApiTransactionStatus.FAILED) WColor.Red else WColor.White
@@ -474,10 +492,11 @@ class ActivityCell(
         setConstraints {
             toBottom(commentContainer, 12f)
 
-            if (singleTagView?.isVisible == true)
+            if (singleTagView?.isVisible == true) {
                 topToBottom(commentContainer, singleTagView!!, 8f)
-            else
+            } else {
                 topToTop(commentContainer, mainContentView, 60f)
+            }
 
             if (isIncoming) {
                 toStart(commentContainer, 70f)
@@ -502,8 +521,7 @@ class ActivityCell(
         if (!forceUpdate) {
             val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
             val radiusChanged = _lastBigRadius != ViewConstants.BLOCK_RADIUS
-            if (!darkModeChanged && !radiusChanged)
-                return
+            if (!darkModeChanged && !radiusChanged) return
         }
         _isDarkThemeApplied = ThemeManager.isDark
         _lastBigRadius = ViewConstants.BLOCK_RADIUS
@@ -539,12 +557,10 @@ class ActivityCell(
                 val cellHeight = cellHeight
                 layoutParams = ViewGroup.LayoutParams(
                     MATCH_PARENT,
-                    if (cellHeight > 0)
-                        cellHeight
-                    else
-                        WRAP_CONTENT
+                    if (cellHeight > 0) cellHeight else WRAP_CONTENT
                 )
-            }) {
+            }
+        ) {
         private val view: ActivityCell = itemView as ActivityCell
         override fun onBind(item: Item.Activity) {
             view.configure(
@@ -555,8 +571,8 @@ class ActivityCell(
                     isFirst = item.isFirst,
                     isFirstInDay = false,
                     isLastInDay = item.isLast,
-                    isLast = item.isLast,
-                ),
+                    isLast = item.isLast
+                )
             )
         }
     }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
@@ -14,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -22,10 +24,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
-import java.lang.ref.WeakReference
 
-class LanguageVC(context: Context) : WViewController(context),
+class LanguageVC(context: Context) :
+    WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "Language"
 
     companion object {
@@ -40,7 +43,8 @@ class LanguageVC(context: Context) : WViewController(context),
             WLanguage.THAI,
             WLanguage.UKRAINIAN,
             WLanguage.POLISH,
-            //WLanguage.PERSIAN,
+            WLanguage.PERSIAN,
+            WLanguage.ARABIC
         )
 
         val HEADER_CELL = WCell.Type(1)
@@ -67,8 +71,7 @@ class LanguageVC(context: Context) : WViewController(context),
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
+                if (dx == 0 && dy == 0) return
                 updateBlurViews(recyclerView)
             }
         })
@@ -112,26 +115,21 @@ class LanguageVC(context: Context) : WViewController(context),
         )
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 2
+
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        0 -> 1
+        else -> languages.size
     }
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            0 -> 1
-            else -> languages.size
-        }
-    }
-
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             0 -> HEADER_CELL
             else -> LANGUAGE_CELL
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
                 HeaderCell(
                     context,
@@ -143,7 +141,6 @@ class LanguageVC(context: Context) : WViewController(context),
                 TitleSubtitleSelectionCell(context)
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -167,18 +164,19 @@ class LanguageVC(context: Context) : WViewController(context),
                     isFirst = false,
                     isLast = indexPath.row == languages.size - 1
                 ) {
-                    WGlobalStorage.setLangCode(language.langCode)
-                    WGlobalStorage.setLangSource(WGlobalStorage.LANG_SOURCE_USER)
-                    AirPushNotifications.refreshSubscriptions()
-                    switchLanguageIfRequired(language)
-                    // Rely on AppCompat flow, avoid restart duplication race
-                    LocaleController.setApplicationLocale(language.langCode)
+                    if (WGlobalStorage.getLangCode() == language.langCode) return@configure
+                    val window = window ?: return@configure
+                    view.lockView()
+                    window.window?.decorView?.setBackgroundColor(WColor.Background.color)
+                    window.navigationControllers.fadeOut {
+                        WGlobalStorage.setLangCode(language.langCode)
+                        WGlobalStorage.setLangSource(WGlobalStorage.LANG_SOURCE_USER)
+                        AirPushNotifications.refreshSubscriptions()
+                        // Rely on AppCompat flow, avoid restart duplication race
+                        LocaleController.setApplicationLocale(language.langCode)
+                    }
                 }
             }
         }
     }
-
-    private fun switchLanguageIfRequired(nextLanguage: WLanguage) {
-    }
-
 }

@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.views
 
-import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
-import android.content.Context
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -16,14 +16,16 @@ import android.view.inputmethod.EditorInfo
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.core.widget.doAfterTextChanged
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -35,13 +37,11 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class AgentComposerView(
-    context: Context,
-    private val blurRootView: ViewGroup? = null,
-) : WFrameLayout(context), WThemedView {
+class AgentComposerView(context: Context, private val blurRootView: ViewGroup? = null) :
+    WFrameLayout(context),
+    WThemedView {
 
     var onSend: ((String) -> Unit)? = null
     var onHintsToggle: (() -> Unit)? = null
@@ -59,7 +59,7 @@ class AgentComposerView(
             EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE
         imeOptions = EditorInfo.IME_ACTION_SEND
         background = null
-        setPaddingDp(16, 10, 52, 10)
+        setPaddingRelative(16.dp, 10.dp, 52.dp, 10.dp)
     }
 
     private val hintsRipple = WRippleDrawable.create(12f.dp)
@@ -95,10 +95,13 @@ class AgentComposerView(
 
         inputBackground.minimumHeight = 48.dp
         syncBlurView()
-        inputBackground.addView(editText, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-            gravity = Gravity.TOP
-            topMargin = 2.5f.dp.roundToInt()
-        })
+        inputBackground.addView(
+            editText,
+            LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                gravity = Gravity.TOP
+                topMargin = 2.5f.dp.roundToInt()
+            }
+        )
 
         hintsButton.layoutParams = LayoutParams(32.dp, 32.dp).apply {
             gravity = Gravity.END or Gravity.BOTTOM
@@ -138,14 +141,20 @@ class AgentComposerView(
             if (actionId == EditorInfo.IME_ACTION_SEND) {
                 trySend()
                 true
-            } else false
+            } else {
+                false
+            }
         }
 
         editText.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN && !event.isShiftPressed) {
+            if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN &&
+                !event.isShiftPressed
+            ) {
                 trySend()
                 true
-            } else false
+            } else {
+                false
+            }
         }
 
         updateTheme()
@@ -195,9 +204,9 @@ class AgentComposerView(
         sendButton.background = sendDrawable
 
         sendButton.setImageResource(R.drawable.ic_send)
-        if (sendButton.isEnabled == isSendEnabled)
-            return
+        if (sendButton.isEnabled == isSendEnabled) return
         sendButton.isEnabled = isSendEnabled
+        sendButton.isClickable = isSendEnabled
         if (isSendEnabled) {
             sendButton.scaleIn(AnimationConstants.SUPER_QUICK_ANIMATION)
         } else {
@@ -207,7 +216,8 @@ class AgentComposerView(
     }
 
     private fun animateHintsButton(sendVisible: Boolean) {
-        val targetTranslationX = if (sendVisible) (-44f).dp else 0f
+        val direction = if (LocaleController.isRTL) 1f else -1f
+        val targetTranslationX = if (sendVisible) direction * 44f.dp else 0f
 
         hintsAnimator?.cancel()
         hintsAnimator =
@@ -222,8 +232,8 @@ class AgentComposerView(
                     } else {
                         (88.dp - fraction * (88.dp - 52.dp)).toInt()
                     }
-                    editText.setPadding(
-                        editText.paddingLeft,
+                    editText.setPaddingRelative(
+                        editText.paddingStart,
                         editText.paddingTop,
                         padding,
                         editText.paddingBottom

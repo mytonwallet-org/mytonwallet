@@ -4,7 +4,6 @@ import { SwapState } from '../types';
 import { DEFAULT_SLIPPAGE_VALUE } from '../../config';
 import { replaceActivityId } from '../helpers/misc';
 import {
-  doesSwapChangeRequireDexUnselect,
   doesSwapChangeRequireEstimation,
   doesSwapChangeRequireEstimationReset,
   getSwapEstimateResetParams,
@@ -36,12 +35,6 @@ export function updateCurrentSwap(
     if (doesSwapChangeRequireEstimation(global, newGlobal)) {
       newGlobal = rawUpdateCurrentSwap(newGlobal, { isEstimating: true });
     }
-  }
-
-  if (doesSwapChangeRequireDexUnselect(global, newGlobal)) {
-    newGlobal = rawUpdateCurrentSwap(newGlobal, {
-      isDexLabelChanged: undefined,
-    });
   }
 
   // Applying the update again because the input fields should have a higher priority than the above automatic updates

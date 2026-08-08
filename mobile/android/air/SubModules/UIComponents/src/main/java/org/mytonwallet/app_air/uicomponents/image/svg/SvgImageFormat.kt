@@ -18,7 +18,7 @@ object SvgImageFormat {
                 0,
                 minOf(headerSize, HEADER_LENGTH),
                 Charsets.UTF_8
-            ).trimStart('﻿', ' ', '\n', '\r', '\t').lowercase()
+            ).trimStart('\uFEFF', ' ', '\n', '\r', '\t').lowercase()
             return if (HEADER_TAGS.any { header.startsWith(it) }) SVG else ImageFormat.UNKNOWN
         }
     }

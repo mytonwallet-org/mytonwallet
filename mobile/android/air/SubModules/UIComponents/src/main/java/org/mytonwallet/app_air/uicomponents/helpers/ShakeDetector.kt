@@ -5,8 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import kotlin.math.sqrt
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 
 object ShakeDetector {
     var onShake: (() -> Unit)? = null

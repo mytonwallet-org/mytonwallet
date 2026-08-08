@@ -182,6 +182,8 @@ export const EVM_CHAIN_IDS: ChainIdByChain = {
   'eip155:10143': { chain: 'monad', network: 'testnet' },
   'eip155:999': { chain: 'hyperliquid', network: 'mainnet' },
   'eip155:998': { chain: 'hyperliquid', network: 'testnet' },
+  'eip155:4663': { chain: 'robinhood', network: 'mainnet' },
+  'eip155:46630': { chain: 'robinhood', network: 'testnet' },
 };
 
 export const CHAIN_IDS_BY_CHAIN: Record<string, ChainIdByChain> = {

@@ -14,8 +14,8 @@ extension ActivityCell {
             skeletonView.layer.cornerRadius = 16
             contentView.addSubview(skeletonView)
             NSLayoutConstraint.activate([
-                skeletonView.leftAnchor.constraint(equalTo: contentView.leftAnchor).withPriority(.defaultHigh),
-                skeletonView.rightAnchor.constraint(equalTo: contentView.rightAnchor).withPriority(.defaultHigh),
+                skeletonView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor).withPriority(.defaultHigh),
+                skeletonView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor).withPriority(.defaultHigh),
                 skeletonView.topAnchor.constraint(equalTo: contentView.topAnchor).withPriority(.defaultHigh),
                 skeletonView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor).withPriority(.defaultLow),
             ])

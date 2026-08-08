@@ -19,8 +19,6 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     @ViewBuilder
     public var footer: Footer
     
-    @Environment(\.insetListContext) private var insetListContext
-    
     public init(backgroundColor: UIColor? = nil,
                 addDividers: Bool = true,
                 dividersInset: CGFloat = 0,
@@ -40,7 +38,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .font(IOS_26_MODE_ENABLED ? .system(size: 17, weight: .semibold) : .system(size: 13))
+                .textStyle(.sectionHeader)
                 .textCase(IOS_26_MODE_ENABLED ? nil : .uppercase)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, IOS_26_MODE_ENABLED ? 20 : 16)
@@ -56,7 +54,9 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
             .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius, style: .continuous))
                 
             footer
-                .font13()
+                .textStyle(.footnote, scaling: .dynamic)
+                .lineSpacing(2)
+                .padding(.top, 2)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, IOS_26_MODE_ENABLED ? 20 : 16)
                 .padding(.top, IOS_26_MODE_ENABLED ? 8 : 7)

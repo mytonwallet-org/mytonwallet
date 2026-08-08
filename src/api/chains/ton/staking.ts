@@ -216,7 +216,7 @@ export async function checkUnstakeDraft(
 
 export async function submitStake(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   amount: bigint,
   state: ApiStakingState,
 ) {
@@ -231,7 +231,7 @@ export async function submitStake(
       toAddress = toBase64Address(state.pool, true, network);
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         amount: amount + TON_GAS.stakeNominators,
         payload: { type: 'comment', text: STAKE_COMMENT },
@@ -242,7 +242,7 @@ export async function submitStake(
       toAddress = LIQUID_POOL;
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         amount: amount + TON_GAS.stakeLiquid,
         payload: buildLiquidStakingDepositBody(),
@@ -256,7 +256,7 @@ export async function submitStake(
 
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         tokenAddress,
         amount,
@@ -269,7 +269,7 @@ export async function submitStake(
       toAddress = ETHENA_STAKING_VAULT;
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         tokenAddress: TON_USDE.tokenAddress,
         amount,
@@ -296,7 +296,7 @@ export async function submitStake(
 
 export async function submitUnstake(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   amount: bigint, // Token amount (not the amount that the user sees)
   state: ApiStakingState,
 ) {
@@ -312,7 +312,7 @@ export async function submitUnstake(
       toAddress = toBase64Address(state.pool, true, network);
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         amount: TON_GAS.unstakeNominators,
         payload: { type: 'comment', text: UNSTAKE_COMMENT },
@@ -329,7 +329,7 @@ export async function submitUnstake(
       toAddress = params.toAddress;
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         amount: params.amount,
         payload: params.payload,
@@ -340,7 +340,7 @@ export async function submitUnstake(
       toAddress = state.stakeWalletAddress;
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         amount: TON_GAS.unstakeJettons,
         payload: buildJettonUnstakePayload(amount, true),
@@ -352,7 +352,7 @@ export async function submitUnstake(
       tokenSlug = TON_TSUSDE.slug;
       result = await submitGasfullTransfer({
         accountId,
-        password,
+        enclaveToken,
         toAddress,
         amount,
         tokenAddress: TON_TSUSDE.tokenAddress,
@@ -690,14 +690,14 @@ export async function fetchBackendStakingState(address: string, isViewOnly: bool
 
 export async function submitTokenStakingClaim(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   state: ApiJettonStakingState,
 ) {
   const toAddress = state.stakeWalletAddress;
   const amount = TON_GAS.claimJettons;
   const result = await submitGasfullTransfer({
     accountId,
-    password,
+    enclaveToken,
     toAddress,
     amount,
     payload: buildJettonClaimPayload(state.poolWallets!),
@@ -720,14 +720,14 @@ export async function submitTokenStakingClaim(
 
 export async function submitUnstakeEthenaLocked(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   state: ApiEthenaStakingState,
 ) {
   const { address } = await fetchStoredWallet(accountId, 'ton');
 
   const result = await submitGasfullTransfer({
     accountId,
-    password,
+    enclaveToken,
     toAddress: state.tsUsdeWalletAddress,
     amount: TON_GAS.unstakeEthenaLocked,
     payload: TsUSDeWallet.transferTimelockedMessage({

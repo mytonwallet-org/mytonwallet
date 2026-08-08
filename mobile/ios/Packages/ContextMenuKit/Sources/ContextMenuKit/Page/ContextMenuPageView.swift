@@ -18,6 +18,7 @@ final class ContextMenuPageView: UIView {
 
     let page: ContextMenuPage
     private let style: ContextMenuStyle
+    private let sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection
     private let customRowContext: ContextMenuCustomRowContext
     weak var delegate: ContextMenuPageViewDelegate?
 
@@ -37,12 +38,20 @@ final class ContextMenuPageView: UIView {
 
     var allowsBackNavigationGesture = false
 
-    init(page: ContextMenuPage, style: ContextMenuStyle, customRowContext: ContextMenuCustomRowContext) {
+    init(
+        page: ContextMenuPage,
+        style: ContextMenuStyle,
+        sourceUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection,
+        customRowContext: ContextMenuCustomRowContext
+    ) {
         self.page = page
         self.style = style
+        self.sourceUserInterfaceLayoutDirection = sourceUserInterfaceLayoutDirection
         self.customRowContext = customRowContext
 
         super.init(frame: .zero)
+
+        self.semanticContentAttribute = sourceUserInterfaceLayoutDirection.contextMenuSemanticContentAttribute
 
         self.scrollView.showsVerticalScrollIndicator = false
         self.scrollView.alwaysBounceVertical = false
@@ -187,13 +196,15 @@ final class ContextMenuPageView: UIView {
                         isEnabled: action.isEnabled,
                         accessory: .none
                     ),
-                    style: self.style
+                    style: self.style,
+                    sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection
                 )
                 let row = ContextMenuPageRowElement(
                     view: rowView,
                     controlView: rowView,
                     isSelectable: true,
                     isEnabled: action.isEnabled,
+                    allowsImmediateSelectionCapture: true,
                     activation: .trigger(ContextMenuActivation(dismissesMenu: action.dismissesMenu, handler: action.handler)),
                     measuredSize: { rowView.measuredSize(maxWidth: $0) },
                     applyLayout: { rowView.applyLayout(size: $0) },
@@ -217,13 +228,15 @@ final class ContextMenuPageView: UIView {
                         isEnabled: backAction.isEnabled,
                         accessory: .none
                     ),
-                    style: self.style
+                    style: self.style,
+                    sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection
                 )
                 let row = ContextMenuPageRowElement(
                     view: rowView,
                     controlView: rowView,
                     isSelectable: true,
                     isEnabled: backAction.isEnabled,
+                    allowsImmediateSelectionCapture: true,
                     activation: .back,
                     measuredSize: { rowView.measuredSize(maxWidth: $0) },
                     applyLayout: { rowView.applyLayout(size: $0) },
@@ -247,13 +260,15 @@ final class ContextMenuPageView: UIView {
                         isEnabled: submenu.isEnabled,
                         accessory: .disclosure
                     ),
-                    style: self.style
+                    style: self.style,
+                    sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection
                 )
                 let row = ContextMenuPageRowElement(
                     view: rowView,
                     controlView: rowView,
                     isSelectable: true,
                     isEnabled: submenu.isEnabled,
+                    allowsImmediateSelectionCapture: true,
                     activation: .submenu(submenu.makePage()),
                     measuredSize: { rowView.measuredSize(maxWidth: $0) },
                     applyLayout: { rowView.applyLayout(size: $0) },
@@ -268,17 +283,24 @@ final class ContextMenuPageView: UIView {
                 self.elements.append(.row(row))
             case let .custom(customRow):
                 let rowView = ContextMenuCustomRowView(item: customRow, context: self.customRowContext)
+                let activation: ContextMenuPageAction?
+                if let submenuPage = customRow.interaction.submenuPage {
+                    activation = .submenu(submenuPage)
+                } else if customRow.interaction.isSelectable {
+                    activation = .trigger(ContextMenuActivation(
+                        dismissesMenu: customRow.interaction.dismissesMenu,
+                        handler: customRow.interaction.handler
+                    ))
+                } else {
+                    activation = nil
+                }
                 let row = ContextMenuPageRowElement(
                     view: rowView,
                     controlView: customRow.interaction.isSelectable ? rowView : nil,
                     isSelectable: customRow.interaction.isSelectable,
                     isEnabled: customRow.interaction.isEnabled,
-                    activation: customRow.interaction.isSelectable
-                        ? .trigger(ContextMenuActivation(
-                            dismissesMenu: customRow.interaction.dismissesMenu,
-                            handler: customRow.interaction.handler
-                        ))
-                        : nil,
+                    allowsImmediateSelectionCapture: !customRow.interaction.allowsContentInteraction,
+                    activation: activation,
                     measuredSize: { rowView.measuredSize(maxWidth: $0) },
                     applyLayout: { rowView.applyLayout(size: $0) },
                     updateColors: { rowView.updateColors() },
@@ -357,7 +379,10 @@ final class ContextMenuPageView: UIView {
 
         for element in self.elements {
             if case let .row(row) = element {
-                row.setDirectInteractionEnabled(!self.allowsImmediateSelection || !row.isSelectable)
+                let selectionViewHandlesTouches = self.allowsImmediateSelection
+                    && row.isSelectable
+                    && row.allowsImmediateSelectionCapture
+                row.setDirectInteractionEnabled(!selectionViewHandlesTouches)
             }
         }
     }
@@ -596,10 +621,13 @@ final class ContextMenuPageView: UIView {
         }
 
         let translation = CGPoint(x: point.x - initialPoint.x, y: point.y - initialPoint.y)
+        let backTranslationX = self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft
+            ? -translation.x
+            : translation.x
         if self.allowsBackNavigationGesture,
            !self.isCancellingImmediateSelectionForHorizontalPan,
-           translation.x > 10.0,
-           translation.x > abs(translation.y) * 1.5 {
+           backTranslationX > 10.0,
+           backTranslationX > abs(translation.y) * 1.5 {
             self.isCancellingImmediateSelectionForHorizontalPan = true
             self.endImmediateSelection(performAction: false)
             return
@@ -628,21 +656,21 @@ final class ContextMenuPageView: UIView {
     }
 
     @objc private func rowTouchDown(_ sender: UIControl) {
-        guard self.activeSelectionWindowPoint == nil, !self.allowsImmediateSelection else {
+        guard self.activeSelectionWindowPoint == nil, self.allowsDirectInteraction(for: sender) else {
             return
         }
         self.updateHighlight(index: self.rowIndex(for: sender), animated: true, emitFeedback: false)
     }
 
     @objc private func rowTouchEnter(_ sender: UIControl) {
-        guard self.activeSelectionWindowPoint == nil, !self.allowsImmediateSelection else {
+        guard self.activeSelectionWindowPoint == nil, self.allowsDirectInteraction(for: sender) else {
             return
         }
         self.updateHighlight(index: self.rowIndex(for: sender), animated: true, emitFeedback: false)
     }
 
     @objc private func rowTouchExit(_ sender: UIControl) {
-        guard self.activeSelectionWindowPoint == nil, !self.allowsImmediateSelection else {
+        guard self.activeSelectionWindowPoint == nil, self.allowsDirectInteraction(for: sender) else {
             return
         }
         if self.rowIndex(for: sender) == self.highlightedRowIndex {
@@ -651,7 +679,7 @@ final class ContextMenuPageView: UIView {
     }
 
     @objc private func rowActivated(_ sender: UIControl) {
-        guard self.activeSelectionWindowPoint == nil, !self.allowsImmediateSelection else {
+        guard self.activeSelectionWindowPoint == nil, self.allowsDirectInteraction(for: sender) else {
             return
         }
         defer {
@@ -678,6 +706,34 @@ final class ContextMenuPageView: UIView {
 
     private func selectableRowIndex(atSelectionTouchPoint point: CGPoint) -> Int? {
         let contentPoint = self.contentView.convert(point, from: self.selectionTouchView)
-        return self.rowIndex(at: contentPoint)
+        guard let rowIndex = self.rowIndex(at: contentPoint),
+              self.selectableRow(at: rowIndex)?.allowsImmediateSelectionCapture == true
+        else {
+            return nil
+        }
+        return rowIndex
+    }
+
+    private func allowsDirectInteraction(for rowView: UIControl) -> Bool {
+        guard self.allowsImmediateSelection else {
+            return true
+        }
+        guard let rowIndex = self.rowIndex(for: rowView) else {
+            return false
+        }
+        return self.selectableRow(at: rowIndex)?.allowsImmediateSelectionCapture == false
+    }
+
+    private func selectableRow(at targetIndex: Int) -> ContextMenuPageRowElement? {
+        var rowIndex = 0
+        for element in self.elements {
+            if case let .row(row) = element, row.isSelectable {
+                defer { rowIndex += 1 }
+                if rowIndex == targetIndex {
+                    return row
+                }
+            }
+        }
+        return nil
     }
 }

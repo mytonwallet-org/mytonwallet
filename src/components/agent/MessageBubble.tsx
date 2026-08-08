@@ -4,25 +4,33 @@ import React, { memo, useMemo, useRef } from '../../lib/teact/teact';
 import type { AgentMessage, IAnchorPosition } from '../../global/types';
 import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from '../ui/Dropdown';
+import type { TextRevealPresentation } from './hooks/useAgentMessages';
 
 import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { processDeeplink } from '../../util/deeplink';
-import renderMarkdown from '../../util/renderMarkdown';
+import { SELF_PROTOCOL } from '../../util/deeplink/constants';
+import { parseMarkdownActions } from '../../util/renderMarkdown';
 
 import useContextMenuHandlers from '../../hooks/useContextMenuHandlers';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import DropdownMenu from '../ui/DropdownMenu';
-import LoadingDots from '../ui/LoadingDots';
 import MenuBackdrop from '../ui/MenuBackdrop';
+import IncomingMessage from './IncomingMessage';
 
 import styles from './MessageBubble.module.scss';
 
 interface OwnProps {
   message: AgentMessage;
+  shouldAnimateTextStreaming?: boolean;
+  textRevealPresentation?: TextRevealPresentation;
   onEdit?: (id: number, text: string) => void;
+  onTextRevealSessionConsumed?: (messageId: number, key: string) => void;
+  onTextRevealSessionSettled?: (messageId: number, key: string) => void;
+  onTextRevealProgress?: NoneToVoidFunction;
+  onTextRevealComplete?: NoneToVoidFunction;
 }
 
 type ContextMenuHandler = 'copy' | 'edit';
@@ -39,14 +47,28 @@ const OUTGOING_MENU_ITEMS: DropdownItem<ContextMenuHandler>[] = [
 const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
 export const MESSAGE_LIST_ITEM_SELECTOR = `.${styles.message}`;
 
-function MessageBubble({ message, onEdit }: OwnProps) {
+function MessageBubble({
+  message,
+  shouldAnimateTextStreaming = false,
+  textRevealPresentation,
+  onEdit,
+  onTextRevealSessionConsumed,
+  onTextRevealSessionSettled,
+  onTextRevealProgress,
+  onTextRevealComplete,
+}: OwnProps) {
   const {
-    id, text, isOutgoing, isTyping,
+    id, text, isOutgoing, isTyping, isStreaming,
   } = message;
   const { isPortrait } = useDeviceScreen();
   const ref = useRef<HTMLDivElement>();
   const menuRef = useRef<HTMLDivElement>();
-  const { html, buttons } = useMemo(() => renderMarkdown(text), [text]);
+  const { buttons, renderableText } = useMemo(() => parseMarkdownActions(text, {
+    shouldBufferIncompleteAction: Boolean(isStreaming),
+  }), [isStreaming, text]);
+  const hasBufferedAction = Boolean(isStreaming && renderableText !== text && buttons.length === 0);
+  const hasRenderableText = Boolean(renderableText.trim());
+  const visibleIncomingText = hasRenderableText || (!buttons.length && !hasBufferedAction) ? renderableText : '👇';
 
   const {
     isContextMenuOpen,
@@ -77,7 +99,7 @@ function MessageBubble({ message, onEdit }: OwnProps) {
   });
 
   const handleDeeplinkButtonClick = useLastCallback((url: string) => {
-    if (url.startsWith('mtw://')) {
+    if (url.startsWith(SELF_PROTOCOL)) {
       void processDeeplink(url);
     }
   });
@@ -108,44 +130,44 @@ function MessageBubble({ message, onEdit }: OwnProps) {
       {isPortrait && (
         <MenuBackdrop isMenuOpen={isContextMenuOpen} contentRef={ref} />
       )}
-      <div
-        ref={ref as ElementRef<HTMLDivElement>}
-        onMouseDown={handleBeforeContextMenu}
-        onContextMenu={handleContextMenu}
-        className={isOutgoing ? buildClassName(styles.bubble, styles.outgoing) : styles.wrapper}
-      >
-        {isOutgoing ? text : (
-          <>
-            <div
-              className={buildClassName(styles.bubble, styles.incoming, buttons.length > 0 && styles.hasButtons)}
-            >
-              {isTyping ? (
-                <LoadingDots className={styles.loadingDots} isActive />
-              ) : (
-
-                <span dangerouslySetInnerHTML={{ __html: html || (buttons.length > 0 ? '👇' : '') }} />
-              )}
-            </div>
-            {buttons.length > 0 && (
-              <div className={styles.buttons}>
-                {buttons.map((btn) => (
-                  <button
-                    key={btn.url}
-                    type="button"
-                    className={styles.actionButton}
-                    onClick={() => handleDeeplinkButtonClick(btn.url)}
-                  >
-                    {btn.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      {isOutgoing ? (
+        <div
+          ref={ref as ElementRef<HTMLDivElement>}
+          onMouseDown={handleBeforeContextMenu}
+          onContextMenu={handleContextMenu}
+          className={buildClassName(styles.bubble, styles.outgoing)}
+        >
+          {text}
+        </div>
+      ) : (
+        <IncomingMessage
+          key={getIncomingMessageKey(textRevealPresentation)}
+          messageId={id}
+          text={visibleIncomingText}
+          isTyping={isTyping}
+          isStreaming={isStreaming}
+          shouldAnimateTextStreaming={shouldAnimateTextStreaming}
+          textRevealPresentation={textRevealPresentation}
+          buttons={buttons}
+          contentRef={ref}
+          onMouseDown={handleBeforeContextMenu}
+          onContextMenu={handleContextMenu}
+          onActionClick={handleDeeplinkButtonClick}
+          onTextRevealSessionConsumed={onTextRevealSessionConsumed}
+          onTextRevealSessionSettled={onTextRevealSessionSettled}
+          onTextRevealProgress={onTextRevealProgress}
+          onTextRevealComplete={onTextRevealComplete}
+        />
+      )}
       {renderContextMenu(contextMenuAnchor)}
     </div>
   );
+}
+
+function getIncomingMessageKey(presentation?: TextRevealPresentation) {
+  if (!presentation) return 'static';
+  if (presentation.status === 'error') return `${presentation.key}:error`;
+  return presentation.key;
 }
 
 export default memo(MessageBubble);

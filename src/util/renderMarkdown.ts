@@ -1,3 +1,5 @@
+import { SELF_PROTOCOL } from './deeplink/constants';
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -11,21 +13,51 @@ export interface ActionButton {
   url: string;
 }
 
-export default function renderMarkdown(text: string): { html: string; buttons: ActionButton[] } {
+interface RenderMarkdownOptions {
+  shouldBufferIncompleteAction?: boolean;
+}
+
+interface ParsedMarkdownActions {
+  buttons: ActionButton[];
+  renderableText: string;
+}
+
+interface RenderedMarkdown extends ParsedMarkdownActions {
+  html: string;
+}
+
+const ACTION_LINK_PATTERN = new RegExp(`\\[([^\\]]+)\\]\\((${SELF_PROTOCOL}[^)]+)\\)`, 'g');
+
+export function parseMarkdownActions(
+  text: string,
+  { shouldBufferIncompleteAction = false }: RenderMarkdownOptions = {},
+): ParsedMarkdownActions {
   const buttons: ActionButton[] = [];
 
-  // Extract mtw:// action links before escaping
-  let processed = text.replace(
-    /\[([^\]]+)\]\((mtw:\/\/[^)]+)\)/g,
+  // Extract action deeplinks before escaping
+  let renderableText = text.replace(
+    ACTION_LINK_PATTERN,
     (_match, label: string, url: string) => {
       buttons.push({ label, url });
       return '';
     },
   );
+  if (shouldBufferIncompleteAction) {
+    renderableText = removeIncompleteAction(renderableText);
+  }
+
+  return { buttons, renderableText };
+}
+
+export default function renderMarkdown(
+  text: string,
+  options: RenderMarkdownOptions = {},
+): RenderedMarkdown {
+  const { buttons, renderableText } = parseMarkdownActions(text, options);
 
   // Convert [label](https://...) to placeholder before escaping
   const links: { label: string; url: string }[] = [];
-  processed = processed.replace(
+  const processed = renderableText.replace(
     /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
     (_match, label: string, url: string) => {
       links.push({ label, url });
@@ -133,5 +165,30 @@ export default function renderMarkdown(text: string): { html: string; buttons: A
     })
     .join('');
 
-  return { html, buttons };
+  return { html, buttons, renderableText };
+}
+
+function removeIncompleteAction(text: string) {
+  const actionStartIndex = text.lastIndexOf('[');
+  if (actionStartIndex === -1) return text;
+
+  const possibleAction = text.slice(actionStartIndex);
+  if (!isIncompleteAction(possibleAction)) return text;
+
+  return text.slice(0, actionStartIndex);
+}
+
+function isIncompleteAction(text: string) {
+  const labelEndIndex = text.indexOf(']');
+  if (labelEndIndex === -1) return true;
+  if (labelEndIndex === 1) return false;
+
+  const link = text.slice(labelEndIndex + 1);
+  if (!link) return true;
+  if (!link.startsWith('(')) return false;
+
+  const url = link.slice(1);
+  if (url.includes(')')) return false;
+
+  return SELF_PROTOCOL.startsWith(url) || url.startsWith(SELF_PROTOCOL);
 }

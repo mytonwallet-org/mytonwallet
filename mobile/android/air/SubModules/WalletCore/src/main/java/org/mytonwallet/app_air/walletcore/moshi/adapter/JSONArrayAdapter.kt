@@ -9,7 +9,6 @@ import okio.Buffer
 import org.json.JSONArray
 import org.json.JSONException
 
-
 class JSONArrayAdapter : JsonAdapter<JSONArray>() {
     @FromJson
     override fun fromJson(reader: JsonReader): JSONArray? {

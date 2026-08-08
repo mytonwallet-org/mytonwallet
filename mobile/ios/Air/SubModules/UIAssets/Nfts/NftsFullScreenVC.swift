@@ -39,8 +39,8 @@ public class NftsFullScreenVC: WViewController {
         view.addSubview(nftsVC.view)
         NSLayoutConstraint.activate([
             nftsVC.view.topAnchor.constraint(equalTo: view.topAnchor),
-            nftsVC.view.leftAnchor.constraint(equalTo: view.leftAnchor),
-            nftsVC.view.rightAnchor.constraint(equalTo: view.rightAnchor),
+            nftsVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nftsVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             nftsVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         

@@ -11,13 +11,15 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.core.view.doOnPreDraw
+import androidx.core.view.isVisible
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
-import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
@@ -34,8 +36,6 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.WcPayAmount
 import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
-import java.math.BigInteger
-import androidx.core.view.isVisible
 
 @SuppressLint("ViewConstructor")
 class WalletConnectPayPaymentStatusVC(
@@ -43,8 +43,9 @@ class WalletConnectPayPaymentStatusVC(
     private var merchant: WcPayMerchant,
     processing: Boolean,
     private var paymentAmount: WcPayAmount? = null,
-    private var token: MToken? = null,
+    private var token: MToken? = null
 ) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "WalletConnectPayPaymentStatus"
 
     override val isBackAllowed: Boolean = false
@@ -156,7 +157,7 @@ class WalletConnectPayPaymentStatusVC(
     override fun setupViews() {
         super.setupViews()
 
-        title = LocaleController.getString(if (isProcessing) "Processing Payment" else "Paid!")
+        title = LocaleController.getString(if (isProcessing) "Processing Payment" else "Paid")
         subtitle =
             if (isProcessing) LocaleController.getString("It may take a few seconds") else null
         setupNavBar(true)
@@ -312,7 +313,7 @@ class WalletConnectPayPaymentStatusVC(
         complete.paymentAmount?.let { paymentAmount = it }
         subtitleLabel.text = complete.merchant.name
         subtitleIconView.set(Content.ofUrl(complete.merchant.iconUrl ?: ""))
-        setNavTitle(LocaleController.getString("Paid!"))
+        setNavTitle(LocaleController.getString("Paid"))
         subtitle = null
         navigationBar?.setSubtitle(null, animated = true)
         transitionToDone()
@@ -345,9 +346,7 @@ class WalletConnectPayPaymentStatusVC(
     }
 
     override val isExpandable = false
-    override fun getModalHalfExpandedHeight(): Int {
-        return measureContentHeight()
-    }
+    override fun getModalHalfExpandedHeight(): Int = measureContentHeight()
 
     private fun payAmountConfig(amount: WcPayAmount): WBalanceView.AnimateConfig? {
         val value = runCatching { BigInteger(amount.value) }.getOrNull() ?: return null
@@ -369,7 +368,7 @@ class WalletConnectPayPaymentStatusVC(
         amountLabel.updateColors(
             primaryColor = WColor.PrimaryText.color,
             secondaryColor = WColor.PrimaryText.color,
-            drawGradient = false,
+            drawGradient = false
         )
         subtitlePrefixLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)

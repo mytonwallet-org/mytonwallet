@@ -39,6 +39,8 @@ public class WSuggestionsView: UIInputView {
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
+        semanticContentAttribute = .forceLeftToRight
+        collectionView.semanticContentAttribute = .forceLeftToRight
 
         collectionView.delegate = self
         collectionView.dataSource = self
@@ -47,8 +49,8 @@ public class WSuggestionsView: UIInputView {
         heightConstraint = heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
             heightConstraint,
-            collectionView.leftAnchor.constraint(equalTo: leftAnchor),
-            collectionView.rightAnchor.constraint(equalTo: rightAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: bottomAnchor),
             collectionView.heightAnchor.constraint(equalToConstant: WSuggestionsView.defaultHeight),
         ])
@@ -93,7 +95,8 @@ extension WSuggestionsView: UICollectionViewDelegate, UICollectionViewDataSource
             return .zero
         }
         let text = suggestions[indexPath.row]
-        let width = text.size(withAttributes: [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 17)]).width + 32
+        let font = WTypography.uiFont(.body, content: .technical)
+        let width = text.size(withAttributes: [.font: font]).width + 32
         return CGSize(width: width, height: WSuggestionsView.defaultHeight)
     }
     
@@ -112,7 +115,7 @@ private class SuggestionCell: UICollectionViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.textAlignment = .center
-        label.font = UIFont.systemFont(ofSize: 17)
+        label.applyTextStyle(.body, content: .technical)
         return label
     }()
     

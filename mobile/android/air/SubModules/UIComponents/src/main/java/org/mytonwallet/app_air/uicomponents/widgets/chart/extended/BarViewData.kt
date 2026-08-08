@@ -3,10 +3,8 @@ package org.mytonwallet.app_air.uicomponents.widgets.chart.extended
 import android.graphics.Paint
 import androidx.core.graphics.ColorUtils
 
-class BarViewData(
-    line: ChartData.Line,
-    private val style: ChartStyle,
-) : LineViewData(line, false, style) {
+class BarViewData(line: ChartData.Line, private val style: ChartStyle) :
+    LineViewData(line, false, style) {
     val unselectedPaint = Paint()
 
     var blendColor: Int = 0

@@ -1,3 +1,4 @@
+import type { HiddenNftsSection } from '../../../global/types';
 import { MediaType } from '../../../global/types';
 
 import { ANIMATION_END_DELAY, MOBILE_SCREEN_MAX_WIDTH } from '../../../config';
@@ -16,7 +17,7 @@ export const ANIMATION_DURATION = 200;
 const OCCUPIED_HEIGHT = 14 * REM;
 
 export function animateOpening(
-  type: MediaType, mediaId: string, mediaUrl?: string, txId?: string, hiddenNfts?: 'user' | 'scam',
+  type: MediaType, mediaId: string, mediaUrl?: string, txId?: string, hiddenNfts?: HiddenNftsSection,
 ) {
   const { image: fromImage } = getNode(type, mediaId, txId, hiddenNfts);
   if (!fromImage || !mediaUrl) {
@@ -81,7 +82,7 @@ export function animateOpening(
   });
 }
 
-export function animateClosing(type: MediaType, mediaId: string, txId?: string, hiddenNfts?: 'user' | 'scam') {
+export function animateClosing(type: MediaType, mediaId: string, txId?: string, hiddenNfts?: HiddenNftsSection) {
   const { container, image: toImage } = getNode(type, mediaId, txId, hiddenNfts);
   const fromImage = document.querySelector<HTMLImageElement>(
     `.${styles.slide_active} img, .${styles.slide_active} canvas`,
@@ -169,7 +170,7 @@ export function animateClosing(type: MediaType, mediaId: string, txId?: string, 
   });
 }
 
-function getNode(type: MediaType, mediaId: string, txId?: string, hiddenNfts?: 'user' | 'scam') {
+function getNode(type: MediaType, mediaId: string, txId?: string, hiddenNfts?: HiddenNftsSection) {
   let image: HTMLImageElement | HTMLCanvasElement | undefined;
   let container: HTMLElement | undefined;
   if (type === MediaType.Nft) {

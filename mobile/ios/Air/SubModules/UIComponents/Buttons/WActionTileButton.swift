@@ -16,7 +16,7 @@ public final class WActionTileButton: UIControl {
 
     public let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 12)
+        label.applyTextStyle(.caption)
         label.textColor = .label
         label.allowsDefaultTighteningForTruncation = true
         label.translatesAutoresizingMaskIntoConstraints = false

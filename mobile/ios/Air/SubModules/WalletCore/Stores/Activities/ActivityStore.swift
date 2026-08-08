@@ -9,6 +9,7 @@ private let log = Log("ActivityStore")
 private let TX_AGE_TO_PLAY_SOUND = 60.0 // 1 min
 private let CEX_SWAP_REFRESH_INTERVAL = 3.0
 private let CEX_SWAP_REFRESH_INTERVAL_NOT_FOCUSED = 15.0
+private let CEX_SWAP_REFRESH_CONTEXT_LIMIT = 250
 
 public let ActivityStore = _ActivityStore.shared
 
@@ -70,6 +71,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     private var accountIdsObserver: Task<Void, Never>?
     private var pendingCexSwapRefreshTask: Task<Void, Never>?
     private var isAppFocused: Bool = true
+    private var queuedEvents: [WalletCoreData.Event] = []
+    private var isProcessingEvents = false
     
     private var notifiedIds: Set<String> = []
     
@@ -85,8 +88,20 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     
     nonisolated public func walletCore(event: WalletCoreData.Event) {
         Task {
+            await enqueueEvent(event)
+        }
+    }
+
+    private func enqueueEvent(_ event: WalletCoreData.Event) async {
+        queuedEvents.append(event)
+        guard !isProcessingEvents else { return }
+
+        isProcessingEvents = true
+        while !queuedEvents.isEmpty {
+            let event = queuedEvents.removeFirst()
             await handleEvent(event)
         }
+        isProcessingEvents = false
     }
     
     private func handleEvent(_ event: WalletCoreData.Event) async {
@@ -94,9 +109,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         case .initialActivities(let update):
             handleInitialActivities(update: update)
         case .newActivities(let update):
-            handleNewActivities(update: update)
+            await handleNewActivities(update: update)
         case .newLocalActivity(let update):
-            handleNewLocalActivities(update: update)
+            await handleNewLocalActivities(update: update)
         case .accountChanged:
             await refreshPendingCexSwapsForCurrentAccount()
             updatePendingCexSwapRefreshTask()
@@ -120,74 +135,120 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         if let chain = update.chain {
             setIsInitialActivitiesLoadedTrue(accountId: update.accountId, chain: chain);
         }
-        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: update.accountId)
-        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: hiddenCexTransactionIds, replacedIds: [:]))
         updatePendingCexSwapRefreshTask()
         log.info("handleInitialActivities \(update.accountId, .public) [done] mainIds=\(update.mainActivities.count)")
     }
     
-    private func handleNewActivities(update: ApiUpdate.NewActivities) {
+    private func handleNewActivities(update: ApiUpdate.NewActivities) async {
         log.info("handleNewActivities \(update.accountId, .public) sinceForeground=\(timeSinceLastApplicationWillEnterForeground) mainIds=\(getAccountState(update.accountId).idsMain?.count ?? -1) inUpdate=\(update.activities.count)")
         
         let accountId = update.accountId
-        let newConfirmedActivities = update.activities
-        let pendingActivities = filterPendingActivities(accountId: accountId, pendingActivities: update.pendingActivities)
-        let allNewActivities = (pendingActivities ?? []) + newConfirmedActivities
+        let pendingActivities = update.pendingActivities
         
         var prevActivities = selectLocalActivitiesSlow(accountId: accountId) ?? []
         if let chain = update.chain {
             prevActivities += selectPendingActivitiesSlow(accountId: accountId, chain: chain) ?? []
         }
         
-        let replacedIds = getActivityIdReplacements(
-            prevActivities: prevActivities,
-            nextActivities: allNewActivities
-        )
-        let adjustedPendingActivities = adjustPendingActivitiesWithTrustedStatus(
+        let reconciliation = await reconcileActivityUpdateOnSdk(
+            accountId: accountId,
+            previousActivities: prevActivities,
+            confirmedActivities: update.activities,
             pendingActivities: pendingActivities,
-            replacedIds: replacedIds,
-            prevActivities: prevActivities
+            contextActivities: selectCexSwapRefreshContextActivities(
+                accountId: accountId,
+                pendingCexSwaps: pendingCexSwapActivities(accountId: accountId),
+                priorityActivities: update.activities
+            )
         )
-        
-        // A good TON address for testing: UQD5mxRgCuRNLxKxeOjG6r14iSroLF5FtomPnet-sgP5xI-e
-        removeActivities(accountId: accountId, deleteIds: Array(replacedIds.keys))
-        if let chain = update.chain,  let pendingActivities = adjustedPendingActivities {
-            if let oldIds = getAccountState(accountId).pendingActivityIds?[chain.rawValue] {
+
+        // Reconciliation identity is SDK-owned. If the bridge is unavailable, apply the raw update without inferring
+        // replacements or hiding/removing activities in native code.
+        let replacedIds = reconciliation?.patch.replacedIds ?? [:]
+        let adjustedPendingActivities = reconciliation?.pendingActivities ?? pendingActivities
+        let newConfirmedActivities = reconciliation?.confirmedActivities ?? update.activities
+
+        var updatedIds: [String]
+        if let patch = reconciliation?.patch {
+            updatedIds = []
+            if let chain = update.chain, let oldIds = getAccountState(accountId).pendingActivityIds?[chain.rawValue] {
                 removeActivities(accountId: accountId, deleteIds: oldIds)
+                updatedIds.append(contentsOf: oldIds)
             }
-            addNewActivities(accountId: accountId, newActivities: pendingActivities, chain: chain)
+            updatedIds.append(contentsOf: applyActivitiesPatch(accountId: accountId, patch: patch, visibleChain: update.chain))
+        } else {
+            if let chain = update.chain,  let pendingActivities = adjustedPendingActivities {
+                if let oldIds = getAccountState(accountId).pendingActivityIds?[chain.rawValue] {
+                    removeActivities(accountId: accountId, deleteIds: oldIds)
+                }
+                addNewActivities(accountId: accountId, newActivities: pendingActivities, chain: chain)
+            }
+            addNewActivities(accountId: accountId, newActivities: newConfirmedActivities, chain: nil)
+            updatedIds = unique((adjustedPendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id))
         }
-        
-        addNewActivities(accountId: accountId, newActivities: newConfirmedActivities, chain: nil)
-        updatePoisoningCache(accountId: accountId, activities: newConfirmedActivities)
-        applyMtwCardsFromActivities(accountId: accountId, activities: newConfirmedActivities)
+
+        let visibleUpserts = (reconciliation?.patch.upsert ?? ((adjustedPendingActivities ?? []) + newConfirmedActivities)).filter {
+            $0.shouldHide != true
+        }
+        updatePoisoningCache(accountId: accountId, activities: visibleUpserts)
+        applyMtwCardsFromActivities(accountId: accountId, activities: visibleUpserts)
         
         if let chain = update.chain {
             setIsInitialActivitiesLoadedTrue(accountId: accountId, chain: chain);
         }
-        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: accountId)
-        let hiddenCexTransactionIdSet = Set(hiddenCexTransactionIds)
-        let notificationActivities = allNewActivities.filter {
-            $0.shouldHide != true
-                && !hiddenCexTransactionIdSet.contains($0.id)
-                && !shouldHideBecauseOfNft(accountId: accountId, activity: $0)
-        }
-        notifyAboutNewActivities(accountId: accountId, newActivities: notificationActivities)
-        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: unique((adjustedPendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id) + hiddenCexTransactionIds), replacedIds: replacedIds))
+        notifyAboutNewActivities(accountId: accountId, newActivities: visibleUpserts)
+        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: unique(updatedIds), replacedIds: replacedIds))
         updatePendingCexSwapRefreshTask()
         log.info("handleNewActivities \(accountId, .public) [done] mainIds=\(getAccountState(accountId).idsMain?.count ?? -1) inUpdate=\(update.activities.count)")
     }
     
-    private func handleNewLocalActivities(update: ApiUpdate.NewLocalActivities) {
+    private func handleNewLocalActivities(update: ApiUpdate.NewLocalActivities) async {
         log.info("newLocalActivity \(update.accountId, .public)")
-        let activities = hideOutdatedLocalActivities(accountId: update.accountId, localActivities: update.activities)
-        let maxDepth = activities.count + 20
+        let maxDepth = update.activities.count + 20
         let chainActivities = selectRecentNonLocalActivitiesSlow(accountId: update.accountId, count: maxDepth) ?? []
-        let replacedIds = getActivityIdReplacements(prevActivities: activities, nextActivities: chainActivities)
-        let updatedPendingIds = updatePendingActivitiesToTrustedByReplacements(accountId: update.accountId, localActivities: activities, replacedIds: replacedIds)
-        addNewActivities(accountId: update.accountId, newActivities: activities, chain: nil)
-        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: update.accountId)
-        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: unique(activities.map(\.id) + updatedPendingIds + hiddenCexTransactionIds), replacedIds: [:]))
+        let reconciliation = await reconcileActivityUpdateOnSdk(
+            accountId: update.accountId,
+            previousActivities: update.activities,
+            confirmedActivities: chainActivities,
+            pendingActivities: nil
+        )
+        // Fail closed when SDK reconciliation is unavailable: keep local and chain rows separate until a later patch.
+        let replacedIds = reconciliation?.patch.replacedIds ?? [:]
+        var updatedIds = update.activities.map(\.id)
+        addNewActivities(accountId: update.accountId, newActivities: update.activities, chain: nil)
+        if let patch = reconciliation?.patch {
+            updatedIds.append(contentsOf: applyActivitiesPatch(
+                accountId: update.accountId,
+                patch: patch,
+                visibleChain: nil
+            ))
+        }
+        WalletCoreData.notify(event: .activitiesChanged(
+            accountId: update.accountId,
+            updatedIds: unique(updatedIds),
+            replacedIds: replacedIds
+        ))
+    }
+
+    private func reconcileActivityUpdateOnSdk(
+        accountId: String,
+        previousActivities: [ApiActivity],
+        confirmedActivities: [ApiActivity],
+        pendingActivities: [ApiActivity]?,
+        contextActivities: [ApiActivity]? = nil
+    ) async -> ApiReconcileActivityUpdateResult? {
+        do {
+            return try await Api.reconcileActivityUpdate(
+                accountId: accountId,
+                previousActivities: previousActivities,
+                confirmedActivities: confirmedActivities,
+                pendingActivities: pendingActivities,
+                contextActivities: contextActivities
+            )
+        } catch {
+            log.error("reconcileActivityUpdate failed accountId=\(accountId, .public) error=\(error, .public)")
+            return nil
+        }
     }
 
     // MARK: - Fetch methods
@@ -210,6 +271,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             updatePoisoningCache(accountId: accountId, activities: activities)
             let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
             let filteredResult = activities.filter {
+                if $0.shouldHide == true { return false }
                 guard case .transaction(let transaction) = $0 else { return true }
                 if shouldHideBecauseOfNft(accountId: accountId, transaction: transaction) {
                     return false
@@ -237,6 +299,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             if upsertActivity(activity, in: &byId) {
                 newIds.append(activity.id)
             }
+
         }
         
         var idsMain = Array(OrderedSet(
@@ -251,9 +314,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.idsMain = idsMain
         }
         
-        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: accountId)
         log.info("[inf] got new ids: \(newIds.count)")
-        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: hiddenCexTransactionIds, replacedIds: [:]))
         updatePendingCexSwapRefreshTask()
         
         if shouldLoadWithBudget {
@@ -285,6 +346,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             updatePoisoningCache(accountId: accountId, activities: activities)
             let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
             let filteredResult = activities.filter {
+                if $0.shouldHide == true { return false }
                 guard case .transaction(let transaction) = $0 else { return true }
                 if shouldHideBecauseOfNft(accountId: accountId, transaction: transaction) {
                     return false
@@ -312,6 +374,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             if upsertActivity(activity, in: &byId) {
                 newIds.append(activity.id)
             }
+
         }
         
         tokenIds = mergeSortedActivityIds(newIds, accountState.idsBySlug?[token.slug] ?? [], byId: byId)
@@ -323,9 +386,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.idsBySlug = idsBySlug
         }
         
-        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: accountId)
         log.info("[inf] got new ids \(token.slug): \(newIds.count)")
-        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: hiddenCexTransactionIds, replacedIds: [:]))
         updatePendingCexSwapRefreshTask()
         
         if shouldLoadWithBudget {
@@ -364,10 +425,11 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
 
     private func upsertActivity(_ activity: ApiActivity, in byId: inout [String: ApiActivity]) -> Bool {
-        if shouldSkipCallContractReplacement(existingActivity: byId[activity.id], newActivity: activity) {
+        let existingActivity = byId[activity.id]
+        if shouldSkipCallContractReplacement(existingActivity: existingActivity, newActivity: activity) {
             return false
         }
-        byId[activity.id] = activity
+        byId[activity.id] = preserveActivityStatusProgress(existingActivity: existingActivity, incomingActivity: activity)
         return true
     }
     
@@ -531,7 +593,6 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let currentState = getAccountState(accountId)
         
         var byId = currentState.byId ?? [:]
-        var newIds: [String] = []
         var storedNewActivities: [ApiActivity] = []
         for activity in newActivities {
             if let existingActivity = byId[activity.id],
@@ -540,44 +601,59 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
                 log.error("activity status regression id=\(activity.id, .public) oldStatus=\(activityStatusString(existingActivity), .public) newStatus=\(activityStatusString(activity), .public) oldHash=\(activityHash(existingActivity), .public) newHash=\(activityHash(activity), .public)")
             }
             if upsertActivity(activity, in: &byId) {
-                newIds.append(activity.id)
                 storedNewActivities.append(activity)
             }
+
         }
         
+        withAccountState(accountId) { state in
+            state.byId = byId
+            indexStoredActivities(storedNewActivities, chain: chain, in: &state)
+        }
+    }
+
+    /** Updates presentation indexes for activities that are already stored exactly in byId. */
+    private func indexStoredActivities(_ activities: [ApiActivity], chain: ApiChain?, in state: inout AccountState) {
+        if activities.isEmpty {
+            return
+        }
+
+        let byId = state.byId ?? [:]
+        let newIds = activities.map(\.id)
+
         // Activities from different blockchains arrive separately, which causes the order to be disrupted
-        let idsMain = mergeSortedActivityIds(newIds, currentState.idsMain ?? [], byId: byId)
-        
-        var idsBySlug = currentState.idsBySlug ?? [:]
-        let newIdsBySlug = buildActivityIdsBySlug(storedNewActivities)
+        let idsMain = mergeSortedActivityIds(newIds, state.idsMain ?? [], byId: byId)
+
+        var idsBySlug = state.idsBySlug ?? [:]
+        let newIdsBySlug = buildActivityIdsBySlug(activities)
         for (slug, newIds) in newIdsBySlug {
-            let mergedIds = mergeSortedActivityIds(newIds, currentState.idsBySlug?[slug] ?? [], byId: byId)
-            idsBySlug[slug] = mergedIds
+            idsBySlug[slug] = mergeSortedActivityIds(newIds, state.idsBySlug?[slug] ?? [], byId: byId)
         }
-        
-        let newestActivitiesBySlug = _getNewestActivitiesBySlug(byId: byId, idsBySlug: idsBySlug, newestActivitiesBySlug: currentState.newestActivitiesBySlug, tokenSlugs: newIdsBySlug.keys)
-        
-        let oldLocalIds = currentState.localActivityIds ?? []
-        let newLocalIds = storedNewActivities.filter { getIsIdLocal($0.id) }.map(\.id)
+
+        let newestActivitiesBySlug = _getNewestActivitiesBySlug(
+            byId: byId,
+            idsBySlug: idsBySlug,
+            newestActivitiesBySlug: state.newestActivitiesBySlug,
+            tokenSlugs: newIdsBySlug.keys
+        )
+
+        let oldLocalIds = state.localActivityIds ?? []
+        let newLocalIds = activities.filter { getIsIdLocal($0.id) }.map(\.id)
         let localActivityIds = Array(Set(oldLocalIds + newLocalIds))
-        
-        var pendingIds: [String: [String]] = currentState.pendingActivityIds ?? [:]
+
+        var pendingIds: [String: [String]] = state.pendingActivityIds ?? [:]
         if let chain {
-            let oldPendingIds = currentState.pendingActivityIds?[chain.rawValue] ?? []
-            let newPendingIds = storedNewActivities.filter { getIsActivityPending($0) && !getIsIdLocal($0.id) }.map(\.id)
-            let pendingIdsForChain = Array(Set(oldPendingIds + newPendingIds))
-            pendingIds[chain.rawValue] = pendingIdsForChain
+            let oldPendingIds = state.pendingActivityIds?[chain.rawValue] ?? []
+            let newPendingIds = activities.filter { getIsActivityPending($0) && !getIsIdLocal($0.id) }.map(\.id)
+            pendingIds[chain.rawValue] = Array(Set(oldPendingIds + newPendingIds))
         }
-        
-        withAccountState(accountId) {
-            $0.byId = byId
-            $0.idsMain = idsMain
-            $0.idsBySlug = idsBySlug
-            $0.newestActivitiesBySlug = newestActivitiesBySlug
-            $0.localActivityIds = localActivityIds
-            if chain != nil {
-                $0.pendingActivityIds = pendingIds
-            }
+
+        state.idsMain = idsMain
+        state.idsBySlug = idsBySlug
+        state.newestActivitiesBySlug = newestActivitiesBySlug
+        state.localActivityIds = localActivityIds
+        if chain != nil {
+            state.pendingActivityIds = pendingIds
         }
     }
     
@@ -668,23 +744,82 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
 
     private func refreshPendingCexSwaps(accountId: String) async {
-        let items = pendingCexSwapItems(accountId: accountId)
+        let pendingCexSwaps = pendingCexSwapActivities(accountId: accountId)
+        let items = unique(pendingCexSwaps.map { $0.parsedTxId.hash })
+            .map { ApiFetchSwapItem(id: $0, chain: .ton) }
         guard !items.isEmpty else {
             return
         }
 
         do {
-            let result = try await Api.fetchSwaps(accountId: accountId, items: items)
-            let updatedIds = unique(
-                applyFetchedCexSwaps(accountId: accountId, result: result)
-                + hideTransactionsIncludedInCexSwaps(accountId: accountId)
+            let existingActivities = selectCexSwapRefreshContextActivities(
+                accountId: accountId,
+                pendingCexSwaps: pendingCexSwaps
             )
+            let result = try await Api.fetchSwaps(accountId: accountId, items: items, existingActivities: existingActivities)
+            let updatedIds = unique(applyFetchedCexSwaps(accountId: accountId, result: result))
             if !updatedIds.isEmpty {
                 WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: updatedIds, replacedIds: [:]))
             }
         } catch {
             log.error("refreshPendingCexSwaps: \(error, .public)")
         }
+    }
+
+    private func selectCexSwapRefreshContextActivities(
+        accountId: String,
+        pendingCexSwaps: [ApiActivity],
+        priorityActivities: [ApiActivity] = []
+    ) -> [ApiActivity] {
+        let state = getAccountState(accountId)
+        var byId = state.byId ?? [:]
+
+        var ids = OrderedSet<String>()
+        func append(_ activity: ApiActivity?) {
+            guard let activity, ids.count < CEX_SWAP_REFRESH_CONTEXT_LIMIT else {
+                return
+            }
+            byId[activity.id] = activity
+            ids.append(activity.id)
+        }
+        func appendId(_ id: String) {
+            append(byId[id])
+        }
+
+        // Keep active CEX/local/pending state ahead of an incoming bulk slice; it drives the SDK's forced refresh and
+        // identity-only projection. CEX-owned source rows are selected from byId rather than presentation indexes so a
+        // hidden source can be unhidden by a later SDK patch. Main/token-history rows provide older context afterwards.
+        for activity in pendingCexSwaps {
+            append(activity)
+        }
+        for activity in byId.values where activity.extra?.reconciliation?.reason == "cex-swap" {
+            append(activity)
+        }
+        for id in state.localActivityIds ?? [] {
+            appendId(id)
+        }
+        if let pendingActivityIds = state.pendingActivityIds {
+            for pendingIds in pendingActivityIds.values {
+                for id in pendingIds {
+                    appendId(id)
+                }
+            }
+        }
+        for activity in priorityActivities {
+            append(activity)
+        }
+        for id in state.idsMain ?? [] {
+            appendId(id)
+        }
+        if let idsBySlug = state.idsBySlug {
+            for tokenIds in idsBySlug.values {
+                for id in tokenIds {
+                    appendId(id)
+                }
+            }
+        }
+
+        return ids.compactMap { byId[$0] }
     }
 
     private func hasCurrentAccountPendingCexSwaps() -> Bool {
@@ -695,197 +830,133 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
 
     private func pendingCexSwapIds(accountId: String) -> [String] {
-        pendingCexSwapItems(accountId: accountId).map(\.id)
+        unique(pendingCexSwapActivities(accountId: accountId).map { $0.parsedTxId.hash })
     }
 
-    private func pendingCexSwapItems(accountId: String) -> [ApiFetchSwapItem] {
+    private func pendingCexSwapActivities(accountId: String) -> [ApiActivity] {
         let byId = getAccountState(accountId).byId ?? [:]
-        return unique(byId.values.compactMap { activity in
+        return byId.values.filter { activity in
             guard case .swap(let swap) = activity,
                   swap.cex != nil,
                   getIsActivityPendingForUser(activity)
             else {
-                return nil
+                return false
             }
-            return ApiFetchSwapItem(id: activity.parsedTxId.hash, chain: .ton)
-        })
+            return true
+        }
     }
 
     private func applyFetchedCexSwaps(accountId: String, result: ApiFetchSwapsResult) -> [String] {
-        var updatedIds: [String] = []
-        var byId = getAccountState(accountId).byId ?? [:]
-
-        for var swap in result.swaps {
-            if swap.isCanceled == true {
-                swap.shouldHide = true
-            }
-
-            let activity = ApiActivity.swap(swap)
-            if byId[swap.id] != activity {
-                byId[swap.id] = activity
-                updatedIds.append(swap.id)
-            }
-        }
-
-        for id in result.nonExistentIds {
-            let existingId = byId[id] != nil
-                ? id
-                : byId.first { _, activity in
-                    activity.swap?.cex != nil && activity.parsedTxId.hash == id
-                }?.key
-
-            guard let existingId,
-                  let existingActivity = byId[existingId],
-                  case .swap(var swap) = existingActivity
-            else {
-                continue
-            }
-
-            swap.status = .expired
-            swap.shouldHide = true
-
-            let activity = ApiActivity.swap(swap)
-            if byId[existingId] != activity {
-                byId[existingId] = activity
-                updatedIds.append(existingId)
-            }
-        }
-
-        guard !updatedIds.isEmpty else {
+        guard let patch = result.patch else {
+            log.error("fetchSwaps returned no SDK reconciliation patch")
             return []
         }
 
-        withAccountState(accountId) { state in
-            state.byId = byId
+        return applyActivitiesPatch(accountId: accountId, patch: patch, visibleChain: nil)
+    }
+
+    @discardableResult
+    private func applyActivitiesPatch(accountId: String, patch: ApiActivitiesPatch, visibleChain: ApiChain?) -> [String] {
+        var updatedIds: [String] = []
+        let hiddenUpsertIds = patch.upsert.filter { $0.shouldHide == true }.map(\.id)
+
+        if !hiddenUpsertIds.isEmpty {
+            updatedIds.append(contentsOf: removeActivityIdsFromIndexes(
+                accountId: accountId,
+                activityIds: hiddenUpsertIds
+            ))
+        }
+
+        if !patch.removeIds.isEmpty {
+            removeActivities(accountId: accountId, deleteIds: patch.removeIds)
+            updatedIds.append(contentsOf: patch.removeIds)
+        }
+
+        let visibleUpserts = patch.upsert.filter { $0.shouldHide != true }
+        if !patch.upsert.isEmpty {
+            withAccountState(accountId) { state in
+                var byId = state.byId ?? [:]
+                for activity in patch.upsert {
+                    // SDK patch upserts are authoritative. Status progression, reconciliation metadata merging and
+                    // callContract decisions have already happened before the patch was emitted.
+                    if byId[activity.id] != activity {
+                        updatedIds.append(activity.id)
+                    }
+                    byId[activity.id] = activity
+                }
+                state.byId = byId
+                indexStoredActivities(visibleUpserts, chain: visibleChain, in: &state)
+            }
+        }
+
+        if !visibleUpserts.isEmpty {
+            updatedIds.append(contentsOf: visibleUpserts.map(\.id))
         }
 
         return unique(updatedIds)
     }
 
-    private func hideTransactionsIncludedInCexSwaps(accountId: String) -> [String] {
-        var byId = getAccountState(accountId).byId ?? [:]
-        let cexSwapHashes = cexSwapTransactionHashes(activities: byId.values)
-        guard !cexSwapHashes.isEmpty else {
-            return []
-        }
+    /**
+     * Removes activities from presentation, local and pending indexes without deleting their stored `byId` rows.
+     * Hidden SDK upserts are restored verbatim in `byId` by `applyActivitiesPatch`.
+     */
+    @discardableResult
+    private func removeActivityIdsFromIndexes(accountId: String, activityIds: [String]) -> [String] {
+        let currentState = getAccountState(accountId)
+        let activityIds = Set(activityIds)
+        guard !activityIds.isEmpty else { return [] }
 
-        var updatedIds: [String] = []
-        for (id, activity) in byId {
-            guard case .transaction(var transaction) = activity,
-                  transaction.shouldHide != true,
-                  isActivityMatchedByHashes(activity, cexSwapHashes)
-            else {
-                continue
+        var indexedIds = Set(currentState.idsMain ?? [])
+        for ids in (currentState.idsBySlug ?? [:]).values {
+            indexedIds.formUnion(ids)
+        }
+        indexedIds.formUnion(currentState.localActivityIds ?? [])
+        for ids in (currentState.pendingActivityIds ?? [:]).values {
+            indexedIds.formUnion(ids)
+        }
+        let removedIndexedIds = activityIds.filter { indexedIds.contains($0) }
+        let affectedTokenSlugs = getActivityListTokenSlugs(
+            activityIds: activityIds,
+            byId: currentState.byId ?? [:]
+        )
+
+        var idsBySlug = currentState.idsBySlug ?? [:]
+        for tokenSlug in affectedTokenSlugs {
+            if let idsForSlug = idsBySlug[tokenSlug] {
+                idsBySlug[tokenSlug] = idsForSlug.filter { !activityIds.contains($0) }
             }
-
-            transaction.shouldHide = true
-            byId[id] = .transaction(transaction)
-            updatedIds.append(id)
         }
 
-        guard !updatedIds.isEmpty else {
-            return []
-        }
+        let newestActivitiesBySlug = _getNewestActivitiesBySlug(
+            byId: currentState.byId ?? [:],
+            idsBySlug: idsBySlug,
+            newestActivitiesBySlug: currentState.newestActivitiesBySlug,
+            tokenSlugs: affectedTokenSlugs
+        )
 
-        withAccountState(accountId) { state in
-            state.byId = byId
-        }
-
-        return unique(updatedIds)
-    }
-
-    private func cexSwapTransactionHashes(activities: some Collection<ApiActivity>) -> Set<String> {
-        var hashes = Set<String>()
-        for activity in activities {
-            guard case .swap(let swap) = activity,
-                  swap.cex != nil,
-                  let swapHashes = swap.hashes
-            else {
-                continue
+        withAccountState(accountId) {
+            $0.idsMain = currentState.idsMain?.filter { !activityIds.contains($0) }
+            $0.idsBySlug = idsBySlug
+            $0.newestActivitiesBySlug = newestActivitiesBySlug
+            $0.localActivityIds = currentState.localActivityIds?.filter { !activityIds.contains($0) }
+            $0.pendingActivityIds = currentState.pendingActivityIds?.mapValues { ids in
+                ids.filter { !activityIds.contains($0) }
             }
+        }
 
-            hashes.formUnion(swapHashes.filter { !$0.isEmpty })
-        }
-        return hashes
-    }
-
-    private func isActivityMatchedByHashes(_ activity: ApiActivity, _ hashes: Set<String>) -> Bool {
-        if hashes.contains(activity.parsedTxId.hash) {
-            return true
-        }
-        if let externalMsgHashNorm = activity.externalMsgHashNorm, hashes.contains(externalMsgHashNorm) {
-            return true
-        }
-        return false
+        return Array(removedIndexedIds)
     }
 
     private func removeActivities(accountId: String, deleteIds: [String]) {
         let currentState = getAccountState(accountId)
         let deleteIds = Set(deleteIds)
         guard !deleteIds.isEmpty else { return }
-        
-        let affectedTokenSlugs = getActivityListTokenSlugs(activityIds: deleteIds, byId: currentState.byId ?? [:])
-        
-        var idsBySlug = currentState.idsBySlug ?? [:]
-        for tokenSlug in affectedTokenSlugs {
-            if let idsForSlug = idsBySlug[tokenSlug] {
-                idsBySlug[tokenSlug] = idsForSlug.filter { !deleteIds.contains($0) }
-            }
-        }
-        
-        let newestActivitiesBySlug = _getNewestActivitiesBySlug(byId: currentState.byId ?? [:], idsBySlug: idsBySlug, newestActivitiesBySlug: currentState.newestActivitiesBySlug, tokenSlugs: affectedTokenSlugs)
-        
-        let idsMain = currentState.idsMain?.filter { !deleteIds.contains($0) }
-        
+
+        removeActivityIdsFromIndexes(accountId: accountId, activityIds: Array(deleteIds))
         let byId = currentState.byId?.filter { id, _ in !deleteIds.contains(id) }
-        
-        let localActivityIds = currentState.localActivityIds?.filter { !deleteIds.contains($0) }
-        
-        let pendingActivityIds = currentState.pendingActivityIds?.mapValues { oldPendingIds in
-            oldPendingIds.filter { !deleteIds.contains($0) }
-        }
-        
+
         withAccountState(accountId) {
             $0.byId = byId
-            $0.idsMain = idsMain
-            $0.idsBySlug = idsBySlug
-            $0.newestActivitiesBySlug = newestActivitiesBySlug
-            $0.localActivityIds = localActivityIds
-            $0.pendingActivityIds = pendingActivityIds
-        }
-    }
-
-    private func filterPendingActivities(accountId: String, pendingActivities: [ApiActivity]?) -> [ApiActivity]? {
-        guard let pendingActivities else { return nil }
-        if pendingActivities.isEmpty {
-            return pendingActivities
-        }
-        let byId = getAccountState(accountId).byId ?? [:]
-        if byId.isEmpty {
-            return pendingActivities
-        }
-        var nonPendingIds = Set<String>()
-        var nonPendingHashes = Set<String>()
-        for (id, activity) in byId {
-            guard isNonPendingActivity(activity) else { continue }
-            nonPendingIds.insert(id)
-            let hash = activity.externalMsgHashNorm ?? activity.parsedTxId.hash
-            nonPendingHashes.insert(hash)
-        }
-        return pendingActivities.filter { activity in
-            if activity.isConfirmedOrCompleted {
-                return true
-            }
-            if nonPendingIds.contains(activity.id) {
-                log.error("pending activity filtered due to non-pending id match id=\(activity.id, .public) status=\(activityStatusString(activity), .public) hash=\(activityHash(activity), .public)")
-                return false
-            }
-            let hash = activity.externalMsgHashNorm ?? activity.parsedTxId.hash
-            if nonPendingHashes.contains(hash) {
-                log.error("pending activity filtered due to non-pending hash match id=\(activity.id, .public) status=\(activityStatusString(activity), .public) hash=\(activityHash(activity), .public)")
-                return false
-            }
-            return true
         }
     }
 
@@ -906,84 +977,6 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         }
     }
 
-    private func updatePendingActivitiesToTrustedByReplacements(accountId: String, localActivities: [ApiActivity], replacedIds: [String: String]) -> [String] {
-        guard !localActivities.isEmpty, !replacedIds.isEmpty else { return [] }
-        var byId = getAccountState(accountId).byId ?? [:]
-        var updatedIds: [String] = []
-        for localActivity in localActivities {
-            guard localActivity.isPendingTrusted,
-                  let chainActivityId = replacedIds[localActivity.id],
-                  let chainActivity = byId[chainActivityId],
-                  let updatedActivity = makePendingTrustedActivity(chainActivity) else { continue }
-            byId[chainActivityId] = updatedActivity
-            updatedIds.append(chainActivityId)
-        }
-        if !updatedIds.isEmpty {
-            withAccountState(accountId) {
-                $0.byId = byId
-            }
-        }
-        return updatedIds
-    }
-
-    private func adjustPendingActivitiesWithTrustedStatus(
-        pendingActivities: [ApiActivity]?,
-        replacedIds: [String: String],
-        prevActivities: [ApiActivity]
-    ) -> [ApiActivity]? {
-        guard let pendingActivities else { return nil }
-        if pendingActivities.isEmpty || replacedIds.isEmpty || prevActivities.isEmpty {
-            return pendingActivities
-        }
-        var reversedReplacedIds: [String: String] = [:]
-        for (oldId, newId) in replacedIds {
-            reversedReplacedIds[newId] = oldId
-        }
-        let prevById = prevActivities.dictionaryByKey(\.id)
-        return pendingActivities.map { activity in
-            guard let oldId = reversedReplacedIds[activity.id],
-                  let oldActivity = prevById[oldId],
-                  oldActivity.isPendingTrusted,
-                  let updatedActivity = makePendingTrustedActivity(activity) else { return activity }
-            return updatedActivity
-        }
-    }
-
-    private func makePendingTrustedActivity(_ activity: ApiActivity) -> ApiActivity? {
-        var activity = activity
-        switch activity {
-        case .transaction(var transaction):
-            guard transaction.status == .pending else { return nil }
-            transaction.status = .pendingTrusted
-            activity = .transaction(transaction)
-        case .swap(var swap):
-            guard swap.status == .pending else { return nil }
-            swap.status = .pendingTrusted
-            activity = .swap(swap)
-        }
-        return activity
-    }
-    
-    private func hideOutdatedLocalActivities(accountId: String, localActivities: [ApiActivity]) -> [ApiActivity] {
-        let maxDepth = localActivities.count + 20
-        let chainActivities = selectRecentNonLocalActivitiesSlow(accountId: accountId, count: maxDepth) ?? []
-
-        return localActivities.map { localActivity in
-            var localActivity = localActivity
-            
-            if localActivity.shouldHide != true {
-                for chainActivity in chainActivities {
-                    if doesLocalActivityMatch(localActivity: localActivity, chainActivity: chainActivity) {
-                        localActivity.shouldHide = true
-                        break
-                    }
-                }
-            }
-            
-            return localActivity
-        }
-    }
-    
     private func selectLastMainTxTimestamp(accountId: String) -> Int64? {
         let activities = getAccountState(accountId)
         let txId = activities.idsMain?.last { id in
@@ -1050,10 +1043,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
 
     private func shouldHideBecauseOfNft(accountId: String, transaction: ApiTransactionActivity) -> Bool {
-        guard let nft = transaction.nft else {
-            return false
-        }
-        return NftStore.shouldHideTransaction(accountId: accountId, nft: nft)
+        NftStore.shouldHideTransaction(accountId: accountId, transaction: transaction)
     }
 
     private func applyMtwCardsFromActivities(accountId: String, activities: some Collection<ApiActivity>) {

@@ -97,7 +97,7 @@ public struct ContextMenuBackAction {
     public init(
         id: String = UUID().uuidString,
         title: String,
-        icon: ContextMenuIcon? = .system("chevron.left"),
+        icon: ContextMenuIcon? = .system("chevron.backward"),
         isEnabled: Bool = true
     ) {
         self.id = id

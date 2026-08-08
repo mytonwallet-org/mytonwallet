@@ -1,5 +1,9 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.uihome.tabs.views
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -8,6 +12,7 @@ import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -17,9 +22,6 @@ import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.content.res.AppCompatResources
-import android.os.SystemClock
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
@@ -35,18 +37,18 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.uihome.R
+import org.mytonwallet.uihome.tabs.AppTabsManager
 
 @SuppressLint("ViewConstructor")
-class FloatingBottomNavigationView(
-    context: Context,
-    private val blurRootView: ViewGroup? = null,
-) : IBottomNavigationView(context) {
+class FloatingBottomNavigationView(context: Context, private val blurRootView: ViewGroup? = null) :
+    IBottomNavigationView(context) {
 
     companion object {
         private const val PILL_HEIGHT = 56
         private const val PILL_HORIZONTAL_MARGIN = 6
         private const val ITEM_WIDTH = 80
+        private const val MIN_ITEM_WIDTH = 56
+        private const val MIN_EDGE_MARGIN = 8
         private const val ICON_SIZE = 26
         private const val LABEL_SIZE = 12f
         private const val INDICATOR_WIDTH = 84
@@ -63,12 +65,10 @@ class FloatingBottomNavigationView(
         val id: Int,
         val iconRes: Int,
         val filledIconRes: Int,
-        val labelKey: String,
+        val labelKey: String
     )
 
-    private data class TabItem(
-        val container: TabItemView,
-    )
+    private data class TabItem(val container: TabItemView)
 
     private data class HighlightSlot(
         val contentView: HighlightContentView,
@@ -79,15 +79,10 @@ class FloatingBottomNavigationView(
         var scaleX: Float = 0f,
         var scaleY: Float = 1f,
         var alpha: Float = 1f,
-        var isVisible: Boolean = false,
+        var isVisible: Boolean = false
     )
 
-    private val tabDefs = listOf(
-        TabDef(ID_HOME, R.drawable.ic_home_thin, R.drawable.ic_home_filled, "Wallet"),
-        TabDef(ID_AGENT, R.drawable.ic_agent_thin, R.drawable.ic_agent_filled, "Agent"),
-        TabDef(ID_EXPLORE, R.drawable.ic_explore_thin, R.drawable.ic_explore_filled, "Explore"),
-        TabDef(ID_SETTINGS, R.drawable.ic_settings_thin, R.drawable.ic_settings_filled, "Settings"),
-    )
+    private var tabDefs = buildTabDefs()
 
     private val tabs = linkedMapOf<Int, TabItem>()
 
@@ -96,8 +91,29 @@ class FloatingBottomNavigationView(
     private val indicatorPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val outerPath = Path()
 
-    private val pillW = PILL_HORIZONTAL_MARGIN.dp * 2 + ITEM_WIDTH.dp * tabDefs.size
+    private var itemWidth = ITEM_WIDTH.dp
+    private var pillW = computePillWidth()
     private val pillH = PILL_HEIGHT.dp
+
+    private fun buildTabDefs() = AppTabsManager.orderedTabs.map {
+        TabDef(it.intId, it.iconRes, it.filledIconRes, it.labelKey)
+    }
+
+    private fun computeItemWidth(): Int {
+        val count = tabDefs.size
+        if (count == 0 || width <= 0) return ITEM_WIDTH.dp
+        val available = width - 2 * MIN_EDGE_MARGIN.dp - 2 * PILL_HORIZONTAL_MARGIN.dp
+        if (ITEM_WIDTH.dp * count <= available) return ITEM_WIDTH.dp
+        return (available / count).coerceAtLeast(MIN_ITEM_WIDTH.dp)
+    }
+
+    private fun computePillWidth() = PILL_HORIZONTAL_MARGIN.dp * 2 + itemWidth * tabDefs.size
+
+    private val indicatorWidth: Int
+        get() = minOf(INDICATOR_WIDTH.dp, itemWidth + 4.dp)
+
+    private fun visualIndex(logicalIndex: Int): Int =
+        if (LocaleController.isRTL) tabDefs.size - 1 - logicalIndex else logicalIndex
 
     @SuppressLint("ViewConstructor")
     private inner class TabItemView(context: Context) : FrameLayout(context) {
@@ -198,7 +214,10 @@ class FloatingBottomNavigationView(
             val alpha = (slot.alpha.coerceIn(0f, 1f) * 255).toInt()
             if (alpha <= 0) return
             val saved = canvas.saveLayerAlpha(
-                slot.rect.left, slot.rect.top, slot.rect.right, slot.rect.bottom,
+                slot.rect.left,
+                slot.rect.top,
+                slot.rect.right,
+                slot.rect.bottom,
                 alpha
             )
             super.drawChild(canvas, slot.contentView, drawingTime)
@@ -206,6 +225,7 @@ class FloatingBottomNavigationView(
         }
     }.apply {
         id = generateViewId()
+        layoutDirection = LAYOUT_DIRECTION_LTR
         setWillNotDraw(false)
         clipChildren = false
         clipToPadding = false
@@ -217,9 +237,8 @@ class FloatingBottomNavigationView(
         }
     }
 
-    private fun hasVisibleHighlight(slot: HighlightSlot): Boolean {
-        return slot.isVisible && slot.scaleX > 0f
-    }
+    private fun hasVisibleHighlight(slot: HighlightSlot): Boolean =
+        slot.isVisible && slot.scaleX > 0f
 
     private fun updateHighlightRect(slot: HighlightSlot) {
         if (!hasVisibleHighlight(slot)) {
@@ -228,7 +247,7 @@ class FloatingBottomNavigationView(
             return
         }
 
-        val hHalf = INDICATOR_WIDTH.dp / 2f * slot.scaleX
+        val hHalf = indicatorWidth / 2f * slot.scaleX
         val cy = pillContainer.height / 2f
         val vHalf = INDICATOR_HEIGHT.dp / 2f * slot.scaleY
         slot.rect.set(slot.centerX - hHalf, cy - vHalf, slot.centerX + hHalf, cy + vHalf)
@@ -252,8 +271,7 @@ class FloatingBottomNavigationView(
     }
 
     private fun addHighlightHoleToOuterPath(slot: HighlightSlot) {
-        if (!hasVisibleHighlight(slot))
-            return
+        if (!hasVisibleHighlight(slot)) return
 
         val r = slot.rect.height() / 2f
         outerPath.addRoundRect(slot.rect, r, r, Path.Direction.CCW)
@@ -265,9 +283,36 @@ class FloatingBottomNavigationView(
 
     init {
         id = generateViewId()
+        layoutDirection = LAYOUT_DIRECTION_LTR
         clipChildren = false
         clipToPadding = false
 
+        buildTabViews()
+
+        pillContainer.addView(
+            activeHighlight.contentView,
+            LayoutParams(itemWidth, MATCH_PARENT)
+        )
+        pillContainer.addView(
+            incomingHighlight.contentView,
+            LayoutParams(itemWidth, MATCH_PARENT)
+        )
+
+        addView(pillContainer, LayoutParams(pillW, pillH, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+        pillShadowView = PillShadowView.attachTo(pillContainer, pillH / 2f)
+
+        post {
+            positionIndicatorInstant(selectedTab)
+        }
+        updateTheme()
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        super.onLayout(changed, l, t, r, b)
+        if (changed) pillShadowView?.sync()
+    }
+
+    private fun buildTabViews() {
         tabDefs.forEachIndexed { index, def ->
             val outlineIcon = ImageView(context).apply {
                 this.id = generateViewId()
@@ -298,33 +343,51 @@ class FloatingBottomNavigationView(
             }
             pillContainer.addView(
                 item,
-                LayoutParams(ITEM_WIDTH.dp, MATCH_PARENT).apply {
-                    leftMargin = PILL_HORIZONTAL_MARGIN.dp + index * ITEM_WIDTH.dp
-                })
+                LayoutParams(itemWidth, MATCH_PARENT).apply {
+                    leftMargin = PILL_HORIZONTAL_MARGIN.dp + visualIndex(index) * itemWidth
+                }
+            )
             tabs[def.id] = TabItem(item)
         }
-
-        pillContainer.addView(
-            activeHighlight.contentView,
-            LayoutParams(ITEM_WIDTH.dp, MATCH_PARENT)
-        )
-        pillContainer.addView(
-            incomingHighlight.contentView,
-            LayoutParams(ITEM_WIDTH.dp, MATCH_PARENT)
-        )
-
-        addView(pillContainer, LayoutParams(pillW, pillH, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-        pillShadowView = PillShadowView.attachTo(pillContainer, pillH / 2f)
-
-        post {
-            positionIndicatorInstant(selectedTab)
-        }
-        updateTheme()
     }
 
-    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        super.onLayout(changed, l, t, r, b)
-        if (changed) pillShadowView?.sync()
+    override fun reloadTabs() {
+        indicatorAnimator?.cancel()
+        indicatorAnimator = null
+        tabs.values.forEach { pillContainer.removeView(it.container) }
+        tabs.clear()
+        tabDefs = buildTabDefs()
+        itemWidth = computeItemWidth()
+        pillW = computePillWidth()
+        buildTabViews()
+        applyPillMetrics()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w == oldw) return
+        val newItemWidth = computeItemWidth()
+        if (newItemWidth == itemWidth) return
+        itemWidth = newItemWidth
+        pillW = computePillWidth()
+        tabs.values.forEachIndexed { index, tab ->
+            tab.container.layoutParams = (tab.container.layoutParams as LayoutParams).apply {
+                width = itemWidth
+                leftMargin = PILL_HORIZONTAL_MARGIN.dp + visualIndex(index) * itemWidth
+            }
+        }
+        applyPillMetrics()
+    }
+
+    private fun applyPillMetrics() {
+        activeHighlight.contentView.layoutParams =
+            activeHighlight.contentView.layoutParams?.apply { width = itemWidth }
+        incomingHighlight.contentView.layoutParams =
+            incomingHighlight.contentView.layoutParams?.apply { width = itemWidth }
+        pillContainer.layoutParams = pillContainer.layoutParams?.apply { width = pillW }
+        if (!tabs.containsKey(selectedTab)) selectedTab = ID_HOME
+        positionIndicatorInstant(selectedTab)
+        pillContainer.post { pillShadowView?.sync() }
     }
 
     private fun createIconLayoutParams() = FrameLayout.LayoutParams(
@@ -363,13 +426,13 @@ class FloatingBottomNavigationView(
     private fun tabCenterX(id: Int): Float {
         val index = tabs.keys.indexOf(id)
         if (index < 0) return 0f
-        return PILL_HORIZONTAL_MARGIN.dp + index * ITEM_WIDTH.dp + ITEM_WIDTH.dp / 2f
+        return PILL_HORIZONTAL_MARGIN.dp + visualIndex(index) * itemWidth + itemWidth / 2f
     }
 
     private fun tabLeftX(id: Int): Float {
         val index = tabs.keys.indexOf(id)
         if (index < 0) return 0f
-        return (PILL_HORIZONTAL_MARGIN.dp + index * ITEM_WIDTH.dp).toFloat()
+        return (PILL_HORIZONTAL_MARGIN.dp + visualIndex(index) * itemWidth).toFloat()
     }
 
     private fun positionIndicatorInstant(id: Int) {
@@ -486,10 +549,12 @@ class FloatingBottomNavigationView(
         val incomingVisible = hasVisibleHighlight(incomingHighlight)
 
         val settledId = when {
-            incomingVisible && (!activeVisible || incomingHighlight.scaleX >= activeHighlight.scaleX) ->
+            incomingVisible &&
+                (!activeVisible || incomingHighlight.scaleX >= activeHighlight.scaleX) ->
                 incomingHighlight.tabId
 
             activeVisible -> activeHighlight.tabId
+
             else -> highlightedTab
         }
 

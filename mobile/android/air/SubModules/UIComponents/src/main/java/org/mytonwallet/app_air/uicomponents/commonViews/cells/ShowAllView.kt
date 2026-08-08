@@ -9,6 +9,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.view.isVisible
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -23,11 +24,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import kotlin.math.roundToInt
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
-class ShowAllView(
-    context: Context,
-) : WView(context), WThemedView {
+class ShowAllView(context: Context) :
+    WView(context),
+    WThemedView {
 
     private val ripple = WRippleDrawable.create(0f)
 
@@ -93,8 +94,7 @@ class ShowAllView(
     private var blurView: WBlurryBackgroundView? = null
 
     fun setupBlurBackground(rootView: ViewGroup) {
-        if (blurView != null)
-            return
+        if (blurView != null) return
         blurView = WBlurryBackgroundView(context, fadeSide = null).apply {
             setupWith(rootView)
             setOverlayColor(WColor.Background, 204)
@@ -122,7 +122,7 @@ class ShowAllView(
         val count = value ?: 0
         val shouldShow = count > 0
         if (shouldShow) {
-            counterLabel.setAmount(count.toString())
+            counterLabel.setAmount(count.withLocalizedNumbers)
         }
         counterLabel.isVisible = shouldShow
         updateTrailingViewsLayout()
@@ -178,5 +178,4 @@ class ShowAllView(
         counterLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         menuButton.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
     }
-
 }

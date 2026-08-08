@@ -17,14 +17,6 @@ public let TonConnectErrorCodes: [Int: String] = [
 
 private let log = Log("TonConnect")
 
-struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
-    let promiseId: String
-    let accountId: String
-    let proofSignatures: [String]?
-    let mfaRequestHash: String?
-    let didConfirmImmediately: Bool
-}
-
 @MainActor public final class TonConnect: WalletCoreData.EventsObserver {
     
     public static let shared = TonConnect()
@@ -103,7 +95,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         if update.isWaitingForRequest == true, lastPresented != nil {
             return
         }
-        if let accountId = update.accountId {
+        if let accountId = update.accountId, update.connectionType != .connect {
             await switchAccountIfNeeded(accountId: accountId)
         }
         // The real request emits a typed `dappLoading` of its own; keep the matching placeholder, or swap it on a type change.
@@ -200,29 +192,42 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     }
 
     @MainActor func handleConnect(update: ApiUpdate.DappConnect) async {
-        await switchAccountIfNeeded(accountId: update.accountId)
+        if update.multichainResolution != .switchedAccount {
+            await switchAccountIfNeeded(accountId: update.accountId)
+        }
         Api.recordTonConnectEvent(eventName: "wallet-connect-request-ui-displayed", promiseId: update.promiseId)
         if let vc = placeholderNc?.visibleViewController as? ConnectDappVC {
             vc.replacePlaceholder(
                 request: update,
-                onCancel: { [weak self] in self?.cancelConnect(request: update) }
+                onCreateMultichainWallet: { [weak self] in
+                    self?.createMultichainWallet(request: update)
+                }
             )
             self.placeholderNc = nil
         } else {
             let vc = ConnectDappVC(
                 request: update,
-                onCancel: { [weak self] in self?.cancelConnect(request: update) }
+                onCreateMultichainWallet: { [weak self] in
+                    self?.createMultichainWallet(request: update)
+                }
             )
             presentAndRecord(WNavigationController(rootViewController: vc))
         }
     }
     
-    func submitConnect(request: ApiUpdate.DappConnect, accountId: String, passcode: String) async throws -> DappConnectSubmitResult {
+    func prepareConnect(
+        request: ApiUpdate.DappConnect,
+        accountId: String,
+        enclaveToken: EnclaveToken,
+        resolver: ConnectRequestResolver
+    ) async throws -> DappConnectSubmitResult {
         Api.recordTonConnectEvent(eventName: "wallet-connect-accepted", promiseId: request.promiseId)
         var signatures: [String]? = nil
         let account = AccountStore.get(accountId: accountId)
         if let proof = request.proof {
-            let tonAddress = account.getAddress(chain: .ton) ?? ""
+            guard let tonAddress = account.getAddress(chain: .ton) else {
+                throw DisplayError(text: lang("No matching chains"))
+            }
             let dappChains = [
                 ApiDappSessionChain(chain: .ton, address: tonAddress, network: account.network),
             ]
@@ -230,71 +235,40 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
                 dappChains: dappChains,
                 accountId: accountId,
                 proof: proof,
-                password: passcode
+                enclaveToken: enclaveToken
             )
             signatures = result.signatures
         }
+        var mfaRequestHash: String?
         if account.getChainInfo(chain: .ton)?.mfa != nil {
-            let result = try await Api.createDappConnectMfaRequest(accountId: accountId, password: passcode)
-            if let error = result.error {
-                throw SdkError.apiReturnedError(error: error, context: result)
-            }
-            guard let mfaRequestHash = result.mfaRequestHash else {
-                throw SdkError.unexpected(message: "Missing dapp connect MFA request hash", context: result)
-            }
-            return DappConnectSubmitResult(
-                promiseId: request.promiseId,
+            let mfaResult = try await Api.createDappConnectMfaRequest(
                 accountId: accountId,
-                proofSignatures: signatures,
-                mfaRequestHash: mfaRequestHash,
-                didConfirmImmediately: false
+                enclaveToken: enclaveToken
             )
+            if let error = mfaResult.error {
+                throw SdkError.apiReturnedError(error: error, context: mfaResult)
+            }
+            guard let hash = mfaResult.mfaRequestHash else {
+                throw SdkError.unexpected(
+                    message: "Missing dapp connect MFA request hash",
+                    context: mfaResult
+                )
+            }
+            mfaRequestHash = hash
         }
-        try await Api.confirmDappRequestConnect(
-            promiseId: request.promiseId,
-            data: .init(
-                accountId: accountId,
-                proofSignatures: signatures
-            )
-        )
         return DappConnectSubmitResult(
-            promiseId: request.promiseId,
             accountId: accountId,
             proofSignatures: signatures,
-            mfaRequestHash: nil,
-            didConfirmImmediately: true
+            mfaRequestHash: mfaRequestHash,
+            resolver: resolver
         )
     }
 
-    func finishConnect(_ result: DappConnectSubmitResult) async throws {
-        guard !result.didConfirmImmediately else {
-            return
-        }
-        do {
-            try await Api.confirmDappRequestConnect(
-                promiseId: result.promiseId,
-                data: .init(
-                    accountId: result.accountId,
-                    proofSignatures: result.proofSignatures
-                )
-            )
-        } catch {
-            log.error("finishConnect MFA confirmation failed: \(error, .public)")
-            throw error
-        }
+    func createMultichainWallet(request: ApiUpdate.DappConnect) {
+        let network = AccountStore.get(accountId: request.accountId).network
+        AppActions.showAddWallet(network: network)
     }
-    
-    func cancelConnect(request: ApiUpdate.DappConnect) {
-        Api.recordTonConnectEvent(eventName: "wallet-connect-rejected", promiseId: request.promiseId)
-        Task {
-            do {
-                try await Api.cancelDappRequest(promiseId: request.promiseId, reason: "Cancel")
-            } catch {
-                log.error("cancelConnect \(error, .public)")
-            }
-        }
-    }
-    
+
     @MainActor  func handleSendTransactions(update: ApiUpdate.DappSendTransactions) async {
         await switchAccountIfNeeded(accountId: update.accountId)
         Api.recordTonConnectEvent(eventName: "wallet-transaction-confirmation-ui-displayed", promiseId: update.promiseId)
@@ -317,7 +291,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         }
     }
     
-    func submitSendTransactions(request: ApiUpdate.DappSendTransactions, password: String?) async throws -> ApiSignDappTransfersResult {
+    func submitSendTransactions(request: ApiUpdate.DappSendTransactions, enclaveToken: EnclaveToken?) async throws -> DappSendSubmitResult {
         Api.recordTonConnectEvent(eventName: "wallet-transaction-accepted", promiseId: request.promiseId)
         let account = AccountStore.get(accountId: request.accountId)
         let chain = request.operationChain
@@ -333,7 +307,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
             accountId: request.accountId,
             messages: request.transactions.map { ApiTransferToSign($0, chain: chain) },
             options: .init(
-                password: password,
+                enclaveToken: enclaveToken,
                 vestingAddress: request.vestingAddress,
                 validUntil: request.validUntil,
                 isLegacyOutput: request.isLegacyOutput,
@@ -344,18 +318,11 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
                 promiseId: request.promiseId,
                 data: signedTransfers
             )
-        } else if let mfaRequestHash = result.mfaRequestHash {
-            do {
-                try await Api.confirmDappRequestSendTransactionMfa(
-                    promiseId: request.promiseId,
-                    mfaRequestHash: mfaRequestHash
-                )
-            } catch {
-                log.error("submitSendTransactions MFA confirmation handoff failed: \(error, .public)")
-                throw error
-            }
         }
-        return result
+        return DappSendSubmitResult(
+            promiseId: request.promiseId,
+            result: result
+        )
     }
     
     func cancelSendTransactions(request: ApiUpdate.DappSendTransactions) {
@@ -388,7 +355,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
         }
     }
     
-    func submitSignData(update: ApiUpdate.DappSignData, password: String?) async throws -> ApiMfaProtectedResult {
+    func submitSignData(update: ApiUpdate.DappSignData, enclaveToken: EnclaveToken?) async throws -> ApiMfaProtectedResult {
         Api.recordTonConnectEvent(eventName: "wallet-sign-data-accepted", promiseId: update.promiseId)
         let account = AccountStore.get(accountId: update.accountId)
         let chain = update.operationChain
@@ -401,7 +368,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
             accountId: update.accountId,
             dappUrl: update.dapp.url,
             payloadToSign: update.payloadToSign,
-            password: password
+            enclaveToken: enclaveToken
         )
         try await Api.confirmDappRequestSignData(promiseId: update.promiseId, data: AnyEncodable(result))
         return ApiMfaProtectedResult()
@@ -424,7 +391,7 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
                 _ = try await AccountStore.activateAccount(accountId: accountId)
             }
         } catch {
-            log.fault("failed to switch to account \(accountId, .public) error:\(error, .public)")
+            log.error("failed to switch to account \(accountId, .public) error:\(error, .public)")
         }
     }
     

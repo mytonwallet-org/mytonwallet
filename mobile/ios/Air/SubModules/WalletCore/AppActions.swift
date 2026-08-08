@@ -4,28 +4,32 @@ import SwiftUI
 import WalletContext
 import WalletCoreTypes
 
+@MainActor
+public struct ActivityDetailsPresentation {
+    public let viewController: UIViewController
+    public let animateAlongside: () -> Void
+
+    public init(
+        viewController: UIViewController,
+        animateAlongside: @escaping () -> Void
+    ) {
+        self.viewController = viewController
+        self.animateAlongside = animateAlongside
+    }
+}
+
 // Please keep methods in alphabetical order
 
 @MainActor public protocol AppActionsProtocol {
-    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
-        on viewController: UIViewController,
-        account: MAccount,
-        title: String,
-        headerView: HeaderView,
-        passwordAction: @escaping (String) async throws -> Result,
-        ledgerSignData: (() async throws -> SignData)?,
-        ledgerFromAddress: String?,
-        presentationStyle: ProtectedActionPresentationStyle,
-        useBioOnPresent: Bool,
-        completionBehavior: ProtectedActionCompletionBehavior,
-        prefersNavigationTitleWithCustomHeader: Bool,
-        mfaTitle: String?
-    ) async throws -> Result?
     static func copyString(_ string: String?, toastMessage: String)
+    static func hideAndReportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?)
+    static func hideNft(accountId: String, nft: ApiNft, onHidden: (() -> Void)?)
     static func lockApp(animated: Bool)
+    static func makeProtectedActionActivityDetailsPresentation(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) async throws -> ActivityDetailsPresentation
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?)
     static func openTipsChannel()
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity)
+    static func reportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?)
     static func saveTemporaryViewAccount(accountId: String)
     static func scanAndHandleQR(accountContext: AccountContext)
     static func scanQR() async -> ScanResult?
@@ -87,36 +91,6 @@ public extension AppActionsProtocol {
         Self.openInBrowser(url, title: title, injectDappConnect: injectDappConnect, historyTag: nil)
     }
 
-    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
-        on viewController: UIViewController,
-        account: MAccount,
-        title: String,
-        headerView: HeaderView,
-        passwordAction: @escaping (String) async throws -> Result,
-        ledgerSignData: (() async throws -> SignData)? = nil,
-        ledgerFromAddress: String? = nil,
-        presentationStyle: ProtectedActionPresentationStyle = .push,
-        useBioOnPresent: Bool = true,
-        completionBehavior: ProtectedActionCompletionBehavior = .popAuth,
-        prefersNavigationTitleWithCustomHeader: Bool = false,
-        mfaTitle: String? = nil
-    ) async throws -> Result? {
-        try await Self.authorizeProtectedAction(
-            on: viewController,
-            account: account,
-            title: title,
-            headerView: headerView,
-            passwordAction: passwordAction,
-            ledgerSignData: ledgerSignData,
-            ledgerFromAddress: ledgerFromAddress,
-            presentationStyle: presentationStyle,
-            useBioOnPresent: useBioOnPresent,
-            completionBehavior: completionBehavior,
-            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
-            mfaTitle: mfaTitle
-        )
-    }
-
     static func showToast(style: ToastStyle? = nil, icon: ToastIcon? = nil, message: String, duration: Double? = nil,
                           transition: ToastTransition? = nil, actionTitle: String? = nil, action: (() -> ())? = nil) {
         showToast(.init(
@@ -136,25 +110,17 @@ public extension AppActionsProtocol {
 }
 
 private class DummyAppActionProtocolImpl: AppActionsProtocol {
-    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
-        on viewController: UIViewController,
-        account: MAccount,
-        title: String,
-        headerView: HeaderView,
-        passwordAction: @escaping (String) async throws -> Result,
-        ledgerSignData: (() async throws -> SignData)?,
-        ledgerFromAddress: String?,
-        presentationStyle: ProtectedActionPresentationStyle,
-        useBioOnPresent: Bool,
-        completionBehavior: ProtectedActionCompletionBehavior,
-        prefersNavigationTitleWithCustomHeader: Bool,
-        mfaTitle: String?
-    ) async throws -> Result? { nil }
     static func copyString(_ string: String?, toastMessage: String) { }
+    static func hideAndReportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?) { onConfirmed?() }
+    static func hideNft(accountId: String, nft: ApiNft, onHidden: (() -> Void)?) { onHidden?() }
     static func lockApp(animated: Bool) { }
+    static func makeProtectedActionActivityDetailsPresentation(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) async throws -> ActivityDetailsPresentation {
+        ActivityDetailsPresentation(viewController: UIViewController(), animateAlongside: {})
+    }
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?) { }
     static func openTipsChannel() { }
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity) { }
+    static func reportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?) { onConfirmed?() }
     static func scanAndHandleQR(accountContext: AccountContext) { }
     static func scanQR() async -> ScanResult? { nil }
     static func saveTemporaryViewAccount(accountId: String) { }

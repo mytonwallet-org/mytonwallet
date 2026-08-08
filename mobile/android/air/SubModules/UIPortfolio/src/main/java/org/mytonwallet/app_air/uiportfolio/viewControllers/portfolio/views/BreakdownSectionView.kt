@@ -15,6 +15,8 @@ import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlin.math.abs
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.SpringSnapHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -24,11 +26,11 @@ import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.Port
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import kotlin.math.abs
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
-class BreakdownSectionView(context: Context) : WView(context), WThemedView {
+class BreakdownSectionView(context: Context) :
+    WView(context),
+    WThemedView {
 
     private val cardWidth = 280.dp
 
@@ -36,25 +38,25 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         context = context,
         titleText = LocaleController.getString("By Chain"),
         showLegend = true,
-        emptyText = LocaleController.getString("No chain balances"),
+        emptyText = LocaleController.getString("No chain balances")
     )
     private val assetMixCard = BreakdownCardView(
         context = context,
         titleText = LocaleController.getString("Asset Mix"),
         showLegend = true,
-        emptyText = LocaleController.getString("No asset balances"),
+        emptyText = LocaleController.getString("No asset balances")
     )
     private val stakedCard = BreakdownCardView(
         context = context,
         titleText = LocaleController.getString("Staked"),
         showLegend = true,
-        emptyText = LocaleController.getString("No staked assets"),
+        emptyText = LocaleController.getString("No staked assets")
     )
 
     // By Chain is only shown for multichain accounts. Default to the active
     // account's multichain value so the carousel matches before the first render.
     private var cards = buildVisibleCards(
-        showByChain = AccountStore.activeAccount?.isMultichain == true,
+        showByChain = AccountStore.activeAccount?.isMultichain == true
     )
 
     private val allCards = listOf(byChainCard, assetMixCard, stakedCard)
@@ -82,6 +84,7 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             holder.itemView.updateLayoutParams { width = calculatedCardWidth() }
         }
+
         override fun getItemCount() = cards.size
     }
 
@@ -89,7 +92,7 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         id = generateViewId()
         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         isHorizontalScrollBarEnabled = false
-        overScrollMode = View.OVER_SCROLL_NEVER
+        overScrollMode = OVER_SCROLL_NEVER
         clipToPadding = false
         setPadding(ViewConstants.HORIZONTAL_PADDINGS.dp, 0, ViewConstants.HORIZONTAL_PADDINGS.dp, 0)
         layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
@@ -98,9 +101,15 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
                 outRect: Rect,
                 view: View,
                 parent: RecyclerView,
-                state: RecyclerView.State,
+                state: RecyclerView.State
             ) {
-                if (parent.getChildAdapterPosition(view) > 0) outRect.left = ViewConstants.GAP.dp
+                if (parent.getChildAdapterPosition(view) > 0) {
+                    if (LocaleController.isRTL) {
+                        outRect.right = ViewConstants.GAP.dp
+                    } else {
+                        outRect.left = ViewConstants.GAP.dp
+                    }
+                }
             }
         })
         addOnItemTouchListener(AxisInterceptTouchListener(context))
@@ -120,8 +129,9 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         if (w == oldw || cards.size != 2) return
         val newWidth = calculatedCardWidth()
         cards.forEach { card ->
-            if (card.parent != null && card.layoutParams?.width != newWidth)
+            if (card.parent != null && card.layoutParams?.width != newWidth) {
                 card.updateLayoutParams { this.width = newWidth }
+            }
         }
     }
 
@@ -138,10 +148,10 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         chainSlices: List<PortfolioBreakdownSlice>,
         assetSlices: List<PortfolioBreakdownSlice>,
         stakedSlices: List<PortfolioBreakdownSlice>,
-        animated: Boolean,
+        animated: Boolean
     ) {
         val newCards = buildVisibleCards(
-            showByChain = AccountStore.activeAccount?.isMultichain == true,
+            showByChain = AccountStore.activeAccount?.isMultichain == true
         )
         if (newCards != cards) {
             cards = newCards
@@ -165,10 +175,11 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
                 }
             }
         }
-        if (animated)
+        if (animated) {
             animateSectionHeight(targetHeight)
-        else
+        } else {
             recyclerView.updateLayoutParams { this.height = targetHeight }
+        }
     }
 
     private fun animateSectionHeight(targetHeight: Int) {
@@ -189,11 +200,9 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         }
     }
 
-    fun maskTargets(): List<Pair<View, Float>> =
-        cards.map { it.maskTarget() }
+    fun maskTargets(): List<Pair<View, Float>> = cards.map { it.maskTarget() }
 
-    fun crossFadeTargets(): List<View> =
-        cards.flatMap { it.crossFadeTargets() }
+    fun crossFadeTargets(): List<View> = cards.flatMap { it.crossFadeTargets() }
 
     fun showPlaceholders(animated: Boolean = false) {
         allCards.forEach { it.showPlaceholders(animated) }

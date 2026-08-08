@@ -38,4 +38,5 @@ import './ui/cards';
 import './ui/domains';
 import './ui/accounts';
 import './ui/customizeWallet';
+import './ui/enclave';
 import './ui/mfa';

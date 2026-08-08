@@ -36,8 +36,50 @@
     {
       "target" : {
         "containerPath" : "container:..\/Air",
+        "identifier" : "ProtectedActionTests",
+        "name" : "ProtectedActionTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "UIProtectedActionTests",
+        "name" : "UIProtectedActionTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "UIAssetsTests",
+        "name" : "UIAssetsTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "UITokenTests",
+        "name" : "UITokenTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
         "identifier" : "UISwapTests",
         "name" : "UISwapTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "UISendTests",
+        "name" : "UISendTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "UIDappTests",
+        "name" : "UIDappTests"
       }
     }
   ],

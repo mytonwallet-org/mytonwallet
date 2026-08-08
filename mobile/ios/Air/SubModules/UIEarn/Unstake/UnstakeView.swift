@@ -125,14 +125,16 @@ fileprivate struct UnstakeInfoSection: View {
                     .foregroundStyle(gradient)
                     .imageScale(.small)
                 Text(lang("Instantly"))
+                    .textStyle(.body, scaling: .dynamic)
             }
         case .timed(let remaining):
             HStack(spacing: 4) {
                 Image(systemName: "clock.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .textStyle(.calloutStrong, content: .technical)
                     .foregroundColor(.air.secondaryLabel)
                     .imageScale(.small)
                 Text(formatTimeToWait(remaining))
+                    .textStyle(.body, scaling: .dynamic)
             }
 
         }

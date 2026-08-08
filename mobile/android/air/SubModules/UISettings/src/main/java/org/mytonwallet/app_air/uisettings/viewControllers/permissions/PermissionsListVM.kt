@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.permissions
 
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,12 +13,11 @@ import org.mytonwallet.app_air.walletcore.moshi.MRevokeWalletPermissionOptions
 import org.mytonwallet.app_air.walletcore.moshi.MTonPlugin
 import org.mytonwallet.app_air.walletcore.moshi.MWalletPermission
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import java.lang.ref.WeakReference
 
 class PermissionsListVM(
     private val accountId: String?,
     private val chain: MBlockchain,
-    delegate: Delegate,
+    delegate: Delegate
 ) {
     interface Delegate {
         fun permissionsDataUpdated()
@@ -66,7 +66,7 @@ class PermissionsListVM(
 
     fun revoke(
         permission: MWalletPermission,
-        passcode: String,
+        enclaveToken: String,
         onSuccess: () -> Unit,
         onError: (String?) -> Unit
     ) {
@@ -74,14 +74,14 @@ class PermissionsListVM(
         val options = when (permission) {
             is MWalletPermission.Approval -> MRevokeWalletPermissionOptions.Approval(
                 accountId = accId,
-                password = passcode,
+                enclaveToken = enclaveToken,
                 tokenAddress = permission.tokenAddress,
                 spenderAddress = permission.spenderAddress
             )
 
             is MWalletPermission.Delegation -> MRevokeWalletPermissionOptions.Delegation(
                 accountId = accId,
-                password = passcode,
+                enclaveToken = enclaveToken,
                 delegateAddress = permission.delegateAddress
             )
         }

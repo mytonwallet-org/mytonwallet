@@ -14,8 +14,8 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
  * Generates an abbreviation from a name or address.
  * Takes first graphemes of up to 2 words from the name, or first 2 characters of address as fallback.
  */
-fun generateAbbreviation(name: String?, address: String): String {
-    return name?.takeIf { it.isNotBlank() }?.let { n ->
+fun generateAbbreviation(name: String?, address: String): String =
+    name?.takeIf { it.isNotBlank() }?.let { n ->
         n.trim()
             .split("\\s+".toRegex())
             .filter { it.isNotEmpty() }
@@ -28,7 +28,6 @@ fun generateAbbreviation(name: String?, address: String): String {
             suffix.take(3) + "\n" + suffix.drop(3)
         }
     }
-}
 
 /**
  * Generates an abbreviation from an account name or address.
@@ -99,4 +98,3 @@ object AccountAvatarRenderer {
         paint.color = WColor.White.color
     }
 }
-

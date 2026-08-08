@@ -9,6 +9,9 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.max
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,12 +47,12 @@ import org.mytonwallet.app_air.walletcore.models.AccountMfa
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
-class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserver {
+class MfaVC(context: Context) :
+    WViewController(context),
+    WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "MfaVC"
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = false
@@ -83,37 +86,37 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
     private fun makeBenefit(textKey: String, iconResId: Int?) = MfaBenefitView(
         context,
         iconResId = iconResId,
-        markdownText = LocaleController.getString(textKey),
+        markdownText = LocaleController.getString(textKey)
     )
 
     private val installBenefit1 by lazy {
         makeBenefit(
             "Add an extra layer of security for your wallet in TON network.",
-            org.mytonwallet.app_air.uicomponents.R.drawable.ic_tg_security,
+            org.mytonwallet.app_air.icons.R.drawable.ic_tg_security
         )
     }
     private val installBenefit2 by lazy {
         makeBenefit(
             "Sign transfers and important actions with your passcode, then confirm them in Telegram.",
-            org.mytonwallet.app_air.uisettings.R.drawable.ic_tg_sign,
+            org.mytonwallet.app_air.icons.R.drawable.ic_tg_sign
         )
     }
     private val installBenefit3 by lazy {
         makeBenefit(
             "This helps protect your funds even if your recovery phrase or keys are compromised.",
-            org.mytonwallet.app_air.uisettings.R.drawable.ic_tg_protect,
+            org.mytonwallet.app_air.icons.R.drawable.ic_tg_protect
         )
     }
     private val configuredBenefit2 by lazy {
         makeBenefit(
             "Sign transfers and important actions with your passcode, then confirm them in Telegram.",
-            org.mytonwallet.app_air.uisettings.R.drawable.ic_tg_sign,
+            org.mytonwallet.app_air.icons.R.drawable.ic_tg_sign
         )
     }
     private val configuredBenefit3 by lazy {
         makeBenefit(
             "This helps protect your funds even if your recovery phrase or keys are compromised.",
-            org.mytonwallet.app_air.uisettings.R.drawable.ic_tg_protect,
+            org.mytonwallet.app_air.icons.R.drawable.ic_tg_protect
         )
     }
 
@@ -124,7 +127,7 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             configure(
                 LocaleController.getString("My Telegram Account"),
                 titleColor = WColor.Tint,
-                topRounding = HeaderCell.TopRounding.NORMAL,
+                topRounding = HeaderCell.TopRounding.NORMAL
             )
         }
     }
@@ -233,8 +236,8 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             bottomReversedCornerViewUpsideDown,
             ConstraintLayout.LayoutParams(
                 MATCH_PARENT,
-                ConstraintLayout.LayoutParams.MATCH_CONSTRAINT,
-            ),
+                ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+            )
         )
         view.addView(feeLabel, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.addView(
@@ -254,7 +257,7 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 feeLabel,
-                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS,
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
         }
@@ -276,7 +279,7 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             buttonsBottomMargin() +
                 primaryButton.buttonHeight +
                 40.dp +
-                ViewConstants.BLOCK_RADIUS.dp.toInt(),
+                ViewConstants.BLOCK_RADIUS.dp.toInt()
         )
     }
 
@@ -287,19 +290,19 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
                 user = user,
                 startWithBiometrics = false,
                 onSuccess = { showInstalledScreen() },
-                task = { passcode -> viewModel.confirmInstall(passcode) },
+                task = { passcode -> viewModel.confirmInstall(passcode) }
             )
         }
         viewModel.onRemoveConfirmationRequested = { user ->
             val resolvedUser = user ?: AccountMfa.User(
-                name = LocaleController.getString("Telegram Account"),
+                name = LocaleController.getString("Telegram Account")
             )
             presentConfirm(
                 titleText = LocaleController.getString("Confirm Disconnection"),
                 user = resolvedUser,
                 startWithBiometrics = true,
                 onSuccess = { popSelf() },
-                task = { passcode -> viewModel.confirmRemove(context, passcode) },
+                task = { passcode -> viewModel.confirmRemove(context, passcode) }
             )
         }
 
@@ -324,7 +327,11 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
 
         primaryButton.text = when {
             configured -> LocaleController.getString("Unlink Account")
-            state.isWaitingForTelegramInstall || installAvailable -> LocaleController.getString("Connect Telegram")
+
+            state.isWaitingForTelegramInstall || installAvailable -> LocaleController.getString(
+                "Connect Telegram"
+            )
+
             else -> LocaleController.getString("Insufficient Balance")
         }
         primaryButton.type =
@@ -332,10 +339,13 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
         primaryButton.isLoading = state.isWaitingForTelegramRemoval || state.isRefreshingMfa
         primaryButton.setEnabled(
             !state.isRefreshingMfa && (
-                if (configured) !state.isWaitingForTelegramRemoval
-                else state.isWaitingForTelegramInstall || installAvailable
+                if (configured) {
+                    !state.isWaitingForTelegramRemoval
+                } else {
+                    state.isWaitingForTelegramInstall || installAvailable
+                }
                 ),
-            true,
+            true
         )
 
         feeLabel.setTextColor(
@@ -360,14 +370,14 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
         user: AccountMfa.User,
         startWithBiometrics: Boolean,
         onSuccess: () -> Unit,
-        task: suspend (String) -> Unit,
+        task: suspend (String) -> Unit
     ) {
         if (navigationController?.viewControllers?.lastOrNull() !== this) return
         val headerView = MfaConfirmHeaderView(
             context,
             titleText,
             user,
-            AccountStore.activeAccount,
+            AccountStore.activeAccount
         )
         val confirmVC = PasscodeConfirmVC(
             context,
@@ -387,7 +397,7 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
                         popSelf()
                     }
                 }
-            },
+            }
         )
         push(confirmVC)
     }
@@ -457,17 +467,15 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
-            0,
+            0
         )
         applyScrollPadding()
     }
 
-    private fun buttonsBottomMargin(): Int {
-        return 16.dp + max(
-            (navigationController?.getSystemBars()?.bottom ?: 0),
-            (navigationController?.imeInsetBottom ?: 0),
-        )
-    }
+    private fun buttonsBottomMargin(): Int = 16.dp + max(
+        (navigationController?.getSystemBars()?.bottom ?: 0),
+        (navigationController?.imeInsetBottom ?: 0)
+    )
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
@@ -475,7 +483,7 @@ class MfaVC(context: Context) : WViewController(context), WalletCore.EventObserv
             is WalletEvent.BalanceChanged -> {
                 updateForState(
                     viewModel.state,
-                    AccountStore.activeAccount?.byChain?.get(TON_CHAIN)?.mfa,
+                    AccountStore.activeAccount?.byChain?.get(TON_CHAIN)?.mfa
                 )
             }
 

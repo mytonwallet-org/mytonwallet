@@ -59,6 +59,7 @@ export const enum DeeplinkCommand {
   Swap = 'swap',
   BuyWithCrypto = 'buy-with-crypto',
   BuyWithCard = 'buy-with-card',
+  SellOnCard = 'sell-on-card',
   Offramp = 'offramp',
   Stake = 'stake',
   Transfer = 'transfer',
@@ -761,6 +762,15 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
           actions.showError({ error: 'Buying with card is not supported in Testnet.' });
         } else {
           actions.openOnRampWidgetModal({ chain: 'ton' });
+        }
+        return true;
+      }
+
+      case DeeplinkCommand.SellOnCard: {
+        if (isTestnet) {
+          actions.showError({ error: 'Selling to card is not supported in Testnet.' });
+        } else {
+          actions.openOffRampWidgetModal();
         }
         return true;
       }

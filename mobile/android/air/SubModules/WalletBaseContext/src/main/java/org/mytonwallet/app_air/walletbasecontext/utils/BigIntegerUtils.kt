@@ -1,18 +1,20 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
-import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import java.math.BigInteger
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 
+@Suppress("PropertyName")
 const val decimalSeparator = '.'
 
 // Six-per-em space; the rounded balance font (Google Sans Flex) draws the thin space
 // (U+2009) at just 0.06em, while U+2006 renders ~0.167em consistently in all fonts.
+@Suppress("PropertyName")
 const val thinSpace = '\u2006'
+
+@Suppress("PropertyName")
 const val signSpace = '\u200A'
 
-fun max(a: BigInteger, b: BigInteger): BigInteger {
-    return if (a > b) a else b
-}
+fun max(a: BigInteger, b: BigInteger): BigInteger = if (a > b) a else b
 
 fun BigInteger.doubleAbsRepresentation(decimals: Int? = null): Double {
     val absValue = this.abs()
@@ -38,6 +40,7 @@ fun BigInteger.toString(
     showPositiveSign: Boolean,
     forceCurrencyToRight: Boolean = false,
     roundUp: Boolean = true,
+    localizedDigits: Boolean = false,
     zeroCountSubscriptMinCount: Int? = 6
 ): String {
     val scale = BigInteger.TEN.pow(decimals)
@@ -88,7 +91,9 @@ fun BigInteger.toString(
     // Add currency symbol
     if (currency.isNotEmpty()) {
         result =
-            if (currency.length > 1 || forceCurrencyToRight || currency in MBaseCurrency.forcedToRight) {
+            if (currency.length > 1 || forceCurrencyToRight ||
+                currency in MBaseCurrency.forcedToRight
+            ) {
                 "$result $currency"
             } else {
                 "$currency$result"
@@ -99,15 +104,19 @@ fun BigInteger.toString(
         result = "+$signSpace$result"
     }
 
+    if (localizedDigits) {
+        result = result.withLocalizedNumbers
+    }
+
     return result
 }
 
 private val subscriptDigits =
     arrayOf('₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉')
 
-private fun Int.toSubscriptString(): String {
-    return toString().map { subscriptDigits[it.digitToInt()] }.joinToString("")
-}
+private fun Int.toSubscriptString(): String = toString().map {
+    subscriptDigits[it.digitToInt()]
+}.joinToString("")
 
 // Collapse leading fractional zeros into a subscript count, e.g. "0.00000056" -> "0.0₆56".
 // Only applies when the value starts with "0." and has at least [minZeroCount] leading zeros.

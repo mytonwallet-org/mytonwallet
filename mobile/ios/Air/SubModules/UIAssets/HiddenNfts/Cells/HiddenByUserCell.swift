@@ -24,9 +24,10 @@ struct HiddenByUserCell: View {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Image(systemName: state.isHiddenByUser ? "eye.fill" : "eye.slash.fill")
                             .imageScale(.small)
+                            .textStyle(.calloutStrong, content: .technical)
                         Text(lang(state.isHiddenByUser ? "Unhide" : "Hide"))
+                            .textStyle(.calloutStrong)
                     }
-                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .contentShape(.capsule)
                 }

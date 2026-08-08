@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.base
 
 import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.annotation.SuppressLint
 import android.view.MotionEvent
 import android.view.VelocityTracker
@@ -11,6 +12,10 @@ import android.view.View.VISIBLE
 import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -20,11 +25,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
-import java.lang.ref.WeakReference
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
-
 
 /**
  * An extended OnTouchListener that allows swiping of a View.
@@ -32,21 +32,17 @@ import kotlin.math.min
  *
  * onClick(), onSwipeLeft() and onSwipeRight() must be overridden
  * in order provide desired functionality after a swipe or touch.
- */
-class SwipeTouchListener
-/**
- * Public constructor for the class SwipeTouchListener.
  *
  * @param activity   An Activity-pointer.
  * @param viewParent The ViewGroup that contains the View.
- */(
+ */
+class SwipeTouchListener(
     private val viewController: WeakReference<WViewController>,
     private val mViewParent: WeakReference<WNavigationController>,
     var behindView: WeakReference<WViewController.ContainerView>,
     private var darkView: WeakReference<View>,
     private val onDismiss: () -> Unit
-) :
-    OnTouchListener {
+) : OnTouchListener {
     private var mView: View? = null
 
     private var mVelocityTracker: VelocityTracker? = null
@@ -85,23 +81,26 @@ class SwipeTouchListener
             }
 
             MotionEvent.ACTION_MOVE -> actionMove(event)
+
             MotionEvent.ACTION_UP -> {
                 mViewPressed = false
 
-                if (isSwiping) onSwipe(event)
-                else {
-                    return onClick()
-                }
+                if (isSwiping) onSwipe(event) else return onClick()
             }
 
-            MotionEvent.ACTION_CANCEL -> {
-                mViewPressed = false
-                mVelocityTracker = null
-
-                view.translationX = 0f
-            }
+            MotionEvent.ACTION_CANCEL -> cancelSwipe()
         }
         return true
+    }
+
+    fun cancelSwipe() {
+        mViewPressed = false
+        mVelocityTracker = null
+        if (isSwiping) {
+            endSwipe(0, 1f, 0f, false)
+        } else {
+            mView?.translationX = 0f
+        }
     }
 
     /**
@@ -113,8 +112,11 @@ class SwipeTouchListener
      * the event
      */
     private fun actionDown(view: View, event: MotionEvent) {
-        if (mVelocityTracker == null) mVelocityTracker = VelocityTracker.obtain()
-        else mVelocityTracker!!.clear()
+        if (mVelocityTracker == null) {
+            mVelocityTracker = VelocityTracker.obtain()
+        } else {
+            mVelocityTracker!!.clear()
+        }
 
         mVelocityTracker!!.addMovement(event)
 
@@ -134,8 +136,7 @@ class SwipeTouchListener
      * the event
      */
     private fun actionMove(event: MotionEvent) {
-        if (mVelocityTracker == null)
-            return
+        if (mVelocityTracker == null) return
         mVelocityTracker!!.addMovement(event)
 
         val currentX = event.x + mView!!.translationX
@@ -148,20 +149,24 @@ class SwipeTouchListener
                 behindView.get()?.viewController?.get()?.viewWillAppear()
                 mDownX = event.x
                 darkView.get()?.let {
-                    if (it.parent == null)
+                    if (it.parent == null) {
                         viewController.get()?.navigationController?.addView(
-                            it, 0,
+                            it,
+                            0,
                             ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                         )
+                    }
                     it.visibility = VISIBLE
                 }
                 mViewParent.get()?.requestDisallowInterceptTouchEvent(true)
                 behindView.get()?.let {
-                    if (it.parent == null)
+                    if (it.parent == null) {
                         viewController.get()?.navigationController?.addView(
-                            it, 0,
+                            it,
+                            0,
                             ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                         )
+                    }
                     it.visibility = VISIBLE
                     it.alpha = 1f
                     (it.parent as? View)?.setBackgroundColor(WColor.SecondaryBackground.color)
@@ -209,9 +214,17 @@ class SwipeTouchListener
          * velocity, or over a third of the Views width has been
          * dragged out of its initial position. */
         val shouldDismiss = if (isRtl) {
-            deltaX < 0 && (velocityX > SWIPE_VELOCITY_MIN || abs(deltaX.toDouble()) > mView!!.width.toFloat() / 3)
+            deltaX < 0 &&
+                (
+                    velocityX > SWIPE_VELOCITY_MIN ||
+                        abs(deltaX.toDouble()) > mView!!.width.toFloat() / 3
+                    )
         } else {
-            deltaX > 0 && (velocityX > SWIPE_VELOCITY_MIN || abs(deltaX.toDouble()) > mView!!.width.toFloat() / 3)
+            deltaX > 0 &&
+                (
+                    velocityX > SWIPE_VELOCITY_MIN ||
+                        abs(deltaX.toDouble()) > mView!!.width.toFloat() / 3
+                    )
         }
 
         if (shouldDismiss) {
@@ -231,7 +244,7 @@ class SwipeTouchListener
         mViewParent.get()?.isEnabled = false
 
         val duration =
-            ((1 - outOfView) * SWIPE_DURATION).toInt().toLong()
+            ((1 - outOfView) * SWIPE_DURATION).toLong().coerceIn(0L, SWIPE_DURATION)
         endSwipe(duration, endAlpha, endX, dismiss)
     }
 
@@ -263,12 +276,13 @@ class SwipeTouchListener
                 it.visibility = VISIBLE
                 it.alpha = 1f
                 // Adds behind view when user used back button on device
-                if (it.parent == null)
+                if (it.parent == null) {
                     viewController.get()?.navigationController?.addView(
                         it,
                         0,
                         ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     )
+                }
             }
         }
 
@@ -288,7 +302,6 @@ class SwipeTouchListener
                 behindView.get()?.isEnabled = true
                 behindView.get()?.scaleX = 1f
                 behindView.get()?.scaleY = 1f
-                behindView.get()?.viewController?.get()?.viewDidAppear()
             } else {
                 mView!!.translationX = 0f
                 behindView.get()?.let {
@@ -336,26 +349,16 @@ class SwipeTouchListener
                         .start()
                 }
             }
-            if (isSwiping)
+            if (isSwiping) {
                 darkView.get()?.animate()?.setDuration(duration)
                     ?.setInterpolator(interpolator)?.alpha(0f)
+            }
             (mView ?: viewController.get()?.view)?.animate()?.setDuration(duration)?.alpha(endAlpha)
                 ?.translationX(fEndX * LocaleController.rtlMultiplier)
-                ?.setListener(object : Animator.AnimatorListener {
-                    override fun onAnimationEnd(anim: Animator) {
+                ?.setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
                         WGlobalStorage.decDoNotSynchronize()
                         animationEnded()
-                    }
-
-                    override fun onAnimationCancel(anim: Animator) {
-                        WGlobalStorage.decDoNotSynchronize()
-                        animationEnded()
-                    }
-
-                    override fun onAnimationRepeat(anim: Animator) {
-                    }
-
-                    override fun onAnimationStart(anim: Animator) {
                     }
                 })
         }
@@ -364,9 +367,7 @@ class SwipeTouchListener
     /**
      * Is called when the user has performed a single click on the View.
      */
-    private fun onClick(): Boolean {
-        return true
-    }
+    private fun onClick(): Boolean = true
 
     fun triggerPop(animated: Boolean = true, onCompletion: (() -> Unit)?) {
         endSwipe(

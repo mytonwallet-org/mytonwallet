@@ -21,7 +21,7 @@ sealed class MWalletPermission {
         val spenderIcon: String? = null,
         // Serialized as a decimal string on the JS side.
         val allowance: BigDecimal,
-        val isUnlimited: Boolean,
+        val isUnlimited: Boolean
     ) : MWalletPermission()
 
     @JsonClass(generateAdapter = true)
@@ -29,7 +29,7 @@ sealed class MWalletPermission {
         override val chain: String,
         val delegateAddress: String,
         val delegateName: String? = null,
-        val delegateIcon: String? = null,
+        val delegateIcon: String? = null
     ) : MWalletPermission()
 }
 
@@ -38,33 +38,30 @@ data class MTonPlugin(
     val address: String,
     val name: String? = null,
     val balance: BigInteger,
-    val isInitialized: Boolean,
+    val isInitialized: Boolean
 )
 
 sealed class MRevokeWalletPermissionOptions {
     abstract val accountId: String
-    abstract val password: String?
+    abstract val enclaveToken: String?
 
     @JsonClass(generateAdapter = true)
     data class Approval(
         override val accountId: String,
-        override val password: String?,
+        override val enclaveToken: String?,
         val tokenAddress: String,
         val spenderAddress: String,
-        val kind: String = "approval",
+        val kind: String = "approval"
     ) : MRevokeWalletPermissionOptions()
 
     @JsonClass(generateAdapter = true)
     data class Delegation(
         override val accountId: String,
-        override val password: String?,
+        override val enclaveToken: String?,
         val delegateAddress: String,
-        val kind: String = "delegation",
+        val kind: String = "delegation"
     ) : MRevokeWalletPermissionOptions()
 }
 
 @JsonClass(generateAdapter = true)
-data class MRevokeWalletPermissionResult(
-    val txId: String? = null,
-    val error: String? = null,
-)
+data class MRevokeWalletPermissionResult(val txId: String? = null, val error: String? = null)

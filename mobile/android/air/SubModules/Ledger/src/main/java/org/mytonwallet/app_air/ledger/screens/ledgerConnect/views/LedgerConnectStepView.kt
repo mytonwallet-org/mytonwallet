@@ -43,8 +43,7 @@ class LedgerConnectStepView(context: Context, stepText: String) : WView(context)
             if (field != value) {
                 field = value
                 stepStatusView.state = value
-                if (value != LedgerConnectStepStatusView.State.ERROR)
-                    setError(null)
+                if (value != LedgerConnectStepStatusView.State.ERROR) setError(null)
             }
         }
 
@@ -84,8 +83,7 @@ class LedgerConnectStepView(context: Context, stepText: String) : WView(context)
     }
 
     private fun setSecondaryLine(message: CharSequence?) {
-        if ((errorLabel.text ?: "") == (message ?: ""))
-            return
+        if ((errorLabel.text ?: "") == (message ?: "")) return
 
         val baseHeight =
             stepStatusView.height.coerceAtLeast(stepLabel.height + 5)

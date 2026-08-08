@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -9,10 +8,12 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -24,12 +25,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class AppearancePaletteAndCardView(
-    context: Context,
-) : WView(context), WThemedView {
+class AppearancePaletteAndCardView(context: Context) :
+    WView(context),
+    WThemedView {
     var onCustomizePressed: (() -> Unit)? = null
 
     private val titleLabel = HeaderCell(context).apply {
@@ -48,19 +48,25 @@ class AppearancePaletteAndCardView(
     }
 
     private val circleDrawable = context.getDrawableCompat(
-        org.mytonwallet.app_air.uicomponents.R.drawable.ic_customize_card
+        org.mytonwallet.app_air.icons.R.drawable.ic_customize_card
     )
 
     private val customizeIconView by lazy {
         FrameLayout(context).apply {
-            addView(AppCompatImageView(context).apply {
-                setImageDrawable(circleDrawable)
-                scaleType = ImageView.ScaleType.FIT_XY
-            }, LayoutParams(35.dp, 35.dp))
-            addView(cardThumbnailView, LayoutParams(24.dp, 16.dp).apply {
-                topMargin = 8.5f.dp.roundToInt()
-                leftMargin = 10.dp
-            })
+            addView(
+                AppCompatImageView(context).apply {
+                    setImageDrawable(circleDrawable)
+                    scaleType = ImageView.ScaleType.FIT_XY
+                },
+                LayoutParams(35.dp, 35.dp)
+            )
+            addView(
+                cardThumbnailView,
+                LayoutParams(24.dp, 16.dp).apply {
+                    topMargin = 8.5f.dp.roundToInt()
+                    leftMargin = 10.dp
+                }
+            )
         }
     }
 
@@ -81,14 +87,20 @@ class AppearancePaletteAndCardView(
     private val customizeButton: WFrameLayout by lazy {
         WFrameLayout(context).apply {
             background = rippleBackground
-            addView(customizeIconView, FrameLayout.LayoutParams(40.dp, 35.dp).apply {
-                marginStart = 20.dp
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            })
-            addView(customizeLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                marginStart = 64.dp
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            })
+            addView(
+                customizeIconView,
+                FrameLayout.LayoutParams(40.dp, 35.dp).apply {
+                    marginStart = 20.dp
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                }
+            )
+            addView(
+                customizeLabel,
+                FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    marginStart = 64.dp
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                }
+            )
             setOnClickListener {
                 onCustomizePressed?.invoke()
             }
@@ -126,5 +138,4 @@ class AppearancePaletteAndCardView(
         circleDrawable?.setTint(WColor.Tint.color)
         rippleBackground.rippleColor = WColor.BackgroundRipple.color
     }
-
 }

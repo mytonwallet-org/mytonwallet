@@ -29,7 +29,6 @@ interface OwnProps extends AmountInputStateOutput {
   /** Expressed in `token` regardless of `isBaseCurrency` */
   ref?: RefObject<HTMLInputElement | undefined>;
   containerClassName?: string;
-  inputWrapperClassName?: string;
   maxAmount?: bigint;
   token: AmountInputToken | undefined;
   allTokens?: AmountInputToken[];
@@ -48,7 +47,6 @@ interface OwnProps extends AmountInputStateOutput {
 function AmountInput({
   ref,
   containerClassName,
-  inputWrapperClassName,
   isBaseCurrency,
   inputValue,
   alternativeValue,
@@ -123,7 +121,7 @@ function AmountInput({
         labelText={labelText ?? lang('Amount')}
         decimals={isBaseCurrency ? CURRENCIES[baseCurrency].decimals : token?.decimals}
         className={styles.input}
-        inputClassName={inputWrapperClassName}
+        labelClassName={styles.label}
         isStatic={isStatic}
         prefix={prefix}
         suffix={suffix}

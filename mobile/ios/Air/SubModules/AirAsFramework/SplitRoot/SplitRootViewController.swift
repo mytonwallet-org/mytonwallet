@@ -71,6 +71,25 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
     }
 
+    func setNavigationPath(_ path: [UIViewController], for id: AppTabId) {
+        let navigationController: WNavigationController
+        if let existing = navControllersByTabId[id] {
+            navigationController = existing
+        } else {
+            guard let nc = AppTabManager.shared.makeNavigationController(for: id, layout: .split) else { return }
+            navControllersByTabId[id] = nc
+            navigationController = nc
+        }
+        if let lazyNavigationController = navigationController as? AppTabLazyNavigationController {
+            lazyNavigationController.ensureRootViewControllerInstalled()
+        }
+        guard let rootViewController = navigationController.viewControllers.first else { return }
+        navigationController.setViewControllers([rootViewController] + path, animated: false)
+        if selectedTab == id {
+            onTabSelect(tab: id)
+        }
+    }
+
     init() {
         self.navControllersByTabId = [:]
 

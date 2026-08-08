@@ -4,5 +4,5 @@ data class PortfolioBreakdownSlice(
     val id: String,
     val label: String,
     val color: Int,
-    val ratio: Double,
+    val ratio: Double
 )

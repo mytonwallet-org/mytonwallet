@@ -8,7 +8,7 @@ import WalletContext
         maxAmount: BigInt?,
         slippage: Double,
         account: SwapAccountSnapshot,
-        passcode: String
+        enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let swapEstimate else {
             throw SdkError.unexpected(message: "Missing swap estimate")
@@ -41,6 +41,7 @@ import WalletContext
             fromAddress: fromAddress,
             historyAddress: historyAddress,
             dexLabel: swapEstimate.dexLabel,
+            dexRouterLabel: swapEstimate.dexRouterLabel,
             fromAmount: fromAmount,
             toAmount: toAmount,
             toMinAmount: swapEstimate.toMinAmount,
@@ -54,7 +55,7 @@ import WalletContext
             ourFee: swapEstimate.ourFee,
             dieselFee: swapEstimate.dieselFee
         )
-        let transferData = try await Api.swapBuildTransfer(accountId: account.id, password: passcode, request: swapBuildRequest)
+        let transferData = try await Api.swapBuildTransfer(accountId: account.id, enclaveToken: enclaveToken, request: swapBuildRequest)
         if let error = transferData.error {
             throw SdkError.apiReturnedError(error: error.rawValue, context: transferData)
         }
@@ -65,7 +66,7 @@ import WalletContext
         let result = try await Api.swapSubmit(
             chain: chain,
             accountId: account.id,
-            password: passcode,
+            enclaveToken: enclaveToken,
             transfers: transferData.transfers,
             historyItem: historyItem,
             isGasless: shouldTryDiesel,

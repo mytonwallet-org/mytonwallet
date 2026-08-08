@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
 object AvalancheConfig : MBlockchainConfig {
 
@@ -20,7 +21,7 @@ object AvalancheConfig : MBlockchainConfig {
     override val displayColor = "#A32F22".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#A32F22".toColorInt(),
-        "#9A184A".toColorInt(),
+        "#9A184A".toColorInt()
     )
 
     override val feeCheckAddress = "0x0000000000000000000000000000000000000000"
@@ -33,22 +34,21 @@ object AvalancheConfig : MBlockchainConfig {
 
     override val chainStandard = "ethereum"
     override val defaultDerivationPath = "m/44'/60'/0'/0/{index}"
+    override val walletConnectChainIds = mapOf(
+        MBlockchainNetwork.MAINNET to 43114,
+        MBlockchainNetwork.TESTNET to 43113
+    )
 
     override fun isValidAddress(address: String): Boolean =
         Regex("""^0x[a-fA-F0-9]{40}$""").matches(address)
 
-    override fun idToTxHash(id: String?): String? =
-        id?.substringBefore(":")
+    override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
-    override fun transactionExplorers() =
-        listOf(MBlockchainExplorer.SNOWTRACE)
+    override fun transactionExplorers() = listOf(MBlockchainExplorer.SNOWTRACE)
 
-    override fun addressExplorers() =
-        listOf(MBlockchainExplorer.SNOWTRACE)
+    override fun addressExplorers() = listOf(MBlockchainExplorer.SNOWTRACE)
 
-    override fun tokenExplorer() =
-        MBlockchainExplorer.SNOWTRACE
+    override fun tokenExplorer() = MBlockchainExplorer.SNOWTRACE
 
-    override fun nftExplorer() =
-        MBlockchainExplorer.SNOWTRACE
+    override fun nftExplorer() = MBlockchainExplorer.SNOWTRACE
 }

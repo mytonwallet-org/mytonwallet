@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.annotation.SuppressLint
@@ -15,9 +17,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class SkeletonCell(
-    context: Context,
-) : WCell(context), WThemedView, SkeletonContainer {
+class SkeletonCell(context: Context) :
+    WCell(context),
+    WThemedView,
+    SkeletonContainer {
 
     companion object {
         val TITLE_WIDTH = arrayOf(80, 120, 100, 90, 120)
@@ -69,8 +72,7 @@ class SkeletonCell(
     private var isFirst: Boolean = false
     private var isLast: Boolean = false
     fun configure(item: Int, isFirst: Boolean, isLast: Boolean) {
-        if (this.item == item && this.isFirst == isFirst && this.isLast == isLast)
-            return
+        if (this.item == item && this.isFirst == isFirst && this.isLast == isLast) return
         this.item = item
         this.isFirst = isFirst
         this.isLast = isLast
@@ -88,8 +90,7 @@ class SkeletonCell(
     private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
+        if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
 
         circleSkeleton.setBackgroundColor(WColor.SecondaryBackground.color, CIRCLE_SKELETON_RADIUS)

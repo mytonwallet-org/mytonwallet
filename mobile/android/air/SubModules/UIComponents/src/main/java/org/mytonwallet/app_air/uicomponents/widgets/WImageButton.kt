@@ -9,7 +9,9 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-open class WImageButton(context: Context) : AppCompatImageButton(context), WThemedView {
+open class WImageButton(context: Context) :
+    AppCompatImageButton(context),
+    WThemedView {
 
     private val ripple = WRippleDrawable.create(100f.dp)
     private var rippleWColor = WColor.SecondaryBackground
@@ -17,6 +19,7 @@ open class WImageButton(context: Context) : AppCompatImageButton(context), WThem
         WColor.PrimaryText,
         WColor.SecondaryText
     )
+    private var tintColorOverride: Int? = null
 
     init {
         id = generateViewId()
@@ -30,7 +33,13 @@ open class WImageButton(context: Context) : AppCompatImageButton(context), WThem
             this.rippleWColor = rippleColor
         }
         this.tintColors = listOf(tint, tint)
+        this.tintColorOverride = null
         updateTheme()
+    }
+
+    fun updateTintColor(tint: Int) {
+        tintColorOverride = tint
+        imageTintList = ColorStateList.valueOf(tint)
     }
 
     override fun updateTheme() {
@@ -38,7 +47,9 @@ open class WImageButton(context: Context) : AppCompatImageButton(context), WThem
             intArrayOf(android.R.attr.state_checked),
             intArrayOf(-android.R.attr.state_checked)
         )
-        val colors = tintColors.map {
+        val colors = tintColorOverride?.let {
+            intArrayOf(it, it)
+        } ?: tintColors.map {
             it.color
         }.toIntArray()
         val colorStateList = ColorStateList(states, colors)
@@ -46,5 +57,4 @@ open class WImageButton(context: Context) : AppCompatImageButton(context), WThem
         ripple.backgroundColor = Color.TRANSPARENT
         ripple.rippleColor = rippleWColor.color
     }
-
 }

@@ -29,6 +29,7 @@ import { logDebug, logDebugError } from '../../../util/logs';
 import { getNativeToken } from '../../../util/tokens';
 import { generateQueryId } from './util';
 import { parseTonapiioNft } from './util/metadata';
+import { getSigner } from './util/signer';
 import {
   fetchAccountEvents, fetchAccountNfts, fetchNftByAddress, fetchNftItems,
 } from './util/tonapiio';
@@ -267,14 +268,14 @@ export async function checkNftTransferDraft(options: {
 
 export async function submitNftTransfers(options: {
   accountId: string;
-  password: string | undefined;
+  enclaveToken: string | undefined;
   nfts: ApiNft[];
   toAddress: string;
   comment?: string;
   isNftBurn?: boolean;
 }): Promise<ApiSubmitNftTransferResult> {
   const {
-    accountId, password, nfts, comment, isNftBurn,
+    accountId, enclaveToken, nfts, comment, isNftBurn,
   } = options;
 
   let { toAddress } = options;
@@ -308,7 +309,11 @@ export async function submitNftTransfers(options: {
     return { error: ApiTransactionDraftError.MfaNftBatchLimit };
   }
 
-  const sentTx = await submitMultiTransferWithMfa({ accountId, password, messages });
+  const sentTx = await submitMultiTransferWithMfa({
+    accountId,
+    signer: getSigner(accountId, account, enclaveToken),
+    messages,
+  });
 
   if ('error' in sentTx) {
     logDebugError('submitNftTransfers', {

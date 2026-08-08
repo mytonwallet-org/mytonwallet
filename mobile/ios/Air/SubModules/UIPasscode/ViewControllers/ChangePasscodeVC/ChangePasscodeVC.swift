@@ -12,13 +12,15 @@ import WalletContext
 
 public enum ChangePasscodeStep {
     case currentPasscode
-    case newPasscode(prevPasscode: String)
-    case verifyPasscode(prevPasscode: String, passcode: String)
+    case newPasscode(prevToken: EnclaveToken)
+    case verifyPasscode(prevToken: EnclaveToken, passcode: String)
 }
 
 public class ChangePasscodeVC: WViewController {
 
     private let step: ChangePasscodeStep
+    private let mismatchTitle = lang("Passcodes don't match. Please try again.")
+
     public init(step: ChangePasscodeStep) {
         self.step = step
         super.init(nibName: nil, bundle: nil)
@@ -44,35 +46,55 @@ public class ChangePasscodeVC: WViewController {
     private var passcodeScreenView: PasscodeScreenView!
 
     private func setupViews() {
-        let title: String
-        switch step {
-        case .currentPasscode:
-            title = lang("Enter your current password")
+        if case .currentPasscode = step {
             addCloseNavigationItemIfNeeded()
-            break
-        case .newPasscode(_):
-            title = lang("Set a passcode")
-            break
-        case .verifyPasscode(_, _):
-            title = lang("Confirm Passcode")
         }
-        passcodeScreenView = PasscodeScreenView(title: title,
+        passcodeScreenView = PasscodeScreenView(title: stepTitle,
                                                 biometricPassAllowed: false,
                                                 delegate: self,
                                                 matchHeaderColors: false)
         passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(passcodeScreenView)
         NSLayoutConstraint.activate([
-            passcodeScreenView.leftAnchor.constraint(equalTo: view.leftAnchor),
+            passcodeScreenView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             passcodeScreenView.topAnchor.constraint(equalTo: view.topAnchor),
-            passcodeScreenView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            passcodeScreenView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+    }
+
+    private var stepTitle: String {
+        switch step {
+        case .currentPasscode:
+            lang("Enter your current password")
+        case .newPasscode(_):
+            lang("Set a passcode")
+        case .verifyPasscode(_, _):
+            lang("Confirm Passcode")
+        }
+    }
+
+    private func showPasscodesDoNotMatch() {
+        passcodeScreenView.enterPasscodeLabel.setText(
+            mismatchTitle,
+            animatedWithDuration: 0.2,
+            animateResize: true
+        )
     }
 }
 
 extension ChangePasscodeVC: PasscodeScreenViewDelegate {
     func passcodeChanged(passcode: String) {
+        guard case .newPasscode(_) = step,
+              !passcode.isEmpty,
+              passcodeScreenView.enterPasscodeLabel.label.text == mismatchTitle else {
+            return
+        }
+        passcodeScreenView.enterPasscodeLabel.setText(
+            stepTitle,
+            animatedWithDuration: 0.2,
+            animateResize: true
+        )
     }
     
     func animateSuccess() {
@@ -82,12 +104,15 @@ extension ChangePasscodeVC: PasscodeScreenViewDelegate {
         switch step {
         case .currentPasscode:
             Task { @MainActor in
-                let success = (try? await AuthSupport.verifyPassword(password: passcode)) ?? false
-                if success {
+                let enclaveToken = try? await AuthSupport.authorizeWithPasscode(
+                    passcode,
+                    sessionKind: .oneShot
+                )
+                if let enclaveToken {
                     view.isUserInteractionEnabled = false
                     try? await Task.sleep(for: .seconds(0.5))
                     view.isUserInteractionEnabled = true
-                    navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevPasscode: passcode)), animated: true)
+                    navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevToken: enclaveToken)), animated: true)
                     passcodeScreenView.passcodeInputView.currentPasscode = ""
                 } else {
                     Haptics.play(.error)
@@ -95,22 +120,22 @@ extension ChangePasscodeVC: PasscodeScreenViewDelegate {
                 }
             }
             break
-        case .newPasscode(let prevPasscode):
+        case .newPasscode(let prevToken):
             view.isUserInteractionEnabled = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 guard let self else {return}
                 view.isUserInteractionEnabled = true
-                navigationController?.pushViewController(ChangePasscodeVC(step: .verifyPasscode(prevPasscode: prevPasscode, passcode: passcode)),
+                navigationController?.pushViewController(ChangePasscodeVC(step: .verifyPasscode(prevToken: prevToken, passcode: passcode)),
                                                          animated: true)
                 passcodeScreenView.passcodeInputView.currentPasscode = ""
             }
             break
-        case let .verifyPasscode(prevPasscode, currentPass):
+        case let .verifyPasscode(prevToken, currentPass):
             if passcode == currentPass {
                 view.isUserInteractionEnabled = false
                 Task {
                     do {
-                        try await Api.changePassword(oldPassword: prevPasscode, newPassword: passcode)
+                        try await AuthSupport.changePasscode(to: passcode, using: prevToken)
                         if let nc = navigationController, let vcs = navigationController?.viewControllers {
                             let filtered = vcs.filter { vc in !(vc is ChangePasscodeVC) }
                             nc.setViewControllers(filtered + [self], animated: false)
@@ -134,6 +159,9 @@ extension ChangePasscodeVC: PasscodeScreenViewDelegate {
                     }
                 }
             } else {
+                Haptics.play(.error)
+                passcodeScreenView.wrongPassFeedback()
+                (navigationController?.viewControllers.dropLast().last as? ChangePasscodeVC)?.showPasscodesDoNotMatch()
                 view.isUserInteractionEnabled = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                     guard let self else {return}
@@ -147,7 +175,7 @@ extension ChangePasscodeVC: PasscodeScreenViewDelegate {
         }
     }
     
-    func onAuthenticated(taskDone: Bool, passcode: String) {
+    func onAuthenticated(taskDone: Bool, enclaveToken: EnclaveToken) {
         
     }
 }

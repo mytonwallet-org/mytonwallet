@@ -8,7 +8,7 @@
   isolation: isolate;
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   width: 100%;
   min-width: 16rem;
@@ -33,9 +33,9 @@
     position: absolute;
     z-index: 3;
     top: 0;
-    right: 0;
     bottom: 0;
-    left: 0;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
 
     /* stylelint-disable-next-line plugin/whole-pixel */
     padding: 1.5px;
@@ -67,7 +67,7 @@
 .image {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   width: 100%;
   height: 100%;

@@ -166,6 +166,7 @@ export default function createConfig(
 
       new EnvironmentPlugin({
         APP_ENV: 'production',
+        IS_HEADLESS: '',
         PORTFOLIO_API_URL: '',
       }),
       new NormalModuleReplacementPlugin(

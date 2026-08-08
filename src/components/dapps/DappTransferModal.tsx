@@ -81,8 +81,8 @@ function DappTransferModal({
     }
   });
 
-  const handleTransferPasswordSubmit = useLastCallback((password: string) => {
-    submitDappTransfer({ password });
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
+    submitDappTransfer({ enclaveToken });
   });
 
   const handleLedgerConnect = useLastCallback(() => {
@@ -111,7 +111,7 @@ function DappTransferModal({
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
           noAutoConfirm
-          onSubmit={handleTransferPasswordSubmit}
+          onAuthorize={handleAuthorize}
           onCancel={handleBackClick}
           onUpdate={clearDappTransferError}
         />

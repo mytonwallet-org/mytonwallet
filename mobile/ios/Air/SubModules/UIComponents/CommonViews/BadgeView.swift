@@ -32,11 +32,11 @@ public final class BadgeView: UIView {
         case .regular:
             horizontalPadding = 6
             badgeHeight = 14
-            label.font = .systemFont(ofSize: 10, weight: .semibold)
+            label.applyTextStyle(.badge, content: .technical)
         case .large:
             horizontalPadding = 8
             badgeHeight = 16
-            label.font = .systemFont(ofSize: 13, weight: .semibold)
+            label.applyTextStyle(.largeBadge, content: .technical)
         }
 
         super.init(frame: .zero)

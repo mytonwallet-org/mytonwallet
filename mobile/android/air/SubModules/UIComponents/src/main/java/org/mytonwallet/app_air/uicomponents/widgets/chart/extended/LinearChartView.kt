@@ -6,9 +6,7 @@ import android.graphics.Paint
 import kotlin.math.max
 import kotlin.math.min
 
-class LinearChartView(
-    context: Context
-) : BaseChartView<ChartData, LineViewData>(context) {
+class LinearChartView(context: Context) : BaseChartView<ChartData, LineViewData>(context) {
     var allowNegativeValues = false
 
     override fun init() {
@@ -44,7 +42,9 @@ class LinearChartView(
                 val yPercentage = (y[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight)
                 val padding = line.paint.strokeWidth / 2f
                 val yPoint =
-                    measuredHeight - chartBottom - padding - yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT - padding)
+                    measuredHeight - chartBottom - padding -
+                        yPercentage *
+                        (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT - padding)
 
                 if (USE_LINES) {
                     if (j == 0) {

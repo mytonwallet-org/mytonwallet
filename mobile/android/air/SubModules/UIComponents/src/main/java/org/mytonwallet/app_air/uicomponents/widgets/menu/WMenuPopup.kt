@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets.menu
 
 import android.graphics.Path
+import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
@@ -26,6 +27,11 @@ class WMenuPopup {
         ABOVE,
         ALIGNED,
         BELOW
+    }
+
+    enum class SubmenuTransition {
+        PAGE,
+        EXPAND_FROM_ITEM
     }
 
     data class Item(
@@ -57,7 +63,9 @@ class WMenuPopup {
                 val isSubItem: Boolean = false,
                 val subItems: List<WMenuPopup.Item>? = null,
                 val trailingView: View? = null,
-                val textMargin: Int? = null
+                val textMargin: Int? = null,
+                val trailingViewProvider: (() -> View)? = null,
+                val submenuTransition: SubmenuTransition = SubmenuTransition.PAGE
             ) : Config()
 
             data class SelectableItem(
@@ -66,178 +74,171 @@ class WMenuPopup {
                 val isSelected: Boolean
             ) : Config()
 
-            data class CustomView(
-                val customView: FrameLayout
-            ) : Config()
+            data class CustomView(val customView: FrameLayout) : Config()
 
             data class Icon(
                 val iconResId: Int?,
                 val tintColor: WColor? = null,
                 val iconSize: Int? = null,
                 val iconMargin: Int? = null,
+                val drawable: Drawable? = null
             )
         }
 
-        fun getIcon(): Int? {
-            return when (config) {
-                is Config.Back -> {
-                    org.mytonwallet.app_air.icons.R.drawable.ic_menu_back
-                }
+        fun getIcon(): Int? = when (config) {
+            is Config.Back -> {
+                org.mytonwallet.app_air.icons.R.drawable.ic_menu_back
+            }
 
-                is Config.Item -> {
-                    config.icon?.iconResId
-                }
+            is Config.Item -> {
+                config.icon?.iconResId
+            }
 
-                is Config.SelectableItem -> {
-                    if (config.isSelected) org.mytonwallet.app_air.uicomponents.R.drawable.ic_radio_fill else null
-                }
-
-                else -> {
+            is Config.SelectableItem -> {
+                if (config.isSelected) {
+                    org.mytonwallet.app_air.icons.R.drawable.ic_radio_fill
+                } else {
                     null
                 }
             }
-        }
 
-        fun getIconTint(): Int? {
-            return when (config) {
-                is Config.Item -> {
-                    config.icon?.tintColor?.color
-                }
-
-                is Config.SelectableItem -> {
-                    WColor.Tint.color
-                }
-
-                Config.Back -> {
-                    WColor.PrimaryLightText.color
-                }
-
-                else -> {
-                    WColor.SecondaryText.color
-                }
+            else -> {
+                null
             }
         }
 
-        fun getIconSize(): Int? {
-            return when (config) {
-                is Config.Item -> {
-                    config.icon?.iconSize
-                }
+        fun getIconTint(): Int? = when (config) {
+            is Config.Item -> {
+                config.icon?.tintColor?.color
+            }
 
-                else -> {
-                    null
-                }
+            is Config.SelectableItem -> {
+                WColor.Tint.color
+            }
+
+            Config.Back -> {
+                WColor.PrimaryLightText.color
+            }
+
+            else -> {
+                WColor.SecondaryText.color
             }
         }
 
-        fun getIconMargin(): Int? {
-            return when (config) {
-                is Config.Item -> {
-                    config.icon?.iconMargin
-                }
+        fun getIconDrawable(): Drawable? = when (config) {
+            is Config.Item -> config.icon?.drawable
+            else -> null
+        }
 
-                else -> {
-                    null
-                }
+        fun getIconSize(): Int? = when (config) {
+            is Config.Item -> {
+                config.icon?.iconSize
+            }
+
+            else -> {
+                null
             }
         }
 
-        fun getTextMargin(): Int? {
-            return when (config) {
-                is Config.Item -> {
-                    config.textMargin
-                }
+        fun getIconMargin(): Int? = when (config) {
+            is Config.Item -> {
+                config.icon?.iconMargin
+            }
 
-                else -> {
-                    null
-                }
+            else -> {
+                null
             }
         }
 
-        fun getTitle(): CharSequence? {
-            return when (config) {
-                is Config.Back -> {
-                    LocaleController.getString("Back")
-                }
+        fun getTextMargin(): Int? = when (config) {
+            is Config.Item -> {
+                config.textMargin
+            }
 
-                is Config.Item -> {
-                    config.title
-                }
-
-                is Config.SelectableItem -> {
-                    config.title
-                }
-
-                else -> {
-                    null
-                }
+            else -> {
+                null
             }
         }
 
-        fun getTitleColor(): Int? {
-            return when (config) {
-                is Config.Item -> {
-                    config.titleColor
-                }
+        fun getTitle(): CharSequence? = when (config) {
+            is Config.Back -> {
+                LocaleController.getString("Back")
+            }
 
-                else ->
-                    null
+            is Config.Item -> {
+                config.title
+            }
+
+            is Config.SelectableItem -> {
+                config.title
+            }
+
+            else -> {
+                null
             }
         }
 
-        fun getSubTitle(): CharSequence? {
-            return when (config) {
-                is Config.Item -> {
-                    config.subtitle
-                }
+        fun getTitleColor(): Int? = when (config) {
+            is Config.Item -> {
+                config.titleColor
+            }
 
-                is Config.SelectableItem -> {
-                    config.subtitle
-                }
+            else ->
+                null
+        }
 
-                else -> {
-                    null
-                }
+        fun getSubTitle(): CharSequence? = when (config) {
+            is Config.Item -> {
+                config.subtitle
+            }
+
+            is Config.SelectableItem -> {
+                config.subtitle
+            }
+
+            else -> {
+                null
             }
         }
 
-        fun getSubItems(): List<Item>? {
-            return when (config) {
-                is Config.Back -> {
-                    null
-                }
+        fun getSubItems(): List<Item>? = when (config) {
+            is Config.Back -> {
+                null
+            }
 
-                is Config.Item -> {
-                    config.subItems
-                }
+            is Config.Item -> {
+                config.subItems
+            }
 
-                is Config.SelectableItem -> {
-                    null
-                }
+            is Config.SelectableItem -> {
+                null
+            }
 
-                else -> {
-                    null
-                }
+            else -> {
+                null
             }
         }
 
-        fun getIsSubItem(): Boolean {
-            return when (config) {
-                is Config.Back -> {
-                    false
-                }
+        fun getSubmenuTransition(): SubmenuTransition = when (config) {
+            is Config.Item -> config.submenuTransition
+            else -> SubmenuTransition.PAGE
+        }
 
-                is Config.Item -> {
-                    config.isSubItem
-                }
+        fun getIsSubItem(): Boolean = when (config) {
+            is Config.Back -> {
+                false
+            }
 
-                is Config.SelectableItem -> {
-                    false
-                }
+            is Config.Item -> {
+                config.isSubItem
+            }
 
-                else -> {
-                    false
-                }
+            is Config.SelectableItem -> {
+                false
+            }
+
+            else -> {
+                false
             }
         }
     }
@@ -258,18 +259,21 @@ class WMenuPopup {
             usePillShadow: Boolean = false,
             onWillDismiss: (() -> Unit)? = null,
             displayProgressListener: ((progress: Float) -> Unit)? = null,
+            cancelsAncestorTouches: Boolean = true
         ): INavigationPopup {
-            view.cancelAncestorTouches()
+            if (cancelsAncestorTouches) view.cancelAncestorTouches()
             view.lockView()
 
             lateinit var popupWindow: WNavigationPopup
 
             val initialPopupView = WMenuPopupView(
-                view.context, items,
+                view.context,
+                items,
                 onWillDismiss = onWillDismiss,
                 onDismiss = {
                     popupWindow.dismiss()
-                })
+                }
+            )
 
             popupWindow =
                 WNavigationPopup(
@@ -277,7 +281,7 @@ class WMenuPopup {
                     popupWidth,
                     windowBackgroundStyle,
                     backdropStyle,
-                    usePillShadow,
+                    usePillShadow
                 ).apply {
                     setOnDismissListener {
                         view.post {
@@ -289,16 +293,17 @@ class WMenuPopup {
 
             val location = view.getLocationOnScreen()
             val screenWidth = ApplicationContextHolder.screenWidth
-            val offset = xOffset + if (centerHorizontally) {
-                val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {
-                    initialPopupView.measure(screenWidth.atMost, 0.unspecified)
-                    initialPopupView.measuredWidth
-                } else {
-                    popupWidth
-                }
-                (view.width - popupMeasuredWidth) / 2
+            val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {
+                initialPopupView.measure(screenWidth.atMost, 0.unspecified)
+                initialPopupView.measuredWidth
             } else {
-                0
+                popupWidth
+            }
+            val offset = xOffset + when {
+                centerHorizontally -> (view.width - popupMeasuredWidth) / 2
+                isRtl && xOffset == 0 -> view.width - popupMeasuredWidth
+                else -> 0
             }
 
             val y = when (positioning) {
@@ -332,33 +337,25 @@ class WMenuPopup {
 
             companion object {
 
-                fun fromView(
-                    view: View,
-                    roundRadius: Float = 0f,
-                    offset: Int = 0
-                ): Cutout {
-                    return Cutout(
-                        view.frameAsPath(
-                            roundRadius = roundRadius,
-                            offset = offset.toFloat()
-                        )
+                fun fromView(view: View, roundRadius: Float = 0f, offset: Int = 0): Cutout = Cutout(
+                    view.frameAsPath(
+                        roundRadius = roundRadius,
+                        offset = offset.toFloat()
                     )
-                }
+                )
 
                 fun fromView(
                     view: View,
                     roundRadius: Float = 0f,
                     horizontalOffset: Int = 0,
                     verticalOffset: Int = 0
-                ): Cutout {
-                    return Cutout(
-                        view.frameAsPath(
-                            roundRadius = roundRadius,
-                            horizontalOffset = horizontalOffset.toFloat(),
-                            verticalOffset = verticalOffset.toFloat()
-                        )
+                ): Cutout = Cutout(
+                    view.frameAsPath(
+                        roundRadius = roundRadius,
+                        horizontalOffset = horizontalOffset.toFloat(),
+                        verticalOffset = verticalOffset.toFloat()
                     )
-                }
+                )
             }
         }
     }

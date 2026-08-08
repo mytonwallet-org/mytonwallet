@@ -6,6 +6,7 @@ import type { MenuPositionOptions } from './Menu';
 
 import buildClassName from '../../util/buildClassName';
 
+import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import DropdownItemContent from './DropdownItemContent';
@@ -69,6 +70,13 @@ function DropdownMenu<T extends string>({
     menuRef = ref;
   }
 
+  const { isRtl } = useLang();
+
+  // Dynamic (anchor) placement below is computed from geometry and is already direction-correct.
+  // The static branch places the menu by a physical CSS edge (`.left`/`.right`), so mirror the side
+  // for RTL - otherwise it stays pinned to the physical right edge and opens off-screen / clipped
+  const staticPositionX = isRtl ? (menuPositionX === 'right' ? 'left' : 'right') : menuPositionX;
+
   // Create position options
   const menuPositionOptions: MenuPositionOptions = menuAnchor && getTriggerElement && getRootElement && getMenuElement
     ? {
@@ -89,7 +97,7 @@ function DropdownMenu<T extends string>({
       }
       : {
         anchor: menuAnchor,
-        positionX: menuPositionX,
+        positionX: staticPositionX,
         positionY: menuPositionY,
       };
 

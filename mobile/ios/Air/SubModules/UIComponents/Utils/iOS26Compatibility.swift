@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import WalletCore
 import WalletContext
 
 public let IOS_26_MODE_ENABLED: Bool = {

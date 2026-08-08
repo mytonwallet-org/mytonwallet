@@ -3,9 +3,14 @@ import type { ApiStakingState, ApiStakingType } from '../../api/types';
 import {
   ETHENA_STAKING_MIN_AMOUNT,
   MIN_ACTIVE_STAKING_REWARDS,
+  NEW_STAKE_DISABLED_TOKEN_SLUGS,
   NOMINATORS_STAKING_MIN_AMOUNT,
   STAKING_MIN_AMOUNT,
 } from '../../config';
+
+export function getIsNewStakeAllowed(tokenSlug?: string) {
+  return !tokenSlug || !NEW_STAKE_DISABLED_TOKEN_SLUGS.has(tokenSlug);
+}
 
 export function getStakingMinAmount(type?: ApiStakingType) {
   switch (type) {
@@ -56,6 +61,18 @@ export function getIsActiveStakingState(state: ApiStakingState) {
     || state.unstakeRequestAmount
     || ('unclaimedRewards' in state && state.unclaimedRewards > MIN_ACTIVE_STAKING_REWARDS),
   );
+}
+
+export function getIsStakingClaimable(state: ApiStakingState) {
+  if (state.type === 'jetton') {
+    return state.unclaimedRewards > 0n;
+  }
+
+  return getStakingStateStatus(state) === 'readyToClaim';
+}
+
+export function getIsStakingUnstakeable(state: ApiStakingState) {
+  return state.balance > 0n;
 }
 
 export function getIsLongUnstake(state: ApiStakingState, amount?: bigint): boolean | undefined {

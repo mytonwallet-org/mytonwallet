@@ -6,6 +6,7 @@ describe('getChainNetworkName', () => {
     ['base', 'Base'],
     ['avalanche', 'Avalanche'],
     ['hyperliquid', 'Hyperliquid'],
+    ['robinhood', 'Robinhood'],
   ])('uses the canonical title for the supported %s chain', (chain, expectedTitle) => {
     expect(getChainNetworkName(chain)).toBe(expectedTitle);
   });

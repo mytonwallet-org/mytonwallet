@@ -19,9 +19,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class HomeTabletAssetsSkeletonCell(
-    context: Context,
-) : WCell(context), WThemedView, SkeletonContainer {
+class HomeTabletAssetsSkeletonCell(context: Context) :
+    WCell(context),
+    WThemedView,
+    SkeletonContainer {
 
     companion object {
         private val COLUMN_WIDTH = HomeTabletAssetsCell.COLUMN_WIDTH_DP.dp

@@ -78,12 +78,12 @@ class AccountIconView(context: Context, val usage: Usage) : FrameLayout(context)
 
     private var accountId: String? = null
 
-    fun config(
-        account: MAccount,
-        useTelegramAvatar: Boolean = ApplicationContextHolder.isGramApp,
-    ) {
+    fun config(account: MAccount, useTelegramAvatar: Boolean = ApplicationContextHolder.isGramApp) {
         val avatarUrl = account.telegramAvatarUrl
-            ?.takeIf { useTelegramAvatar && !it.substringBefore('?').endsWith(".svg", ignoreCase = true) }
+            ?.takeIf {
+                useTelegramAvatar &&
+                    !it.substringBefore('?').endsWith(".svg", ignoreCase = true)
+            }
         config(account.accountId, account.name, account.firstAddress ?: "", avatarUrl)
     }
 

@@ -19,10 +19,21 @@ interface UseAgentMessagesProps {
   agentMessageCount?: number;
 }
 
-interface UseAgentMessagesResult {
+export interface TextRevealPresentation {
+  key: string;
+  status: 'active' | 'settled' | 'error';
+  shouldRevealFromStart: boolean;
+}
+
+export type TextRevealPresentations = Record<number, TextRevealPresentation>;
+
+export interface UseAgentMessagesResult {
   messages: AgentMessage[];
   isInitialLoadComplete: boolean;
+  textRevealPresentations: TextRevealPresentations;
   sendMessage: (text: string, editMessageId?: number) => void;
+  consumeTextRevealSession: (messageId: number, key: string) => void;
+  settleTextRevealSession: (messageId: number, key: string) => void;
   clearChat: NoneToVoidFunction;
 }
 
@@ -35,8 +46,10 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
+  const [textRevealPresentations, setTextRevealPresentations] = useState<TextRevealPresentations>({});
 
   const nextIdRef = useRef(1);
+  const textRevealSequenceRef = useRef(0);
   const abortRef = useRef<NoneToVoidFunction>();
   const pendingTextRef = useRef<{ id: number; text: string }>();
   /** rAF id for batching stream text updates, chunks arrive dozens of times per second, but we render once per frame */
@@ -56,6 +69,7 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
     pendingTextRef.current = undefined;
     generationRef.current++;
     setMessages([]);
+    setTextRevealPresentations({});
     nextIdRef.current = 1;
     setIsSending(false);
   }
@@ -126,7 +140,14 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
         return [
           ...prev.slice(0, editIdx),
           { id: outId, text, isOutgoing: true, timestamp: now },
-          { id: inId, text: '', isOutgoing: false, timestamp: now, isTyping: true },
+          {
+            id: inId,
+            text: '',
+            isOutgoing: false,
+            timestamp: now,
+            isTyping: true,
+            isStreaming: true,
+          },
         ];
       });
     } else {
@@ -136,9 +157,30 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
       setMessages((prev) => [
         ...prev,
         { id: outId, text, isOutgoing: true, timestamp: now },
-        { id: inId, text: '', isOutgoing: false, timestamp: now, isTyping: true },
+        {
+          id: inId,
+          text: '',
+          isOutgoing: false,
+          timestamp: now,
+          isTyping: true,
+          isStreaming: true,
+        },
       ]);
     }
+    textRevealSequenceRef.current += 1;
+    const textRevealPresentation: TextRevealPresentation = {
+      key: `${generationRef.current}:${inId}:${textRevealSequenceRef.current}`,
+      status: 'active',
+      shouldRevealFromStart: true,
+    };
+    setTextRevealPresentations((current) => {
+      const next = editMessageId
+        ? filterTextRevealPresentations(current, editMessageId)
+        : { ...current };
+
+      next[inId] = textRevealPresentation;
+      return next;
+    });
     setIsSending(true);
 
     const global = getGlobal();
@@ -181,7 +223,9 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
           const idx = prev.findIndex((msg) => msg.id === msgId);
           if (idx === -1) return prev;
           const updated = prev.slice();
-          updated[idx] = { ...updated[idx], text: newText, isTyping: undefined };
+          updated[idx] = {
+            ...updated[idx], text: newText, isTyping: undefined, isStreaming: true,
+          };
           return updated;
         });
       }
@@ -213,7 +257,7 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
           setMessages((prev) => {
             finalMessages = prev
               .filter((msg) => !msg.isTyping)
-              .map((msg) => (msg.id === inId ? { ...msg, text: accumulated } : msg));
+              .map((msg) => (msg.id === inId ? finalizeStreamingMessage(msg, accumulated) : msg));
             return finalMessages;
           });
           finalize(finalMessages);
@@ -223,12 +267,21 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
           if (currentGeneration !== generationRef.current) return;
 
           flushPendingRaf();
+          setTextRevealPresentations((current) => updateTextRevealPresentation(
+            current,
+            inId,
+            textRevealPresentation.key,
+            {
+              status: 'error',
+              shouldRevealFromStart: false,
+            },
+          ));
           let finalMessages!: AgentMessage[];
           setMessages((prev) => {
             finalMessages = prev
               .filter((msg) => !msg.isTyping || msg.id === inId)
               .map((msg) => (msg.id === inId
-                ? { ...msg, text: lang(error), isTyping: undefined }
+                ? finalizeStreamingMessage(msg, lang(error))
                 : msg));
             return finalMessages;
           });
@@ -250,6 +303,27 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
     };
   });
 
+  const consumeTextRevealSession = useLastCallback((messageId: number, key: string) => {
+    setTextRevealPresentations((current) => updateTextRevealPresentation(
+      current,
+      messageId,
+      key,
+      { shouldRevealFromStart: false },
+    ));
+  });
+
+  const settleTextRevealSession = useLastCallback((messageId: number, key: string) => {
+    setTextRevealPresentations((current) => updateTextRevealPresentation(
+      current,
+      messageId,
+      key,
+      {
+        status: 'settled',
+        shouldRevealFromStart: false,
+      },
+    ));
+  });
+
   const clearChat = useLastCallback(() => {
     resetInternalState();
     void clearAgentChat();
@@ -259,7 +333,46 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
   return {
     messages,
     isInitialLoadComplete,
+    textRevealPresentations,
     sendMessage,
+    consumeTextRevealSession,
+    settleTextRevealSession,
     clearChat,
+  };
+}
+
+function finalizeStreamingMessage(message: AgentMessage, text: string) {
+  const finalizedMessage = { ...message, text };
+
+  delete finalizedMessage.isTyping;
+  delete finalizedMessage.isStreaming;
+
+  return finalizedMessage;
+}
+
+function filterTextRevealPresentations(
+  presentations: TextRevealPresentations,
+  maximumMessageId: number,
+) {
+  return Object.fromEntries(
+    Object.entries(presentations).filter(([messageId]) => Number(messageId) < maximumMessageId),
+  ) as TextRevealPresentations;
+}
+
+function updateTextRevealPresentation(
+  presentations: TextRevealPresentations,
+  messageId: number,
+  key: string,
+  update: Partial<TextRevealPresentation>,
+) {
+  const presentation = presentations[messageId];
+  if (!presentation || presentation.key !== key) return presentations;
+
+  return {
+    ...presentations,
+    [messageId]: {
+      ...presentation,
+      ...update,
+    },
   };
 }

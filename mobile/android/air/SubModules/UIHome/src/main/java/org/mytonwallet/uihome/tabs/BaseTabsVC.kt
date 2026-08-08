@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController.Presentat
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
 import org.mytonwallet.app_air.uireceive.ReceiveBackgroundCache
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
@@ -43,7 +44,8 @@ import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
  * subclasses via the [ITabsVC] members they implement.
  */
 abstract class BaseTabsVC(context: Context) :
-    WViewController(context), ITabsVC {
+    WViewController(context),
+    ITabsVC {
 
     override val shouldDisplayBottomBar: Boolean
         get() {
@@ -71,13 +73,18 @@ abstract class BaseTabsVC(context: Context) :
         nav.setRoot(
             when (id) {
                 IBottomNavigationView.ID_HOME -> HomeVC(context, MScreenMode.Default)
+
                 IBottomNavigationView.ID_AGENT -> AgentVC(context)
+
                 IBottomNavigationView.ID_EXPLORE -> ExploreVC(context).also {
                     cachedExploreVC = it
                     onExploreCreated(it)
                 }
 
                 IBottomNavigationView.ID_SETTINGS -> SettingsVC(context)
+
+                IBottomNavigationView.ID_PORTFOLIO -> PortfolioVC(context)
+
                 else -> throw Error()
             }
         )
@@ -87,7 +94,25 @@ abstract class BaseTabsVC(context: Context) :
 
     protected fun navForOrNull(id: Int): WNavigationController? = stackNavigationControllers[id]
 
-    protected val navStacks: Collection<WNavigationController> get() = stackNavigationControllers.values
+    fun doOnHomeInitialContentRendered(callback: () -> Unit): Boolean {
+        if (mainNavigationController?.viewControllers?.size != 1) return false
+        val homeVC = activeNavigationController
+            ?.viewControllers
+            ?.singleOrNull() as? HomeVC ?: return false
+        homeVC.doOnInitialContentRendered(callback)
+        return true
+    }
+
+    protected fun submitAgentPrompt(prompt: String?) {
+        if (prompt.isNullOrBlank()) return
+        val agentVC = getNavigationStack(IBottomNavigationView.ID_AGENT)
+            .viewControllers
+            .firstOrNull() as? AgentVC ?: return
+        agentVC.submitPrompt(prompt)
+    }
+
+    protected val navStacks: Collection<WNavigationController>
+        get() = stackNavigationControllers.values
 
     // Layout swap transfer ////////////////////////////////////////////////////////////////////////
     class TabStacksTransfer(
@@ -98,7 +123,7 @@ abstract class BaseTabsVC(context: Context) :
         // detached but not destroyed so they survive the container swap.
         val pushedOverMain: List<WViewController>,
         // Current Explore search query, so it survives a phone <-> tablet swap.
-        val searchText: String,
+        val searchText: String
     )
 
     protected open fun exportSearchText(): String = ""
@@ -162,8 +187,7 @@ abstract class BaseTabsVC(context: Context) :
 
     /** Re-host the pushed-over-main VCs once this container's views/main nav exist. */
     protected fun adoptPendingPushedOverMain() {
-        if (pendingPushedOverMain.isEmpty())
-            return
+        if (pendingPushedOverMain.isEmpty()) return
         val pushed = pendingPushedOverMain
         pendingPushedOverMain = emptyList()
         adoptPushedOverMain(pushed)
@@ -179,8 +203,7 @@ abstract class BaseTabsVC(context: Context) :
 
     override fun onDestroy() {
         super.onDestroy()
-        if (ownsStacks)
-            destroyStacks()
+        if (ownsStacks) destroyStacks()
         cachedExploreVC = null
     }
 
@@ -197,7 +220,11 @@ abstract class BaseTabsVC(context: Context) :
     // Shared WalletEvent routing //////////////////////////////////////////////////////////////////
     private fun openUrl(config: InAppBrowserConfig) {
         val window = window ?: return
-        val browserVC = InAppBrowserVC(context, this, config)
+        val tabBarController = this.takeIf {
+            window.topViewController === this &&
+                mainNavigationController?.viewControllers?.size == 1
+        }
+        val browserVC = InAppBrowserVC(context, tabBarController, config)
         val nav = WNavigationController(window)
         nav.setRoot(browserVC)
         window.present(nav)
@@ -219,13 +246,16 @@ abstract class BaseTabsVC(context: Context) :
                 } else if (WalletContextManager.delegate?.get()?.handleDeeplink(
                         url,
                         DeeplinkOpenSource.INTERNAL_UI
-                    ) != true) {
+                    ) != true
+                ) {
                     if (canOpenExternally(url)) {
                         context.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
                     } else if (url.lowercase().startsWith("https://")) {
-                        val resolved = if (SubprojectHelpers.isSubproject(url))
+                        val resolved = if (SubprojectHelpers.isSubproject(url)) {
                             SubprojectHelpers.appendSubprojectContext(url)
-                        else url
+                        } else {
+                            url
+                        }
                         openUrl(InAppBrowserConfig(resolved, injectDappConnect = true))
                     } else {
                         Logger.w(Logger.LogTag.AIR_APPLICATION, "OpenUrl: unsupported link = $url")
@@ -253,9 +283,18 @@ abstract class BaseTabsVC(context: Context) :
                 walletEvent.activity.let { activity ->
                     val nav = WNavigationController(
                         window,
-                        PresentationConfig(style = WNavigationController.PresentationStyle.BottomSheet)
+                        PresentationConfig(
+                            style = WNavigationController.PresentationStyle.BottomSheet
+                        )
                     )
-                    nav.setRoot(TransactionVC(context, walletEvent.accountId, activity))
+                    nav.setRoot(
+                        TransactionVC(
+                            context,
+                            walletEvent.accountId,
+                            activity,
+                            titleOverride = walletEvent.titleOverride
+                        )
+                    )
                     window.present(nav)
                 }
                 return true
@@ -264,7 +303,8 @@ abstract class BaseTabsVC(context: Context) :
             is WalletEvent.OpenToken -> {
                 val account = AccountStore.activeAccount ?: return true
                 val token = TokenStore.getToken(walletEvent.slug) ?: return true
-                getNavigationStack(IBottomNavigationView.ID_HOME).push(
+                val navigationController = mainNavigationController ?: return true
+                navigationController.push(
                     TokenVC(
                         context,
                         account,
@@ -283,8 +323,10 @@ abstract class BaseTabsVC(context: Context) :
                     collectionMode = CollectionMode.ReadOnly(walletEvent.name, walletEvent.nfts),
                     isShowingSingleCollection = true
                 )
-                (window.navigationControllers.lastOrNull()
-                    ?: getNavigationStack(IBottomNavigationView.ID_HOME)).push(assetsVC)
+                (
+                    window.navigationControllers.lastOrNull()
+                        ?: getNavigationStack(IBottomNavigationView.ID_HOME)
+                    ).push(assetsVC)
                 return true
             }
 

@@ -114,6 +114,94 @@ public enum DebugProductionMode {
     }
 }
 
+public enum DebugTokenInfoMock {
+    public enum Preset: String, CaseIterable, Sendable {
+        case disabled
+        case design
+        case localizedDescription
+        case longSparse
+        case loading
+        case missingDescription
+        case missingTokenInfo
+        case error
+    }
+
+    public static let userDefaultsKey = "debug_tokenInfoMockPreset"
+
+    public static var preset: Preset {
+        guard IS_DEBUG_OR_TESTFLIGHT_DEFAULT else { return .disabled }
+        let rawValue = UserDefaults.standard.string(forKey: userDefaultsKey)
+        return rawValue.flatMap(Preset.init(rawValue:)) ?? .disabled
+    }
+
+    public static var isEnabled: Bool {
+        preset != .disabled
+    }
+}
+
+public enum WalletTokenPercentChangeThresholdExperiment {
+    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+        case disabled
+        case halfPercent
+        case onePercent
+        case twoPercent
+        case fivePercent
+
+        public var id: Self { self }
+
+        public var title: String {
+            switch self {
+            case .disabled:
+                "Off"
+            case .halfPercent:
+                "0.5%"
+            case .onePercent:
+                "1%"
+            case .twoPercent:
+                "2%"
+            case .fivePercent:
+                "5%"
+            }
+        }
+
+        public var minimumAbsolutePercentChange: Double? {
+            switch self {
+            case .disabled:
+                nil
+            case .halfPercent:
+                0.5
+            case .onePercent:
+                1
+            case .twoPercent:
+                2
+            case .fivePercent:
+                5
+            }
+        }
+
+        public func shouldShow(percentChange: Double) -> Bool {
+            guard let minimumAbsolutePercentChange else { return true }
+            return abs(percentChange) >= minimumAbsolutePercentChange
+        }
+    }
+
+    public static let userDefaultsKey = "experimental_walletTokenPercentChangeThreshold"
+
+    public static var preset: Preset {
+        guard IS_DEBUG_OR_TESTFLIGHT_DEFAULT else { return .disabled }
+        let rawValue = UserDefaults.standard.string(forKey: userDefaultsKey)
+        return rawValue.flatMap(Preset.init(rawValue:)) ?? .disabled
+    }
+
+    public static var initialPresetRawValue: String {
+        preset.rawValue
+    }
+
+    public static func shouldShow(percentChange: Double) -> Bool {
+        preset.shouldShow(percentChange: percentChange)
+    }
+}
+
 public let APP_ROOT_URL_DOMAINS = [ "gramwallet.io", "mytonwallet.io", "mywallet.io" ]
 
 public var IS_DEBUG_OR_TESTFLIGHT_DEFAULT: Bool {

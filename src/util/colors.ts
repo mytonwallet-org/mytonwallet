@@ -1,5 +1,12 @@
 export type RGBColor = [number, number, number];
 
+export interface RgbaColor {
+  red: number;
+  green: number;
+  blue: number;
+  alpha: number;
+}
+
 export function hex2rgb(param: string): RGBColor {
   const hex = param.replace('#', '');
   return [
@@ -79,4 +86,92 @@ export function deltaE(rgbA: RGBColor, rgbB: RGBColor): number {
   const deltaHkhsh = deltaH / sh;
 
   return Math.sqrt(deltaLKlsl * deltaLKlsl + deltaCkcsc * deltaCkcsc + deltaHkhsh * deltaHkhsh);
+}
+
+/** Parses the CSS color notations produced by `getComputedStyle`: hex, `rgb()` and `rgba()` */
+export function parseCssColor(color: string): RgbaColor | undefined {
+  const normalizedColor = color.trim().toLowerCase();
+  if (normalizedColor === 'transparent') {
+    return {
+      red: 0, green: 0, blue: 0, alpha: 0,
+    };
+  }
+
+  const hexadecimalMatch = normalizedColor.match(/^#([\da-f]{3,8})$/i);
+  if (hexadecimalMatch) {
+    const hexadecimal = hexadecimalMatch[1];
+    if (![3, 4, 6, 8].includes(hexadecimal.length)) return undefined;
+
+    const isShort = hexadecimal.length <= 4;
+    const alphaOffset = isShort ? 3 : 6;
+
+    return {
+      red: parseHexadecimalColorChannel(hexadecimal, isShort, 0),
+      green: parseHexadecimalColorChannel(hexadecimal, isShort, isShort ? 1 : 2),
+      blue: parseHexadecimalColorChannel(hexadecimal, isShort, isShort ? 2 : 4),
+      alpha: hexadecimal.length === 4 || hexadecimal.length === 8
+        ? parseHexadecimalColorChannel(hexadecimal, isShort, alphaOffset) / 255
+        : 1,
+    };
+  }
+
+  const rgbMatch = normalizedColor.match(/^rgba?\((.*)\)$/i);
+  if (!rgbMatch) return undefined;
+
+  const slashSeparatedComponents = rgbMatch[1].trim().split(/\s*\/\s*/);
+  if (slashSeparatedComponents.length > 2) return undefined;
+
+  const components = slashSeparatedComponents[0].includes(',')
+    ? slashSeparatedComponents[0].split(/\s*,\s*/)
+    : slashSeparatedComponents[0].split(/\s+/);
+  const legacyAlpha = components.length === 4 ? components.pop() : undefined;
+  if (components.length !== 3) return undefined;
+
+  const red = parseCssColorChannel(components[0]);
+  const green = parseCssColorChannel(components[1]);
+  const blue = parseCssColorChannel(components[2]);
+  const alphaComponent = slashSeparatedComponents[1] ?? legacyAlpha;
+  const alpha = alphaComponent === undefined ? 1 : parseCssAlpha(alphaComponent);
+  if ([red, green, blue, alpha].some((component) => component === undefined)) return undefined;
+
+  return {
+    red: red!, green: green!, blue: blue!, alpha: alpha!,
+  };
+}
+
+/** Flattens translucent layers over an opaque base into a single `rgb()` color, topmost layer last */
+export function compositeCssColors(opaqueBase: RgbaColor, translucentLayers: RgbaColor[]) {
+  const compositedColor = translucentLayers.reduceRight((background, foreground) => ({
+    red: foreground.red * foreground.alpha + background.red * (1 - foreground.alpha),
+    green: foreground.green * foreground.alpha + background.green * (1 - foreground.alpha),
+    blue: foreground.blue * foreground.alpha + background.blue * (1 - foreground.alpha),
+    alpha: 1,
+  }), opaqueBase);
+
+  return `rgb(${Math.round(compositedColor.red)}, ${Math.round(compositedColor.green)}, ${
+    Math.round(compositedColor.blue)
+  })`;
+}
+
+function parseHexadecimalColorChannel(hexadecimal: string, isShort: boolean, offset: number) {
+  return parseInt(
+    isShort
+      ? `${hexadecimal[offset]}${hexadecimal[offset]}`
+      : hexadecimal.slice(offset, offset + 2),
+    16,
+  );
+}
+
+function parseCssColorChannel(component: string) {
+  const value = parseFloat(component);
+  if (!Number.isFinite(value)) return undefined;
+
+  return Math.min(255, Math.max(0, component.endsWith('%') ? value * 2.55 : value));
+}
+
+function parseCssAlpha(component: string) {
+  const value = parseFloat(component);
+  if (!Number.isFinite(value)) return undefined;
+
+  return Math.min(1, Math.max(0, component.endsWith('%') ? value / 100 : value));
 }

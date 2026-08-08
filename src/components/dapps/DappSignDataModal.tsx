@@ -50,8 +50,8 @@ function DappSignDataModal({
     }
   });
 
-  const handlePasswordSubmit = useLastCallback((password: string) => {
-    submitDappSignData({ password });
+  const handlePasswordSubmit = useLastCallback((enclaveToken: string) => {
+    submitDappSignData({ enclaveToken });
   });
 
   const handleResetSignData = useLastCallback(() => {
@@ -72,7 +72,7 @@ function DappSignDataModal({
           submitLabel={lang('Sign')}
           cancelLabel={lang('Back')}
           noAutoConfirm
-          onSubmit={handlePasswordSubmit}
+          onAuthorize={handlePasswordSubmit}
           onCancel={handleBackClick}
           onUpdate={clearDappSignDataError}
         />

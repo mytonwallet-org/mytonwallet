@@ -270,14 +270,14 @@ export async function submitNftTransfers(
   chain: EVMChain,
   options: {
     accountId: string;
-    password: string | undefined;
+    enclaveToken: string | undefined;
     nfts: ApiNft[];
     toAddress: string;
     comment?: string;
     isNftBurn?: boolean;
   },
 ): Promise<ApiSubmitNftTransferResult> {
-  const { accountId, password = '', nfts, toAddress } = options;
+  const { accountId, enclaveToken = '', nfts, toAddress } = options;
   const { network } = parseAccountId(accountId);
 
   if (nfts.length > 1) {
@@ -297,7 +297,7 @@ export async function submitNftTransfers(
     const { address: fromAddress } = account.byChain[chain];
     const provider = getEvmProvider(network, chain);
 
-    const privateKey = await fetchPrivateKeyString(chain, accountId, password, account);
+    const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
 
     if (!privateKey) {
       return { error: ApiCommonError.InvalidPassword };

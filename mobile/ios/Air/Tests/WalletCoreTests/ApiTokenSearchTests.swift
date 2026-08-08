@@ -51,4 +51,18 @@ struct ApiTokenSearchTests {
         #expect(token.matchesSearch("alias"))
         #expect(!token.matchesSearch("missing"))
     }
+
+    @Test
+    func `matches localized token name`() {
+        let token = ApiToken(
+            slug: "localized-token",
+            name: "Tether USD",
+            localizedName: "Тезер",
+            symbol: "USDT",
+            decimals: 6,
+            chain: .ton
+        )
+
+        #expect(token.matchesSearch("тез"))
+    }
 }

@@ -1,13 +1,11 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import java.util.Calendar
+import java.util.Date
+import java.util.concurrent.TimeUnit
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 private val cal = Calendar.getInstance()
 fun Date.isSameDayAs(date2: Date): Boolean {
@@ -25,6 +23,19 @@ fun Date.isSameDayAs(date2: Date): Boolean {
 }
 
 fun Date.isSameYearAs(date2: Date): Boolean {
+    if (WBaseStorage.getActiveLanguage() == WLanguage.PERSIAN.langCode) {
+        val calendar = android.icu.util.Calendar.getInstance(
+            android.icu.util.ULocale("fa_IR@calendar=persian")
+        )
+        calendar.time = this
+        val thisYear = calendar.get(android.icu.util.Calendar.YEAR)
+
+        calendar.time = date2
+        val otherYear = calendar.get(android.icu.util.Calendar.YEAR)
+
+        return thisYear == otherYear
+    }
+
     val calendar = Calendar.getInstance()
     calendar.time = this
     val thisYear = calendar.get(Calendar.YEAR)
@@ -35,22 +46,21 @@ fun Date.isSameYearAs(date2: Date): Boolean {
     return thisYear == otherYear
 }
 
-private val dateFormatCache = mutableMapOf<Pair<String, Locale>, SimpleDateFormat>()
+private val dateFormatCache = mutableMapOf<Pair<String, String>, WDateFormatter>()
 fun Date.formatDateAndTime(format: String? = null): String {
     val now = Date()
     val isSameYear = isSameYearAs(now)
     val languageCode = WBaseStorage.getActiveLanguage()
-    val isRussian = languageCode == WLanguage.RUSSIAN.langCode
+    val isDayBeforeMonth = WDateFormatter.isDayBeforeMonth(languageCode)
     val pattern = format ?: when {
-        isRussian && isSameYear -> "d MMM, HH:mm"
-        isRussian -> "d MMM yyyy, HH:mm"
+        isDayBeforeMonth && isSameYear -> "d MMM, HH:mm"
+        isDayBeforeMonth -> "d MMM yyyy, HH:mm"
         isSameYear -> "MMM dd, HH:mm"
         else -> "MMM dd yyyy, HH:mm"
     }
-    val locale = Locale(languageCode)
-    val key = pattern to locale
+    val key = pattern to languageCode
     val formatter = dateFormatCache.getOrPut(key) {
-        SimpleDateFormat(pattern, locale)
+        WDateFormatter.of(pattern, languageCode)
     }
     return formatter.format(this)
 }
@@ -70,9 +80,7 @@ fun Date.formatDateAndTime(period: MHistoryTimePeriod): String {
     )
 }
 
-fun Date.formatTime(): String {
-    return formatDateAndTime("HH:mm")
-}
+fun Date.formatTime(): String = formatDateAndTime("HH:mm")
 
 fun Date.timeAgo(template: String = "\$ago"): String {
     val diffInMillis = System.currentTimeMillis() - time
@@ -85,14 +93,17 @@ fun Date.timeAgo(template: String = "\$ago"): String {
 
     return when {
         seconds < 60 -> LocaleController.getString("just now")
+
         minutes < 60 -> LocaleController.getFormattedString(
-            template, listOf(
+            template,
+            listOf(
                 LocaleController.getPlural(minutes.toInt(), "minute")
             )
         )
 
         hours < 24 -> LocaleController.getFormattedString(
-            template, listOf(
+            template,
+            listOf(
                 LocaleController.getPlural(hours.toInt(), "hour")
             )
         )
@@ -103,47 +114,43 @@ fun Date.timeAgo(template: String = "\$ago"): String {
 
 object DateUtils {
 
-    fun formatDateAndTimeDotSeparated(timestamp: Long): String {
-        return formatDateAndTimeSeparated(timestamp, "·")
-    }
+    fun formatDateAndTimeDotSeparated(timestamp: Long): String =
+        formatDateAndTimeSeparated(timestamp, "·")
 
     fun formatDateAndTimeSeparated(timestamp: Long, separator: String): String {
         val date = Date(timestamp)
 
-        val dayMonthFormat = SimpleDateFormat("d MMMM", Locale(WBaseStorage.getActiveLanguage()))
-        val yearFormat = SimpleDateFormat("yyyy", Locale(WBaseStorage.getActiveLanguage()))
-        val timeFormat = SimpleDateFormat("HH:mm", Locale(WBaseStorage.getActiveLanguage()))
+        val langCode = WBaseStorage.getActiveLanguage()
+        val dayMonth = WDateFormatter.of("d MMMM", langCode).format(date)
+        val year = WDateFormatter.of("yyyy", langCode).format(date)
+        val time = WDateFormatter.of("HH:mm", langCode).format(date)
 
-        val dayMonth = dayMonthFormat.format(date)
-        val year = yearFormat.format(date)
-        val time = timeFormat.format(date)
-
-        return if (date.isSameYearAs(Date())) "$dayMonth $separator $time" else "$dayMonth $year $separator $time"
+        return if (date.isSameYearAs(Date())) {
+            "$dayMonth $separator $time"
+        } else {
+            "$dayMonth $year $separator $time"
+        }
     }
 
     fun formatDayMonth(timestamp: Long): String {
         val date = Date(timestamp)
 
-        val dayMonthFormat = SimpleDateFormat("d MMMM", Locale(WBaseStorage.getActiveLanguage()))
-
-        val dayMonth = dayMonthFormat.format(date)
+        val dayMonth =
+            WDateFormatter.ofActiveLanguage("d MMMM").format(date)
 
         return dayMonth
     }
 
     fun formatTimeToWait(remainingMs: Long): String {
         val remainingSeconds = remainingMs / 1000
-        if (remainingSeconds < 0)
-            return ""
+        if (remainingSeconds < 0) return ""
         val days: Int = (remainingSeconds / (24 * 3600)).toInt()
         val hours: Int = ((remainingSeconds % (24 * 3600)) / 3600).toInt()
         val minutes: Int = ((remainingSeconds % 3600) / 60).toInt()
 
         val parts = mutableListOf<String>()
 
-        if (days > 0) parts.add(
-            LocaleController.getPlural(days, "day")
-        )
+        if (days > 0) parts.add(LocaleController.getPlural(days, "day"))
         if (hours > 0) parts.add(LocaleController.getPlural(hours, "hour"))
         if (minutes > 0) parts.add(LocaleController.getPlural(minutes, "minute"))
 

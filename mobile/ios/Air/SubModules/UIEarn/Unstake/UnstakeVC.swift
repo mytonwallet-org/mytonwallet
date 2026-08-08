@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import ProtectedAction
 import SwiftUI
 import UIKit
 import UIComponents
@@ -15,7 +16,7 @@ import WalletContext
 private let DAYS: Double = 24 * 3600
 
 
-public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
+public class UnstakeVC: WViewController {
 
     let model: UnstakeModel
     @AccountContext private var account: MAccount
@@ -25,17 +26,11 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
     
     var fakeTextField = UITextField(frame: .zero)
     private var continueButton: WButton?
-    private var taskError: SdkError? = nil
-    private var awaitingActivity = false
-    private var pendingActivityId: String?
-    
     public init(config: StakingConfig, stakingState: ApiStakingState, accountContext: AccountContext) {
         self._account = accountContext
         self.model = UnstakeModel(config: config, stakingState: stakingState, accountContext: accountContext)
         
         super.init(nibName: nil, bundle: nil)
-        WalletCoreData.add(eventObserver: self)
-        
         model.onAmountChanged = { [weak self] amount in
             self?.amountChanged(amount: amount)
         }
@@ -45,27 +40,6 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
         fatalError("init(coder:) has not been implemented")
     }
         
-    public func walletCore(event: WalletCoreData.Event) {
-        switch event {
-        case .newLocalActivity(let update):
-            handleNewActivities(accountId: update.accountId, activities: update.activities)
-        case .newActivities(let update):
-            handleNewActivities(accountId: update.accountId, activities: update.activities)
-        default:
-            break
-        }
-    }
-
-    private func handleNewActivities(accountId: String, activities: [ApiActivity]) {
-        guard awaitingActivity, accountId == account.id else { return }
-        let activity = activities.first(where: { $0.id == pendingActivityId }) ??
-        activities.first(where: { $0.isStakingTransaction })
-        guard let activity else { return }
-        awaitingActivity = false
-        pendingActivityId = nil
-        AppActions.showActivityDetails(accountId: accountId, activity: activity, context: .unstakeRequestConfirmation)
-    }
-
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
@@ -164,59 +138,7 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
     }
     
     func confirmAction(account: MAccount) async throws {
-        let headerView = StakingConfirmHeaderView(mode: .unstake,
-                                                  tokenAmount: TokenAmount(model.amount ?? 0, config.baseToken))
-        let headerVC = UIHostingController(rootView: headerView)
-        headerVC.view.backgroundColor = .clear
-        
-        let realFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .unstake).real
-        let stakingState = self.stakingState
-        let submitAmount: BigInt = switch stakingState.type {
-        case .nominators:
-            stakingState.balance
-        default:
-            try (model.draft?.tokenAmount).orThrow()
-        }
-
-        do {
-            awaitingActivity = true
-            pendingActivityId = nil
-            let result = try await AppActions.authorizeProtectedAction(
-                on: self,
-                account: account,
-                title: lang("Confirm Unstaking"),
-                headerView: headerView,
-                passwordAction: { [weak self] password in
-                    let result = try await Api.submitUnstakeProtected(
-                        accountId: account.id,
-                        password: password,
-                        amount: submitAmount,
-                        state: stakingState,
-                        realFee: realFee
-                    )
-                    await MainActor.run {
-                        self?.pendingActivityId = result.activityId
-                    }
-                    return result
-                },
-                ledgerSignData: {
-                    .staking(
-                        isStaking: false,
-                        accountId: account.id,
-                        amount: submitAmount,
-                        stakingState: stakingState,
-                        realFee: realFee
-                    )
-                },
-                mfaTitle: lang("Confirm Unstaking")
-            )
-            pendingActivityId = result?.activityId
-        } catch {
-            awaitingActivity = false
-            pendingActivityId = nil
-            showAlert(error: error) { [weak self] in
-                self?.navigationController?.popViewController(animated: true)
-            }
-        }
+        let protectedAction = try ProtectedAction.unstake(model: model, account: account)
+        _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
     }
 }

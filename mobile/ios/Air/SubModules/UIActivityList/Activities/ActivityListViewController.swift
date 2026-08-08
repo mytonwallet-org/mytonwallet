@@ -4,9 +4,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let log = Log("ActivityListViewController")
-
-private let appearAnimationDuration = 0.4
 private let plainSectionEstimatedHeight: CGFloat = 300
 private let nftActivityContextMenuStyle = ContextMenuStyle(minWidth: 180.0, maxWidth: 280.0)
 
@@ -90,8 +87,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
-            collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            collectionView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: collectionViewBottomConstraint)
         ])
         dataSource = makeDataSource()
@@ -102,7 +99,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         collectionView.backgroundColor = .clear
         collectionView.contentInsetAdjustmentBehavior = .automatic
         collectionView.allowsSelection = false
-        collectionView.isScrollEnabled = false
+        collectionView.isScrollEnabled = true
         collectionView.delaysContentTouches = false
         collectionView.accessibilityIdentifier = "collectionView"
         if #available(iOS 26, iOSApplicationExtension 26, *) {
@@ -115,8 +112,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         view.addSubview(skeletonView)
         NSLayoutConstraint.activate([
             skeletonView.topAnchor.constraint(equalTo: view.topAnchor),
-            skeletonView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            skeletonView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            skeletonView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            skeletonView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             skeletonView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         
@@ -257,9 +254,10 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
               transaction.isIncoming,
               transaction.status != .failed,
               let nft = transaction.nft,
-              let accountId = activityViewModel?.accountContext.accountId else {
+              let accountContext = activityViewModel?.accountContext else {
             return nil
         }
+        let accountId = accountContext.accountId
 
         return ContextMenuInteraction(
             triggers: [.longPress],
@@ -273,11 +271,11 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                     items: [
                         .action(
                             ContextMenuAction(
-                                title: lang("Hide NFT"),
-                                icon: .airBundle("MenuHide26"),
+                                title: lang("Hide and Report"),
+                                icon: .system("flag"),
                                 role: .destructive,
                                 handler: {
-                                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+                                    AppActions.hideAndReportNft(accountId: accountId, nft: nft, onConfirmed: nil)
                                 }
                             )
                         )
@@ -291,7 +289,26 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 
     public func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
         if let activityViewModel {
-            return activityViewModel.snapshot
+            var snapshot = activityViewModel.snapshot!
+            let currentCustomSections = snapshot.sectionIdentifiers.compactMap { section -> Section? in
+                if case .custom = section {
+                    return section
+                }
+                return nil
+            }
+            let activeIDs = activeCustomSectionIDs
+            let activeCustomSections = activeIDs.map(Section.custom)
+
+            if currentCustomSections != activeCustomSections {
+                snapshot.deleteSections(currentCustomSections)
+                if !activeCustomSections.isEmpty {
+                    snapshot.insertSections(activeCustomSections, afterSection: .headerPlaceholder)
+                }
+                for (id, section) in zip(activeIDs, activeCustomSections) {
+                    snapshot.appendItems([.custom(id)], toSection: section)
+                }
+            }
+            return snapshot
         } else {
             var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
             snapshot.appendSections([.headerPlaceholder])
@@ -523,7 +540,6 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         } else {
             .loadingMore
         }
-        collectionView.isScrollEnabled = skeletonState != .loading
     }
 
     open func updateSkeletonViewsIfNeeded(animateAlondside: ((_ isLoading: Bool) -> ())?) {
@@ -555,11 +571,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 }
 
-// MARK: - Debug (do not delete yet)
-
-final class MyDataStore<Section: Hashable, Item: Hashable>: UICollectionViewDiffableDataSource<Section, Item> {
-    
-}
+// MARK: - Debug
 
 private final class CollectionViewCompositionalLayout: UICollectionViewCompositionalLayout {
     override func initialLayoutAttributesForAppearingItem(at itemIndexPath: IndexPath) -> UICollectionViewLayoutAttributes? {

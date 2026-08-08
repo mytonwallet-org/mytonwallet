@@ -19,7 +19,7 @@ object ChartUtils {
         baseColor: Int,
         chartWidth: Int = 200.dp,
         chartHeight: Int = 120.dp,
-        paddingBottom: Int = 77.dp,
+        paddingBottom: Int = 77.dp
     ): Bitmap {
         val totalHeight = chartHeight + paddingBottom
         if (chartWidth <= 0 || chartHeight <= 0 || totalHeight <= 0) return createBitmap(1, 1)
@@ -52,8 +52,11 @@ object ChartUtils {
             val normalizedPrice = (dataPoint[1] - minPrice) / priceRange
             val y = (1 - normalizedPrice) * chartHeight
 
-            if (index == 0) lineChartPath.moveTo(x, y.toFloat())
-            else lineChartPath.lineTo(x, y.toFloat())
+            if (index == 0) {
+                lineChartPath.moveTo(x, y.toFloat())
+            } else {
+                lineChartPath.lineTo(x, y.toFloat())
+            }
         }
 
         val fillPath = Path(lineChartPath)
@@ -64,7 +67,10 @@ object ChartUtils {
         val gradientPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
             shader = LinearGradient(
-                0f, 0f, 0f, totalHeight.toFloat(),
+                0f,
+                0f,
+                0f,
+                totalHeight.toFloat(),
                 baseColor.colorLightened(0.4f).colorWithAlpha(191),
                 baseColor.colorWithAlpha(51),
                 Shader.TileMode.CLAMP

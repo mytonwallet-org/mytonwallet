@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
+import java.math.BigInteger
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
-import java.math.BigInteger
 
 data class SwapWalletState(
     var accountId: String,
@@ -12,9 +12,7 @@ data class SwapWalletState(
 ) {
     val assetsMap: Map<String, MApiSwapAsset> = assets.associateBy { it.slug }
 
-    val tonAddress get() = addressByChain[MBlockchain.ton.name]!!
+    val tonAddress get() = addressByChain[MBlockchain.ton.name]
 
-    fun isSupportedChain(chain: MBlockchain?): Boolean {
-        return addressByChain[chain?.name] != null
-    }
+    fun isSupportedChain(chain: MBlockchain?): Boolean = addressByChain[chain?.name] != null
 }

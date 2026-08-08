@@ -58,7 +58,7 @@ public struct TokenEntity: AppEntity, Identifiable, Sendable, Hashable, Codable 
         let name = token.name.nilIfEmpty ?? token.slug
         let symbol = token.symbol.nilIfEmpty ?? token.slug
         let chainTitle = token.chain.title.nilIfEmpty ?? token.chain.rawValue.uppercased()
-        let searchableKeywords = ([name, symbol, token.slug, chainTitle, token.tokenAddress].compactMap { $0 } + (token.keywords ?? []))
+        let searchableKeywords = ([name, token.localizedName, symbol, token.slug, chainTitle, token.tokenAddress].compactMap { $0 } + (token.keywords ?? []))
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
@@ -111,15 +111,15 @@ public struct TokenEntityQuery: EntityStringQuery {
     public init() {}
 
     public func entities(for identifiers: [TokenEntity.ID]) async throws -> [TokenEntity] {
-        let tokens = await loadTokens(tryRemote: false)
-        let tokensBySlug = Dictionary(uniqueKeysWithValues: tokens.map { ($0.slug, $0) })
+        let tokensBySlug = await loadTokens()
         return identifiers.map { identifier in
             TokenEntity.resolve(tokenSlug: identifier, tokensBySlug: tokensBySlug)
         }
     }
 
     public func suggestedEntities() async throws -> IntentItemCollection<TokenEntity> {
-        let tokens = await loadTokens(tryRemote: false)
+        let tokens = await loadTokens()
+            .values
             .filter { ($0.priceUsd ?? 0) != 0 }
             .filter { $0.isPopular == true }
             .map(TokenEntity.init(token:))
@@ -130,7 +130,8 @@ public struct TokenEntityQuery: EntityStringQuery {
 
     public func entities(matching string: String) async throws -> IntentItemCollection<TokenEntity> {
         let query = string.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let tokens = await loadTokens(tryRemote: false)
+        let tokens = await loadTokens()
+            .values
             .filter { ($0.priceUsd ?? 0) != 0 }
             .filter { $0.matchesSearch(query) }
             .map(TokenEntity.init(token:))
@@ -139,17 +140,19 @@ public struct TokenEntityQuery: EntityStringQuery {
         }
     }
 
-    private func loadTokens(tryRemote: Bool) async -> [ApiToken] {
+    private func loadTokens() async -> [String: ApiToken] {
         let store = SharedStore()
         await store.reloadCache()
-        let tokens = await store.tokensDictionary(tryRemote: tryRemote)
-        return Array(tokens.values)
+        return await store.tokensDictionary()
     }
 }
 
 @available(iOS 18.4, *)
 public extension TokenEntity {
-    static func resolve(tokenSlug: String, tokensBySlug: [String: ApiToken] = [:]) -> TokenEntity {
+    static func resolve(
+        tokenSlug: String,
+        tokensBySlug: [String: ApiToken] = [:]
+    ) -> TokenEntity {
         if let token = tokensBySlug[tokenSlug] ?? ApiToken.defaultTokens[tokenSlug] ?? nativeToken(slug: tokenSlug) {
             return TokenEntity(token: token)
         }

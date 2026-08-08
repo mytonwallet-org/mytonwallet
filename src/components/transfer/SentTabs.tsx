@@ -21,6 +21,10 @@ import TabList from '../ui/TabList';
 
 import styles from './SentTabs.module.scss';
 
+interface OwnProps {
+  className?: string;
+}
+
 interface StateProps {
   isOffRampAllowed?: boolean;
 }
@@ -30,7 +34,7 @@ const enum TabContent {
   Sell,
 }
 
-function SentTabs({ isOffRampAllowed }: StateProps) {
+function SentTabs({ className, isOffRampAllowed }: OwnProps & StateProps) {
   const { openOffRampWidgetModal, cancelTransfer } = getActions();
   const lang = useLang();
 
@@ -76,7 +80,7 @@ function SentTabs({ isOffRampAllowed }: StateProps) {
   }, [isOffRampAllowed, lang, multisendMenuItem, handleMultisendOpen]);
 
   return (
-    <div className={styles.root}>
+    <div className={buildClassName(styles.root, className)}>
       <TabList
         tabs={tabs}
         activeTab={TabContent.Send}

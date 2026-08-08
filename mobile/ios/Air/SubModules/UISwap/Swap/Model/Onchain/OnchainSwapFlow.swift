@@ -83,15 +83,13 @@ import WalletContext
             tokenIn: sellingToken,
             networkFee: state.onchain.swapEstimate?.networkFee,
             realNetworkFee: state.onchain.swapEstimate?.realNetworkFee,
-            ourFee: state.onchain.swapEstimate?.ourFee,
             dieselStatus: state.onchain.swapEstimate?.dieselStatus,
             dieselFee: state.onchain.swapEstimate?.dieselFee,
             nativeTokenInBalance: nativeTokenInBalance
         ))
         return SwapMaxAmountContext(
             swapType: .onChain,
-            fullNetworkFee: explainedFee.fullFee?.networkTerms,
-            ourFeePercent: state.onchain.swapEstimate?.ourFeePercent
+            fullNetworkFee: explainedFee.fullFee?.networkTerms
         )
     }
 
@@ -110,7 +108,7 @@ import WalletContext
             maxAmount: context.maxAmount,
             slippage: context.slippage,
             account: context.account,
-            passcode: context.passcode
+            enclaveToken: context.enclaveToken
         )
     }
 }

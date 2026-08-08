@@ -6,6 +6,7 @@ import { DEFAULT_CHAIN, IS_MY_WALLET_BRAND, MINT_CARD_ADDRESS, MINT_CARD_COMMENT
 import { fromDecimal } from '../../../util/decimals';
 import { debounce } from '../../../util/schedulers';
 import { callApi } from '../../../api';
+import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { handleTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateAccountSettings, updateAccountState, updateMintCards } from '../../reducers';
@@ -13,14 +14,15 @@ import { selectAccountState, selectCurrentAccountId, selectMycoin } from '../../
 
 const CHECK_OWNERSHIP_DEBOUNCE_MS = 3000;
 
-addActionHandler('submitMintCard', async (global, actions, { password } = {}) => {
+addActionHandler('submitMintCard', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
   const accountId = selectCurrentAccountId(global)!;
 
-  if (!await prepareTransfer(MintCardState.ConfirmHardware, updateMintCards, password)) {
+  if (!prepareTransfer(MintCardState.ConfirmHardware, updateMintCards)) {
     return;
   }
 
-  const options = createTransferOptions(getGlobal(), password);
+  const options = createTransferOptions(getGlobal(), enclaveToken);
   const result = await callApi('submitTransfer', 'ton', options);
 
   if (!handleTransferResult(result, updateMintCards)) {
@@ -31,9 +33,9 @@ addActionHandler('submitMintCard', async (global, actions, { password } = {}) =>
   global = updateMintCards(global, { state: MintCardState.Done });
   global = updateAccountState(global, accountId, { isCardMinting: true });
   setGlobal(global);
-});
+}));
 
-function createTransferOptions(globalState: GlobalState, password?: string): ApiSubmitTransferOptions {
+function createTransferOptions(globalState: GlobalState, enclaveToken?: string): ApiSubmitTransferOptions {
   const { currentAccountId, currentMintCard } = globalState;
   const { config } = selectAccountState(globalState, currentAccountId!)!;
   const mycoin = selectMycoin(globalState);
@@ -43,7 +45,7 @@ function createTransferOptions(globalState: GlobalState, password?: string): Api
 
   return {
     accountId: currentAccountId!,
-    password,
+    enclaveToken,
     toAddress: MINT_CARD_ADDRESS,
     amount: fromDecimal(cardInfo.price, mycoin.decimals),
     tokenAddress: mycoin.tokenAddress,

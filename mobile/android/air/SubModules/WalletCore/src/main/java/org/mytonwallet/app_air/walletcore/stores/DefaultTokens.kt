@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletcore.ETH_USDT_MAINNET_SLUG
 import org.mytonwallet.app_air.walletcore.HYPERLIQUID_SLUG
 import org.mytonwallet.app_air.walletcore.HYPERLIQUID_USDC_MAINNET_SLUG
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
+import org.mytonwallet.app_air.walletcore.ROBINHOOD_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_USDC_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_USDT_SLUG
@@ -49,6 +50,7 @@ internal object DefaultTokens {
         image: String? = null,
         priceUsd: Double? = null,
         cmcSlug: String? = null,
+        label: String? = null
     ): MToken {
         val json = JSONObject()
         json.put("slug", slug)
@@ -60,6 +62,7 @@ internal object DefaultTokens {
         image?.let { json.put("image", it) }
         priceUsd?.let { json.put("priceUsd", it) }
         cmcSlug?.let { json.put("cmcSlug", it) }
+        label?.let { json.put("label", it) }
         return MToken(json)
     }
 
@@ -73,74 +76,144 @@ internal object DefaultTokens {
         token(SOLANA_SLUG, "Solana", "SOL", 9, "solana", cmcSlug = "solana"),
         token(MYCOIN_SLUG, "My Wallet Coin", "MY", 9, "ton"),
         token(
-            USDE_SLUG, "Ethena USDe", "USDe", 6, "ton",
+            USDE_SLUG,
+            "Ethena USDe",
+            "USDe",
+            6,
+            "ton",
             tokenAddress = "EQAIb6KmdfdDR7CN1GBqVJuP25iCnLKCvBlJ07Evuu2dzP5f",
-            image = USDE_IMAGE,
+            image = USDE_IMAGE
         ),
         token(STAKE_SLUG, "Staked Gram", "STAKED", 9, "ton"),
         token(STAKED_MYCOIN_SLUG, "Staked \$MY", "stMY", 9, "ton"),
         token(
-            STAKED_USDE_SLUG, "Ethena tsUSDe", "tsUSDe", 6, "ton",
+            STAKED_USDE_SLUG,
+            "Ethena tsUSDe",
+            "tsUSDe",
+            6,
+            "ton",
             tokenAddress = "EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr",
-            image = TSUSDE_IMAGE,
+            image = TSUSDE_IMAGE
         ),
         token(
-            TON_USDT_SLUG, "Tether USD", "USD₮", 6, "ton",
-            image = TON_USDT_MAINNET_IMAGE, priceUsd = 1.0,
+            TON_USDT_SLUG,
+            "Tether USD",
+            "USD₮",
+            6,
+            "ton",
+            image = TON_USDT_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(
-            TON_USDT_TESTNET_SLUG, "Tether USD", "USD₮", 6, "ton",
-            tokenAddress = "kQD0GKBM8ZbryVk2aESmzfU6b9b_8era_IkvBSELujFZPsyy", priceUsd = 1.0,
+            TON_USDT_TESTNET_SLUG,
+            "Tether USD",
+            "USD₮",
+            6,
+            "ton",
+            tokenAddress = "kQD0GKBM8ZbryVk2aESmzfU6b9b_8era_IkvBSELujFZPsyy",
+            priceUsd = 1.0
         ),
         token(TRON_USDT_SLUG, "Tether USD", "USDT", 6, "tron"),
         token(
-            TRON_USDT_TESTNET_SLUG, "Tether USD", "USDT", 6, "tron",
-            tokenAddress = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs",
+            TRON_USDT_TESTNET_SLUG,
+            "Tether USD",
+            "USDT",
+            6,
+            "tron",
+            tokenAddress = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs"
         ),
         token(
-            SOLANA_USDT_SLUG, "Tether USD", "USDT", 6, "solana",
+            SOLANA_USDT_SLUG,
+            "Tether USD",
+            "USDT",
+            6,
+            "solana",
             tokenAddress = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
-            image = TON_USDT_MAINNET_IMAGE, priceUsd = 1.0,
+            image = TON_USDT_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(
-            SOLANA_USDC_SLUG, "USD Coin", "USDC", 6, "solana",
+            SOLANA_USDC_SLUG,
+            "USD Coin",
+            "USDC",
+            6,
+            "solana",
             tokenAddress = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-            image = SOLANA_USDC_MAINNET_IMAGE, priceUsd = 1.0,
+            image = SOLANA_USDC_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(ETH_SLUG, "Ethereum", "ETH", 18, "ethereum"),
         token(
-            ETH_USDT_MAINNET_SLUG, "Tether USD", "USDT", 6, "ethereum",
+            ETH_USDT_MAINNET_SLUG,
+            "Tether USD",
+            "USDT",
+            6,
+            "ethereum",
             tokenAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-            image = TON_USDT_MAINNET_IMAGE, priceUsd = 1.0,
+            image = TON_USDT_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(
-            ETH_USDC_MAINNET_SLUG, "USD Coin", "USDC", 6, "ethereum",
+            ETH_USDC_MAINNET_SLUG,
+            "USD Coin",
+            "USDC",
+            6,
+            "ethereum",
             tokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-            image = SOLANA_USDC_MAINNET_IMAGE, priceUsd = 1.0,
+            image = SOLANA_USDC_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(BASE_SLUG, "Base", "ETH", 18, "base"),
         token(
-            BASE_USDT_MAINNET_SLUG, "Tether USD", "USDT", 6, "base",
+            BASE_USDT_MAINNET_SLUG,
+            "Tether USD",
+            "USDT",
+            6,
+            "base",
             tokenAddress = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
-            image = TON_USDT_MAINNET_IMAGE, priceUsd = 1.0,
+            image = TON_USDT_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(
-            BASE_USDC_MAINNET_SLUG, "USD Coin", "USDC", 6, "base",
+            BASE_USDC_MAINNET_SLUG,
+            "USD Coin",
+            "USDC",
+            6,
+            "base",
             tokenAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-            image = SOLANA_USDC_MAINNET_IMAGE, priceUsd = 1.0,
+            image = SOLANA_USDC_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(BNB_SLUG, "BNB", "BNB", 18, "bnb"),
         token(
-            BSC_USDT_MAINNET_SLUG, "Tether USD", "USDT", 18, "bnb",
+            BSC_USDT_MAINNET_SLUG,
+            "Tether USD",
+            "USDT",
+            18,
+            "bnb",
             tokenAddress = "0x55d398326f99059ff775485246999027b3197955",
-            image = TON_USDT_MAINNET_IMAGE, priceUsd = 1.0,
+            image = TON_USDT_MAINNET_IMAGE,
+            priceUsd = 1.0
         ),
         token(ARBITRUM_SLUG, "Arbitrum", "ETH", 18, "arbitrum"),
         token(HYPERLIQUID_SLUG, "Hyperliquid", "HYPE", 18, "hyperliquid"),
         token(
-            HYPERLIQUID_USDC_MAINNET_SLUG, "USD Coin", "USDC", 6, "hyperliquid",
-            tokenAddress = "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
-            image = SOLANA_USDC_MAINNET_IMAGE, priceUsd = 1.0,
+            ROBINHOOD_SLUG,
+            "Robinhood",
+            "ETH",
+            18,
+            "robinhood",
+            label = "Robinhood"
         ),
+        token(
+            HYPERLIQUID_USDC_MAINNET_SLUG,
+            "USD Coin",
+            "USDC",
+            6,
+            "hyperliquid",
+            tokenAddress = "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+            image = SOLANA_USDC_MAINNET_IMAGE,
+            priceUsd = 1.0
+        )
     ).associateBy { it.slug }
 }

@@ -16,6 +16,7 @@ import styles from './Backup.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
+  isInsideModal?: boolean;
   backupType: 'key' | 'words';
   onBackClick: NoneToVoidFunction;
   onSubmit: NoneToVoidFunction;

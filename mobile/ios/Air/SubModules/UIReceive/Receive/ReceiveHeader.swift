@@ -66,6 +66,7 @@ private struct ReceiveHeaderItemView: View {
                 receiveOrnament(progressAbs: progressAbs)
                 
                 _QRCodeView(chain: chain, address: address, opacity: interpolate(from: 0.25, to: 1, progress: progressAbs), onTap: {})
+                    .id(address)
                     .frame(width: 220, height: 220)
                     .clipShape(.rect(cornerRadius: 32))
             }

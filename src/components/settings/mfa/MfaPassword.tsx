@@ -76,12 +76,12 @@ function MfaPassword({
   const telegramAccountName = telegramUser?.name ?? lang('My Telegram Account');
   const telegramAccountUsername = telegramUser?.username && `@${telegramUser.username}`;
 
-  const onSubmit = useLastCallback((password?: string) => {
+  const handleAuthorize = useLastCallback((enclaveToken: string) => {
     if (isInstall) {
-      submitInstallMfa({ password });
+      submitInstallMfa({ enclaveToken });
       openMfaInstalled();
     } else {
-      submitRemoveMfa({ password });
+      submitRemoveMfa({ enclaveToken });
       openMfa();
     };
   });
@@ -117,7 +117,10 @@ function MfaPassword({
           error={error}
           submitLabel={isInstall ? lang('Connect') : lang('Disconnect')}
           noAutoConfirm
-          onSubmit={onSubmit}
+          // Installing signs the extension and then derives the backend auth token from the private
+          // key until it is cached, so the first install on an account reads the secret twice
+          extraAuthUsages={isInstall ? 1 : 0}
+          onAuthorize={handleAuthorize}
           onCancel={onBackClick}
           onUpdate={clearInstallMfaError}
           noAnimatedIcon

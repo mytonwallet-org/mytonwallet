@@ -61,8 +61,12 @@ final class WalletSettingsViewModel {
         balanceDataStore.totalBalance(ofWalletsWithType: currentFilter.accountType)
     }
     
-    @MainActor func navigationHeaderBalance(from balanceDataStore: _BalanceDataStore) -> String {
-        lang("$total_balance", arg1: totalBalance(from: balanceDataStore).formatted(.baseCurrencyEquivalent))
+    @MainActor func navigationHeaderBalance(
+        from balanceDataStore: _BalanceDataStore,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+    ) -> String {
+        let balance = totalBalance(from: balanceDataStore).formatted(.baseCurrencyEquivalent)
+        return lang("$total_balance", arg1: balance.leftToRightMarked(in: layoutDirection))
     }
 
     var onStartReordering: (() -> Void)?
@@ -142,5 +146,14 @@ final class WalletSettingsViewModel {
     
     @MainActor func deleteSelectedWallets() {
         deleteAccounts(Array(selectedAccountIds))
+    }
+}
+
+private extension String {
+    func leftToRightMarked(in layoutDirection: UIUserInterfaceLayoutDirection) -> String {
+        guard layoutDirection == .rightToLeft else {
+            return self
+        }
+        return "\u{200E}\(self)\u{200E}"
     }
 }

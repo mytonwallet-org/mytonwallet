@@ -106,19 +106,20 @@
 }
 
 .buttonIcon {
-  margin-right: -0.0625rem;
+  margin-inline-end: -0.0625rem;
   font-size: 0.75rem;
 
   .light > &,
   .inherit > & {
-    margin: -0.125rem -0.3125rem -0.125rem 0;
+    margin-block: -0.125rem;
+    margin-inline: 0 -0.3125rem;
     font-size: 1rem;
     color: var(--color-gray-3);
   }
 
   &:global(.icon-chevron-down) {
-    margin-right: -0.3125rem;
-    margin-left: 0.375rem;
+    margin-inline-start: 0.375rem;
+    margin-inline-end: -0.3125rem;
   }
 }
 
@@ -134,7 +135,7 @@
   padding: 0.75rem 1rem;
 
   line-height: 1;
-  text-align: left;
+  text-align: start;
 
   background: none;
 
@@ -148,11 +149,13 @@
   }
 
   &_with_icon {
-    padding: 0.6875rem 1rem 0.6875rem 0.75rem;
-    text-align: left;
+    padding-block: 0.6875rem;
+    padding-inline: 0.75rem 1rem;
+    text-align: start;
 
     @media (pointer: coarse) {
-      padding: 0.75rem 1rem 0.75rem 0.75rem;
+      padding-block: 0.75rem;
+      padding-inline: 0.75rem 1rem;
     }
   }
 
@@ -188,7 +191,7 @@
 .itemOverlayIcon {
   position: absolute;
   top: 0.9375rem;
-  left: 0.875rem;
+  inset-inline-start: 0.875rem;
 
   width: 0.75rem !important;
   height: 0.75rem !important;

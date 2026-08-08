@@ -19,14 +19,14 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     private let actionsCustomSectionID = "actions"
     private let assetsCustomSectionID = "assets"
     private weak var splitHomeAssetsSectionCell: SplitHomeAssetsSectionCell?
-    private var actionsCustomSectionCellRegistration: UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row>!
-    private var actionsCustomSectionDescriptor: CustomSectionDescriptor!
-    private var assetsCustomSectionCellRegistration: UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row>!
-    private var assetsCustomSectionDescriptor: CustomSectionDescriptor!
+    private var actionsCustomSectionDescriptor: CustomSectionDescriptor?
+    private var assetsCustomSectionDescriptor: CustomSectionDescriptor?
 
     override var hideBottomBar: Bool { false }
     override var headerPlaceholderHeight: CGFloat { 0 }
-    override var customSections: [CustomSectionDescriptor] { [actionsCustomSectionDescriptor, assetsCustomSectionDescriptor] }
+    override var customSections: [CustomSectionDescriptor] {
+        [actionsCustomSectionDescriptor, assetsCustomSectionDescriptor].compactMap { $0 }
+    }
 
     private lazy var lockNavigationItem = WNavigationBarIconGroup.Item(
         title: lang("Lock"),
@@ -106,13 +106,13 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     }
 
     private func configureCustomSections() {
-        actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row> { cell, _, _ in
+        let actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row> { cell, _, _ in
             cell.backgroundColor = .clear
         }
         actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
         }
-        assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row> { [unowned self] cell, _, _ in
+        let assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row> { [unowned self] cell, _, _ in
             cell.backgroundColor = .clear
             configureAssetsCustomSection(cell: cell)
         }

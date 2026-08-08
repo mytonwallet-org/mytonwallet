@@ -8,8 +8,6 @@ import WalletCore
 import Perception
 import SwiftNavigation
 
-private let log = Log("NotificationsVC")
-
 struct SelectableAccount: Equatable, Hashable, Identifiable {
     
     var account: MAccount

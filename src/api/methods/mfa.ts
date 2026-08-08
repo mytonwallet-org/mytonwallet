@@ -87,9 +87,9 @@ export async function publishSignedMfaRequest(
 export async function installMfaFromRequest(
   accountId: string,
   user: { id: string; name: string; username?: string; avatarUrl?: string },
-  password?: string,
+  enclaveToken?: string,
 ) {
-  const result = await installMfaExtension(accountId, user.id, password);
+  const result = await installMfaExtension(accountId, user.id, enclaveToken);
   if ('error' in result) return result;
 
   const mfa = {
@@ -105,10 +105,10 @@ export async function installMfaFromRequest(
     mfa,
   });
 
-  if (password) {
+  if (enclaveToken) {
     try {
       const walletAddress = await fetchStoredAddress(accountId, 'ton');
-      const authToken = await getBackendAuthToken(accountId, password);
+      const authToken = await getBackendAuthToken(accountId, enclaveToken);
       await upsertTelegramAccount({ walletAddress, user, authToken });
     } catch (err) {
       logDebugError('upsertTelegramAccount', err);
@@ -118,9 +118,9 @@ export async function installMfaFromRequest(
   return result.mfaContractAddress;
 }
 
-export async function publishRemoveMfaRequest(accountId: string, password?: string) {
+export async function publishRemoveMfaRequest(accountId: string, enclaveToken?: string) {
   const walletAddress = await fetchStoredAddress(accountId, 'ton');
-  const result = await createRemoveMfaExtensionPayload(accountId, password);
+  const result = await createRemoveMfaExtensionPayload(accountId, enclaveToken);
   if ('error' in result) return result;
 
   return await createMfaRequest({
@@ -141,7 +141,7 @@ export async function confirmMfaRemovalRequest(accountId: string) {
   });
 }
 
-export async function refreshMfaState(accountId: string, password?: string): Promise<{
+export async function refreshMfaState(accountId: string, enclaveToken?: string): Promise<{
   changed: boolean;
   mfa?: ApiTonWallet['mfa'];
 }> {
@@ -157,8 +157,8 @@ export async function refreshMfaState(accountId: string, password?: string): Pro
 
   if (nextMfa) {
     try {
-      const authToken = password
-        ? await getBackendAuthToken(accountId, password)
+      const authToken = enclaveToken
+        ? await getBackendAuthToken(accountId, enclaveToken)
         : await getStoredBackendAuthToken(accountId);
 
       if (authToken) {
@@ -189,8 +189,8 @@ export async function refreshMfaState(accountId: string, password?: string): Pro
   return { changed, mfa: nextMfa };
 }
 
-export async function refreshMfaStateAndNotify(accountId: string, password?: string) {
-  const result = await refreshMfaState(accountId, password);
+export async function refreshMfaStateAndNotify(accountId: string, enclaveToken?: string) {
+  const result = await refreshMfaState(accountId, enclaveToken);
   if (result.changed) {
     onUpdate({
       type: 'updateAccount',

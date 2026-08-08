@@ -82,6 +82,7 @@ data class ParticleConfig(
     }
 
     companion object {
+        @Suppress("ClassName")
         object PARTICLE_COLORS {
             val TON = floatArrayOf(0f, 152f / 255f, 234f / 255f) // #0098EA
             val USDT = floatArrayOf(0f, 147f / 255f, 147f / 255f) // #009393
@@ -95,8 +96,8 @@ data class ParticleConfig(
         }
 
         // Burst particle configuration for tap
-        fun particleBurstParams(color: FloatArray = PARTICLE_COLORS.TON): ParticleConfig {
-            return ParticleConfig(
+        fun particleBurstParams(color: FloatArray = PARTICLE_COLORS.TON): ParticleConfig =
+            ParticleConfig(
                 particleCount = 90,
                 distanceLimit = 1f,
                 fadeInTime = 0.05f,
@@ -108,26 +109,23 @@ data class ParticleConfig(
                 maxSpawnRadius = 50f,
                 color = color
             )
-        }
 
         fun interactiveSparkleBurstParams(
             colorPair: Array<FloatArray>,
             centerShift: FloatArray = floatArrayOf(0f, -36f)
-        ): ParticleConfig {
-            return ParticleConfig(
-                particleCount = 5,
-                distanceLimit = 1f,
-                fadeInTime = 0.05f,
-                minLifetime = 3f,
-                maxLifetime = 3f,
-                maxStartTimeDelay = 0f,
-                selfDestroyTime = 3f,
-                minSpawnRadius = 5f,
-                maxSpawnRadius = 50f,
-                centerShift = centerShift,
-                colorPair = colorPair,
-                useStarShape = true
-            )
-        }
+        ): ParticleConfig = ParticleConfig(
+            particleCount = 5,
+            distanceLimit = 1f,
+            fadeInTime = 0.05f,
+            minLifetime = 3f,
+            maxLifetime = 3f,
+            maxStartTimeDelay = 0f,
+            selfDestroyTime = 3f,
+            minSpawnRadius = 5f,
+            maxSpawnRadius = 50f,
+            centerShift = centerShift,
+            colorPair = colorPair,
+            useStarShape = true
+        )
     }
 }

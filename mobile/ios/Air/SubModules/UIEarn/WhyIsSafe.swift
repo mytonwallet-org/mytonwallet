@@ -21,7 +21,13 @@ func showWhyIsSafe(config: StakingConfig) {
                 ForEach(Array(lines.indices), id: \.self) { i in
                     GridRow {
                         Text("\(i + 1).")
+                            .textStyle(
+                                .body,
+                                content: .technical,
+                                scaling: .dynamic
+                            )
                         Text(LocalizedStringKey(lines[i]))
+                            .textStyle(.body, scaling: .dynamic)
                     }
                 }
             }

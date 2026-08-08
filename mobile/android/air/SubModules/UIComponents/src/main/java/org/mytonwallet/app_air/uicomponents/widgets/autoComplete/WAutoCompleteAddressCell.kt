@@ -1,7 +1,8 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uicomponents.widgets.autoComplete
 
 import android.animation.Animator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
@@ -12,6 +13,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -41,11 +44,14 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import kotlin.math.abs
 
-class WAutoCompleteAddressCell(context: Context) : WCell(
-    context, LayoutParams(MATCH_PARENT, 60.dp)
-), IAutoCompleteAddressItemCell, WThemedView {
+class WAutoCompleteAddressCell(context: Context) :
+    WCell(
+        context,
+        LayoutParams(MATCH_PARENT, 60.dp)
+    ),
+    IAutoCompleteAddressItemCell,
+    WThemedView {
 
     private val animationDuration = AnimationConstants.QUICK_ANIMATION
     private var animator: Animator? = null
@@ -103,9 +109,12 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
 
     private val trailingContainerView: WFrameLayout by lazy {
         WFrameLayout(context).apply {
-            addView(valueLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            })
+            addView(
+                valueLabel,
+                FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                }
+            )
         }
     }
 
@@ -174,7 +183,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         item: AutoCompleteAddressItem,
         onTap: () -> Unit,
         changeAnimationFinishListener: (() -> Unit),
-        onLongClick: (() -> Unit)?,
+        onLongClick: (() -> Unit)?
     ) {
         val account = item.account
         if (account == null) {
@@ -277,9 +286,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         contentView.scaleY = 1f
     }
 
-    override fun hasActiveAnimation(): Boolean {
-        return animator?.isRunning == true
-    }
+    override fun hasActiveAnimation(): Boolean = animator?.isRunning == true
 
     private fun animateCollapse(targetHeight: Int, finishListener: () -> Unit) {
         animator = animatorSet {
@@ -305,7 +312,12 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
 
     private fun animateRounding(finishListener: () -> Unit) {
         animator = animatorSet {
-            startDelay((animationDuration * ((contentHeight - ViewConstants.BLOCK_RADIUS.dp) / contentHeight)).toLong())
+            startDelay(
+                (
+                    animationDuration *
+                        ((contentHeight - ViewConstants.BLOCK_RADIUS.dp) / contentHeight)
+                    ).toLong()
+            )
             duration((animationDuration * 0.8).toLong())
             interpolator(CubicBezierInterpolator.EASE_OUT)
             together {
@@ -324,7 +336,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         keyword: String,
         isFirst: Boolean,
         isLast: Boolean,
-        animationState: AutoCompleteAddressItem.AnimationState,
+        animationState: AutoCompleteAddressItem.AnimationState
     ): Boolean {
         if (account == null) {
             this.account = null
@@ -401,8 +413,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
     private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
+        if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
 
         updateRadius()
@@ -447,9 +458,9 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
                     keyword
                 )
             }
+
             address != null -> addressLabel.displayAddresses(address, style, keyword)
         }
-
     }
 
     fun notifyBalanceChange() {
@@ -459,18 +470,16 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
             val balanceDouble = withContext(Dispatchers.Default) {
                 BalanceStore.totalBalanceInBaseCurrency(accountId)
             } ?: run {
-                if (valueLabel.contentView.text != "")
-                    valueLabel.contentView.text = ""
+                if (valueLabel.contentView.text != "") valueLabel.contentView.text = ""
                 return@launch
             }
             val newValue = balanceDouble.toString(
                 baseCurrency.decimalsCount,
                 baseCurrency.sign,
                 baseCurrency.decimalsCount,
-                true,
+                true
             )
-            if (valueLabel.contentView.text != newValue)
-                valueLabel.contentView.text = newValue
+            if (valueLabel.contentView.text != newValue) valueLabel.contentView.text = newValue
         }
     }
 }

@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
@@ -18,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WAmountEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
@@ -36,10 +36,8 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 
 @SuppressLint("ViewConstructor")
-class SwapSlippageRowView(
-    context: Context,
-    private val onSlippageChange: (Float) -> Unit
-) : WView(context),
+class SwapSlippageRowView(context: Context, private val onSlippageChange: (Float) -> Unit) :
+    WView(context),
     WThemedView {
     private val separator = SeparatorBackgroundDrawable().apply {
         offsetStart = 20f.dp
@@ -85,7 +83,15 @@ class SwapSlippageRowView(
             keyListener = DigitsKeyListener.getInstance("0123456789.,")
             doOnTextChanged { text, _, _, _ ->
                 val num = parseFloat(text.toString())
-                setTextColor(if (num > 0 && num <= 50) WColor.PrimaryText.color else WColor.Red.color)
+                setTextColor(
+                    if (num > 0 &&
+                        num <= 50
+                    ) {
+                        WColor.PrimaryText.color
+                    } else {
+                        WColor.Red.color
+                    }
+                )
             }
         }
 
@@ -95,26 +101,30 @@ class SwapSlippageRowView(
         gravity = Gravity.CENTER_VERTICAL
         setPadding(16.dp, 0, 24.dp, 0)
         arrayOf(0.5f, 1f, 2f, 5f, 10f).forEach { num ->
-            addView(WButton(context, WButton.Type.SECONDARY).apply {
-                val formatted = if (num % 1f == 0f) {
-                    num.toInt().toString()
-                } else {
-                    num.toString()
+            addView(
+                WButton(context, WButton.Type.SECONDARY).apply {
+                    val formatted = if (num % 1f == 0f) {
+                        num.toInt().toString()
+                    } else {
+                        num.toString()
+                    }
+                    setText("$formatted%")
+                    layoutParams = LayoutParams(40.dp, WRAP_CONTENT).apply {
+                        marginStart = 4.dp
+                    }
+                    setOnClickListener {
+                        slippageEditText.setText(formatted)
+                    }
                 }
-                setText("$formatted%")
-                layoutParams = LayoutParams(40.dp, WRAP_CONTENT).apply {
-                    marginStart = 4.dp
-                }
-                setOnClickListener {
-                    slippageEditText.setText(formatted)
-                }
-            })
+            )
         }
-        addView(WView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                weight = 1f
+        addView(
+            WView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    weight = 1f
+                }
             }
-        })
+        )
         addView(slippageEditText)
         setOnClickListener { }
         visibility = GONE
@@ -170,8 +180,7 @@ class SwapSlippageRowView(
     private var isExpanded = false
     private var animationInProgress = false
     private fun toggle() {
-        if (animationInProgress)
-            return
+        if (animationInProgress) return
 
         isExpanded = !isExpanded
         animationInProgress = true
@@ -179,7 +188,9 @@ class SwapSlippageRowView(
         doneButton.isClickable = isExpanded
 
         if (isExpanded) {
-            slippageEditText.setText("${if (currentVal % 1 == 0f) currentVal.toInt() else currentVal}")
+            slippageEditText.setText(
+                "${if (currentVal % 1 == 0f) currentVal.toInt() else currentVal}"
+            )
             slippageEditText.setTextColor(WColor.PrimaryText.color)
             animateHeight(96.dp)
             editorView.fadeIn()

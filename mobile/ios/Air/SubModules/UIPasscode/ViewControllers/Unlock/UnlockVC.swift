@@ -13,117 +13,198 @@ import WalletContext
 // Used for AppUnlock and other actions that require user to unlock using passcode or biometric, first.
 public class UnlockVC: WViewController {
 
+    @discardableResult
     public static func pushAuth(
         on vc: UIViewController,
         title: String,
         customHeaderVC: UIViewController,
+        compactHeaderVC: UIViewController? = nil,
+        sessionKind: AuthSessionKind = .oneShot,
         useBioOnPresent: Bool = true,
+        biometricPassAllowed: Bool = true,
         prefersNavigationTitleWithCustomHeader: Bool = false,
-        onAuthTask: @escaping (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void,
-        onDone: @escaping (_ passcode: String) -> Void
-    ) {
+        onAuthTask: @escaping (_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void,
+        onDone: @escaping (_ enclaveToken: EnclaveToken) -> Void,
+        onCancel: (() -> Void)? = nil
+    ) -> UnlockVC? {
         PasscodeAuthPresenter.push(
             on: vc,
             title: title,
             customHeaderVC: customHeaderVC,
+            compactHeaderVC: compactHeaderVC,
+            sessionKind: sessionKind,
             useBioOnPresent: useBioOnPresent,
+            biometricPassAllowed: biometricPassAllowed,
             prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
             onAuthTask: onAuthTask,
-            onDone: onDone
+            onDone: onDone,
+            onCancel: onCancel
         )
     }
 
-    /// Should be called before auth required actions
-    ///  This function first, tries to unlock using biometric, if is activated and then, present this VC if failed.
+    /// Should be called before auth required actions.
+    /// Presents unlock UI and optionally auto-triggers biometric auth on appear.
     public static func presentAuth(
         on vc: UIViewController,
         title: String = lang("Enter your Wallet Passcode"),
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        compactHeaderVC: UIViewController? = nil,
+        sessionKind: AuthSessionKind = .oneShot,
         prefersNavigationTitleWithCustomHeader: Bool = false,
-        onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
-        onDone: @escaping (_ passcode: String?) -> Void,
+        onAuthTask: ((_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
+        onDone: @escaping (_ enclaveToken: EnclaveToken?) -> Void,
         cancellable: Bool,
         onCancel: (() -> Void)? = nil
     ) {
-        PasscodeAuthPresenter.present(
-            on: vc,
-            title: title,
-            replacedTitle: replacedTitle,
-            subtitle: subtitle,
-            customHeaderVC: customHeaderVC,
-            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
-            onAuthTask: onAuthTask,
-            onDone: onDone,
-            cancellable: cancellable,
-            onCancel: onCancel
-        )
+        guard AuthSupport.status.requiresAuthorization else {
+            onDone(nil)
+            return
+        }
+
+        func _makeUnlockVC(useBioOnPresent: Bool) -> UIViewController {
+            let unlockVC =  UnlockVC(
+                title: title,
+                replacedTitle: replacedTitle,
+                subtitle: subtitle,
+                customHeaderVC: customHeaderVC,
+                compactHeaderVC: compactHeaderVC,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
+                dissmissWhenAuthorized: false,
+                onAuthTask: onAuthTask,
+                onDone: onDone,
+                cancellable: cancellable,
+                onCancel: onCancel,
+                useBioOnPresent: useBioOnPresent,
+                authSessionKind: sessionKind
+            )
+            if cancellable {
+                let navVC = WNavigationController(rootViewController: unlockVC)
+                navVC.navigationBar.tintColor = AirTintColor
+                return navVC
+            } else {
+                return unlockVC
+            }
+        }
+
+        let canUseBiometric = AuthSupport.status.authorizableMethods.contains(.biometrics)
+        vc.present(_makeUnlockVC(useBioOnPresent: canUseBiometric), animated: true)
     }
 
-    /// Should be called before auth required actions
-    /// This function first, tries to unlock using biometric, if is activated and then, present this VC if failed.
+    /// Should be called before auth required actions.
     @MainActor public static func presentAuthAsync(
         on vc: UIViewController,
         title: String = lang("Enter your Wallet Passcode"),
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        compactHeaderVC: UIViewController? = nil,
+        sessionKind: AuthSessionKind = .oneShot,
         prefersNavigationTitleWithCustomHeader: Bool = false,
-        authTask: (@MainActor (_ passcode: String) async -> Void)? = nil
-    ) async -> String? {
-        await PasscodeAuthPresenter.presentAsync(
-            on: vc,
-            title: title,
-            replacedTitle: replacedTitle,
-            subtitle: subtitle,
-            customHeaderVC: customHeaderVC,
-            prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
-            authTask: authTask
-        )
+        authTask: (@MainActor (_ enclaveToken: EnclaveToken) async -> Void)? = nil
+    ) async -> EnclaveToken? {
+
+        guard AuthSupport.status.requiresAuthorization else {
+            return nil
+        }
+
+        var onAuthTask: ((_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void)? = nil
+        if let authTask {
+            onAuthTask = { enclaveToken, onTaskDone in
+                Task {
+                    await authTask(enclaveToken)
+                    onTaskDone()
+                }
+            }
+        }
+        let lock = NSLock()
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<EnclaveToken?, Never>) in
+            var nillableContinuation: CheckedContinuation<EnclaveToken?, Never>? = continuation
+
+            presentAuth(
+                on: vc,
+                title: title,
+                replacedTitle: replacedTitle,
+                subtitle: subtitle,
+                customHeaderVC: customHeaderVC,
+                compactHeaderVC: compactHeaderVC,
+                sessionKind: sessionKind,
+                prefersNavigationTitleWithCustomHeader: prefersNavigationTitleWithCustomHeader,
+                onAuthTask: onAuthTask,
+                onDone: { enclaveToken in
+                    lock.lock()
+                    defer { lock.unlock() }
+                    nillableContinuation?.resume(returning: enclaveToken)
+                    nillableContinuation = nil
+                },
+                cancellable: true,
+                onCancel: {
+                    lock.lock()
+                    defer { lock.unlock() }
+                    nillableContinuation?.resume(returning: nil)
+                    nillableContinuation = nil
+                }
+            )
+        }
     }
 
     private let unlockTitle: String
     private let replacedTitle: String?
     private let subtitle: String?
     private let customHeaderVC: UIViewController?
+    private let compactHeaderVC: UIViewController?
     private let prefersNavigationTitleWithCustomHeader: Bool
     private let animatedPresentation: Bool
     private let dissmissWhenAuthorized: Bool
     private let shouldBeThemedLikeHeader: Bool
-    private var onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)?
-    private var onDoneCallback: ((_ passcode: String) -> Void)? = nil
+    private var onAuthTask: ((_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void)?
+    private var onDoneCallback: ((_ enclaveToken: EnclaveToken) -> Void)? = nil
     private let cancellable: Bool
     private let onCancel: (() -> Void)?
     private let onSignOutRequested: (@MainActor () async throws -> Void)?
     private let useBioOnPresent: Bool
+    private let biometricPassAllowed: Bool
+    private let authSessionKind: AuthSessionKind
     private let successCompletionDelay: TimeInterval
     private var didTryBiometricOnPresent = false
     private var viewStartedDismissing: Bool = false
     private var cancelOnDisappear = true
+    private var didCancel = false
+    private var authorizationTaskStarted = false
+    private weak var authorizationNavigationController: UINavigationController?
+    private var wasModalInPresentation = false
+    private var wasBackSwipeToDismissAllowed = true
     private var showsSignOutWhenEmpty = false
+    private var passcodeTopConstraint: NSLayoutConstraint?
+    private var isUsingCompactHeader = false
 
     public init(
         title: String = lang("Enter your Wallet Passcode"),
         replacedTitle: String? = nil,
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
+        compactHeaderVC: UIViewController? = nil,
         prefersNavigationTitleWithCustomHeader: Bool = false,
         animatedPresentation: Bool = false,
         dissmissWhenAuthorized: Bool,
         shouldBeThemedLikeHeader: Bool = false,
-        onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
-        onDone: @escaping (_ passcode: String) -> Void,
+        onAuthTask: ((_ enclaveToken: EnclaveToken, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
+        onDone: @escaping (_ enclaveToken: EnclaveToken) -> Void,
         cancellable: Bool = false,
         onCancel: (() -> Void)? = nil,
-        onSignOutRequested: (@MainActor () async throws -> Void)? = nil,
         useBioOnPresent: Bool = false,
+        biometricPassAllowed: Bool = true,
+        authSessionKind: AuthSessionKind = .oneShot,
+        onSignOutRequested: (@MainActor () async throws -> Void)? = nil,
         successCompletionDelay: TimeInterval = 0.4
     ) {
         self.unlockTitle = title
         self.replacedTitle = replacedTitle
         self.subtitle = subtitle
         self.customHeaderVC = customHeaderVC
+        self.compactHeaderVC = compactHeaderVC
         self.prefersNavigationTitleWithCustomHeader = prefersNavigationTitleWithCustomHeader
         self.animatedPresentation = animatedPresentation
         self.dissmissWhenAuthorized = dissmissWhenAuthorized
@@ -134,6 +215,8 @@ public class UnlockVC: WViewController {
         self.onCancel = onCancel
         self.onSignOutRequested = onSignOutRequested
         self.useBioOnPresent = useBioOnPresent
+        self.biometricPassAllowed = biometricPassAllowed
+        self.authSessionKind = authSessionKind
         self.successCompletionDelay = successCompletionDelay
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
@@ -150,7 +233,13 @@ public class UnlockVC: WViewController {
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        viewStartedDismissing = false
         tryBiometricOnPresentIfNeeded()
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateHeaderForAvailableHeight()
     }
 
     public override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -210,7 +299,8 @@ public class UnlockVC: WViewController {
             replacedTitle: replacedTitle,
             subtitle: subtitle,
             compactLayout: customHeader != nil,
-            biometricPassAllowed: true,
+            biometricPassAllowed: biometricPassAllowed,
+            authSessionKind: authSessionKind,
             allowsSignOutWhenEmpty: onSignOutRequested != nil,
             showsSignOutWhenEmpty: showsSignOutWhenEmpty,
             delegate: self,
@@ -225,26 +315,23 @@ public class UnlockVC: WViewController {
         // add subviews
 
         if let customHeaderVC {
-            addChild(customHeaderVC)
-            view.addSubview(customHeaderVC.view)
-            customHeaderVC.view.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                customHeaderVC.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-                customHeaderVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                customHeaderVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            ])
-            customHeaderVC.didMove(toParent: self)
+            installHeader(customHeaderVC)
+        }
+        if let compactHeaderVC {
+            installHeader(compactHeaderVC)
+            compactHeaderVC.view.isHidden = true
         }
 
         view.addSubview(passcodeScreenView)
         passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            passcodeScreenView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            passcodeScreenView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            passcodeScreenView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            passcodeScreenView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         if let customHeader {
-            passcodeScreenView.topAnchor.constraint(equalTo: customHeader.bottomAnchor).isActive = true
+            passcodeTopConstraint = passcodeScreenView.topAnchor.constraint(equalTo: customHeader.bottomAnchor)
+            passcodeTopConstraint?.isActive = true
         } else {
             passcodeScreenView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
         }
@@ -257,6 +344,46 @@ public class UnlockVC: WViewController {
         ])
     }
 
+    private func installHeader(_ viewController: UIViewController) {
+        addChild(viewController)
+        view.addSubview(viewController.view)
+        viewController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            viewController.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            viewController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            viewController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        ])
+        viewController.didMove(toParent: self)
+    }
+
+    private func updateHeaderForAvailableHeight() {
+        guard let customHeaderVC, let compactHeaderVC, view.bounds.width > 0 else { return }
+
+        let width = view.bounds.width
+        let fullHeaderHeight = fittingHeight(of: customHeaderVC.view, width: width)
+        let passcodeHeight = fittingHeight(of: passcodeScreenView, width: width)
+        let availableHeight = view.bounds.height - view.safeAreaInsets.top
+        let shouldUseCompactHeader = fullHeaderHeight + passcodeHeight > availableHeight
+
+        guard shouldUseCompactHeader != isUsingCompactHeader else { return }
+        isUsingCompactHeader = shouldUseCompactHeader
+
+        passcodeTopConstraint?.isActive = false
+        customHeaderVC.view.isHidden = shouldUseCompactHeader
+        compactHeaderVC.view.isHidden = !shouldUseCompactHeader
+        let activeHeader = shouldUseCompactHeader ? compactHeaderVC.view! : customHeaderVC.view!
+        passcodeTopConstraint = passcodeScreenView.topAnchor.constraint(equalTo: activeHeader.bottomAnchor)
+        passcodeTopConstraint?.isActive = true
+    }
+
+    private func fittingHeight(of view: UIView, width: CGFloat) -> CGFloat {
+        view.systemLayoutSizeFitting(
+            CGSize(width: width, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
+    }
+
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
@@ -267,7 +394,13 @@ public class UnlockVC: WViewController {
     }
 
     public override func viewDidDisappear(_ animated: Bool) {
-        if cancelOnDisappear {
+        if authorizationTaskStarted {
+            authorizationNavigationController?.allowBackSwipeToDismiss(wasBackSwipeToDismissAllowed)
+            authorizationNavigationController?.isModalInPresentation = wasModalInPresentation
+            authorizationNavigationController = nil
+        }
+        if cancelOnDisappear, !didCancel {
+            didCancel = true
             self.onCancel?()
         }
         super.viewDidDisappear(animated)
@@ -295,33 +428,55 @@ extension UnlockVC: PasscodeScreenViewDelegate {
         passcodeScreenView.setShowsSignOutWhenEmpty(showsSignOutWhenEmpty)
     }
 
+    @MainActor
+    func onBiometricToken(_ enclaveToken: EnclaveToken) {
+        passcodeScreenView.isUserInteractionEnabled = false
+        completeAuthorization(enclaveToken: enclaveToken)
+    }
+
+    @MainActor
+    func onBiometricFailure() {
+        let alert = alert(
+            title: lang("Error"),
+            text: lang("Biometric confirmation failed"),
+            button: lang("OK"),
+            buttonStyle: .default
+        )
+        super.present(alert, animated: true, completion: nil)
+    }
+
     func passcodeSelected(passcode: String) {
         passcodeScreenView.isUserInteractionEnabled = false
         Task { @MainActor [weak self] in
-            let success: Bool
-            do {
-                success = try await AuthSupport.verifyPassword(password: passcode)
-            } catch let error as AuthCooldownError {
-                self?.showsSignOutWhenEmpty = true
-                self?.passcodeScreenView.setShowsSignOutWhenEmpty(true)
-                self?.showCooldownAlert(error: error)
-                success = false
-            } catch {
-                success = false
-            }
             guard let self else { return }
-            if success {
-                animateSuccess()
-                if successCompletionDelay > 0 {
-                    try? await Task.sleep(for: .seconds(successCompletionDelay))
-                }
-                onAuthenticated(taskDone: false, passcode: passcode)
+            let enclaveToken: EnclaveToken?
+            let unexpectedError: (any Error)?
+            do {
+                enclaveToken = try await AuthSupport.authorizeWithPasscode(
+                    passcode,
+                    sessionKind: self.authSessionKind
+                )
+                unexpectedError = nil
+            } catch let error as AuthCooldownError {
+                self.showCooldownAlert(error: error)
+                enclaveToken = nil
+                unexpectedError = nil
+            } catch {
+                enclaveToken = nil
+                unexpectedError = error
+            }
+            if let enclaveToken {
+                completeAuthorization(enclaveToken: enclaveToken)
             } else {
                 try? await Task.sleep(for: .seconds(0.2))
                 passcodeScreenView.isUserInteractionEnabled = true
                 passcodeScreenView.passcodeInputView.currentPasscode = ""
-                passcodeScreenView.wrongPassFeedback()
-                Haptics.play(.error)
+                if let unexpectedError {
+                    showAlert(error: unexpectedError)
+                } else {
+                    passcodeScreenView.wrongPassFeedback()
+                    Haptics.play(.error)
+                }
             }
         }
     }
@@ -370,6 +525,18 @@ extension UnlockVC: PasscodeScreenViewDelegate {
         super.present(alert, animated: true, completion: nil)
     }
 
+    @MainActor
+    private func completeAuthorization(enclaveToken: EnclaveToken) {
+        animateSuccess()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if successCompletionDelay > 0 {
+                try? await Task.sleep(for: .seconds(successCompletionDelay))
+            }
+            self.onAuthenticated(taskDone: false, enclaveToken: enclaveToken)
+        }
+    }
+
     @MainActor func animateSuccess() {
         passcodeScreenView.passcodeInputView.animateSuccess()
         guard onAuthTask != nil else {
@@ -389,16 +556,23 @@ extension UnlockVC: PasscodeScreenViewDelegate {
         }
     }
 
-    func onAuthenticated(taskDone: Bool, passcode: String) {
+    func onAuthenticated(taskDone: Bool, enclaveToken: EnclaveToken) {
         navigationItem.setHidesBackButton(true, animated: true)
         Haptics.prepare(.success)
         if taskDone == false && (isBeingDismissed || view.superview == nil || viewStartedDismissing)  {
             return
         }
         if let onAuthTask, taskDone == false {
-            onAuthTask(passcode) {
+            authorizationTaskStarted = true
+            authorizationNavigationController = navigationController
+            wasModalInPresentation = navigationController?.isModalInPresentation ?? false
+            wasBackSwipeToDismissAllowed = navigationController?.isBackSwipeToDismissAllowed ?? true
+            authorizationNavigationController?.allowBackSwipeToDismiss(false)
+            authorizationNavigationController?.isModalInPresentation = true
+            navigationItem.rightBarButtonItem?.isEnabled = false
+            onAuthTask(enclaveToken) {
                 DispatchQueue.main.async { [weak self] in
-                    self?.onAuthenticated(taskDone: true, passcode: passcode)
+                    self?.onAuthenticated(taskDone: true, enclaveToken: enclaveToken)
                 }
             }
             self.onAuthTask = nil
@@ -412,21 +586,21 @@ extension UnlockVC: PasscodeScreenViewDelegate {
                     self.passcodeScreenView.alpha = 0
                 } completion: { [weak self] _ in
                     self?.dismiss(animated: false, completion: {
-                        self?.onDoneCallback?(passcode)
+                        self?.onDoneCallback?(enclaveToken)
                         self?.onDoneCallback = nil
                     })
                 }
             } else {
-                self.onDoneCallback?(passcode)
+                self.onDoneCallback?(enclaveToken)
                 self.onDoneCallback = nil
             }
         } else {
             if customHeaderVC != nil {
-                self.onDoneCallback?(passcode)
+                self.onDoneCallback?(enclaveToken)
                 self.onDoneCallback = nil
             } else {
                 dismiss(animated: true) { [weak self] in
-                    self?.onDoneCallback?(passcode)
+                    self?.onDoneCallback?(enclaveToken)
                     self?.onDoneCallback = nil
                 }
             }

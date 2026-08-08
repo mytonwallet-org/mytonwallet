@@ -6,6 +6,5 @@ data class ExplainedSwapFee(
     override val isGasless: Boolean,
     override val fullFee: MFee? = null,
     override val realFee: MFee? = null,
-    override val excessFee: BigInteger = BigInteger.ZERO,
-    val shouldShowOurFee: Boolean
+    override val excessFee: BigInteger = BigInteger.ZERO
 ) : IExplainedFee

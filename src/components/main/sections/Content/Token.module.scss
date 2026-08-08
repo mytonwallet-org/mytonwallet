@@ -17,7 +17,8 @@
   justify-content: center;
 
   width: 100%;
-  padding: 0.75rem 0.875rem 0.75rem 0.75rem;
+  padding-block: 0.75rem;
+  padding-inline: 0.75rem 0.875rem;
 
   color: var(--color-black);
 
@@ -61,7 +62,9 @@
 }
 
 .iconArrow {
-  margin: 0 0.125rem 0 -0.0625rem;
+  margin-block: 0;
+  margin-inline: -0.0625rem 0.125rem;
+
   font-size: 1rem;
   line-height: 1rem;
   vertical-align: -0.25rem;
@@ -70,7 +73,7 @@
 .iconChevron {
   position: absolute;
   top: 0.8125rem;
-  right: 0.5rem;
+  inset-inline-end: 0.5rem;
 
   font-size: 1rem;
   color: var(--color-gray-4);
@@ -79,8 +82,8 @@
 .primaryCell {
   flex: 1;
   min-width: 0;
-  margin-right: 1rem;
-  text-align: left;
+  margin-inline-end: 1rem;
+  text-align: start;
 }
 
 .secondaryCell {
@@ -91,6 +94,9 @@
 }
 
 .subtitle {
+  direction: ltr;
+  unicode-bidi: plaintext;
+
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-gray-2) !important;
@@ -98,6 +104,10 @@
   @include mixins.is-mobile() {
     font-size: 0.8125rem;
   }
+}
+
+.subtitleRtl {
+  text-align: end;
 }
 
 .amountChange {
@@ -138,6 +148,7 @@
 
 .name,
 .secondaryValue {
+  unicode-bidi: plaintext;
   padding-bottom: 0.125rem;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -180,7 +191,8 @@
 
   width: 0.125rem;
   height: 0.125rem;
-  margin: 0 0.3125rem 0 0.25rem;
+  margin-block: 0;
+  margin-inline: 0.25rem 0.3125rem;
   border-radius: 50%;
 
   font-style: normal;
@@ -213,7 +225,8 @@
 }
 
 .tokenIcon {
-  margin: 0 0.625rem 0 0;
+  margin-block: 0;
+  margin-inline: 0 0.625rem;
   .button:hover > & {
     --color-background-first: var(--color-interactive-item-hover);
   }
@@ -224,7 +237,7 @@
 .percent {
   position: absolute;
   top: 1.625rem;
-  left: 1.5rem;
+  inset-inline-start: 1.5rem;
 
   display: flex;
   align-items: center;
@@ -242,7 +255,7 @@
 
   @include mixins.is-mobile() {
     top: 1.6875rem;
-    left: 1.75rem;
+    inset-inline-start: 1.75rem;
   }
 
   :global(html.is-android) &::before {

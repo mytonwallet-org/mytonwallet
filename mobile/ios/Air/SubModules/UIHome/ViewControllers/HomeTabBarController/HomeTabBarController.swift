@@ -48,7 +48,6 @@ public class HomeTabBarController: UITabBarController {
 
         delegate = self
         NotificationCenter.default.addObserver(self, selector: #selector(handleThemeUpdated(_:)), name: .updateTheme, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(handleLanguageDidChange(_:)), name: .languageDidChange, object: nil)
 
         if !IOS_26_MODE_ENABLED {
             applyTabBarAppearance()
@@ -146,6 +145,15 @@ public class HomeTabBarController: UITabBarController {
         }
     }
 
+    public func setNavigationPath(_ path: [UIViewController], for id: AppTabId) {
+        guard let navigationController = navControllersByTabId[id] else { return }
+        if let lazyNavigationController = navigationController as? AppTabLazyNavigationController {
+            lazyNavigationController.ensureRootViewControllerInstalled()
+        }
+        guard let rootViewController = navigationController.viewControllers.first else { return }
+        navigationController.setViewControllers([rootViewController] + path, animated: false)
+    }
+
     public func selectTab(_ id: AppTabId, popToRoot: Bool = false) {
         guard let index = navControllerIndex(of: id) else { return }
         selectedIndex = index
@@ -228,18 +236,6 @@ public class HomeTabBarController: UITabBarController {
 
     @objc private func handleThemeUpdated(_ notification: Notification) {
         updateTheme()
-    }
-
-    @objc private func handleLanguageDidChange(_ notification: Notification) {
-        refreshTabBarItemTitles()
-    }
-
-    private func refreshTabBarItemTitles() {
-        for (id, nc) in navControllersByTabId {
-            if let title = tabLabelProvider(id) {
-                nc.tabBarItem.title = title
-            }
-        }
     }
 
     private func updateTheme() {

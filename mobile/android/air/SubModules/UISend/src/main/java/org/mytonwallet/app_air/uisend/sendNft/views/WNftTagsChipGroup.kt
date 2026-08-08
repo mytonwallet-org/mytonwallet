@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import com.google.android.material.chip.ChipGroup
+import kotlin.math.ceil
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.sp
@@ -18,7 +19,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WTagView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import kotlin.math.ceil
 
 class WNftTagsChipGroup(context: Context) : ChipGroup(context) {
 
@@ -67,9 +67,11 @@ class WNftTagsChipGroup(context: Context) : ChipGroup(context) {
 
         removeAllViews()
         nfts.take(visibleCount).forEach { nft ->
-            addView(WTagView(context).apply {
-                configure(Content.ofUrl(nft.thumbnail ?: nft.image ?: ""), nft.name)
-            })
+            addView(
+                WTagView(context).apply {
+                    configure(Content.ofUrl(nft.thumbnail ?: nft.image ?: ""), nft.name)
+                }
+            )
         }
 
         val remainingNfts = nfts.size - visibleCount
@@ -146,36 +148,28 @@ class WNftTagsChipGroup(context: Context) : ChipGroup(context) {
         return visibleCount
     }
 
-    private fun nftTagWidth(title: CharSequence?): Int {
-        return TAG_ICON_WIDTH_DP.dp +
-            TAG_TEXT_HORIZONTAL_PADDING_DP.dp +
-            tagTextPaint.measureTextCeil(title?.toString().orEmpty())
-    }
+    private fun nftTagWidth(title: CharSequence?): Int = TAG_ICON_WIDTH_DP.dp +
+        TAG_TEXT_HORIZONTAL_PADDING_DP.dp +
+        tagTextPaint.measureTextCeil(title?.toString().orEmpty())
 
-    private fun remainingLabelWidth(remainingCount: Int): Int {
-        return tagTextPaint.measureTextCeil(remainingText(remainingCount))
-    }
+    private fun remainingLabelWidth(remainingCount: Int): Int =
+        tagTextPaint.measureTextCeil(remainingText(remainingCount))
 
-    private fun remainingLabel(remainingCount: Int): WLabel {
-        return WLabel(context).apply {
-            setStyle(TAG_TEXT_SIZE_SP, WFont.Regular)
-            setTextColor(WColor.SecondaryText)
-            gravity = Gravity.CENTER_VERTICAL
-            text = remainingText(remainingCount)
-            setOnClickListener {
-                onMoreClickListener?.invoke()
-            }
+    private fun remainingLabel(remainingCount: Int): WLabel = WLabel(context).apply {
+        setStyle(TAG_TEXT_SIZE_SP, WFont.Regular)
+        setTextColor(WColor.SecondaryText)
+        gravity = Gravity.CENTER_VERTICAL
+        text = remainingText(remainingCount)
+        setOnClickListener {
+            onMoreClickListener?.invoke()
         }
     }
 
-    private fun remainingText(remainingCount: Int): String {
-        return LocaleController.getString("%amount% NFTs")
+    private fun remainingText(remainingCount: Int): String =
+        LocaleController.getString("%amount% NFTs")
             .replace("%amount%", "+$remainingCount")
-    }
 
-    private fun TextPaint.measureTextCeil(text: String): Int {
-        return ceil(measureText(text)).toInt()
-    }
+    private fun TextPaint.measureTextCeil(text: String): Int = ceil(measureText(text)).toInt()
 
     private companion object {
         const val MAX_ROWS = 5

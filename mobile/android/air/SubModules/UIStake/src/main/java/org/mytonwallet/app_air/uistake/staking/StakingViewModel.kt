@@ -1,8 +1,11 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uistake.staking
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import java.math.BigInteger
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,16 +29,16 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
-import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
+import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 
-class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
+class StakingViewModel(val tokenSlug: String, val mode: Mode) :
+    ViewModel(),
     WalletCore.EventObserver {
 
     enum class Mode {
@@ -120,7 +123,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         val tokenToStake: MToken?,
         val isInputCurrencyCrypto: Boolean,
         val amountInCrypto: BigInteger?,
-        val amountInBaseCurrency: BigInteger?,
+        val amountInBaseCurrency: BigInteger?
     )
 
     //
@@ -153,12 +156,12 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         _inputStateFlow.tryEmit(
             state.copy(
                 amountInCrypto = amountInCrypto,
-                amountInBaseCurrency = amountInBaseCurrency,
+                amountInBaseCurrency = amountInBaseCurrency
             )
         )
 
         updateViewStateOnInputChanged()
-        //updateFee()
+        // updateFee()
     }
 
     fun onEquivalentClicked() {
@@ -183,7 +186,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     maxAmountString = createMaxString(),
                     estimatedEarning = createEstimatedEarningString(amountInCrypto),
                     tvl = commonTvl(),
-                    totalStakers = commonTotalStakers(),
+                    totalStakers = commonTotalStakers()
                 )
             )
             return
@@ -193,22 +196,27 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         val isMoreThanMinRequired = isInputAmountMoreThanMinRequired(amountInCrypto)
         val isInsuffcientFeeAmount = isInsufficientFeeAmount(amountInCrypto)
 
-
         val buttonState =
-            if (!isMoreThanMinRequired) StakeButtonState.LowerThanMinAmount
-            else if (!isBalanceSufficient) StakeButtonState.InsufficientBalance
-            else if (isInsuffcientFeeAmount) StakeButtonState.InsufficientFeeAmount
-            else StakeButtonState.ValidAmount
+            if (!isMoreThanMinRequired) {
+                StakeButtonState.LowerThanMinAmount
+            } else if (!isBalanceSufficient) {
+                StakeButtonState.InsufficientBalance
+            } else if (isInsuffcientFeeAmount) {
+                StakeButtonState.InsufficientFeeAmount
+            } else {
+                StakeButtonState.ValidAmount
+            }
 
         _viewState.tryEmit(
             viewStateValue().copy(
                 buttonState = buttonState,
-                isInputTextRed = !isBalanceSufficient || !isMoreThanMinRequired || isInsuffcientFeeAmount,
+                isInputTextRed =
+                    !isBalanceSufficient || !isMoreThanMinRequired || isInsuffcientFeeAmount,
                 estimatedEarning = createEstimatedEarningString(amountInCrypto),
                 currentApy = apy.value.toString(),
                 maxAmountString = createMaxString(),
                 tvl = commonTvl(),
-                totalStakers = commonTotalStakers(),
+                totalStakers = commonTotalStakers()
             )
         )
 
@@ -221,11 +229,13 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     private fun isInputAmountMoreThanMinRequired(inputAmount: BigInteger) =
         isUnstake() || inputAmount >= minRequiredAmount
 
-    private fun isInsufficientFeeAmount(inputAmount: BigInteger): Boolean {
-        return (!isStake() || (isStake() && inputAmount >= minRequiredAmount)) &&
-            (nativeBalance < networkFee || (isNativeToken && nativeBalance < amount + networkFee)) &&
+    private fun isInsufficientFeeAmount(inputAmount: BigInteger): Boolean =
+        (!isStake() || (isStake() && inputAmount >= minRequiredAmount)) &&
+            (
+                nativeBalance < networkFee ||
+                    (isNativeToken && nativeBalance < amount + networkFee)
+                ) &&
             (tokenSlug != TONCOIN_SLUG || !shouldRenderBalanceWithSmallFee)
-    }
 
     private fun calculateEstimatedEarning(amount: BigInteger, apy: Float): BigInteger {
         val apyMultiplier = apy * 1000
@@ -271,12 +281,16 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         val estimatedEarning = calculateEstimatedEarning(amountInCrypto, apy.value)
 
         val estimatedEarningsSymbol =
-            if (inputStateValue().isInputCurrencyCrypto) currentToken.symbol
-            else WalletCore.baseCurrency.sign
+            if (inputStateValue().isInputCurrencyCrypto) {
+                currentToken.symbol
+            } else {
+                WalletCore.baseCurrency.sign
+            }
 
         val estimatedEarningStr =
-            if (estimatedEarning == BigInteger.ZERO) "0"
-            else {
+            if (estimatedEarning == BigInteger.ZERO) {
+                "0"
+            } else {
                 if (inputStateValue().isInputCurrencyCrypto) {
                     estimatedEarning.toString(
                         currentToken.decimals,
@@ -307,17 +321,13 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         return true
     }
 
-    fun getAmountInCrypto(): BigInteger? {
-        return inputStateValue().amountInCrypto
+    fun getAmountInCrypto(): BigInteger? = inputStateValue().amountInCrypto
+
+    fun onStakeConfirmed(enclaveToken: String) {
+        if (mode == Mode.STAKE) submitStake(enclaveToken) else submitUnstake(enclaveToken)
     }
 
-    fun onStakeConfirmed(passcode: String) {
-        if (mode == Mode.STAKE)
-            submitStake(passcode)
-        else submitUnstake(passcode)
-    }
-
-    private fun submitStake(passcode: String) {
+    private fun submitStake(enclaveToken: String) {
         if (stakingState == null) return
 
         viewModelScope.launch {
@@ -326,7 +336,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     accountId!!,
                     amount = inputStateValue().amountInCrypto ?: BigInteger.ZERO,
                     stakingState!!,
-                    passcode = passcode,
+                    enclaveToken = enclaveToken,
                     realFee = realFee
                 )
                 val mfaHash = result.mfaRequestHash
@@ -345,7 +355,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         }
     }
 
-    private fun submitUnstake(passcode: String) {
+    private fun submitUnstake(enclaveToken: String) {
         if (stakingState == null) return
 
         viewModelScope.launch {
@@ -354,7 +364,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     accountId!!,
                     amount = inputStateValue().amountInCrypto ?: BigInteger.ZERO,
                     stakingState!!,
-                    passcode = passcode,
+                    enclaveToken = enclaveToken,
                     realFee = realFee
                 )
                 val mfaHash = result.mfaRequestHash
@@ -408,10 +418,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     }
 
     // ui state
-    data class StakeUiInputState(
-        val wallet: WalletState,
-        private val input: InputState,
-    ) {
+    data class StakeUiInputState(val wallet: WalletState, private val input: InputState) {
         val tokenToStake: MToken? = input.tokenToStake
 
         internal val tokenToStakeBalance: BigInteger =
@@ -427,7 +434,6 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     showPositiveSign = false
                 )
             }
-
     }
 
     val uiInputStateFlow: Flow<StakeUiInputState> =
@@ -452,7 +458,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                 tokenToStake = null,
                 isInputCurrencyCrypto = true,
                 amountInCrypto = null,
-                amountInBaseCurrency = null,
+                amountInBaseCurrency = null
             )
         )
 
@@ -460,14 +466,14 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
             if (input.tokenToStake == null) {
                 _inputStateFlow.tryEmit(
                     inputStateValue().copy(
-                        tokenToStake = TokenStore.getToken(tokenSlug),
+                        tokenToStake = TokenStore.getToken(tokenSlug)
                     )
                 )
             }
         }
 
         collectFlow(apy) {
-            //updateFee()
+            // updateFee()
             _viewState.tryEmit(
                 viewStateValue().copy(
                     estimatedEarning = createEstimatedEarningString(
@@ -484,7 +490,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     ),
                     maxAmountString = createMaxString(),
                     tvl = commonTvl(),
-                    totalStakers = commonTotalStakers(),
+                    totalStakers = commonTotalStakers()
                 )
             )
         }
@@ -523,10 +529,8 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     fun isStake() = mode == Mode.STAKE
     fun isUnstake() = mode == Mode.UNSTAKE
 
-
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
-
             WalletEvent.StakingDataUpdated -> {
                 stakingState?.annualYield?.let {
                     apy.value = it
@@ -573,15 +577,12 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
 
         super.onCleared()
     }
-
 }
 
 class AddStakeViewModelFactory(
     private val tokenSlug: String,
     private val mode: StakingViewModel.Mode
-) :
-    ViewModelProvider.NewInstanceFactory() {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return StakingViewModel(tokenSlug, mode) as T
-    }
+) : ViewModelProvider.NewInstanceFactory() {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+        StakingViewModel(tokenSlug, mode) as T
 }

@@ -6,7 +6,6 @@ private let PRINT_ALL = false
 private let PRINT_NOTHING = false
 
 private let MAX_BUFFER = 1_000_000
-private let MAX_LOG_FILE = 3_000_000
 
 public let appStart = Date()
 
@@ -16,10 +15,11 @@ public actor LogStore {
     public static let shared = LogStore()
 
     private nonisolated let buffer: UnfairLock<Data> = .init(initialState: Data())
-    private let url = URL.documentsDirectory.appending(component: "air-log.tsv")
+    private nonisolated let storage = LogFileStorage.live
     
     private init() {
         _ = appStart
+        try? storage.prepare()
         NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: nil) { [weak self] _ in
             Task { self?.syncronize() }
         }
@@ -48,27 +48,8 @@ public actor LogStore {
         do {
             try buffer.withLock { buffer in
                 guard !buffer.isEmpty else { return }
-                
-                if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
-                    let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-                    if let fileSize = attributes[.size] as? UInt64 {
-                        if fileSize > MAX_LOG_FILE {
-                            let data = try Data(contentsOf: url)
-                            let halfway = MAX_LOG_FILE / 2
-                            let trimmedData = data.subdata(in: halfway..<data.count)
-                            try trimmedData.write(to: url, options: .atomic)
-                        }
-                    }
-                }
-                
-                do {
-                    let handle = try FileHandle(forWritingTo: url)
-                    try handle.seekToEnd()
-                    try handle.write(contentsOf: buffer)
-                    try handle.close()
-                } catch {
-                    try buffer.write(to: url)
-                }
+
+                try storage.append(buffer)
                 buffer.removeAll()
             }
 
@@ -77,10 +58,13 @@ public actor LogStore {
     }
     
     public func exportFile() throws -> URL {
-        syncronize()
-        let exportUrl = URL.documentsDirectory.appending(component: "air-log-\(Int(Date().timeIntervalSince1970)).tsv")
-        try FileManager.default.copyItem(at: url, to: exportUrl)
-        return exportUrl
+        try buffer.withLock { buffer in
+            if !buffer.isEmpty {
+                try storage.append(buffer)
+                buffer.removeAll()
+            }
+            return try storage.exportSnapshot()
+        }
     }
 }
 
@@ -107,6 +91,21 @@ public enum LogPrivacy {
 }
 
 
+public struct LogFaultEvent: Sendable {
+    public let category: String
+    public let message: String
+    public let fileID: String
+    public let function: String
+    public let line: Int
+}
+
+
+public typealias LogFaultReporter = @Sendable (LogFaultEvent) -> Void
+
+
+private let faultReporterStorage = UnfairLock<LogFaultReporter?>(initialState: nil)
+
+
 public struct Log: Sendable {
     
     public static let shared = Log("Shared")
@@ -117,6 +116,10 @@ public struct Log: Sendable {
     public init(_ category: String = #fileID) {
         self.category = category
     }
+
+    public static func setFaultReporter(_ reporter: LogFaultReporter?) {
+        faultReporterStorage.withLock { $0 = reporter }
+    }
     
     private func log(_ level: LogLevel, _ message: LogMessage, fileOnly: Bool, fileID: String, function: String, line: Int) {
         let entry = LogEntry(category: category, level: level, message: message, date: .now, fileID: fileID, function: function, line: line)
@@ -125,6 +128,9 @@ public struct Log: Sendable {
             print(entry.composedForDisplay)
         }
         #endif
+        if case .fault = level {
+            reportFault(entry)
+        }
         Task {
             await LogStore.shared.write(entry)
         }
@@ -149,7 +155,21 @@ public struct Log: Sendable {
             print(entry.composedForDisplay)
         }
         #endif
+        reportFault(entry)
         await LogStore.shared.writeCritical(entry)
+    }
+
+    private func reportFault(_ entry: LogEntry) {
+        let reporter = faultReporterStorage.withLock { $0 }
+        reporter?(
+            LogFaultEvent(
+                category: entry.category,
+                message: entry.message.composedForRemoteReporting,
+                fileID: entry.fileID,
+                function: entry.function,
+                line: entry.line
+            )
+        )
     }
 }
 
@@ -159,30 +179,38 @@ public struct LogMessage: ExpressibleByStringInterpolation, Sendable {
     public struct StringInterpolation: StringInterpolationProtocol {
         
         var result: String
+        var remoteReportingResult: String
         
         public init(literalCapacity: Int, interpolationCount: Int) {
             result = ""
+            remoteReportingResult = ""
         }
         
         public mutating func appendLiteral(_ literal: String) {
             result += literal
+            remoteReportingResult += literal
         }
         
         public mutating func appendInterpolation(_ value: Any, _ privacy: LogPrivacy? = nil) {
             switch privacy {
             case .none:
                 if value is Bool || value is any Numeric {
-                    result += String(describing: value)
+                    let description = String(describing: value)
+                    result += description
+                    remoteReportingResult += description
                 } else {
                     #if DEBUG
                         result += "<recated:\(String(describing: value))>"
                     #else
                         result += "<redacted>"
                     #endif
+                    remoteReportingResult += "<redacted>"
                 }
 
             case .public:
-                result += String(describing: value)
+                let description = String(describing: value)
+                result += description
+                remoteReportingResult += description
 
             case .redacted: // explicitly marked redacted, will redact even numerics
                 #if DEBUG
@@ -190,18 +218,22 @@ public struct LogMessage: ExpressibleByStringInterpolation, Sendable {
                 #else
                     result += "<redacted>"
                 #endif
+                remoteReportingResult += "<redacted>"
             }
         }
     }
     
     var composed: String
+    var composedForRemoteReporting: String
     
     public init(stringInterpolation: StringInterpolation) {
         self.composed = stringInterpolation.result
+        self.composedForRemoteReporting = stringInterpolation.remoteReportingResult
     }
     
     public init(stringLiteral value: String) {
         self.composed = value
+        self.composedForRemoteReporting = value
     }
 }
 

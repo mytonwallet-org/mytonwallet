@@ -1,0 +1,39 @@
+.root {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 1.125rem;
+}
+
+.label {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.23;
+  color: var(--color-gray-1);
+}
+
+.value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.385;
+  color: var(--color-black);
+  text-align: end;
+}
+
+.change {
+  margin-inline-start: 0.25rem;
+}
+
+.changePositive {
+  color: var(--color-activity-green-text);
+}
+
+.changeNegative {
+  color: var(--color-activity-red-text);
+}

@@ -6,6 +6,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -35,18 +36,18 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
+import org.mytonwallet.app_air.walletcore.api.enclaveDuplicateSecrets
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
 
 class AddAccountOptionsVC(
     context: Context,
     val network: MBlockchainNetwork,
     val isOnIntro: Boolean
-) :
-    WViewController(context) {
+) : WViewController(context) {
+    @Suppress("PropertyName")
     override val TAG = "AddAccountOptions"
 
     private val showCreateButton = !isOnIntro
@@ -64,7 +65,7 @@ class AddAccountOptionsVC(
             configure(
                 item = SettingsItem(
                     SettingsItem.Identifier.NONE,
-                    org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_create,
+                    org.mytonwallet.app_air.icons.R.drawable.ic_add_create,
                     LocaleController.getString("New Wallet"),
                     LocaleController.getString("From new secret words"),
                     value = null,
@@ -86,7 +87,8 @@ class AddAccountOptionsVC(
                                     view.unlockView()
                                     showError(err?.parsed)
                                 }
-                            })
+                            }
+                        )
                     }
                 }
             )
@@ -98,7 +100,7 @@ class AddAccountOptionsVC(
             configure(
                 item = SettingsItem(
                     SettingsItem.Identifier.NONE,
-                    org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_subwallet,
+                    org.mytonwallet.app_air.icons.R.drawable.ic_add_subwallet,
                     LocaleController.getString("New Subwallet"),
                     LocaleController.getString("From current secret words"),
                     value = null,
@@ -149,7 +151,7 @@ class AddAccountOptionsVC(
             configure(
                 item = SettingsItem(
                     SettingsItem.Identifier.NONE,
-                    org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_secret,
+                    org.mytonwallet.app_air.icons.R.drawable.ic_add_secret,
                     LocaleController.getPluralOrFormat("%1\$d Secret Words", 12, "12/24"),
                     LocaleController.getString("Restore wallet from 12 or 24 words"),
                     value = null,
@@ -165,7 +167,7 @@ class AddAccountOptionsVC(
                             ImportWalletVC(
                                 context,
                                 network = network,
-                                passedPasscode = null
+                                passedEnclaveToken = null
                             )
                         )
                     } else {
@@ -185,7 +187,8 @@ class AddAccountOptionsVC(
                                     vc,
                                     onCompletion = {
                                         vc.navigationController?.removePrevViewControllers()
-                                    })
+                                    }
+                                )
                             }
                         )
                         handlePush(passcodeConfirmVC)
@@ -199,7 +202,7 @@ class AddAccountOptionsVC(
             configure(
                 item = SettingsItem(
                     SettingsItem.Identifier.NONE,
-                    org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_ledger,
+                    org.mytonwallet.app_air.icons.R.drawable.ic_add_ledger,
                     LocaleController.getString("Ledger"),
                     LocaleController.getString("Connect your hardware wallet"),
                     value = null,
@@ -219,7 +222,7 @@ class AddAccountOptionsVC(
         configure(
             item = SettingsItem(
                 SettingsItem.Identifier.NONE,
-                org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_view,
+                org.mytonwallet.app_air.icons.R.drawable.ic_add_view,
                 LocaleController.getString("View Any Address"),
                 LocaleController.getString("Watch wallet in read-only mode"),
                 value = null,
@@ -288,7 +291,10 @@ class AddAccountOptionsVC(
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(LocaleController.getString(if (showCreateButton) "Add Wallet" else "Import Wallet") + network.localizedIdentifier)
+        setNavTitle(
+            LocaleController.getString(if (showCreateButton) "Add Wallet" else "Import Wallet") +
+                network.localizedIdentifier
+        )
         setupNavBar(true)
 
         navigationBar?.addCloseButton()
@@ -336,9 +342,8 @@ class AddAccountOptionsVC(
 
     private var calculatedHeight: Int? = null
     override val isExpandable = false
-    override fun getModalHalfExpandedHeight(): Int? {
-        return calculatedHeight ?: super.getModalHalfExpandedHeight()
-    }
+    override fun getModalHalfExpandedHeight(): Int? =
+        calculatedHeight ?: super.getModalHalfExpandedHeight()
 
     private fun mnemonicGenerated(words: Array<String>) {
         view.unlockView()
@@ -351,7 +356,7 @@ class AddAccountOptionsVC(
                     words = words,
                     isFirstWalletToAdd = false,
                     isFirstPasscodeProtectedWallet = true,
-                    passedPasscode = null
+                    passedEnclaveToken = null
                 )
             )
         } else {
@@ -365,20 +370,21 @@ class AddAccountOptionsVC(
                     showNavigationSeparator = false,
                     startWithBiometrics = true
                 ),
-                task = { passcode ->
+                task = { enclaveToken ->
                     val vc = WordDisplayVC(
                         context,
                         network = network,
                         words = words,
                         isFirstWalletToAdd = false,
                         isFirstPasscodeProtectedWallet = false,
-                        passcode
+                        passedEnclaveToken = enclaveToken
                     )
                     passcodeConfirmVC.push(
                         vc,
                         onCompletion = {
                             vc.navigationController?.removePrevViewControllers()
-                        })
+                        }
+                    )
                 }
             )
             handlePush(passcodeConfirmVC)
@@ -393,10 +399,13 @@ class AddAccountOptionsVC(
             PasscodeViewState.Default(
                 LocaleController.getString("Locked"),
                 LocaleController.getString(
-                    if (WGlobalStorage.isBiometricActivated() &&
+                    if (WGlobalStorage.isAnyBiometricActivated() &&
                         BiometricHelpers.canAuthenticate(window)
-                    )
-                        "Enter passcode or use fingerprint" else "Enter Passcode"
+                    ) {
+                        "Enter passcode or use fingerprint"
+                    } else {
+                        "Enter Passcode"
+                    }
                 ),
                 LocaleController.getString("New Subwallet"),
                 showNavigationSeparator = false,
@@ -429,6 +438,15 @@ class AddAccountOptionsVC(
             if (result.isNew) {
                 val byChain = result.byChain ?: run {
                     passcodeConfirmVC.view.unlockView()
+                    return@call
+                }
+                val enclaveError = WalletCore.enclaveDuplicateSecrets(
+                    activeAccount,
+                    listOf(result.accountId)
+                )
+                if (enclaveError != null) {
+                    passcodeConfirmVC.view.unlockView()
+                    passcodeConfirmVC.showError(enclaveError)
                     return@call
                 }
                 Logger.d(
@@ -479,8 +497,11 @@ class AddAccountOptionsVC(
         val suffixDigits = parentName.takeLastWhile { it.isDigit() }
         val base = if (suffixDigits.isNotEmpty()) {
             val dotIndex = parentName.length - suffixDigits.length - 1
-            if (dotIndex >= 0 && parentName[dotIndex] == '.') parentName.substring(0, dotIndex)
-            else parentName
+            if (dotIndex >= 0 && parentName[dotIndex] == '.') {
+                parentName.substring(0, dotIndex)
+            } else {
+                parentName
+            }
         } else {
             "${parentName.trim()} "
         }

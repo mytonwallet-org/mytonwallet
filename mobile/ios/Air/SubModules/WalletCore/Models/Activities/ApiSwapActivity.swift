@@ -23,7 +23,6 @@ public struct ApiSwapActivity: BaseActivity, Codable, Equatable, Hashable, Senda
     public let networkFee: MDouble? // FIXME: Had to add ? for comatibility
     public let swapFee: MDouble? // FIXME: Had to add ? for comatibility
     public let ourFee: MDouble?
-    public let ourFeeMode: String?
     public let cexLabel: ApiSwapCexLabel?
     public var status: ApiSwapStatus
     public let hashes: [String]?

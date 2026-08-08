@@ -326,7 +326,7 @@ private struct WalletConnectPayOptionSelectionView: View {
                 Text(update.shouldSwitchWallet == true
                     ? "No matching chains"
                     : "You don't have any eligible tokens for this payment")
-                    .font(.system(size: 13, weight: .semibold))
+                    .textStyle(.footnoteStrong)
                     .foregroundStyle(Color.air.primaryLabel)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -335,7 +335,7 @@ private struct WalletConnectPayOptionSelectionView: View {
                 Text(update.shouldSwitchWallet == true
                     ? "Select multichain wallet"
                     : "Buy, swap, or receive a supported token to continue.")
-                    .font(.system(size: 13, weight: .regular))
+                    .textStyle(.footnote)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -403,7 +403,7 @@ struct WalletConnectPayOptionRow: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .center, spacing: 4) {
                     Text(displayData.title)
-                        .font(.system(size: 16, weight: .medium))
+                        .textStyle(.calloutEmphasized)
                         .foregroundStyle(Color.air.primaryLabel)
                         .lineLimit(1)
 
@@ -415,7 +415,7 @@ struct WalletConnectPayOptionRow: View {
                 .frame(height: 22)
 
                 Text(displayData.subtitle)
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
                     .frame(height: 18)
@@ -424,7 +424,7 @@ struct WalletConnectPayOptionRow: View {
 
             VStack(alignment: .trailing, spacing: 0) {
                 Text(displayData.amount)
-                    .font(.system(size: 16, weight: .regular))
+                    .textStyle(.callout, content: .technical)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
@@ -432,7 +432,7 @@ struct WalletConnectPayOptionRow: View {
 
                 if let baseCurrencyAmount = displayData.baseCurrencyAmount {
                     Text(baseCurrencyAmount)
-                        .font(.system(size: 14, weight: .regular))
+                        .textStyle(.supporting, content: .technical)
                         .foregroundStyle(Color.air.secondaryLabel)
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
@@ -477,7 +477,7 @@ private struct WalletConnectPayTokenBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold))
+            .textStyle(.badge)
             .foregroundStyle(Color.air.secondaryLabel)
             .lineLimit(1)
             .padding(.horizontal, 3)
@@ -519,6 +519,8 @@ private let walletConnectPayCaip2Chains: [String: ApiChain] = [
     "eip155:10143": .monad,
     "eip155:999": .hyperliquid,
     "eip155:998": .hyperliquid,
+    "eip155:4663": .robinhood,
+    "eip155:46630": .robinhood,
 ]
 
 private func walletConnectPayToken(for option: WcPayPaymentOption) -> ApiToken? {

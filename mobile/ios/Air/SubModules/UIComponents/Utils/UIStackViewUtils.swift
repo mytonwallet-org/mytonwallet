@@ -16,8 +16,8 @@ public extension UIStackView {
         NSLayoutConstraint.activate([
             v.topAnchor.constraint(equalTo: containerForMargin.topAnchor, constant: margin.top),
             v.bottomAnchor.constraint(equalTo: containerForMargin.bottomAnchor, constant: -margin.bottom),
-            v.leftAnchor.constraint(equalTo: containerForMargin.leftAnchor, constant: margin.left),
-            v.rightAnchor.constraint(equalTo: containerForMargin.rightAnchor, constant: -margin.right)
+            v.leadingAnchor.constraint(equalTo: containerForMargin.leadingAnchor, constant: margin.left),
+            v.trailingAnchor.constraint(equalTo: containerForMargin.trailingAnchor, constant: -margin.right)
         ])
 
         addArrangedSubview(containerForMargin)
@@ -45,4 +45,3 @@ public extension UIStackView {
     }
     
 }
-

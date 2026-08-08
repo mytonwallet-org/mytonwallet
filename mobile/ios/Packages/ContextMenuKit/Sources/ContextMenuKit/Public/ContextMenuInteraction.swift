@@ -226,6 +226,22 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         return true
     }
 
+    public func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        guard self.isLongPressActivationRecognizer(gestureRecognizer),
+              otherGestureRecognizer is UITapGestureRecognizer,
+              let sourceView = self.sourceView,
+              let otherView = otherGestureRecognizer.view else {
+            return false
+        }
+
+        return otherView === sourceView
+            || otherView.isDescendant(of: sourceView)
+            || sourceView.isDescendant(of: otherView)
+    }
+
     private func resolvePresentationReference(for sourceView: UIView) -> ContextMenuPresentationReference {
         if let presentationReferenceProvider {
             return presentationReferenceProvider(sourceView)
@@ -238,16 +254,46 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         self.activationViewProvider?(sourceView) ?? sourceView
     }
 
-    private func cancelCompetingGestureRecognizers(on sourceView: UIView, excluding activeRecognizer: UIGestureRecognizer) {
-        for recognizer in sourceView.gestureRecognizers ?? [] {
-            guard recognizer !== activeRecognizer,
-                  recognizer !== self.tapGestureRecognizer,
-                  recognizer !== self.longPressGestureRecognizer,
-                  recognizer !== self.pressAnimationGestureRecognizer else {
-                continue
+    private func isLongPressActivationRecognizer(_ recognizer: UIGestureRecognizer) -> Bool {
+        recognizer === self.longPressGestureRecognizer
+            || recognizer === self.pressAnimationGestureRecognizer
+    }
+
+    func cancelCompetingGestureRecognizers(on sourceView: UIView, excluding activeRecognizer: UIGestureRecognizer) {
+        let activeTouchLocation = activeRecognizer.location(in: sourceView)
+        var currentView: UIView? = sourceView.hitTest(activeTouchLocation, with: nil) ?? sourceView
+
+        while let view = currentView {
+            for recognizer in view.gestureRecognizers ?? [] {
+                guard recognizer !== activeRecognizer,
+                      recognizer !== self.tapGestureRecognizer,
+                      recognizer !== self.longPressGestureRecognizer,
+                      recognizer !== self.pressAnimationGestureRecognizer else {
+                    continue
+                }
+
+                let isAttachedToSourceView = recognizer.view === sourceView
+                let isTrackingCurrentTouch: Bool
+                switch recognizer.state {
+                case .began, .changed:
+                    let location = recognizer.location(in: sourceView)
+                    let deltaX = location.x - activeTouchLocation.x
+                    let deltaY = location.y - activeTouchLocation.y
+                    isTrackingCurrentTouch = deltaX * deltaX + deltaY * deltaY <= 1.0
+                default:
+                    isTrackingCurrentTouch = false
+                }
+                guard isAttachedToSourceView || isTrackingCurrentTouch else {
+                    continue
+                }
+
+                // UIKit has no API for forcing another recognizer to end. Disabling an active
+                // recognizer cancels it, allowing its view interaction to animate back naturally;
+                // immediately re-enabling it prepares the recognizer for the next touch.
+                recognizer.isEnabled = false
+                recognizer.isEnabled = true
             }
-            recognizer.isEnabled = false
-            recognizer.isEnabled = true
+            currentView = view.superview
         }
     }
 }

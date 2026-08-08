@@ -34,27 +34,36 @@ private struct ConnectDappView: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 0) {
-                HeaderView(dapp: dapp)
-                    .padding(.top, 40)
-                    .skeletonContainer(isActive: isLoading)
+                HeaderView(
+                    dapp: dapp,
+                    isLoading: isLoading,
+                    needsNewMultichainWallet: viewModel.needsNewMultichainWallet
+                )
+                .padding(.top, 40)
+                .skeletonContainer(isActive: isLoading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .safeAreaInset(edge: .bottom, spacing: 24) {
                 VStack(spacing: 24) {
-                    Text(lang("$connect_dapp_description"))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-
                     SelectSection(viewModel: viewModel, isLoading: isLoading)
 
-                    if !isLoading, let disabledReason = viewModel.disabledReason {
-                        WarningView(text: disabledReason)
-                            .padding(.horizontal, 20)
-                            .padding(.top, -8)
+                    if !isLoading, let disabledWarning = viewModel.disabledWarning {
+                        WarningView(
+                            header: disabledWarning.header,
+                            text: disabledWarning.text,
+                            kind: disabledWarning.kind
+                        )
+                        .padding(.horizontal, 20)
+                        .padding(.top, -8)
                     }
 
-                    ConnectButton(viewModel: viewModel)
-                        .padding(.bottom, viewModel.extraBottomPadding)
+                    if viewModel.needsNewMultichainWallet {
+                        CreateMultichainWalletButton(viewModel: viewModel)
+                            .padding(.bottom, viewModel.extraBottomPadding)
+                    } else {
+                        ConnectButton(viewModel: viewModel)
+                            .padding(.bottom, viewModel.extraBottomPadding)
+                    }
                 }
             }
             .ignoresSafeArea(edges: .top)
@@ -65,6 +74,8 @@ private struct ConnectDappView: View {
 private struct HeaderView: View {
 
     var dapp: ApiDapp
+    var isLoading: Bool
+    var needsNewMultichainWallet: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -72,7 +83,8 @@ private struct HeaderView: View {
                 .skeletonPlaceholder(surface: .dark, cornerRadius: HeaderDappIcon.cornerRadius)
             VStack(spacing: 4) {
                 Text(lang("$connect_dapp_title", arg1: dapp.name))
-                    .airFont24h32(weight: .semibold)
+                    .textStyle(.prominentTitle)
+                    .frame(minHeight: 32)
                     .skeletonPlaceholder(surface: .dark, cornerRadius: 8)
                 HStack {
                     if dapp.shouldShowUrlTrustStatusWarning {
@@ -80,14 +92,29 @@ private struct HeaderView: View {
                             .offset(y: 1)
                     }
                     Text(dapp.displayUrl)
+                        .textStyle(
+                            .body,
+                            content: .technical,
+                            scaling: .dynamic
+                        )
                         .foregroundStyle(.tint)
                 }
                 .skeletonPlaceholder(surface: .dark)
             }
             .padding(.horizontal, 8)
+
+            Text(descriptionText)
+                .textStyle(.body, scaling: .dynamic)
         }
         .padding(.horizontal, 32)
         .multilineTextAlignment(.center)
+    }
+
+    private var descriptionText: String {
+        if isLoading || !needsNewMultichainWallet {
+            return lang("$connect_dapp_description")
+        }
+        return lang("$connect_dapp_no_compatible_wallets_found")
     }
 }
 
@@ -122,7 +149,7 @@ private struct ConnectButton: View {
     var body: some View {
         WithPerceptionTracking {
             Button(action: viewModel.onConnectWallet) {
-                Text(lang(isDangerous ? "Connect Anyway" : "Connect Wallet"))
+                Text(viewModel.connectButtonTitle)
             }
             .disabled(viewModel.isDisabled)
             .buttonStyle(isDangerous ? WUIButtonStyle(style: .destructive) : .airPrimary)
@@ -132,6 +159,20 @@ private struct ConnectButton: View {
 
     var isDangerous: Bool {
         viewModel.update?.dapp.resolvedUrlTrustStatus == .dangerous
+    }
+}
+
+private struct CreateMultichainWalletButton: View {
+
+    let viewModel: ConnectViewModel
+
+    var body: some View {
+        Button(action: viewModel.onCreateMultichainWallet) {
+            Text(lang("Create Multichain Wallet"))
+        }
+        .disabled(viewModel.isCreateMultichainWalletDisabled)
+        .buttonStyle(.airPrimary)
+        .padding(.horizontal, 30)
     }
 }
 
@@ -151,7 +192,7 @@ private struct ConnectDappViewOrPlaceholderPreview: View {
 #Preview("Loading") {
     @Previewable @AccountContext(source: .current) var account: MAccount
     ConnectDappViewOrPlaceholderPreview(
-        viewModel: ConnectViewModel(accountId: account.id, update: nil, onCancel: nil)
+        viewModel: ConnectViewModel(accountId: account.id, update: nil)
     )
 }
 
@@ -161,7 +202,7 @@ private struct ConnectDappViewOrPlaceholderPreview: View {
         viewModel: ConnectViewModel(
             accountId: ApiUpdate.DappConnect.sample.accountId,
             update: .sample,
-            onCancel: {}
+            onCreateMultichainWallet: {}
         )
     )
 }

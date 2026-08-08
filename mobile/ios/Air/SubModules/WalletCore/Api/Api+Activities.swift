@@ -10,13 +10,31 @@ extension Api {
         try await bridge.callApi("fetchPastActivities", accountId, limit, tokenSlug, toTimestamp, decoding: ApiActivitySliceResult.self)
     }
     
-    public static func decryptComment(accountId: String, activity: ApiTransactionActivity, password: String?) async throws -> String {
-        try await bridge.callApi("decryptComment", accountId, activity, password, decoding: String.self)
+    public static func decryptComment(accountId: String, activity: ApiTransactionActivity, enclaveToken: EnclaveToken?) async throws -> String {
+        return try await bridge.callApi("decryptComment", accountId, activity, enclaveToken, decoding: String.self)
     }
 
     /// - Important: call through ActivityStore
     internal static func fetchActivityDetails(accountId: String, activity: ApiActivity) async throws -> ApiActivity {
         try await bridge.callApi("fetchActivityDetails", accountId, activity, decoding: ApiActivity.self)
+    }
+
+    public static func reconcileActivityUpdate(
+        accountId: String,
+        previousActivities: [ApiActivity],
+        confirmedActivities: [ApiActivity],
+        pendingActivities: [ApiActivity]?,
+        contextActivities: [ApiActivity]? = nil
+    ) async throws -> ApiReconcileActivityUpdateResult {
+        try await bridge.callApi(
+            "reconcileActivityUpdate",
+            accountId,
+            previousActivities,
+            confirmedActivities,
+            pendingActivities,
+            ApiReconcileActivityUpdateOptions(contextActivities: contextActivities),
+            decoding: ApiReconcileActivityUpdateResult.self
+        )
     }
     
     public static func fetchTransactionById(chain: ApiChain, network: ApiNetwork, txId: String, walletAddress: String) async throws -> [ApiActivity] {
@@ -38,7 +56,24 @@ private struct ApiFetchTransactionByIdOptions: Encodable {
     var txHash: String?
 }
 
+private struct ApiReconcileActivityUpdateOptions: Encodable {
+    var contextActivities: [ApiActivity]?
+}
+
 public struct ApiActivitySliceResult: Codable, Sendable {
     public let activities: [ApiActivity]
     public let hasMore: Bool
+}
+
+public struct ApiReconcileActivityUpdateResult: Decodable, Sendable {
+    public var confirmedActivities: [ApiActivity]
+    public var pendingActivities: [ApiActivity]?
+    public var patch: ApiActivitiesPatch
+}
+
+public struct ApiActivitiesPatch: Decodable, Sendable {
+    public var accountId: String
+    public var upsert: [ApiActivity]
+    public var removeIds: [String]
+    public var replacedIds: [String: String]?
 }

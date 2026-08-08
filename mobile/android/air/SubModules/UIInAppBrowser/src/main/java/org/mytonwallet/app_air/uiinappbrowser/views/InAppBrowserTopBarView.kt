@@ -16,11 +16,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
 import androidx.core.view.setPadding
+import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
-import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLtrBaselineSpacingOffset
 import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
@@ -48,8 +51,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class InAppBrowserTopBarView(
@@ -60,8 +61,9 @@ class InAppBrowserTopBarView(
     private val minimizeStarted: () -> Unit,
     private val minimizeFinished: () -> Unit,
     private val maximizeStarted: () -> Unit,
-    private val maximizeFinished: () -> Unit,
-) : WView(viewController.context), WThemedView {
+    private val maximizeFinished: () -> Unit
+) : WView(viewController.context),
+    WThemedView {
 
     private val tabBarController: ITabsVC?
         get() = viewController.tabBarController
@@ -125,12 +127,15 @@ class InAppBrowserTopBarView(
             val height = 14.dp * arrowScale
             val yOffset = (if (isTitle) 1f else 0.5f).dp.roundToInt()
             drawable.setBounds(
-                5.dp,
+                0,
                 yOffset,
-                width.roundToInt() + 5.dp,
+                width.roundToInt(),
                 height.roundToInt() + yOffset
             )
-            val imageSpan = VerticalImageSpan(drawable)
+            val imageSpan = VerticalImageSpan(
+                drawable,
+                startPadding = 5.dp
+            )
             ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         return ss
@@ -230,12 +235,21 @@ class InAppBrowserTopBarView(
         super.setupViews()
 
         minHeight =
-            (if (options.isNullOrEmpty()) WNavigationBar.DEFAULT_HEIGHT_TINY else WNavigationBar.DEFAULT_HEIGHT).dp +
-                (viewController.navigationController?.getSystemBars()?.top ?: 0)
+            (
+                if (options.isNullOrEmpty()) {
+                    WNavigationBar.DEFAULT_HEIGHT_TINY
+                } else {
+                    WNavigationBar.DEFAULT_HEIGHT
+                }
+                ).dp +
+            (viewController.navigationController?.getSystemBars()?.top ?: 0)
         maxHeight = minHeight
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        if (!options.isNullOrEmpty())
+        if (!options.isNullOrEmpty()) {
             addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
+            subtitleLabel.translationY =
+                titleLabel.paint.getLtrBaselineSpacingOffset(subtitleLabel.paint)
+        }
         addView(backButton, ViewGroup.LayoutParams(40.dp, 40.dp))
         addView(moreButton, LayoutParams(40.dp, 40.dp))
         if (canBeMinimized) {
@@ -290,17 +304,13 @@ class InAppBrowserTopBarView(
 
     fun updateCanBeMinimized() {
         val newValue = computeCanBeMinimized()
-        if (newValue == canBeMinimized)
-            return
+        if (newValue == canBeMinimized) return
         canBeMinimized = newValue
         if (!newValue) {
-            if (isMinimizing || isMinimized)
-                tabBarController?.maximize()
-            if (minimizeButton.parent != null)
-                removeView(minimizeButton)
+            if (isMinimizing || isMinimized) tabBarController?.maximize()
+            if (minimizeButton.parent != null) removeView(minimizeButton)
         } else {
-            if (minimizeButton.parent == null)
-                addView(minimizeButton, LayoutParams(40.dp, 40.dp))
+            if (minimizeButton.parent == null) addView(minimizeButton, LayoutParams(40.dp, 40.dp))
         }
         val topInset = viewController.navigationController?.getSystemBars()?.top ?: 0
         setConstraints {
@@ -317,8 +327,14 @@ class InAppBrowserTopBarView(
         updateCanBeMinimized()
         val topInset = viewController.navigationController?.getSystemBars()?.top ?: 0
         minHeight =
-            (if (options.isNullOrEmpty()) WNavigationBar.DEFAULT_HEIGHT_TINY else WNavigationBar.DEFAULT_HEIGHT).dp +
-                topInset
+            (
+                if (options.isNullOrEmpty()) {
+                    WNavigationBar.DEFAULT_HEIGHT_TINY
+                } else {
+                    WNavigationBar.DEFAULT_HEIGHT
+                }
+                ).dp +
+            topInset
         maxHeight = minHeight
         setConstraints {
             if (options.isNullOrEmpty()) {
@@ -349,8 +365,7 @@ class InAppBrowserTopBarView(
     private fun syncBlurView() {
         val blurRoot = minimizedBlurRoot ?: return
         if (minimizedBlurView != null) {
-            if (minimizedBlurViewRoot === blurRoot)
-                return
+            if (minimizedBlurViewRoot === blurRoot) return
             removeView(minimizedBlurView)
             minimizedBlurView = null
         }
@@ -378,9 +393,13 @@ class InAppBrowserTopBarView(
         val shouldRenderMinimized = isMinimizing || isMinimized
         val shouldRenderAsDarkMode = if (shouldRenderMinimized) null else overrideThemeIsDark
         val tintColor =
-            if (shouldRenderMinimized) WColor.PrimaryText.color else WColor.SecondaryText.colorForTheme(
-                shouldRenderAsDarkMode
-            )
+            if (shouldRenderMinimized) {
+                WColor.PrimaryText.color
+            } else {
+                WColor.SecondaryText.colorForTheme(
+                    shouldRenderAsDarkMode
+                )
+            }
         if (shouldRenderMinimized) {
             if (useMinimizedBlur) {
                 setBackgroundColor(Color.TRANSPARENT)
@@ -419,9 +438,8 @@ class InAppBrowserTopBarView(
             WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode)
     }
 
-    fun blendColors(color1: Int, color2: Int, ratio: Float): Int {
-        return ColorUtils.blendARGB(color1, color2, ratio)
-    }
+    fun blendColors(color1: Int, color2: Int, ratio: Float): Int =
+        ColorUtils.blendARGB(color1, color2, ratio)
 
     private fun applyMinimizedBackground(fraction: Float) {
         val f = fraction.coerceIn(0f, 1f)
@@ -437,8 +455,7 @@ class InAppBrowserTopBarView(
     var isMinimized = false
     var isMinimizing = false
     private fun minimize() {
-        if (isMinimizing)
-            return
+        if (isMinimizing) return
         if (isMinimized) {
             tabBarController?.maximize()
             return
@@ -454,7 +471,9 @@ class InAppBrowserTopBarView(
                 val titleCenterY = titleLabel.top + titleLabel.height / 2f
                 val iconCenterY = iconView.top + iconView.height / 2f
                 titleCenterY - iconCenterY
-            } else 0f
+            } else {
+                0f
+            }
             tabBarController?.minimize(viewController.navigationController!!, onProgress = {
                 val heightDiff = (viewController.navigationController?.getSystemBars()?.top ?: 0)
                 val parent = parent as ViewGroup
@@ -550,8 +569,7 @@ class InAppBrowserTopBarView(
     }
 
     fun backPressed() {
-        if (isMinimizing)
-            return
+        if (isMinimizing) return
         if (isMinimized) {
             tabBarController?.dismissMinimized()
             return
@@ -560,8 +578,7 @@ class InAppBrowserTopBarView(
             viewController.webView.goBack()
             updateBackButton(true)
         } else {
-            if (viewController.window?.isAnimating == true)
-                return
+            if (viewController.window?.isAnimating == true) return
             viewController.window?.dismissLastNav()
         }
     }
@@ -623,7 +640,8 @@ class InAppBrowserTopBarView(
                             LocaleController.getString("Share")
                         )
                     )
-                }),
+                }
+            ),
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.ALIGNED
         )
@@ -651,14 +669,12 @@ class InAppBrowserTopBarView(
     }
 
     fun setIconUrl(url: String) {
-        if (!canBeMinimized)
-            return
+        if (!canBeMinimized) return
         iconView.set(Content.ofUrl(url))
     }
 
     fun setIconBitmap(bitmap: Bitmap?) {
-        if (!canBeMinimized)
-            return
+        if (!canBeMinimized) return
         iconView.setImageBitmap(bitmap)
     }
 }

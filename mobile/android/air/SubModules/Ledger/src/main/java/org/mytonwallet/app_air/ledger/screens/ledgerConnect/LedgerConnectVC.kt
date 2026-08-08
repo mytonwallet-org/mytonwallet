@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.ledger.screens.ledgerConnect
 
 import android.Manifest
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -31,6 +30,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import java.lang.ref.WeakReference
+import java.math.BigInteger
+import kotlin.math.max
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,6 +52,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -57,6 +61,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -94,16 +99,16 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappT
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
-import kotlin.math.max
 
 class LedgerConnectVC(
     context: Context,
     private val mode: Mode,
     private val headerView: View? = null,
-    private val onCancel: (() -> Unit)? = null,
-) : WViewController(context), WThemedView, WalletCore.EventObserver {
+    private val onCancel: (() -> Unit)? = null
+) : WViewController(context),
+    WThemedView,
+    WalletCore.EventObserver {
+    @Suppress("ktlint:standard:property-naming")
     override val TAG = "LedgerConnect"
 
     override val isContentWidthCapped = true
@@ -182,7 +187,7 @@ class LedgerConnectVC(
             override val accountId: String,
             val amount: BigInteger,
             val stakingState: StakingState,
-            val realFee: BigInteger,
+            val realFee: BigInteger
         ) : SignData()
 
         data class ClaimRewards(
@@ -213,22 +218,28 @@ class LedgerConnectVC(
     }
 
     private val connectLedgerStep = LedgerConnectStepView(
-        context, LocaleController.getString("Connect your Ledger")
+        context,
+        LocaleController.getString("Connect your Ledger")
     ).apply {
         state = LedgerConnectStepStatusView.State.IN_PROGRESS
     }
 
     private val openTonAppStep = LedgerConnectStepView(
-        context, LocaleController.getString("Unlock it and open the TON App")
+        context,
+        LocaleController.getString("Unlock it and open the TON App")
     )
 
     private val signOnDeviceStep: LedgerConnectStepView by lazy {
         LedgerConnectStepView(
-            context, LocaleController.getString(
-                if (mode is Mode.ConnectToSubmitTransfer && mode.signData is SignData.SignLedgerProof)
+            context,
+            LocaleController.getString(
+                if (mode is Mode.ConnectToSubmitTransfer &&
+                    mode.signData is SignData.SignLedgerProof
+                ) {
                     "\$ledger_verify_address_on_device"
-                else
+                } else {
                     "Please confirm transfer on your Ledger"
+                }
             )
         )
     }
@@ -238,8 +249,9 @@ class LedgerConnectVC(
         orientation = LinearLayout.VERTICAL
         addView(connectLedgerStep, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(openTonAppStep, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        if (mode is Mode.ConnectToSubmitTransfer)
+        if (mode is Mode.ConnectToSubmitTransfer) {
             addView(signOnDeviceStep, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         gravity = Gravity.START
     }
 
@@ -318,7 +330,7 @@ class LedgerConnectVC(
                         WMenuPopup.Item(
                             null,
                             LocaleController.getString("Bluetooth"),
-                            false,
+                            false
                         ) {
                             tryAgain(LedgerManager.ConnectionMode.BLE)
                             updateConnectionTypeView()
@@ -326,7 +338,7 @@ class LedgerConnectVC(
                         WMenuPopup.Item(
                             null,
                             LocaleController.getString("USB"),
-                            false,
+                            false
                         ) {
                             tryAgain(LedgerManager.ConnectionMode.USB)
                             updateConnectionTypeView()
@@ -334,7 +346,7 @@ class LedgerConnectVC(
                     ),
                     xOffset = connectionTypeView.width - 116.dp,
                     popupWidth = WRAP_CONTENT,
-                    positioning = WMenuPopup.Positioning.ALIGNED,
+                    positioning = WMenuPopup.Positioning.ALIGNED
                 )
             }
         }
@@ -407,7 +419,8 @@ class LedgerConnectVC(
             toCenterX(tryAgainButton, 20f)
             constrainMaxWidth(tryAgainButton.id, WWindow.WIDE_LAYOUT_INNER_WIDTH_DP.dp - 40.dp)
             toBottomPx(
-                tryAgainButton, 20.dp + max(
+                tryAgainButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -429,11 +442,11 @@ class LedgerConnectVC(
         headerView?.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         informationView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         connectionTypeView.setBackgroundColor(WColor.SecondaryBackground.color, 16f.dp)
         connectionTypeLabel.setTextColor(WColor.PrimaryText.color)
@@ -455,7 +468,8 @@ class LedgerConnectVC(
         )
         view.setConstraints {
             toBottomPx(
-                tryAgainButton, 20.dp + max(
+                tryAgainButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -465,21 +479,33 @@ class LedgerConnectVC(
 
     private fun updateConnectionTypeView() {
         ledgerImage.setImageResource(
-            if (LedgerManager.activeMode == LedgerManager.ConnectionMode.USB)
-                if (ThemeManager.isDark) R.drawable.img_ledger_usb_dark else R.drawable.img_ledger_usb_light
-            else
-                if (ThemeManager.isDark) R.drawable.img_ledger_bluetooth_dark else R.drawable.img_ledger_bluetooth_light
+            if (LedgerManager.activeMode == LedgerManager.ConnectionMode.USB) {
+                if (ThemeManager.isDark) {
+                    R.drawable.img_ledger_usb_dark
+                } else {
+                    R.drawable.img_ledger_usb_light
+                }
+            } else {
+                if (ThemeManager.isDark) {
+                    R.drawable.img_ledger_bluetooth_dark
+                } else {
+                    R.drawable.img_ledger_bluetooth_light
+                }
+            }
         )
 
         val txt =
             LocaleController.getString(
                 if (
-                    (LedgerManager.activeMode
-                        ?: LedgerManager.ConnectionMode.BLE) == LedgerManager.ConnectionMode.BLE
-                )
+                    (
+                        LedgerManager.activeMode
+                            ?: LedgerManager.ConnectionMode.BLE
+                        ) == LedgerManager.ConnectionMode.BLE
+                ) {
                     "Bluetooth"
-                else
+                } else {
                     "USB"
+                }
             ) + " "
         val ss = SpannableStringBuilder(txt)
         context.getDrawableCompat(
@@ -502,10 +528,12 @@ class LedgerConnectVC(
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
-                    when (intent.getIntExtra(
-                        BluetoothAdapter.EXTRA_STATE,
-                        BluetoothAdapter.ERROR
-                    )) {
+                    when (
+                        intent.getIntExtra(
+                            BluetoothAdapter.EXTRA_STATE,
+                            BluetoothAdapter.ERROR
+                        )
+                    ) {
                         BluetoothAdapter.STATE_ON -> {
                             startBleConnection()
                         }
@@ -543,8 +571,7 @@ class LedgerConnectVC(
 
     private var tryAgainButtonToOpenSettings: Boolean? = null
     private fun configureTryAgainButton(toOpenSettings: Boolean) {
-        if (this.tryAgainButtonToOpenSettings == toOpenSettings)
-            return
+        if (this.tryAgainButtonToOpenSettings == toOpenSettings) return
         this.tryAgainButtonToOpenSettings = toOpenSettings
         tryAgainButton.setText(
             text = LocaleController.getString(
@@ -567,8 +594,9 @@ class LedgerConnectVC(
     private fun tryAgain(connectionMode: LedgerManager.ConnectionMode?) {
         // TODO:: We can later check if any ledger devices are connected using USB and use USB as default in that case
         val defaultMode = LedgerManager.ConnectionMode.BLE
-        LedgerManager.activeMode = connectionMode ?: defaultMode
-        when (LedgerManager.activeMode!!) {
+        val activeMode = connectionMode ?: defaultMode
+        LedgerManager.activeMode = activeMode
+        when (activeMode) {
             LedgerManager.ConnectionMode.BLE -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (!LedgerBleManager.isPermissionGranted()) {
@@ -578,12 +606,17 @@ class LedgerConnectVC(
                                 Manifest.permission.BLUETOOTH_CONNECT
                             )
                         ) { _, grantResults ->
-                            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) checkAndEnableBluetooth()
-                            else {
+                            if (grantResults.isNotEmpty() &&
+                                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+                            ) {
+                                checkAndEnableBluetooth()
+                            } else {
                                 onUpdate(
                                     LedgerManager.ConnectionState.Error(
                                         step = LedgerManager.ConnectionState.Error.Step.CONNECT,
-                                        shortMessage = LocaleController.getString("Permission Denied")
+                                        shortMessage = LocaleController.getString(
+                                            "Permission Denied"
+                                        )
                                     )
                                 )
                                 if (!ActivityCompat.shouldShowRequestPermissionRationale(
@@ -595,8 +628,12 @@ class LedgerConnectVC(
                                 }
                             }
                         }
-                    } else checkAndEnableBluetooth()
-                } else checkAndEnableBluetooth()
+                    } else {
+                        checkAndEnableBluetooth()
+                    }
+                } else {
+                    checkAndEnableBluetooth()
+                }
             }
 
             LedgerManager.ConnectionMode.USB -> {
@@ -652,15 +689,16 @@ class LedgerConnectVC(
                         signedActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
-                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
+                            receivedLocalActivities?.firstOrNull {
+                                it.getTxHash() ==
+                                    signedActivityId
+                            }
                                 ?.let {
                                     checkReceivedActivity(it)
                                 }
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("submit-transfer", e)
                     }
                 }
 
@@ -676,7 +714,7 @@ class LedgerConnectVC(
                                 accountId = signData.update.accountId,
                                 transactions = signData.update.transactions,
                                 options = Options(
-                                    password = null,
+                                    enclaveToken = null,
                                     validUntil = signData.update.validUntil,
                                     vestingAddress = signData.update.vestingAddress,
                                     isLegacyOutput = signData.update.isLegacyOutput
@@ -700,10 +738,8 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("sign-dapp-transfers", e)
                     }
                 }
 
@@ -719,7 +755,7 @@ class LedgerConnectVC(
                                 accountId = signData.update.accountId,
                                 transactions = signData.update.transactions,
                                 options = Options(
-                                    password = null,
+                                    enclaveToken = null,
                                     validUntil = signData.update.validUntil,
                                     vestingAddress = null,
                                     isLegacyOutput = signData.update.isLegacyOutput
@@ -741,10 +777,8 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("wallet-connect-pay-transfers", e)
                     }
                 }
 
@@ -760,7 +794,7 @@ class LedgerConnectVC(
                                 accountId = signData.update.accountId,
                                 dappUrl = signData.update.merchant.name,
                                 payloadToSign = signData.update.payloadToSign,
-                                password = ""
+                                enclaveToken = ""
                             )
                         )
                         WalletCore.call(
@@ -772,10 +806,8 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("wallet-connect-pay-sign-data", e)
                     }
                 }
 
@@ -807,23 +839,19 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("sign-ledger-proof", e)
                     }
                 }
 
                 is SignData.SignNftTransfer -> {
                     try {
                         val nfts = signData.nfts
-                        if (nfts.isEmpty())
-                            throw IllegalStateException("No NFT selected")
+                        if (nfts.isEmpty()) throw IllegalStateException("No NFT selected")
                         val realFeePerNft = signData.realFee?.let { it / nfts.size.toBigInteger() }
                         var lastActivityId: String? = null
                         nfts.forEachIndexed { index, nft ->
-                            if (sentNftAddresses.contains(nft.address))
-                                return@forEachIndexed
+                            if (sentNftAddresses.contains(nft.address)) return@forEachIndexed
                             Handler(Looper.getMainLooper()).post {
                                 signOnDeviceStep.setSubtitle(
                                     LocaleController.getFormattedString(
@@ -836,7 +864,7 @@ class LedgerConnectVC(
                                 SubmitNftTransfer(
                                     chain = nft.chain ?: MBlockchain.ton,
                                     accountId = signData.accountId,
-                                    passcode = "",
+                                    enclaveToken = "",
                                     nfts = listOf(nft),
                                     address = signData.toAddress,
                                     comment = signData.comment,
@@ -852,50 +880,54 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             signOnDeviceStep.setSubtitle(null)
                             mode.onDone()
-                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
+                            receivedLocalActivities?.firstOrNull {
+                                it.getTxHash() ==
+                                    signedActivityId
+                            }
                                 ?.let {
                                     checkReceivedActivity(it)
                                 }
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
+                    } catch (e: Exception) {
+                        handleSigningFailure("submit-nft-transfer", e) {
                             signOnDeviceStep.setSubtitle(null)
-                            signFailed(e as? JSWebViewBridge.ApiError)
                         }
                     }
                 }
 
                 is SignData.Staking -> {
                     try {
-                        val result = if (signData.isStaking)
+                        val result = if (signData.isStaking) {
                             WalletCore.submitStake(
                                 accountId = signData.accountId,
-                                passcode = "",
+                                enclaveToken = "",
                                 amount = signData.amount,
                                 stakingState = signData.stakingState,
-                                realFee = signData.realFee,
+                                realFee = signData.realFee
                             )
-                        else
+                        } else {
                             WalletCore.submitUnstake(
                                 accountId = signData.accountId,
-                                passcode = "",
+                                enclaveToken = "",
                                 amount = signData.amount,
                                 stakingState = signData.stakingState,
-                                realFee = signData.realFee,
+                                realFee = signData.realFee
                             )
+                        }
                         signedActivityId =
                             result.activityId?.let { ActivityHelpers.getTxIdFromId(it) }
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
-                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
+                            receivedLocalActivities?.firstOrNull {
+                                it.getTxHash() ==
+                                    signedActivityId
+                            }
                                 ?.let {
                                     checkReceivedActivity(it)
                                 }
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("submit-staking", e)
                     }
                 }
 
@@ -904,7 +936,7 @@ class LedgerConnectVC(
                         WalletCore.call(
                             SubmitStakingClaimOrUnlock(
                                 accountId = signData.accountId,
-                                password = "",
+                                enclaveToken = "",
                                 state = signData.stakingState,
                                 realFee = signData.realFee
                             )
@@ -912,10 +944,8 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("claim-staking-rewards", e)
                     }
                 }
 
@@ -924,7 +954,7 @@ class LedgerConnectVC(
                         WalletCore.call(
                             SubmitDnsRenewal(
                                 accountId = signData.accountId,
-                                password = "",
+                                enclaveToken = "",
                                 nfts = signData.nfts,
                                 realFee = signData.realFee
                             )
@@ -932,10 +962,8 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("renew-nfts", e)
                     }
                 }
 
@@ -944,7 +972,7 @@ class LedgerConnectVC(
                         WalletCore.call(
                             SubmitDnsChangeWallet(
                                 accountId = signData.accountId,
-                                password = "",
+                                enclaveToken = "",
                                 nft = signData.nft,
                                 address = signData.address,
                                 realFee = signData.realFee
@@ -953,10 +981,8 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("link-nft-to-wallet", e)
                     }
                 }
 
@@ -966,13 +992,15 @@ class LedgerConnectVC(
                             AccountStore.accountById(signData.update.accountId) ?: return@launch
                         val dappChain =
                             account.dappChain(signData.update.operationChain) ?: return@launch
+                        val dappUrl = signData.update.dapp.url
+                            ?: throw IllegalStateException("Dapp URL is missing")
                         val signedData = WalletCore.call(
                             ApiMethod.Transfer.SignDappData(
                                 dappChain = dappChain,
                                 accountId = signData.update.accountId,
-                                dappUrl = signData.update.dapp.url!!,
+                                dappUrl = dappUrl,
                                 payloadToSign = signData.update.payloadToSign,
-                                password = ""
+                                enclaveToken = ""
                             )
                         )
                         WalletCore.call(
@@ -984,10 +1012,8 @@ class LedgerConnectVC(
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
-                    } catch (e: Throwable) {
-                        Handler(Looper.getMainLooper()).post {
-                            signFailed(e as? JSWebViewBridge.ApiError)
-                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("sign-dapp-data", e)
                     }
                 }
             }
@@ -1001,13 +1027,18 @@ class LedgerConnectVC(
             if (
                 state is LedgerManager.ConnectionState.Connecting ||
                 state is LedgerManager.ConnectionState.Error
-            ) View.VISIBLE else View.GONE
+            ) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
         bottomReversedCornerViewUpsideDown.visibility = tryAgainButton.visibility
         bottomReversedCornerView?.isGone = bottomReversedCornerViewUpsideDown.isVisible
-        if (bottomReversedCornerViewUpsideDown.isVisible)
+        if (bottomReversedCornerViewUpsideDown.isVisible) {
             bottomReversedCornerViewUpsideDown.resumeBlurring()
-        else
+        } else {
             bottomReversedCornerViewUpsideDown.pauseBlurring()
+        }
         when (state) {
             LedgerManager.ConnectionState.Connecting -> {
                 connectLedgerStep.state =
@@ -1043,7 +1074,8 @@ class LedgerConnectVC(
                                     LedgerWalletsVC(context, mode.network, res.toList()),
                                     onCompletion = {
                                         navigationController?.removePrevViewControllers()
-                                    })
+                                    }
+                                )
                             } ?: run {
                                 finalizeFailed()
                             }
@@ -1082,9 +1114,11 @@ class LedgerConnectVC(
                         signOnDeviceStep.setError(state.shortMessage)
                     }
                 }
-                if (state.shortMessage == null)
+                if (state.shortMessage == null) {
                     state.bridgeError?.let {
-                        if (state.bridgeError == MBridgeError.HARDWARE_BLIND_SIGNING_NOT_ENABLED) {
+                        if (state.bridgeError ==
+                            MBridgeError.Type.HARDWARE_BLIND_SIGNING_NOT_ENABLED
+                        ) {
                             showAlert(
                                 LocaleController.getString("Error"),
                                 it.toLocalized.replace("%chain%", MBlockchain.ton.displayName)
@@ -1093,6 +1127,7 @@ class LedgerConnectVC(
                         }
                         showError(it)
                     }
+                }
             }
 
             LedgerManager.ConnectionState.None -> {
@@ -1112,6 +1147,26 @@ class LedgerConnectVC(
                     shortMessage = null
                 )
             )
+        }
+    }
+
+    private fun handleSigningFailure(
+        operation: String,
+        error: Exception,
+        beforeFailure: () -> Unit = {}
+    ) {
+        if (error is CancellationException) {
+            throw error
+        }
+        val apiError = error as? JSWebViewBridge.ApiError
+        Logger.e(
+            Logger.LogTag.LEDGER,
+            "Ledger signing failed operation=$operation " +
+                "error=${apiError?.parsed?.type ?: error.javaClass.simpleName}"
+        )
+        Handler(Looper.getMainLooper()).post {
+            beforeFailure()
+            signFailed(apiError)
         }
     }
 
@@ -1136,8 +1191,7 @@ class LedgerConnectVC(
             }
             bluetoothReceiverRegistered = false
         }
-        if (shouldDestroyLedgerManager)
-            LedgerManager.stopConnection()
+        if (shouldDestroyLedgerManager) LedgerManager.stopConnection()
         WalletCore.unregisterObserver(this)
         onCancel?.invoke()
     }
@@ -1165,36 +1219,45 @@ class LedgerConnectVC(
         if (signedActivityId == null) {
             // Transfer in-progress, cached received local activity to process on transfer api callback is called
             if (receivedActivity.isLocal()) {
-                if (receivedLocalActivities == null)
-                    receivedLocalActivities = ArrayList()
+                if (receivedLocalActivities == null) receivedLocalActivities = ArrayList()
                 receivedLocalActivities?.add(receivedActivity)
             }
             return
         }
 
         val txMatch =
-            receivedActivity is MApiTransaction.Transaction && signedActivityId == receivedActivity.getTxHash()
+            receivedActivity is MApiTransaction.Transaction &&
+                signedActivityId == receivedActivity.getTxHash()
         if (!txMatch) {
             return
         }
 
         signedActivityId = null
         WalletCore.unregisterObserver(this)
+        val accountId = mode.accountId ?: run {
+            Logger.e(
+                Logger.LogTag.LEDGER,
+                "Signed activity could not be opened: account is missing"
+            )
+            return
+        }
         if (window?.topNavigationController != navigationController) {
             window?.dismissNav(navigationController)
             return
         }
         if ((window?.navigationControllers?.size ?: 0) > 1) {
             window?.dismissLastNav {
-                if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking)
+                if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking) {
                     return@dismissLastNav
-                WalletCore.notifyEvent(WalletEvent.OpenActivity(mode.accountId!!, receivedActivity))
+                }
+                WalletCore.notifyEvent(WalletEvent.OpenActivity(accountId, receivedActivity))
             }
         } else {
             navigationController?.popToRoot {
-                if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking)
+                if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking) {
                     return@popToRoot
-                WalletCore.notifyEvent(WalletEvent.OpenActivity(mode.accountId!!, receivedActivity))
+                }
+                WalletCore.notifyEvent(WalletEvent.OpenActivity(accountId, receivedActivity))
             }
         }
     }

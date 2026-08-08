@@ -1,12 +1,13 @@
 import React, { useLayoutEffect, useRef } from '../../../../lib/teact/teact';
 
-import type { ApiNft } from '../../../../api/types';
+import type { ApiChain, ApiNft } from '../../../../api/types';
 import type { Account, AccountType } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 
 import { IS_GRAM_WALLET } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 import buildStyle from '../../../../util/buildStyle';
+import { getOrderedAccountChains } from '../../../../util/chain';
 import { formatAccountAddresses } from '../../../../util/formatAccountAddress';
 import { OPEN_CONTEXT_MENU_CLASS_NAME } from './constants';
 
@@ -31,6 +32,7 @@ interface OwnProps {
   isTestnet?: boolean;
   accountId: string;
   byChain: Account['byChain'];
+  visibleChains?: ApiChain[];
   accountType: AccountType;
   title?: string;
   balanceData?: {
@@ -54,6 +56,7 @@ function AccountWalletCard({
   isTestnet,
   accountId,
   byChain,
+  visibleChains,
   accountType,
   title,
   balanceData,
@@ -77,7 +80,8 @@ function AccountWalletCard({
   const screenWidthDep = isPortrait ? screenWidth : 0;
   const isHardware = accountType === 'hardware';
   const isViewMode = accountType === 'view';
-  const formattedAddress = formatAccountAddresses(byChain, 'x-small');
+  const chains = visibleChains ?? getOrderedAccountChains(byChain);
+  const formattedAddress = formatAccountAddresses(byChain, chains, 'x-small');
 
   const {
     backgroundImageUrl,

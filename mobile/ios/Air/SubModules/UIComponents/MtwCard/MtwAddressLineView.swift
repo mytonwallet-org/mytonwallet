@@ -187,6 +187,7 @@ public struct MtwCardAddressLine: View {
                     }
             }
         }
+        .environment(\.layoutDirection, .leftToRight)
         .lineLimit(1)
         .font(style.font)
         .allowsTightening(true)

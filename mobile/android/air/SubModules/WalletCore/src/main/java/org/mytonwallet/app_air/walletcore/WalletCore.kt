@@ -12,15 +12,16 @@ import android.os.Looper
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import com.squareup.moshi.Moshi
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setDefaultAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -31,6 +32,7 @@ import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
@@ -48,7 +50,6 @@ import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
 
 val TESTNET_SLUGS = setOf(TON_USDT_TESTNET_SLUG, TRON_USDT_TESTNET_SLUG)
 
@@ -90,6 +91,7 @@ const val AVALANCHE_SLUG = "ava"
 const val AVALANCHE_USDT_MAINNET_SLUG = "avalanche-0x9702230a"
 const val HYPERLIQUID_SLUG = "hyperliquid"
 const val HYPERLIQUID_USDC_MAINNET_SLUG = "hyperliquid-0xb88339cb"
+const val ROBINHOOD_SLUG = "robinhood"
 const val VIRTUAL_STAKING_SLUG_PREFIX = "staking-"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
 const val TELEGRAM_USERNAMES_COLLECTION = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
@@ -100,115 +102,65 @@ const val MINT_CARD_COMMENT = "Mint card"
 const val MINT_CARD_REFUND_COMMENT = "Refund"
 
 val STAKING_SLUGS = setOf(
-    STAKE_SLUG, STAKED_MYCOIN_SLUG, STAKED_USDE_SLUG
+    STAKE_SLUG,
+    STAKED_MYCOIN_SLUG,
+    STAKED_USDE_SLUG
 )
 
-fun tokenSlugToStakingSlug(slug: String): String? {
-    return when (slug) {
-        TONCOIN_SLUG -> STAKE_SLUG
-        MYCOIN_SLUG -> STAKED_MYCOIN_SLUG
-        USDE_SLUG -> STAKED_USDE_SLUG
-        else -> null
-    }
+fun tokenSlugToStakingSlug(slug: String): String? = when (slug) {
+    TONCOIN_SLUG -> STAKE_SLUG
+    MYCOIN_SLUG -> STAKED_MYCOIN_SLUG
+    USDE_SLUG -> STAKED_USDE_SLUG
+    else -> null
 }
 
-fun stakingSlugToTokenSlug(stakingSlug: String): String? {
-    return when (stakingSlug) {
-        STAKE_SLUG, TONCOIN_SLUG -> TONCOIN_SLUG
-        STAKED_MYCOIN_SLUG, MYCOIN_SLUG -> MYCOIN_SLUG
-        STAKED_USDE_SLUG, USDE_SLUG -> USDE_SLUG
-        else -> null
-    }
+fun stakingSlugToTokenSlug(stakingSlug: String): String? = when (stakingSlug) {
+    STAKE_SLUG, TONCOIN_SLUG -> TONCOIN_SLUG
+    STAKED_MYCOIN_SLUG, MYCOIN_SLUG -> MYCOIN_SLUG
+    STAKED_USDE_SLUG, USDE_SLUG -> USDE_SLUG
+    else -> null
 }
 
-fun buildVirtualStakingSlug(baseSlug: String): String {
-    return "$VIRTUAL_STAKING_SLUG_PREFIX$baseSlug"
-}
+fun buildVirtualStakingSlug(baseSlug: String): String = "$VIRTUAL_STAKING_SLUG_PREFIX$baseSlug"
 
 val POPULAR_WALLET_VERSIONS = listOf(
-    "v3R1", "v3R2", "v4R2", "W5"
+    "v3R1",
+    "v3R2",
+    "v4R2",
+    "W5"
 )
 
 val PRICELESS_TOKEN_HASHES = setOf(
-    "173e31eee054cb0c76f77edc7956bed766bf48a1f63bd062d87040dcd3df700f", // FIVA SY tsTON EQAxGi9Al7hamLAORroxGkvfap6knGyzI50ThkP3CLPLTtOZ
-    "5226dd4e6db9af26b24d5ca822bc4053b7e08152f923932abf25030c7e38bb42", // FIVA PT tsTON EQAkxIRGXgs2vD2zjt334MBjD3mXg2GsyEZHfzuYX_trQkFL
-    "fea2c08a704e5192b7f37434927170440d445b87aab865c3ea2a68abe7168204", // FIVA YT tsTON EQAcy60qg22RCq87A_qgYK8hooEgjCZ44yxhdnKYdlWIfKXL
-    "e691cf9081a8aeb22ed4d94829f6626c9d822752e035800b5543c43f83d134b5", // FIVA LP tsTON EQD3BjCjxuf8mu5kvxajVbe-Ila1ScZZlAi03oS7lMmAJjM3
-    "301ce25925830d713b326824e552e962925c4ff45b1e3ea21fc363a459a49b43", // FIVA SY eUSDT EQDi9blCcyT-k8iMpFMYY0t7mHVyiCB50ZsRgyUECJDuGvIl
-    "02250f83fbb8624d859c2c045ac70ee2b3b959688c3d843aec773be9b36dbfc3", // FIVA PT eUSDT EQBzVrYkYPHx8D_HPfQacm1xONa4XSRxl826vHkx_laP2HOe
-    "dba3adb2c917db80fd71a6a68c1fc9e12976491a8309d5910f9722efc084ce4d", // FIVA YT eUSDT EQCwUSc2qrY5rn9BfFBG9ARAHePTUvITDl97UD0zOreWzLru
-    "7da9223b90984d6a144e71611a8d7c65a6298cad734faed79438dc0f7a8e53d1", // FIVA LP eUSDT EQBNlIZxIbQGQ78cXgG3VRcyl8A0kLn_6BM9kabiHHhWC4qY
-    "ddf80de336d580ab3c11d194f189c362e2ca1225cae224ea921deeaba7eca818", // tsUSDe EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr
+    // FIVA SY tsTON
+    // EQAxGi9Al7hamLAORroxGkvfap6knGyzI50ThkP3CLPLTtOZ
+    "173e31eee054cb0c76f77edc7956bed766bf48a1f63bd062d87040dcd3df700f",
+    // FIVA PT tsTON
+    // EQAkxIRGXgs2vD2zjt334MBjD3mXg2GsyEZHfzuYX_trQkFL
+    "5226dd4e6db9af26b24d5ca822bc4053b7e08152f923932abf25030c7e38bb42",
+    // FIVA YT tsTON
+    // EQAcy60qg22RCq87A_qgYK8hooEgjCZ44yxhdnKYdlWIfKXL
+    "fea2c08a704e5192b7f37434927170440d445b87aab865c3ea2a68abe7168204",
+    // FIVA LP tsTON
+    // EQD3BjCjxuf8mu5kvxajVbe-Ila1ScZZlAi03oS7lMmAJjM3
+    "e691cf9081a8aeb22ed4d94829f6626c9d822752e035800b5543c43f83d134b5",
+    // FIVA SY eUSDT
+    // EQDi9blCcyT-k8iMpFMYY0t7mHVyiCB50ZsRgyUECJDuGvIl
+    "301ce25925830d713b326824e552e962925c4ff45b1e3ea21fc363a459a49b43",
+    // FIVA PT eUSDT
+    // EQBzVrYkYPHx8D_HPfQacm1xONa4XSRxl826vHkx_laP2HOe
+    "02250f83fbb8624d859c2c045ac70ee2b3b959688c3d843aec773be9b36dbfc3",
+    // FIVA YT eUSDT
+    // EQCwUSc2qrY5rn9BfFBG9ARAHePTUvITDl97UD0zOreWzLru
+    "dba3adb2c917db80fd71a6a68c1fc9e12976491a8309d5910f9722efc084ce4d",
+    // FIVA LP eUSDT
+    // EQBNlIZxIbQGQ78cXgG3VRcyl8A0kLn_6BM9kabiHHhWC4qY
+    "7da9223b90984d6a144e71611a8d7c65a6298cad734faed79438dc0f7a8e53d1",
+    // tsUSDe
+    // EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr
+    "ddf80de336d580ab3c11d194f189c362e2ca1225cae224ea921deeaba7eca818"
 )
 
-val ALL_DEFAULT_TOKENS = mapOf(
-    MBlockchainNetwork.MAINNET to setOf(
-        TONCOIN_SLUG,
-        TON_USDT_SLUG,
-        TRON_SLUG,
-        TRON_USDT_SLUG,
-        SOLANA_SLUG,
-        SOLANA_USDT_SLUG,
-        SOLANA_USDC_SLUG,
-        ETH_SLUG,
-        ETH_USDT_MAINNET_SLUG,
-        BASE_SLUG,
-        BASE_USDT_MAINNET_SLUG,
-        BASE_USDC_MAINNET_SLUG,
-        BNB_SLUG,
-        HYPERLIQUID_SLUG,
-    ),
-    MBlockchainNetwork.TESTNET to setOf(
-        TONCOIN_SLUG,
-        TON_USDT_TESTNET_SLUG,
-        TRON_SLUG,
-        TRON_USDT_TESTNET_SLUG,
-        SOLANA_SLUG,
-        ETH_SLUG,
-        ETH_USDT_MAINNET_SLUG,
-        BASE_SLUG,
-        BASE_USDT_MAINNET_SLUG,
-        BASE_USDC_MAINNET_SLUG,
-        BNB_SLUG,
-        HYPERLIQUID_SLUG,
-    ),
-)
-
-private val MYTONWALLET_DEFAULT_SHOWN_TOKENS = mapOf(
-    MBlockchainNetwork.MAINNET to setOf(
-        ETH_SLUG,
-        SOLANA_SLUG,
-        TONCOIN_SLUG,
-        TRON_SLUG,
-        BNB_SLUG,
-        HYPERLIQUID_SLUG,
-    ),
-    MBlockchainNetwork.TESTNET to setOf(
-        ETH_SLUG,
-        SOLANA_SLUG,
-        TONCOIN_SLUG,
-        TRON_SLUG,
-        BNB_SLUG,
-        HYPERLIQUID_SLUG,
-    ),
-)
-
-private val GRAM_DEFAULT_SHOWN_TOKENS = mapOf(
-    MBlockchainNetwork.MAINNET to setOf(
-        TONCOIN_SLUG,
-        TON_USDT_SLUG,
-    ),
-    MBlockchainNetwork.TESTNET to setOf(
-        TONCOIN_SLUG,
-        TON_USDT_TESTNET_SLUG,
-    ),
-)
-
-val DEFAULT_SHOWN_TOKENS: Map<MBlockchainNetwork, Set<String>>
-    get() = if (ApplicationContextHolder.isGramApp) GRAM_DEFAULT_SHOWN_TOKENS
-    else MYTONWALLET_DEFAULT_SHOWN_TOKENS
-
-val TRUSTED_USDT_TOKENS = mapOf(
+private val TRUSTED_USDT_TOKENS = mapOf(
     MBlockchainNetwork.MAINNET to setOf(
         TON_USDT_SLUG,
         TRON_USDT_SLUG,
@@ -220,7 +172,7 @@ val TRUSTED_USDT_TOKENS = mapOf(
         BASE_USDC_MAINNET_SLUG,
         BSC_USDT_MAINNET_SLUG,
         AVALANCHE_USDT_MAINNET_SLUG,
-        HYPERLIQUID_USDC_MAINNET_SLUG,
+        HYPERLIQUID_USDC_MAINNET_SLUG
     ),
     MBlockchainNetwork.TESTNET to setOf(
         TON_USDT_TESTNET_SLUG,
@@ -230,14 +182,72 @@ val TRUSTED_USDT_TOKENS = mapOf(
         BASE_USDC_MAINNET_SLUG,
         BSC_USDT_MAINNET_SLUG,
         AVALANCHE_USDT_MAINNET_SLUG,
-        HYPERLIQUID_USDC_MAINNET_SLUG,
-    ),
+        HYPERLIQUID_USDC_MAINNET_SLUG
+    )
 )
 
-fun getTrustedUsdtTokens(network: MBlockchainNetwork?): Set<String> {
-    return network?.let {
-        TRUSTED_USDT_TOKENS[it]
-    } ?: TRUSTED_USDT_TOKENS.values.flatten().toSet()
+fun getTrustedUsdtTokens(network: MBlockchainNetwork?): Set<String> = network?.let {
+    TRUSTED_USDT_TOKENS[it]
+} ?: TRUSTED_USDT_TOKENS.values.flatten().toSet()
+
+val ALL_DEFAULT_TOKENS = mapOf(
+    MBlockchainNetwork.MAINNET to MBlockchain.supportedChains.map { it.nativeSlug } +
+        getTrustedUsdtTokens(MBlockchainNetwork.MAINNET),
+    MBlockchainNetwork.TESTNET to MBlockchain.supportedChains.map { it.nativeSlug } +
+        getTrustedUsdtTokens(MBlockchainNetwork.TESTNET)
+)
+
+private val CHAIN_DEFAULT_USDT_SLUGS: Map<MBlockchain, Map<MBlockchainNetwork, String>> = mapOf(
+    MBlockchain.ton to mapOf(
+        MBlockchainNetwork.MAINNET to TON_USDT_SLUG,
+        MBlockchainNetwork.TESTNET to TON_USDT_TESTNET_SLUG
+    ),
+    MBlockchain.tron to mapOf(
+        MBlockchainNetwork.MAINNET to TRON_USDT_SLUG,
+        MBlockchainNetwork.TESTNET to TRON_USDT_TESTNET_SLUG
+    ),
+    MBlockchain.solana to mapOf(
+        MBlockchainNetwork.MAINNET to SOLANA_USDT_SLUG
+    ),
+    MBlockchain.ethereum to mapOf(
+        MBlockchainNetwork.MAINNET to ETH_USDT_MAINNET_SLUG,
+        MBlockchainNetwork.TESTNET to ETH_USDT_MAINNET_SLUG
+    ),
+    MBlockchain.base to mapOf(
+        MBlockchainNetwork.MAINNET to BASE_USDT_MAINNET_SLUG,
+        MBlockchainNetwork.TESTNET to BASE_USDT_MAINNET_SLUG
+    ),
+    MBlockchain.bnb to mapOf(
+        MBlockchainNetwork.MAINNET to BSC_USDT_MAINNET_SLUG,
+        MBlockchainNetwork.TESTNET to BSC_USDT_MAINNET_SLUG
+    ),
+    MBlockchain.avalanche to mapOf(
+        MBlockchainNetwork.MAINNET to AVALANCHE_USDT_MAINNET_SLUG,
+        MBlockchainNetwork.TESTNET to AVALANCHE_USDT_MAINNET_SLUG
+    )
+)
+
+private fun defaultSlugsForChain(chain: MBlockchain, network: MBlockchainNetwork): List<String> {
+    val slugs = mutableListOf(chain.nativeSlug)
+    CHAIN_DEFAULT_USDT_SLUGS[chain]?.get(network)?.let { slugs.add(it) }
+    return slugs
+}
+
+fun defaultShownSlugs(account: MAccount): Set<String> {
+    val network = account.network
+    val supportedChains = MBlockchain.supportedChains.filter { account.isChainSupported(it.name) }
+    if (ApplicationContextHolder.isGramApp) {
+        return if (account.tonAddress != null) {
+            defaultSlugsForChain(MBlockchain.ton, network).toSet()
+        } else {
+            defaultSlugsForChain(supportedChains.first(), network).toSet()
+        }
+    }
+    return if (supportedChains.size == 1) {
+        defaultSlugsForChain(supportedChains.first(), network).toSet()
+    } else {
+        supportedChains.map { it.nativeSlug }.toSet()
+    }
 }
 
 const val DEFAULT_SWAP_VERSION = 3
@@ -258,6 +268,8 @@ object WalletCore {
 
     var bridge: JSWebViewBridge? = null
         private set
+    private var pendingBridge: JSWebViewBridge? = null
+    private val pendingBridgeSetupCallbacks = mutableListOf<(Boolean) -> Unit>()
 
     val requiredBridge: JSWebViewBridge
         get() = bridge ?: throw IllegalStateException("JS bridge is not initialized")
@@ -273,8 +285,7 @@ object WalletCore {
 
     fun decBridgeUsers() {
         bridgeUsers--
-        if (bridgeUsers == 0)
-            destroyBridge()
+        if (bridgeUsers == 0) destroyBridge()
     }
     // Events //////////////////////////////////////////////////////////////////////////////////////
 
@@ -292,8 +303,7 @@ object WalletCore {
         ensureMainThread {
             lock = true
             for (eventObserver in eventObservers) {
-                if (eventObserver.get() == null)
-                    expiredItems.add(eventObserver)
+                if (eventObserver.get() == null) expiredItems.add(eventObserver)
             }
             if (expiredItems.isNotEmpty()) {
                 eventObservers.removeAll(expiredItems.toSet())
@@ -307,10 +317,11 @@ object WalletCore {
 
     fun notifyAccountChanged(activeAccount: MAccount, fromHome: Boolean) {
         val accountId = activeAccount.accountId
-        if (nextAccountIsPushedTemporary == true)
+        if (nextAccountIsPushedTemporary == true) {
             WGlobalStorage.setTemporaryAccountId(accountId, true)
-        else
+        } else {
             WGlobalStorage.setActiveAccountId(accountId, persistInstantly = !fromHome)
+        }
         nextAccountIsPushedTemporary = null
         nextAccountId = null
         AccountStore.updateActiveAccount(accountId)
@@ -324,7 +335,7 @@ object WalletCore {
             saveToStorage = false
         )
         WalletCore.requestDAppList(accountId)
-        //WalletContextManager.delegate?.protectedModeChanged()
+        // WalletContextManager.delegate?.protectedModeChanged()
         notifyEvent(
             WalletEvent.AccountChanged(
                 accountId = accountId,
@@ -343,25 +354,9 @@ object WalletCore {
         setDefaultAccentColor()
     }
 
-    fun switchingToLegacy() {
-        WGlobalStorage.setTokenInfo(TokenStore.getTokenInfo())
-        WGlobalStorage.clearPriceHistory()
-        AccountStore.removeTemporaryAccounts()
-        destroyBridge()
-        WSecureStorage.clearCache()
-        /*if (WGlobalStorage.getLangCode() == "fa")
-            WGlobalStorage.setLangCode("en")*/
-        WCacheStorage.clean(WGlobalStorage.accountIds())
-        WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.INTRO)
-        observers.clear()
-        eventObservers.clear()
-        stores.forEach { it.clearCache() }
-    }
-
     // Register to observers / Unregister
     fun registerObserver(observer: EventObserver) {
-        if (lock)
-            throw IllegalStateException()
+        if (lock) throw IllegalStateException()
 
         eventObservers.add(WeakReference(observer))
     }
@@ -378,37 +373,117 @@ object WalletCore {
         bridgeHostView: ViewGroup,
         forcedRecreation: Boolean,
         isOnAirApp: Boolean = true,
-        onReady: () -> Unit
+        onComplete: (Boolean) -> Unit
     ) {
+        Logger.d(
+            Logger.LogTag.JS_WEBVIEW_BRIDGE,
+            "setupBridge: requested forced=$forcedRecreation activeBridgeId=${bridge?.id} pendingBridgeId=${pendingBridge?.id}"
+        )
+
+        val existingPendingBridge = pendingBridge
+        if (!forcedRecreation && bridge == null &&
+            existingPendingBridge != null && !existingPendingBridge.isRenderProcessGone
+        ) {
+            moveBridgeToHostIfNeeded(existingPendingBridge, bridgeHostView, isOnAirApp)
+            pendingBridgeSetupCallbacks.add(onComplete)
+            Logger.d(
+                Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                "setupBridge: joined pending bridgeId=${existingPendingBridge.id} callbacks=${pendingBridgeSetupCallbacks.size}"
+            )
+            return
+        }
+
         if (forcedRecreation || bridge == null) {
+            existingPendingBridge?.let {
+                pendingBridge = null
+                completePendingBridgeSetup(false)
+                disposeBridge(it)
+                Logger.d(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "setupBridge: superseded pending bridgeId=${it.id}"
+                )
+            }
+
             val newBridge = JSWebViewBridge(context)
             newBridge.isVisible = false
             bridgeHostView.addView(newBridge)
-            newBridge.setupBridge {
-                bridge?.destroy()
+            pendingBridge = newBridge
+            pendingBridgeSetupCallbacks.add(onComplete)
+            Logger.d(
+                Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                "setupBridge: created pending bridgeId=${newBridge.id}"
+            )
+            newBridge.setupBridge bridgeReady@{
+                if (pendingBridge !== newBridge) {
+                    Logger.e(
+                        Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                        "setupBridge: ignored stale ready bridgeId=${newBridge.id} pendingBridgeId=${pendingBridge?.id}"
+                    )
+                    disposeBridge(newBridge)
+                    return@bridgeReady
+                }
+                if (newBridge.isRenderProcessGone) {
+                    Logger.e(
+                        Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                        "setupBridge: ignored ready from crashed bridgeId=${newBridge.id}"
+                    )
+                    pendingBridge = null
+                    completePendingBridgeSetup(false)
+                    disposeBridge(newBridge)
+                    return@bridgeReady
+                }
+
+                val previousBridge = bridge
+                val readyCallbackCount = pendingBridgeSetupCallbacks.size
+                pendingBridge = null
                 bridge = newBridge
+                previousBridge?.let(::disposeBridge)
+                Logger.i(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "setupBridge: promoted bridgeId=${newBridge.id} previousBridgeId=${previousBridge?.id} callbacks=$readyCallbackCount"
+                )
                 setupWalletCore()
-                onReady()
+                completePendingBridgeSetup(true)
             }
         } else {
             bridge?.let { existingBridge ->
-                if (existingBridge.parent != bridgeHostView && isOnAirApp) {
-                    (existingBridge.parent as? ViewGroup)?.removeView(existingBridge)
-                    bridgeHostView.addView(existingBridge)
-                }
+                moveBridgeToHostIfNeeded(existingBridge, bridgeHostView, isOnAirApp)
             }
             doOnBridgeReady {
-                onReady()
+                onComplete(true)
             }
         }
     }
 
-    fun destroyBridge() {
-        bridge?.let { dead ->
-            (dead.parent as? ViewGroup)?.removeView(dead)
-            dead.destroy()
+    private fun moveBridgeToHostIfNeeded(
+        bridge: JSWebViewBridge,
+        bridgeHostView: ViewGroup,
+        isOnAirApp: Boolean
+    ) {
+        if (bridge.parent != bridgeHostView && isOnAirApp) {
+            (bridge.parent as? ViewGroup)?.removeView(bridge)
+            bridgeHostView.addView(bridge)
         }
+    }
+
+    private fun disposeBridge(deadBridge: JSWebViewBridge) {
+        deadBridge.dispose()
+    }
+
+    private fun completePendingBridgeSetup(isReady: Boolean) {
+        val callbacks = pendingBridgeSetupCallbacks.toList()
+        pendingBridgeSetupCallbacks.clear()
+        callbacks.forEach { it(isReady) }
+    }
+
+    fun destroyBridge() {
+        val activeBridge = bridge
+        val loadingBridge = pendingBridge
         bridge = null
+        pendingBridge = null
+        completePendingBridgeSetup(false)
+        activeBridge?.let(::disposeBridge)
+        if (loadingBridge !== activeBridge) loadingBridge?.let(::disposeBridge)
         observers.clear()
         eventObservers.clear()
     }
@@ -420,17 +495,53 @@ object WalletCore {
 
     fun onBridgeRenderProcessGone(goneBridge: JSWebViewBridge) {
         ensureMainThread {
-            if (bridge !== goneBridge)
-                return@ensureMainThread
-            destroyBridge()
+            val role = when {
+                bridge === goneBridge -> "active"
+                pendingBridge === goneBridge -> "pending"
+                else -> "stale"
+            }
+            Logger.e(
+                Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                "onBridgeRenderProcessGone: bridgeId=${goneBridge.id} role=$role activeBridgeId=${bridge?.id} pendingBridgeId=${pendingBridge?.id}"
+            )
+
+            when (role) {
+                "active" -> {
+                    bridge = null
+                    disposeBridge(goneBridge)
+                    if (pendingBridge != null) {
+                        Logger.i(
+                            Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                            "onBridgeRenderProcessGone: waiting for pending bridgeId=${pendingBridge?.id}"
+                        )
+                        return@ensureMainThread
+                    }
+                }
+
+                "pending" -> {
+                    pendingBridge = null
+                    completePendingBridgeSetup(false)
+                    disposeBridge(goneBridge)
+                }
+
+                else -> {
+                    disposeBridge(goneBridge)
+                    return@ensureMainThread
+                }
+            }
+
             val delegate = WalletContextManager.delegate?.get()
             if (delegate == null) {
                 Logger.e(
                     Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                    "onBridgeRenderProcessGone: no delegate, bridge not recreated"
+                    "onBridgeRenderProcessGone: no delegate for bridgeId=${goneBridge.id}, bridge not recreated"
                 )
                 return@ensureMainThread
             }
+            Logger.i(
+                Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                "onBridgeRenderProcessGone: recreating after bridgeId=${goneBridge.id} role=$role"
+            )
             delegate.recreateBridge()
         }
     }
@@ -439,19 +550,17 @@ object WalletCore {
 
     // Used to ensure sdk bridge is already ready
     fun doOnBridgeReady(callback: () -> Unit) {
-        if (bridge?.injected == true) {
+        if (isBridgeReady) {
             callback()
             return
         }
-        if (pendingBridgeReady == null)
-            pendingBridgeReady = mutableListOf()
+        if (pendingBridgeReady == null) pendingBridgeReady = mutableListOf()
         pendingBridgeReady?.add(callback)
     }
 
     @Synchronized
     fun checkPendingBridgeTasks() {
-        if (bridge?.injected != true)
-            return
+        if (!isBridgeReady) return
         pendingBridgeReady?.forEach {
             it()
         }
@@ -460,8 +569,7 @@ object WalletCore {
 
     private var setupDone = false
     private fun setupWalletCore() {
-        if (setupDone)
-            return
+        if (setupDone) return
         setupDone = true
         registerConnectionChanges()
         StakingStore.loadCachedStates()
@@ -500,7 +608,11 @@ object WalletCore {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val networkCapabilities =
                     connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-                if (networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true) {
+                if (networkCapabilities?.hasCapability(
+                        NetworkCapabilities.NET_CAPABILITY_INTERNET
+                    ) ==
+                    true
+                ) {
                     notifyEvent(WalletEvent.NetworkConnected)
                 } else {
                     notifyEvent(WalletEvent.NetworkDisconnected)
@@ -524,13 +636,13 @@ object WalletCore {
 
         val networkCapabilities =
             connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ==
+            true
     }
 
     fun getAllAccounts(): List<MAccount> {
         val allAccountsString = WSecureStorage.allAccounts()
-        if (allAccountsString.isEmpty())
-            return emptyList()
+        if (allAccountsString.isEmpty()) return emptyList()
         val accountIds = WGlobalStorage.accountIds()
         val accounts = ArrayList<MAccount>()
         for (accountId in accountIds) {
@@ -550,9 +662,8 @@ object WalletCore {
     object Swap
     object Transfer
 
-    suspend fun <T> call(method: ApiMethod<T>): T {
-        return requiredBridge.callApiAsync(method.name, method.arguments, method.type)
-    }
+    suspend fun <T> call(method: ApiMethod<T>): T =
+        requiredBridge.callApiAsync(method.name, method.arguments, method.type)
 
     fun <T> call(method: ApiMethod<T>, callback: (String?, T?, JSWebViewBridge.ApiError?) -> Unit) {
         bridge?.callApi(method.name, method.arguments, method.type, callback)
@@ -567,7 +678,6 @@ object WalletCore {
     fun recordTonConnectEvent(eventName: String, promiseId: String) {
         call(ApiMethod.DApp.RecordTonConnectEvent(eventName, promiseId)) { _, _ -> }
     }
-
 
     /* This code allows to receive updates directly from the api bridge */
 
@@ -604,8 +714,7 @@ object WalletCore {
             }
 
             is ApiUpdate.ApiUpdateInitialActivities -> {
-                if (AccountStore.activeAccountId != update.accountId)
-                    return
+                if (AccountStore.activeAccountId != update.accountId) return
                 ActivityStore.initialActivities(
                     accountId = update.accountId,
                     chain = update.chain,
@@ -615,8 +724,7 @@ object WalletCore {
             }
 
             is ApiUpdate.ApiUpdateWalletVersions -> {
-                if (AccountStore.activeAccountId != update.accountId)
-                    return
+                if (AccountStore.activeAccountId != update.accountId) return
                 AccountStore.walletVersionsData = update
             }
 
@@ -633,16 +741,14 @@ object WalletCore {
         }
 
         val iterator = observers[update::class.java] ?: return
-        if (iterator.isNotEmpty())
+        if (iterator.isNotEmpty()) {
             Handler(Looper.getMainLooper()).post {
                 iterator.forEach { it.onBridgeUpdate(update) }
             }
+        }
     }
 
-    fun ensureAccountActivated(
-        accountId: String,
-        onCompletion: (accountChanged: Boolean) -> Unit
-    ) {
+    fun ensureAccountActivated(accountId: String, onCompletion: (accountChanged: Boolean) -> Unit) {
         if (AccountStore.activeAccountId == accountId) {
             onCompletion(false)
             return
@@ -652,7 +758,8 @@ object WalletCore {
             notifySDK = true
         ) { res, err ->
             if (res == null || err != null) {
-                // Should not happen!
+                // Should not happen! Continuing with a half-switched account context is
+                // unsafe, so fail (same as switchToDisplayedAccountId).
                 Logger.e(
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
@@ -661,6 +768,7 @@ object WalletCore {
                             LogMessage.MessagePartPrivacy.PUBLIC
                         ).build()
                 )
+                throw Error("activateAccount failed: $err")
             } else {
                 onCompletion(true)
             }

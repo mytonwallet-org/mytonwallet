@@ -1,5 +1,5 @@
 import type { ApiChain, ApiNetwork } from '../../../api/types';
-import type { Account, GlobalState } from '../../types';
+import type { Account, AuthType, GlobalState } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
 
@@ -8,14 +8,12 @@ import {
   IS_FEATURE_LIMITED,
   MNEMONIC_CHECK_COUNT,
   MNEMONIC_COUNT,
+  SHOULD_CLEANUP_LEGACY_AUTH,
   SHOULD_GENERATE_TON_MNEMONIC,
   TEMPORARY_ACCOUNT_NAME,
 } from '../../../config';
 import { generateAccountTitle, generateNextSubwalletTitle, parseAccountId } from '../../../util/account';
-import authApi from '../../../util/authApi';
-import { verifyIdentity as verifyTelegramBiometricIdentity } from '../../../util/authApi/telegram';
-import webAuthn from '../../../util/authApi/webAuthn';
-import { getDoesUsePinPad, getIsNativeBiometricAuthSupported } from '../../../util/biometrics';
+import { getDoesUsePinPad, getIsBiometricAuthSupported } from '../../../util/biometrics';
 import { copyTextToClipboard } from '../../../util/clipboard';
 import { vibrateOnError, vibrateOnSuccess } from '../../../util/haptics';
 import isEmptyObject from '../../../util/isEmptyObject';
@@ -26,32 +24,45 @@ import { logDebugError } from '../../../util/logs';
 import { clearPoisoningCache, updatePoisoningCacheFromGlobalState } from '../../../util/poisoningHash';
 import { pause } from '../../../util/schedulers';
 import {
+  CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY,
   IS_ANDROID,
-  IS_BIOMETRIC_AUTH_SUPPORTED,
-  IS_ELECTRON,
   IS_IOS,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
+import {
+  checkIsMigrationFailure,
+  enclave,
+  legacyAuth,
+  type LegacyAuthConfig,
+  type MigrationErrorReason,
+} from '../../../enclave';
 import { addActionHandler, getActions, getGlobal, setGlobal } from '../..';
+import {
+  clearAbortDappConnectWalletCreation,
+  peekAbortDappConnectWalletCreation,
+  takeAbortDappConnectWalletCreationIfRequested,
+} from '../../helpers/abortDappConnectWalletCreation';
 import {
   handleExplorerMode,
   handleStandardMode,
   removeTemporaryAccount,
 } from '../../helpers/auth';
+import { dropEnclaveSessionHold, holdEnclaveSession, withEnclaveSessionRelease } from '../../helpers/enclave';
 import { isErrorTransferResult } from '../../helpers/transfer';
 import { INITIAL_STATE } from '../../initialState';
 import {
+  clearDappConnectRequest,
   clearIsPinAccepted,
   createAccount,
   createAccountsFromGlobal,
-  setIsPinAccepted,
   switchAccountAndClearGlobal,
   updateAccount,
   updateAccounts,
+  updateAccountState,
   updateAuth,
   updateBiometrics,
   updateCurrentAccountId,
-  updateCurrentAccountState,
+  updateDappConnectRequest,
   updateSettings,
 } from '../../reducers';
 import {
@@ -59,8 +70,10 @@ import {
   selectAccounts,
   selectCurrentAccountId,
   selectCurrentNetwork,
+  selectEnclaveToken,
+  selectHasPassword,
+  selectIsEnclaveSessionValid,
   selectIsOneAccount,
-  selectIsPasswordPresent,
   selectNetworkAccounts,
   selectNetworkAccountsMemoized,
   selectNewestActivityTimestamps,
@@ -70,8 +83,19 @@ import {
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
 const CREATING_DURATION = 3300;
-const NATIVE_BIOMETRICS_PAUSE_MS = 750;
 const SWITHCHING_ACCOUNT_DURATION_MS = IS_IOS ? 450 : IS_ANDROID ? 350 : 300;
+
+/**
+ * What the user is told for each way the migration can stop. Only the first invites another attempt;
+ * the rest say so explicitly, which is what keeps a stuck user from reinstalling the app and taking
+ * the still-intact legacy ciphertext - the only remaining copy of the wallets - with it.
+ */
+const MIGRATION_ERROR_MESSAGE: Record<MigrationErrorReason, string> = {
+  wrongPassword: 'Wrong password, please try again.',
+  damagedData: '$enclave_migration_damaged_title',
+  interrupted: '$enclave_migration_interrupted_title',
+  storageFailure: '$enclave_migration_storage_title',
+};
 
 export async function switchAccount(global: GlobalState, accountId: string, newNetwork?: ApiNetwork) {
   const currentActiveAccountId = selectCurrentAccountId(global);
@@ -100,6 +124,43 @@ export async function switchAccount(global: GlobalState, accountId: string, newN
   }
 }
 
+function finalizeDappConnectWalletCreationAbort() {
+  let nextGlobal = getGlobal();
+
+  nextGlobal = updateAuth(nextGlobal, { isLoading: undefined });
+  nextGlobal = updateAccounts(nextGlobal, { isLoading: undefined });
+
+  setGlobal(nextGlobal);
+  getActions().resetAuth();
+}
+
+async function rollbackDappConnectWalletCreationIfPersisted(
+  createdAccounts: Array<{ accountId: string }>,
+): Promise<boolean> {
+  if (!peekAbortDappConnectWalletCreation()) {
+    return false;
+  }
+
+  const global = getGlobal();
+  const previousAccountId = selectCurrentAccountId(global);
+  const accountIds = unique(compact(createdAccounts.map(({ accountId }) => accountId)));
+
+  const timestamps = previousAccountId
+    ? selectNewestActivityTimestamps(global, previousAccountId)
+    : undefined;
+
+  try {
+    for (const accountId of accountIds) {
+      await callApi('removeAccount', accountId, previousAccountId, timestamps);
+    }
+  } finally {
+    clearAbortDappConnectWalletCreation();
+    finalizeDappConnectWalletCreationAbort();
+  }
+
+  return true;
+}
+
 addActionHandler('resetAuth', (global) => {
   if (selectCurrentAccountId(global)) {
     global = { ...global, appState: AppState.Main };
@@ -115,25 +176,33 @@ addActionHandler('resetAuth', (global) => {
   setGlobal(global);
 });
 
-addActionHandler('startCreatingWallet', async (global, actions) => {
+addActionHandler('startCreatingWallet', async (global, actions, payload) => {
   if (IS_EXPLORER) return;
+
+  const { enclaveToken } = payload ?? {};
 
   const accounts = selectAccounts(global) ?? {};
   const isFirstAccount = isEmptyObject(accounts);
-  const isPasswordPresent = selectIsPasswordPresent(global);
-  const nextAuthState = isPasswordPresent
+  const hasPassword = selectHasPassword(global);
+  const nextAuthState = hasPassword
     ? AuthState.safetyRules
-    : (isFirstAccount
-      ? AuthState.createWallet
-      // The app only has hardware wallets accounts, which means we need to create a password or biometrics
-      : getDoesUsePinPad()
-        ? AuthState.createPin
-        : (IS_BIOMETRIC_AUTH_SUPPORTED ? AuthState.createBiometrics : AuthState.createPassword)
+    : (
+      isFirstAccount
+        ? AuthState.createWallet
+        // The app only has hardware wallets accounts, which means we need to create a password
+        : getDoesUsePinPad()
+          ? AuthState.createPin
+          : CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
+            ? AuthState.createBiometrics
+            : AuthState.createPassword
     );
 
   global = getGlobal();
 
-  if (isPasswordPresent && !global.auth.password) {
+  if (hasPassword && !enclaveToken && !selectIsEnclaveSessionValid(global)) {
+    // The password screen lives in the auth flow, so the app has to be showing it - otherwise the request
+    // for a password renders nowhere and the caller waits forever.
+    global = { ...global, appState: AppState.Auth };
     setGlobal(updateAuth(global, {
       state: AuthState.checkPassword,
       error: undefined,
@@ -141,9 +210,9 @@ addActionHandler('startCreatingWallet', async (global, actions) => {
     return;
   }
 
-  const isBip39 = !SHOULD_GENERATE_TON_MNEMONIC && !global.auth.forceAddingTonOnlyAccount;
-  const mnemonicPromise = callApi('generateMnemonic', isBip39);
-  const pausePromise = isPasswordPresent ? Promise.resolve() : pause(CREATING_DURATION);
+  const generateMnemonicPromise = callApi(
+    'generateMnemonic', !SHOULD_GENERATE_TON_MNEMONIC && !global.auth.forceAddingTonOnlyAccount,
+  );
 
   setGlobal(
     updateAuth(global, {
@@ -153,16 +222,24 @@ addActionHandler('startCreatingWallet', async (global, actions) => {
     }),
   );
 
-  const [mnemonic] = await Promise.all([mnemonicPromise, pausePromise]);
+  const [mnemonic] = await Promise.all(
+    hasPassword ? [generateMnemonicPromise] : [generateMnemonicPromise, pause(CREATING_DURATION)],
+  );
+
+  if (takeAbortDappConnectWalletCreationIfRequested()) {
+    finalizeDappConnectWalletCreationAbort();
+    return;
+  }
 
   global = updateAuth(getGlobal(), {
     mnemonic,
     mnemonicCheckIndexes: selectMnemonicForCheck(mnemonic?.length ?? MNEMONIC_COUNT),
   });
 
-  if (isPasswordPresent) {
+  if (hasPassword) {
     setGlobal(global);
-    actions.afterCreatePassword({ password: global.auth.password! });
+
+    actions.createAccount();
 
     return;
   }
@@ -170,44 +247,49 @@ addActionHandler('startCreatingWallet', async (global, actions) => {
   setGlobal(updateAuth(global, {
     state: getDoesUsePinPad()
       ? AuthState.createPin
-      : (IS_BIOMETRIC_AUTH_SUPPORTED ? AuthState.createBiometrics : AuthState.createPassword),
+      : CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
+        ? AuthState.createBiometrics
+        : AuthState.createPassword,
   }));
-});
-
-addActionHandler('startCreatingBiometrics', (global) => {
-  global = updateAuth(global, {
-    state: global.auth.method !== 'createAccount'
-      ? AuthState.importWalletConfirmBiometrics
-      : AuthState.confirmBiometrics,
-    biometricsStep: 1,
-  });
-  setGlobal(global);
-});
-
-addActionHandler('cancelCreateBiometrics', (global) => {
-  global = updateAuth(global, {
-    state: AuthState.createBiometrics,
-    biometricsStep: undefined,
-  });
-  setGlobal(global);
 });
 
 addActionHandler('createPin', (global, actions, { pin, isImporting }) => {
   global = updateAuth(global, {
     state: isImporting ? AuthState.importWalletConfirmPin : AuthState.confirmPin,
-    password: pin,
+    pin,
   });
   setGlobal(global);
 });
 
-addActionHandler('confirmPin', (global, actions, { isImporting }) => {
-  if (getIsNativeBiometricAuthSupported()) {
-    global = updateAuth(global, {
-      state: isImporting ? AuthState.importWalletCreateNativeBiometrics : AuthState.createNativeBiometrics,
-    });
+addActionHandler('confirmPin', async (global, actions, { isImporting }) => {
+  const pin = global.auth.pin!;
+  global = updateAuth(global, { pin: undefined });
+  setGlobal(global);
+
+  try {
+    const enclaveSession = await enclave.setupAuth('passcode', pin);
+    if (!enclaveSession) throw new Error('Failed to setup auth');
+
+    global = getGlobal();
+    global = updateAuth(global, { isLoading: false });
+    global = { ...global, authTypes: ['passcode'], enclaveSession };
     setGlobal(global);
-  } else {
-    actions.skipCreateNativeBiometrics();
+
+    if (getIsBiometricAuthSupported()) {
+      global = getGlobal();
+      global = updateAuth(global, {
+        state: isImporting ? AuthState.importWalletCreateBiometrics : AuthState.createBiometrics,
+      });
+      setGlobal(global);
+    } else {
+      actions.skipBiometrics();
+    }
+  } catch (err: any) {
+    const error = err?.message || 'Failed to setup auth';
+
+    global = getGlobal();
+    global = updateAuth(global, { isLoading: false, error });
+    setGlobal(global);
   }
 });
 
@@ -218,126 +300,117 @@ addActionHandler('cancelConfirmPin', (global, actions, { isImporting }) => {
   setGlobal(global);
 });
 
-addActionHandler('afterCreatePassword', (global, actions, { password, isPasswordNumeric }) => {
-  setGlobal(updateAuth(global, { isLoading: true }));
+/**
+ * Storage outlives the global state and can hold an auth the app no longer remembers, after a setup
+ * that was interrupted or a cache that was lost. `setupAuth` refuses over any auth at all, not only one
+ * of the type being set up, because the master key it would mint is one per storage and would strand
+ * every secret sealed under the old one. An auth that guards no secrets is a leftover of a setup that
+ * never imported anything, and clearing it is the only way past that refusal that destroys nothing.
+ */
+async function clearAuthGuardingNothing() {
+  if (await enclave.hasProvisionedAuth() && !await enclave.hasStoredSecrets()) {
+    await enclave.reset();
+  }
+}
 
-  const { method } = getGlobal().auth;
+addActionHandler('createPassword', async (global, actions, { password, isNumeric }) => {
+  global = updateAuth(global, { isLoading: true });
+  setGlobal(global);
 
-  const isImporting = method !== 'createAccount';
-  const isHardware = method === 'importHardwareWallet';
+  try {
+    await clearAuthGuardingNothing();
 
-  if (isHardware) {
-    actions.createHardwareAccounts();
+    const isProvisioned = await enclave.isAuthProvisioned('passcode');
+    const enclaveSession = isProvisioned
+      ? await enclave.authorize('passcode', false, password)
+      : await enclave.setupAuth('passcode', password);
+    if (!enclaveSession) {
+      throw new Error(isProvisioned ? 'Wrong password, please try again.' : 'Failed to setup auth');
+    }
+
+    global = getGlobal();
+    global = { ...global, authTypes: ['passcode'], enclaveSession };
+    setGlobal(global);
+
+    // `createAccount` owns the loading state from here on: this dispatcher runs it synchronously, so
+    // clearing the flag afterwards would leave the button live for the whole account import.
+    actions.createAccount({ isPasswordNumeric: isNumeric });
+  } catch (err: any) {
+    const error = err?.message || 'Failed to setup auth';
+
+    global = getGlobal();
+    global = updateAuth(global, { isLoading: false, error });
+    setGlobal(global);
+  }
+});
+
+addActionHandler('setupBiometricAuth', async (global, actions) => {
+  global = updateAuth(global, { isLoading: true });
+  setGlobal(global);
+
+  try {
+    await clearAuthGuardingNothing();
+
+    // A biometric auth already in storage is authorized against rather than replaced. A passcode auth
+    // that is still guarding secrets survives this and makes the setup below refuse, which is correct:
+    // only the password that sealed the master key can hand it over to biometrics.
+    const isProvisioned = await enclave.isAuthProvisioned('biometric');
+    const enclaveSession = isProvisioned
+      ? await enclave.authorize('biometric', false)
+      : await enclave.setupAuth('biometric');
+    if (!enclaveSession) {
+      throw new Error(isProvisioned ? 'Biometric confirmation failed.' : 'Failed to setup biometric auth');
+    }
+
+    global = getGlobal();
+    global = { ...global, authTypes: ['biometric'], enclaveSession };
+    setGlobal(global);
+
+    // `createAccount` owns the loading state from here on: this dispatcher runs it synchronously, so
+    // clearing the flag afterwards would leave both protection buttons live for the whole import.
+    actions.createAccount();
+  } catch (err: any) {
+    const error = err?.message || 'Biometric setup failed.';
+    global = getGlobal();
+    global = updateAuth(global, { isLoading: false, error });
+    setGlobal(global);
+
+    void vibrateOnError();
+  }
+});
+
+addActionHandler('skipCreateBiometrics', (global, actions, { isImporting } = {}) => {
+  global = updateAuth(global, {
+    state: isImporting ? AuthState.importWalletCreatePassword : AuthState.createPassword,
+  });
+  setGlobal(global);
+});
+
+addActionHandler('skipBiometrics', (global, actions) => {
+  actions.createAccount({ isPasswordNumeric: getDoesUsePinPad() });
+});
+
+addActionHandler('createAccount', async (global, actions) => {
+  if (IS_EXPLORER) return;
+
+  if (takeAbortDappConnectWalletCreationIfRequested()) {
+    finalizeDappConnectWalletCreationAbort();
     return;
   }
 
-  actions.createAccount({ password, isImporting, isPasswordNumeric });
-});
-
-addActionHandler('afterCreateBiometrics', async (global, actions) => {
-  const withCredential = !IS_ELECTRON;
-  global = updateAuth(global, {
-    isLoading: true,
-    error: undefined,
-    biometricsStep: withCredential ? 1 : undefined,
-  });
-  setGlobal(global);
-
-  try {
-    const credential = withCredential
-      ? await webAuthn.createCredential()
-      : undefined;
-    global = getGlobal();
-    global = updateAuth(global, { biometricsStep: withCredential ? 2 : undefined });
-    setGlobal(global);
-    const result = await authApi.setupBiometrics({ credential });
-
-    global = getGlobal();
-    global = updateAuth(global, {
-      isLoading: false,
-      biometricsStep: undefined,
-    });
-
-    if (!result) {
-      global = updateAuth(global, { error: 'Biometric setup failed.' });
-      setGlobal(global);
-
-      return;
-    }
-
-    global = updateSettings(global, { authConfig: result.config });
-    setGlobal(global);
-
-    actions.afterCreatePassword({ password: result.password });
-  } catch (err: any) {
-    const error = err?.message.includes('privacy-considerations-client')
-      ? 'Biometric setup failed.'
-      : (err?.message || 'Biometric setup failed.');
-    global = getGlobal();
-    global = updateAuth(global, {
-      isLoading: false,
-      error,
-      biometricsStep: undefined,
-    });
-    setGlobal(global);
-  }
-});
-
-addActionHandler('skipCreateBiometrics', (global, actions, { isImporting }) => {
-  global = updateAuth(global, { state: isImporting ? AuthState.importWalletCreatePassword : AuthState.createPassword });
-  setGlobal(global);
-});
-
-addActionHandler('afterCreateNativeBiometrics', async (global, actions) => {
-  global = updateAuth(global, {
-    isLoading: true,
-    error: undefined,
-  });
-  setGlobal(global);
-
-  try {
-    const { password } = global.auth;
-    const result = await authApi.setupNativeBiometrics(password!);
-
-    global = getGlobal();
-    global = updateAuth(global, { isLoading: false });
-    global = updateSettings(global, { authConfig: result.config });
-    setGlobal(global);
-
-    actions.afterCreatePassword({ password: password!, isPasswordNumeric: true });
-  } catch (err: any) {
-    const error = err?.message.includes('privacy-considerations-client')
-      ? 'Biometric setup failed.'
-      : (err?.message || 'Biometric setup failed.');
-    global = getGlobal();
-    global = updateAuth(global, {
-      isLoading: false,
-      error,
-    });
-    setGlobal(global);
-  }
-});
-
-addActionHandler('skipCreateNativeBiometrics', (global, actions) => {
-  const { password } = global.auth;
-
-  global = updateAuth(global, { isLoading: false, error: undefined });
-  global = updateSettings(global, {
-    authConfig: { kind: 'password' },
-    isPasswordNumeric: true,
-  });
-  setGlobal(global);
-
-  actions.afterCreatePassword({ password: password!, isPasswordNumeric: true });
-});
-
-addActionHandler('createAccount', async (global, actions, {
-  password, isImporting, isPasswordNumeric,
-}) => {
-  if (IS_EXPLORER) return;
-
   setGlobal(updateAuth(global, { isLoading: true }));
 
+  const isHardware = global.auth.method === 'importHardwareWallet';
+  if (isHardware) {
+    actions.createHardwareAccounts();
+
+    return;
+  }
+
+  const enclaveToken = selectEnclaveToken(global);
+  if (!enclaveToken) throw new Error('Missing authorization');
+
+  const isImporting = global.auth.method !== 'createAccount';
   const mnemonic = global.auth.mnemonic!;
   const mainNetwork = selectCurrentNetwork(getGlobal());
   const networks: ApiNetwork[] = [mainNetwork];
@@ -349,53 +422,124 @@ addActionHandler('createAccount', async (global, actions, {
     networks.push(mainNetwork === 'testnet' ? 'mainnet' : 'testnet');
   }
 
-  const accounts = isMnemonicPrivateKey(mnemonic)
-    // todo: Create a separate screen for private key importing, where users will choose the chain
-    ? await callApi('importPrivateKey', 'ton', networks, mnemonic[0], password)
-    : await callApi('importMnemonic', networks, mnemonic, password, !isImporting);
+  const isPrivateKeyBased = isMnemonicPrivateKey(mnemonic);
+  const accounts = isPrivateKeyBased
+    // TODO: Create a separate screen for private key importing, where users will choose the chain
+    ? await callApi('importPrivateKey', 'ton', networks, mnemonic[0])
+    : await callApi('importMnemonic', networks, mnemonic, !isImporting);
 
   global = getGlobal();
 
   if (isErrorTransferResult(accounts)) {
+    if (takeAbortDappConnectWalletCreationIfRequested()) {
+      finalizeDappConnectWalletCreationAbort();
+      return;
+    }
+    if (global.dappConnectRequest?.isCreatingAccount) {
+      global = clearDappConnectRequest(global);
+    }
     setGlobal(updateAuth(global, { isLoading: undefined }));
     actions.showError({ error: accounts?.error });
     return;
   }
 
+  if (await rollbackDappConnectWalletCreationIfPersisted(accounts)) {
+    return;
+  }
+
+  try {
+    await enclave.importSecret(accounts[0].accountId, mnemonic.join(' '), enclaveToken);
+    for (let i = 1; i < accounts.length; i++) {
+      await enclave.duplicateSecret(accounts[0].accountId, accounts[i].accountId);
+    }
+  } catch (err: any) {
+    // The wallet exists in storage but its secret does not, so surface the failure instead of leaving the
+    // screen loading forever - the user can retry, and the accounts stay recoverable from the mnemonic.
+    // Both loading flags have to go: the auth flow and the account selector each own one.
+    logDebugError('createAccount', err);
+
+    global = updateAuth(getGlobal(), { isLoading: undefined });
+    global = updateAccounts(global, { isLoading: undefined });
+    setGlobal(global);
+    actions.showError({ error: ApiCommonError.Unexpected });
+    return;
+  }
+
+  global = getGlobal();
+
   if (isImporting) {
-    await refreshImportedAccountsMfa(accounts, password);
+    await refreshImportedAccountsMfa(accounts, enclaveToken);
     global = getGlobal();
   }
 
-  if (!isImporting) {
+  const authAccounts = isPrivateKeyBased
+    ? accounts.map((account) => ({ ...account, partial: { isPrivateKeyBased: true as const } }))
+    : accounts;
+
+  if (!isImporting && !global.dappConnectRequest?.isCreatingAccount) {
     global = { ...global, appState: AppState.Auth, isAccountSelectorOpen: undefined };
+  }
+
+  if (global.dappConnectRequest?.isCreatingAccount) {
+    const network = selectCurrentNetwork(global);
+
+    const pendingConnectAccountId = accounts.find(({ accountId }) => (
+      parseAccountId(accountId).network === network
+    ))?.accountId ?? accounts[0]?.accountId;
+
+    if (pendingConnectAccountId) {
+      global = updateDappConnectRequest(global, { pendingConnectAccountId });
+    }
   }
   global = updateAuth(global, {
     isLoading: undefined,
-    password: undefined,
-    accounts,
-    ...(isPasswordNumeric && { isPasswordNumeric: true }),
+    // TODO mnemonic: undefined, ?
+    pin: undefined,
+    accounts: authAccounts,
+    // TODO Confirm not needed
+    // ...(isPasswordNumeric && { isPasswordNumeric: true }),
   });
   global = clearIsPinAccepted(global);
 
   if (isImporting) {
     global = updateAuth(global, { state: AuthState.importCongratulations });
-  } else {
+  } else if (!global.dappConnectRequest?.isCreatingAccount) {
     global = updateAuth(global, { state: AuthState.safetyRules });
   }
 
   setGlobal(global);
+
+  if (!isImporting && getGlobal().dappConnectRequest?.isCreatingAccount) {
+    actions.skipCheckMnemonic();
+  }
 });
+
+/**
+ * Copies the secret of an account onto a wallet just derived from it. A missing source secret means the
+ * source account cannot sign either, so the derived wallet must not be silently presented as ready.
+ */
+async function duplicateSecretOrShowError(fromAccountId: string, toAccountId: string) {
+  try {
+    await enclave.duplicateSecret(fromAccountId, toAccountId);
+
+    return true;
+  } catch (err: any) {
+    logDebugError('duplicateSecret', err);
+    getActions().showError({ error: ApiCommonError.Unexpected });
+
+    return false;
+  }
+}
 
 async function refreshImportedAccountsMfa(
   accounts: { accountId: string; byChain: Account['byChain'] }[],
-  password: string,
+  enclaveToken: string,
 ) {
   await Promise.all(accounts.map(async (account) => {
     if (!account.byChain.ton) return;
 
     try {
-      const result = await callApi('refreshMfaState', account.accountId, password);
+      const result = await callApi('refreshMfaState', account.accountId, enclaveToken);
       if (result?.mfa) {
         account.byChain.ton.mfa = result.mfa;
       }
@@ -456,7 +600,11 @@ addActionHandler('addHardwareAccounts', (global, actions, { accounts }) => {
 addActionHandler('afterCheckMnemonic', (global) => {
   global = createAccountsFromGlobal(global);
   global = updateAuth(global, { state: AuthState.congratulations });
-  global = updateCurrentAccountId(global, global.auth.accounts![0].accountId);
+
+  if (!global.dappConnectRequest?.isCreatingAccount) {
+    global = updateCurrentAccountId(global, global.auth.accounts![0].accountId);
+  }
+
   setGlobal(global);
 });
 
@@ -498,9 +646,14 @@ addActionHandler('restartCheckMnemonicIndexes', (global, actions, { wordsCount, 
 });
 
 addActionHandler('skipCheckMnemonic', (global, actions) => {
+  const newAccountId = global.auth.accounts![0].accountId;
   global = createAccountsFromGlobal(global);
-  global = updateCurrentAccountId(global, global.auth.accounts![0].accountId);
-  global = updateCurrentAccountState(global, { isBackupRequired: true });
+
+  if (!global.dappConnectRequest?.isCreatingAccount) {
+    global = updateCurrentAccountId(global, newAccountId);
+  }
+
+  global = updateAccountState(global, newAccountId, { isBackupRequired: true });
   setGlobal(global);
 
   actions.tryAddNotificationAccount({ accountId: global.auth.accounts![0].accountId });
@@ -518,11 +671,12 @@ addActionHandler('skipCheckMnemonic', (global, actions) => {
   }
 });
 
-addActionHandler('startImportingWallet', (global, actions) => {
+addActionHandler('startImportingWallet', (global, actions, payload) => {
   if (IS_EXPLORER) return;
 
-  const isPasswordPresent = selectIsPasswordPresent(global);
-  const state = isPasswordPresent && !global.auth.password
+  const { enclaveToken } = payload ?? {};
+  const hasPassword = selectHasPassword(global);
+  const state = hasPassword && !enclaveToken && !selectIsEnclaveSessionValid(global)
     ? AuthState.importWalletCheckPassword
     : AuthState.importWallet;
 
@@ -550,31 +704,31 @@ addActionHandler('afterImportMnemonic', async (global, actions, { mnemonic }) =>
 
   global = getGlobal();
 
-  const isPasswordPresent = selectIsPasswordPresent(global);
+  const hasPassword = selectHasPassword(global);
   const state = getDoesUsePinPad()
     ? AuthState.importWalletCreatePin
-    : (IS_BIOMETRIC_AUTH_SUPPORTED
+    : CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
       ? AuthState.importWalletCreateBiometrics
-      : AuthState.importWalletCreatePassword);
+      : AuthState.importWalletCreatePassword;
 
   global = updateAuth(global, {
     mnemonic,
     error: undefined,
-    ...(!isPasswordPresent && { state }),
+    ...(!hasPassword && { state }),
   });
   setGlobal(global);
 
-  if (isPasswordPresent) {
+  if (hasPassword) {
     actions.confirmDisclaimer();
   }
 });
 
 addActionHandler('confirmDisclaimer', (global, actions) => {
-  const isPasswordPresent = selectIsPasswordPresent(global);
+  const hasPassword = selectHasPassword(global);
 
-  if (isPasswordPresent) {
+  if (hasPassword) {
     setGlobal(global);
-    actions.afterCreatePassword({ password: global.auth.password! });
+    actions.createAccount();
 
     return;
   }
@@ -648,113 +802,115 @@ addActionHandler('afterSelectHardwareWallets', (global, actions, { hardwareSelec
     error: undefined,
   }));
 
-  actions.afterCreatePassword({ password: '' });
+  actions.createAccount();
 });
 
-addActionHandler('enableBiometrics', async (global, actions, { password }) => {
-  if (!(await callApi('verifyPassword', password))) {
-    global = getGlobal();
-    const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
-    global = updateBiometrics(global, { error });
+addActionHandler('enableBiometrics', async (global, actions, { isLoginFlow } = {}) => {
+  if (isLoginFlow) {
+    global = updateAuth(global, { isLoading: true });
     setGlobal(global);
-
-    return;
   }
 
-  global = getGlobal();
-  global = updateBiometrics(global, {
-    error: undefined,
-    state: BiometricsState.TurnOnRegistration,
-  });
-  global = updateAuth(global, { isLoading: true });
-  setGlobal(global);
-
   try {
-    const credential = IS_ELECTRON
-      ? undefined
-      : await webAuthn.createCredential();
+    // Get fresh token from current global state
+    const currentToken = selectEnclaveToken(getGlobal());
+    if (!currentToken) throw new Error('No enclave session token available');
+
+    const shouldReplace = CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY;
+    const newEnclaveSession = await enclave.migrateAuth(currentToken, 'biometric', undefined, shouldReplace);
+    if (!newEnclaveSession) throw new Error('Failed to enable biometrics.');
 
     global = getGlobal();
-    global = updateBiometrics(global, { state: BiometricsState.TurnOnVerification });
+    const currentAuthTypes = global.authTypes || [];
+    const authTypes: AuthType[] = shouldReplace
+      ? ['biometric']
+      : (currentAuthTypes.includes('biometric') ? currentAuthTypes : [...currentAuthTypes, 'biometric']);
+    global = { ...global, authTypes, enclaveSession: newEnclaveSession };
     setGlobal(global);
 
-    const result = await authApi.setupBiometrics({ credential });
-
-    global = getGlobal();
-    if (!result) {
-      global = updateBiometrics(global, {
-        error: 'Biometric setup failed.',
-        state: BiometricsState.TurnOnPasswordConfirmation,
-      });
+    if (isLoginFlow) {
+      actions.createAccount();
+    } else {
+      global = getGlobal();
+      global = updateBiometrics(global, { state: BiometricsState.TurnOnComplete });
       setGlobal(global);
 
-      return;
+      // Outside the login flow nothing reads the key through the session this minted - the caller
+      // that asked for biometrics is holding a session of its own. A counted session has no expiry,
+      // so keeping this one would leave a read authorized with no prompt behind it
+      actions.releaseEnclaveSession({ enclaveToken: newEnclaveSession.token });
     }
-    global = updateBiometrics(global, { state: BiometricsState.TurnOnComplete });
-    setGlobal(global);
 
-    await callApi('changePassword', password, result.password);
-
-    global = getGlobal();
-    global = updateSettings(global, { authConfig: result.config });
-
-    setGlobal(global);
-    actions.setInMemoryPassword({ password: undefined, force: true });
+    void vibrateOnSuccess();
   } catch (err: any) {
-    const error = err?.message.includes('privacy-considerations-client')
-      ? 'Biometric setup failed.'
-      : (err?.message || 'Biometric setup failed.');
+    const error = err?.message || 'Biometric setup failed.';
+
     global = getGlobal();
-    global = updateBiometrics(global, {
-      error,
-      state: BiometricsState.TurnOnPasswordConfirmation,
-    });
+
+    if (isLoginFlow) {
+      global = updateAuth(global, { error });
+    } else {
+      global = updateBiometrics(global, { error });
+    }
+
     setGlobal(global);
+
+    void vibrateOnError();
   } finally {
     global = getGlobal();
-    global = updateAuth(global, { isLoading: undefined });
+
+    if (isLoginFlow) {
+      global = updateAuth(global, { isLoading: undefined });
+    }
+
+    global = clearIsPinAccepted(global);
     setGlobal(global);
   }
 });
 
-addActionHandler('disableBiometrics', async (global, actions, { password, isPasswordNumeric }) => {
-  const { password: oldPassword } = global.biometrics;
+addActionHandler('disableBiometrics', async (global, actions, { newPassword, isPasswordNumeric } = {}) => {
+  const currentToken = selectEnclaveToken(global);
 
-  if (!password || !oldPassword) {
-    global = updateBiometrics(global, { error: 'Biometric confirmation failed.' });
-    setGlobal(global);
+  if (newPassword && currentToken) {
+    // WebAuthn biometric-only: replace biometric with passcode
+    const newSession = await enclave.migrateAuth(currentToken, 'passcode', newPassword, true);
+    if (!newSession) {
+      global = getGlobal();
+      global = updateBiometrics(global, { error: 'Failed to create password' });
+      setGlobal(global);
+      return;
+    }
 
-    return;
-  }
-
-  global = getGlobal();
-  global = updateAuth(global, { isLoading: true });
-  setGlobal(global);
-
-  try {
-    await callApi('changePassword', oldPassword, password);
-  } catch (err: any) {
     global = getGlobal();
-    global = updateBiometrics(global, { error: err?.message || 'Failed to disable biometrics.' });
+    global = updateBiometrics(global, { state: BiometricsState.TurnOffComplete, error: undefined });
+    global = {
+      ...global,
+      authTypes: ['passcode'],
+      enclaveSession: newSession,
+    };
+    if (isPasswordNumeric) {
+      global = updateSettings(global, { isPasswordNumeric: true });
+    }
     setGlobal(global);
 
-    return;
-  } finally {
+    // Swapping biometrics for a passcode reads no secret of its own, so the session this minted goes
+    // back rather than sitting there as a read nobody asked for
+    actions.releaseEnclaveSession({ enclaveToken: newSession.token });
+  } else {
+    if (!currentToken) {
+      global = updateBiometrics(global, { error: 'Authentication required' });
+      setGlobal(global);
+      return;
+    }
+
+    // Native: just remove biometric, keep passcode
+    await enclave.removeAuth('biometric');
+
     global = getGlobal();
-    global = updateAuth(global, { isLoading: undefined });
+    global = updateBiometrics(global, { state: BiometricsState.TurnOffComplete, error: undefined });
+    global = { ...global, authTypes: ['passcode'] };
     setGlobal(global);
   }
-
-  global = getGlobal();
-  global = updateBiometrics(global, {
-    state: BiometricsState.TurnOffComplete,
-    error: undefined,
-  });
-  global = updateSettings(global, {
-    authConfig: { kind: 'password' },
-    isPasswordNumeric,
-  });
-  setGlobal(global);
 });
 
 addActionHandler('closeBiometricSettings', (global) => {
@@ -763,112 +919,10 @@ addActionHandler('closeBiometricSettings', (global) => {
   setGlobal(global);
 });
 
-addActionHandler('openBiometricsTurnOn', (global) => {
-  global = updateBiometrics(global, { state: BiometricsState.TurnOnPasswordConfirmation });
-
-  setGlobal(global);
-});
-
 addActionHandler('openBiometricsTurnOffWarning', (global) => {
   global = updateBiometrics(global, { state: BiometricsState.TurnOffWarning });
 
   setGlobal(global);
-});
-
-addActionHandler('openBiometricsTurnOff', async (global) => {
-  global = updateBiometrics(global, { state: BiometricsState.TurnOffBiometricConfirmation });
-  setGlobal(global);
-
-  const password = await authApi.getPassword(global.settings.authConfig!);
-  global = getGlobal();
-
-  if (!password) {
-    global = updateBiometrics(global, { error: 'Biometric confirmation failed.' });
-  } else {
-    global = updateBiometrics(global, {
-      state: BiometricsState.TurnOffCreatePassword,
-      password,
-    });
-  }
-
-  setGlobal(global);
-});
-
-addActionHandler('disableNativeBiometrics', (global) => {
-  global = updateSettings(global, {
-    authConfig: { kind: 'password' },
-    isPasswordNumeric: true,
-  });
-  setGlobal(global);
-});
-
-addActionHandler('enableNativeBiometrics', async (global, actions, { password }) => {
-  if (!(await callApi('verifyPassword', password))) {
-    global = getGlobal();
-    global = {
-      ...global,
-      nativeBiometricsError: 'Incorrect code, please try again.',
-    };
-    global = clearIsPinAccepted(global);
-    setGlobal(global);
-
-    return;
-  }
-
-  global = getGlobal();
-
-  global = setIsPinAccepted(global);
-  global = {
-    ...global,
-    nativeBiometricsError: undefined,
-  };
-  setGlobal(global);
-
-  try {
-    const { success: isVerified } = await verifyTelegramBiometricIdentity();
-
-    if (!isVerified) {
-      global = getGlobal();
-      global = {
-        ...global,
-        nativeBiometricsError: 'Failed to enable biometrics.',
-      };
-      global = clearIsPinAccepted(global);
-      setGlobal(global);
-      vibrateOnError();
-
-      return;
-    }
-
-    const result = await authApi.setupNativeBiometrics(password);
-
-    await pause(NATIVE_BIOMETRICS_PAUSE_MS);
-
-    global = getGlobal();
-    global = updateSettings(global, { authConfig: result.config });
-    global = { ...global, nativeBiometricsError: undefined };
-    setGlobal(global);
-    actions.setInMemoryPassword({ password: undefined, force: true });
-
-    void vibrateOnSuccess();
-  } catch (err: any) {
-    global = getGlobal();
-    global = {
-      ...global,
-      nativeBiometricsError: err?.message || 'Failed to enable biometrics.',
-    };
-    global = clearIsPinAccepted(global);
-    setGlobal(global);
-
-    vibrateOnError();
-  }
-});
-
-addActionHandler('clearNativeBiometricsError', (global) => {
-  return {
-    ...global,
-    nativeBiometricsError: undefined,
-  };
 });
 
 addActionHandler('openAuthBackupWalletModal', (global) => {
@@ -920,6 +974,9 @@ addActionHandler('importAccountByVersion', async (global, actions, { version, is
   const accountId = selectCurrentAccountId(global)!;
 
   const wallet = (await callApi('importNewWalletVersion', accountId, version, isTestnetSubwalletId))!;
+
+  if (!await duplicateSecretOrShowError(accountId, wallet.accountId)) return;
+
   global = getGlobal();
 
   if (!wallet.isNew) {
@@ -945,10 +1002,10 @@ addActionHandler('importAccountByVersion', async (global, actions, { version, is
   actions.tryAddNotificationAccount({ accountId: wallet.accountId });
 });
 
-addActionHandler('createSubWallet', async (global, actions, { password }) => {
+addActionHandler('createSubWallet', withEnclaveSessionRelease(async (global, actions, { enclaveToken }) => {
   const accountId = selectCurrentAccountId(global)!;
 
-  const result = await callApi('createSubWallet', accountId, password);
+  const result = await callApi('createSubWallet', accountId, enclaveToken);
 
   global = getGlobal();
   global = clearIsPinAccepted(global);
@@ -969,6 +1026,8 @@ addActionHandler('createSubWallet', async (global, actions, { password }) => {
     });
     return;
   }
+
+  if (!await duplicateSecretOrShowError(accountId, result.accountId)) return;
 
   const currentAccount = selectAccount(global, accountId)!;
 
@@ -999,6 +1058,44 @@ addActionHandler('createSubWallet', async (global, actions, { password }) => {
     action: 'openRenameWallet',
     actionText: getTranslation('Set Name'),
   });
+}));
+
+addActionHandler('upgradeMultichainAccounts', async (global, actions, { enclaveToken }) => {
+  // `PasswordForm` starts this upgrade after every authorization, so a second password entry
+  // during a running upgrade would start the same upgrade again. Clearing the count right away
+  // prevents that; putting it back on failure allows a retry on the next password entry.
+  const upgradeCount = global.multichainUpgradeCount;
+  if (!upgradeCount) return;
+
+  setGlobal({ ...global, multichainUpgradeCount: undefined });
+
+  // This rides along on the operation's session rather than asking for one, so it takes a hold: the
+  // operation usually finishes first, and its release would otherwise land between two of the reads
+  // below and leave the accounts half upgraded
+  holdEnclaveSession(enclaveToken);
+
+  try {
+    const result = await callApi('upgradeMultichainAccounts', enclaveToken);
+
+    if (result && 'error' in result) {
+      logDebugError('upgradeMultichainAccounts', result.error);
+
+      // Asking again rather than putting back the count taken before the run: the accounts upgraded
+      // before the failure are no longer candidates, and the count becomes a secret-read budget on
+      // the next password entry, where reads granted and not taken outlive the operation. An
+      // unanswered question is not an empty answer - dropping the count there would lose the upgrade
+      // until the app starts again, so the stale count is the better of the two wrong numbers
+      const candidateIds = await callApi('getMultichainUpgradeCandidateIds');
+      setGlobal({
+        ...getGlobal(),
+        multichainUpgradeCount: candidateIds ? (candidateIds.length || undefined) : upgradeCount,
+      });
+    }
+  } finally {
+    if (dropEnclaveSessionHold(enclaveToken)) {
+      actions.releaseEnclaveSession({ enclaveToken });
+    }
+  }
 });
 
 addActionHandler('addSubWallet', async (global, actions, { group }) => {
@@ -1037,6 +1134,8 @@ addActionHandler('addSubWallet', async (global, actions, { group }) => {
     });
     return;
   }
+
+  if (!await duplicateSecretOrShowError(accountId, result.accountId)) return;
 
   const currentAccount = selectAccount(global, accountId);
 
@@ -1104,6 +1203,10 @@ addActionHandler('addAllFoundSubwallets', async (global, actions, { foundSubwall
     if (!entry) continue;
 
     const isLast = i === results.length - 1;
+
+    if (entry.isNew) {
+      if (!await duplicateSecretOrShowError(accountId, entry.accountId)) return;
+    }
 
     if (entry.isNew && baseTitle && currentAccount) {
       global = getGlobal();
@@ -1267,6 +1370,158 @@ addActionHandler('saveTemporaryAccount', (global, actions) => {
   void vibrateOnSuccess();
 });
 
+addActionHandler('rollbackEnclaveMigration', async (global, actions) => {
+  await callApi('rollbackEnclaveMigration');
+
+  global = getGlobal();
+  setGlobal({
+    ...global,
+    authTypes: undefined,
+    enclaveSession: undefined,
+  });
+
+  actions.showToast({ message: 'Migration was rolled back' });
+});
+
+/**
+ * On the biometric paths the password comes out of the platform store instead of a keyboard, so the
+ * one diagnosis that blames the user has no way of being true and would send them retyping forever.
+ */
+function reduceTypoDiagnosis(reason: MigrationErrorReason): MigrationErrorReason {
+  return reason === 'wrongPassword' ? 'damagedData' : reason;
+}
+
+/**
+ * The reduction lives here rather than at the call sites, because an emptied storage is recognised by
+ * the very diagnosis it reduces away, and a caller that reduced first would hide it behind the answer
+ * that tells the user their data is beyond repair.
+ */
+async function resolveMigrationErrorMessage(reason: MigrationErrorReason, isPasswordFromStore = false) {
+  // An emptied storage explains only the two diagnoses that blame this attempt, and it outranks them
+  if (reason === 'wrongPassword' || reason === 'storageFailure') {
+    // Compared against `false` rather than taken as falsy, because a transport error answers with
+    // `undefined`, and treating "could not ask" as "storage is empty" opens a dialog whose confirming
+    // button signs the user out of every wallet
+    const isStorageOk = await callApi('checkWorkerStorageIntegrity');
+    if (isStorageOk === false) return '$storage_cleared_title';
+  }
+
+  return MIGRATION_ERROR_MESSAGE[isPasswordFromStore ? reduceTypoDiagnosis(reason) : reason];
+}
+
+addActionHandler('migrateLegacyAuth', async (global, actions, payload: {
+  password: string;
+  isLongSession: boolean;
+  usageCount?: number;
+  onSuccess: (token: string) => void;
+  onError: (error: string) => void;
+}) => {
+  const { password, isLongSession, usageCount, onSuccess, onError } = payload;
+
+  const legacyAccounts = await callApi('fetchLegacyAccountsWithMnemonic');
+  if (!legacyAccounts?.length) {
+    onError('Unable to migrate wallet data. Please contact support.');
+    return;
+  }
+
+  const migrationOutcome = await legacyAuth.migrateFromLegacy(
+    legacyAccounts, password, isLongSession, usageCount,
+  );
+  if (checkIsMigrationFailure(migrationOutcome)) {
+    onError(await resolveMigrationErrorMessage(migrationOutcome.error));
+    return;
+  }
+
+  const { session, privateKeyAccountIds } = migrationOutcome;
+
+  global = getGlobal();
+  global = { ...global, authTypes: ['passcode'], enclaveSession: session };
+  for (const accountId of privateKeyAccountIds) {
+    global = updateAccount(global, accountId, { isPrivateKeyBased: true });
+  }
+  setGlobal(global);
+
+  if (SHOULD_CLEANUP_LEGACY_AUTH) {
+    await callApi('cleanupLegacyAuthAfterMigration');
+  }
+
+  onSuccess(session.token);
+});
+
+addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: {
+  legacyAuthConfig: LegacyAuthConfig;
+  isLongSession: boolean;
+  usageCount?: number;
+  onSuccess: (token: string) => void;
+  onError: (error: string) => void;
+}) => {
+  const { legacyAuthConfig, isLongSession, usageCount, onSuccess, onError } = payload;
+
+  // Get password from old biometric storage
+  const password = await legacyAuth.getPasswordFromLegacyBiometrics(legacyAuthConfig);
+  if (!password) {
+    onError('Failed to retrieve password from biometrics');
+    return;
+  }
+
+  const legacyAccounts = await callApi('fetchLegacyAccountsWithMnemonic');
+  if (!legacyAccounts?.length) {
+    onError('Unable to migrate wallet data. Please contact support.');
+    return;
+  }
+
+  let session;
+  let privateKeyAccountIds: string[] = [];
+  let authTypes: ('passcode' | 'biometric')[];
+
+  if (legacyAuthConfig.kind === 'native-biometrics') {
+    // Native biometrics stored user's real password - migrate to both passcode and biometric
+    const migrationOutcome = await legacyAuth.migrateFromLegacy(legacyAccounts, password, isLongSession);
+    if (checkIsMigrationFailure(migrationOutcome)) {
+      onError(await resolveMigrationErrorMessage(migrationOutcome.error, true));
+      return;
+    }
+
+    ({ session, privateKeyAccountIds } = migrationOutcome);
+
+    // Add biometric as second auth method (don't replace passcode). The caller is handed the session
+    // this mints rather than the one the migration returned, so the budget is declared here
+    const biometricSession = await enclave.migrateAuth(session.token, 'biometric', undefined, false, usageCount);
+    if (biometricSession) {
+      session = biometricSession;
+      authTypes = ['passcode', 'biometric'];
+    } else {
+      // Biometric setup failed, but passcode migration succeeded - continue with passcode only
+      authTypes = ['passcode'];
+    }
+  } else {
+    // electron-safe-storage or webauthn - password was random, user doesn't know it
+    const migrationOutcome = await legacyAuth.migrateFromLegacyBiometric(legacyAccounts, password, usageCount);
+    if (checkIsMigrationFailure(migrationOutcome)) {
+      onError(await resolveMigrationErrorMessage(migrationOutcome.error, true));
+      return;
+    }
+
+    ({ session, privateKeyAccountIds } = migrationOutcome);
+    // Legacy WebAuthn/electron-safe-storage users had a random password they don't know.
+    // They remain biometric-only after migration. They can add a passcode via Settings > Change Password.
+    authTypes = ['biometric'];
+  }
+
+  global = getGlobal();
+  global = { ...global, authTypes, enclaveSession: session };
+  for (const accountId of privateKeyAccountIds) {
+    global = updateAccount(global, accountId, { isPrivateKeyBased: true });
+  }
+  setGlobal(global);
+
+  if (SHOULD_CLEANUP_LEGACY_AUTH) {
+    await callApi('cleanupLegacyAuthAfterMigration');
+  }
+
+  onSuccess(session.token);
+});
+
 function reduceGlobalForDebug() {
   const reduced = cloneDeep(getGlobal());
 
@@ -1275,6 +1530,10 @@ function reduceGlobalForDebug() {
   Object.entries(reduced.byAccountId).forEach(([, state]) => {
     state.activities = {} as any;
   });
+
+  reduced.enclaveSession = undefined;
+  reduced.auth.pin = undefined;
+  reduced.auth.mnemonic = undefined;
 
   return reduced;
 }

@@ -21,7 +21,6 @@ public struct ApiSwapHistoryItem: Codable, Sendable {
     public let networkFee: MDouble?
     public let swapFee: MDouble
     public let ourFee: MDouble?
-    public let ourFeeMode: String?
     public let cexLabel: ApiSwapCexLabel?
     
     /**
@@ -54,7 +53,6 @@ public struct ApiSwapHistoryItem: Codable, Sendable {
             networkFee:  swapBuildRequest.networkFee,
             swapFee: swapBuildRequest.swapFee ?? .zero,
             ourFee: swapBuildRequest.ourFee,
-            ourFeeMode: nil,
             cexLabel: nil,
             status: .pendingTrusted,
             hashes: [],

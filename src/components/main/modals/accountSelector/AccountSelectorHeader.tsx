@@ -6,6 +6,7 @@ import { AccountSelectorState } from '../../../../global/types';
 
 import buildClassName from '../../../../util/buildClassName';
 import { vibrate } from '../../../../util/haptics';
+import { toNativeDigits } from '../../../../util/nativeDigits';
 
 import useFlag from '../../../../hooks/useFlag';
 import useLang from '../../../../hooks/useLang';
@@ -111,7 +112,7 @@ const AccountSelectorHeader = ({
         className={styles.titleWrapper}
         slideClassName={styles.title}
       >
-        <div>{lang('$wallets_amount', walletsCount)}</div>
+        <div>{toNativeDigits(lang('$wallets_amount', walletsCount) as string)}</div>
         <div className={styles.totalBalance}>
           {lang('$total_balance', { balance: isSensitiveDataHidden ? '***' : (totalBalance ?? '0') })}
         </div>

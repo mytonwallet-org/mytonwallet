@@ -13,18 +13,17 @@ sealed class AccountDomainUpdate {
 
 class AccountDomainUpdateAdapter {
     @FromJson
-    fun fromJson(reader: JsonReader): AccountDomainUpdate {
-        return when (reader.peek()) {
-            JsonReader.Token.STRING -> AccountDomainUpdate.Set(reader.nextString())
-            JsonReader.Token.BOOLEAN -> {
-                if (reader.nextBoolean()) {
-                    throw JsonDataException("Expected domain string or false at ${reader.path}")
-                }
-                AccountDomainUpdate.Clear
-            }
+    fun fromJson(reader: JsonReader): AccountDomainUpdate = when (reader.peek()) {
+        JsonReader.Token.STRING -> AccountDomainUpdate.Set(reader.nextString())
 
-            else -> throw JsonDataException("Expected domain string or false at ${reader.path}")
+        JsonReader.Token.BOOLEAN -> {
+            if (reader.nextBoolean()) {
+                throw JsonDataException("Expected domain string or false at ${reader.path}")
+            }
+            AccountDomainUpdate.Clear
         }
+
+        else -> throw JsonDataException("Expected domain string or false at ${reader.path}")
     }
 
     @ToJson

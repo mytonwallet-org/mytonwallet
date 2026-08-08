@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.walletcontext.utils
 
-import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import java.math.BigInteger
 import kotlin.math.max
+import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 
 object PriceConversionUtils {
 
@@ -59,5 +59,4 @@ object PriceConversionUtils {
             .pow(baseCurrencyDecimal ?: 2)
         return amount
     }
-
 }

@@ -28,7 +28,7 @@ const AuthCreatePassword = ({
   method,
   isLoading,
 }: OwnProps) => {
-  const { afterCreatePassword, resetAuth } = getActions();
+  const { createPassword, resetAuth } = getActions();
 
   const lang = useLang();
   const headerRef = useRef<HTMLDivElement>();
@@ -42,8 +42,8 @@ const AuthCreatePassword = ({
     onBack: resetAuth,
   });
 
-  const handleSubmit = useLastCallback((password: string, isPasswordNumeric: boolean) => {
-    afterCreatePassword({ password, isPasswordNumeric });
+  const handleSubmit = useLastCallback((password: string, isNumeric: boolean) => {
+    createPassword({ password, isNumeric });
   });
 
   return (

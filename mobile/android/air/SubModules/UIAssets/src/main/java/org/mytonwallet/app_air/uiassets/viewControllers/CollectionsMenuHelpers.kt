@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
+import org.mytonwallet.app_air.uicomponents.helpers.NftActionHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -25,10 +26,12 @@ import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -53,7 +56,7 @@ object CollectionsMenuHelpers {
         actionBar.clearActions()
         actionBar.addLeadingAction(
             WActionBar.ActionItem(
-                iconResId = org.mytonwallet.app_air.uicomponents.R.drawable.ic_close
+                iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_close
             ) {
                 onCloseTapped()
             }
@@ -116,10 +119,7 @@ object CollectionsMenuHelpers {
         actionBar.setTitle("", false)
     }
 
-    private fun presentSelectionActionBarMenu(
-        anchorView: View,
-        onSelectAllTapped: () -> Unit
-    ) {
+    private fun presentSelectionActionBarMenu(anchorView: View, onSelectAllTapped: () -> Unit) {
         val items = mutableListOf<WMenuPopup.Item>()
         items.add(
             WMenuPopup.Item(
@@ -148,7 +148,7 @@ object CollectionsMenuHelpers {
         collectionMode: CollectionMode,
         onReorderTapped: (() -> Unit)?,
         onSelectTapped: (() -> Unit)?,
-        onRemoveTapped: ((collectionMode: CollectionMode) -> Unit),
+        onRemoveTapped: ((collectionMode: CollectionMode) -> Unit)
     ) {
         val shouldShowReorder = onReorderTapped != null
         val shouldShowSelect = onSelectTapped != null
@@ -156,10 +156,10 @@ object CollectionsMenuHelpers {
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
                     icon = Icon(
-                        org.mytonwallet.app_air.uiassets.R.drawable.ic_collection_unpin_small,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_collection_unpin_small,
                         WColor.PrimaryLightText
                     ),
-                    title = LocaleController.getString("Remove Tab"),
+                    title = LocaleController.getString("Remove Tab")
                 ),
                 hasSeparator = shouldShowReorder || shouldShowSelect
             ) {
@@ -192,17 +192,24 @@ object CollectionsMenuHelpers {
             NftStore.getHasHiddenNft(showingAccountId) ||
                 currentNftData?.blacklistedNftAddresses?.isNotEmpty() == true
         val collections = NftStore.getCollections(showingAccountId)
+        val mtwCardsCollection = if (ApplicationContextHolder.isGramApp) {
+            null
+        } else {
+            collections.firstOrNull {
+                it.chain == MBlockchain.ton.name && it.address == MTW_CARDS_COLLECTION
+            }
+        }
         // Extract telegram gifts
         val telegramGifts = currentNftData?.cachedNfts?.filter {
             it.isTelegramGift == true && !it.shouldHide()
         }
         val telegramGiftCollectionAddresses = currentNftData?.telegramGiftCollectionAddresses
-        val telegramGiftItem = if ((telegramGifts?.size ?: 0) < 2)
+        val telegramGiftItem = if ((telegramGifts?.size ?: 0) < 2) {
             null
-        else
+        } else {
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
-                    icon = null,
+                    icon = Icon(org.mytonwallet.app_air.icons.R.drawable.ic_menu_gifts),
                     title = LocaleController.getString("Telegram Gifts"),
                     subItems = telegramGifts!!
                         .mapNotNull { it.collectionAddress }
@@ -214,7 +221,7 @@ object CollectionsMenuHelpers {
                                         WMenuPopup.Item.Config.Item(
                                             icon = null,
                                             title = nftCollection.name,
-                                            isSubItem = true,
+                                            isSubItem = true
                                         )
                                     ) {
                                         navigationController.push(
@@ -233,9 +240,11 @@ object CollectionsMenuHelpers {
                         }.toMutableList().apply {
                             val allTelegramGiftsItem = WMenuPopup.Item(
                                 WMenuPopup.Item.Config.Item(
-                                    icon = Icon(org.mytonwallet.app_air.icons.R.drawable.ic_menu_gifts),
-                                    title = LocaleController.getString("All Telegram Gifts"),
-                                ),
+                                    icon = Icon(
+                                        org.mytonwallet.app_air.icons.R.drawable.ic_menu_gifts
+                                    ),
+                                    title = LocaleController.getString("All Telegram Gifts")
+                                )
                             ) {
                                 navigationController.push(
                                     AssetsVC(
@@ -244,20 +253,21 @@ object CollectionsMenuHelpers {
                                         AssetsVC.ViewMode.COMPLETE,
                                         collectionMode = CollectionMode.TelegramGifts,
                                         isShowingSingleCollection = true
-                                    ),
+                                    )
                                 )
                             }
                             add(0, allTelegramGiftsItem)
-                        },
+                        }
                 ),
                 hasSeparator = collections.any {
                     telegramGiftCollectionAddresses?.contains(it.address) != true
-                } || hiddenNFTsExist || shouldShowReorder || shouldShowSelect,
+                } || hiddenNFTsExist || shouldShowReorder || shouldShowSelect
             )
+        }
         val hiddenNFTsItem = WMenuPopup.Item(
             WMenuPopup.Item.Config.Item(
                 icon = Icon(
-                    org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_hide,
+                    org.mytonwallet.app_air.icons.R.drawable.ic_nft_hide,
                     WColor.PrimaryLightText
                 ),
                 title = LocaleController.getString("Hidden NFTs")
@@ -266,19 +276,56 @@ object CollectionsMenuHelpers {
         ) {
             val hiddenNFTsVC =
                 HiddenNFTsVC(view.context, showingAccountId)
-            (navigationController.tabBarController?.mainNavigationController
-                ?: navigationController).push(hiddenNFTsVC)
+            (
+                navigationController.tabBarController?.mainNavigationController
+                    ?: navigationController
+                ).push(hiddenNFTsVC)
         }
         val menuItems =
-            ArrayList(collections.filter {
-                telegramGiftItem == null ||
-                    telegramGiftCollectionAddresses?.contains(it.address) != true
-            }.mapIndexed { i, nftCollection ->
+            ArrayList(
+                collections.filter {
+                    it != mtwCardsCollection &&
+                        (
+                            telegramGiftItem == null ||
+                                telegramGiftCollectionAddresses?.contains(it.address) != true
+                            )
+                }.mapIndexed { i, nftCollection ->
+                    WMenuPopup.Item(
+                        WMenuPopup.Item.Config.Item(
+                            icon = null,
+                            title = nftCollection.name
+                        )
+                    ) {
+                        pushOnTopNavigationController(
+                            navigationController,
+                            AssetsVC(
+                                view.context,
+                                showingAccountId,
+                                AssetsVC.ViewMode.COMPLETE,
+                                collectionMode = CollectionMode.SingleCollection(nftCollection),
+                                isShowingSingleCollection = true
+                            )
+                        )
+                    }
+                }
+            )
+        if (menuItems.isNotEmpty() && (hiddenNFTsExist || shouldShowReorder || shouldShowSelect)) {
+            menuItems[menuItems.size - 1].hasSeparator = true
+        }
+        if (mtwCardsCollection != null) {
+            telegramGiftItem?.hasSeparator = false
+            menuItems.add(
+                0,
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
-                        icon = null,
-                        title = nftCollection.name,
-                    )
+                        icon = Icon(
+                            org.mytonwallet.app_air.icons.R.drawable.ic_card_install,
+                            WColor.PrimaryLightText
+                        ),
+                        title = mtwCardsCollection.name
+                    ),
+                    hasSeparator = menuItems.isNotEmpty() ||
+                        hiddenNFTsExist || shouldShowReorder || shouldShowSelect
                 ) {
                     pushOnTopNavigationController(
                         navigationController,
@@ -286,20 +333,20 @@ object CollectionsMenuHelpers {
                             view.context,
                             showingAccountId,
                             AssetsVC.ViewMode.COMPLETE,
-                            collectionMode = CollectionMode.SingleCollection(nftCollection),
+                            collectionMode = CollectionMode.SingleCollection(mtwCardsCollection),
                             isShowingSingleCollection = true
                         )
                     )
                 }
-            })
-        if (menuItems.isNotEmpty() && (hiddenNFTsExist || shouldShowReorder || shouldShowSelect))
-            menuItems[menuItems.size - 1].hasSeparator = true
-        if (telegramGiftItem != null)
-            menuItems.add(0, telegramGiftItem)
+            )
+        }
+        if (telegramGiftItem != null) menuItems.add(0, telegramGiftItem)
         if (hiddenNFTsExist) menuItems.add(hiddenNFTsItem)
-        if (shouldShowReorder) menuItems.add(
-            makeReorderItem { onReorderTapped() }
-        )
+        if (shouldShowReorder) {
+            menuItems.add(
+                makeReorderItem { onReorderTapped() }
+            )
+        }
         if (shouldShowSelect) menuItems.add(makeSelectItem { onSelectTapped.invoke() })
         val isWide = navigationController.window?.isWideLayout == true
         val location = view.getLocationInWindow()
@@ -364,7 +411,7 @@ object CollectionsMenuHelpers {
         onSelectTapped: (() -> Unit)?
     ): MutableList<WMenuPopup.Item> {
         val wearItems = buildNftWearItems(showingAccountId, nft)
-        val actionItems = buildNftActionItems(nft, navigationController)
+        val actionItems = buildNftActionItems(showingAccountId, nft, navigationController)
         val infoItems = buildNftInfoItems(
             showingAccountId,
             nft,
@@ -406,7 +453,7 @@ object CollectionsMenuHelpers {
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
                     icon = Icon(
-                        org.mytonwallet.app_air.uiassets.R.drawable.ic_card_install,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_card_install,
                         WColor.PrimaryLightText
                     ),
                     title = LocaleController.getString(
@@ -428,7 +475,7 @@ object CollectionsMenuHelpers {
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
                     icon = Icon(
-                        org.mytonwallet.app_air.uiassets.R.drawable.ic_card_pallete,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_card_pallete,
                         WColor.PrimaryLightText
                     ),
                     title = LocaleController.getString(
@@ -446,6 +493,7 @@ object CollectionsMenuHelpers {
     }
 
     private fun buildNftActionItems(
+        showingAccountId: String,
         nft: ApiNft,
         navigationController: WNavigationController
     ): MutableList<WMenuPopup.Item> {
@@ -475,7 +523,7 @@ object CollectionsMenuHelpers {
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = Icon(
-                            org.mytonwallet.app_air.uiassets.R.drawable.ic_renew,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_renew,
                             WColor.PrimaryLightText
                         ),
                         title = LocaleController.getString("Renew")
@@ -487,37 +535,66 @@ object CollectionsMenuHelpers {
         }
         if (nft.canLinkToAddress() && canTransferNft) {
             val linkedAddress = NftStore.nftData?.linkedAddressByAddress?.get(nft.address)
+            val linkTitle =
+                if (linkedAddress.isNullOrBlank()) "Link to Wallet" else "Change Linked Wallet"
             items.add(
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = Icon(
-                            org.mytonwallet.app_air.uiassets.R.drawable.ic_link,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_link,
                             WColor.PrimaryLightText
                         ),
-                        title = LocaleController.getString(
-                            if (linkedAddress.isNullOrBlank()) "Link to Wallet" else "Change Linked Wallet"
-                        )
+                        title = LocaleController.getString(linkTitle)
                     )
                 ) {
                     presentLinkToWalletModal(navigationController, nft)
                 }
             )
         }
+        val isHidden = NftStore.shouldHide(showingAccountId, nft)
         items.add(
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
                     icon = Icon(
-                        if (nft.shouldHide()) {
-                            org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_unhide
+                        if (isHidden) {
+                            org.mytonwallet.app_air.icons.R.drawable.ic_nft_unhide
                         } else {
-                            org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_hide
+                            org.mytonwallet.app_air.icons.R.drawable.ic_nft_hide
                         },
                         WColor.PrimaryLightText
                     ),
-                    title = LocaleController.getString(if (nft.shouldHide()) "Unhide" else "Hide")
+                    title = LocaleController.getString(if (isHidden) "Unhide" else "Hide")
                 )
             ) {
-                toggleNftVisibility(nft)
+                toggleNftVisibility(showingAccountId, nft, navigationController)
+            }
+        )
+        items.add(
+            WMenuPopup.Item(
+                WMenuPopup.Item.Config.Item(
+                    icon = Icon(
+                        org.mytonwallet.app_air.icons.R.drawable.ic_flag_30,
+                        WColor.Red
+                    ),
+                    title = LocaleController.getString(
+                        if (isHidden) "Report" else "Hide and Report"
+                    ),
+                    titleColor = WColor.Red.color
+                )
+            ) {
+                if (isHidden) {
+                    NftActionHelpers.reportNft(
+                        navigationController.window,
+                        showingAccountId,
+                        nft
+                    )
+                } else {
+                    NftActionHelpers.hideAndReportNft(
+                        navigationController.window,
+                        showingAccountId,
+                        nft
+                    )
+                }
             }
         )
         if (canTransferNft) {
@@ -603,12 +680,10 @@ object CollectionsMenuHelpers {
         return items
     }
 
-    private fun makeReorderItem(
-        onReorder: () -> Unit
-    ) = WMenuPopup.Item(
+    private fun makeReorderItem(onReorder: () -> Unit) = WMenuPopup.Item(
         WMenuPopup.Item.Config.Item(
             icon = Icon(
-                org.mytonwallet.app_air.uiassets.R.drawable.ic_reorder,
+                org.mytonwallet.app_air.icons.R.drawable.ic_reorder,
                 WColor.PrimaryLightText
             ),
             title = LocaleController.getString("Reorder")
@@ -625,10 +700,7 @@ object CollectionsMenuHelpers {
         )
     ) { onSelect() }
 
-    fun buildNftOpenInItems(
-        showingAccountId: String,
-        nft: ApiNft
-    ): MutableList<WMenuPopup.Item> {
+    fun buildNftOpenInItems(showingAccountId: String, nft: ApiNft): MutableList<WMenuPopup.Item> {
         val items = mutableListOf<WMenuPopup.Item>()
         if (nft.chain == MBlockchain.ton && nft.collectionAddress != null) {
             items.add(
@@ -661,7 +733,7 @@ object CollectionsMenuHelpers {
                     WMenuPopup.Item(
                         WMenuPopup.Item.Config.Item(
                             icon = Icon(
-                                org.mytonwallet.app_air.uiassets.R.drawable.ic_tonscan,
+                                org.mytonwallet.app_air.icons.R.drawable.ic_tonscan,
                                 tintColor = null,
                                 iconSize = 28.dp
                             ),
@@ -694,7 +766,7 @@ object CollectionsMenuHelpers {
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = Icon(
-                            org.mytonwallet.app_air.uiassets.R.drawable.ic_tondomains,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_tondomains,
                             tintColor = null,
                             iconSize = 28.dp
                         ),
@@ -708,9 +780,7 @@ object CollectionsMenuHelpers {
         return items
     }
 
-    fun canTransferNft(nft: ApiNft): Boolean {
-        return isOwnNft(nft) && !nft.isOnSale
-    }
+    fun canTransferNft(nft: ApiNft): Boolean = isOwnNft(nft) && !nft.isOnSale
 
     fun isOwnNft(nft: ApiNft): Boolean {
         if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
@@ -725,10 +795,7 @@ object CollectionsMenuHelpers {
         ) == ownerAddress
     }
 
-    fun presentRenewModal(
-        navigationController: WNavigationController,
-        nft: ApiNft
-    ) {
+    fun presentRenewModal(navigationController: WNavigationController, nft: ApiNft) {
         val nav = WNavigationController(
             navigationController.window,
             WNavigationController.PresentationConfig(
@@ -739,10 +806,7 @@ object CollectionsMenuHelpers {
         navigationController.window.present(nav)
     }
 
-    fun presentLinkToWalletModal(
-        navigationController: WNavigationController,
-        nft: ApiNft
-    ) {
+    fun presentLinkToWalletModal(navigationController: WNavigationController, nft: ApiNft) {
         val nav = WNavigationController(
             navigationController.window,
             WNavigationController.PresentationConfig(
@@ -802,18 +866,19 @@ object CollectionsMenuHelpers {
         WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
     }
 
-    fun toggleNftVisibility(nft: ApiNft) {
-        if (nft.shouldHide()) {
-            NftStore.showNft(nft)
+    fun toggleNftVisibility(
+        showingAccountId: String,
+        nft: ApiNft,
+        navigationController: WNavigationController
+    ) {
+        if (NftStore.shouldHide(showingAccountId, nft)) {
+            NftStore.showNft(showingAccountId, nft)
         } else {
-            NftStore.hideNft(nft)
+            NftActionHelpers.hideNft(navigationController.window, showingAccountId, nft)
         }
     }
 
-    fun pushBurnNftConfirm(
-        navigationController: WNavigationController,
-        nft: ApiNft
-    ) {
+    fun pushBurnNftConfirm(navigationController: WNavigationController, nft: ApiNft) {
         pushOnTopNavigationController(
             navigationController,
             ConfirmNftVC(
@@ -825,10 +890,7 @@ object CollectionsMenuHelpers {
         )
     }
 
-    fun pushSendNfts(
-        navigationController: WNavigationController,
-        nfts: List<ApiNft>
-    ) {
+    fun pushSendNfts(navigationController: WNavigationController, nfts: List<ApiNft>) {
         if (nfts.isEmpty()) return
         pushOnTopNavigationController(
             navigationController,
@@ -836,10 +898,7 @@ object CollectionsMenuHelpers {
         )
     }
 
-    fun pushBurnNftsConfirm(
-        navigationController: WNavigationController,
-        nfts: List<ApiNft>
-    ) {
+    fun pushBurnNftsConfirm(navigationController: WNavigationController, nfts: List<ApiNft>) {
         val chain = nfts.firstOrNull()?.chain ?: return
         pushOnTopNavigationController(
             navigationController,

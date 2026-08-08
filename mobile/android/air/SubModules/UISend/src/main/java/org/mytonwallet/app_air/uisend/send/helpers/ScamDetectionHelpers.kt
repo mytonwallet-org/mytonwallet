@@ -2,14 +2,15 @@ package org.mytonwallet.app_air.uisend.send.helpers
 
 import android.text.Spannable
 import android.text.style.ForegroundColorSpan
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.TRON_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -18,7 +19,6 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 class ScamDetectionHelpers {
     companion object {
@@ -26,13 +26,10 @@ class ScamDetectionHelpers {
 
         private val SCAM_DOMAIN_ADDRESS_REGEX = Regex("""^[-\w]{26,}\.""")
 
-        fun shouldShowDomainScamWarning(address: String): Boolean {
-            return SCAM_DOMAIN_ADDRESS_REGEX.containsMatchIn(address)
-        }
+        fun shouldShowDomainScamWarning(address: String): Boolean =
+            SCAM_DOMAIN_ADDRESS_REGEX.containsMatchIn(address)
 
-        fun shouldShowSeedPhraseScamWarning(
-            transferTokenChain: MBlockchain
-        ): Boolean {
+        fun shouldShowSeedPhraseScamWarning(transferTokenChain: MBlockchain): Boolean {
             val account = AccountStore.activeAccount ?: return false
 
             // Only check for recently imported accounts (within 1 hour)
@@ -48,10 +45,12 @@ class ScamDetectionHelpers {
 
             // Check if account has TRON tokens (like USDT)
             val hasTronTokens = BalanceStore.getBalances(account.accountId)?.any { balance ->
-                if (balance.key == TRON_USDT_SLUG)
-                    return@any true
+                if (balance.key == TRON_USDT_SLUG) return@any true
                 val token = TokenStore.getToken(balance.key) ?: return false
-                return@any (token.slug != TRON_SLUG && token.mBlockchain == MBlockchain.tron && balance.value > BigInteger.ZERO)
+                return@any (
+                    token.slug != TRON_SLUG && token.mBlockchain == MBlockchain.tron &&
+                        balance.value > BigInteger.ZERO
+                    )
             } ?: false
 
             return hasTronTokens
@@ -60,8 +59,11 @@ class ScamDetectionHelpers {
         private fun seedScamHelpUrl(): String {
             val ctx = ApplicationContextHolder.applicationContext
             val lang = WGlobalStorage.getLangCode()
-            val resId = if (lang == "ru") BaseR.string.app_help_scam_url_ru
-            else BaseR.string.app_help_scam_url_en
+            val resId = if (lang == "ru") {
+                BaseR.string.app_help_scam_url_ru
+            } else {
+                BaseR.string.app_help_scam_url_en
+            }
             return ctx.getString(resId)
                 .ifEmpty { ctx.getString(BaseR.string.app_help_scam_url_en) }
         }
@@ -69,19 +71,20 @@ class ScamDetectionHelpers {
         private fun domainScamHelpUrl(): String {
             val ctx = ApplicationContextHolder.applicationContext
             val lang = WGlobalStorage.getLangCode()
-            val resId = if (lang == "ru") BaseR.string.app_help_domain_scam_url_ru
-            else BaseR.string.app_help_domain_scam_url_en
+            val resId = if (lang == "ru") {
+                BaseR.string.app_help_domain_scam_url_ru
+            } else {
+                BaseR.string.app_help_domain_scam_url_en
+            }
             return ctx.getString(resId)
                 .ifEmpty { ctx.getString(BaseR.string.app_help_domain_scam_url_en) }
         }
 
-        fun scamWarningMessage(): CharSequence {
-            return buildScamWarningMessage("\$seed_phrase_scam_warning", seedScamHelpUrl())
-        }
+        fun scamWarningMessage(): CharSequence =
+            buildScamWarningMessage("\$seed_phrase_scam_warning", seedScamHelpUrl())
 
-        fun domainScamWarningMessage(): CharSequence {
-            return buildScamWarningMessage("\$domain_like_scam_warning", domainScamHelpUrl())
-        }
+        fun domainScamWarningMessage(): CharSequence =
+            buildScamWarningMessage("\$domain_like_scam_warning", domainScamHelpUrl())
 
         private fun buildScamWarningMessage(
             messageKey: String,
@@ -107,8 +110,9 @@ class ScamDetectionHelpers {
                 )
                 spannable.setSpan(
                     WClickableSpan(helpCenterUrl) {
-                        if (helpCenterUrl.isNotEmpty())
+                        if (helpCenterUrl.isNotEmpty()) {
                             WalletCore.notifyEvent(WalletEvent.OpenUrl(helpCenterUrl))
+                        }
                     },
                     start,
                     end,

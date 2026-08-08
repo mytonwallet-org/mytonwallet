@@ -6,6 +6,6 @@ sealed class WordCheckMode {
         val isFirstWalletToAdd: Boolean,
         val isFirstPasscodeProtectedWallet: Boolean,
         // Used when adding new account (not first account!)
-        var passedPasscode: String?
+        var passedEnclaveToken: String?
     ) : WordCheckMode()
 }

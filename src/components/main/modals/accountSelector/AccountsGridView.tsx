@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useRef } from '../../../../lib/teact/teact';
 
+import type { ApiChain } from '../../../../api/types';
 import type { Account, AccountSettings, AccountType } from '../../../../global/types';
 import type { AccountTab } from './constants';
 
@@ -19,6 +20,7 @@ interface OwnProps {
   activeTab: AccountTab;
   balancesByAccountId: Record<string, { wholePart: string; fractionPart?: string; currencySymbol: string }>;
   settingsByAccountId?: Record<string, AccountSettings>;
+  addressLineChainsByAccountId?: Record<string, ApiChain[]>;
   currentAccountId: string;
   isSensitiveDataHidden?: true;
   onSwitchAccount: (accountId: string) => void;
@@ -36,6 +38,7 @@ function AccountsGridView({
   activeTab,
   balancesByAccountId,
   settingsByAccountId,
+  addressLineChainsByAccountId,
   currentAccountId,
   isSensitiveDataHidden,
   onSwitchAccount,
@@ -69,6 +72,7 @@ function AccountsGridView({
         isTestnet={isTestnet}
         accountId={accountId}
         byChain={byChain}
+        visibleChains={addressLineChainsByAccountId?.[accountId]}
         accountType={accountType}
         isActive={isActive}
         title={title}

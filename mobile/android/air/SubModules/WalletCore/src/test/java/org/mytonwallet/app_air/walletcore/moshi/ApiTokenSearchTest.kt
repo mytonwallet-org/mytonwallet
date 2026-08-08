@@ -21,6 +21,20 @@ class ApiTokenSearchTest {
     }
 
     @Test
+    fun matchesLocalizedNameInSwapAsset() {
+        val token = MApiSwapAsset(
+            name = "Tether USD",
+            localizedName = "تتر",
+            symbol = "USDT",
+            chain = "ton",
+            slug = "ton-usdt",
+            decimals = 6
+        )
+
+        assertTrue(token.matchesSearch("تت"))
+    }
+
+    @Test
     fun keepsExistingNameSymbolAddressAndKeywordMatches() {
         val token = testToken(
             name = "Custom Coin",
@@ -42,7 +56,7 @@ class ApiTokenSearchTest {
         chain: String = "tron",
         tokenAddress: String? = null,
         keywords: List<String>? = null,
-        label: String? = null,
+        label: String? = null
     ) = ApiTokenWithPrice(
         name = name,
         symbol = symbol,

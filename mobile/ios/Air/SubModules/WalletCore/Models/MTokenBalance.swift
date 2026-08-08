@@ -76,6 +76,16 @@ public struct MTokenBalance: Equatable, Hashable, Sendable {
 }
 
 extension MTokenBalance {
+    public struct Presentation: Equatable, Sendable {
+        public let visible: [MTokenBalance]
+        public let hidden: [MTokenBalance]
+
+        public init(visible: [MTokenBalance], hidden: [MTokenBalance]) {
+            self.visible = visible
+            self.hidden = hidden
+        }
+    }
+
     public static func sortedForBalanceData(tokenBalances: [MTokenBalance],
                                             balances: [String: BigInt],
                                             defaultTokenSlugs: OrderedSet<String>,
@@ -96,6 +106,77 @@ extension MTokenBalance {
                      priorityTokenSlugs: defaultTokenSlugs,
                      amountInBaseCurrency: \.toUsd)
         return sortedTokens
+    }
+
+    public static func presentationForUI(walletTokens: [MTokenBalance],
+                                         walletStaked: [MTokenBalance] = [],
+                                         account: MAccount,
+                                         assetsAndActivityData: MAssetsAndActivityData,
+                                         hidesTokensWithNoCost: Bool) -> Presentation {
+        let balances = Dictionary(
+            walletTokens.map { ($0.tokenSlug, $0.balance) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        let showsDefaultTokens = shouldShowDefaultTokens(walletTokens: walletTokens)
+        let defaultTokenSlugs = ApiToken.defaultSlugs(
+            forNetwork: account.network,
+            account: account
+        )
+        var walletTokens = walletTokens
+        for slug in assetsAndActivityData.importedSlugs where !walletTokens.contains(where: { $0.tokenSlug == slug }) {
+            if account.supports(chain: TokenStore.tokens[slug]?.chain) {
+                walletTokens.append(MTokenBalance(tokenSlug: slug, balance: 0, isStaking: false))
+            }
+        }
+        if showsDefaultTokens {
+            let slugsInWallet = Set(walletTokens.map(\.tokenSlug))
+            for slug in defaultTokenSlugs.subtracting(slugsInWallet) {
+                if account.supports(chain: TokenStore.tokens[slug]?.chain) {
+                    walletTokens.append(MTokenBalance(tokenSlug: slug, balance: 0, isStaking: false))
+                }
+            }
+        }
+
+        let orderedTokens = sortedForUI(
+            tokenBalances: walletTokens + walletStaked,
+            assetsAndActivityData: assetsAndActivityData,
+            balances: balances,
+            defaultTokenSlugs: defaultTokenSlugs
+        )
+        let automaticallyVisibleSlugs = assetsAndActivityData.importedSlugs
+            .union(showsDefaultTokens ? Set(defaultTokenSlugs) : [])
+
+        let (visible, hidden) = orderedTokens.partition { token in
+            if assetsAndActivityData.isTokenHidden(
+                slug: token.tokenSlug,
+                isStaking: token.isStaking
+            ) {
+                return false
+            }
+            if token.isStaking
+                || !hidesTokensWithNoCost
+                || automaticallyVisibleSlugs.contains(token.tokenSlug)
+                || token.token?.isPricelessToken == true {
+                return true
+            }
+            return (token.toUsd ?? 0) > TINY_TRANSFER_MAX_COST
+        }
+        return Presentation(visible: visible, hidden: hidden)
+    }
+
+    private static func shouldShowDefaultTokens(walletTokens: [MTokenBalance]) -> Bool {
+        let tokensAffectingWalletValue = walletTokens.filter { token in
+            token.tokenSlug != STAKED_TON_SLUG
+                && token.tokenSlug != STAKED_MYCOIN_SLUG
+                && token.tokenSlug != TON_TSUSDE_SLUG
+        }
+        let totalBalance = tokensAffectingWalletValue.reduce(0) {
+            $0 + ($1.toBaseCurrency ?? 0)
+        }
+        let totalBalanceUsd = tokensAffectingWalletValue.reduce(0) {
+            $0 + ($1.toUsd ?? 0)
+        }
+        return totalBalance == 0 || totalBalanceUsd < TINY_TRANSFER_MAX_COST
     }
 
     /// ## Group / Sort Rules
@@ -158,17 +239,6 @@ extension MTokenBalance {
         }
     }
 
-    public static func sortedForTokenPicker(tokenBalances: [MTokenBalance],
-                                            defaultTokenSlugs: OrderedSet<String>) -> [MTokenBalance] {
-        var sortedTokens = tokenBalances
-        sortUnpinned(tokens: &sortedTokens,
-                     tokenName: { $0.displayName ?? $0.tokenSlug },
-                     tokenSlug: \.tokenSlug,
-                     priorityTokenSlugs: defaultTokenSlugs,
-                     amountInBaseCurrency: \.toUsd)
-        return sortedTokens
-    }
-    
     /// For new wallet, default tokens order is hardcoded. Imported tokens are sorted by regular rules.
     private static func sortForNewWallet<T>(tokens: [T],
                                             tokenName: (T) -> String,
@@ -291,7 +361,7 @@ extension MTokenBalance {
     public static func displayName(apiToken: ApiToken, isStaking: Bool, strippingLabelWhenShown: Bool = false) -> String {
         let name = apiToken.displayName(strippingLabelWhenShown: strippingLabelWhenShown)
         if isStaking {
-            return name + " Staking"
+            return lang("%token% Staking", arg1: name)
         } else {
             return name
         }

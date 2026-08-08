@@ -4,7 +4,7 @@ import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiTokenWithPr
 import type { AmountInputToken } from '../../ui/AmountInput';
 
 import { calculateTokenPrice } from '../../../util/calculatePrice';
-import { getIsActiveStakingState } from '../../../util/staking';
+import { getIsActiveStakingState, getIsNewStakeAllowed } from '../../../util/staking';
 
 interface Options {
   tokenBySlug?: Record<string, ApiTokenWithPrice>;
@@ -12,12 +12,15 @@ interface Options {
   shouldUseNominators?: boolean;
   selectedStakingId?: string;
   isViewMode?: boolean;
+  // Keeps active positions of tokens closed for new stakes selectable (e.g. to navigate to them), even when not
+  // selected. Only for the info view; the new-stake form must omit it so closed tokens can't start a new stake.
+  shouldKeepActiveBlockedStates?: boolean;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
 }
 
 export function useTokenDropdown({
-  tokenBySlug, states, shouldUseNominators, selectedStakingId, isViewMode,
+  tokenBySlug, states, shouldUseNominators, selectedStakingId, isViewMode, shouldKeepActiveBlockedStates,
   baseCurrency, currencyRates,
 }: Options) {
   const selectableTokens = useMemo<AmountInputToken[]>(() => {
@@ -25,7 +28,9 @@ export function useTokenDropdown({
       return [];
     }
 
-    let stakingTokens = getStakingTokens(tokenBySlug, states, shouldUseNominators);
+    let stakingTokens = getStakingTokens(
+      tokenBySlug, states, shouldUseNominators, selectedStakingId, shouldKeepActiveBlockedStates,
+    );
 
     if (isViewMode) {
       stakingTokens = stakingTokens.filter(({ id }) => id === selectedStakingId);
@@ -38,7 +43,8 @@ export function useTokenDropdown({
 
     return result;
   }, [
-    tokenBySlug, states, shouldUseNominators, isViewMode, selectedStakingId, baseCurrency, currencyRates,
+    tokenBySlug, states, shouldUseNominators, isViewMode, selectedStakingId, shouldKeepActiveBlockedStates,
+    baseCurrency, currencyRates,
   ]);
 
   const selectedToken = useMemo(
@@ -49,10 +55,12 @@ export function useTokenDropdown({
   return [selectedToken, selectableTokens] as const;
 }
 
-function getStakingTokens(
+export function getStakingTokens(
   tokenBySlug: Record<string, ApiTokenWithPrice>,
   states: ApiStakingState[],
   shouldUseNominators?: boolean,
+  selectedStakingId?: string,
+  shouldKeepActiveBlockedStates?: boolean,
 ) {
   const hasNominatorsStake = states.some((state) => state.type === 'nominators' && getIsActiveStakingState(state));
   const hasLiquidStake = states.some((state) => state.type === 'liquid' && getIsActiveStakingState(state));
@@ -66,7 +74,10 @@ function getStakingTokens(
   }
 
   return states
-    .filter((state) => tokenBySlug[state.tokenSlug])
+    .filter((state) => tokenBySlug[state.tokenSlug]
+      && (getIsNewStakeAllowed(state.tokenSlug)
+        || state.id === selectedStakingId
+        || (shouldKeepActiveBlockedStates && getIsActiveStakingState(state))))
     .map<ApiTokenWithPrice & { id: string }>((state) => ({
       ...tokenBySlug[state.tokenSlug],
       id: state.id,

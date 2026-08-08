@@ -47,6 +47,10 @@ public struct MFee: Equatable, Hashable, Codable, Sendable {
     public var isNativeOnly: Bool {
         (terms.token ?? 0) == 0 && (terms.stars ?? 0) == 0
     }
+
+    public var nativeSumOrTerms: BigInt? {
+        nativeSum ?? (isNativeOnly ? terms.native : nil)
+    }
     
     public func toString(
         token: ApiToken,

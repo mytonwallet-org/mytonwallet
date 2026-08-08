@@ -39,7 +39,7 @@ $footerPaddingBottom: 1rem;
   position: absolute;
   z-index: 3;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   width: 100%;
   height: calc($headerHeight + $tabsHeight);
@@ -141,7 +141,7 @@ $footerPaddingBottom: 1rem;
 .tabsContainer {
   position: absolute;
   top: calc($headerHeight + var(--top-height-compensation));
-  left: 0;
+  inset-inline-start: 0;
 
   width: 100%;
   height: $tabsHeight;
@@ -272,9 +272,9 @@ $footerPaddingBottom: 1rem;
     content: '';
 
     position: absolute;
-    right: 0;
     bottom: 0.5rem;
-    left: -5.125rem;
+    inset-inline-start: -5.125rem;
+    inset-inline-end: 0;
 
     width: 4.5rem;
     height: 0.0625rem;
@@ -284,8 +284,8 @@ $footerPaddingBottom: 1rem;
 
   &::after {
     position: absolute;
-    right: -5.125rem;
     left: auto;
+    inset-inline-end: -5.125rem;
   }
 }
 

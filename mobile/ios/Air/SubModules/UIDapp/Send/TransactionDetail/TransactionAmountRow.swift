@@ -69,14 +69,14 @@ struct TransactionAmountRow: View {
             .map { $0.formatted(.defaultAdaptive, maxDecimals: 4) }
             .joined(separator: " + ")
         )
-        .font(.system(size: 16, weight: .medium))
+        .textStyle(.calloutEmphasized, content: .technical)
     }
     
     @ViewBuilder
     var subtitle: some View {
         if let totalBaseCurrencyAmount {
             Text(totalBaseCurrencyAmount.formatted(.baseCurrencyEquivalent))
-                .font(.system(size: 14, weight: .regular))
+                .textStyle(.supporting, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
         }
     }

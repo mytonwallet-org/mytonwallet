@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uisettings.viewControllers.mfa
 import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
+import java.math.BigInteger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +16,6 @@ import org.mytonwallet.app_air.walletcore.buildMfaStartParam
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.math.BigInteger
 
 class MfaFlowViewModel(val accountId: String) {
 
@@ -27,7 +27,7 @@ class MfaFlowViewModel(val accountId: String) {
         val installRequestId: String? = null,
         val installCandidateUser: AccountMfa.User? = null,
         val removeRequestId: String? = null,
-        val isRefreshingMfa: Boolean = false,
+        val isRefreshingMfa: Boolean = false
     ) {
         val isWaitingForTelegramInstall: Boolean
             get() = installRequestId != null && installCandidateUser == null
@@ -115,7 +115,7 @@ class MfaFlowViewModel(val accountId: String) {
                 req.user?.let { user ->
                     _stateFlow.value = state.copy(
                         installCandidateUser = user,
-                        installRequestId = null,
+                        installRequestId = null
                     )
                     requestInstallConfirmationIfNeeded()
                 }

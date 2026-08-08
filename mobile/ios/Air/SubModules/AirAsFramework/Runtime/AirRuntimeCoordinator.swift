@@ -1,5 +1,6 @@
 import UIKit
 import SwiftUI
+import UserNotifications
 import UIDapp
 import UIInAppBrowser
 import UIComponents
@@ -34,6 +35,7 @@ final class AirRuntimeCoordinator: NSObject {
     }
 
     func start() {
+        PushNotificationCategoryRegistry.register()
         WalletContextManager.delegate = self
         if #available(iOS 18.4, *) {
             TokenSpotlightIndexer.shared.start()
@@ -44,9 +46,6 @@ final class AirRuntimeCoordinator: NSObject {
         StartupTrace.mark("splash.walletConnect.start")
         InAppBrowserSupport.shared.start()
         StartupTrace.mark("splash.inAppBrowserSupport.start")
-        LocaleManager.rootViewController = { _ in
-            RootStateCoordinator.shared.rootHostViewController
-        }
         Api.prepare(on: RootStateCoordinator.shared.rootHostViewController)
         StartupTrace.mark("splash.api.prepare")
         #if DEBUG
@@ -295,23 +294,11 @@ final class AirRuntimeCoordinator: NSObject {
 
     private func bestToken(accountContext: AccountContext) -> ApiToken? {
         let account = accountContext.account
-        let preferredTokenSlug = ApiToken.defaultSlugs(forNetwork: account.network, account: account).first ?? TONCOIN_SLUG
-        var maxBalance: Double = 0
-        var tokens: [String: Double] = [:]
-
-        for (tokenSlug, balance) in accountContext.balances {
-            let tokenBalance = MTokenBalance(tokenSlug: tokenSlug, balance: balance, isStaking: false)
-            guard let baseCurrencyBalance = tokenBalance.toBaseCurrency, baseCurrencyBalance > 0 else { continue }
-            maxBalance = max(maxBalance, baseCurrencyBalance)
-            tokens[tokenSlug] = baseCurrencyBalance
-        }
-
-        let mostValuableTokenSlugs = tokens.filter { _, value in value == maxBalance }.keys.sorted()
-        let tokenSlug = if let first = mostValuableTokenSlugs.first, !mostValuableTokenSlugs.contains(preferredTokenSlug) {
-            first
-        } else {
-            preferredTokenSlug
-        }
+        let tokenSlug = accountContext.walletTokenPresentation.visible
+            .first(where: { !$0.isStaking })?
+            .tokenSlug
+            ?? ApiToken.defaultSlugs(forNetwork: account.network, account: account).first
+            ?? TONCOIN_SLUG
         return TokenStore.getToken(slug: tokenSlug)
     }
 }
@@ -396,6 +383,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
 
             case .buyWithCard:
                 AppActions.showBuyWithCard(accountContext: accountContext, chain: nil, push: nil)
+
+            case .sellOnCard:
+                AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
 
             case .sell(let cell):
                 handleSell(cell)

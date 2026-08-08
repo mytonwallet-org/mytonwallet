@@ -12,32 +12,27 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 
 object DappWarningPopupHelpers {
 
-    data class WarningContent(
-        val title: CharSequence,
-        val text: CharSequence,
-    )
+    data class WarningContent(val title: CharSequence, val text: CharSequence)
 
     fun warningContent(
         trustStatus: ApiDappUrlTrustStatus,
-        onExploreClick: () -> Unit,
-    ): WarningContent {
-        return when (trustStatus) {
-            ApiDappUrlTrustStatus.INVALID -> WarningContent(
-                title = LocaleController.getString("DappurlTrustStatusInvalidTitle"),
-                text = LocaleController.getString("\$DappurlTrustStatusInvalidHelp"),
-            )
+        onExploreClick: () -> Unit
+    ): WarningContent = when (trustStatus) {
+        ApiDappUrlTrustStatus.INVALID -> WarningContent(
+            title = LocaleController.getString("DappurlTrustStatusInvalidTitle"),
+            text = LocaleController.getString("\$DappurlTrustStatusInvalidHelp")
+        )
 
-            ApiDappUrlTrustStatus.DANGEROUS -> WarningContent(
-                title = LocaleController.getString("DappurlTrustStatusDangerousTitle"),
-                text = LocaleController.getString("\$DappurlTrustStatusDangerousHelp"),
-            )
+        ApiDappUrlTrustStatus.DANGEROUS -> WarningContent(
+            title = LocaleController.getString("DappurlTrustStatusDangerousTitle"),
+            text = LocaleController.getString("\$DappurlTrustStatusDangerousHelp")
+        )
 
-            ApiDappUrlTrustStatus.VERIFIED,
-            ApiDappUrlTrustStatus.UNKNOWN -> WarningContent(
-                title = LocaleController.getString("Unverified Source"),
-                text = reopenInIabWarningText(onExploreClick),
-            )
-        }
+        ApiDappUrlTrustStatus.VERIFIED,
+        ApiDappUrlTrustStatus.UNKNOWN -> WarningContent(
+            title = LocaleController.getString("Unverified Source"),
+            text = reopenInIabWarningText(onExploreClick)
+        )
     }
 
     fun reopenInIabWarningText(onExploreClick: () -> Unit): SpannableStringBuilder {

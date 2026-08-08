@@ -9,17 +9,14 @@ import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
 
-class StickyBottomGradientDrawable(
-    private val colors: IntArray
-) : Drawable() {
+class StickyBottomGradientDrawable(private val colors: IntArray) : Drawable() {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var positions: FloatArray = FloatArray(colors.size)
     private var shader: LinearGradient? = null
 
     fun setStops(newPositions: FloatArray) {
-        if (newPositions.size != positions.size)
-            return
+        if (newPositions.size != positions.size) return
         var changed = false
         for (i in newPositions.indices) {
             if (positions[i] != newPositions[i]) {
@@ -46,8 +43,13 @@ class StickyBottomGradientDrawable(
             return
         }
         shader = LinearGradient(
-            0f, b.top.toFloat(), 0f, b.bottom.toFloat(),
-            colors, positions, Shader.TileMode.CLAMP
+            0f,
+            b.top.toFloat(),
+            0f,
+            b.bottom.toFloat(),
+            colors,
+            positions,
+            Shader.TileMode.CLAMP
         )
         paint.shader = shader
     }

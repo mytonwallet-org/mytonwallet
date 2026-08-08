@@ -1,7 +1,6 @@
 package org.mytonwallet.uihome.wallets.cells
 
 import android.animation.ValueAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -16,6 +15,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
+import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
@@ -23,12 +23,14 @@ import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
@@ -37,7 +39,6 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
 class WalletCardRowCell(
@@ -46,9 +47,10 @@ class WalletCardRowCell(
     private val onTouchStart: (view: WView) -> Unit,
     private val onClick: (accountId: MAccount) -> Unit,
     private val onLongClick: (cell: WalletCardRowCell, view: WView, account: MAccount) -> Unit,
-    private val onCheckChanged: (account: MAccount, isChecked: Boolean) -> Unit,
-) :
-    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView, IWalletCardCell {
+    private val onCheckChanged: (account: MAccount, isChecked: Boolean) -> Unit
+) : WCell(context, LayoutParams(MATCH_PARENT, 60.dp)),
+    WThemedView,
+    IWalletCardCell {
 
     companion object {
         private const val REORDERING_OFFSET = 42f
@@ -58,9 +60,12 @@ class WalletCardRowCell(
     private var isFirst = false
     private var isLast = false
 
+    private val directionSign: Float
+        get() = if (LocaleController.isRTL) -1f else 1f
+
     private val reorderingOffset: Float
         get() {
-            return if (reordering) REORDERING_OFFSET.dp else 0f
+            return if (reordering) REORDERING_OFFSET.dp * directionSign else 0f
         }
 
     private val ripple = WRippleDrawable.create(0f)
@@ -72,7 +77,7 @@ class WalletCardRowCell(
     private val checkboxImageView = AppCompatImageView(context).apply {
         id = generateViewId()
         setImageDrawable(checkboxDrawable)
-        translationX = reorderingOffset - REORDERING_OFFSET.dp
+        translationX = reorderingOffset - REORDERING_OFFSET.dp * directionSign
         alpha = 0f
     }
 
@@ -117,10 +122,10 @@ class WalletCardRowCell(
         AppCompatImageView(context).apply {
             id = generateViewId()
             setImageDrawable(
-                context.getDrawableCompat(org.mytonwallet.uihome.R.drawable.ic_handle)
+                context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_handle)
             )
             alpha = 0f
-            translationX = -reorderingOffset + REORDERING_OFFSET.dp
+            translationX = -reorderingOffset + REORDERING_OFFSET.dp * directionSign
         }
     }
 
@@ -177,7 +182,6 @@ class WalletCardRowCell(
             }
             return false
         }
-
     }.apply {
         background = ripple
         clipChildren = false
@@ -238,15 +242,11 @@ class WalletCardRowCell(
         }
 
         setOnClickListener {
-            if (reordering)
-                setChecked(!isChecked)
-            else
-                account?.let { onClick(it) }
+            if (reordering) setChecked(!isChecked) else account?.let { onClick(it) }
         }
 
         setOnLongClickListener {
-            if (reordering)
-                return@setOnLongClickListener true
+            if (reordering) return@setOnLongClickListener true
             account?.let { onLongClick(this@WalletCardRowCell, this, it) }
             true
         }
@@ -337,13 +337,13 @@ class WalletCardRowCell(
         this.reordering = reordering
 
         // Final target values
-        val checkboxTx = if (reordering) 0f else -REORDERING_OFFSET.dp
+        val checkboxTx = if (reordering) 0f else -REORDERING_OFFSET.dp * directionSign
         val checkboxAlpha = if (reordering) 1f else 0f
 
         val genericTx = reorderingOffset
 
         val valueAlpha = if (reordering) 0f else 1f
-        val handleTx = if (reordering) 0f else REORDERING_OFFSET.dp
+        val handleTx = if (reordering) 0f else REORDERING_OFFSET.dp * directionSign
         val handleAlpha = if (reordering) 1f else 0f
 
         handleButton.isGone = false
@@ -389,10 +389,7 @@ class WalletCardRowCell(
                 lerp(handleStartAlpha, handleAlpha, fraction)
 
             if (fraction == 1f) {
-                if (reordering)
-                    valueLabel.isGone = true
-                else
-                    handleButton.isGone = true
+                if (reordering) valueLabel.isGone = true else handleButton.isGone = true
             }
         }
         if (!animated) {
@@ -410,5 +407,4 @@ class WalletCardRowCell(
             start()
         }
     }
-
 }

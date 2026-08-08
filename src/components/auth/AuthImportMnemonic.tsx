@@ -14,6 +14,7 @@ import { readClipboardContent } from '../../util/clipboard';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { compact } from '../../util/iteratees';
 import { formatEnumeration } from '../../util/langProvider';
+import { toNativeDigits } from '../../util/nativeDigits';
 import { IS_CLIPBOARDS_SUPPORTED } from '../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -201,7 +202,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
 
   const modeTabs = useMemo<TabWithProperties[]>(() => MNEMONIC_COUNTS.map((count, index) => ({
     id: index,
-    title: count === 12 ? lang('12 Words') : lang('24 Words'),
+    title: toNativeDigits(count === 12 ? lang('12 Words') : lang('24 Words')),
     className: styles.modeTab,
   })), [lang]);
   const activeModeIndex = MNEMONIC_COUNTS.indexOf(selectedMnemonicCount);
@@ -233,7 +234,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
         </div>
         <div className={buildClassName(styles.info, styles.infoSmallFont, styles.infoPull)}>
           {renderText(lang('$auth_import_mnemonic_description', {
-            counts: formatEnumeration(lang, [...MNEMONIC_COUNTS], 'or', true),
+            counts: toNativeDigits(formatEnumeration(lang, [...MNEMONIC_COUNTS], 'or', true)),
           }))}
         </div>
 
@@ -257,11 +258,13 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
           </div>
         )}
 
-        <div className={buildClassName(
-          styles.importingContent,
-          selectedMnemonicCount === 12 && styles.importingContent_short,
-          error && styles.importingContent_withError,
-        )}
+        <div
+          className={buildClassName(
+            styles.importingContent,
+            selectedMnemonicCount === 12 && styles.importingContent_short,
+            error && styles.importingContent_withError,
+          )}
+          dir="ltr"
         >
           {MNEMONIC_INPUTS.slice(0, selectedMnemonicCount).map(({ id, label }, i) => (
             <InputMnemonic

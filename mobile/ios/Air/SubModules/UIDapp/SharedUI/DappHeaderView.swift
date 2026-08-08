@@ -1,15 +1,19 @@
 
 import SwiftUI
 import UIKit
+import ProtectedAction
 import UIComponents
 import WalletCore
 import WalletContext
 import Perception
 
-struct DappHeaderView: View {
+struct DappHeaderView: ConfirmationContent {
+
+    @Environment(\.layoutDirection) private var layoutDirection
     
     var dapp: ApiDapp
     var accountContext: AccountContext
+    var compactAction: String = ""
     var customTokenBalance: BigInt? = nil
     var customToken: ApiToken? = nil
     
@@ -17,22 +21,47 @@ struct DappHeaderView: View {
     
     var body: some View {
         WithPerceptionTracking {
-            headerContentLayer
-                .background {
-                    headerBackgroundLayer
+            VStack(spacing: 16) {
+                standardHeader
+
+                if let compactAction = compactAction.nilIfEmpty {
+                    CompactActionSummary {
+                        Text(compactAction)
+                            .textStyle(.bodyEmphasized)
+                    }
                 }
+            }
+        }
+    }
+
+    var compactRepresentation: some View {
+        CompactActionSummary {
+            DappIcon(iconUrl: dapp.iconUrl)
+                .background(Color.air.secondaryFill)
+                .clipShape(.rect(cornerRadius: 5))
+        } label: {
+            Text(compactAction.nilIfEmpty ?? lang("Send")).textStyle(.bodyEmphasized)
+                + Text(" · ")
+                + Text(dapp.name).textStyle(.bodyEmphasized)
+        }
+    }
+
+    private var standardHeader: some View {
+        headerContentLayer
+            .background {
+                headerBackgroundLayer
+            }
             .truncationMode(.middle)
             .allowsTightening(true)
             .foregroundStyle(.white)
             .clipShape(.containerRelative)
             .containerShape(.rect(cornerRadius: 26))
             .padding(.horizontal, 16)
-        }
     }
 
     private var headerBackgroundLayer: some View {
         ZStack {
-            Background()
+            Background(isRightToLeft: layoutDirection == .rightToLeft)
             HStack(spacing: 0) {
                 Color.clear
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -51,7 +80,7 @@ struct DappHeaderView: View {
                 .opacity(0.1)
                 .blendMode(.plusDarker)
         }
-        .clipShape(HeaderLine())
+        .clipShape(HeaderLine(isRightToLeft: layoutDirection == .rightToLeft))
         .padding(.leading, -24)
     }
 
@@ -103,15 +132,15 @@ struct DappHeaderView: View {
     private var leadingContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(accountContext.account.displayName)
-                .font(.system(size: 16, weight: .medium))
+                .textStyle(.calloutEmphasized)
                 .frame(minHeight: 22)
             if let customToken, let customTokenBalance {
                 Text(TokenAmount(customTokenBalance, customToken).formatted(.defaultAdaptive))
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting, content: .technical)
                     .opacity(0.75)
             } else if let balance = accountContext.balance {
                 Text(balance.formatted(.baseCurrencyEquivalent))
-                    .font(.system(size: 14, weight: .regular))
+                    .textStyle(.supporting, content: .technical)
                     .opacity(0.75)
             }
         }
@@ -127,7 +156,6 @@ struct DappHeaderView: View {
                     barInset: .init(top: 0, leading: 0, bottom: 1, trailing: 0)
                 )
             transfer
-                .font(.system(size: 14, weight: .regular))
                 .lineLimit(3)
                 .skeletonPlaceholder(surface: .colored, barInset: .init(top: 1, leading: 0, bottom: 0, trailing: 0))
         }
@@ -136,7 +164,7 @@ struct DappHeaderView: View {
     
     private var title: some View {
         Text(dapp.name)
-            .font(.system(size: 16, weight: .medium))
+            .textStyle(.calloutEmphasized)
             .frame(minHeight: 22)
     }
     
@@ -154,11 +182,12 @@ struct DappHeaderView: View {
     @ViewBuilder
     private var transfer: some View {
         let dappUrlText = Text(dapp.displayUrl)
+            .textStyle(.supporting, content: .technical)
             .foregroundColor(.white.opacity(0.75))
         if showWarning {
             let warning = Text(Image(systemName: "exclamationmark.circle.fill"))
                 .foregroundColor(dapp.resolvedUrlTrustStatus == .dangerous ? Color.air.error : .orange)
-                .fontWeight(.bold)
+                .textStyle(.supportingBold, content: .technical)
             Text("\(dappUrlText)\u{00A0}\(warning)")
                 .imageScale(.small)
                 .contentShape(.rect)
@@ -175,9 +204,10 @@ private struct AngledArea: Shape {
     
     var x: CGFloat
     var radiusMultiplier: CGFloat
+    var isRightToLeft: Bool
     
     nonisolated func path(in rect: CGRect) -> Path {
-        Path {
+        let path = Path {
             let h = rect.height
             let w = rect.width
             let x = w * x
@@ -189,12 +219,15 @@ private struct AngledArea: Shape {
             $0.addLine(to: CGPoint(x: x, y: 2 * h))
             $0.closeSubpath()
         }
+        return path.mirroredHorizontally(in: rect, if: isRightToLeft)
     }
 }
 
 private struct HeaderLine: Shape {
+    var isRightToLeft: Bool
+
     nonisolated func path(in rect: CGRect) -> Path {
-        Path {
+        let path = Path {
             let h = rect.height
             let w = rect.width
             let dx = 0.3 * h
@@ -229,24 +262,34 @@ private struct HeaderLine: Shape {
             $0.addLine(to: CGPoint(x: w, y: 0))
             
         }
+        return path.mirroredHorizontally(in: rect, if: isRightToLeft)
     }
 }
 
 private struct Background: View {
+    var isRightToLeft: Bool
+
     var body: some View {
         ZStack {
             Rectangle()
-            AngledArea(x: 0.05, radiusMultiplier: 0.9)
+            AngledArea(x: 0.05, radiusMultiplier: 0.9, isRightToLeft: isRightToLeft)
                 .fill(.white)
                 .opacity(0.1)
-            AngledArea(x: 0.17, radiusMultiplier: 0.7)
+            AngledArea(x: 0.17, radiusMultiplier: 0.7, isRightToLeft: isRightToLeft)
                 .fill(.white)
                 .opacity(0.1)
-            AngledArea(x: 0.3, radiusMultiplier: 0.55)
+            AngledArea(x: 0.3, radiusMultiplier: 0.55, isRightToLeft: isRightToLeft)
                 .fill(.white)
                 .opacity(0.1)
         }
         .foregroundStyle(.tint)
+    }
+}
+
+private extension Path {
+    nonisolated func mirroredHorizontally(in rect: CGRect, if shouldMirror: Bool) -> Path {
+        guard shouldMirror else { return self }
+        return applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: rect.width, ty: 0))
     }
 }
 
@@ -366,7 +409,7 @@ private struct DappHeaderPreviewGallery: View {
                 ForEach(DappHeaderPreviewData.cases) { previewCase in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(previewCase.title)
-                            .font(.caption)
+                            .textStyle(.caption)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 16)
                         DappHeaderView(
@@ -385,6 +428,10 @@ private struct DappHeaderPreviewGallery: View {
 @available(iOS 18, *)
 #Preview("Normal") {
     DappHeaderPreviewGallery()
+}
+#Preview("RTL") {
+    DappHeaderPreviewGallery()
+        .environment(\.layoutDirection, .rightToLeft)
 }
 #Preview("Skeletons") {
     DappHeaderPreviewGallery()

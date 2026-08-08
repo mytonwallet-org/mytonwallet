@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 
-
 @JsonClass(generateAdapter = true)
 data class MStakingCommonData(
     val liquid: Liquid,
@@ -16,22 +15,18 @@ data class MStakingCommonData(
 }
 
 @JsonClass(generateAdapter = true)
-data class Round(
-    val start: Long,
-    val end: Long,
-    val unlock: Long
-)
+data class Round(val start: Long, val end: Long, val unlock: Long)
 
 @JsonClass(generateAdapter = true)
 data class Liquid(
     val currentRate: Double,
     val nextRoundRate: Double,
-    //val collection: String,
+    // val collection: String,
     val apy: Double,
     val loyaltyApy: LoyaltyApy,
     val available: String,
     val tvl: String? = null,
-    val totalStakers: Long? = null,
+    val totalStakers: Long? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -44,15 +39,7 @@ data class LoyaltyApy(
 )
 
 @JsonClass(generateAdapter = true)
-data class JettonPool(
-    val pool: String,
-    val token: String,
-    val periods: List<Period>
-)
+data class JettonPool(val pool: String, val token: String, val periods: List<Period>)
 
 @JsonClass(generateAdapter = true)
-data class Period(
-    val period: Long,
-    val unstakeCommission: Double,
-    val token: String
-)
+data class Period(val period: Long, val unstakeCommission: Double, val token: String)

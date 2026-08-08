@@ -1,5 +1,6 @@
 import { Address } from '@ton/core';
 
+import { TONCOIN } from '../../config';
 import safeExec from '../../util/safeExec';
 import { trimStringByMaxBytes } from '../../util/text';
 import { resolveOrValidate } from '../../util/validateAddress';
@@ -14,9 +15,10 @@ interface TransferRow {
   resolvedAddress?: string;
 }
 
-export function isTonIdentifier(identifier: string): boolean {
+export function isNativeTokenIdentifier(identifier: string): boolean {
   const lower = identifier.toLowerCase();
-  return lower === 'ton' || lower === 'toncoin';
+  // The native token slug and its chain name are accepted alongside the current symbol
+  return lower === TONCOIN.symbol.toLowerCase() || lower === TONCOIN.slug || lower === TONCOIN.chain;
 }
 
 async function validateTokenIdentifier(tokenIdentifier: string): Promise<{
@@ -24,7 +26,7 @@ async function validateTokenIdentifier(tokenIdentifier: string): Promise<{
   error?: string;
   tokenInfo?: { tokenAddress: string; symbol: string; name: string; decimals: number };
 }> {
-  if (isTonIdentifier(tokenIdentifier)) {
+  if (isNativeTokenIdentifier(tokenIdentifier)) {
     return { isValid: true };
   }
 

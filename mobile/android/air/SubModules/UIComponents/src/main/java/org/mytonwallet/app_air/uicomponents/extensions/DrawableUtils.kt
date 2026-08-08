@@ -60,7 +60,10 @@ fun Drawable.withGradient(colors: IntArray): Drawable {
 
     val paint = Paint()
     paint.shader = LinearGradient(
-        0f, 0f, canvas.width.toFloat(), 0f,
+        0f,
+        0f,
+        canvas.width.toFloat(),
+        0f,
         colors,
         null,
         Shader.TileMode.CLAMP
@@ -82,6 +85,17 @@ fun Drawable.setBoundsFit(maxSizePx: Int) {
         iw <= 0 || ih <= 0 -> maxSizePx to maxSizePx
         iw >= ih -> maxSizePx to (maxSizePx.toFloat() * ih / iw).toInt()
         else -> (maxSizePx.toFloat() * iw / ih).toInt() to maxSizePx
+    }
+    setBounds(0, 0, width, height)
+}
+
+fun Drawable.setBoundsFitMin(minSizePx: Int) {
+    val iw = intrinsicWidth
+    val ih = intrinsicHeight
+    val (width, height) = when {
+        iw <= 0 || ih <= 0 -> minSizePx to minSizePx
+        iw <= ih -> minSizePx to (minSizePx.toFloat() * ih / iw).toInt()
+        else -> (minSizePx.toFloat() * iw / ih).toInt() to minSizePx
     }
     setBounds(0, 0, width, height)
 }

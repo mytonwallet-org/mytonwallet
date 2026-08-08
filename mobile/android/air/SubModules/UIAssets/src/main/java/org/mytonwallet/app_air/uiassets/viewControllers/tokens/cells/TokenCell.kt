@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:backing-property-naming")
+
 package org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells
 
 import android.annotation.SuppressLint
@@ -11,6 +13,8 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.core.view.isGone
+import java.math.BigInteger
+import kotlin.math.abs
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -28,6 +32,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -38,18 +43,21 @@ import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
+import org.mytonwallet.app_air.walletcore.moshi.StakingState
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
-import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
-class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WThemedView {
+class TokenCell(context: Context, val mode: TokensVC.Mode) :
+    WCell(context),
+    WThemedView {
 
     private val iconView: IconView by lazy {
         val iv = IconView(context, ApplicationContextHolder.adaptiveIconSize.dp)
@@ -169,8 +177,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
     private fun updateTheme(forceUpdate: Boolean) {
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!forceUpdate && !darkModeChanged)
-            return
+        if (!forceUpdate && !darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
         setBackgroundColor(
             if (mode == TokensVC.Mode.HOME) Color.TRANSPARENT else WColor.Background.color,
@@ -200,6 +207,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
     private var accountId: String? = null
     private var tokenBalance: MTokenBalance? = null
     private var baseCurrency: MBaseCurrency? = null
+    private var stakingState: StakingState? = null
     private var isFirst = false
     private var isLast = false
     private var isPinned = false
@@ -222,18 +230,38 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         val tokenChanged =
             this.tokenBalance?.virtualStakingToken != tokenBalance.virtualStakingToken
         val pinnedChanged = this.isPinned != isPinned
+        val token = TokenStore.getToken(tokenBalance.token)
+        val tokenName = token?.let { TokenNameHelper.getTokenName(it, tokenBalance) } ?: ""
+        val stakingState = if (token?.isEarnAvailable == true || tokenBalance.isVirtualStakingRow) {
+            StakingStore.getStakingState(accountId)?.stakingState(token?.slug)
+        } else {
+            null
+        }
         if (!accountChanged &&
             this.tokenBalance == tokenBalance &&
             this.baseCurrency == baseCurrency &&
-            !pinnedChanged
+            !pinnedChanged &&
+            topLeftLabel.text?.toString() == tokenName
         ) {
             updateTheme(forceUpdate = firstChanged || lastChanged)
+            if (this.stakingState != stakingState) {
+                this.stakingState = stakingState
+                tagHelper.configure(
+                    this,
+                    topLeftLabel,
+                    topRightLabel,
+                    accountId,
+                    token,
+                    tokenBalance
+                )
+            }
             return
         }
 
         this.accountId = accountId
         this.tokenBalance = tokenBalance
         this.baseCurrency = baseCurrency
+        this.stakingState = stakingState
         this.isPinned = isPinned
         updateTheme(forceUpdate = firstChanged || lastChanged)
         if (pinnedChanged && !accountChanged) {
@@ -253,15 +281,15 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         topRightLabel.updateProtectedView(false)
         bottomRightLabel.updateProtectedView(false)
 
-        val token = TokenStore.getToken(tokenBalance.token)
         iconView.config(
             tokenBalance,
             showChain = isMultichain,
-            showPercentBadge = (tokenBalance.isVirtualStakingRow && tokenBalance.amountValue > BigInteger.ZERO)
+            showPercentBadge = (
+                tokenBalance.isVirtualStakingRow &&
+                    tokenBalance.amountValue > BigInteger.ZERO
+                )
         )
-        val tokenName = token?.let { TokenNameHelper.getTokenName(token, tokenBalance) } ?: ""
-        if (topLeftLabel.text != tokenName)
-            topLeftLabel.text = tokenName
+        if (topLeftLabel.text != tokenName) topLeftLabel.text = tokenName
         val animateTexts = !accountChanged && !tokenChanged
         topRightLabel.contentView.animateText(
             tokenBalance.amountValue.toString(
@@ -270,7 +298,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
                 currencyDecimals = tokenBalance.amountValue.smartDecimalsCount(
                     token?.decimals ?: 9
                 ),
-                showPositiveSign = false,
+                showPositiveSign = false
             ),
             animateTexts
         )
@@ -365,6 +393,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         val decimals = resolvedToken?.decimals ?: 9
         val amountText =
             price.toString(decimals, WalletCore.baseCurrency.sign, decimals, true) ?: ""
+        val directionalAmountText =
+            if (LocaleController.isRTL) "\u200F\u200E$amountText\u200F" else amountText
 
         val percentChange = pricedToken.percentChange24h
         val percentChangeText = when {
@@ -374,13 +404,15 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         }
 
         if (percentChangeText.isEmpty()) {
-            bottomLeftLabel.text = amountText
+            bottomLeftLabel.text = directionalAmountText
             return
         }
 
-        val formattedText = amountText + percentChangeText
+        val formattedText =
+            directionalAmountText + (if (LocaleController.isRTL) " · \u202D" else "") +
+                percentChangeText.withLocalizedNumbers
         val spannableString = SpannableString(formattedText)
-        val amountLength = amountText.length
+        val amountLength = directionalAmountText.length + (if (LocaleController.isRTL) 3 else 0)
 
         spannableString.setSpan(
             ForegroundColorSpan(WColor.SecondaryText.color),
@@ -400,5 +432,4 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
         bottomLeftLabel.text = spannableString
     }
-
 }

@@ -19,6 +19,7 @@ public let ARBITRUM_CHAIN = "arbitrum"
 public let MONAD_CHAIN = "monad"
 public let AVALANCHE_CHAIN = "avalanche"
 public let HYPERLIQUID_CHAIN = "hyperliquid"
+public let ROBINHOOD_CHAIN = "robinhood"
 
 public let TONCOIN_SLUG = "toncoin"
 public let TON_USDT_SLUG = "ton-eqcxe6mutq"
@@ -44,13 +45,12 @@ public let AVALANCHE_SLUG = "ava"
 public let AVALANCHE_USDT_MAINNET_SLUG = "avalanche-0x9702230a"
 public let HYPERLIQUID_SLUG = "hyperliquid"
 public let HYPERLIQUID_USDC_MAINNET_SLUG = "hyperliquid-0xb88339cb"
+public let ROBINHOOD_SLUG = "robinhood"
 public let MYCOIN_SLUG = "ton-eqcfvnlrbn"
 public let STAKED_TON_SLUG = "ton-eqcqc6ehrj"
 public let STAKED_MYCOIN_SLUG = "ton-eqcbzvsfwq"
 public let TON_USDE_SLUG = "ton-eqaib6kmdf"
 public let TON_TSUSDE_SLUG = "ton-eqdq5uuyph"
-
-public let EARN_AVAILABLE_SLUGS = [TONCOIN_SLUG, MYCOIN_SLUG]
 
 public let DIESEL_TOKENS = [
     "EQAvlWFDxGF2lXm67y4yzC17wYKD9A0guwPkMs1gOsM__NOT", // NOT

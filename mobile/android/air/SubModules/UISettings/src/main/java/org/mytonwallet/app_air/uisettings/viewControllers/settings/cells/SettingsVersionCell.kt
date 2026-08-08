@@ -22,7 +22,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 class SettingsVersionCell(
     private val window: WWindow,
     private val onDebugMenuRequested: () -> Unit
-) : WCell(window), WThemedView {
+) : WCell(window),
+    WThemedView {
 
     companion object {
         const val HEIGHT = 40

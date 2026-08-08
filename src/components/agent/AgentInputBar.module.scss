@@ -64,7 +64,8 @@
   height: auto;
   min-height: 2.75rem !important;
   max-height: 7.5rem;
-  padding: 0.75rem 2.75rem 0.75rem 0.75rem !important;
+  padding-block: 0.75rem !important;
+  padding-inline: 0.75rem 2.75rem !important;
   border: none !important;
   border-radius: 1.4375rem !important;
 
@@ -86,8 +87,8 @@
   cursor: var(--custom-cursor, pointer);
 
   position: absolute;
-  right: 0.75rem;
   bottom: 0.625rem;
+  inset-inline-end: 0.75rem;
 
   display: flex;
   align-items: center;
@@ -136,7 +137,7 @@
 
   width: 2.75rem;
   height: 2.75rem;
-  margin-left: 0.5rem;
+  margin-inline-start: 0.5rem;
   border: none;
   border-radius: 50%;
 
@@ -146,12 +147,12 @@
   background-color: var(--color-accent);
   outline: none;
 
-  @include mixins.transition("transform 200ms ease, opacity 200ms ease, margin-left 200ms ease");
+  @include mixins.transition("transform 200ms ease, opacity 200ms ease, margin-inline-start 200ms ease");
 
   &:global(.not-open) {
     pointer-events: none;
     transform: scale(0);
-    margin-left: -2.75rem;
+    margin-inline-start: -2.75rem;
     opacity: 0;
   }
 

@@ -1,4 +1,11 @@
-import type { ApiChain, ApiNetwork, ApiNft, ApiNftCollection, OnApiUpdate } from '../types';
+import type {
+  ApiChain,
+  ApiNetwork,
+  ApiNft,
+  ApiNftCollection,
+  ApiReportNftOptions,
+  OnApiUpdate,
+} from '../types';
 
 import { bigintDivideToNumber } from '../../util/bigint';
 import { getChainConfig } from '../../util/chain';
@@ -9,6 +16,7 @@ import { parseTonapiioNft } from '../chains/ton/util/metadata';
 import { fetchNftByAddress as fetchRawNftByAddress } from '../chains/ton/util/tonapiio';
 import { fetchStoredWallet } from '../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../common/addresses';
+import { callBackendPost } from '../common/backend';
 import { publishSignedMfaRequest, refreshMfaState, registerMfaConfirmationHandler } from './mfa';
 import { createLocalTransactions } from './transfer';
 
@@ -43,7 +51,7 @@ export function checkNftTransferDraft(chain: ApiChain, options: {
 export async function submitNftTransfers(
   chain: ApiChain,
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   nfts: ApiNft[],
   toAddress: string,
   comment?: string,
@@ -63,7 +71,7 @@ export async function submitNftTransfers(
   });
 
   const result = await chains[chain].submitNftTransfers({
-    accountId, password, nfts, toAddress, comment, isNftBurn,
+    accountId, enclaveToken, nfts, toAddress, comment, isNftBurn,
   });
 
   if ('error' in result) {
@@ -119,7 +127,7 @@ export async function submitNftTransfers(
   })));
 
   if (chain === 'ton') {
-    void refreshMfaState(accountId, password)
+    void refreshMfaState(accountId, enclaveToken)
       .then((mfaUpdate) => {
         if (mfaUpdate?.changed) {
           onUpdate({
@@ -148,4 +156,12 @@ export async function fetchNftByAddress(network: ApiNetwork, nftAddress: string)
 
 export async function checkNftOwnership(chain: ApiChain, accountId: string, nftAddress: string) {
   return chains[chain].checkNftOwnership(accountId, nftAddress);
+}
+
+/**
+ * Reports an NFT to the My Wallet backend. The app client ID header supplied by `callBackendPost`
+ * lets the backend deduplicate abuse without exposing a wallet address.
+ */
+export async function reportNft(options: ApiReportNftOptions): Promise<void> {
+  await callBackendPost<{ ok: true }>('/nfts/report', options);
 }

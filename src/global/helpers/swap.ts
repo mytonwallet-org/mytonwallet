@@ -47,18 +47,6 @@ export function doesSwapChangeRequireEstimationReset(globalBefore: GlobalState, 
     || globalBefore.currentSwap.tokenOutSlug !== globalAfter.currentSwap.tokenOutSlug;
 }
 
-export function doesSwapChangeRequireDexUnselect(
-  { currentSwap: swap1 }: GlobalState,
-  { currentSwap: swap2 }: GlobalState,
-) {
-  const amountKey = swap1.inputSource === SwapInputSource.In ? 'amountIn' : 'amountOut';
-
-  return swap1.tokenInSlug !== swap2.tokenInSlug
-    || swap1.tokenOutSlug !== swap2.tokenOutSlug
-    || swap1.inputSource !== swap2.inputSource
-    || !((swap1.isMaxAmount && swap2.isMaxAmount) || swap1[amountKey] === swap2[amountKey]);
-}
-
 /**
  * Returns the `currentSwap` parameters that should be set when it's impossible to estimate the current swap or no
  * estimation has been done.
@@ -75,8 +63,9 @@ export function getSwapEstimateResetParams(global: GlobalState) {
     errorType: undefined,
     limits: undefined,
     dieselStatus: undefined,
-    estimates: undefined,
-    bestRateDexLabel: undefined,
+    dexLabel: undefined,
+    dexRouterLabel: undefined,
+    routes: undefined,
     currentCexLabel: undefined,
     currentCexProviderName: undefined,
     currentCexTermsOfUseUrl: undefined,

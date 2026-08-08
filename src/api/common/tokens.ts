@@ -1,6 +1,6 @@
 import {
   type ApiChain,
-  type ApiTokenDetails,
+  type ApiTokenPriceDetails,
   type ApiTokenWithMaybePrice,
   type ApiTokenWithPrice,
   type OnApiUpdate,
@@ -10,6 +10,7 @@ import { getTokenInfo } from '../../util/chain';
 import Deferred from '../../util/Deferred';
 import { buildCollectionByKey, omitUndefined } from '../../util/iteratees';
 import { tokenRepository } from '../db';
+import { callBackendPost } from './backend';
 
 export const tokensPreload = new Deferred();
 const tokensCache: {
@@ -27,10 +28,51 @@ export async function loadTokensCache() {
   }
 }
 
+export function fetchBackendTokenDetails(assets: string[], langCode?: string): Promise<ApiTokenPriceDetails[]> {
+  return callBackendPost<ApiTokenPriceDetails[]>(buildTokenDetailsPath(langCode), { assets });
+}
+
+/**
+ * Picks the token addresses to ask `POST /assets` about. `GET /assets` covers the enabled tokens, so the request is
+ * for the rest: the rug pulled, the disabled and whatever the backend does not publish.
+ */
+export function buildTokenDetailsPayload(tokens: ApiTokenWithPrice[], options: {
+  /** Slugs returned by `GET /assets` */
+  backendSlugs: Set<string>;
+  /** When given, the payload is limited to the tokens the polled wallets hold */
+  heldSlugs?: Set<string>;
+  maxCount: number;
+}) {
+  const { backendSlugs, heldSlugs, maxCount } = options;
+  const result: string[] = [];
+
+  for (const token of tokens) {
+    if (!token.tokenAddress || backendSlugs.has(token.slug)) continue;
+    // `type` arrives from this very endpoint, so an unclassified LP token is still requested once. Afterwards it is
+    // dropped: an LP token has no price of its own and the UI treats it as a service token.
+    if (token.type === 'lp_token') continue;
+    if (heldSlugs && !heldSlugs.has(token.slug)) continue;
+
+    result.push(token.tokenAddress);
+
+    if (result.length >= maxCount) break;
+  }
+
+  return result;
+}
+
+function buildTokenDetailsPath(langCode?: string) {
+  if (!langCode) {
+    return '/assets';
+  }
+
+  return `/assets?${new URLSearchParams({ langCode }).toString()}`;
+}
+
 export async function updateTokens(
   tokens: ApiTokenWithMaybePrice[],
   sendUpdate?: NoneToVoidFunction,
-  tokenDetails?: ApiTokenDetails[],
+  tokenDetails?: ApiTokenPriceDetails[],
   shouldSendUpdate?: boolean,
 ) {
   const tokensForDb: ApiTokenWithPrice[] = [];
@@ -69,7 +111,7 @@ export async function updateTokens(
 
 function mergeTokenWithCache(
   token: ApiTokenWithMaybePrice,
-  detailsBySlug: Record<string, ApiTokenDetails>,
+  detailsBySlug: Record<string, ApiTokenPriceDetails>,
   cachedToken?: ApiTokenWithPrice,
 ): ApiTokenWithPrice {
   if (cachedToken) {
@@ -77,10 +119,11 @@ function mergeTokenWithCache(
     return {
       ...omitUndefined(token.isFromBackend ? cachedToken : token),
       ...omitUndefined(token.isFromBackend ? token : cachedToken),
+      ...(token.isFromBackend && { localizedName: token.localizedName }),
       priceUsd: token.priceUsd ?? cachedToken.priceUsd,
       percentChange24h: token.percentChange24h ?? cachedToken.percentChange24h,
       // For the scenario where the token was cached previously, but now it's disabled
-      ...omitUndefined((detailsBySlug[token.slug] as ApiTokenDetails | undefined) ?? {}),
+      ...omitUndefined((detailsBySlug[token.slug] as ApiTokenPriceDetails | undefined) ?? {}),
       ...(token.slug in detailsBySlug && { isFromBackend: undefined }),
     };
   } else if (token.slug in detailsBySlug) {
@@ -108,7 +151,18 @@ export function getTokenBySlug(slug: string): ApiTokenWithPrice | undefined {
 }
 
 export function getTokenByAddress(tokenAddress: string, chain?: ApiChain) {
-  return getTokenBySlug(buildTokenSlug(chain ?? 'ton', tokenAddress));
+  if (chain) return getTokenBySlug(buildTokenSlug(chain, tokenAddress));
+
+  const normalizedAddress = normalizeTokenAddress(tokenAddress);
+  const matches = Object.values(tokensCache.bySlug).filter((token) => {
+    return token.tokenAddress && normalizeTokenAddress(token.tokenAddress) === normalizedAddress;
+  });
+
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function normalizeTokenAddress(tokenAddress: string) {
+  return tokenAddress.trim().toLowerCase();
 }
 
 export function sendUpdateTokens(onUpdate: OnApiUpdate) {

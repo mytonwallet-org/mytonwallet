@@ -2,11 +2,11 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MExplainedTransferFee
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
-import java.math.BigInteger
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MExplainedTransferFee
 
 @JsonClass(generateAdapter = true)
 data class MTonTransferParams(
@@ -26,7 +26,7 @@ data class MApiSubmitMultiTransferResult(
     val msgHash: String?,
     val paymentLink: String?,
     val swapId: String? = null,
-    val mfaRequestHash: String? = null,
+    val mfaRequestHash: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -37,39 +37,30 @@ data class MApiCheckTransactionDraftOptions(
     val tokenAddress: String?,
     val stateInit: String?,
     val allowGasless: Boolean?,
-    val payload: ApiTransferPayload?,
+    val payload: ApiTransferPayload?
 )
 
 @JsonSealed("type")
 sealed class ApiTransferPayload {
     @JsonSealedSubtype("comment")
     @JsonClass(generateAdapter = true)
-    data class Comment(
-        val text: String,
-        val shouldEncrypt: Boolean? = null
-    ) : ApiTransferPayload()
+    data class Comment(val text: String, val shouldEncrypt: Boolean? = null) : ApiTransferPayload()
 
     @JsonSealedSubtype("binary")
     @JsonClass(generateAdapter = true)
-    data class Binary(
-        val data: ByteArray
-    ) : ApiTransferPayload() {
+    data class Binary(val data: ByteArray) : ApiTransferPayload() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is Binary) return false
             return data.contentEquals(other.data)
         }
 
-        override fun hashCode(): Int {
-            return data.contentHashCode()
-        }
+        override fun hashCode(): Int = data.contentHashCode()
     }
 
     @JsonSealedSubtype("base64")
     @JsonClass(generateAdapter = true)
-    data class Base64(
-        val data: String
-    ) : ApiTransferPayload()
+    data class Base64(val data: String) : ApiTransferPayload()
 }
 
 @JsonClass(generateAdapter = true)
@@ -105,7 +96,7 @@ data class MApiCheckStakeDraftResult(
     val isMemoRequired: Boolean?,
     val error: MApiAnyDisplayError?,
     val diesel: MTransferDiesel?,
-    val tokenAmount: BigInteger,
+    val tokenAmount: BigInteger
 )
 
 @JsonClass(generateAdapter = true)
@@ -115,7 +106,7 @@ data class MTransferDiesel(
     override val remainingFee: BigInteger?,
     override val nativeAmount: BigInteger?,
     val amount: BigInteger?,
-    val transaction: String? = null,
+    val transaction: String? = null
 ) : IDiesel {
     override val tokenAmount: BigInteger?
         get() = amount
@@ -130,7 +121,7 @@ data class MSwapDiesel(
     override val realFee: BigInteger?,
     override val remainingFee: BigInteger?,
     override val nativeAmount: BigInteger?,
-    val amount: MDieselAmount?,
+    val amount: MDieselAmount?
 ) : IDiesel {
     override val tokenAmount: BigInteger?
         get() = amount?.token
@@ -149,10 +140,7 @@ interface IDiesel {
     val starsAmount: BigInteger?
 }
 
-data class MDieselAmount(
-    val token: BigInteger?,
-    val stars: BigInteger?
-)
+data class MDieselAmount(val token: BigInteger?, val stars: BigInteger?)
 
 @JsonClass(generateAdapter = true)
 data class MApiSubmitTransferOptions(
@@ -164,7 +152,7 @@ data class MApiSubmitTransferOptions(
     val tokenAddress: String? = null,
 
     /** Required only for mnemonic accounts */
-    val password: String,
+    val enclaveToken: String,
     val amount: BigInteger,
     /** To cap the fee in TRON transfers */
     val fee: BigInteger? = null,
@@ -174,7 +162,7 @@ data class MApiSubmitTransferOptions(
     val isGasless: Boolean? = null,
     val dieselAmount: BigInteger? = null,
     val isGaslessWithStars: Boolean? = null,
-    val gaslessTransaction: String? = null,
+    val gaslessTransaction: String? = null
 )
 
 @JsonClass(generateAdapter = false)
@@ -298,43 +286,77 @@ enum class MApiAnyDisplayError {
             return LocaleController.getStringOrNull(
                 when (this) {
                     UNEXPECTED -> "Unexpected"
+
                     // SERVER_ERROR -> if (WalletCore.isConnected())
                     //         "An error on the server side. Please try again."
                     //     else
                     //         "No internet connection. Please check your connection and try again."
                     DEBUG_ERROR -> "Unexpected error. Please let the support know."
+
                     // UNSUPPORTED_VERSION -> null
                     INVALID_MNEMONIC -> "InvalidMnemonic"
+
                     INVALID_PASSWORD -> "Wrong password, please try again."
+
                     // INVALID_ADDRESS -> "Invalid address"
                     INVALID_AMOUNT -> "Invalid amount"
+
                     // INVALID_TO_ADDRESS -> "Invalid address"
                     // INSUFFICIENT_BALANCE -> "Insufficient balance"
                     INVALID_STATE_INIT -> "\$state_init_invalid"
-                    STATE_INIT_WITHOUT_BIN -> "State init supplied without message body" // likely?
+
+                    STATE_INIT_WITHOUT_BIN -> "State init supplied without message body"
+
+                    // likely?
                     // DOMAIN_NOT_RESOLVED -> "Domain is not connected to a wallet"
-                    WALLET_NOT_INITIALIZED -> "Encryption is not possible. The recipient is not a wallet or has no outgoing transactions."
-                    INVALID_ADDRESS_FORMAT -> "Invalid address format. Only URL Safe Base64 format is allowed."
+                    WALLET_NOT_INITIALIZED ->
+                        "Encryption is not possible. The recipient is " +
+                            "not a wallet or has no outgoing transactions."
+
+                    INVALID_ADDRESS_FORMAT ->
+                        "Invalid address format. Only URL Safe Base64 " +
+                            "format is allowed."
+
                     INACTIVE_CONTRACT -> "\$transfer_inactive_contract_error"
+
                     PARTIAL_TRANSACTION_FAILURE -> "Not all transactions were sent successfully"
-                    INCORRECT_DEVICE_TIME -> "The time on your device is incorrect, sync it and try again."
+
+                    INCORRECT_DEVICE_TIME ->
+                        "The time on your device is incorrect, sync it " +
+                            "and try again."
+
                     UNSUCCESSFUL_TRANSFER -> "Transfer was unsuccessful. Try again later."
+
                     MFA_NFT_BATCH_LIMIT -> "MFA NFT transfers support up to 4 NFTs at a time."
-                    CONCURRENT_TRANSACTION -> "Another transaction was sent from this wallet simultaneously. Please try again."
-                    NOT_SUPPORTED_HARDWARE_OPERATION -> "\$ledger_outdated" // most likely
+
+                    CONCURRENT_TRANSACTION ->
+                        "Another transaction was sent from this wallet " +
+                            "simultaneously. Please try again."
+
+                    NOT_SUPPORTED_HARDWARE_OPERATION -> "\$ledger_outdated"
+
+                    // most likely
                     HARDWARE_BLIND_SIGNING_NOT_ENABLED -> "\$hardware_blind_sign_not_enabled"
+
                     REJECTED_BY_USER -> "Canceled by the user"
+
                     PROOF_TOO_LARGE -> "The proof for signing provided by the Dapp is too large"
+
                     CONNECTION_BROKEN -> "\$ledger_connection_broken"
+
                     WRONG_DEVICE -> "\$ledger_wrong_device"
+
                     // ADDRESS_DOES_NOT_EXIST -> "Address doesn't exist"
                     NOT_A_TOKEN_ADDRESS -> "The address is not a token minter address"
+
                     SLIPPAGE_ERROR -> "\$swap_slippage_violation"
+
                     WRONG_ADDRESS -> "WrongAddress"
+
                     WRONG_NETWORK -> "WrongNetwork"
+
                     else -> null
                 }
             )
         }
-
 }

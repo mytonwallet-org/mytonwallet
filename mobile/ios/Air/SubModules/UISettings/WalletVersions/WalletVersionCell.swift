@@ -21,16 +21,23 @@ struct WalletVersionCell: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font17h22()
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
+                    .frame(minHeight: 22)
                 Text(subtitle)
-                    .airFont15h18(weight: .regular)
+                    .textStyle(.subheadline, content: .technical)
+                    .frame(minHeight: 18)
                     .foregroundStyle(Color.air.secondaryLabel)
             }
             .offset(y: -1)
             .frame(maxWidth: .infinity, alignment: .leading)
             if let value, !value.isEmpty {
                 Text(value)
-                    .airFont15h18(weight: .regular)
+                    .textStyle(.subheadline, content: .technical)
+                    .frame(minHeight: 18)
                     .foregroundStyle(Color.air.secondaryLabel)
             }
             if isCurrent {

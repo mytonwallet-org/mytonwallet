@@ -14,7 +14,7 @@ class RecyclerViewGradientItemDecoration(context: Context) : ItemDecoration() {
     val bottom = RecyclerViewGradientDrawable(context, Gravity.BOTTOM)
 
     override fun onDrawOver(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
-        if (!parent.isTopScrollReached) {   // todo animations
+        if (!parent.isTopScrollReached) { // todo animations
             top.setBounds(0, 0, parent.measuredWidth, parent.measuredHeight)
             top.draw(canvas)
         }

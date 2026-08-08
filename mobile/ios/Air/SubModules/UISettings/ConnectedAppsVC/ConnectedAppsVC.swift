@@ -71,8 +71,8 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
-            collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            collectionView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         
@@ -87,6 +87,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: UICollectionView.elementKindSectionHeader) { supplementaryView, _, _ in
             var content = UIListContentConfiguration.groupedHeader()
             content.text = lang("Logged in with %app_name%", arg1: APP_NAME)
+            content.applyTextStyle(.sectionHeader, scaling: .dynamic)
             supplementaryView.contentConfiguration = content
         }
         
@@ -233,7 +234,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
                     description: nil,
                     compactMode: true
                 )
-                emptyDappsView!.lblTitle.font = .systemFont(ofSize: 17, weight: .medium)
+                emptyDappsView!.lblTitle.applyTextStyle(.bodyEmphasized)
                 emptyDappsView?.alpha = 0
                 view.addSubview(emptyDappsView!)
                 NSLayoutConstraint.activate([
@@ -334,10 +335,10 @@ private struct DisconnectAllCellContent: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "hand.raised")
-                .font(.system(size: 22))
+                .textStyle(.title2, content: .technical)
                 .frame(width: 40)
             Text(lang("Disconnect All Apps"))
-                .font(.system(size: 17))
+                .textStyle(.body)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .foregroundStyle(Color.air.error)
@@ -355,7 +356,7 @@ private struct DappCellContent: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(dapp.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .textStyle(.calloutEmphasized)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
                 HStack(spacing: 4) {
@@ -363,10 +364,10 @@ private struct DappCellContent: View {
                         DappOriginWarning(urlTrustStatus: dapp.resolvedUrlTrustStatus)
                     }
                     Text(dapp.displayUrl)
+                        .textStyle(.supporting, content: .technical)
                         .foregroundStyle(Color.air.secondaryLabel)
                         .lineLimit(1)
                 }
-                .font(.system(size: 14))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

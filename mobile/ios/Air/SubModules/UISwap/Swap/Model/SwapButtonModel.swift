@@ -104,9 +104,11 @@ struct SwapButtonConfiguration {
 
 extension WButton {
     func configureTitle(sellingToken: ApiToken, buyingToken: ApiToken) {
+        let sellingSymbol = sellingToken.symbol.leftToRightIsolated
+        let buyingSymbol = buyingToken.symbol.leftToRightIsolated
         let containsChevron = lang("$swap_from_to").contains("%3$@")
         if containsChevron {
-            let s = lang("$swap_from_to", arg1: sellingToken.symbol, arg2: "{{chevron}}", arg3: buyingToken.symbol)
+            let s = lang("$swap_from_to", arg1: sellingSymbol, arg2: "{{chevron}}", arg3: buyingSymbol)
             let a = s.split(separator: "{{chevron}}")
             guard a.count >= 2 else { return }
             let attr = NSMutableAttributedString()
@@ -120,7 +122,7 @@ extension WButton {
             attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
             setAttributedTitle(attr, for: .normal)
         } else {
-            let s = lang("$swap_from_to", arg1: sellingToken.symbol, arg2: buyingToken.symbol)
+            let s = lang("$swap_from_to", arg1: sellingSymbol, arg2: buyingSymbol)
             let attr = NSMutableAttributedString()
             attr.append(NSAttributedString(string: s))
             attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
@@ -144,5 +146,11 @@ extension WButton {
         let attr = NSMutableAttributedString(string: issue.buttonTitle)
         attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
         setAttributedTitle(attr, for: .normal)
+    }
+}
+
+private extension String {
+    var leftToRightIsolated: String {
+        "\u{2066}\(self)\u{2069}"
     }
 }

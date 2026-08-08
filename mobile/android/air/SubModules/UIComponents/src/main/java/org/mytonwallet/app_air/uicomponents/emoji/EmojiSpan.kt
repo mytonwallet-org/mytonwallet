@@ -11,10 +11,8 @@ import android.widget.TextView
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
-class EmojiSpan(
-    private val unified: String,
-    private val viewRef: WeakReference<View?>
-) : ReplacementSpan() {
+class EmojiSpan(private val unified: String, private val viewRef: WeakReference<View?>) :
+    ReplacementSpan() {
 
     private val rect = RectF()
     private var loading = false
@@ -77,13 +75,16 @@ class EmojiSpan(
                             if (s >= 0 && e >= 0) {
                                 spannable.removeSpan(this@EmojiSpan)
                                 spannable.setSpan(
-                                    this@EmojiSpan, s, e,
+                                    this@EmojiSpan,
+                                    s,
+                                    e,
                                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                                 )
                             }
                         }
 
                         is TextView -> view.text = view.text
+
                         else -> view.invalidate()
                     }
                 }
@@ -91,7 +92,5 @@ class EmojiSpan(
         }
     }
 
-    private fun emojiSize(paint: Paint): Int {
-        return (paint.textSize * 1.2f).roundToInt()
-    }
+    private fun emojiSize(paint: Paint): Int = (paint.textSize * 1.2f).roundToInt()
 }

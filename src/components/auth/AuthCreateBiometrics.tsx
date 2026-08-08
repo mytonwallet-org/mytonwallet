@@ -1,54 +1,75 @@
-import React, { memo, useRef } from '../../lib/teact/teact';
+import React, { memo, useLayoutEffect, useRef } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
-import type { AuthMethod } from '../../global/types';
-
-import { getDoesUsePinPad } from '../../util/biometrics';
+import renderText from '../../global/helpers/renderText';
+import { getIsFaceIdAvailable, getIsTouchIdAvailable } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
-import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
+import { PARTICLE_BURST_PARAMS, PARTICLE_PARAMS, setupParticles } from '../../util/particles';
 
+import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
-import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
+import ImageWithParticles, {
+  PARTICLE_COLORS_GREEN,
+  PARTICLE_HEIGHT,
+  PARTICLE_LANDSCAPE_HEIGHT,
+} from '../ui/ImageWithParticles';
 import Header from './Header';
 
 import styles from './Auth.module.scss';
 
+import touchIdSvg from '../../assets/settings/settings_biometrics.svg';
+import faceIdSvg from '../../assets/settings/settings_face-id.svg';
+
 interface OwnProps {
   isActive?: boolean;
-  method?: AuthMethod;
+  isLoading?: boolean;
 }
 
-const AuthCreateBiometrics = ({
-  isActive,
-  method,
-}: OwnProps) => {
-  const {
-    startCreatingBiometrics,
-    resetAuth,
-    skipCreateBiometrics,
-  } = getActions();
+const AuthCreateBiometrics = ({ isActive, isLoading }: OwnProps) => {
+  const { enableBiometrics, skipBiometrics, resetAuth } = getActions();
 
   const lang = useLang();
+  const canvasRef = useRef<HTMLCanvasElement>();
   const headerRef = useRef<HTMLDivElement>();
-  const isImporting = method !== 'createAccount';
-  const title = lang(isImporting ? 'Wallet is imported!' : 'Wallet is ready!');
+  const { isLandscape } = useDeviceScreen();
+
+  const isFaceId = getIsFaceIdAvailable();
+  const isTouchId = getIsTouchIdAvailable();
+  const title = isFaceId
+    ? lang('Use Face ID')
+    : (isTouchId ? lang('Use Touch ID') : lang('enclave_use_biometrics'));
 
   useHistoryBack({
     isActive,
     onBack: resetAuth,
   });
 
-  const handleUsePasswordClick = useLastCallback(() => {
-    skipCreateBiometrics({ isImporting });
+  useLayoutEffect(() => {
+    if (!isActive) return;
+
+    return setupParticles(canvasRef.current!, {
+      color: PARTICLE_COLORS_GREEN,
+      ...PARTICLE_PARAMS,
+      height: isLandscape ? PARTICLE_LANDSCAPE_HEIGHT : PARTICLE_HEIGHT,
+    });
+  }, [isActive, isLandscape]);
+
+  const handleParticlesClick = useLastCallback(() => {
+    setupParticles(canvasRef.current!, {
+      color: PARTICLE_COLORS_GREEN,
+      ...PARTICLE_PARAMS,
+      ...PARTICLE_BURST_PARAMS,
+      height: isLandscape ? PARTICLE_LANDSCAPE_HEIGHT : PARTICLE_HEIGHT,
+    });
   });
 
-  const description = getDoesUsePinPad()
-    ? 'Use biometric authentication or create a passcode to protect it.'
-    : 'Use biometric authentication or create a password to protect it.';
+  const handleEnableBiometrics = useLastCallback(() => {
+    enableBiometrics({ isLoginFlow: true });
+  });
 
   return (
     <div className={styles.wrapper}>
@@ -58,34 +79,34 @@ const AuthCreateBiometrics = ({
         topTargetRef={headerRef}
         onBackClick={resetAuth}
       />
+
       <div className={buildClassName(styles.container, styles.container_scrollable, 'custom-scroll')}>
-        <AnimatedIconWithPreview
-          play={isActive}
-          tgsUrl={ANIMATED_STICKERS_PATHS.guard}
-          previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
-          noLoop={false}
-          nonInteractive
+        <ImageWithParticles
+          canvasRef={canvasRef}
+          imgPath={isFaceId ? faceIdSvg : touchIdSvg}
           className={styles.sticker}
+          onClick={handleParticlesClick}
         />
+
         <div ref={headerRef} className={styles.title}>{title}</div>
-        <p className={styles.info}>
-          {lang(description)}
-        </p>
+        <p className={styles.info}>{renderText(lang('$auth_biometric_info'))}</p>
 
         <div className={styles.buttons}>
           <Button
             isPrimary
             className={styles.btn}
-            onClick={startCreatingBiometrics}
+            isLoading={isLoading}
+            onClick={!isLoading ? handleEnableBiometrics : undefined}
           >
-            {lang('Connect Biometrics')}
+            {lang(isFaceId ? 'Connect Face ID' : (isTouchId ? 'Connect Touch ID' : 'Connect Biometrics'))}
           </Button>
           <Button
             isText
+            isDisabled={isLoading}
             className={buildClassName(styles.btn, styles.btn_text)}
-            onClick={handleUsePasswordClick}
+            onClick={skipBiometrics}
           >
-            {lang(getDoesUsePinPad() ? 'Use Passcode' : 'Use Password')}
+            {lang('Not Now')}
           </Button>
         </div>
       </div>

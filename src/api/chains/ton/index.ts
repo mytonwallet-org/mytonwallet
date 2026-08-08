@@ -96,7 +96,12 @@ export {
   validateMnemonic,
   getWalletFromMnemonic,
   getOtherVersionWallet,
+  getKeyPairFromStoredMnemonic,
 } from './auth';
+export {
+  BACKEND_AUTH_SIGN_MESSAGE,
+  buildBackendAuthToken,
+} from './backendAuth';
 export {
   submitDnsRenewal,
   checkDnsRenewalDraft,

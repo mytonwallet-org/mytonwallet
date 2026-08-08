@@ -11,7 +11,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.theme.colorStateList
 
-class SwapSwapAssetsButton(context: Context) : AppCompatImageView(context), WThemedView {
+class SwapSwapAssetsButton(context: Context) :
+    AppCompatImageView(context),
+    WThemedView {
     init {
         updateTheme()
 
@@ -25,7 +27,8 @@ class SwapSwapAssetsButton(context: Context) : AppCompatImageView(context), WThe
             RoundedColorDrawable(WColor.SecondaryBackground.color).apply {
                 setRadius(16f.dp)
             },
-            WColor.tintRippleColor, 16f.dp
+            WColor.tintRippleColor,
+            16f.dp
         )
     }
 }

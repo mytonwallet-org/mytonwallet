@@ -9,9 +9,8 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
 
-class StackBarChartView(
-    context: Context
-) : BaseChartView<StackBarChartData, StackBarViewData>(context) {
+class StackBarChartView(context: Context) :
+    BaseChartView<StackBarChartData, StackBarViewData>(context) {
 
     private var yMaxPoints: LongArray? = null
 
@@ -72,7 +71,8 @@ class StackBarChartView(
                 val xPoint = p / 2 + data.xPercentage[i] * (fullWidth - p) - offset
                 val yPercentage = y[i] / currentMaxHeight
                 val height =
-                    yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT) * line.alpha
+                    yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT) *
+                        line.alpha
                 val yPoint = measuredHeight - chartBottom - height
                 line.linesPath[line.linesPathBottomSize++] = xPoint
                 line.linesPath[line.linesPathBottomSize++] = yPoint - stackOffset
@@ -106,7 +106,8 @@ class StackBarChartView(
                 val xPoint = p / 2 + data.xPercentage[selectedIndex] * (fullWidth - p) - offset
                 val yPercentage = y[selectedIndex] / currentMaxHeight
                 val height =
-                    yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT) * line.alpha
+                    yPercentage * (measuredHeight - chartBottom - SIGNATURE_TEXT_HEIGHT) *
+                        line.alpha
                 val yPoint = measuredHeight - chartBottom - height
                 line.paint.strokeWidth = lineWidth
                 line.paint.alpha = (255 * transitionAlpha).toInt()
@@ -246,7 +247,8 @@ class StackBarChartView(
                     pickerMaxHeight = animation.animatedValue as Float
                     invalidatePickerChart = true
                     invalidate()
-                }).apply { start() }
+                }
+            ).apply { start() }
         }
     }
 

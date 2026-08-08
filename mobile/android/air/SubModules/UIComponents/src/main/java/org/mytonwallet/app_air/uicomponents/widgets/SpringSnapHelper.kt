@@ -19,7 +19,7 @@ import kotlin.math.abs
 class SpringSnapHelper(
     private val velocityThreshold: Int = 300,
     private val stiffness: Float = 500f,
-    private val dampingRatio: Float = SpringForce.DAMPING_RATIO_NO_BOUNCY,
+    private val dampingRatio: Float = SpringForce.DAMPING_RATIO_NO_BOUNCY
 ) {
 
     private var recyclerView: RecyclerView? = null
@@ -43,8 +43,10 @@ class SpringSnapHelper(
 
         override fun setValue(view: RecyclerView, value: Float) {
             val maxScroll =
-                (view.computeHorizontalScrollRange()
-                    - view.computeHorizontalScrollExtent())
+                (
+                    view.computeHorizontalScrollRange() -
+                        view.computeHorizontalScrollExtent()
+                    )
                     .coerceAtLeast(0)
 
             val clampedValue = value.coerceIn(0f, maxScroll.toFloat())
@@ -65,9 +67,11 @@ class SpringSnapHelper(
             val itemCount = rv.adapter?.itemCount ?: 0
             if (itemCount == 0) return false
             val currentPos = closestPosition(lm, itemCount)
+            val isRtl = rv.layoutDirection == RecyclerView.LAYOUT_DIRECTION_RTL
+            val forward = if (isRtl) -1 else 1
             val targetPos = when {
-                velocityX > velocityThreshold -> currentPos + 1
-                velocityX < -velocityThreshold -> currentPos - 1
+                velocityX > velocityThreshold -> currentPos + forward
+                velocityX < -velocityThreshold -> currentPos - forward
                 else -> currentPos
             }.coerceIn(0, itemCount - 1)
             springScrollTo(targetPos, velocityX.toFloat())
@@ -139,7 +143,9 @@ class SpringSnapHelper(
 
     private fun closestPosition(lm: LinearLayoutManager, itemCount: Int): Int =
         (0 until itemCount).minByOrNull { index ->
-            lm.findViewByPosition(index)?.let { abs(it.left) } ?: Int.MAX_VALUE
+            lm.findViewByPosition(index)?.let { view ->
+                abs(snapHelper.calculateDistanceToFinalSnap(lm, view)?.get(0) ?: Int.MAX_VALUE)
+            } ?: Int.MAX_VALUE
         } ?: 0
 
     private fun targetScrollOffset(position: Int): Float {
@@ -155,6 +161,10 @@ class SpringSnapHelper(
         val rv = recyclerView ?: return
         val lm = linearLayoutManager ?: return
         springAnim?.cancel()
+        if (lm.findViewByPosition(position) == null) {
+            rv.smoothScrollToPosition(position)
+            return
+        }
         animatedScrollOffset = rv.computeHorizontalScrollOffset().toFloat()
         val target = targetScrollOffset(position)
         springAnim = SpringAnimation(rv, scrollProperty, target).apply {

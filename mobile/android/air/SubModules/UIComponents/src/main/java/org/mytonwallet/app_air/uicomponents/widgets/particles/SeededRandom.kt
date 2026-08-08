@@ -7,7 +7,5 @@ class SeededRandom(private var seed: Int) {
         return seed / 233280f
     }
 
-    fun nextBetween(min: Float, max: Float): Float {
-        return min + (max - min) * next()
-    }
+    fun nextBetween(min: Float, max: Float): Float = min + (max - min) * next()
 }

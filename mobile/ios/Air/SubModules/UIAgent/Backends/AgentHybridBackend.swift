@@ -6,18 +6,7 @@ import WalletContext
 import WalletCore
 
 private let log = Log("AgentHybridBackend")
-
-private enum AgentHybridBackendCopy {
-    static let emptyResponseMessage = "The Agent returned an empty response."
-    static let fallbackErrorMessage = "Something went wrong. Please try again."
-}
-
-private enum AgentHybridBackendMetrics {
-    static let clientIDDefaultsKey = "ui_agent.hybrid_backend.client_id"
-    static let trailingMessageCharacters = CharacterSet.whitespacesAndNewlines.union(
-        CharacterSet(charactersIn: "\u{00A0}\u{200B}\u{200C}\u{200D}\u{FEFF}")
-    )
-}
+private let clientIDDefaultsKey = "ui_agent.hybrid_backend.client_id"
 
 @available(iOS 26.0, *)
 @MainActor
@@ -55,10 +44,6 @@ final class AgentHybridBackend: AgentBackend {
         WalletCoreData.remove(observer: self)
         reset()
         context = nil
-    }
-
-    func loadInitialTimeline(animated: Bool) {
-        context?.replaceTimeline(with: [], animated: animated)
     }
 
     func loadHints(animated: Bool) {
@@ -208,25 +193,32 @@ final class AgentHybridBackend: AgentBackend {
 
         do {
             for try await chunk in transport.streamReply(request: request) {
-                guard !Task.isCancelled, let context = self.context else { return }
+                guard !Task.isCancelled, nil != self.context else { return }
+                let previousCount = streamedText.count
                 streamedText.append(chunk)
 
-                if let streamedMessageID, var message = context.message(for: streamedMessageID) {
-                    message.text = streamedText
-                    message.isStreaming = true
-                    context.updateMessage(message, animated: false, scrollToBottom: true)
-                } else {
-                    let message = AgentMessage(
-                        role: .assistant,
-                        text: streamedText,
-                        isStreaming: true
-                    )
-                    streamedMessageID = message.id
-                    if typingIndicatorIsVisible {
-                        context.replaceItem(id: typingIndicatorID, with: .message(message), animated: true)
-                        typingIndicatorIsVisible = false
+                let allFrames = Self.streamingFrames(for: streamedText)
+                let newFrames = allFrames.enumerated().filter { $0.element.count > previousCount }
+                for (_, frame) in newFrames {
+                    guard !Task.isCancelled, let context = self.context else { return }
+
+                    if let streamedMessageID, var message = context.message(for: streamedMessageID) {
+                        message.text = frame
+                        message.isStreaming = true
+                        context.updateMessage(message, animated: false, scrollToBottom: true)
                     } else {
-                        context.append(.message(message), animated: true)
+                        let message = AgentMessage(
+                            role: .assistant,
+                            text: frame,
+                            isStreaming: true
+                        )
+                        streamedMessageID = message.id
+                        if typingIndicatorIsVisible {
+                            context.replaceItem(id: typingIndicatorID, with: .message(message), animated: true)
+                            typingIndicatorIsVisible = false
+                        } else {
+                            context.append(.message(message), animated: true)
+                        }
                     }
                 }
             }
@@ -239,7 +231,7 @@ final class AgentHybridBackend: AgentBackend {
                     with: .message(
                         AgentMessage(
                             role: .system,
-                            text: AgentHybridBackendCopy.emptyResponseMessage,
+                            text: AgentBackendMessages.emptyResponseMessage,
                             isStreaming: false
                         )
                     ),
@@ -249,7 +241,7 @@ final class AgentHybridBackend: AgentBackend {
             }
 
             guard let streamedMessageID, var finalMessage = context.message(for: streamedMessageID) else { return }
-            let parsed = Self.parseStreamedMessage(streamedText)
+            let parsed = Self.parseMessage(streamedText)
             finalMessage.text = parsed.text
             finalMessage.action = parsed.action
             finalMessage.isStreaming = false
@@ -259,7 +251,7 @@ final class AgentHybridBackend: AgentBackend {
             guard !Task.isCancelled, let context = self.context else { return }
             let systemMessage = AgentMessage(
                 role: .system,
-                text: (error as? LocalizedError)?.errorDescription ?? AgentHybridBackendCopy.fallbackErrorMessage,
+                text: (error as? LocalizedError)?.errorDescription ?? AgentBackendMessages.fallbackErrorMessage,
                 isStreaming: false
             )
             if typingIndicatorIsVisible {
@@ -293,52 +285,19 @@ final class AgentHybridBackend: AgentBackend {
         await agent.replaceHistory(conversationId: conversationID, messages: messages)
     }
 
-    private static func parseStreamedMessage(_ rawText: String) -> (text: String, action: AgentMessageAction?) {
-        let trimmedText = rawText.trimmingCharacters(in: AgentHybridBackendMetrics.trailingMessageCharacters)
-        guard let match = deeplinkRegex.matches(
-            in: trimmedText,
-            options: [],
-            range: NSRange(trimmedText.startIndex..., in: trimmedText)
-        ).last else {
-            return (trimmedText, nil)
-        }
-
-        guard let fullRange = Range(match.range(at: 0), in: trimmedText),
-              let titleRange = Range(match.range(at: 1), in: trimmedText),
-              let urlRange = Range(match.range(at: 2), in: trimmedText) else {
-            return (trimmedText, nil)
-        }
-
-        let title = String(trimmedText[titleRange])
-        let urlString = String(trimmedText[urlRange])
-        guard let url = URL(string: urlString) else {
-            return (trimmedText, nil)
-        }
-
-        var messageText = trimmedText
-        messageText.removeSubrange(fullRange)
-        messageText = messageText.trimmingCharacters(in: AgentHybridBackendMetrics.trailingMessageCharacters)
-
-        return (messageText, AgentMessageAction(title: title, url: url))
-    }
-
-    private static var deeplinkRegex: NSRegularExpression = {
-        AgentActionLinkMatcher.deeplinkRegex
-    }()
-
     private static func loadOrCreateClientID(from defaults: UserDefaults) -> String {
-        if let existing = defaults.string(forKey: AgentHybridBackendMetrics.clientIDDefaultsKey),
+        if let existing = defaults.string(forKey: clientIDDefaultsKey),
            !existing.isEmpty {
             return existing
         }
         let newID = UUID().uuidString
-        defaults.set(newID, forKey: AgentHybridBackendMetrics.clientIDDefaultsKey)
+        defaults.set(newID, forKey: clientIDDefaultsKey)
         return newID
     }
 
     private static func rotateClientID(in defaults: UserDefaults) -> String {
         let newID = UUID().uuidString
-        defaults.set(newID, forKey: AgentHybridBackendMetrics.clientIDDefaultsKey)
+        defaults.set(newID, forKey: clientIDDefaultsKey)
         return newID
     }
 }

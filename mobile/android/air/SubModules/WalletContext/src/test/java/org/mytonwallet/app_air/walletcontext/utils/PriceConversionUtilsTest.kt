@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.walletcontext.utils
 
+import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import java.math.BigInteger
 
 class PriceConversionUtilsTest {
 
@@ -48,7 +48,12 @@ class PriceConversionUtilsTest {
         // tokenDecimal null -> 9, baseCurrencyDecimal null -> 2
         assertEquals(
             BigInteger.valueOf(250),
-            PriceConversionUtils.convertTokenToBaseCurrency(BigInteger("1000000000"), null, 2.5, null)
+            PriceConversionUtils.convertTokenToBaseCurrency(
+                BigInteger("1000000000"),
+                null,
+                2.5,
+                null
+            )
         )
     }
 
@@ -85,7 +90,12 @@ class PriceConversionUtilsTest {
         assertEquals(BigInteger.valueOf(800), fiat)
         assertEquals(
             BigInteger("2000000000"),
-            PriceConversionUtils.convertBaseCurrencyToToken(CoinUtils.toDecimalString(fiat, 2), 9, 4.0, 2)
+            PriceConversionUtils.convertBaseCurrencyToToken(
+                CoinUtils.toDecimalString(fiat, 2),
+                9,
+                4.0,
+                2
+            )
         )
     }
 }

@@ -22,6 +22,10 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   const environment = setEnvironment(args);
   initWindowConnector();
 
+  if (args.langCode) {
+    await runtimeStorage.setItem('langCode', args.langCode);
+  }
+
   await withStorage(runtimeStorage, async () => {
     await initClientId();
     await tryMigrateStorage(onUpdate, ton, args.accountIds);
@@ -29,7 +33,6 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
 
   methods.initAccounts(onUpdate);
   methods.initAuth(onUpdate);
-  methods.initWallet(onUpdate);
   if (!NO_MFA) methods.initMfa(onUpdate);
   methods.initPolling(onUpdate);
   methods.initTransfer(onUpdate);
@@ -50,10 +53,6 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
     onDappDisconnected: protocolManager.closeRemoteConnection.bind(protocolManager),
     onDappsChanged: protocolManager.resetupRemoteConnection.bind(protocolManager),
   });
-
-  if (args.langCode) {
-    void runtimeStorage.setItem('langCode', args.langCode);
-  }
 
   void saveReferrer(args, runtimeStorage);
 }

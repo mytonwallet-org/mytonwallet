@@ -1,11 +1,11 @@
 package org.mytonwallet.app_air.uiwidgets.configurations.actionsWidget.views
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import androidx.constraintlayout.widget.ConstraintSet
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -18,9 +18,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.widgets.actionsWidget.ActionsWidget
 
-class ActionsStyleView(
-    context: Context,
-) : WView(context), WThemedView {
+class ActionsStyleView(context: Context) :
+    WView(context),
+    WThemedView {
 
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
@@ -67,8 +67,10 @@ class ActionsStyleView(
             toRight(neutralView)
             toBottom(neutralView)
             createHorizontalChain(
-                ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.LEFT,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.RIGHT,
                 intArrayOf(vividView.id, neutralView.id),
                 null,
                 ConstraintSet.CHAIN_SPREAD
@@ -113,5 +115,4 @@ class ActionsStyleView(
         )
         titleLabel.setTextColor(WColor.Tint.color)
     }
-
 }

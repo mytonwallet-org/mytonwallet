@@ -44,10 +44,14 @@ class SeparatorBackgroundDrawable : Drawable() {
             if (topRadius > 0f || bottomRadius > 0) {
                 val rectF = RectF(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
                 val radii = floatArrayOf(
-                    topRadius, topRadius,
-                    topRadius, topRadius,
-                    bottomRadius, bottomRadius,
-                    bottomRadius, bottomRadius
+                    topRadius,
+                    topRadius,
+                    topRadius,
+                    topRadius,
+                    bottomRadius,
+                    bottomRadius,
+                    bottomRadius,
+                    bottomRadius
                 )
                 val path = Path().apply { addRoundRect(rectF, radii, Path.Direction.CW) }
                 canvas.drawPath(path, backgroundPaint)
@@ -75,13 +79,9 @@ class SeparatorBackgroundDrawable : Drawable() {
     }
 
     override fun setColorFilter(colorFilter: ColorFilter?) {
-
     }
 
-    override fun getOpacity(): Int {
-        return PixelFormat.TRANSPARENT
-    }
-
+    override fun getOpacity(): Int = PixelFormat.TRANSPARENT
 
     private var left: Int = 0
     private var top: Int = 0

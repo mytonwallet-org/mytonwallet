@@ -1,9 +1,14 @@
+@file:Suppress("PropertyName")
+
 package org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
+import kotlin.math.max
+import org.mytonwallet.app_air.native_enclave.auth.AuthType
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -21,9 +26,12 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
-import java.lang.ref.WeakReference
-import kotlin.math.max
+import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.api.enclaveRemoveAuth
+import org.mytonwallet.app_air.walletcore.api.enclaveSetupAuth
 
 const val is6DigitPassSupported = false
 
@@ -33,10 +41,13 @@ class SetPasscodeVC(
     private val askToActivateBiometrics: Boolean,
     private val confirmingPasscode: String?,
     private val onCompletion: (passcode: String, isBiometricRequested: Boolean) -> Unit
-) : WViewController(context), PasscodeInputView.Delegate {
+) : WViewController(context),
+    PasscodeInputView.Delegate {
+    @Suppress("PropertyName")
     override val TAG = "SetPasscode"
 
     override val shouldDisplayTopBar = false
+    override val shouldHideKeyboardOnDisappear = false
 
     override val isSwipeBackAllowed: Boolean = confirmingPasscode != null
     private var confirmedPasscode = false
@@ -49,7 +60,15 @@ class SetPasscodeVC(
                 repeat = true
             ),
             title = LocaleController.getString("The wallet is ready"),
-            subtitle = LocaleController.getString(if (confirmingPasscode == null) "Create a code to protect it" else "Enter your code again"),
+            subtitle = LocaleController.getString(
+                if (confirmingPasscode ==
+                    null
+                ) {
+                    "Create a code to protect it"
+                } else {
+                    "Enter your code again"
+                }
+            ),
             onStarted = {
                 passcodeInputView.fadeInObjectAnimator()?.start()
                 switchLengthButton.fadeInObjectAnimator()?.start()
@@ -61,8 +80,7 @@ class SetPasscodeVC(
 
     private val passcodeInputView: PasscodeInputView by lazy {
         val v = PasscodeInputView(context, WeakReference(this), showKeyboardOnFocus = true)
-        if (confirmingPasscode != null)
-            v.passLength = confirmingPasscode.length
+        if (confirmingPasscode != null) v.passLength = confirmingPasscode.length
         v.alpha = 0f
         v.setOnClickListener {
             v.requestFocus()
@@ -95,8 +113,7 @@ class SetPasscodeVC(
 
         view.addView(headerView)
         view.addView(passcodeInputView)
-        if (is6DigitPassSupported && confirmingPasscode == null)
-            view.addView(switchLengthButton)
+        if (is6DigitPassSupported && confirmingPasscode == null) view.addView(switchLengthButton)
 
         view.setConstraints {
             toTopPx(
@@ -110,7 +127,8 @@ class SetPasscodeVC(
             toCenterX(passcodeInputView)
             if (is6DigitPassSupported && confirmingPasscode == null) {
                 toBottomPx(
-                    switchLengthButton, 16.dp + max(
+                    switchLengthButton,
+                    16.dp + max(
                         (navigationController?.imeInsetBottom ?: 0),
                         (navigationController?.getSystemBars()?.bottom ?: 0)
                     )
@@ -175,10 +193,7 @@ class SetPasscodeVC(
             (window?.imeInsets?.bottom ?: 0) == 0
         ) {
             if (!confirmedPasscode) {
-                if (wasShowingKeyboard)
-                    pop()
-                else
-                    passcodeInputView.requestFocus()
+                if (wasShowingKeyboard) pop() else passcodeInputView.requestFocus()
             }
         }
         wasShowingKeyboard = isKeyboardOpen
@@ -186,7 +201,7 @@ class SetPasscodeVC(
     }
 
     override fun didChangePasscode(passcode: String) {
-        //headerView.toggle(passcode.isNotEmpty())
+        // headerView.toggle(passcode.isNotEmpty())
     }
 
     override fun didEnterPasscode(passcode: String) {
@@ -203,30 +218,50 @@ class SetPasscodeVC(
                     "didEnterPasscode: Passcode confirmed successfully"
                 )
                 passcodeInputView.showIndicator(true)
-                fun finalize(isBiometricsActivated: Boolean) {
-                    Logger.d(
-                        Logger.LogTag.PASSCODE_CONFIRM,
-                        "finalize: isBiometricsActivated=$isBiometricsActivated"
-                    )
-                    view.lockView()
-                    view.hideKeyboard()
-                    onCompletion(confirmingPasscode, isBiometricsActivated)
-                }
-                if (askToActivateBiometrics && BiometricHelpers.canAuthenticate(context)) {
-                    view.hideKeyboard()
-                    push(
-                        ActivateBiometricVC(
-                            context,
-                            onCompletion = { isBiometricsActivated ->
-                                finalize(isBiometricsActivated)
-                            }),
-                        onCompletion = {
-                            // Pushed ActivateBiometricVC, Now remove confirming passcode from the navigation stack
-                            navigationController?.removePrevViewControllerOnly()
-                        }
-                    )
-                } else {
-                    finalize(false)
+
+                WSecureStorage.deleteLegacyBiometricPasscode()
+                WGlobalStorage.removeIsLegacyBiometricActivated()
+                WalletCore.enclaveRemoveAuth(AuthType.BIOMETRIC)
+                WalletCore.enclaveSetupAuth(window!!, AuthType.PASSCODE, confirmingPasscode) {
+                        enclaveToken,
+                        error
+                    ->
+                    if (enclaveToken == null || error != null) {
+                        Logger.e(Logger.LogTag.PASSCODE_CONFIRM, "enclaveSetupAuth failed: $error")
+                        passcodeInputView.showIndicator(false)
+                        confirmedPasscode = false
+                        showError(error)
+                        return@enclaveSetupAuth
+                    }
+
+                    fun finalize(biometricsToken: String?) {
+                        val isBiometricsActivated: Boolean = biometricsToken != null
+                        Logger.d(
+                            Logger.LogTag.PASSCODE_CONFIRM,
+                            "finalize: isBiometricsActivated=$isBiometricsActivated"
+                        )
+                        view.lockView()
+                        view.hideKeyboard()
+                        onCompletion(biometricsToken ?: enclaveToken, biometricsToken != null)
+                    }
+                    if (askToActivateBiometrics && BiometricHelpers.canAuthenticate(context)) {
+                        view.hideKeyboard()
+                        push(
+                            ActivateBiometricVC(
+                                context,
+                                enclaveToken,
+                                onCompletion = { biometricsToken ->
+                                    finalize(biometricsToken)
+                                }
+                            ),
+                            onCompletion = {
+                                // Pushed ActivateBiometricVC, Now remove confirming passcode from the navigation stack
+                                navigationController?.removePrevViewControllerOnly()
+                            }
+                        )
+                    } else {
+                        finalize(null)
+                    }
                 }
             } else {
                 wrongPasscode()
@@ -244,13 +279,7 @@ class SetPasscodeVC(
 
     override fun onBackPressed(): Boolean {
         // Should not go back or accidentally close the app, from set passcode vc :)
-        if (confirmingPasscode == null)
-            return true
+        if (confirmingPasscode == null) return true
         return super.onBackPressed()
     }
-
-    override fun viewWillDisappear() {
-        // Override to prevent keyboard from being dismissed!
-    }
-
 }

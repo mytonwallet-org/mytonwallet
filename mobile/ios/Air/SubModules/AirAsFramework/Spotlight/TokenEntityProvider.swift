@@ -37,7 +37,10 @@ enum TokenEntityProvider {
         return tokenSlugs
     }
 
-    private static func topHoldingTokenSlugs(account: MAccount, limit: Int) -> [String] {
+    private static func topHoldingTokenSlugs(
+        account: MAccount,
+        limit: Int
+    ) -> [String] {
         let tokenBalances = BalanceDataStore.walletTokensData(accountId: account.id)?.walletTokens ?? []
         return tokenBalances
             .filter { $0.balance > 0 }
@@ -53,8 +56,10 @@ enum TokenEntityProvider {
                 if lhsValue != rhsValue {
                     return lhsValue > rhsValue
                 }
-                if lhs.token.name != rhs.token.name {
-                    return lhs.token.name < rhs.token.name
+                let lhsName = lhs.token.name
+                let rhsName = rhs.token.name
+                if lhsName != rhsName {
+                    return lhsName < rhsName
                 }
                 return lhs.token.slug < rhs.token.slug
             }

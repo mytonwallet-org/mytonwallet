@@ -83,19 +83,15 @@ class ExplorerHelpers {
             return uriBuilder.build().toString()
         }
 
-        fun getgemsUrl(network: MBlockchainNetwork): String {
-            return MMarketplace.Getgems.homeUrl(network)
-        }
+        fun getgemsUrl(network: MBlockchainNetwork): String = MMarketplace.Getgems.homeUrl(network)
 
-        fun getMtwCardsUrl(network: MBlockchainNetwork): String {
-            return "${getgemsUrl(network)}collection/$MTW_CARDS_COLLECTION"
-        }
+        fun getMtwCardsUrl(network: MBlockchainNetwork): String =
+            "${getgemsUrl(network)}collection/$MTW_CARDS_COLLECTION"
 
-        fun defaultNftMarketplace(account: MAccount): MMarketplace {
-            return MMarketplace.defaultForEmptyAssets(
+        fun defaultNftMarketplace(account: MAccount): MMarketplace =
+            MMarketplace.defaultForEmptyAssets(
                 account = account,
                 isGramWallet = ApplicationContextHolder.isGramApp
             )
-        }
     }
 }

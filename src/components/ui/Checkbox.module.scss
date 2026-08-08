@@ -6,7 +6,7 @@
   position: relative;
 
   margin-bottom: 1.75rem;
-  padding-left: 2.25rem;
+  padding-inline-start: 2.25rem;
 
   font-size: 0.9375rem;
 }
@@ -24,7 +24,7 @@
 
     position: absolute;
     top: 0.1875rem;
-    left: 0.25rem;
+    inset-inline-start: 0.25rem;
 
     display: block;
 

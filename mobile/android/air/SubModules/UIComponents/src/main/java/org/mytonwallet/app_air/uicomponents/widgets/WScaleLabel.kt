@@ -6,7 +6,8 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.htextview.scale.ScaleTextView
 
-open class WScaleLabel(context: Context) : ScaleTextView(context),
+open class WScaleLabel(context: Context) :
+    ScaleTextView(context),
     WThemedView {
     init {
         id = generateViewId()

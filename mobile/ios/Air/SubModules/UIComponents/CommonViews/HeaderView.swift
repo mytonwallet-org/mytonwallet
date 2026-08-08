@@ -30,25 +30,6 @@ public class HeaderView: UIView {
                   compactMode: compactMode)
     }
 
-    public init(icon: UIImage,
-                iconWidth: Int,
-                iconHeight: Int,
-                iconTintColor: UIColor,
-                title: String,
-                description: String? = nil,
-                animationSize: Int? = nil,
-                compactMode: Bool = false) {
-        self.animationSize = animationSize ?? _animationSize
-        super.init(frame: CGRect.zero)
-        setupView(icon: icon,
-                  iconWidth: iconWidth,
-                  iconHeight: iconHeight,
-                  iconTintColor: iconTintColor,
-                  title: title,
-                  description: description,
-                  compactMode: compactMode)
-    }
-    
     public init(title: String,
                 description: String? = nil,
                 animationSize: Int? = nil,
@@ -103,33 +84,6 @@ public class HeaderView: UIView {
         addTitleAndDescription(topView: animatedSticker!, title: title, description: description, additionalView: additionalView, compactMode: compactMode)
     }
     
-    // MARK: - HeaderView with Icon
-    private func setupView(icon: UIImage,
-                           iconWidth: Int,
-                           iconHeight: Int,
-                           iconTintColor: UIColor,
-                           title: String,
-                           description: String? = nil,
-                           compactMode: Bool) {
-        translatesAutoresizingMaskIntoConstraints = false
-        isUserInteractionEnabled = false
-        
-        // add animated sticker
-        let iconImageView = UIImageView(image: icon.withRenderingMode(.alwaysTemplate))
-        iconImageView.translatesAutoresizingMaskIntoConstraints = false
-        iconImageView.contentMode = .center
-        iconImageView.tintColor = iconTintColor
-        addSubview(iconImageView)
-        NSLayoutConstraint.activate([
-            iconImageView.topAnchor.constraint(equalTo: topAnchor),
-            iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: CGFloat(iconWidth)),
-            iconImageView.heightAnchor.constraint(equalToConstant: CGFloat(iconHeight))
-        ])
-        
-        addTitleAndDescription(topView: iconImageView, title: title, description: description)
-    }
-    
     // MARK: - HeaderView with texts only
     private func setupView(title: String,
                            description: String? = nil,
@@ -150,42 +104,42 @@ public class HeaderView: UIView {
         lblTitle = UILabel()
         lblTitle.translatesAutoresizingMaskIntoConstraints = false
         lblTitle.text = title
-        lblTitle.font = UIFont.systemFont(ofSize: 28, weight: .semibold)
+        lblTitle.applyTextStyle(.screenTitle)
         lblTitle.numberOfLines = 0
         lblTitle.textAlignment = .center
         lblTitle.accessibilityTraits.insert(.header)
         addSubview(lblTitle)
         NSLayoutConstraint.activate([
             lblTitle.topAnchor.constraint(equalTo: topView?.bottomAnchor ?? topAnchor, constant: compactMode ? 12 : 24),
-            lblTitle.leftAnchor.constraint(equalTo: leftAnchor),
-            lblTitle.rightAnchor.constraint(equalTo: rightAnchor)
+            lblTitle.leadingAnchor.constraint(equalTo: leadingAnchor),
+            lblTitle.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
 
         // description
         lblDescription = UILabel()
         lblDescription.translatesAutoresizingMaskIntoConstraints = false
         if let description, let attr = try? NSMutableAttributedString(markdown: description) {
-            attr.addAttribute(.font, value: UIFont.systemFont(ofSize: 17), range: NSRange(location: 0, length: attr.length))
+            attr.addAttribute(.font, value: WTypography.uiFont(.body), range: NSRange(location: 0, length: attr.length))
             lblDescription.attributedText = attr
         } else {
             lblDescription.text = description
-            lblDescription.font = UIFont.systemFont(ofSize: 17)
+            lblDescription.applyTextStyle(.body)
         }
         lblDescription.numberOfLines = 0
         lblDescription.textAlignment = .center
         addSubview(lblDescription)
         NSLayoutConstraint.activate([
             lblDescription.topAnchor.constraint(equalTo: lblTitle.bottomAnchor, constant: description != nil ? 12 : 0),
-            lblDescription.leftAnchor.constraint(equalTo: leftAnchor),
-            lblDescription.rightAnchor.constraint(equalTo: rightAnchor)
+            lblDescription.leadingAnchor.constraint(equalTo: leadingAnchor),
+            lblDescription.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
         
         if let additionalView {
             addSubview(additionalView)
             NSLayoutConstraint.activate([
                 additionalView.topAnchor.constraint(equalTo: lblDescription.bottomAnchor, constant: 36),
-                additionalView.leftAnchor.constraint(equalTo: leftAnchor),
-                additionalView.rightAnchor.constraint(equalTo: rightAnchor),
+                additionalView.leadingAnchor.constraint(equalTo: leadingAnchor),
+                additionalView.trailingAnchor.constraint(equalTo: trailingAnchor),
                 additionalView.bottomAnchor.constraint(equalTo: bottomAnchor)
             ])
         } else {

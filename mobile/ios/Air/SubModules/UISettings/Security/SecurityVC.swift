@@ -1,21 +1,15 @@
 
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletContext
-
-private let log = Log("SecurityVC")
-
 
 @MainActor
 internal class SecurityVC: SettingsBaseVC {
     
     var hostingController: UIHostingController<SecurityView>? = nil
-    var password: String
-    
-    init(password: String) {
-        self.password = password
+
+    init() {
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -38,9 +32,7 @@ internal class SecurityVC: SettingsBaseVC {
     }
     
     func makeView() -> SecurityView {
-        return SecurityView(
-            password: password,
-        )
+        return SecurityView()
     }
     
     private func updateTheme() {

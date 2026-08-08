@@ -4,6 +4,7 @@ import { getActions } from '../../../global';
 import renderText from '../../../global/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
 import { shuffle } from '../../../util/iteratees';
+import { toNativeDigits } from '../../../util/nativeDigits';
 import { SEC } from '../../../api/constants';
 
 import useLang from '../../../hooks/useLang';
@@ -152,11 +153,11 @@ function CheckWordsForm({
     <>
       <p className={descriptionClassName}>
         {renderText(lang('$mnemonic_check_words_list', {
-          word_numbers: <b>{wordNumbers}</b>,
+          word_numbers: <b>{toNativeDigits(wordNumbers)}</b>,
         }))}
       </p>
 
-      <div className={formClassName}>
+      <div className={formClassName} dir="ltr">
         {checkIndexes?.map((index) => (
           <div key={index} className={styles.wordRow}>
             <div className={buildClassName(

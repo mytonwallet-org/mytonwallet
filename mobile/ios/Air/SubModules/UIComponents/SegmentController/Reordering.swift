@@ -1,44 +1,8 @@
 
-import SwiftUI
 import UIKit
 import WalletContext
-import Perception
 
-struct SegmentedControlReordering: View {
-    
-    let model: SegmentedControlModel
-    let scrollContentMargin: CGFloat
-    
-    var body: some View {
-        WithPerceptionTracking {
-            if model.isReordering {
-                content
-            }
-        }
-    }
-    
-    @ViewBuilder
-    var content: some View {
-        WithPerceptionTracking {
-            SegmentedControlReorderingVCRepresentable(
-                items: model.items,
-                selection: model.selection,
-                primaryColor: model.primaryColor,
-                secondaryColor: model.secondaryColor,
-                capsuleColor: model.capsuleColor,
-                font: model.font,
-                constants: model.constants,
-                scrollContentMargin: scrollContentMargin,
-                onChange: { model.requestItemsReorder($0) }
-            )
-        }
-        .frame(height: model.constants.fullHeight)
-    }
-}
-
-// MARK: - SegmentedControlReorderingVC
-
-private final class SegmentedControlReorderingVC: UIViewController {
+final class SegmentedControlReorderingVC: UIViewController {
     private var items: [SegmentedControlItem]
     private var selectedItemID: SegmentedControlItem.ID?
     private var constants: SegmentedControlConstants
@@ -194,7 +158,7 @@ extension SegmentedControlReorderingVC: ReorderableCollectionViewControllerDeleg
 
     func reorderController(_ controller: ReorderableCollectionViewController, sizeForItemAt indexPath: IndexPath) -> CGSize? {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
-        let width = _Cell.widthFor(item, font: font, labelGap: constants.labelGap)
+        let width = _Cell.widthFor(item, font: font, labelGap: constants.innerPadding)
         return CGSize(width: width, height: constants.fullHeight)
     }
     
@@ -238,7 +202,9 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
     }()
 
     private func updateDeleteButtonImage(_ minusColor: UIColor, _ circleColor: UIColor) {
-        let baseConfig = UIImage.SymbolConfiguration(pointSize: Self.deleteButtonImageSize, weight: .medium)
+        let baseConfig = UIImage.SymbolConfiguration(
+            font: WTypography.uiFont(.symbolEmphasized, content: .technical)
+        )
         let paletteConfig = UIImage.SymbolConfiguration(paletteColors: [minusColor, circleColor])
         let config = baseConfig.applying(paletteConfig)
         if let image = UIImage(systemName: "minus.circle.fill")?.applyingSymbolConfiguration(config) {
@@ -349,8 +315,8 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
         mainView.layer.cornerRadius = constants.height / 2
         mainViewTopConstraint.constant = constants.topInset
         mainViewHeightConstraint.constant = constants.height
-        titleLeadingConstraint.constant = constants.labelGap
-        titleTrailingConstraint.constant = -constants.labelGap
+        titleLeadingConstraint.constant = constants.innerPadding
+        titleTrailingConstraint.constant = -constants.innerPadding
         
         onDeleteTapped = nil
         if isDeletable {
@@ -380,54 +346,10 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
     }
 }
 
-private struct SegmentedControlReorderingVCRepresentable: UIViewRepresentable {
-    let items: [SegmentedControlItem]
-    let selection: SegmentedControlSelection?
-    let primaryColor: UIColor
-    let secondaryColor: UIColor
-    let capsuleColor: UIColor
-    let font: UIFont
-    let constants: SegmentedControlConstants
-    let scrollContentMargin: CGFloat
-    let onChange: ([SegmentedControlItem]) -> Void
-    
-    func makeUIView(context: Context) -> UIView {
-        let container = UIView()
-        container.backgroundColor = .clear
-        let vc = SegmentedControlReorderingVC(
-            items: items, selection: selection, primaryColor: primaryColor, secondaryColor: secondaryColor,
-            capsuleColor: capsuleColor, font: font, constants: constants, scrollContentMargin: scrollContentMargin,
-            onChange: onChange
-        )
-        context.coordinator.vc = vc
-        let childView = vc.view!
-        childView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(childView)
-        NSLayoutConstraint.activate([
-            childView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            childView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            childView.topAnchor.constraint(equalTo: container.topAnchor),
-            childView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        return container
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.vc?.updateFrom(items: items, selection: selection)
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    final class Coordinator {
-        var vc: SegmentedControlReorderingVC?
-    }
-}
-
-
 private class HorizontalCenteringFlowLayout: UICollectionViewFlowLayout {
     private var horizontalOffset: CGFloat = 0
+
+    override var flipsHorizontallyInOppositeLayoutDirection: Bool { true }
 
     override func prepare() {
         super.prepare()

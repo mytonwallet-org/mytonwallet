@@ -1,11 +1,11 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -14,9 +14,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
-class TitleSubtitleCell(
-    context: Context,
-) : WCell(context), WThemedView {
+class TitleSubtitleCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     private val ripple = WRippleDrawable.create(0f)
 
@@ -76,7 +76,7 @@ class TitleSubtitleCell(
         val token = TokenStore.getToken(tokenBalance.token)
         identifier = token?.slug ?: ""
         iconView.config(token)
-        topLeftLabel.text = token?.name
+        topLeftLabel.text = token?.displayName
         bottomLeftLabel.setAmount(
             tokenBalance.amountValue,
             token?.decimals ?: 9,
@@ -85,5 +85,4 @@ class TitleSubtitleCell(
             true
         )
     }
-
 }

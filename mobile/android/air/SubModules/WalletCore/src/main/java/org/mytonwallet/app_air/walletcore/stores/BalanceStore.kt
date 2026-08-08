@@ -1,29 +1,29 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import java.math.BigInteger
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.ALL_DEFAULT_TOKENS
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import java.math.BigInteger
-import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcore.ALL_DEFAULT_TOKENS
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
 
 object BalanceStore : IStore {
 
     // Observable Flow
     private val _balancesFlow = MutableStateFlow<Map<String, Map<String, BigInteger>>>(emptyMap())
     val balancesFlow = _balancesFlow.asStateFlow()
-    /////
+    // ///
 
     fun loadFromCache() {
         processorQueue.execute {
@@ -33,10 +33,11 @@ object BalanceStore : IStore {
                 for (key in updatedBalancesDict.keys()) {
                     val amountValueString: String =
                         updatedBalancesDict.optString(key).substringAfter("bigint:")
-                    accountBalances[key] = if (amountValueString.isNotEmpty())
+                    accountBalances[key] = if (amountValueString.isNotEmpty()) {
                         amountValueString.toBigInteger()
-                    else
+                    } else {
                         BigInteger.ZERO
+                    }
                 }
                 balances[accountId] = accountBalances
                 _balancesFlow.value = _balancesFlow.value.toMutableMap().apply {
@@ -75,8 +76,7 @@ object BalanceStore : IStore {
     private val totalBalance24hInBaseCurrency = ConcurrentHashMap<String, Double>()
 
     fun getBalances(accountId: String?): ConcurrentHashMap<String, BigInteger>? {
-        if (accountId == null)
-            return null
+        if (accountId == null) return null
         return balances[accountId]
     }
 
@@ -88,11 +88,10 @@ object BalanceStore : IStore {
     fun isAccountNew(accountId: String?): Boolean {
         val balances = getBalances(accountId) ?: return false
         val network = MBlockchainNetwork.ofAccountId(accountId ?: return false)
-        val defaultTokens = ALL_DEFAULT_TOKENS[network]
-        return balances.filter { defaultTokens?.contains(it.key) != true }.isEmpty() &&
+        val allDefaultTokens = ALL_DEFAULT_TOKENS[network] ?: emptyList()
+        return balances.filter { !allDefaultTokens.contains(it.key) }.isEmpty() &&
             balances.filter {
-                if (it.value == BigInteger.ZERO)
-                    return@filter false
+                if (it.value == BigInteger.ZERO) return@filter false
                 val token = TokenStore.getToken(it.key) ?: return@filter false
                 return@filter token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01
@@ -158,25 +157,19 @@ object BalanceStore : IStore {
         }
     }
 
-    fun totalBalanceInBaseCurrency(accountId: String): Double? {
-        return totalBalanceInBaseCurrency.get(accountId)
+    fun totalBalanceInBaseCurrency(accountId: String): Double? =
+        totalBalanceInBaseCurrency.get(accountId)
             ?: calcTotalBalanceInBaseCurrency(accountId)?.total
-    }
 
-    fun totalBalanceInBaseCurrencyPerChain(accountId: String): Map<MBlockchain, Double>? {
-        return totalBalanceInBaseCurrencyPerChain.get(accountId)
+    fun totalBalanceInBaseCurrencyPerChain(accountId: String): Map<MBlockchain, Double>? =
+        totalBalanceInBaseCurrencyPerChain.get(accountId)
             ?: calcTotalBalanceInBaseCurrency(accountId)?.perChain
-    }
 
-    fun totalBalance24hInBaseCurrency(accountId: String): Double? {
-        return totalBalance24hInBaseCurrency.get(accountId)
+    fun totalBalance24hInBaseCurrency(accountId: String): Double? =
+        totalBalance24hInBaseCurrency.get(accountId)
             ?: calcTotalBalance24hInBaseCurrency(accountId)
-    }
 
-    data class TotalBalanceResult(
-        val total: Double,
-        val perChain: Map<MBlockchain, Double>
-    )
+    data class TotalBalanceResult(val total: Double, val perChain: Map<MBlockchain, Double>)
 
     fun calcTotalBalanceInBaseCurrency(
         accountId: String,
@@ -218,23 +211,17 @@ object BalanceStore : IStore {
         )
     }
 
-    fun calcTotalBalance24hInBaseCurrency(
-        accountId: String,
-    ): Double? {
+    fun calcTotalBalance24hInBaseCurrency(accountId: String): Double? {
         val accountBalances = balances[accountId]
         val walletTokens = accountBalances?.filter { !STAKING_SLUGS.contains(it.key) }
             ?.mapNotNull { (tokenSlug, balance) ->
                 val token =
                     TokenStore.getToken(if (tokenSlug == STAKE_SLUG) "toncoin" else tokenSlug)
-                if (token != null)
-                    MTokenBalance.fromParameters(token, balance)
-                else
-                    null
+                if (token != null) MTokenBalance.fromParameters(token, balance) else null
             } ?: return null
         val stakingBalance =
             StakingStore.getStakingState(accountId)?.totalBalanceInBaseCurrency24h() ?: 0.0
 
         return (walletTokens.sumOf { it.toBaseCurrency24h ?: 0.0 } + stakingBalance)
     }
-
 }

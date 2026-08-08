@@ -4,16 +4,10 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
-data class TonConnectConnectRequest(
-    val manifestUrl: String,
-    val items: List<TonConnectConnectItem>
-)
+data class TonConnectConnectRequest(val manifestUrl: String, val items: List<TonConnectConnectItem>)
 
 @JsonClass(generateAdapter = true)
-data class TonConnectConnectItem(
-    val name: String,
-    val payload: String? = null
-)
+data class TonConnectConnectItem(val name: String, val payload: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class TonConnectTransactionPayload(

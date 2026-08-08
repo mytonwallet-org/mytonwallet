@@ -15,6 +15,16 @@ import Perception
 
 private let log = Log("SettingsVC")
 
+public enum SettingsPresentationStyle: Sendable {
+    case standard
+    case drawer
+}
+
+public enum SettingsDrawerCloseControl: Equatable, Sendable {
+    case closeButton
+    case mainTabTitle(String)
+}
+
 @MainActor
 public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver, UICollectionViewDelegate {
     
@@ -26,12 +36,33 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     private var settingsHeaderView = SettingsHeaderView()
     private var navBarBlurView: UIView?
     private var pauseReloadData: Bool = false
+    public var presentationStyle: SettingsPresentationStyle = .standard {
+        didSet {
+            settingsHeaderView.presentationStyle = presentationStyle
+            if isViewLoaded {
+                configureNavigationItems()
+            }
+        }
+    }
+    public var drawerCloseControl: SettingsDrawerCloseControl = .closeButton {
+        didSet {
+            if isViewLoaded {
+                configureNavigationItems()
+            }
+        }
+    }
+    public var onDrawerClose: (() -> Void)? {
+        didSet {
+            if isViewLoaded {
+                configureNavigationItems()
+            }
+        }
+    }
     private var isExpandedSplitLayout: Bool {
         splitViewController?.isCollapsed == false
     }
         
     @Dependency(\.accountStore.currentAccountId) private var currentAccountId
-    @Dependency(\.accountStore.orderedAccountIds) private var orderedAccountIds
         
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -49,17 +80,13 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
 
     private func setupViews() {
-        navigationItem.leftItemsSupplementBackButton = true
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: lang("Receive"),
-            image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
-            primaryAction: UIAction { [weak self] _ in self?.showReceiveWithQR() }
-        )
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: lang("More"),
-            image: UIImage(systemName: "ellipsis")?.withRenderingMode(.alwaysTemplate),
-            menu: makeMoreMenu()
-        )
+        settingsHeaderView.presentationStyle = presentationStyle
+        if IS_DEBUG_OR_TESTFLIGHT_DEFAULT {
+            settingsHeaderView.onLargeAvatarLongPress = {
+                AppActions.showDebugView()
+            }
+        }
+        configureNavigationItems()
         navigationItem.titleView = settingsHeaderView.headerTouchTarget
         
         var _configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
@@ -81,7 +108,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         _configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
         _configuration.headerMode = .none
         
-        let topSectionInset = settingsHeaderView.layoutGeometry.topSectionInset
+        let topSectionInset = presentationStyle == .drawer
+            ? settingsHeaderView.layoutGeometry.drawerTopSectionInset
+            : settingsHeaderView.layoutGeometry.topSectionInset
         let layout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] sectionIdx, env in
             var configuration = _configuration
             configuration.footerMode = sectionIdx + 1 == self?.collectionView.numberOfSections ? .supplementary : .none
@@ -145,8 +174,8 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
-            collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            collectionView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         
@@ -161,13 +190,49 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         view.addSubview(settingsHeaderView)
         NSLayoutConstraint.activate([
             settingsHeaderView.topAnchor.constraint(equalTo: view.topAnchor),
-            settingsHeaderView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            settingsHeaderView.rightAnchor.constraint(equalTo: view.rightAnchor)
+            settingsHeaderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            settingsHeaderView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
 
         syncScrollDrivenChrome()
 
         collectionView.reloadData()
+    }
+
+    private func configureNavigationItems() {
+        navigationItem.leftItemsSupplementBackButton = true
+        settingsHeaderView.onDrawerCloseTap = presentationStyle == .drawer ? onDrawerClose : nil
+        switch presentationStyle {
+        case .standard:
+            navigationItem.leftBarButtonItem = UIBarButtonItem(
+                title: lang("Receive"),
+                image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
+                primaryAction: UIAction { [weak self] _ in self?.showReceiveWithQR() }
+            )
+            navigationItem.rightBarButtonItem = makeMoreBarButtonItem()
+        case .drawer:
+            navigationItem.leftBarButtonItem = makeMoreBarButtonItem()
+            navigationItem.rightBarButtonItem = switch drawerCloseControl {
+            case .closeButton:
+                UIBarButtonItem(
+                    systemItem: .close,
+                    primaryAction: UIAction { [weak self] _ in self?.onDrawerClose?() }
+                )
+            case .mainTabTitle(let title):
+                UIBarButtonItem(
+                    title: title,
+                    primaryAction: UIAction { [weak self] _ in self?.onDrawerClose?() }
+                )
+            }
+        }
+    }
+
+    private func makeMoreBarButtonItem() -> UIBarButtonItem {
+        UIBarButtonItem(
+            title: lang("More"),
+            image: UIImage(systemName: "ellipsis")?.withRenderingMode(.alwaysTemplate),
+            menu: makeMoreMenu()
+        )
     }
 
     private func syncScrollDrivenChrome() {
@@ -193,7 +258,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                     _ = try await AccountStore.activateAccount(accountId: accountId)
                     AppActions.showHome(popToRoot: true)
                 } catch {
-                    log.fault("failed to activate account: \(accountId, .public) \(error, .public)")
+                    log.error("failed to activate account: \(accountId, .public) \(error, .public)")
                     AppActions.showError(error: error)
                 }
             }
@@ -209,20 +274,16 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             navigationController?.pushViewController(AssetsAndActivityVC(), animated: true)
         case .subwallets:
             Task { @MainActor in
-                if let password = await UnlockVC.presentAuthAsync(on: self) {
-                    self.navigationController?.pushViewController(SubwalletsVC(password: password), animated: true)
+                if let enclaveToken = await UnlockVC.presentAuthAsync(on: self) {
+                    self.navigationController?.pushViewController(SubwalletsVC(enclaveToken: enclaveToken), animated: true)
                 }
             }
         case .connectedApps:
             navigationController?.pushViewController(ConnectedAppsVC(isModal: false), animated: true)
         case .language:
-            navigationController?.pushViewController(LanguageVC(), animated: true)
+            AppActions.showSettings(section: .language)
         case .security:
-            Task { @MainActor in
-                if let password = await UnlockVC.presentAuthAsync(on: self) {
-                    self.navigationController?.pushViewController(SecurityVC(password: password), animated: true)
-                }
-            }
+            navigationController?.pushViewController(SecurityVC(), animated: true)
         case .walletVersions:
             navigationController?.pushViewController(WalletVersionsVC(), animated: true)
         case .tips:
@@ -260,7 +321,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                 callback(false)
             },
             onFailure: { [weak self] error in
-                log.fault("delete account error: \(error)")
+                log.error("delete account error: \(error)")
                 self?.showAlert(error: error)
                 callback(false)
             }
@@ -276,7 +337,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     private func showReceiveWithQR() {
         AppActions.showReceive(accountContext: AccountContext(source: .current), chain: nil)
     }
-    
+
     private func removeWalllet() {
         if let accountId = AccountStore.accountId {
             signoutPressed(removingAccountId: accountId, callback: { _ in })
@@ -322,7 +383,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         // General section
         snapshot.appendSections([.general])
         snapshot.appendItems([.appearance])
-        if AuthSupport.accountsSupportAppLock {
+        if AuthSupport.status.requiresAuthorization {
             snapshot.appendItems([.security])
         }
         snapshot.appendItems([.assetsAndActivity])

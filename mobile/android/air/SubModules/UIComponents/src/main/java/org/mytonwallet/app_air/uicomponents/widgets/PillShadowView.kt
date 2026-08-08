@@ -11,12 +11,14 @@ import android.graphics.Region
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.graphics.withClip
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import androidx.core.graphics.withClip
 
 @SuppressLint("ViewConstructor")
-class PillShadowView(context: Context) : View(context), WThemedView {
+class PillShadowView(context: Context) :
+    View(context),
+    WThemedView {
 
     companion object {
         private const val SHADOW_RADIUS_DP = 2.667f
@@ -42,7 +44,11 @@ class PillShadowView(context: Context) : View(context), WThemedView {
          * The caller owns updates: invoke [sync] whenever [target]'s bounds,
          * translation, alpha, or visibility change.
          */
-        fun attachTo(target: View, cornerRadius: Float, drawInFront: Boolean = false): PillShadowView {
+        fun attachTo(
+            target: View,
+            cornerRadius: Float,
+            drawInFront: Boolean = false
+        ): PillShadowView {
             val parent = target.parent as? ViewGroup
                 ?: throw IllegalStateException("target must be attached to a ViewGroup")
             val shadow = PillShadowView(target.context)
@@ -54,10 +60,11 @@ class PillShadowView(context: Context) : View(context), WThemedView {
             parent.addView(
                 shadow,
                 insertIndex.coerceAtLeast(0),
-                if (target.layoutParams != null)
+                if (target.layoutParams != null) {
                     ViewGroup.LayoutParams(target.layoutParams)
-                else
+                } else {
                     ViewGroup.LayoutParams(0, 0)
+                }
             )
             return shadow
         }
@@ -183,7 +190,10 @@ class PillShadowView(context: Context) : View(context), WThemedView {
         val shadowColor = if (isDark) SHADOW_COLOR_DARK else SHADOW_COLOR_LIGHT
         shadowPaint.color = Color.TRANSPARENT
         shadowPaint.setShadowLayer(
-            SHADOW_RADIUS_DP.dp, SHADOW_DX_DP.dp, SHADOW_DY_DP.dp, shadowColor
+            SHADOW_RADIUS_DP.dp,
+            SHADOW_DX_DP.dp,
+            SHADOW_DY_DP.dp,
+            shadowColor
         )
     }
 
@@ -199,8 +209,10 @@ class PillShadowView(context: Context) : View(context), WThemedView {
             val inset = strokePaint.strokeWidth
             punchOutPath.reset()
             punchOutPath.addRoundRect(
-                rect.left + inset, rect.top + inset,
-                rect.right - inset, rect.bottom - inset,
+                rect.left + inset,
+                rect.top + inset,
+                rect.right - inset,
+                rect.bottom - inset,
                 cornerRadii(
                     (topRadius - inset).coerceAtLeast(0f),
                     (bottomRadius - inset).coerceAtLeast(0f)
@@ -208,11 +220,12 @@ class PillShadowView(context: Context) : View(context), WThemedView {
                 Path.Direction.CW
             )
             canvas.save()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 canvas.clipOutPath(punchOutPath)
-            else
+            } else {
                 @Suppress("DEPRECATION")
                 canvas.clipPath(punchOutPath, Region.Op.DIFFERENCE)
+            }
             canvas.drawPath(shadowPath, shadowPaint)
             canvas.restore()
         } else {
@@ -226,9 +239,12 @@ class PillShadowView(context: Context) : View(context), WThemedView {
 
         strokePath.reset()
         strokePath.addRoundRect(
-            rect.left + strokeHalf, rect.top + strokeHalf,
-            rect.right - strokeHalf, rect.bottom - strokeHalf,
-            cornerRadii(innerTop, innerBottom), Path.Direction.CW
+            rect.left + strokeHalf,
+            rect.top + strokeHalf,
+            rect.right - strokeHalf,
+            rect.bottom - strokeHalf,
+            cornerRadii(innerTop, innerBottom),
+            Path.Direction.CW
         )
 
         val topColor = if (isDark) STROKE_TOP_COLOR_DARK else STROKE_TOP_COLOR_LIGHT
@@ -251,10 +267,14 @@ class PillShadowView(context: Context) : View(context), WThemedView {
     private val radiiBuffer = FloatArray(8)
 
     private fun cornerRadii(topRadius: Float, bottomRadius: Float): FloatArray {
-        radiiBuffer[0] = topRadius; radiiBuffer[1] = topRadius   // top-left
-        radiiBuffer[2] = topRadius; radiiBuffer[3] = topRadius   // top-right
-        radiiBuffer[4] = bottomRadius; radiiBuffer[5] = bottomRadius // bottom-right
-        radiiBuffer[6] = bottomRadius; radiiBuffer[7] = bottomRadius // bottom-left
+        radiiBuffer[0] = topRadius
+        radiiBuffer[1] = topRadius // top-left
+        radiiBuffer[2] = topRadius
+        radiiBuffer[3] = topRadius // top-right
+        radiiBuffer[4] = bottomRadius
+        radiiBuffer[5] = bottomRadius // bottom-right
+        radiiBuffer[6] = bottomRadius
+        radiiBuffer[7] = bottomRadius // bottom-left
         return radiiBuffer
     }
 }

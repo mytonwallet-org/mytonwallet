@@ -277,6 +277,13 @@ private extension ApiChain {
                 figmaColor(0.43529412150382996, 1, 0.8901960849761963),
                 figmaColor(0, 0.1568627506494522, 0.13725490868091583),
             ])
+        case .robinhood:
+            ReceiveHeaderPalette([
+                figmaColor(0.8666666666666667, 1, 0.3411764705882353),
+                figmaColor(0.2823529411764706, 0.3137254901960784, 0.06666666666666667),
+                figmaColor(0.8, 1, 0),
+                figmaColor(0.2823529411764706, 0.3137254901960784, 0.06666666666666667),
+            ])
         case .other:
             ReceiveHeaderPalette([
                 figmaColor(0.07450980693101883, 0.9215686321258545, 0.8666666746139526),

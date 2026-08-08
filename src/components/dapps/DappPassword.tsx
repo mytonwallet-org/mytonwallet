@@ -12,7 +12,8 @@ import PasswordForm from '../ui/PasswordForm';
 interface OwnProps {
   isActive: boolean;
   error?: string;
-  onSubmit: (password: string) => void;
+  extraAuthUsages?: number;
+  onAuthorize: (enclaveToken: string) => void;
   onCancel: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 }
@@ -20,7 +21,8 @@ interface OwnProps {
 function DappPassword({
   isActive,
   error,
-  onSubmit,
+  extraAuthUsages,
+  onAuthorize,
   onCancel,
   onClose,
 }: OwnProps) {
@@ -42,7 +44,8 @@ function DappPassword({
         submitLabel={lang('Connect')}
         cancelLabel={lang('Cancel')}
         noAutoConfirm
-        onSubmit={onSubmit}
+        extraAuthUsages={extraAuthUsages}
+        onAuthorize={onAuthorize}
         onCancel={onCancel}
         onUpdate={clearDappConnectRequestError}
       />

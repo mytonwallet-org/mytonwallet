@@ -8,10 +8,8 @@ import android.graphics.PixelFormat
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
 
-class GradientShaderDrawable(
-    private val colors: IntArray,
-    private val positions: FloatArray
-) : Drawable() {
+class GradientShaderDrawable(private val colors: IntArray, private val positions: FloatArray) :
+    Drawable() {
 
     private val paint = Paint()
     private var lastHeight = -1
@@ -21,8 +19,13 @@ class GradientShaderDrawable(
         if (h != lastHeight) {
             lastHeight = h
             paint.shader = LinearGradient(
-                0f, 0f, 0f, h.toFloat(),
-                colors, positions, Shader.TileMode.CLAMP
+                0f,
+                0f,
+                0f,
+                h.toFloat(),
+                colors,
+                positions,
+                Shader.TileMode.CLAMP
             )
         }
         canvas.drawRect(bounds, paint)
@@ -36,6 +39,9 @@ class GradientShaderDrawable(
         paint.colorFilter = colorFilter
     }
 
-    @Deprecated("Deprecated in Java", ReplaceWith("PixelFormat.TRANSLUCENT", "android.graphics.PixelFormat"))
+    @Deprecated(
+        "Deprecated in Java",
+        ReplaceWith("PixelFormat.TRANSLUCENT", "android.graphics.PixelFormat")
+    )
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }

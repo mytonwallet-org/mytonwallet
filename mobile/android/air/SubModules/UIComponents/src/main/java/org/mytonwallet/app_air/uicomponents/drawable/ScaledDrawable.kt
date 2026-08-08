@@ -29,7 +29,5 @@ class ScaledDrawable(
         drawable.colorFilter = colorFilter
     }
 
-    override fun getOpacity(): Int {
-        return drawable.opacity
-    }
+    override fun getOpacity(): Int = drawable.opacity
 }

@@ -78,7 +78,7 @@ struct PortfolioOverviewSectionView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .bottom, spacing: 12) {
                     Text(lang("Overview"))
-                        .font(.system(size: 17, weight: .semibold))
+                        .textStyle(.bodyStrong)
                         .foregroundStyle(Color.air.secondaryLabel)
                         .lineLimit(1)
 
@@ -86,7 +86,7 @@ struct PortfolioOverviewSectionView: View {
 
                     if let dateRangeText = overview.dateRangeText {
                         Text(dateRangeText)
-                            .font(.system(size: 14, weight: .regular))
+                            .textStyle(.supporting, content: .technical)
                             .foregroundStyle(Color(uiColor: .air.secondaryLabel))
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
@@ -127,7 +127,7 @@ struct PortfolioOverviewSectionView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value ?? "")
-                    .font(.system(size: 17, weight: .semibold))
+                    .textStyle(.bodyStrong, content: .technical)
                     .foregroundStyle(Color(uiColor: valueColor))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -135,7 +135,7 @@ struct PortfolioOverviewSectionView: View {
 
                 if let trailingText {
                     Text(trailingText)
-                        .font(.system(size: 13, weight: .regular))
+                        .textStyle(.footnote, content: .technical)
                         .foregroundStyle(Color(uiColor: trailingColor))
                         .lineLimit(1)
                 }
@@ -151,7 +151,7 @@ struct PortfolioOverviewSectionView: View {
             )
 
             Text(title)
-                .font(.system(size: 13, weight: .regular))
+                .textStyle(.footnote)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(2)
         }
@@ -176,7 +176,7 @@ struct PortfolioInsightCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(card.title)
-                .font(.system(size: 17, weight: .semibold))
+                .textStyle(.bodyStrong)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
                 .padding(.horizontal, 16)
@@ -186,7 +186,7 @@ struct PortfolioInsightCardView: View {
             HStack(spacing: 24) {
                 if displayedSegments.isEmpty {
                     Text(card.emptyText ?? lang("No data"))
-                        .font(.system(size: 14, weight: .regular))
+                        .textStyle(.supporting)
                         .foregroundStyle(Color.air.secondaryLabel)
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -371,15 +371,29 @@ private struct PortfolioInsightLegendView: View {
         VStack(alignment: .leading, spacing: rowSpacing) {
             ForEach(segments) { segment in
                 HStack(spacing: 8) {
-                    Text(segment.title)
-                        .font(titleFont)
+                    Group {
+                        if segments.count > 4 {
+                            Text(segment.title)
+                                .textStyle(.footnoteStrong)
+                        } else {
+                            Text(segment.title)
+                                .textStyle(.supportingStrong)
+                        }
+                    }
                         .foregroundStyle(Color(UIColor(hex: segment.colorHex)))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Text(valueText(for: segment))
-                        .font(valueFont)
+                    Group {
+                        if segments.count > 4 {
+                            Text(valueText(for: segment))
+                                .textStyle(.footnote, content: .technical)
+                        } else {
+                            Text(valueText(for: segment))
+                                .textStyle(.supporting, content: .technical)
+                        }
+                    }
                         .foregroundStyle(Color.air.secondaryLabel)
                         .lineLimit(1)
                 }
@@ -394,14 +408,6 @@ private struct PortfolioInsightLegendView: View {
 
     private var rowSpacing: CGFloat {
         PortfolioInsightCardMetrics.legendRowSpacing(segmentCount: segments.count)
-    }
-
-    private var titleFont: Font {
-        .system(size: segments.count > 4 ? 13 : 14, weight: .semibold)
-    }
-
-    private var valueFont: Font {
-        .system(size: segments.count > 4 ? 13 : 14, weight: .regular)
     }
 
     private func valueText(for segment: PortfolioInsightSegment) -> String {

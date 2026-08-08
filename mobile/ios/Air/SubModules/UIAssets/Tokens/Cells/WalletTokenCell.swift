@@ -22,13 +22,9 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private static let badgeFadeWidth: CGFloat = 18
     private static let badgeFadeHiddenInset: CGFloat = 1
 
-    private let medium16Font = UIFont.systemFont(ofSize: 16, weight: .medium)
-    private let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
-    private let regular14Font = UIFont.systemFont(ofSize: 14, weight: .regular)
-    
     public var walletToken: MTokenBalance?
     
-    private var tokenImage: String?
+    private var isMultichain = false
     private var contextMenuInteraction: ContextMenuInteraction?
 
     public var isUIAssets: Bool { false }
@@ -57,11 +53,17 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private var tokenPriceLabel: UILabel!
     private var amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing)
     private var amountLabel: WAmountLabel!
+    private var amountWidthConstraint: NSLayoutConstraint!
     private var amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
     private var baseCurrencyAmountLabel: WAmountLabel!
+    private var baseCurrencyAmountWidthConstraint: NSLayoutConstraint!
     private let badge = BadgeView()
-    private var badgeInlineLeadingConstraint: NSLayoutConstraint!
-    private var badgeOverlayTrailingConstraint: NSLayoutConstraint!
+    private var badgeInlineLTRConstraint: NSLayoutConstraint!
+    private var badgeInlineRTLConstraint: NSLayoutConstraint!
+    private var badgeOverlayLTRConstraint: NSLayoutConstraint!
+    private var badgeOverlayRTLConstraint: NSLayoutConstraint!
+    private var badgeAmountBoundaryLTRConstraint: NSLayoutConstraint!
+    private var badgeAmountBoundaryRTLConstraint: NSLayoutConstraint!
 
     private enum BadgeLayoutMode {
         case inline
@@ -69,6 +71,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     }
 
     private var badgeLayoutMode: BadgeLayoutMode = .inline
+    private var badgeLayoutDirection: UIUserInterfaceLayoutDirection?
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -126,7 +129,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         ])
         tokenNameWidthConstraint = tokenNameLabel.widthAnchor.constraint(equalToConstant: 0)
         tokenNameWidthConstraint.isActive = true
-        tokenNameLabel.font = medium16Font
+        tokenNameLabel.applyTextStyle(.calloutEmphasized)
         tokenNameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         tokenNameLabel.lineBreakMode = .byTruncatingTail
 
@@ -148,30 +151,34 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
             tokenPriceLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: Self.tokenImageToTextSpacing),
             tokenPriceLabel.topAnchor.constraint(equalTo: tokenNameClipView.bottomAnchor, constant: 1),
         ])
-        tokenPriceLabel.font = regular14Font
+        tokenPriceLabel.applyTextStyle(.supporting, content: .technical)
 
         amountLabel = WAmountLabel(showNegativeSign: false)
-        amountLabel.font = regular16Font
+        amountLabel.applyTextStyle(.callout, content: .technical)
         amountLabel.translatesAutoresizingMaskIntoConstraints = false
         amountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         amountContainer.addContent(amountLabel)
         mainView.addSubview(amountContainer)
         amountContainer.setContentCompressionResistancePriority(.required, for: .horizontal)
+        amountWidthConstraint = amountLabel.widthAnchor.constraint(equalToConstant: 0)
         tokenNameClipTrailingConstraint = tokenNameClipView.trailingAnchor.constraint(equalTo: amountLabel.leadingAnchor)
         NSLayoutConstraint.activate([
+            amountWidthConstraint,
             amountLabel.trailingAnchor.constraint(equalTo: mainView.trailingAnchor),
             amountLabel.firstBaselineAnchor.constraint(equalTo: tokenNameLabel.firstBaselineAnchor),
             tokenNameClipTrailingConstraint,
         ])
 
         baseCurrencyAmountLabel = WAmountLabel(showNegativeSign: true)
-        baseCurrencyAmountLabel.font = regular14Font
+        baseCurrencyAmountLabel.applyTextStyle(.supporting, content: .technical)
         baseCurrencyAmountLabel.translatesAutoresizingMaskIntoConstraints = false
         baseCurrencyAmountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         amount2Container.addContent(baseCurrencyAmountLabel)
         mainView.addSubview(amount2Container)
         amount2Container.setContentCompressionResistancePriority(.required, for: .horizontal)
+        baseCurrencyAmountWidthConstraint = baseCurrencyAmountLabel.widthAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
+            baseCurrencyAmountWidthConstraint,
             baseCurrencyAmountLabel.trailingAnchor.constraint(equalTo: amountLabel.trailingAnchor),
             baseCurrencyAmountLabel.firstBaselineAnchor.constraint(equalTo: tokenPriceLabel.firstBaselineAnchor),
         ])
@@ -182,13 +189,16 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         // apy
         badge.translatesAutoresizingMaskIntoConstraints = false
         mainView.addSubview(badge)
-        badgeInlineLeadingConstraint = badge.leadingAnchor.constraint(equalTo: tokenNameLabel.trailingAnchor, constant: Self.badgeLeadingSpacing)
-        badgeOverlayTrailingConstraint = badge.trailingAnchor.constraint(equalTo: tokenNameClipView.trailingAnchor, constant: -Self.badgeTrailingSpacing)
+        badgeInlineLTRConstraint = badge.leftAnchor.constraint(equalTo: tokenNameLabel.rightAnchor, constant: Self.badgeLeadingSpacing)
+        badgeInlineRTLConstraint = badge.rightAnchor.constraint(equalTo: tokenNameLabel.leftAnchor, constant: -Self.badgeLeadingSpacing)
+        badgeOverlayLTRConstraint = badge.rightAnchor.constraint(equalTo: tokenNameClipView.rightAnchor, constant: -Self.badgeTrailingSpacing)
+        badgeOverlayRTLConstraint = badge.leftAnchor.constraint(equalTo: tokenNameClipView.leftAnchor, constant: Self.badgeTrailingSpacing)
+        badgeAmountBoundaryLTRConstraint = badge.rightAnchor.constraint(lessThanOrEqualTo: amountLabel.leftAnchor, constant: -Self.badgeTrailingSpacing)
+        badgeAmountBoundaryRTLConstraint = badge.leftAnchor.constraint(greaterThanOrEqualTo: amountLabel.rightAnchor, constant: Self.badgeTrailingSpacing)
         NSLayoutConstraint.activate([
             badge.centerYAnchor.constraint(equalTo: tokenNameLabel.centerYAnchor, constant: -0.333),
-            badgeInlineLeadingConstraint,
-            badge.trailingAnchor.constraint(lessThanOrEqualTo: amountLabel.leadingAnchor, constant: -Self.badgeTrailingSpacing),
         ])
+        applyBadgeLayoutMode(.inline)
         badge.alpha = 0
         badge.setContentCompressionResistancePriority(.required, for: .horizontal)
 
@@ -213,6 +223,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     public func configure(with walletToken: MTokenBalance,
                           animated: Bool = true,
                           badgeContent: BadgeContent?,
+                          stakingAccessoryContent: StakingAccessoryContent?,
                           isMultichain: Bool,
                           isPinned: Bool) {
         let previousTokenSlug = self.walletToken?.tokenSlug
@@ -220,14 +231,12 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         let previousBaseCurrencyAmount = self.walletToken?.toBaseCurrency
         let tokenChanged = previousTokenSlug != walletToken.tokenSlug
         self.walletToken = walletToken
+        self.isMultichain = isMultichain
         // token
         let token = TokenStore.getToken(slug: walletToken.tokenSlug)
 
         // configure icon view
-        if tokenChanged || tokenImage != token?.image?.nilIfEmpty {
-            tokenImage = token?.image?.nilIfEmpty
-            iconView.config(with: token, isStaking: walletToken.isStaking, isWalletView: true, shouldShowChain: isMultichain)
-        }
+        configureIcon(token: token, accessoryContent: stakingAccessoryContent)
         
         // pin icon
         pinIconView.isHidden = !isPinned
@@ -254,21 +263,24 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         // price
         if let price = token?.price {
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(price, TokenStore.baseCurrency)
-            let attr = NSMutableAttributedString(
-                string: baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true),
-                attributes: [
-                    .font: regular14Font,
-                    .foregroundColor: UIColor.air.secondaryLabel,
-                ]
-            )
+            let priceText = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
+            var percentChangeText: String?
+            var percentChangeColor: UIColor?
             if let percentChange24h = token?.percentChange24h, let percentChange24hRounded = token?.percentChange24hRounded {
                 let color = abs(percentChange24h) < 0.005 ? UIColor.air.secondaryLabel : percentChange24h > 0 ? UIColor.air.positiveAmount : UIColor.air.negativeAmount
-                if percentChange24hRounded != 0 {
-                    attr.append(NSAttributedString(string: " \(formatPercent(percentChange24hRounded / 100))",
-                                                   attributes: [.font: regular14Font, .foregroundColor: color]))
+                if percentChange24hRounded != 0,
+                   WalletTokenPercentChangeThresholdExperiment.shouldShow(
+                       percentChange: percentChange24h
+                   ) {
+                    percentChangeText = formatPercent(percentChange24hRounded / 100)
+                    percentChangeColor = color
                 }
             }
-            tokenPriceLabel.attributedText = attr
+            tokenPriceLabel.attributedText = makePriceAttributedText(
+                priceText: priceText,
+                percentChangeText: percentChangeText,
+                percentChangeColor: percentChangeColor
+            )
         } else {
             tokenPriceLabel.text = " "
         }
@@ -293,6 +305,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         let baseAmountChanged = previousBaseCurrencyAmount != walletToken.toBaseCurrency
         setAmountText(amountText, animated: shouldAnimateAmounts && amountChanged, label: amountLabel)
         setAmountText(baseCurrencyText, animated: shouldAnimateAmounts && baseAmountChanged, label: baseCurrencyAmountLabel)
+        updateAmountWidthConstraints()
 
         let amountCols = 4 + abs((token?.name).hashValue % 8)
         let fiatAmountCols = 5 + (amountCols % 6)
@@ -304,6 +317,29 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         }
         updateTokenNameFadeMask()
         prevToken = token?.slug
+    }
+
+    public func configureStakingPresentation(
+        badgeContent: BadgeContent?,
+        accessoryContent: StakingAccessoryContent?
+    ) {
+        configureBadge(badgeContent: badgeContent)
+        guard let walletToken else { return }
+        configureIcon(
+            token: TokenStore.getToken(slug: walletToken.tokenSlug),
+            accessoryContent: accessoryContent
+        )
+    }
+
+    private func configureIcon(token: ApiToken?, accessoryContent: StakingAccessoryContent?) {
+        guard let walletToken else { return }
+        iconView.config(
+            with: token,
+            isStaking: walletToken.isStaking,
+            isWalletView: true,
+            stakingAccessory: accessoryContent,
+            shouldShowChain: isMultichain
+        )
     }
 
     public func configureBadge(badgeContent: BadgeContent?) {
@@ -346,10 +382,26 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         badge.layoutIfNeeded()
 
         let badgeWidth = ceil(badge.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width)
-        let amountLeading = amountLabel.frame.minX > 0
-            ? amountLabel.frame.minX
-            : mainView.bounds.width - ceil(amountLabel.intrinsicContentSize.width)
-        let inlineTitleWidth = amountLeading - tokenNameClipView.frame.minX - badgeWidth - Self.badgeLeadingSpacing - Self.badgeTrailingSpacing
+        let inlineTitleWidth: CGFloat
+        if effectiveUserInterfaceLayoutDirection == .rightToLeft {
+            let amountTrailing = amountLabel.frame.maxX > 0
+                ? amountLabel.frame.maxX
+                : ceil(amountLabel.intrinsicContentSize.width)
+            inlineTitleWidth = tokenNameClipView.frame.maxX
+                - amountTrailing
+                - badgeWidth
+                - Self.badgeLeadingSpacing
+                - Self.badgeTrailingSpacing
+        } else {
+            let amountLeading = amountLabel.frame.minX > 0
+                ? amountLabel.frame.minX
+                : mainView.bounds.width - ceil(amountLabel.intrinsicContentSize.width)
+            inlineTitleWidth = amountLeading
+                - tokenNameClipView.frame.minX
+                - badgeWidth
+                - Self.badgeLeadingSpacing
+                - Self.badgeTrailingSpacing
+        }
         guard inlineTitleWidth > 0 else { return applyBadgeLayoutMode(.overlay) }
 
         let titleRequiredWidth = ceil(tokenNameLabel.intrinsicContentSize.width)
@@ -364,27 +416,51 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
             return
         }
 
-        let overlapStartX = badge.frame.minX - tokenNameClipView.frame.minX
         let clipWidth = tokenNameClipView.bounds.width
-        guard clipWidth > 0, overlapStartX < clipWidth else {
+        guard clipWidth > 0 else {
             tokenNameClipView.layer.mask = nil
             return
         }
 
-        let fadeEndX = max(0, overlapStartX - Self.badgeFadeHiddenInset)
-        let fadeStartX = max(0, fadeEndX - Self.badgeFadeWidth)
+        let overlapStartX = badge.frame.minX - tokenNameClipView.frame.minX
+        let overlapEndX = badge.frame.maxX - tokenNameClipView.frame.minX
+        let fadeStartX: CGFloat
+        let fadeEndX: CGFloat
+        let colors: [CGColor]
+        if effectiveUserInterfaceLayoutDirection == .rightToLeft {
+            guard overlapEndX > 0 else {
+                tokenNameClipView.layer.mask = nil
+                return
+            }
+            fadeStartX = min(clipWidth, overlapEndX + Self.badgeFadeHiddenInset)
+            fadeEndX = min(clipWidth, fadeStartX + Self.badgeFadeWidth)
+            colors = [
+                UIColor.clear.cgColor,
+                UIColor.clear.cgColor,
+                UIColor.black.cgColor,
+                UIColor.black.cgColor,
+            ]
+        } else {
+            guard overlapStartX < clipWidth else {
+                tokenNameClipView.layer.mask = nil
+                return
+            }
+            fadeEndX = max(0, overlapStartX - Self.badgeFadeHiddenInset)
+            fadeStartX = max(0, fadeEndX - Self.badgeFadeWidth)
+            colors = [
+                UIColor.black.cgColor,
+                UIColor.black.cgColor,
+                UIColor.clear.cgColor,
+                UIColor.clear.cgColor,
+            ]
+        }
         let fadeStartLocation = max(0, min(1, fadeStartX / clipWidth))
         let fadeEndLocation = max(0, min(1, fadeEndX / clipWidth))
 
         tokenNameFadeMask.frame = tokenNameClipView.bounds
         tokenNameFadeMask.startPoint = CGPoint(x: 0, y: 0.5)
         tokenNameFadeMask.endPoint = CGPoint(x: 1, y: 0.5)
-        tokenNameFadeMask.colors = [
-            UIColor.black.cgColor,
-            UIColor.black.cgColor,
-            UIColor.clear.cgColor,
-            UIColor.clear.cgColor,
-        ]
+        tokenNameFadeMask.colors = colors
         tokenNameFadeMask.locations = [
             0,
             NSNumber(value: fadeStartLocation),
@@ -408,20 +484,64 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         }
     }
 
-    @discardableResult
-    private func applyBadgeLayoutMode(_ nextMode: BadgeLayoutMode) -> Bool {
-        guard nextMode != badgeLayoutMode else {
-            tokenNameClipView.layer.mask = nextMode == .overlay ? tokenNameFadeMask : nil
-            return false
-        }
-
-        badgeLayoutMode = nextMode
-        badgeInlineLeadingConstraint.isActive = nextMode == .inline
-        badgeOverlayTrailingConstraint.isActive = nextMode == .overlay
-        tokenNameClipView.layer.mask = nextMode == .overlay ? tokenNameFadeMask : nil
-        return true
+    private func updateAmountWidthConstraints() {
+        amountWidthConstraint.constant = ceil(amountLabel.intrinsicContentSize.width)
+        baseCurrencyAmountWidthConstraint.constant = ceil(baseCurrencyAmountLabel.intrinsicContentSize.width)
     }
 
+    private func makePriceAttributedText(
+        priceText: String,
+        percentChangeText: String?,
+        percentChangeColor: UIColor?
+    ) -> NSAttributedString {
+        let font = WTypography.uiFont(.supporting, content: .technical)
+        let priceAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: UIColor.air.secondaryLabel,
+        ]
+        guard let percentChangeText, let percentChangeColor else {
+            return NSAttributedString(string: priceText, attributes: priceAttributes)
+        }
+
+        let changeAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: percentChangeColor,
+        ]
+        guard effectiveUserInterfaceLayoutDirection == .rightToLeft else {
+            let attr = NSMutableAttributedString(string: priceText, attributes: priceAttributes)
+            attr.append(NSAttributedString(string: " \(percentChangeText)", attributes: changeAttributes))
+            return attr
+        }
+
+        let attr = NSMutableAttributedString(string: percentChangeText.leftToRightMarked, attributes: changeAttributes)
+        attr.append(NSAttributedString(string: " · ", attributes: priceAttributes))
+        attr.append(NSAttributedString(string: priceText.leftToRightMarked, attributes: priceAttributes))
+        return attr
+    }
+
+    @discardableResult
+    private func applyBadgeLayoutMode(_ nextMode: BadgeLayoutMode) -> Bool {
+        let direction = effectiveUserInterfaceLayoutDirection
+        let didChange = nextMode != badgeLayoutMode || direction != badgeLayoutDirection
+
+        badgeLayoutMode = nextMode
+        badgeLayoutDirection = direction
+        badgeInlineLTRConstraint.isActive = nextMode == .inline && direction == .leftToRight
+        badgeInlineRTLConstraint.isActive = nextMode == .inline && direction == .rightToLeft
+        badgeOverlayLTRConstraint.isActive = nextMode == .overlay && direction == .leftToRight
+        badgeOverlayRTLConstraint.isActive = nextMode == .overlay && direction == .rightToLeft
+        badgeAmountBoundaryLTRConstraint.isActive = direction == .leftToRight
+        badgeAmountBoundaryRTLConstraint.isActive = direction == .rightToLeft
+        tokenNameClipView.layer.mask = nextMode == .overlay ? tokenNameFadeMask : nil
+        return didChange
+    }
+
+}
+
+private extension String {
+    var leftToRightMarked: String {
+        "\u{200E}\(self)\u{200E}"
+    }
 }
 
 public class AssetsWalletTokenCell: WalletTokenCell {

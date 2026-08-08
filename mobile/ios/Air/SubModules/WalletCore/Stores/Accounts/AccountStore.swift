@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NativeEnclave
 import WalletContext
 import UIKit
 import Kingfisher
@@ -108,10 +109,6 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     public func get(accountId: String) -> MAccount {
         access(keyPath: \._accountsById)
         return accountsById[accountId] ?? DUMMY_ACCOUNT
-    }
-    
-    private func getCurrentAccount() -> MAccount {
-        get(accountId: currentAccountId)
     }
     
     public func get(accountIdOrCurrent: String?) -> MAccount {
@@ -309,8 +306,14 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     // MARK: - Account management
 
-    public func importMnemonic(network: ApiNetwork, words: [String], passcode: String, isNewMnemonic: Bool) async throws -> [MAccount] {
-        let results = try await Api.importMnemonic(networks: [network], mnemonic: words, password: passcode, isNewMnemonic: isNewMnemonic)
+    public func importMnemonic(network: ApiNetwork, words: [String], enclaveToken: EnclaveToken) async throws -> [MAccount] {
+        let results = try await Api.importMnemonic(networks: [network], mnemonic: words)
+        let secret = words.joined(separator: " ")
+        try await _importEnclaveSecret(
+            secret,
+            accountIds: results.map(\.accountId),
+            token: enclaveToken
+        )
         var accountsById = self.accountsById
         let accounts = try results.map { result in
             let account = MAccount(
@@ -327,7 +330,6 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         try await _storeAccounts(accounts: accounts, orderedAccountIds: nextOrderedAccountIds)
         self.accountsById = accountsById
         self.orderedAccountIds = nextOrderedAccountIds
-        await refreshStoredMfaIfPossible(accountIds: accounts.map(\.id), password: passcode)
 
         let primaryAccount = accounts[0]
         _ = try await self.activateAccount(accountId: primaryAccount.id, isNew: true)
@@ -335,8 +337,13 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         return accounts.map { self.accountsById[$0.id] ?? $0 }
     }
     
-    public func importPrivateKey(network: ApiNetwork, privateKey: String, passcode: String) async throws -> MAccount {
-        let result = try await Api.importPrivateKey(chain: .ton, networks: [network], privateKey: privateKey, password: passcode).first.orThrow()
+    public func importPrivateKey(network: ApiNetwork, privateKey: String, enclaveToken: EnclaveToken) async throws -> MAccount {
+        let result = try await Api.importPrivateKey(chain: .ton, networks: [network], privateKey: privateKey).first.orThrow()
+        try await EnclaveManager.shared.importSecret(
+            id: result.accountId,
+            secret: privateKey,
+            token: enclaveToken
+        )
         let account = MAccount(
             id: result.accountId,
             title: _defaultTitle(),
@@ -344,7 +351,6 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             byChain: result.byChain,
         )
         try await _storeAccount(account: account)
-        await refreshStoredMfaIfPossible(accountIds: [account.id], password: passcode)
         _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
         await subscribeNotificationsIfAvailable(account: account)
         return self.accountsById[account.id] ?? account
@@ -372,20 +378,29 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         let result = try await Api.importNewWalletVersion(accountId: accountId, version: version)
 
         if result.isNew {
+            let byChain = try result.byChain.orThrow("Missing chain data for new wallet version")
+            try await _duplicateEnclaveSecretIfNeeded(
+                from: originalAccount,
+                to: [result.accountId]
+            )
             let account = MAccount(
                 id: result.accountId,
                 title: walletVersionTitle(originalTitle: originalAccount.title, version: version),
                 type: originalAccount.type,
-                byChain: try result.byChain.orThrow("Missing chain data for new wallet version"),
+                byChain: byChain,
             )
             try await _storeAccount(account: account)
-            await refreshStoredMfaIfPossible(accountIds: [account.id], password: nil)
+            await refreshStoredMfaIfPossible(accountIds: [account.id], enclaveToken: nil)
             _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
             await subscribeNotificationsIfAvailable(account: account)
             return self.accountsById[account.id] ?? account
             
         } else {
             if accountsById[result.accountId] == nil {
+                try await _duplicateEnclaveSecretIfNeeded(
+                    from: originalAccount,
+                    to: [result.accountId]
+                )
                 let summary = try await Api.fetchStoredAccountSummary(accountId: result.accountId)
                 let recoveredAccount = MAccount(
                     id: result.accountId,
@@ -394,7 +409,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                     byChain: summary.byChain
                 )
                 try await _storeAccount(account: recoveredAccount)
-                await refreshStoredMfaIfPossible(accountIds: [recoveredAccount.id], password: nil)
+                await refreshStoredMfaIfPossible(accountIds: [recoveredAccount.id], enclaveToken: nil)
                 await subscribeNotificationsIfAvailable(account: recoveredAccount)
             }
             let account = try await self.activateAccount(accountId: result.accountId)
@@ -413,13 +428,20 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     @discardableResult
-    public func createSubWallet(password: String) async throws -> MAccount {
+    public func createSubWallet(enclaveToken: EnclaveToken) async throws -> MAccount {
         let currentAccountId = try self.accountId.orThrow("Can't find current account id")
         let originalAccount = try accountsById[currentAccountId].orThrow("Can't find the original account")
-        let result = try await Api.createSubWallet(accountId: currentAccountId, password: password)
+        let result = try await Api.createSubWallet(
+            accountId: currentAccountId,
+            enclaveToken: enclaveToken
+        )
 
         if result.isNew {
             let byChain = try result.byChain.orThrow("Missing subwallet account data")
+            try await _duplicateEnclaveSecretIfNeeded(
+                from: originalAccount,
+                to: [result.accountId]
+            )
             return try await _storeAndActivateSubwalletAccount(
                 accountId: result.accountId,
                 originalAccount: originalAccount,
@@ -440,6 +462,10 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
         if result.isNew {
             let byChain = try result.byChain.orThrow("Missing subwallet account data")
+            try await _duplicateEnclaveSecretIfNeeded(
+                from: originalAccount,
+                to: [result.accountId]
+            )
             let account = try await _storeAndActivateSubwalletAccount(
                 accountId: result.accountId,
                 originalAccount: originalAccount,
@@ -474,6 +500,13 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         guard !result.results.isEmpty else {
             throw DisplayError(text: "Unexpected error")
         }
+        for item in result.results where item.isNew {
+            _ = try item.byChain.orThrow("Missing subwallet account data")
+        }
+        try await _duplicateEnclaveSecretIfNeeded(
+            from: originalAccount,
+            to: result.results.compactMap { $0.isNew ? $0.accountId : nil }
+        )
 
         var addedNewAccount = false
         var lastAccount: MAccount?
@@ -536,6 +569,51 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     private func _defaultTitle() -> String {
         _defaultTitle(accountsById: accountsById)
+    }
+
+    private func _importEnclaveSecret(
+        _ secret: String,
+        accountIds: [String],
+        token: EnclaveToken
+    ) async throws {
+        let manager = EnclaveManager.shared
+        try await EnclaveSecretReplication.importSecret(
+            accountIds: accountIds,
+            importPrimary: { accountId in
+                try await manager.importSecret(
+                    id: accountId,
+                    secret: secret,
+                    token: token
+                )
+            },
+            duplicate: { sourceId, targetId in
+                try await manager.duplicateSecret(fromId: sourceId, toId: targetId)
+            },
+            existingIds: { accountIds in
+                try await manager.existingSecretIds(in: accountIds)
+            }
+        )
+    }
+
+    private func _duplicateEnclaveSecretIfNeeded(
+        from sourceAccount: MAccount,
+        to targetIds: [String]
+    ) async throws {
+        guard sourceAccount.type.isStoredEncrypted, !targetIds.isEmpty else {
+            return
+        }
+
+        let manager = EnclaveManager.shared
+        try await EnclaveSecretReplication.duplicateSecret(
+            from: sourceAccount.id,
+            to: targetIds,
+            duplicate: { sourceId, targetId in
+                try await manager.duplicateSecret(fromId: sourceId, toId: targetId)
+            },
+            existingIds: { accountIds in
+                try await manager.existingSecretIds(in: accountIds)
+            }
+        )
     }
 
     private func _defaultTitle(accountsById: [String: MAccount]) -> String {
@@ -657,6 +735,73 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
     }
 
+    func reconcileSecretStates(
+        availableAccountIds: Set<String>,
+        recoveryRequiredAccountIds: Set<String>
+    ) async throws -> Set<String> {
+        let overlappingAccountIds = availableAccountIds.intersection(recoveryRequiredAccountIds)
+        if !overlappingAccountIds.isEmpty {
+            log.fault(
+                "skipping conflicting secret state reconciliation ids=\(overlappingAccountIds.sorted(), .public)"
+            )
+        }
+
+        let targetStates: [(accountId: String, state: AccountSecretState?)] =
+            availableAccountIds.subtracting(overlappingAccountIds).map { ($0, nil) }
+            + recoveryRequiredAccountIds.subtracting(overlappingAccountIds).map { ($0, .recoveryRequired) }
+        guard !targetStates.isEmpty else {
+            return []
+        }
+
+        let persistedUpdates = try await db.write { db in
+            var updates: [(accountId: String, state: AccountSecretState?, didChange: Bool)] = []
+            for (accountId, state) in targetStates {
+                guard var account = try MAccount.fetchOne(db, key: accountId),
+                      account.type.isStoredEncrypted else {
+                    continue
+                }
+                let didChange = try account.updateChanges(db) {
+                    $0.secretState = state
+                }
+                updates.append((accountId, state, didChange))
+            }
+            return updates
+        }
+        guard !persistedUpdates.isEmpty else {
+            return []
+        }
+
+        let accountsById = self.accountsById
+        let memoryUpdates = persistedUpdates.filter { accountId, state, _ in
+            guard let account = accountsById[accountId],
+                  account.type.isStoredEncrypted else {
+                return false
+            }
+            return account.secretState != state
+        }
+        let changedAccountIds = Set(
+            persistedUpdates.compactMap { $0.didChange ? $0.accountId : nil }
+        ).union(memoryUpdates.map(\.accountId))
+        guard !memoryUpdates.isEmpty else {
+            return changedAccountIds
+        }
+
+        withMutation(keyPath: \._accountsById) {
+            _accountsById.withLock { accountsById in
+                for (accountId, state, _) in memoryUpdates {
+                    guard var account = accountsById[accountId],
+                          account.type.isStoredEncrypted,
+                          account.secretState != state else {
+                        continue
+                    }
+                    account.secretState = state
+                    accountsById[accountId] = account
+                }
+            }
+        }
+        return changedAccountIds
+    }
+
     public func updateAccountTitle(accountId: String, newTitle: String?) async throws {
         if var account = accountsById[accountId] {
             account.title = AccountTitle.normalized(newTitle)
@@ -686,17 +831,17 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         try await _storeAccount(account: account)
     }
 
-    public func refreshStoredMfa(accountId: String, password: String? = nil) async throws {
-        let result = try await Api.refreshMfaState(accountId: accountId, password: password)
+    public func refreshStoredMfa(accountId: String, enclaveToken: EnclaveToken? = nil) async throws {
+        let result = try await Api.refreshMfaState(accountId: accountId, enclaveToken: enclaveToken)
         if result.changed || result.mfa != nil {
             try await updateMfa(accountId: accountId, mfa: result.mfa)
         }
     }
 
-    private func refreshStoredMfaIfPossible(accountIds: [String], password: String?) async {
+    private func refreshStoredMfaIfPossible(accountIds: [String], enclaveToken: EnclaveToken?) async {
         for accountId in accountIds {
             do {
-                try await refreshStoredMfa(accountId: accountId, password: password)
+                try await refreshStoredMfa(accountId: accountId, enclaveToken: enclaveToken)
             } catch {
                 log.error("refreshStoredMfa failed for imported account \(accountId, .public): \(error, .public)")
             }
@@ -783,6 +928,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     public func resetAccounts() async throws {
         log.info("resetAccounts")
         try await Api.resetAccounts()
+        await AuthSupportImpl.clearAllAuth()
         accountId = nil
         accountsById = [:]
         orderedAccountIds = []
@@ -812,11 +958,13 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     @discardableResult
     public func removeAccount(accountId: String, nextAccountId: String) async throws -> MAccount {
-        if let account = accountsById[accountId] {
-            await _unsubscribeNotifications(account: account)
+        let removedAccount = accountsById[accountId]
+        if let removedAccount {
+            await _unsubscribeNotifications(account: removedAccount)
         }
         let timestamps = await ActivityStore.getNewestActivityTimestamps(accountId: nextAccountId)
         try await Api.removeAccount(accountId: accountId, nextAccountId: nextAccountId, newestActivityTimestamps: timestamps)
+        await cleanupAuthAfterRemovingAccount(accountId: accountId, removedAccount: removedAccount)
         try await db.write { db in
             _ = try MAccount.deleteOne(db, key: accountId)
         }
@@ -825,6 +973,22 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             return currentAccount
         } else {
             return try await activateAccount(accountId: nextAccountId)
+        }
+    }
+
+    private func cleanupAuthAfterRemovingAccount(accountId: String, removedAccount: MAccount?) async {
+        guard let removedAccount, removedAccount.type.isStoredEncrypted else {
+            return
+        }
+
+        let hasOtherEncryptedAccounts = accountsById.values.contains {
+            $0.id != accountId && $0.type.isStoredEncrypted
+        }
+
+        if hasOtherEncryptedAccounts {
+            await EnclaveManager.shared.removeSecret(id: accountId)
+        } else {
+            await AuthSupportImpl.clearAllAuth()
         }
     }
     

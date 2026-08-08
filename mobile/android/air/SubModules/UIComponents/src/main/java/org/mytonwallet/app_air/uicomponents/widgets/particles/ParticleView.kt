@@ -6,10 +6,8 @@ import android.opengl.GLSurfaceView
 import android.util.AttributeSet
 import android.view.ViewGroup
 
-class ParticleView @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null
-) : GLSurfaceView(context, attrs) {
+class ParticleView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
+    GLSurfaceView(context, attrs) {
 
     private val renderer: ParticleRenderer = ParticleRenderer()
     private val systemIds = mutableListOf<String>()
@@ -19,7 +17,7 @@ class ParticleView @JvmOverloads constructor(
         setEGLContextClientVersion(2)
 
         // Use solid background instead of transparency
-        setZOrderOnTop(false)  // Respect normal z-ordering
+        setZOrderOnTop(false) // Respect normal z-ordering
         setEGLConfigChooser(8, 8, 8, 8, 16, 0)
         holder.setFormat(PixelFormat.OPAQUE)
 
@@ -103,36 +101,30 @@ class ParticleView @JvmOverloads constructor(
 
     companion object {
         // Convenience method to create with default TON particles
-        fun createTonParticles(context: Context): ParticleView {
-            return ParticleView(context).apply {
-                addParticleSystem(
-                    ParticleConfig(
-                        color = ParticleConfig.Companion.PARTICLE_COLORS.TON
-                    )
+        fun createTonParticles(context: Context): ParticleView = ParticleView(context).apply {
+            addParticleSystem(
+                ParticleConfig(
+                    color = ParticleConfig.Companion.PARTICLE_COLORS.TON
                 )
-            }
+            )
         }
 
         // Convenience method to create with USDT particles
-        fun createUsdtParticles(context: Context): ParticleView {
-            return ParticleView(context).apply {
-                addParticleSystem(
-                    ParticleConfig(
-                        color = ParticleConfig.Companion.PARTICLE_COLORS.USDT
-                    )
+        fun createUsdtParticles(context: Context): ParticleView = ParticleView(context).apply {
+            addParticleSystem(
+                ParticleConfig(
+                    color = ParticleConfig.Companion.PARTICLE_COLORS.USDT
                 )
-            }
+            )
         }
 
         // Convenience method to create with MY particles
-        fun createMyParticles(context: Context): ParticleView {
-            return ParticleView(context).apply {
-                addParticleSystem(
-                    ParticleConfig(
-                        color = ParticleConfig.Companion.PARTICLE_COLORS.MY
-                    )
+        fun createMyParticles(context: Context): ParticleView = ParticleView(context).apply {
+            addParticleSystem(
+                ParticleConfig(
+                    color = ParticleConfig.Companion.PARTICLE_COLORS.MY
                 )
-            }
+            )
         }
     }
 }

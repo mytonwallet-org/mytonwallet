@@ -88,14 +88,14 @@
 
   &_withLoadingDots {
     position: relative;
-    padding-right: 2.5rem;
+    padding-inline-end: 2.5rem;
   }
 }
 
 .loadingDots {
   position: absolute;
   top: 50%;
-  right: 0;
+  inset-inline-end: 0;
   transform: translateY(-50%) scale(0.6);
 }
 
@@ -112,8 +112,7 @@
 
 .dateSlide {
   position: absolute;
-  left: 50%;
-  transform: translate(-50%);
+  inset-inline: 0;
 
   & > .date {
     margin: 0 auto !important;

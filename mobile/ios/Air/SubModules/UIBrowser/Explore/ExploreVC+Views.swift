@@ -5,7 +5,6 @@ import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
-import UIInAppBrowser
 
 extension ExploreVC {
     @MainActor struct ViewOutput {
@@ -310,8 +309,6 @@ extension ExploreVC {
         let viewState: ObservedViewState
         let viewOutput: ViewOutput
 
-        private let backgroundColor = Color.air.groupedBackground
-
         private let trendingDappsInterItemHSpacing: Double = 16
 
         @Environment(\.horizontalSizeClass)
@@ -609,4 +606,3 @@ private struct AutoScrollingTrendingView: View {
         autoScrollTask = nil
     }
 }
-

@@ -8,11 +8,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
 
 // Base wallet class
 @JsonClass(generateAdapter = true)
-open class MApiBaseWallet(
-    open val address: String,
-    open val publicKey: String,
-    open val index: Int
-)
+open class MApiBaseWallet(open val address: String, open val publicKey: String, open val index: Int)
 
 // Tron wallet
 @JsonClass(generateAdapter = true)
@@ -81,14 +77,11 @@ data class MApiLedgerAccountInfo(
 )
 
 @JsonClass(generateAdapter = true)
-data class MImportedWalletResponse(
-    val accountId: String,
-    val byChain: Map<String, AccountChain>,
-)
+data class MImportedWalletResponse(val accountId: String, val byChain: Map<String, AccountChain>)
 
 @JsonClass(generateAdapter = true)
 data class MImportedViewWalletResponse(
     val accountId: String,
     val title: String?,
-    val byChain: Map<String, AccountChain>,
+    val byChain: Map<String, AccountChain>
 )

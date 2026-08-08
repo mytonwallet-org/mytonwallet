@@ -42,8 +42,7 @@ open class WRadialGradientLabel(context: Context) : WLabel(context) {
     }
 
     private fun applyGradient() {
-        if (width == 0 || height == 0 || containerWidth == 0)
-            return
+        if (width == 0 || height == 0 || containerWidth == 0) return
         val centerX = width / 2f + gradientOffset
         val centerY = height / 2f
         val radius = containerWidth * 0.4f

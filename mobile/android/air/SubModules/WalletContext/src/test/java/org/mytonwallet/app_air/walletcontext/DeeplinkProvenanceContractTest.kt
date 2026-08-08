@@ -40,11 +40,14 @@ class DeeplinkProvenanceContractTest {
         assertFalse(getBooleanProperty(sourceClass, "QR_SCAN", "canRouteOfframp"))
     }
 
-    private fun getDeeplinkOpenSourceClass(): Class<*> {
-        return Class.forName("org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource")
-    }
+    private fun getDeeplinkOpenSourceClass(): Class<*> =
+        Class.forName("org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource")
 
-    private fun getBooleanProperty(sourceClass: Class<*>, sourceName: String, propertyName: String): Boolean {
+    private fun getBooleanProperty(
+        sourceClass: Class<*>,
+        sourceName: String,
+        propertyName: String
+    ): Boolean {
         val source = sourceClass.enumConstants!!
             .single { (it as Enum<*>).name == sourceName }
         val getterName = "get${propertyName.replaceFirstChar { it.uppercase() }}"

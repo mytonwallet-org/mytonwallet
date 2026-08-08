@@ -12,7 +12,9 @@ export function checkDnsRenewalDraft(accountId: string, nfts: ApiNft[]) {
   return ton.checkDnsRenewalDraft(accountId, nftAddresses);
 }
 
-export async function submitDnsRenewal(accountId: string, password: string | undefined, nfts: ApiNft[], realFee = 0n) {
+export async function submitDnsRenewal(
+  accountId: string, enclaveToken: string | undefined, nfts: ApiNft[], realFee = 0n,
+) {
   const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const nftByAddress = buildCollectionByKey(nfts, 'address');
@@ -22,7 +24,9 @@ export async function submitDnsRenewal(accountId: string, password: string | und
     | { error: string }
   )[] = [];
 
-  for await (const { addresses, result } of ton.submitDnsRenewal(accountId, password, Object.keys(nftByAddress))) {
+  for await (
+    const { addresses, result } of ton.submitDnsRenewal(accountId, enclaveToken, Object.keys(nftByAddress))
+  ) {
     if ('error' in result) {
       results.push(result);
       continue;
@@ -62,13 +66,13 @@ export function checkDnsChangeWalletDraft(accountId: string, nft: ApiNft, addres
 
 export async function submitDnsChangeWallet(
   accountId: string,
-  password: string | undefined,
+  enclaveToken: string | undefined,
   nft: ApiNft,
   address: string,
   realFee = 0n,
 ) {
   const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
-  const result = await ton.submitDnsChangeWallet(accountId, password, nft.address, address);
+  const result = await ton.submitDnsChangeWallet(accountId, enclaveToken, nft.address, address);
 
   if ('error' in result) {
     return result;

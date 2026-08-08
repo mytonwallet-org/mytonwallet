@@ -23,7 +23,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
  */
 @SuppressLint("ViewConstructor")
 class WalletConnectPayEmptyCell(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    WThemedView {
 
     private val titleLabel = WLabel(context).apply {
         setStyle(14f, WFont.Medium)
@@ -44,8 +45,10 @@ class WalletConnectPayEmptyCell(context: Context) :
         setPadding(16.dp, 15.dp, 16.dp, 15.dp)
         addView(titleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(
-            subtitleLabel, LinearLayout.LayoutParams(
-                MATCH_PARENT, WRAP_CONTENT
+            subtitleLabel,
+            LinearLayout.LayoutParams(
+                MATCH_PARENT,
+                WRAP_CONTENT
             ).apply { topMargin = 8.dp }
         )
     }
@@ -66,10 +69,18 @@ class WalletConnectPayEmptyCell(context: Context) :
 
     fun configure(shouldSwitchWallet: Boolean = false) {
         titleLabel.text = LocaleController.getString(
-            if (shouldSwitchWallet) "No matching chains" else "You don't have any eligible tokens for this payment"
+            if (shouldSwitchWallet) {
+                "No matching chains"
+            } else {
+                "You don't have any eligible tokens for this payment"
+            }
         )
         subtitleLabel.text = LocaleController.getString(
-            if (shouldSwitchWallet) "Select multichain wallet" else "Buy, swap, or receive a supported token to continue."
+            if (shouldSwitchWallet) {
+                "Select multichain wallet"
+            } else {
+                "Buy, swap, or receive a supported token to continue."
+            }
         )
         updateTheme()
     }

@@ -7,3 +7,6 @@
   Link: <{{CANONICAL}}>; rel="canonical"
 /*.*.*
   Cache-Control: public, max-age=31536000, immutable
+# `build.txt` answers "which revision is this host serving right now", which a cached copy cannot.
+/build.txt
+  Cache-Control: no-cache

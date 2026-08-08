@@ -28,4 +28,10 @@
   .isDragging & {
     cursor: grabbing !important;
   }
+
+  &Disabled {
+    pointer-events: none;
+    cursor: default !important;
+    opacity: 0.3;
+  }
 }

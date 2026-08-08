@@ -9,13 +9,9 @@ import androidx.core.graphics.green
 import androidx.core.graphics.red
 import kotlin.math.roundToInt
 
-fun Int.colorWithAlpha(alpha: Int): Int {
-    return Color.argb(alpha * this.alpha / 255, red, green, blue)
-}
+fun Int.colorWithAlpha(alpha: Int): Int = Color.argb(alpha * this.alpha / 255, red, green, blue)
 
-fun Int.solidColorWithAlpha(alpha: Int): Int {
-    return Color.argb(alpha, red, green, blue)
-}
+fun Int.solidColorWithAlpha(alpha: Int): Int = Color.argb(alpha, red, green, blue)
 
 @ColorInt
 fun lerpColor(@ColorInt start: Int, @ColorInt end: Int, @FloatRange(0.0, 1.0) t: Float): Int {

@@ -1,7 +1,10 @@
 package org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm
 
+import java.lang.ref.WeakReference
+import java.math.BigInteger
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC.Mode
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -10,8 +13,6 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
 
 class ConfirmNftVM(mode: Mode, delegate: Delegate) {
     interface Delegate {
@@ -40,11 +41,19 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
     fun requestFee(nfts: List<ApiNft>, isNftBurn: Boolean, comment: String?) {
+        val accountId = AccountStore.activeAccountId ?: run {
+            Logger.e(
+                Logger.LogTag.SEND,
+                "NFT confirmation fee request blocked: active account is missing"
+            )
+            delegate.get()?.showError(null)
+            return
+        }
         WalletCore.call(
             ApiMethod.Nft.CheckNftTransferDraft(
                 nfts.first().chain ?: MBlockchain.ton,
                 MApiCheckNftDraftOptions(
-                    AccountStore.activeAccountId!!,
+                    accountId,
                     nfts.map { it.toDictionary() },
                     toAddress,
                     comment,
@@ -66,19 +75,27 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
         nfts: List<ApiNft>,
         isNftBurn: Boolean,
         comment: String?,
-        passcode: String,
+        enclaveToken: String,
         onSent: () -> Unit,
-        onMfaRequested: (String) -> Unit = {},
+        onMfaRequested: (String) -> Unit = {}
     ) {
-        if (resolvedAddress == null)
+        val accountId = AccountStore.activeAccountId ?: run {
+            Logger.e(Logger.LogTag.SEND, "NFT submission blocked: active account is missing")
+            delegate.get()?.showError(null)
             return
+        }
+        val destination = resolvedAddress ?: run {
+            Logger.e(Logger.LogTag.SEND, "NFT submission blocked: resolved destination is missing")
+            delegate.get()?.showError(null)
+            return
+        }
         WalletCore.call(
             ApiMethod.Nft.SubmitNftTransfer(
                 chain = nfts.first().chain ?: MBlockchain.ton,
-                accountId = AccountStore.activeAccountId!!,
-                passcode = passcode,
+                accountId = accountId,
+                enclaveToken = enclaveToken,
                 nfts = nfts,
-                address = resolvedAddress!!,
+                address = destination,
                 comment = comment,
                 fee = feeValue ?: BigInteger.ZERO,
                 isNftBurn = isNftBurn
@@ -101,11 +118,13 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
         nfts: List<ApiNft>,
         isNftBurn: Boolean,
         comment: String?
-    ): LedgerConnectVC.SignData.SignNftTransfer {
+    ): LedgerConnectVC.SignData.SignNftTransfer? {
+        val accountId = AccountStore.activeAccountId ?: return null
+        val destination = resolvedAddress ?: return null
         return LedgerConnectVC.SignData.SignNftTransfer(
-            accountId = AccountStore.activeAccountId!!,
+            accountId = accountId,
             nfts = nfts,
-            toAddress = resolvedAddress!!,
+            toAddress = destination,
             comment = comment,
             realFee = feeValue,
             isNftBurn = isNftBurn

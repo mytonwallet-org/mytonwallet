@@ -14,7 +14,10 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import java.util.Date
 import me.everything.android.ui.overscroll.IOverScrollState
+import org.mytonwallet.app_air.uiassets.viewControllers.views.MultisigWalletWarningView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -29,7 +32,6 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
-import org.mytonwallet.app_air.uiassets.viewControllers.views.MultisigWalletWarningView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
@@ -43,9 +45,9 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -55,16 +57,14 @@ import org.mytonwallet.uihome.home.cells.HomeTabletAssetsCell
 import org.mytonwallet.uihome.home.cells.HomeTabletAssetsSkeletonCell
 import org.mytonwallet.uihome.home.cells.IHomeAssetsCell
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
-import java.lang.ref.WeakReference
-import java.util.Date
 
 @SuppressLint("ViewConstructor")
 class ActivityListView<T>(
     context: Context,
     private val dataSourceRef: WeakReference<T>,
     private val delegateRef: WeakReference<Delegate>
-) :
-    WFrameLayout(context), WThemedView,
+) : WFrameLayout(context),
+    WThemedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     IActivityLoader.Delegate where T : WViewController, T : ActivityListView.DataSource {
 
@@ -117,10 +117,11 @@ class ActivityListView<T>(
 
     val additionalTabletPadding: Int
         get() {
-            return if (dataSourceRef.get()?.isWideHome == true)
+            return if (dataSourceRef.get()?.isWideHome == true) {
                 ViewConstants.ADDITIONAL_TABLET_PADDING
-            else
+            } else {
                 0
+            }
         }
 
     interface Delegate {
@@ -149,8 +150,7 @@ class ActivityListView<T>(
     var isInstantSwitchingAccount = false
 
     fun configure(accountId: String?, shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean) {
-        if (showingAccountId == accountId)
-            return
+        if (showingAccountId == accountId) return
         assetsShown = false
         isMainnetAccount =
             accountId != null && MBlockchainNetwork.ofAccountId(accountId).isMainnet
@@ -167,8 +167,8 @@ class ActivityListView<T>(
         if (showingAccountId != null) {
             isInstantSwitchingAccount =
                 (skipSkeletonOnCache || dataSource?.activityListReserveAssetsCell() == false) &&
-                    isGeneralDataAvailable &&
-                    WGlobalStorage.hasCachedActivities(showingAccountId, null)
+                isGeneralDataAvailable &&
+                WGlobalStorage.hasCachedActivities(showingAccountId, null)
             isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
             activityLoader =
                 ActivityLoader(context, showingAccountId, null, WeakReference(this))
@@ -209,8 +209,7 @@ class ActivityListView<T>(
             return
         }
         (recyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(0, 0)
-        if (isVisible)
-            delegate?.updateScroll(0)
+        if (isVisible) delegate?.updateScroll(0)
     }
 
     fun onDestroy() {
@@ -265,13 +264,13 @@ class ActivityListView<T>(
         val newAnimationsPaused = newAlpha < 1
         if (animationsPaused != newAnimationsPaused) {
             animationsPaused = newAnimationsPaused
-            if (animationsPaused)
+            if (animationsPaused) {
                 assetsCell?.setAnimations(paused = true)
-            else
+            } else {
                 post {
-                    if (!animationsPaused)
-                        assetsCell?.setAnimations(paused = false)
+                    if (!animationsPaused) assetsCell?.setAnimations(paused = false)
                 }
+            }
         }
     }
 
@@ -291,7 +290,11 @@ class ActivityListView<T>(
      */
     private fun setChildrenAlpha(alpha: Float) {
         val newHeaderReservedActionsCell = dataSource?.activityListReserveActionsCell()
-        if (childrenAlpha == alpha && headerReservedActionsCell == newHeaderReservedActionsCell) return
+        if (childrenAlpha == alpha &&
+            headerReservedActionsCell == newHeaderReservedActionsCell
+        ) {
+            return
+        }
         headerReservedActionsCell = newHeaderReservedActionsCell
         childrenAlpha = alpha
         applyChildrenAlpha()
@@ -328,8 +331,7 @@ class ActivityListView<T>(
 
     val isGeneralDataAvailable: Boolean
         get() {
-            if (BalanceStore.isAccountNew(showingAccountId))
-                return true
+            if (BalanceStore.isAccountNew(showingAccountId)) return true
             return TokenStore.swapAssetsLoaded &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
@@ -350,13 +352,12 @@ class ActivityListView<T>(
     private val skeletonRecyclerView: WRecyclerView by lazy {
         object : WRecyclerView(dataSource!!) {
             @SuppressLint("ClickableViewAccessibility")
-            override fun onTouchEvent(event: MotionEvent): Boolean {
-                return false
-            }
+            override fun onTouchEvent(event: MotionEvent): Boolean = false
         }.apply {
             adapter = rvSkeletonAdapter
             setLayoutManager(LinearLayoutManager(context))
             setItemAnimator(null)
+            clipToPadding = false
             alpha = 0f
             isInvisible = true
         }
@@ -375,9 +376,8 @@ class ActivityListView<T>(
         }
 
     val rvLayoutManager = object : LinearLayoutManagerAccurateOffset(context) {
-        override fun canScrollVertically(): Boolean {
-            return !skeletonView.isVisible && dataSource?.phoneHeaderView?.isAnimating != true
-        }
+        override fun canScrollVertically(): Boolean =
+            !skeletonView.isVisible && dataSource?.phoneHeaderView?.isAnimating != true
     }.apply {
         isSmoothScrollbarEnabled = true
     }
@@ -389,44 +389,56 @@ class ActivityListView<T>(
             super.onScrolled(recyclerView, dx, dy)
             val dataSource = dataSource ?: return
             if (ignoreScrolls || !isVisible) return
-            val firstVisibleItem =
-                (recyclerView.layoutManager as LinearLayoutManagerAccurateOffset).findFirstVisibleItemPosition()
+            val layoutManager = recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+            val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
             val computedOffset =
                 if (firstVisibleItem < 2) recyclerView.computeVerticalScrollOffset() else LARGE_INT
             val isHeaderFullyCollapsed =
-                (dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
-                    (dataSource.recyclerViewModeValue() == HomeHeaderView.Mode.Collapsed || computedOffset > dataSource.phoneHeaderView.diffPx + 100.dp))
+                (
+                    dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
+                        (
+                            dataSource.recyclerViewModeValue() ==
+                                HomeHeaderView.Mode.Collapsed ||
+                                computedOffset > dataSource.phoneHeaderView.diffPx + 100.dp
+                            )
+                    )
             if (isHeaderFullyCollapsed && dy > 3 && computedOffset > 100.dp) {
                 dataSource.navigationController?.tabBarController?.scrollingDown()
             } else if (dy < -3 || computedOffset < 100.dp) {
                 dataSource.navigationController?.tabBarController?.scrollingUp()
             }
             delegate?.updateScroll(computedOffset)
-            //endSorting()
+            // endSorting()
         }
 
         private var prevState = RecyclerView.SCROLL_STATE_IDLE
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
             super.onScrollStateChanged(recyclerView, newState)
             val dataSource = dataSource ?: return
-            if (newState == RecyclerView.SCROLL_STATE_DRAGGING && prevState == RecyclerView.SCROLL_STATE_SETTLING) {
+            if (newState == RecyclerView.SCROLL_STATE_DRAGGING &&
+                prevState == RecyclerView.SCROLL_STATE_SETTLING
+            ) {
                 // Scrolling again, without going to idle => end previous scroll
                 scrollEnded()
             }
-            if (newState == RecyclerView.SCROLL_STATE_SETTLING || newState == RecyclerView.SCROLL_STATE_IDLE) {
+            if (newState == RecyclerView.SCROLL_STATE_SETTLING ||
+                newState == RecyclerView.SCROLL_STATE_IDLE
+            ) {
                 this@ActivityListView.recyclerView.setBounceBackSkipValue(0)
                 dataSource.phoneHeaderView.isExpandAllowed = false
                 ignoreScrolls =
                     dataSource.recyclerViewModeValue() == HomeHeaderView.Mode.Expanded &&
-                        dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
-                        recyclerView.computeVerticalScrollOffset() < dataSource.phoneHeaderView.diffPx
+                    dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
+                    recyclerView.computeVerticalScrollOffset() <
+                    dataSource.phoneHeaderView.diffPx
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     scrollEnded()
                 } else {
                     // Usual fling should be stopped, if the header is collapsed partially.
                     if (dataSource.recyclerViewModeValue() == HomeHeaderView.Mode.Expanded &&
                         dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
-                        recyclerView.computeVerticalScrollOffset() < dataSource.phoneHeaderView.diffPx
+                        recyclerView.computeVerticalScrollOffset() <
+                        dataSource.phoneHeaderView.diffPx
                     ) {
                         recyclerView.stopScroll()
                         scrollEnded()
@@ -440,8 +452,9 @@ class ActivityListView<T>(
                 }
             } else {
                 dataSource.executeWithLowPriority {
-                    if (recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE)
+                    if (recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE) {
                         dataSource.heavyAnimationDone()
+                    }
                 }
             }
             prevState = newState
@@ -458,11 +471,16 @@ class ActivityListView<T>(
             addOnScrollListener(scrollListener)
             setOnOverScrollListener { isTouchActive, newState, suggestedOffset, velocity ->
                 val dataSource = dataSource ?: return@setOnOverScrollListener
-                if (showingTransactions == null || !isGeneralDataAvailable)
+                if (showingTransactions == null || !isGeneralDataAvailable) {
                     return@setOnOverScrollListener
+                }
                 var offset = suggestedOffset
                 if (
-                    (suggestedOffset > 0f && dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Expanded && dataSource.phoneHeaderView.mode == dataSource.recyclerViewModeValue())
+                    (
+                    suggestedOffset > 0f &&
+                        dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Expanded &&
+                        dataSource.phoneHeaderView.mode == dataSource.recyclerViewModeValue()
+                    )
                 ) {
                     offset = 0f
                     recyclerView.removeOverScroll()
@@ -473,12 +491,21 @@ class ActivityListView<T>(
                     dataSource.heavyAnimationInProgress()
                 }
                 val isGoingBack = newState == IOverScrollState.STATE_BOUNCE_BACK
-                if (isGoingBack && dataSource.recyclerViewModeValue() != dataSource.phoneHeaderView.mode) {
+                if (isGoingBack &&
+                    dataSource.recyclerViewModeValue() != dataSource.phoneHeaderView.mode
+                ) {
                     val prevOverscroll = recyclerView.getOverScrollOffset()
                     if (dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Expanded) {
                         recyclerView.getOverScrollOffset()
                         val newOffset =
-                            if (!expandingProgrammatically) (dataSource.phoneHeaderView.diffPx - prevOverscroll).toInt() else 0
+                            if (!expandingProgrammatically) {
+                                (
+                                    dataSource.phoneHeaderView.diffPx -
+                                        prevOverscroll
+                                    ).toInt()
+                            } else {
+                                0
+                            }
                         expandingProgrammatically = false
                         ignoreScrolls = true
                         recyclerView.scrollBy(0, newOffset)
@@ -490,7 +517,11 @@ class ActivityListView<T>(
                         }
                     } else {
                         val newOffset =
-                            (dataSource.phoneHeaderView.collapsedHeight - dataSource.phoneHeaderView.expandedContentHeight - prevOverscroll).toInt()
+                            (
+                                dataSource.phoneHeaderView.collapsedHeight -
+                                    dataSource.phoneHeaderView.expandedContentHeight -
+                                    prevOverscroll
+                                ).toInt()
                         ignoreScrolls = true
                         recyclerView.scrollBy(0, newOffset)
                         recyclerView.smoothScrollBy(0, -recyclerView.computeVerticalScrollOffset())
@@ -501,8 +532,7 @@ class ActivityListView<T>(
                     }
                     return@setOnOverScrollListener
                 }
-                if (offset == 0f)
-                    ignoreScrolls = false
+                if (offset == 0f) ignoreScrolls = false
                 delegate?.updateScroll(
                     -offset.toInt() + recyclerView.computeVerticalScrollOffset(),
                     velocity,
@@ -511,12 +541,12 @@ class ActivityListView<T>(
                 dataSource.phoneHeaderView.isExpandAllowed = isTouchActive
             }
             onFlingListener = object : RecyclerView.OnFlingListener() {
-                override fun onFling(velocityX: Int, velocityY: Int): Boolean {
-                    return if (dataSource?.phoneHeaderView?.mode == HomeHeaderView.Mode.Expanded)
+                override fun onFling(velocityX: Int, velocityY: Int): Boolean =
+                    if (dataSource?.phoneHeaderView?.mode == HomeHeaderView.Mode.Expanded) {
                         adjustScrollingPosition()
-                    else
+                    } else {
                         false
-                }
+                    }
             }
             descendantFocusability = FOCUS_BLOCK_DESCENDANTS
             setPadding(0, 0, 0, dataSource?.navigationController?.getSystemBars()?.bottom ?: 0)
@@ -565,8 +595,7 @@ class ActivityListView<T>(
             context,
             TabletHeaderActionsView.headerTabs(context, true),
             onClick = onClick@{ identifier ->
-                if (skeletonVisible)
-                    return@onClick
+                if (skeletonVisible) return@onClick
                 delegate?.onHeaderAction(HeaderActionsView.Identifier.valueOf(identifier.name))
             }
         ).also { tabletActionsView = it }
@@ -599,7 +628,8 @@ class ActivityListView<T>(
         }
     private val multisigWarningCell: WCell by lazy {
         WCell(
-            context, ViewGroup.LayoutParams(
+            context,
+            ViewGroup.LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT
             )
@@ -633,10 +663,12 @@ class ActivityListView<T>(
             navigationController,
             showingAccountId ?: ""
         ).also { assetsVCPool = it }
-        val heightChanged = { delegate?.resumeBottomBlurViews(); Unit }
+        val heightChanged = {
+            delegate?.resumeBottomBlurViews()
+            Unit
+        }
         val onAssetsShown = onAssetsShown@{
-            if (showingAccountId == null)
-                return@onAssetsShown
+            if (showingAccountId == null) return@onAssetsShown
             assetsShown = true
             updateSkeletonState(animated = true)
         }
@@ -644,15 +676,20 @@ class ActivityListView<T>(
             if (reordering) delegate?.startSorting() else delegate?.endSorting()
             Unit
         }
-        val onForceEndReorderingRequested = { delegate?.endSorting(); Unit }
+        val onForceEndReorderingRequested = {
+            delegate?.endSorting()
+            Unit
+        }
         val onSelectionRequested = { selectedCount: Int, shouldShowTransferActions: Boolean ->
             delegate?.startSelectionMode(selectedCount, shouldShowTransferActions)
             Unit
         }
-        val onSelectionChanged = { selectedCount: Int,
-                                   animationMode: TitleAnimationMode?,
-                                   isInSelectionMode: Boolean,
-                                   shouldShowTransferActions: Boolean ->
+        val onSelectionChanged = {
+                selectedCount: Int,
+                animationMode: TitleAnimationMode?,
+                isInSelectionMode: Boolean,
+                shouldShowTransferActions: Boolean
+            ->
             if (isInSelectionMode) {
                 delegate?.updateSelectionMode(
                     selectedCount,
@@ -664,7 +701,10 @@ class ActivityListView<T>(
             }
             Unit
         }
-        val onDetailsOpened = { delegate?.endSelectionMode(); Unit }
+        val onDetailsOpened = {
+            delegate?.endSelectionMode()
+            Unit
+        }
         val cell: IHomeAssetsCell = if (isWideLayout) {
             HomeTabletAssetsCell(
                 context,
@@ -702,7 +742,8 @@ class ActivityListView<T>(
     init {
         addView(recyclerView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(
-            skeletonRecyclerView, LayoutParams(
+            skeletonRecyclerView,
+            LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT
             )
@@ -752,8 +793,7 @@ class ActivityListView<T>(
     private fun updateHeaderCellHeight() {
         val dataSource = dataSource ?: return
         val newHeight = dataSource.activityListViewHeaderHeight() + dataSource.swipeItemsOffset()
-        if (newHeight == headerCell.layoutParams.height)
-            return
+        if (newHeight == headerCell.layoutParams.height) return
         headerCell.updateLayoutParams {
             height = newHeight
         }
@@ -772,19 +812,23 @@ class ActivityListView<T>(
 
     private fun updateSkeletonHeaderCellHeight() {
         val dataSource = dataSource ?: return
+        val actionsHeight =
+            if (dataSource.activityListReserveActionsCell()) {
+                dataSource.activityListActionsCellHeight()
+            } else {
+                0
+            }
         val newHeight = dataSource.activityListViewHeaderHeight() +
             dataSource.swipeItemsOffset() +
-            (if (dataSource.activityListReserveActionsCell()) dataSource.activityListActionsCellHeight() else 0)
-        if (newHeight == skeletonEmptyHeaderCell?.layoutParams?.height)
-            return
+            actionsHeight
+        if (newHeight == skeletonEmptyHeaderCell?.layoutParams?.height) return
         skeletonEmptyHeaderCell?.layoutParams = skeletonEmptyHeaderCell?.layoutParams?.apply {
             height = newHeight
         }
     }
 
     private fun updateSkeletonState(animated: Boolean) {
-        if (isShowingRecyclerView)
-            return // Already shown, no skeleton processes necessary.
+        if (isShowingRecyclerView) return // Already shown, no skeleton processes necessary.
 
         val areActivitiesAvailable =
             !showingTransactions.isNullOrEmpty() || activityLoader?.loadedAll == true
@@ -819,11 +863,12 @@ class ActivityListView<T>(
         val skeletonViewsRadius = hashMapOf<Int, Float>()
         for (i in 1 until skeletonRecyclerView.childCount) {
             val child = skeletonRecyclerView.getChildAt(i)
-            if (child is SkeletonContainer)
+            if (child is SkeletonContainer) {
                 child.getChildViewMap().forEach {
                     skeletonViews.add(it.key)
                     skeletonViewsRadius[skeletonViews.lastIndex] = it.value
                 }
+            }
         }
         skeletonView.applyMask(skeletonViews, skeletonViewsRadius)
     }
@@ -836,8 +881,7 @@ class ActivityListView<T>(
     private var skeletonsShownOnce = false
     private fun showSkeletons() {
         fun show() {
-            if (!skeletonVisible)
-                return
+            if (!skeletonVisible) return
             applySkeletonAlpha()
         }
         hideSkeletonAnimation?.cancel()
@@ -858,8 +902,11 @@ class ActivityListView<T>(
 
     private var hideSkeletonAnimation: ValueAnimator? = null
     private fun hideSkeletons(animated: Boolean) {
-        if (skeletonAlphaFromLoadValue == 0f || (animated && hideSkeletonAnimation?.isRunning == true))
+        if (skeletonAlphaFromLoadValue == 0f ||
+            (animated && hideSkeletonAnimation?.isRunning == true)
+        ) {
             return
+        }
         if (!isVisible || !animated || alpha < 0.1) {
             hideSkeletonAnimation?.cancel()
             skeletonAlphaFromLoadValue = 0f
@@ -886,10 +933,11 @@ class ActivityListView<T>(
         if (dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) {
             recyclerView.setupOverScroll()
             recyclerView.setMaxOverscrollOffset(
-                if (dataSource.phoneHeaderView.canExpandForHeight)
+                if (dataSource.phoneHeaderView.canExpandForHeight) {
                     dataSource.phoneHeaderView.diffPx
-                else
+                } else {
                     0f
+                }
             )
         } else if (isInvisible) {
             recyclerView.removeOverScroll()
@@ -907,10 +955,11 @@ class ActivityListView<T>(
             skeletonView.animate().cancel()
             skeletonView.startAnimating()
         } else if (finalAlpha == 0f && !skeletonRecyclerView.isInvisible) {
-            if (skeletonView.isAnimating)
+            if (skeletonView.isAnimating) {
                 skeletonView.stopAnimating()
-            else
+            } else {
                 skeletonView.visibility = GONE
+            }
             skeletonRecyclerView.visibility = INVISIBLE
         }
     }
@@ -927,7 +976,9 @@ class ActivityListView<T>(
                     // Go to over-scroll
                     recyclerView.scrollBy(0, -correctionOffset.toInt())
                     if (scrollOffset != 0) {
-                        recyclerView.comeBackFromOverScrollValue((correctionOffset - scrollOffset).toInt())
+                        recyclerView.comeBackFromOverScrollValue(
+                            (correctionOffset - scrollOffset).toInt()
+                        )
                     }
                 } else {
                     if (rvLayoutManager.findLastVisibleItemPosition() < rvAdapter.itemCount - 1) {
@@ -963,8 +1014,7 @@ class ActivityListView<T>(
             HomeHeaderView.Mode.Collapsed -> {
                 if (scrollOffset in 0..92.dp) {
                     val canGoDown = recyclerView.canScrollVertically(1)
-                    if (!canGoDown)
-                        return true
+                    if (!canGoDown) return true
                     val adjustment =
                         if (scrollOffset < 46.dp) -scrollOffset else 92.dp - scrollOffset
                     if (adjustment != 0) {
@@ -981,8 +1031,7 @@ class ActivityListView<T>(
     private var oldTransactionsFirstDt: Date? = null
     private var isApplyingUpdate = false
     fun transactionsUpdated(isUpdateEvent: Boolean) {
-        if (showingAccountId == null)
-            return
+        if (showingAccountId == null) return
         updateSkeletonState(animated = true)
         val shouldReloadActionsCellHeight = tabletActionsView?.isScrolling != true
         val shouldReloadAssetsCellHeight = assetsCell?.isDraggingCollectible != true
@@ -990,10 +1039,11 @@ class ActivityListView<T>(
         isApplyingUpdate = isUpdateEvent && oldTransactions != null
         if ((shouldReloadAssetsCellHeight && shouldReloadActionsCellHeight) ||
             showActions != shouldShowActions
-        )
+        ) {
             reloadData()
-        else
+        } else {
             reloadTransactions()
+        }
         post {
             isApplyingUpdate = false
             activityLoader?.showingTransactions?.let { showingTransactions ->
@@ -1025,31 +1075,25 @@ class ActivityListView<T>(
             recyclerViewNumberOfItems(recyclerView, TRANSACTION_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, LOADING_SECTION)
-        if (count > 0)
-            rvAdapter.reloadRange(startInt, count)
+        if (count > 0) rvAdapter.reloadRange(startInt, count)
     }
 
     // RECYCLER VIEW ///////////////////////////////////////////////////////////////////////////////
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return when (rv) {
-            recyclerView -> {
-                if (isGeneralDataAvailable) 6 else 1
-            }
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = when (rv) {
+        recyclerView -> {
+            if (isGeneralDataAvailable) 6 else 1
+        }
 
-            skeletonRecyclerView -> {
-                2
-            }
+        skeletonRecyclerView -> {
+            2
+        }
 
-            else -> {
-                0
-            }
+        else -> {
+            0
         }
     }
 
-    override fun recyclerViewNumberOfItems(
-        rv: RecyclerView,
-        section: Int
-    ): Int {
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         when (rv) {
             recyclerView -> {
                 return when (section) {
@@ -1059,17 +1103,28 @@ class ActivityListView<T>(
 
                     MULTISIG_WARNING_SECTION -> if (showMultisigWarning) 1 else 0
 
-                    ASSETS_SECTION -> if (dataSource?.activityListReserveAssetsCell() == false) 0 else 2
-
-                    TRANSACTION_SECTION -> if ((showingTransactions?.size ?: 0) > 0)
-                        showingTransactions!!.size
-                    else
+                    ASSETS_SECTION -> if (dataSource?.activityListReserveAssetsCell() ==
+                        false
+                    ) {
                         0
+                    } else {
+                        2
+                    }
+
+                    TRANSACTION_SECTION -> if ((showingTransactions?.size ?: 0) > 0) {
+                        showingTransactions!!.size
+                    } else {
+                        0
+                    }
 
                     EMPTY_VIEW_SECTION -> {
                         if (
                             showingTransactions?.isEmpty() == true
-                        ) 1 else 0
+                        ) {
+                            1
+                        } else {
+                            0
+                        }
                     }
 
                     LOADING_SECTION -> {
@@ -1090,18 +1145,12 @@ class ActivityListView<T>(
         }
     }
 
-    override fun recyclerViewCellType(
-        rv: RecyclerView,
-        indexPath: IndexPath
-    ): WCell.Type {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
         when (rv) {
             recyclerView -> {
                 return when (indexPath.section) {
                     HEADER_SECTION -> {
-                        if (indexPath.row == 0)
-                            HEADER_CELL
-                        else
-                            ACTIONS_CELL
+                        if (indexPath.row == 0) HEADER_CELL else ACTIONS_CELL
                     }
 
                     MULTISIG_WARNING_SECTION -> {
@@ -1109,10 +1158,7 @@ class ActivityListView<T>(
                     }
 
                     ASSETS_SECTION -> {
-                        if (indexPath.row == 0)
-                            ASSETS_CELL
-                        else
-                            BLACK_CELL
+                        if (indexPath.row == 0) ASSETS_CELL else BLACK_CELL
                     }
 
                     EMPTY_VIEW_SECTION -> {
@@ -1128,10 +1174,17 @@ class ActivityListView<T>(
                         tx?.let { transaction ->
                             if (transaction.isNft ||
                                 (transaction as? MApiTransaction.Transaction)?.hasComment == true
-                            ) TRANSACTION_CELL else if (indexPath.row == 0 || !transaction.dt.isSameDayAs(
+                            ) {
+                                TRANSACTION_CELL
+                            } else if (indexPath.row == 0 ||
+                                !transaction.dt.isSameDayAs(
                                     showingTransactions!![indexPath.row - 1].dt
                                 )
-                            ) TRANSACTION_SMALL_FIRST_IN_DAY_CELL else TRANSACTION_SMALL_CELL
+                            ) {
+                                TRANSACTION_SMALL_FIRST_IN_DAY_CELL
+                            } else {
+                                TRANSACTION_SMALL_CELL
+                            }
                         } ?: BLACK_CELL
                     }
                 }
@@ -1163,10 +1216,7 @@ class ActivityListView<T>(
         }
     }
 
-    override fun recyclerViewCellView(
-        rv: RecyclerView,
-        cellType: WCell.Type
-    ): WCell {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
         val dataSource = dataSource ?: throw Error()
         when (rv) {
             recyclerView -> {
@@ -1188,8 +1238,7 @@ class ActivityListView<T>(
                     }
 
                     ASSETS_CELL -> {
-                        if (assetsCell == null)
-                            assetsCell = createAssetsCell(dataSource)
+                        if (assetsCell == null) assetsCell = createAssetsCell(dataSource)
                         assetsCell!!.asCell
                     }
 
@@ -1298,8 +1347,7 @@ class ActivityListView<T>(
                                     height = dataSource?.activityListActionsCellHeight()
                                         ?: HeaderActionsView.HEIGHT.dp
                                 }
-                                if (isWideLayout)
-                                    mountTabletActionsView()
+                                if (isWideLayout) mountTabletActionsView()
                             }
                         }
                         (cellHolder.cell as? WThemedView)?.updateTheme()
@@ -1336,17 +1384,26 @@ class ActivityListView<T>(
                                 positioning = ActivityCell.Positioning(
                                     isFirst = indexPath.row == 0,
                                     isFirstInDay = isFirstInDay,
-                                    isLastInDay = (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
-                                        showingTransactions!![indexPath.row + 1].dt
-                                    ),
-                                    isLast = indexPath.row == showingTransactions!!.size - 1 && activityLoader?.loadedAll != false,
+                                    isLastInDay =
+                                        (indexPath.row == showingTransactions!!.size - 1) ||
+                                            !transaction.dt.isSameDayAs(
+                                                showingTransactions!![indexPath.row + 1].dt
+                                            ),
+                                    isLast =
+                                        indexPath.row == showingTransactions!!.size - 1 &&
+                                            activityLoader?.loadedAll != false,
                                     isAdded = isApplyingUpdate &&
                                         oldTransactions?.contains(
                                             transaction.getStableId()
                                         ) == false,
-                                    isAddedAsNewDay = isFirstInDay && (oldTransactionsFirstDt == null || !transaction.dt.isSameDayAs(
-                                        oldTransactionsFirstDt!!
-                                    ))
+                                    isAddedAsNewDay =
+                                        isFirstInDay &&
+                                            (
+                                                oldTransactionsFirstDt == null ||
+                                                    !transaction.dt.isSameDayAs(
+                                                        oldTransactionsFirstDt!!
+                                                    )
+                                                )
                                 )
                             )
                         } else {
@@ -1360,17 +1417,16 @@ class ActivityListView<T>(
                     EMPTY_VIEW_SECTION -> {
                         (cellHolder.cell as EmptyCell).let { cell ->
                             cell.updateTheme()
+                            val systemBars = dataSource?.navigationController?.getSystemBars()
+                            val occupiedHeight =
+                                (systemBars?.top ?: 0) +
+                                    (systemBars?.bottom ?: 0) +
+                                    75.dp + // TabBar
+                                    HomeHeaderView.navDefaultHeight +
+                                    ViewConstants.GAP.dp +
+                                    (assetsCell?.asCell?.height ?: 0)
                             cell.layoutParams = cell.layoutParams.apply {
-                                height = (dataSource?.view?.parent as View).height - (
-                                    (dataSource?.navigationController?.getSystemBars()?.top
-                                        ?: 0) +
-                                        (dataSource?.navigationController?.getSystemBars()?.bottom
-                                            ?: 0) +
-                                        75.dp + // TabBar
-                                        HomeHeaderView.navDefaultHeight +
-                                        ViewConstants.GAP.dp +
-                                        (assetsCell?.asCell?.height ?: 0)
-                                    )
+                                height = (dataSource?.view?.parent as View).height - occupiedHeight
                             }
                         }
                     }
@@ -1382,7 +1438,11 @@ class ActivityListView<T>(
                             visibility =
                                 if (activityLoader?.showingTransactions == null ||
                                     activityLoader?.loadedAll == true
-                                ) INVISIBLE else VISIBLE
+                                ) {
+                                    INVISIBLE
+                                } else {
+                                    VISIBLE
+                                }
                         }
                     }
                 }
@@ -1433,8 +1493,9 @@ class ActivityListView<T>(
                     TRANSACTION_SECTION -> {
                         if (indexPath.row < (showingTransactions?.size ?: 0)) {
                             showingTransactions!![indexPath.row].getStableId()
-                        } else
+                        } else {
                             null
+                        }
                     }
 
                     else ->
@@ -1459,5 +1520,4 @@ class ActivityListView<T>(
     override fun activityLoaderLoadedAll() {
         reloadData()
     }
-
 }

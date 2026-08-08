@@ -39,6 +39,7 @@ class SeasonalOverlayView(context: Context) : FrameLayout(context) {
                     }
                 )
             }
+
             ConfigStore.SeasonalTheme.VALENTINE -> {
                 addView(
                     ValentineDecorationView(context),

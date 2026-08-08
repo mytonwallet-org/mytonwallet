@@ -20,10 +20,12 @@ $footerPaddingBottomMin: 1rem;
     max-width: v.$landscapeAuthContentMaxWidth;
     margin: 0 auto;
 
+    /* While animating, the slide is absolutely positioned with `inset-inline-start: 0` (see Transition.scss),
+       which disables the `margin: 0 auto` centering. Zeroing both insets makes the auto margins
+       center the slide again, in both LTR and RTL */
     &:global(.Transition_slide-to),
     &:global(.Transition_slide-from) {
-      left: 50%;
-      transform: translateX(-50%);
+      inset-inline: 0;
     }
   }
 }
@@ -466,11 +468,8 @@ $footerPaddingBottomMin: 1rem;
   --tab-gap-size: 0;
 
   align-items: center;
-
-  min-width: 12rem;
   padding: 0.1875rem;
   border-radius: var(--border-radius-default);
-
   background-color: var(--color-background-first);
 }
 
@@ -484,12 +483,11 @@ $footerPaddingBottomMin: 1rem;
 
   align-items: center;
 
-  width: auto;
   padding: 0 0.1875rem;
 }
 
-.modeTab {
-  flex: 1 1 0;
+.modeSwitch .modeTab {
+  flex: 0 0 auto;
 }
 
 .importingContent {
@@ -613,9 +611,9 @@ $footerPaddingBottomMin: 1rem;
     content: '';
 
     position: absolute;
-    right: 0;
     bottom: 0.5rem;
-    left: -5.125rem;
+    inset-inline-start: -5.125rem;
+    inset-inline-end: 0;
 
     width: 4.5rem;
     height: 0.0625rem;
@@ -625,8 +623,8 @@ $footerPaddingBottomMin: 1rem;
 
   &::after {
     position: absolute;
-    right: -5.125rem;
-    left: auto;
+    inset-inline-start: auto;
+    inset-inline-end: -5.125rem;
   }
 }
 
@@ -679,7 +677,7 @@ $footerPaddingBottomMin: 1rem;
 
   position: absolute;
   top: 1.5rem;
-  left: 0.5rem;
+  inset-inline-start: 0.5rem;
 
   display: flex;
   align-items: center;

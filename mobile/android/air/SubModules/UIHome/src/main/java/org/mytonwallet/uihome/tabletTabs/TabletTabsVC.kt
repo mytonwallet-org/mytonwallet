@@ -6,16 +6,19 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
-import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import androidx.core.view.doOnPreDraw
+import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -26,12 +29,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
-import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import org.mytonwallet.uihome.tabs.views.ExploreSearchBar
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -39,23 +40,25 @@ import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.home.status.HomeStatusController
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import org.mytonwallet.uihome.tabletTabs.views.TabletSidePanelView
+import org.mytonwallet.uihome.tabs.AppTabsManager
 import org.mytonwallet.uihome.tabs.BaseTabsVC
+import org.mytonwallet.uihome.tabs.views.ExploreSearchBar
 import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import androidx.core.view.isVisible
 
 @SuppressLint("ViewConstructor")
-class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
+class TabletTabsVC(context: Context) :
+    BaseTabsVC(context),
+    WThemedView,
     WalletCore.EventObserver {
+    @Suppress("PropertyName")
     override val TAG = "TabletTabs"
 
     override val shouldDisplayTopBar = false
@@ -70,24 +73,9 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
 
         private const val SEARCH_BOTTOM_MARGIN = 16
 
-        private val tabDefs = listOf(
-            TabletSidePanelView.TabDef(
-                IBottomNavigationView.ID_HOME,
-                R.drawable.ic_home_thin, R.drawable.ic_home_filled, "Wallet"
-            ),
-            TabletSidePanelView.TabDef(
-                IBottomNavigationView.ID_AGENT,
-                R.drawable.ic_agent_thin, R.drawable.ic_agent_filled, "Agent"
-            ),
-            TabletSidePanelView.TabDef(
-                IBottomNavigationView.ID_EXPLORE,
-                R.drawable.ic_explore_thin, R.drawable.ic_explore_filled, "Explore"
-            ),
-            TabletSidePanelView.TabDef(
-                IBottomNavigationView.ID_SETTINGS,
-                R.drawable.ic_settings_thin, R.drawable.ic_settings_filled, "Settings"
-            ),
-        )
+        private fun buildTabDefs() = AppTabsManager.orderedTabs.map {
+            TabletSidePanelView.TabDef(it.intId, it.iconRes, it.filledIconRes, it.labelKey)
+        }
     }
 
     override var currentTabId: Int = IBottomNavigationView.ID_HOME
@@ -110,7 +98,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
     private val sidePanel by lazy {
         TabletSidePanelView(
             viewController = this,
-            tabDefs = tabDefs,
+            tabDefs = buildTabDefs(),
             onTabSelected = { id -> selectTab(id) },
             onTabReselected = { id ->
                 if ((mainNavigationController?.viewControllers?.size ?: 0) > 1) {
@@ -125,9 +113,11 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
             onAddAccount = { presentAddAccount() },
             onHeaderSwipe = { progress, verticalOffset, actionsFadeInPercent ->
                 homeVCInRightPanel()?.applyHorizontalSwipe(
-                    progress, verticalOffset, actionsFadeInPercent
+                    progress,
+                    verticalOffset,
+                    actionsFadeInPercent
                 )
-            },
+            }
         )
     }
     private var pillShadow: PillShadowView? = null
@@ -142,17 +132,23 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
                     cachedExploreVC?.search(query, focused)
                 },
                 expandedWidthProvider = {
-                    (contentPanel.width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 40.dp - additionalTabletPadding - systemBarEndInset)
+                    (
+                        contentPanel.width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 40.dp -
+                            additionalTabletPadding -
+                            systemBarEndInset
+                        )
                         .coerceAtLeast(0)
                 },
-                presentBrowser = { config -> presentSearchBrowser(config) },
+                presentBrowser = { config -> presentSearchBrowser(config) }
             )
         )
     }
 
     private var panelWidth =
-        ((WGlobalStorage.getTabletPanelWidth() ?: DEFAULT_PANEL_WIDTH)
-            .coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)).dp
+        (
+            (WGlobalStorage.getTabletPanelWidth() ?: DEFAULT_PANEL_WIDTH)
+                .coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
+            ).dp
 
     private var dragStartRawX = 0f
     private var dragStartY = 0f
@@ -174,8 +170,11 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
                     dragStartY = event.y
                     dragStartWidth = sidePanel.width
                     forwardTarget =
-                        if (handle.x + event.x >= sidePanel.x + sidePanel.width)
-                            contentPanel else sidePanel
+                        if (handle.x + event.x >= sidePanel.x + sidePanel.width) {
+                            contentPanel
+                        } else {
+                            sidePanel
+                        }
                     forwardTouch(handle, event)
                 }
 
@@ -183,17 +182,16 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
                     if (!isResizing && !resizeRejected) {
                         val dx = abs(event.rawX - dragStartRawX)
                         val dy = abs(event.y - dragStartY)
-                        if (dy > touchSlop && dy > dx)
+                        if (dy > touchSlop && dy > dx) {
                             resizeRejected = true
-                        else if (dx > touchSlop && dx > dy) {
+                        } else if (dx > touchSlop && dx > dy) {
                             isResizing = true
                             forwardCancel(handle, event)
                         }
                     }
                     if (isResizing) {
                         var delta = event.rawX - dragStartRawX
-                        if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL)
-                            delta = -delta
+                        if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL) delta = -delta
                         panelWidth = (dragStartWidth + delta.roundToInt())
                             .coerceIn(MIN_PANEL_WIDTH.dp, MAX_PANEL_WIDTH.dp)
                         applyPanelWidth()
@@ -239,8 +237,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
     private fun applyPanelWidth() {
         val lp = sidePanel.layoutParams ?: return
         val target = panelWidth.coerceAtMost(maxAllowedPanelWidth())
-        if (lp.width != target)
-            sidePanel.updateLayoutParams { width = target }
+        if (lp.width != target) sidePanel.updateLayoutParams { width = target }
     }
 
     // The panel must never be wider than the content panel:
@@ -265,7 +262,9 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
         view.addView(sidePanel, ViewGroup.LayoutParams(panelWidth, 0))
         pillShadow =
             PillShadowView.attachTo(
-                sidePanel, ViewConstants.BLOCK_RADIUS.dp, drawInFront = true
+                sidePanel,
+                ViewConstants.BLOCK_RADIUS.dp,
+                drawInFront = true
             ).also { shadow ->
                 sidePanel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> shadow.sync() }
             }
@@ -298,8 +297,6 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
         updateTheme()
         applyPanelInsets()
         homeVCInRightPanel()
-        contentNav.viewWillAppear()
-        contentNav.viewDidAppear()
         view.doOnPreDraw {
             applyPanelWidth()
             refreshHeader(animated = false)
@@ -316,15 +313,14 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
         precacheReceiveBackground()
     }
 
-    private fun homeVCInRightPanel(): HomeVC? {
-        return (navForOrNull(IBottomNavigationView.ID_HOME)
-            ?.viewControllers?.firstOrNull() as? HomeVC)
-            ?.also { it.panelHeaderView = sidePanel.headerView }
-    }
+    private fun homeVCInRightPanel(): HomeVC? = (
+        navForOrNull(IBottomNavigationView.ID_HOME)
+            ?.viewControllers?.firstOrNull() as? HomeVC
+        )
+        ?.also { it.panelHeaderView = sidePanel.headerView }
 
     override fun navStackUpdated(nav: WNavigationController) {
-        if (nav.parent != contentPanel)
-            return
+        if (nav.parent != contentPanel) return
         syncPanelHeaderAccounts()
     }
 
@@ -333,15 +329,15 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
             contentNav.viewControllers.lastOrNull { it is HomeVC } as? HomeVC
         activeHome?.panelHeaderView = sidePanel.headerView
         val override = activeHome?.overrideAccountIds
-        if (headerView.overrideAccountIds.contentEquals(override))
-            return
+        if (headerView.overrideAccountIds.contentEquals(override)) return
         headerView.overrideAccountIds = override
         refreshHeader(animated = false)
     }
 
     private fun presentWalletSettings() {
         val navVC = WNavigationController(
-            window!!, WNavigationController.PresentationConfig(
+            window!!,
+            WNavigationController.PresentationConfig(
                 style = WNavigationController.PresentationStyle.BottomSheet
             )
         )
@@ -356,7 +352,8 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
 
     private fun presentAddAccount() {
         val navVC = WNavigationController(
-            window!!, WNavigationController.PresentationConfig(
+            window!!,
+            WNavigationController.PresentationConfig(
                 style = WNavigationController.PresentationStyle.BottomSheet
             )
         )
@@ -368,8 +365,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
     }
 
     private fun onAccountSelected(account: MAccount) {
-        if (account.accountId == AccountStore.activeAccountId)
-            return
+        if (account.accountId == AccountStore.activeAccountId) return
         WalletCore.activateAccount(account.accountId, notifySDK = true) { res, _ ->
             if (res != null) {
                 WalletCore.notifyEvent(
@@ -381,10 +377,9 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
 
     private fun selectTab(id: Int) {
         if (id == currentTabId) return
-        contentNav.popToRoot(animated = false)
-        navForOrNull(currentTabId)?.viewWillDisappear()
         currentTabId = id
         mountActiveTab()
+        contentNav.popToRoot(animated = false)
         sidePanel.setSelectedTab(id)
         updateSearchVisibility()
     }
@@ -394,10 +389,8 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
 
     private fun updateSearchVisibility() {
         val visible = isExploreTab
-        if (visible == (searchBar.isVisible))
-            return
-        if (!visible && searchBar.editText.hasFocus())
-            searchBar.editText.clearFocus()
+        if (visible == (searchBar.isVisible)) return
+        if (!visible && searchBar.editText.hasFocus()) searchBar.editText.clearFocus()
         searchBar.visibility = if (visible) View.VISIBLE else View.INVISIBLE
         searchBar.syncShadow()
         activeNavigationController?.insetsUpdated()
@@ -429,8 +422,6 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
         val newNav = getNavigationStack(currentTabId)
         if (newNav.parent === contentHostVC.contentParent) return
         contentHostVC.setContent(newNav)
-        newNav.viewWillAppear()
-        newNav.viewDidAppear()
         newNav.insetsUpdated()
     }
 
@@ -494,8 +485,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
         pillShadow?.updateTheme()
         searchBar.updateTheme()
         for (nav in navStacks) {
-            if (nav.parent != null)
-                continue
+            if (nav.parent != null) continue
             nav.updateTheme()
         }
     }
@@ -532,8 +522,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
 
     override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
         super.onSizeChanged(w, h, oldW, oldH)
-        if (w != oldW)
-            view.doOnPreDraw { applyPanelWidth() }
+        if (w != oldW) view.doOnPreDraw { applyPanelWidth() }
     }
 
     private fun applyPillShadowBottom() {
@@ -550,8 +539,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
         applyPillShadowBottom()
         contentNav.insetsUpdated()
         // The per-tab nav inside the host needs its insets too when it's the visible content.
-        if (!isShowingPushedOverMain)
-            activeNavigationController?.insetsUpdated()
+        if (!isShowingPushedOverMain) activeNavigationController?.insetsUpdated()
         if (!isKeyboardOpen && searchBar.editText.hasFocus()) {
             searchBar.editText.clearFocus()
         }
@@ -579,16 +567,16 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
 
             is WalletEvent.AccountChangedInApp -> {
                 activeNavigationController?.popToRoot(false)
-                if (!AccountStore.isPushedTemporary)
-                    mainNavigationController?.popToRoot(false)
+                if (!AccountStore.isPushedTemporary) mainNavigationController?.popToRoot(false)
                 sidePanel.setAccounts(WalletCore.getAllAccounts())
                 sidePanel.refreshAccountSelection()
                 refreshHeader(animated = false)
             }
 
             WalletEvent.AddNewWalletCompletion -> {
-                if (currentTabId != IBottomNavigationView.ID_HOME)
+                if (currentTabId != IBottomNavigationView.ID_HOME) {
                     selectTab(IBottomNavigationView.ID_HOME)
+                }
                 sidePanel.setAccounts(WalletCore.getAllAccounts())
                 refreshHeader(animated = false)
             }
@@ -611,9 +599,19 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
                 routeWalletEvent(walletEvent)
             }
 
+            WalletEvent.AssetsAndActivityDataUpdated -> {
+                AccountStore.activeAccountId?.let { headerView.updateAddressLabel(it) }
+                routeWalletEvent(walletEvent)
+            }
+
             WalletEvent.SideGuttersChanged -> {
                 applyPanelInsets()
                 applyPanelWidth()
+            }
+
+            WalletEvent.AppTabsChanged -> {
+                if (!AppTabsManager.contains(currentTabId)) selectTab(IBottomNavigationView.ID_HOME)
+                sidePanel.updateTabs(buildTabDefs())
             }
 
             else -> {
@@ -624,8 +622,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
 
     override fun onBackPressed(): Boolean {
         // Pop full-screen VCs pushed over the main nav first, then fall back to the active tab stack.
-        if ((contentNav.viewControllers.size) > 1)
-            return contentNav.onBackPressed()
+        if ((contentNav.viewControllers.size) > 1) return contentNav.onBackPressed()
         return activeNavigationController?.onBackPressed() ?: true
     }
 
@@ -637,9 +634,7 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
         get() = contentNav
 
     // Full-screen pushes on tablet live in the content-panel nav, above the host root.
-    override fun exportPushedOverMain(): List<WViewController> {
-        return contentNav.detachAboveRoot()
-    }
+    override fun exportPushedOverMain(): List<WViewController> = contentNav.detachAboveRoot()
 
     override fun adoptPushedOverMain(pushed: List<WViewController>) {
         contentNav.adoptAboveRoot(pushed)
@@ -653,9 +648,11 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
     override fun getBottomNavigationHeight(): Int {
         val systemBottom = window?.systemBars?.bottom ?: 0
         val keyboard = window?.imeInsets?.bottom ?: 0
-        val searchExtra = if (isExploreTab)
+        val searchExtra = if (isExploreTab) {
             (SEARCH_BOTTOM_MARGIN + ExploreSearchBar.SEARCH_HEIGHT).dp
-        else 0
+        } else {
+            0
+        }
         return maxOf(systemBottom, keyboard) + searchExtra
     }
 
@@ -696,14 +693,18 @@ class TabletTabsVC(context: Context) : BaseTabsVC(context), WThemedView,
             (activeNavigationController?.viewControllers?.size ?: 0) == 1
 
     override fun switchToExplore(targetUri: Uri?) {
+        if (!AppTabsManager.contains(IBottomNavigationView.ID_EXPLORE)) return
         selectTab(IBottomNavigationView.ID_EXPLORE)
         window?.dismissToRoot()
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
     }
 
-    override fun switchToAgent() {
+    override fun switchToAgent(prompt: String?): Boolean {
+        if (!AppTabsManager.contains(IBottomNavigationView.ID_AGENT)) return false
         selectTab(IBottomNavigationView.ID_AGENT)
         window?.dismissToRoot()
+        submitAgentPrompt(prompt)
+        return true
     }
 
     override fun switchToSettings(pushVC: WViewController?) {

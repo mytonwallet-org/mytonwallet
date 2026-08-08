@@ -1,16 +1,25 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-if [ -f "$HOME/.nvm/nvm.sh" ]; then
-  export NVM_DIR="$HOME/.nvm/nvm.sh"
-  . "$(dirname $NVM_DIR)/nvm.sh"
+if ! git diff --cached --quiet -- . ':(exclude)mobile/**'; then
+  if [ -f "$HOME/.nvm/nvm.sh" ]; then
+    export NVM_DIR="$HOME/.nvm/nvm.sh"
+    . "$(dirname $NVM_DIR)/nvm.sh"
 
-  export NVM_DIR="$HOME/.nvm"
-  a=$(nvm ls | grep 'node')
-  b=${a#*(-> }
-  v=${b%%[)| ]*}
+    export NVM_DIR="$HOME/.nvm"
+    a=$(nvm ls | grep 'node')
+    b=${a#*(-> }
+    v=${b%%[)| ]*}
 
-  export PATH="$NVM_DIR/versions/node/$v/bin:$PATH"
+    export PATH="$NVM_DIR/versions/node/$v/bin:$PATH"
+  fi
+
+  npx tsc && npx lint-staged || exit $?
 fi
 
-npx tsc && npx lint-staged
+if ! git diff --cached --quiet -- mobile/android; then
+  (
+    cd mobile/android
+    ./gradlew ktlintCheck
+  )
+fi

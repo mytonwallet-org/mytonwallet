@@ -95,8 +95,9 @@ final class WalletSettingsGridCell: UICollectionViewCell, ReorderableCell {
 
 private struct _Content: View {
 
+    @MainActor
     struct LayoutGeometry {
-        let titleFont = UIFont.systemFont(ofSize: 13, weight: .medium)
+        let titleFont = WTypography.uiFont(.footnoteEmphasized)
         let borderWidth = 1.5
         let vStackSpacing = 7.0
         let titleBottomPadding = 7.0
@@ -149,7 +150,7 @@ private struct _Content: View {
                     .animation(.smooth(duration: 0.25), value: model.isHighlighted)
 
                 Text(accountContext.account.displayName)
-                    .font(.system(size: 13, weight: .medium))
+                    .textStyle(.footnoteEmphasized)
                     .lineLimit(1)
                     .allowsTightening(true)
                     .padding(.horizontal, -2)

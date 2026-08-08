@@ -1,51 +1,62 @@
+@file:Suppress("ktlint:standard:filename")
+
 package org.mytonwallet.app_air.walletcore.api
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
 import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 
 suspend fun WalletCore.fetchPortfolioNetWorthHistory(
     accountId: String,
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-    cacheOnly: Boolean = false,
-): ApiPortfolioHistoryResponse? {
-    return fetchPortfolioHistory(
-        "fetchPortfolioNetWorthHistory", accountId, wallets, baseCurrency, period, cacheOnly
-    )
-}
+    cacheOnly: Boolean = false
+): ApiPortfolioHistoryResponse? = fetchPortfolioHistory(
+    "fetchPortfolioNetWorthHistory",
+    accountId,
+    wallets,
+    baseCurrency,
+    period,
+    cacheOnly
+)
 
 suspend fun WalletCore.fetchPortfolioPnlCumulativeHistory(
     accountId: String,
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-    cacheOnly: Boolean = false,
-): ApiPortfolioHistoryResponse? {
-    return fetchPortfolioHistory(
-        "fetchPortfolioPnlCumulativeHistory", accountId, wallets, baseCurrency, period, cacheOnly
-    )
-}
+    cacheOnly: Boolean = false
+): ApiPortfolioHistoryResponse? = fetchPortfolioHistory(
+    "fetchPortfolioPnlCumulativeHistory",
+    accountId,
+    wallets,
+    baseCurrency,
+    period,
+    cacheOnly
+)
 
 suspend fun WalletCore.fetchPortfolioPnlHistory(
     accountId: String,
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-    cacheOnly: Boolean = false,
-): ApiPortfolioHistoryResponse? {
-    return fetchPortfolioHistory(
-        "fetchPortfolioPnlHistory", accountId, wallets, baseCurrency, period, cacheOnly
-    )
-}
+    cacheOnly: Boolean = false
+): ApiPortfolioHistoryResponse? = fetchPortfolioHistory(
+    "fetchPortfolioPnlHistory",
+    accountId,
+    wallets,
+    baseCurrency,
+    period,
+    cacheOnly
+)
 
 private suspend fun WalletCore.fetchPortfolioHistory(
     methodName: String,
@@ -53,7 +64,7 @@ private suspend fun WalletCore.fetchPortfolioHistory(
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-    cacheOnly: Boolean,
+    cacheOnly: Boolean
 ): ApiPortfolioHistoryResponse? {
     PortfolioStore.get(methodName, accountId, baseCurrency, period)?.let { return it }
     if (cacheOnly) return null
@@ -79,8 +90,11 @@ private suspend fun WalletCore.fetchPortfolioHistory(
 
 private fun MHistoryTimePeriod.toDensity(): String = when (this) {
     MHistoryTimePeriod.DAY -> "5m"
+
     MHistoryTimePeriod.WEEK -> "1h"
+
     MHistoryTimePeriod.MONTH -> "4h"
+
     MHistoryTimePeriod.THREE_MONTHS,
     MHistoryTimePeriod.YEAR,
     MHistoryTimePeriod.ALL -> "1d"
@@ -102,9 +116,8 @@ private fun MHistoryTimePeriod.fromIsoString(nowMs: Long): String {
 }
 
 // `to` is the end of the UTC day of now (23:59:59.000).
-private fun toIsoString(nowMs: Long): String {
-    return isoDateFormat().format(Date(startOfUtcDay(nowMs) + DAY_MS - 1000L))
-}
+private fun toIsoString(nowMs: Long): String =
+    isoDateFormat().format(Date(startOfUtcDay(nowMs) + DAY_MS - 1000L))
 
 // The epoch is aligned to UTC midnight, so flooring by whole days yields start-of-day UTC.
 private fun startOfUtcDay(ms: Long): Long = ms - (ms % DAY_MS)
@@ -114,11 +127,10 @@ private const val PORTFOLIO_ALL_START_EPOCH_MS: Long = 1_577_836_800_000L // 202
 
 private val ISO_DATE_FORMAT: ThreadLocal<SimpleDateFormat> =
     object : ThreadLocal<SimpleDateFormat>() {
-        override fun initialValue(): SimpleDateFormat {
-            return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+        override fun initialValue(): SimpleDateFormat =
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }
-        }
     }
 
 private fun isoDateFormat(): SimpleDateFormat = requireNotNull(ISO_DATE_FORMAT.get())

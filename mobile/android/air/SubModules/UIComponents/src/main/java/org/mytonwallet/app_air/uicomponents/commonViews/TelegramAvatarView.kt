@@ -23,10 +23,7 @@ import org.mytonwallet.app_air.walletcore.models.AccountMfa
  * placeholder) so we don't need an SVG decoder for a single client-renderable case.
  */
 @SuppressLint("ViewConstructor")
-class TelegramAvatarView(
-    context: Context,
-    user: AccountMfa.User,
-) : View(context) {
+class TelegramAvatarView(context: Context, user: AccountMfa.User) : View(context) {
 
     companion object {
         // Telegram's in-app avatar palette (Theme.keys_avatar_background[1..2]).
@@ -38,7 +35,7 @@ class TelegramAvatarView(
             intArrayOf(0xFF9AD164.toInt(), 0xFF46BA43.toInt()), // Green
             intArrayOf(0xFF53EDD6.toInt(), 0xFF28C9B7.toInt()), // Cyan
             intArrayOf(0xFF5BCBE3.toInt(), 0xFF408ACF.toInt()), // Blue
-            intArrayOf(0xFFFF8AAC.toInt(), 0xFFD95574.toInt()), // Pink
+            intArrayOf(0xFFFF8AAC.toInt(), 0xFFD95574.toInt()) // Pink
         )
     }
 
@@ -70,8 +67,7 @@ class TelegramAvatarView(
         return GRADIENTS[index]
     }
 
-    private fun firstInitial(name: String): String =
-        name.trim().firstGrapheme().uppercase()
+    private fun firstInitial(name: String): String = name.trim().firstGrapheme().uppercase()
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -82,7 +78,13 @@ class TelegramAvatarView(
 
         ovalRect.set(0f, 0f, w, h)
         backgroundPaint.shader = LinearGradient(
-            0f, 0f, 0f, h, gradient[0], gradient[1], Shader.TileMode.CLAMP,
+            0f,
+            0f,
+            0f,
+            h,
+            gradient[0],
+            gradient[1],
+            Shader.TileMode.CLAMP
         )
         canvas.drawOval(ovalRect, backgroundPaint)
 

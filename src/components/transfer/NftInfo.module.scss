@@ -7,7 +7,7 @@
   border: none;
   border-radius: var(--border-radius-default);
 
-  text-align: left;
+  text-align: start;
   text-decoration: none;
 
   appearance: none !important;
@@ -26,10 +26,11 @@
 .thumbnail {
   width: 4.5rem;
   height: 4.5rem;
-  margin-right: 0.75rem;
+  margin-inline-end: 0.75rem;
   border-radius: var(--border-radius-tiny);
 
   object-fit: cover;
+  background-color: var(--color-background-second);
 }
 
 .info {

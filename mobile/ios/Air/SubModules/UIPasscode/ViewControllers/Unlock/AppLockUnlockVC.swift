@@ -11,7 +11,7 @@ public final class AppLockUnlockVC: UnlockVC {
 
     public init(
         mode: Mode,
-        onDone: @escaping (_ passcode: String) -> Void,
+        onDone: @escaping (_ enclaveToken: EnclaveToken) -> Void,
         onSignOutRequested: (@MainActor () async throws -> Void)?
     ) {
         super.init(

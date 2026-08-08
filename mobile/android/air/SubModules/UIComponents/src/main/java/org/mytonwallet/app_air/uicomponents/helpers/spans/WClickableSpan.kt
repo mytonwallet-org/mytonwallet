@@ -9,7 +9,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 class WClickableSpan(
     private val url: String,
     private val color: Int? = null,
-    private val onClick: (String) -> Unit,
+    private val onClick: (String) -> Unit
 ) : ClickableSpan() {
     override fun onClick(widget: View) {
         onClick(url)

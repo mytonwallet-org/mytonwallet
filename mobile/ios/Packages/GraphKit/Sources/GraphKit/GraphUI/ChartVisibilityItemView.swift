@@ -9,7 +9,7 @@
 import UIKit
 
 class ChartVisibilityItemView: UIView {
-    static let textFont = UIFont.systemFont(ofSize: 14, weight: .medium)
+    static var textFont: UIFont { GraphTypography.supportingEmphasizedFont }
 
     let checkButton: UIButton = UIButton(type: .system)
     

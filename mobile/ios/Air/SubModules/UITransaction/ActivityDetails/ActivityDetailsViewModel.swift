@@ -134,7 +134,7 @@ final class ActivityDetailsViewModel {
             }
             let activityId = transaction.id
             let isMetadataScam = transaction.metadata?.isScam == true
-            let isPoisoning: Bool = transaction.isIncoming ? await ActivityStore.isTransactionWithPoisoning(accountId: accountContext.accountId, transaction: transaction) : false
+            let isPoisoning: Bool = await ActivityStore.isTransactionWithPoisoning(accountId: accountContext.accountId, transaction: transaction)
             if activity.id == activityId {
                 isScam = isMetadataScam || isPoisoning
             }

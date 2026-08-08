@@ -17,7 +17,7 @@ import UIKit
 typealias NSFont = UIFont
 #endif
 
-private let defaultFont:NSFont = NSFont.systemFont(ofSize: 14)
+private var defaultFont: NSFont { GraphTypography.technicalFallbackFont }
 
 extension NSAttributedString {
     var size: CGSize {

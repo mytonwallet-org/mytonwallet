@@ -40,7 +40,7 @@ public class EmptyEarnView: WTouchPassStackView {
     
     private lazy var earnFromTokensLabel = {
         let lbl = UILabel()
-        lbl.font = .systemFont(ofSize: 17)
+        lbl.applyTextStyle(.body)
         lbl.text = lang("Earn from your tokens while holding them", arg1: config.baseToken.symbol)
         lbl.textAlignment = .center
         lbl.numberOfLines = 0
@@ -49,7 +49,7 @@ public class EmptyEarnView: WTouchPassStackView {
     
     lazy var estimatedAPYLabel = {
         let lbl = UILabel()
-        lbl.font = .systemFont(ofSize: 16)
+        lbl.applyTextStyle(.callout)
         lbl.text = ""
         lbl.textAlignment = .center
         lbl.numberOfLines = 0

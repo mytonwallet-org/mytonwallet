@@ -79,7 +79,7 @@ $createSubwalletPaddingBottom: 1rem;
   position: absolute !important;
   z-index: 3;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   display: grid;
   grid-template-columns: 1fr max-content 1fr;
@@ -126,6 +126,8 @@ $createSubwalletPaddingBottom: 1rem;
 
 .iconChevron {
   font-size: 1.5rem;
+
+  @include mixins.rtl-mirror();
 }
 
 .headerTitle {
@@ -248,10 +250,11 @@ $createSubwalletPaddingBottom: 1rem;
   }
 
   @include mixins.respond-above(xs) {
-    padding-left: 0;
+    padding-inline-start: 0;
 
     &_noHeader {
-      padding: var(--app-padding-top) 1rem max(var(--safe-area-bottom), 1rem) 0;
+      padding-block: var(--app-padding-top) max(var(--safe-area-bottom), 1rem);
+      padding-inline: 0 1rem;
 
       @include mixins.adapt-padding-to-scrollbar(1rem);
     }
@@ -321,6 +324,90 @@ $createSubwalletPaddingBottom: 1rem;
   height: 1.75rem;
 }
 
+.chainIconList {
+  display: flex;
+}
+
+.stackedChainIcon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.125rem var(--color-background-first);
+
+  &:not(:first-child) {
+    margin-left: -0.5rem;
+  }
+}
+
+.stackedChainMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 2rem;
+  height: 2rem;
+  margin-left: -0.5rem;
+  border-radius: 50%;
+
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-gray-2);
+
+  background-color: var(--color-background-second);
+  box-shadow: 0 0 0 0.125rem var(--color-background-first);
+}
+
+.chainList {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.chainRow {
+  --separator-inline-start-offset: 4rem;
+
+  @include mixins.transition("top 200ms");
+
+  @include mixins.separatorList(var(--separator-inline-start-offset));
+
+  &_draggable {
+    --separator-inline-start-offset: 6.25rem;
+  }
+
+  > :global(.draggable-knob) {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    inset-inline-start: 0.75rem;
+    transform: translateY(-50%);
+  }
+}
+
+.chainItem {
+  gap: 0.625rem;
+
+  height: 4rem;
+  padding-block: 0;
+  padding-inline: 1rem 0.75rem;
+  border-radius: 0 !important;
+
+  @include mixins.transition("padding-inline-start 200ms, opacity 200ms");
+
+  .chainRow_draggable & {
+    padding-inline-start: 3rem;
+  }
+
+  &_automatic {
+    cursor: default;
+    opacity: 0.5;
+  }
+}
+
+.chainIcon {
+  width: 2.625rem;
+  height: 2.625rem;
+}
+
 .themeWrapper {
   display: flex;
   align-items: center;
@@ -358,7 +445,7 @@ $createSubwalletPaddingBottom: 1rem;
 
     position: absolute;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
 
     display: block;
 
@@ -461,8 +548,8 @@ $createSubwalletPaddingBottom: 1rem;
 
     position: absolute;
     top: 0;
-    right: 0;
-    left: 1rem;
+    inset-inline-start: 1rem;
+    inset-inline-end: 0;
 
     height: 0.0625rem;
 
@@ -478,7 +565,7 @@ $createSubwalletPaddingBottom: 1rem;
 
 .text:last-of-type,
 .settingsBlockWithDescription {
-  margin-bottom: 0;
+  margin-bottom: 0 !important;
 }
 
 .settingsBlock {
@@ -506,9 +593,11 @@ $createSubwalletPaddingBottom: 1rem;
   @include mixins.respond-above(xs) {
     // Same visible right edge as `.block` inside `.content` (which sits
     // `.content` padding-right + scrollbar = 1rem inset from `.slide` right).
-    margin: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.5rem) 1rem 0 0;
+    margin-block: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.5rem) 0;
+    margin-inline: 0 1rem;
     padding-top: 0;
     border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
     background-color:  var(--color-background-first);
 
     :global(html.theme-dark) & {
@@ -534,6 +623,10 @@ $createSubwalletPaddingBottom: 1rem;
   color: var(--color-gray-3);
 }
 
+:global(html[dir="rtl"]) .iconChevronRight {
+  transform: scaleX(-1);
+}
+
 .item {
   --offset-y-value: 0.75rem;
 
@@ -549,7 +642,8 @@ $createSubwalletPaddingBottom: 1rem;
   gap: 0.75rem;
   align-items: center;
 
-  padding: 0.625rem 0.75rem 0.625rem 0.625rem;
+  padding-block: 0.625rem;
+  padding-inline: 0.625rem 0.75rem;
 
   text-decoration: none !important;
 
@@ -559,7 +653,8 @@ $createSubwalletPaddingBottom: 1rem;
 
   &_menu {
     gap: 1rem;
-    padding: 0.75rem 0.75rem 0.625rem 1rem;
+    padding-block: 0.75rem 0.625rem;
+    padding-inline: 1rem 0.75rem;
 
     @include mixins.separatorBottomSettings(3.75rem, 0, -0.0625rem);
   }
@@ -582,7 +677,8 @@ $createSubwalletPaddingBottom: 1rem;
   &_lang {
     grid-template-areas: "content arrow";
     grid-template-columns: 1fr min-content;
-    padding: 0.8125rem 0.75rem 0.75rem 1rem;
+    padding-block: 0.8125rem 0.75rem;
+    padding-inline: 1rem 0.75rem;
 
     @include mixins.separatorBottomSettings(1rem, 0);
   }
@@ -595,7 +691,8 @@ $createSubwalletPaddingBottom: 1rem;
     justify-content: flex-start;
 
     height: 4.0625rem;
-    padding: 0.8125rem 0.5rem 1rem 1rem;
+    padding-block: 0.8125rem 1rem;
+    padding-inline: 1rem 0.5rem;
 
     @include mixins.separatorBottomSettings(1rem, 1.5rem);
   }
@@ -614,7 +711,8 @@ $createSubwalletPaddingBottom: 1rem;
   }
 
   &_withWallet {
-    padding: 0.75rem 1rem 0.75rem 0.625rem !important;
+    padding-block: 0.75rem !important;
+    padding-inline: 0.625rem 1rem !important;
 
     @include mixins.separatorBottomSettings(3.75rem);
   }
@@ -622,7 +720,7 @@ $createSubwalletPaddingBottom: 1rem;
   &_token {
     position: absolute;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
 
     overflow: hidden;
 
@@ -667,13 +765,13 @@ $createSubwalletPaddingBottom: 1rem;
   @include mixins.active-transition-optimization();
 
   &:first-child {
-    border-top-left-radius: var(--border-radius-default);
-    border-top-right-radius: var(--border-radius-default);
+    border-start-start-radius: var(--border-radius-default);
+    border-start-end-radius: var(--border-radius-default);
   }
 
   &:is(:last-child, &.isLast) {
-    border-bottom-right-radius: var(--border-radius-default);
-    border-bottom-left-radius: var(--border-radius-default);
+    border-end-start-radius: var(--border-radius-default);
+    border-end-end-radius: var(--border-radius-default);
     box-shadow: none;
   }
 }
@@ -699,6 +797,7 @@ a.item:hover {
 }
 
 .itemInfo {
+  unicode-bidi: plaintext;
   display: flex;
   gap: 0.25rem;
   align-items: center;
@@ -819,7 +918,7 @@ a.item:hover {
   font-weight: 600;
   line-height: 1rem;
   color: var(--color-red);
-  text-align: left;
+  text-align: start;
 
   background: var(--color-background-first);
 
@@ -846,7 +945,7 @@ a.item:hover {
   font-weight: 600;
   line-height: 1rem;
   color: var(--color-accent);
-  text-align: left;
+  text-align: start;
 
   background: var(--color-background-first);
 
@@ -923,9 +1022,9 @@ a.item:hover {
   content: "";
 
   position: absolute;
-  right: 0;
   bottom: 0;
-  left: 3.875rem;
+  inset-inline-start: 3.875rem;
+  inset-inline-end: 0;
 
   height: 0.0625rem;
 
@@ -941,10 +1040,6 @@ a.item:hover {
   width: 6rem;
   height: 6rem;
   margin: 0 auto 1.25rem;
-}
-
-.stickerNativeBiometric {
-  margin-top: auto;
 }
 
 .pinPadHeader {
@@ -1132,7 +1227,7 @@ a.item:hover {
   gap: 0.5625rem;
 
   margin-bottom: 1.0625rem;
-  padding-left: 0.5rem;
+  padding-inline-start: 0.5rem;
 
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1202,6 +1297,11 @@ a.item:hover {
   text-wrap: nowrap;
 }
 
+.walletVersionAmount,
+.walletVersionTokens {
+  unicode-bidi: plaintext;
+}
+
 .walletVersionAddress {
   :global([class^="icon-chain-"]) {
     margin-inline-end: 0.125rem;
@@ -1232,7 +1332,7 @@ a.item:hover {
 }
 
 .blockWalletVersionReadMore {
-  padding-left: 0.5rem;
+  padding-inline-start: 0.5rem;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--color-gray-2);
@@ -1260,6 +1360,7 @@ a.item:hover {
   width: 2.625rem;
   height: 2.625rem;
   border-radius: var(--border-radius-normal);
+  background-color: var(--color-background-second);
 }
 
 .nftButtonUnhide {
@@ -1283,7 +1384,7 @@ a.item:hover {
 }
 
 .pushAccountName {
-  margin-right: 1.125rem !important;
+  margin-inline-end: 1.125rem !important;
 }
 
 .palleteIcon {
@@ -1303,7 +1404,7 @@ $externalRadius: $internalRadius + $borderWidth;
 .miniCard {
   position: absolute;
   top: 50%;
-  right: -25%;
+  inset-inline-end: -25%;
   transform: translateY(-50%) rotate(-10deg);
 
   box-sizing: content-box;
@@ -1317,6 +1418,33 @@ $externalRadius: $internalRadius + $borderWidth;
 
 .miniCardPreview {
   position: absolute;
+}
+
+.stickerHuge {
+  margin-top: 2rem;
+}
+
+.biometricsStep,
+.biometricsError {
+  align-self: center;
+
+  padding: 0.5625rem 0.75rem;
+  border-radius: var(--border-radius-buttons);
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3125rem;
+  text-align: center;
+}
+
+.biometricsStep {
+  color: var(--light-gray-1);
+  background-color: var(--color-gray-button-background-light);
+}
+
+.biometricsError {
+  color: var(--color-transaction-amount-red-text);
+  background-color: var(--color-transaction-amount-red-bg);
 }
 
 .transitionSlide {

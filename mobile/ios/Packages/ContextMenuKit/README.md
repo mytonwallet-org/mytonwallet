@@ -99,13 +99,12 @@ ContextMenuPage(items: [
     .custom(
         ContextMenuCustomRow(
             sizing: .fixed(height: 60.0),
-            interaction: .contentHandlesTouches
+            interaction: .selectable(
+                allowsContentInteraction: true,
+                handler: onCopy
+            )
         ) { context in
             AddressRowView(
-                onCopy: {
-                    copyAddress()
-                    context.dismiss()
-                },
                 onOpenExplorer: {
                     openExplorer()
                     context.dismiss()
@@ -115,6 +114,9 @@ ContextMenuPage(items: [
     )
 ])
 ```
+
+Use `allowsContentInteraction` when the row has a default selection action but also contains an independent `UIControl`, such as an explorer accessory button.
+Use the `.submenu` interaction instead when a custom row should navigate to another `ContextMenuPage` while preserving independent controls.
 
 For portal-backed source cloning, provide `ContextMenuSourcePortal`:
 

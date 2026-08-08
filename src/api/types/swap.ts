@@ -26,7 +26,7 @@ export type ApiBuildOnchainSwapTransferResult = {
 
 export type ApiSubmitOnchainSwapTransferOptions = {
   accountId: string;
-  password: string;
+  enclaveToken: string;
   transfers?: ApiSwapTransfer[];
   transaction?: string;
   historyItem: ApiSwapHistoryItem;
@@ -39,6 +39,6 @@ export type ApiSubmitOnchainSwapTransferOptions = {
 };
 
 export type ApiSubmitOnchainSwapTransferResult =
-  | { activityId: string }
+  | { activityId: string; submittedHashes: string[] }
   | { mfaRequest: SignedMfaRequest }
   | { error: string };

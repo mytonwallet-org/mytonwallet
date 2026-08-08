@@ -1,14 +1,15 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.search.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.net.toUri
+import java.util.Date
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -21,14 +22,13 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.timeAgo
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
-import java.util.Date
 
 @SuppressLint("ViewConstructor")
 class SearchMatchedCell(
     context: Context,
     private val onTap: (site: MExploreHistory.VisitedSite) -> Unit
-) :
-    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
+) : WCell(context, LayoutParams(MATCH_PARENT, 60.dp)),
+    WThemedView {
 
     private val logoImageView: WCustomImageView by lazy {
         WCustomImageView(context).apply {
@@ -103,5 +103,4 @@ class SearchMatchedCell(
             ViewConstants.BLOCK_RADIUS.dp
         )
     }
-
 }

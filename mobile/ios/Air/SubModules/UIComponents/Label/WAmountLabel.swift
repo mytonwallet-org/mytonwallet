@@ -10,8 +10,12 @@ import WalletContext
 
 public class WAmountLabel: UILabel {
     
-    private static let defaultNumberFont = UIFont.systemFont(ofSize: 16, weight: .regular)
-    private static let defaultDecimalsFont = UIFont.systemFont(ofSize: 15, weight: .regular)
+    private static var defaultNumberFont: UIFont {
+        WTypography.uiFont(.callout, content: .technical)
+    }
+    private static var defaultDecimalsFont: UIFont {
+        WTypography.uiFont(.subheadline, content: .technical)
+    }
     private let primaryColor: UIColor
     
     private var amount: BigInt = 0

@@ -16,6 +16,7 @@ import secretWordsImg from '../../../assets/settings/settings_secret-words.svg';
 
 interface OwnProps {
   isActive?: boolean;
+  isInsideModal?: boolean;
   isMultichainAccount: boolean;
   hasMnemonicWallet?: boolean;
   onBackClick: NoneToVoidFunction;

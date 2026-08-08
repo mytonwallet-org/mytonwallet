@@ -76,12 +76,14 @@
   position: relative;
   top: 0.125rem;
   /* stylelint-disable-next-line plugin/whole-pixel */
-  left: -0.03125rem;
+  inset-inline-start: -0.03125rem;
 
   font-size: 0.8125rem;
   line-height: 0.625rem;
   color: var(--color-red-warning-text-70);
   vertical-align: 0;
+
+  @include mixins.rtl-mirror();
 }
 
 .text {
@@ -151,7 +153,7 @@
 
   position: absolute;
   top: 0.5rem;
-  right: 0.5rem;
+  inset-inline-end: 0.5rem;
 
   display: flex;
   align-items: center;
@@ -183,7 +185,7 @@
 
   @media (pointer: coarse) {
     top: 50%;
-    right: 0.75rem;
+    inset-inline-end: 0.75rem;
     transform: translateY(-50%);
 
     width: 2rem !important;
@@ -200,19 +202,21 @@
 
   width: 2.5rem;
   height: 2.5rem;
-  margin-right: 0.625rem;
+  margin-inline-end: 0.625rem;
 }
 
 .domainPreview {
   position: absolute;
   z-index: calc(3 - var(--index));
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
 
   width: var(--domain-preview-size);
   height: var(--domain-preview-size);
   border: 1px solid var(--color-red-warning-background);
   border-radius: var(--border-radius-domain);
+
+  background-color: var(--color-background-second);
 }
 
 .domainPreview_1 {
@@ -241,7 +245,7 @@
   gap: 0.125rem;
   align-items: center;
 
-  margin-left: -0.1875rem;
+  margin-inline-start: -0.1875rem;
   padding-top: 0.25rem;
 }
 

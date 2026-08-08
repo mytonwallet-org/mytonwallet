@@ -101,14 +101,14 @@ private struct PromotionView: View {
                 VStack(spacing: 0) {
                     if let title = modal?.title.nilIfEmpty {
                         Text(title)
-                            .font(.system(size: 20, weight: .heavy))
+                            .textStyle(.promotionTitle)
                             .foregroundStyle(titleColor)
                             .multilineTextAlignment(.center)
                     }
 
                     if let description = modal?.description.nilIfEmpty {
                         descriptionText(description)
-                            .font(.system(size: 16, weight: .medium))
+                            .textStyle(.calloutEmphasized)
                             .foregroundStyle(descriptionColor)
                             .multilineTextAlignment(.center)
                             .lineSpacing(4)
@@ -117,7 +117,7 @@ private struct PromotionView: View {
 
                     if let availability = modal?.availabilityIndicator?.nilIfEmpty {
                         Text(availability)
-                            .font(.system(size: 13, weight: .semibold))
+                            .textStyle(.largeBadge)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)

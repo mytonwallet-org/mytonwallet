@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uistake.earn
 
 import android.animation.ValueAnimator
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -24,6 +23,8 @@ import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.lang.ref.WeakReference
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -38,11 +39,12 @@ import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -74,15 +76,15 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.lang.ref.WeakReference
-import java.math.BigInteger
 
 @SuppressLint("ClickableViewAccessibility")
 class EarnVC(
     context: Context,
     val tokenSlug: String,
     private var onScroll: ((rv: RecyclerView) -> Unit)?
-) : WViewControllerWithModelStore(context), WRecyclerViewDataSource {
+) : WViewControllerWithModelStore(context),
+    WRecyclerViewDataSource {
+    @Suppress("PropertyName")
     override val TAG = "Earn"
 
     override val displayedAccount =
@@ -123,19 +125,13 @@ class EarnVC(
     override val isSwipeBackAllowed: Boolean = false
 
     private var skeletonDataSource: WRecyclerViewDataSource? = object : WRecyclerViewDataSource {
-        override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-            return 2
-        }
+        override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 2
 
-        override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-            return if (section == 0) 1 else 100
-        }
+        override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int =
+            if (section == 0) 1 else 100
 
-        override fun recyclerViewCellType(
-            rv: RecyclerView,
-            indexPath: IndexPath
-        ): WCell.Type {
-            return when (indexPath.section) {
+        override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+            when (indexPath.section) {
                 0 -> {
                     HEADER_CELL
                 }
@@ -144,10 +140,9 @@ class EarnVC(
                     if (indexPath.row == 0) SKELETON_HEADER_CELL else SKELETON_CELL
                 }
             }
-        }
 
-        override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-            return when (cellType) {
+        override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+            when (cellType) {
                 HEADER_CELL -> {
                     EarnSpaceCell(context, isTransparent = true)
                 }
@@ -160,7 +155,6 @@ class EarnVC(
                     SkeletonCell(context)
                 }
             }
-        }
 
         override fun recyclerViewConfigureCell(
             rv: RecyclerView,
@@ -194,9 +188,7 @@ class EarnVC(
 
     private val skeletonRecyclerView: WRecyclerView by lazy {
         val rv = object : WRecyclerView(this) {
-            override fun onTouchEvent(event: MotionEvent): Boolean {
-                return false
-            }
+            override fun onTouchEvent(event: MotionEvent): Boolean = false
         }
         rv.adapter = rvSkeletonAdapter
         rv.setLayoutManager(LinearLayoutManager(context))
@@ -251,8 +243,10 @@ class EarnVC(
             wView.setConstraints {
                 toTopPx(
                     animationView,
-                    (view.height - headerView.measuredHeight -
-                        (navigationController?.bottomInset ?: 0) - 250.dp) / 2
+                    (
+                        view.height - headerView.measuredHeight -
+                            (navigationController?.bottomInset ?: 0) - 250.dp
+                        ) / 2
                 )
             }
         }
@@ -286,13 +280,12 @@ class EarnVC(
     private val scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
-            if (dx == 0 && dy == 0)
-                return
+            if (dx == 0 && dy == 0) return
             updateBlurViews(recyclerView)
             onScroll?.invoke(recyclerView)
 
-            val firstVisibleItem =
-                (recyclerView.layoutManager as LinearLayoutManagerAccurateOffset).findFirstVisibleItemPosition() == 0
+            val layoutManager = recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+            val firstVisibleItem = layoutManager.findFirstVisibleItemPosition() == 0
             if (dy > 3 && !firstVisibleItem) {
                 hideRewards()
             } else if (dy < -3 || firstVisibleItem) {
@@ -343,14 +336,16 @@ class EarnVC(
         val v = EarnHeaderView(
             WeakReference(this),
             onAddStakeClick = {
-                val nav = navigationController
-                nav?.push(
-                    StakingVC(
-                        context,
-                        tokenSlug,
-                        StakingViewModel.Mode.STAKE
+                if (earnViewModel.canAddStake) {
+                    val nav = navigationController
+                    nav?.push(
+                        StakingVC(
+                            context,
+                            tokenSlug,
+                            StakingViewModel.Mode.STAKE
+                        )
                     )
-                )
+                }
             },
             onUnstakeClick = {
                 val stakingState = AccountStore.stakingData?.stakingState(tokenSlug)
@@ -506,7 +501,19 @@ class EarnVC(
         val previousHistoryItems = previousHistoryItems
         val previousIds = previousHistoryItems.map { it.id }.toHashSet()
         newlyInsertedItemIds =
-            if (previousIds.isEmpty()) emptyList() else newItems.mapNotNull { if (it.id !in previousIds) it.id else null }
+            if (previousIds.isEmpty()) {
+                emptyList()
+            } else {
+                newItems.mapNotNull {
+                    if (it.id !in
+                        previousIds
+                    ) {
+                        it.id
+                    } else {
+                        null
+                    }
+                }
+            }
         this.previousHistoryItems = newItems.toList()
         if (previousIds.isEmpty()) {
             rvAdapter.reloadData()
@@ -532,7 +539,7 @@ class EarnVC(
             setStakingBalance(
                 viewState.stakingBalance ?: "0",
                 earnViewModel.token?.symbol ?: "",
-                viewState.stakingBalanceIsLarge,
+                viewState.stakingBalanceIsLarge
             )
             setSubtitle(AccountStore.stakingData?.stakingState(tokenSlug))
             changeAddStakeButtonEnable(viewState.enableAddStakeButton)
@@ -561,7 +568,8 @@ class EarnVC(
             is HistoryListState.NoItem -> {
                 headerView.showInnerViews(
                     viewState.showAddStakeButton,
-                    viewState.showUnstakeButton, viewState.showBiggerUnstakeButton
+                    viewState.showUnstakeButton,
+                    viewState.showBiggerUnstakeButton
                 )
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_NEVER
                 noItemView.visibility = View.VISIBLE
@@ -569,7 +577,7 @@ class EarnVC(
 
                 noItemLabel.text = LocaleController.getFormattedString(
                     "Earn up to %1$@ per year from your tokens",
-                    listOf("${earnViewModel.apy.toString()}%")
+                    listOf("${earnViewModel.apy}%")
                 )
 
                 animationView.play(R.raw.animation_gem, false, onStart = {
@@ -592,7 +600,6 @@ class EarnVC(
                 noItemView.visibility = View.GONE
                 updateSkeletonState()
                 updateItems(viewState.historyListState.historyItems)
-
             }
         }
         lastListState = viewState.historyListState
@@ -609,16 +616,18 @@ class EarnVC(
                     claimRewardShadow?.sync()
                 }
             }
-            rewardLabel.contentView.setAmount(TokenStore.getToken(tokenSlug)?.let { token ->
-                viewState.unclaimedReward.toString(
-                    decimals = token.decimals,
-                    currency = token.symbol,
-                    currencyDecimals = token.decimals,
-                    showPositiveSign = false,
-                    forceCurrencyToRight = true,
-                    roundUp = false
-                )
-            } ?: "")
+            rewardLabel.contentView.setAmount(
+                TokenStore.getToken(tokenSlug)?.let { token ->
+                    viewState.unclaimedReward.toString(
+                        decimals = token.decimals,
+                        currency = token.symbol,
+                        currencyDecimals = token.decimals,
+                        showPositiveSign = false,
+                        forceCurrencyToRight = true,
+                        roundUp = false
+                    )
+                } ?: ""
+            )
             recyclerView.setPaddingRelative(
                 ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
                 0,
@@ -641,8 +650,7 @@ class EarnVC(
         private set
 
     private fun startedNow() {
-        if (startedAnimation)
-            return
+        if (startedAnimation) return
         startedAnimation = true
         animationView.fadeIn()
     }
@@ -698,28 +706,23 @@ class EarnVC(
         recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 3
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 3
+
+    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
+        0 -> 1
+        1 -> if (earnViewModel.getHistoryItems().isNotEmpty()) 1 else 0
+        else -> earnViewModel.getHistoryItems().size
     }
 
-    override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
-        return when (section) {
-            0 -> 1
-            1 -> if (earnViewModel.getHistoryItems().isNotEmpty()) 1 else 0
-            else -> earnViewModel.getHistoryItems().size
-        }
-    }
-
-    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
-        return when (indexPath.section) {
+    override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
+        when (indexPath.section) {
             0 -> HEADER_CELL
             1 -> HISTORY_HEADER_CELL
             else -> ITEMS_CELL
         }
-    }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
                 getHeaderCell()
             }
@@ -743,7 +746,6 @@ class EarnVC(
                 throw Error()
             }
         }
-    }
 
     private fun getHeaderCell(): EarnSpaceCell {
         if (headerCell == null || headerCell?.contains(headerView) == false) {
@@ -775,7 +777,9 @@ class EarnVC(
             }
 
             1 -> {
-                (cellHolder.cell as EarnHistoryHeaderCell).configure(earnViewModel.getTotalProfitFormatted())
+                (cellHolder.cell as EarnHistoryHeaderCell).configure(
+                    earnViewModel.getTotalProfitFormatted()
+                )
 
                 return
             }
@@ -794,7 +798,7 @@ class EarnVC(
                         indexPath.row == earnViewModel.getHistoryItems().size - 1,
                         isAdded = insertIndex >= 0,
                         isReplaced = item.id == replacedItemId,
-                        animationDelay = if (insertIndex >= 0) insertIndex * 50L else 0L,
+                        animationDelay = if (insertIndex >= 0) insertIndex * 50L else 0L
                     )
                 }
 
@@ -803,7 +807,6 @@ class EarnVC(
                 return
             }
         }
-
     }
 
     private fun configureHeaderCell(cellHolder: WCell.Holder) {
@@ -815,13 +818,12 @@ class EarnVC(
         cellHolder.cell.layoutParams = cellLayoutParams
     }
 
-    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        return when (indexPath.section) {
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
+        when (indexPath.section) {
             1 -> "history_header"
             2 -> earnViewModel.getHistoryItems()[indexPath.row].id
             else -> super.recyclerViewCellItemId(rv, indexPath)
         }
-    }
 
     private fun checkShouldLoadMoreItems(timestampOfShowingItem: Long) {
         with(earnViewModel) {
@@ -921,8 +923,7 @@ class EarnVC(
     private var activeVisibilityValueAnimator: ValueAnimator? = null
 
     private fun showRewards() {
-        if (visibilityTarget == 1f)
-            return
+        if (visibilityTarget == 1f) return
         activeVisibilityValueAnimator?.cancel()
         activeVisibilityValueAnimator = ValueAnimator.ofFloat(visibilityFraction, 1f).apply {
             duration =
@@ -940,8 +941,7 @@ class EarnVC(
     }
 
     private fun hideRewards() {
-        if (visibilityTarget == 0f)
-            return
+        if (visibilityTarget == 0f) return
         activeVisibilityValueAnimator?.cancel()
         activeVisibilityValueAnimator = ValueAnimator.ofFloat(visibilityFraction, 0f).apply {
             duration =

@@ -20,6 +20,10 @@ jest.mock('../../common/tokens', () => ({
   sendUpdateTokens: jest.fn(),
 }));
 
+jest.mock('../../common/swap', () => ({
+  swapReplaceActivities: jest.fn((_accountId: string, activities: ApiActivity[]) => activities),
+}));
+
 jest.mock('../../common/txCallbacks', () => ({
   txCallbacks: { runCallbacks: jest.fn() },
 }));
@@ -88,8 +92,8 @@ function getInitialActivitiesUpdate(onUpdate: OnApiUpdate) {
 
 // The catch-up chain awaits several mocked async hops (stored wallet, activity slice, swap merge)
 // before dispatching; drain enough microtasks that the assertions see the settled result.
-async function flushPromises() {
-  for (let i = 0; i < 10; i++) {
+async function flushPromises(count = 10) {
+  for (let i = 0; i < count; i++) {
     await Promise.resolve();
   }
 }

@@ -111,9 +111,18 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
         }
     }
 
+    /// What may be written to disk. The ramp allowlist is deliberately dropped: a restored list would
+    /// outlive the server withdrawing a currency and would defeat the absent-config fallback, which is
+    /// the only thing keeping a cold start on the licensed currencies.
+    static func cacheableConfig(_ config: ApiUpdate.UpdateConfig) -> ApiUpdate.UpdateConfig {
+        var cacheable = config
+        cacheable.allowedOnOffRampCurrencies = nil
+        return cacheable
+    }
+
     private static func saveCachedConfig(_ config: ApiUpdate.UpdateConfig) {
         do {
-            let data = try JSONEncoder().encode(config)
+            let data = try JSONEncoder().encode(cacheableConfig(config))
             UserDefaults.standard.set(data, forKey: configCacheKey)
         } catch {
             log.error("Failed to encode updateConfig cache: \(error, .public)")

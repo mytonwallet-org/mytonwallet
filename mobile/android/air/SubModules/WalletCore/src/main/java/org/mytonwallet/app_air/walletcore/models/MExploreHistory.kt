@@ -5,7 +5,7 @@ import com.squareup.moshi.JsonClass
 @JsonClass(generateAdapter = true)
 data class MExploreHistory(
     val searchHistory: MutableList<HistoryItem> = mutableListOf(),
-    val visitedSites: MutableList<VisitedSite> = mutableListOf(),
+    val visitedSites: MutableList<VisitedSite> = mutableListOf()
 ) {
     @JsonClass(generateAdapter = true)
     data class HistoryItem(val title: String, val visitDate: Long?)

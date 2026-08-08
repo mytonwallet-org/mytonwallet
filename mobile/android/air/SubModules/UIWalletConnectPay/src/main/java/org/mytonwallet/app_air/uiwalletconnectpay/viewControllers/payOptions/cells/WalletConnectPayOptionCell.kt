@@ -5,6 +5,7 @@ import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
@@ -28,10 +29,11 @@ import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
 
 @SuppressLint("ViewConstructor")
-class WalletConnectPayOptionCell(context: Context) : WCell(context), WThemedView {
+class WalletConnectPayOptionCell(context: Context) :
+    WCell(context),
+    WThemedView {
 
     private val iconView = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Round
@@ -135,7 +137,7 @@ class WalletConnectPayOptionCell(context: Context) : WCell(context), WThemedView
             )
         }
 
-        topLeftLabel.text = token?.name
+        topLeftLabel.text = token?.displayName
         topRightLabel.text = formatAmount(option.amountValue, display.decimals, display.assetSymbol)
         bottomLeftLabel.text = availableText(token)
         bottomRightLabel.text = baseCurrencyEquivalent(option, token)
@@ -150,7 +152,7 @@ class WalletConnectPayOptionCell(context: Context) : WCell(context), WThemedView
             decimals = token.decimals,
             currency = token.symbol,
             currencyDecimals = balance.smartDecimalsCount(token.decimals),
-            showPositiveSign = false,
+            showPositiveSign = false
         )
         return LocaleController.getStringWithKeyValues(
             "\$available_balance",
@@ -163,30 +165,29 @@ class WalletConnectPayOptionCell(context: Context) : WCell(context), WThemedView
         val price = token?.price ?: return null
         return try {
             val amount = CoinUtils.toBigDecimal(
-                BigInteger(option.amountValue), option.display.decimals
+                BigInteger(option.amountValue),
+                option.display.decimals
             ).toDouble()
             (amount * price).toString(
                 9,
                 WalletCore.baseCurrency.sign,
                 WalletCore.baseCurrency.decimalsCount,
-                smartDecimals = true,
+                smartDecimals = true
             )?.let { "≈ $it" }
         } catch (_: Throwable) {
             null
         }
     }
 
-    private fun formatAmount(value: String, decimals: Int, symbol: String): String {
-        return try {
-            val amount = BigInteger(value)
-            amount.toString(
-                decimals = decimals,
-                currency = symbol,
-                currencyDecimals = amount.smartDecimalsCount(decimals),
-                showPositiveSign = false,
-            )
-        } catch (_: Throwable) {
-            "$value $symbol"
-        }
+    private fun formatAmount(value: String, decimals: Int, symbol: String): String = try {
+        val amount = BigInteger(value)
+        amount.toString(
+            decimals = decimals,
+            currency = symbol,
+            currencyDecimals = amount.smartDecimalsCount(decimals),
+            showPositiveSign = false
+        )
+    } catch (_: Throwable) {
+        "$value $symbol"
     }
 }

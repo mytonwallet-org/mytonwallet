@@ -1,16 +1,16 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.nft.views
 
+import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.views.NftHeaderView.Companion.EXPAND_PERCENT
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.views.NftHeaderView.Companion.OVERSCROLL_OFFSET
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.views.NftHeaderView.Companion.TEXTS_FROM_BOTTOM
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.max
-import kotlin.math.pow
-import kotlin.math.roundToInt
 
-sealed class ScrollState() {
+sealed class ScrollState {
     companion object {
         const val TITLE_SCALE_FACTOR = 0.323f
         const val SUBTITLE_SCALE_FACTOR = 0.15f
@@ -61,9 +61,13 @@ sealed class ScrollState() {
 
         override val titlePivotX: Float
             get() {
-                return if (LocaleController.isRTL) headerView.titleLabel.paint.measureText(
-                    headerView.titleLabel.text.toString()
-                ) else 0f
+                return if (LocaleController.isRTL) {
+                    headerView.titleLabel.paint.measureText(
+                        headerView.titleLabel.text.toString()
+                    )
+                } else {
+                    0f
+                }
             }
         override val titleScale = 1 - percent * TITLE_SCALE_FACTOR
         override val titleTranslationX: Float
@@ -78,9 +82,13 @@ sealed class ScrollState() {
             }
         override val subtitlePivotX: Float
             get() {
-                return if (LocaleController.isRTL) headerView.subtitleLabel.paint.measureText(
-                    headerView.subtitleLabel.text.toString()
-                ) else 0f
+                return if (LocaleController.isRTL) {
+                    headerView.subtitleLabel.paint.measureText(
+                        headerView.subtitleLabel.text.toString()
+                    )
+                } else {
+                    0f
+                }
             }
         override val subtitleScale = 1 - percent * SUBTITLE_SCALE_FACTOR
         override val subtitleTranslationX: Float
@@ -117,9 +125,13 @@ sealed class ScrollState() {
         override val avatarScale = 1f
         override val titlePivotX: Float
             get() {
-                return if (LocaleController.isRTL) headerView.titleLabel.paint.measureText(
-                    headerView.titleLabel.text.toString()
-                ) else 0f
+                return if (LocaleController.isRTL) {
+                    headerView.titleLabel.paint.measureText(
+                        headerView.titleLabel.text.toString()
+                    )
+                } else {
+                    0f
+                }
             }
         override val titleScale = 1f
         override val titleTranslationX: Float
@@ -131,7 +143,9 @@ sealed class ScrollState() {
                 with(headerView) {
                     return lerp(
                         topExtraPadding + 157f.dp,
-                        viewWidth - TEXTS_FROM_BOTTOM.dp - (realScrollOffset - OVERSCROLL_OFFSET.dp),
+                        viewWidth -
+                            TEXTS_FROM_BOTTOM.dp -
+                            (realScrollOffset - OVERSCROLL_OFFSET.dp),
                         percent * EXPAND_PERCENT
                     )
                 }
@@ -182,9 +196,13 @@ sealed class ScrollState() {
         override val avatarScale = 1f
         override val titlePivotX: Float
             get() {
-                return if (LocaleController.isRTL) headerView.titleLabel.paint.measureText(
-                    headerView.titleLabel.text.toString()
-                ) else 0f
+                return if (LocaleController.isRTL) {
+                    headerView.titleLabel.paint.measureText(
+                        headerView.titleLabel.text.toString()
+                    )
+                } else {
+                    0f
+                }
             }
         override val titleScale = 1f
         override val titleTranslationX: Float
@@ -200,7 +218,9 @@ sealed class ScrollState() {
                 with(headerView) {
                     return lerp(
                         topExtraPadding + 157f.dp,
-                        viewWidth - TEXTS_FROM_BOTTOM.dp - (realScrollOffset - OVERSCROLL_OFFSET.dp),
+                        viewWidth -
+                            TEXTS_FROM_BOTTOM.dp -
+                            (realScrollOffset - OVERSCROLL_OFFSET.dp),
                         expandStartPercent + percent * (1 - expandStartPercent)
                     )
                 }
@@ -218,7 +238,8 @@ sealed class ScrollState() {
         private val startSubtitleY = 6.dp * expandStartPercent
         override val subtitleTranslationY: Float
             get() {
-                return titleTranslationY + 36.dp + startSubtitleY + (6.dp - startSubtitleY) * percent
+                return titleTranslationY + 36.dp + startSubtitleY +
+                    (6.dp - startSubtitleY) * percent
             }
         override val subtitleAlpha: Float
             get() {
@@ -242,9 +263,13 @@ sealed class ScrollState() {
 
         override val titlePivotX: Float
             get() {
-                return if (LocaleController.isRTL) headerView.titleLabel.paint.measureText(
-                    headerView.titleLabel.text.toString()
-                ) else 0f
+                return if (LocaleController.isRTL) {
+                    headerView.titleLabel.paint.measureText(
+                        headerView.titleLabel.text.toString()
+                    )
+                } else {
+                    0f
+                }
             }
         override val titleScale = 1f
         override val titleTranslationX = 0f

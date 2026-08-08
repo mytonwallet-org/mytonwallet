@@ -119,9 +119,6 @@ public class WAmountInput: UITextField {
         return size
     }
     
-    private func updateTheme() {
-        reapplyFormatting()
-    }
 }
 
 extension WAmountInput: UITextFieldDelegate {

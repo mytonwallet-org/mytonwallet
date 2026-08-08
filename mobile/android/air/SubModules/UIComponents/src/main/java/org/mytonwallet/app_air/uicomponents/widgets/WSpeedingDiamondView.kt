@@ -37,6 +37,7 @@ class WSpeedingDiamondView(context: Context) : WAnimationView(context) {
                 }
 
                 MotionEvent.ACTION_MOVE -> onMove()
+
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.animate().scaleX(1f).scaleY(1f)
                         .setDuration(SCALE_DURATION_MS).start()
@@ -53,7 +54,7 @@ class WSpeedingDiamondView(context: Context) : WAnimationView(context) {
     fun bindParticleHost(
         host: ParticleView?,
         colorPair: Array<FloatArray> = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
-        centerShift: FloatArray = floatArrayOf(0f, -36f),
+        centerShift: FloatArray = floatArrayOf(0f, -36f)
     ) {
         particleHost = host
         burstColorPair = colorPair
@@ -95,7 +96,7 @@ class WSpeedingDiamondView(context: Context) : WAnimationView(context) {
         host.addParticleSystem(
             ParticleConfig.interactiveSparkleBurstParams(
                 burstColorPair,
-                centerShift = burstCenterShift,
+                centerShift = burstCenterShift
             )
         )
     }

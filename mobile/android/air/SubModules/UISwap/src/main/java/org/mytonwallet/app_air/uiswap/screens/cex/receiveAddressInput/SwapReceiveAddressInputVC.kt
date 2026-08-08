@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.widget.doOnTextChanged
+import kotlin.math.max
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +36,6 @@ import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.swapCexValidateAddress
 import org.mytonwallet.app_air.walletcore.moshi.MSwapCexValidateAddressParams
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class SwapReceiveAddressInputVC(
@@ -43,6 +43,7 @@ class SwapReceiveAddressInputVC(
     private val estimate: SwapEstimateResponse,
     private val callback: (String) -> Unit
 ) : WViewControllerWithModelStore(context) {
+    @Suppress("PropertyName")
     override val TAG = "SwapReceiveAddressInput"
 
     private val scrollView = ScrollView(context).apply {
@@ -80,7 +81,8 @@ class SwapReceiveAddressInputVC(
     private val inputView = SwapInputView(context).apply {
         layoutParams = ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
         editText.hint = LocaleController.getFormattedString(
-            "Enter %1$@ address", listOf(
+            "Enter %1$@ address",
+            listOf(
                 estimate.request.tokenToReceive.symbol
                     ?: estimate.request.tokenToReceive.name
                     ?: ""
@@ -94,7 +96,6 @@ class SwapReceiveAddressInputVC(
         isEnabled = false
         text = LocaleController.getString("Continue")
     }
-
 
     override fun setupViews() {
         super.setupViews()
@@ -117,7 +118,8 @@ class SwapReceiveAddressInputVC(
             bottomToTop(scrollView, continueButton, 20f)
             toCenterX(continueButton, 20f)
             toBottomPx(
-                continueButton, 20.dp + max(
+                continueButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -166,7 +168,8 @@ class SwapReceiveAddressInputVC(
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
             toBottomPx(
-                continueButton, 20.dp + max(
+                continueButton,
+                20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (navigationController?.imeInsetBottom ?: 0)
                 )
@@ -174,15 +177,11 @@ class SwapReceiveAddressInputVC(
         }
     }
 
-
     /** Address validation **/
 
     private val addressFlow = MutableStateFlow<String?>(null)
 
-    private data class Status(
-        val isValid: Boolean,
-        val isLoading: Boolean
-    )
+    private data class Status(val isValid: Boolean, val isLoading: Boolean)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val addressValidFlow = addressFlow.flatMapLatest { str ->
@@ -208,7 +207,7 @@ class SwapReceiveAddressInputVC(
                 )
             ).result
         } catch (_: JSWebViewBridge.ApiError) {
-            false   // try repeat request ?
+            false // try repeat request ?
         }
     }
 }

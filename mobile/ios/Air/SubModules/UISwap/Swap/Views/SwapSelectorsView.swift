@@ -99,10 +99,15 @@ fileprivate struct _SwapSelectorsView: View {
                     .foregroundColor(Color.air.secondaryLabel)
                 Spacer()
                 if let buttonAmount = availableSellingAmount {
-                    UseAllButton(amount: DecimalAmount(buttonAmount, sellingToken), onTap: onUseAll)
+                    UseAllButton(
+                        amount: DecimalAmount(buttonAmount, sellingToken),
+                        textStyle: .footnote,
+                        textScaling: .dynamic,
+                        onTap: onUseAll
+                    )
                 }
             }
-            .font(.footnote)
+            .textStyle(.footnote, scaling: .dynamic)
             TokenAmountEntry(
                 amount: $sellingAmount,
                 token: sellingToken,
@@ -147,7 +152,7 @@ fileprivate struct _SwapSelectorsView: View {
     var buyingRow: some View {
         VStack(spacing: 11) {
             Text(lang("You buy"))
-                .font(.footnote)
+                .textStyle(.footnote, scaling: .dynamic)
                 .foregroundColor(Color.air.secondaryLabel)
                 .frame(maxWidth: .infinity, alignment: .leading)
             TokenAmountEntry(

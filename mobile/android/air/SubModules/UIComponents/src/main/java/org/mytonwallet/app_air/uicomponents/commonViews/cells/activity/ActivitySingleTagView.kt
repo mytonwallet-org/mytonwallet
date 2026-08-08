@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells.activity
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -21,7 +21,9 @@ import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
-class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedView {
+class ActivitySingleTagView(context: Context) :
+    WFrameLayout(context),
+    WThemedView {
 
     val imageView = WNftImageView(context, 32.dp, 0)
     val titleLabel = WLabel(context).apply {
@@ -39,18 +41,24 @@ class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedVi
 
     init {
         addView(imageView, LayoutParams(56.dp, 56.dp))
-        addView(titleLabel, LayoutParams(WRAP_CONTENT, 24.dp).apply {
-            marginStart = 66.dp
-            marginEnd = 12.dp
-            topMargin = 8.dp
-            gravity = Gravity.TOP or Gravity.START
-        })
-        addView(subtitleLabel, LayoutParams(WRAP_CONTENT, 24.dp).apply {
-            marginStart = 66.dp
-            marginEnd = 12.dp
-            topMargin = 28.dp
-            gravity = Gravity.TOP or Gravity.START
-        })
+        addView(
+            titleLabel,
+            LayoutParams(WRAP_CONTENT, 24.dp).apply {
+                marginStart = 66.dp
+                marginEnd = 12.dp
+                topMargin = 8.dp
+                gravity = Gravity.TOP or Gravity.START
+            }
+        )
+        addView(
+            subtitleLabel,
+            LayoutParams(WRAP_CONTENT, 24.dp).apply {
+                marginStart = 66.dp
+                marginEnd = 12.dp
+                topMargin = 28.dp
+                gravity = Gravity.TOP or Gravity.START
+            }
+        )
     }
 
     fun configure(nft: ApiNft) {
@@ -78,5 +86,4 @@ class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedVi
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, 56.dp.exactly)
     }
-
 }

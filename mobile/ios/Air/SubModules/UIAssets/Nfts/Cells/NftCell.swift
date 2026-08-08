@@ -70,7 +70,7 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
 
         imageContainerView.addSubview(domainExpirationBannerView)
 
-        titleLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        titleLabel.applyTextStyle(.supportingEmphasized)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.numberOfLines = 1
 
@@ -227,9 +227,15 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         } else {
             textStack.isHidden = false
             let resolvedNft = nft ?? ApiNft.ERROR
-            titleLabel.text = resolvedNft.name?.nilIfEmpty ?? formatStartEndAddress(resolvedNft.address, prefix: 4, suffix: 4)
+            if let name = resolvedNft.name?.nilIfEmpty {
+                titleLabel.text = name
+                titleLabel.applyTextStyle(.supportingEmphasized)
+            } else {
+                titleLabel.text = formatStartEndAddress(resolvedNft.address, prefix: 4, suffix: 4)
+                titleLabel.applyTextStyle(.supportingEmphasized, content: .technical)
+            }
             let subtitle = resolvedNft.collectionName?.nilIfEmpty ?? lang("Standalone NFT")
-            let subtitleFont = UIFont.systemFont(ofSize: 12)
+            let subtitleFont = WTypography.uiFont(.caption)
             subtitleLabel.font = subtitleFont
             subtitleLabel.textColor = .air.secondaryLabel
             subtitleLabel.attributedText = ChainIcon(resolvedNft.chain).prepended(to: subtitle, font: subtitleFont, separator: .hairline)

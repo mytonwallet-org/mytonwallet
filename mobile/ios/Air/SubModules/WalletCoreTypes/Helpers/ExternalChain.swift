@@ -26,6 +26,7 @@ let chainNames = [
     "eos": "EOS",
     "avalanche": "Avalanche",
     "hyperliquid": "Hyperliquid",
+    "robinhood": "Robinhood",
     "cardano": "Cardano",
     "monero": "Monero",
     "dash": "Dash",

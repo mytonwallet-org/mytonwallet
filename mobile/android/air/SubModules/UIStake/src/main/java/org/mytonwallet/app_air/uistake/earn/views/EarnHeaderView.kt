@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uistake.earn.views
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.os.Handler
 import android.os.Looper
 import android.text.SpannableStringBuilder
@@ -13,11 +12,13 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isGone
+import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -42,14 +43,15 @@ import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
 class EarnHeaderView(
     viewController: WeakReference<EarnVC>,
     var onAddStakeClick: (() -> Unit)?,
-    var onUnstakeClick: (() -> Unit)?,
-) : WLinearLayout(viewController.get()!!.context), WThemedView, SkeletonContainer {
+    var onUnstakeClick: (() -> Unit)?
+) : WLinearLayout(viewController.get()!!.context),
+    WThemedView,
+    SkeletonContainer {
 
     private val viewControllerRef = viewController
 
@@ -79,8 +81,9 @@ class EarnHeaderView(
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
         }
         setOnClickListener {
-            if (WGlobalStorage.getIsSensitiveDataProtectionOn())
+            if (WGlobalStorage.getIsSensitiveDataProtectionOn()) {
                 WGlobalStorage.toggleSensitiveDataHidden()
+            }
         }
     }
 
@@ -172,8 +175,9 @@ class EarnHeaderView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (innerContainer.parent == null)
+        if (innerContainer.parent == null) {
             addView(innerContainer, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         updateTheme()
     }
 
@@ -198,10 +202,8 @@ class EarnHeaderView(
         )
     }
 
-    private fun computeTopPadding(): Int {
-        return WNavigationBar.DEFAULT_HEIGHT.dp +
-            (viewControllerRef.get()?.navigationController?.getSystemBars()?.top ?: 0)
-    }
+    private fun computeTopPadding(): Int = WNavigationBar.DEFAULT_HEIGHT.dp +
+        (viewControllerRef.get()?.navigationController?.getSystemBars()?.top ?: 0)
 
     fun insetsUpdated() {
         innerContainer.setPadding(0, computeTopPadding(), 0, 0)
@@ -221,7 +223,8 @@ class EarnHeaderView(
     }
 
     fun showInnerViews(
-        shouldShowStakeButton: Boolean, shouldShowUnstakeButton: Boolean,
+        shouldShowStakeButton: Boolean,
+        shouldShowUnstakeButton: Boolean,
         shouldShowBiggerUnstakeButton: Boolean
     ) {
         amountTextView.visibility = VISIBLE
@@ -239,17 +242,18 @@ class EarnHeaderView(
         }
 
         addStakeButton.layoutParams.width =
-            if (shouldShowBiggerUnstakeButton)
+            if (shouldShowBiggerUnstakeButton) {
                 ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-            else
+            } else {
                 150.dp
+            }
 
-        if (addStakeButton.alpha == 1f)
-            return
+        if (addStakeButton.alpha == 1f) return
         Handler(Looper.getMainLooper()).postDelayed({
             addStakeButton.fadeIn(duration = AnimationConstants.SLOW_ANIMATION)
-            if (shouldShowUnstakeButton)
+            if (shouldShowUnstakeButton) {
                 unstakeButton.fadeIn(duration = AnimationConstants.SLOW_ANIMATION)
+            }
         }, 100)
     }
 
@@ -271,10 +275,11 @@ class EarnHeaderView(
 
         val inProgressWithdraw = stakingState?.getRequestedAmount()
             ?.let {
-                if (!stakingState.isUnstakeRequestAmountUnlocked)
+                if (!stakingState.isUnstakeRequestAmountUnlocked) {
                     formatWithdrawText(stakingState)
-                else
+                } else {
                     null
+                }
             }
 
         messageLabel.text = buildString {
@@ -341,8 +346,10 @@ class EarnHeaderView(
     private fun updateMessageLabel() {
         currentStakingState?.getRequestedAmount()?.let {
             val inProgressWithdraw = formatWithdrawText(currentStakingState!!)
-            messageLabel.text = (LocaleController.getString("Currently Staked") +
-                "\n\n$inProgressWithdraw").toProcessedSpannableStringBuilder()
+            messageLabel.text = (
+                LocaleController.getString("Currently Staked") +
+                    "\n\n$inProgressWithdraw"
+                ).toProcessedSpannableStringBuilder()
             innerContainer.setConstraints {
                 topToBottom(unstakeButton, messageLabel, buttonMarginTopInProgressUnstakeDp)
             }
@@ -361,7 +368,7 @@ class EarnHeaderView(
 
     fun changeStakeButtonVisibility(visibility: Int) {
         if (addStakeButton.visibility != visibility) {
-            if (addStakeButton.isGone != (visibility == GONE))
+            if (addStakeButton.isGone != (visibility == GONE)) {
                 innerContainer.setConstraints {
                     if (visibility == GONE) {
                         toStart(unstakeButton, buttonMarginSideDp)
@@ -369,6 +376,7 @@ class EarnHeaderView(
                         startToEnd(unstakeButton, addStakeButton, 5f)
                     }
                 }
+            }
             addStakeButton.visibility = visibility
         }
     }

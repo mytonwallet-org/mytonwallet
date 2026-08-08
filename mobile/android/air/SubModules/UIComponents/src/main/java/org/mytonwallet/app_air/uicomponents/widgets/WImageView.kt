@@ -17,7 +17,6 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-
 @Deprecated("use WCustomImageView (or AppCompatImageView for simple cases)")
 @SuppressLint("ViewConstructor")
 class WImageView(
@@ -26,8 +25,8 @@ class WImageView(
     private var bWidth: Int = 0,
     private var bColor: Int? = null,
     private val circleRadius: Boolean = false
-) :
-    SimpleDraweeView(context), WThemedView {
+) : SimpleDraweeView(context),
+    WThemedView {
 
     var isInitialized = false
 

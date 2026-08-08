@@ -25,6 +25,8 @@ import useScrolledState from '../../hooks/useScrolledState';
 import useShowTransition from '../../hooks/useShowTransition';
 import useAgentMessages from './hooks/useAgentMessages';
 import useScrollResetOnResize from './hooks/useScrollResetOnResize';
+import useScrollToBottomOnReveal from './hooks/useScrollToBottomOnReveal';
+import useShouldAnimateText from './hooks/useShouldAnimateText';
 
 import InfiniteScroll from '../ui/InfiniteScroll';
 import AgentHeader from './AgentHeader';
@@ -88,9 +90,10 @@ function Agent({
   }, [isActive]);
 
   const {
-    messages, isInitialLoadComplete,
-    sendMessage, clearChat,
+    messages, isInitialLoadComplete, textRevealPresentations,
+    sendMessage, consumeTextRevealSession, settleTextRevealSession, clearChat,
   } = useAgentMessages({ lang, agentMessageCount });
+  const shouldAnimateTextStreaming = useShouldAnimateText(animationLevel);
 
   const sendHintPrompt = useLastCallback((prompt: string, withAnimations?: true) => {
     isAtBottomRef.current = true;
@@ -217,6 +220,8 @@ function Agent({
       el.scrollTo({ top: el.scrollHeight, behavior });
     });
   });
+
+  const handleTextRevealProgress = useScrollToBottomOnReveal(isAtBottomRef, scrollToBottom);
 
   const handleScrollToBottomClick = useLastCallback(() => {
     isAtBottomRef.current = true;
@@ -398,12 +403,19 @@ function Agent({
 
     const msg = messagesById[Number(id)];
     if (!msg) return undefined;
+    const textRevealPresentation = textRevealPresentations[msg.id];
 
     return (
       <MessageBubble
         key={msg.id}
         message={msg}
+        shouldAnimateTextStreaming={shouldAnimateTextStreaming}
+        textRevealPresentation={textRevealPresentation}
         onEdit={handleEditMessage}
+        onTextRevealSessionConsumed={consumeTextRevealSession}
+        onTextRevealSessionSettled={settleTextRevealSession}
+        onTextRevealProgress={handleTextRevealProgress}
+        onTextRevealComplete={handleTextRevealProgress}
       />
     );
   }

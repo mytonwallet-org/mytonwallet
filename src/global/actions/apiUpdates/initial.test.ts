@@ -1,6 +1,7 @@
 import './initial';
 
-import type { ApiUpdateRemoveAccounts } from '../../../api/types/updates';
+import type { ApiBaseCurrency, ApiNft } from '../../../api/types';
+import type { ApiUpdate } from '../../../api/types/updates';
 import type { GlobalState } from '../../types';
 
 import { addActionHandler, setGlobal } from '../../index';
@@ -14,7 +15,7 @@ jest.mock('../../index', () => ({
 type ApiUpdateHandler = (
   global: GlobalState,
   actions: AnyLiteral,
-  update: ApiUpdateRemoveAccounts,
+  update: ApiUpdate,
 ) => void;
 
 function getApiUpdateHandler() {
@@ -36,6 +37,67 @@ function makeGlobal(currentAccountId: string): GlobalState {
     pushNotifications: { enabledAccounts: [] },
   } as unknown as GlobalState;
 }
+
+describe('updateNfts api update', () => {
+  const ACCOUNT_ID = '0-ton-mainnet';
+  const NFT_ADDRESS = 'EQAglL_g6q2AhMK_BT9jN1F-8jBlv2pOI30vRkPluU9kcXgV';
+
+  function makeNft(partial: Partial<ApiNft> = {}): ApiNft {
+    return {
+      chain: 'ton',
+      interface: 'default',
+      index: 0,
+      address: NFT_ADDRESS,
+      isOnSale: false,
+      metadata: {},
+      ...partial,
+    };
+  }
+
+  function dispatchUpdateNfts(global: GlobalState, nfts: ApiNft[], isFullLoading?: boolean) {
+    getApiUpdateHandler()(global, { checkCardNftOwnership: jest.fn() }, {
+      type: 'updateNfts', accountId: ACCOUNT_ID, chain: 'ton', nfts, isFullLoading,
+    });
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    return (updatedGlobal as GlobalState).byAccountId[ACCOUNT_ID].nfts!.byAddress![NFT_ADDRESS];
+  }
+
+  beforeEach(() => {
+    (setGlobal as jest.Mock).mockClear();
+  });
+
+  it('drops a stale unverified flag when the collection has become trusted', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT_ADDRESS]: makeNft({ isUnverified: true }) },
+      orderedAddresses: [NFT_ADDRESS],
+    };
+
+    expect(dispatchUpdateNfts(global, [makeNft()], true).isUnverified).toBeUndefined();
+  });
+
+  it('keeps the unverified flag while the incoming batch still reports it', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT_ADDRESS]: makeNft({ isUnverified: true }) },
+      orderedAddresses: [NFT_ADDRESS],
+    };
+
+    expect(dispatchUpdateNfts(global, [makeNft({ isUnverified: true })], true).isUnverified).toBe(true);
+  });
+
+  it('keeps the stored NFT data that the batch has no fresher version of', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT_ADDRESS]: makeNft({ isOnSale: true, name: 'From socket' }) },
+      orderedAddresses: [NFT_ADDRESS],
+    };
+
+    const nft = dispatchUpdateNfts(global, [makeNft({ isOnSale: false, name: 'From batch' })], true);
+
+    expect(nft).toMatchObject({ isOnSale: true, name: 'From socket' });
+  });
+});
 
 describe('removeAccounts api update', () => {
   beforeEach(() => {
@@ -81,5 +143,56 @@ describe('removeAccounts api update', () => {
 
     expect(updatedGlobal.currentAccountId).toBeUndefined();
     expect(actions.switchAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateConfig api update', () => {
+  beforeEach(() => {
+    (setGlobal as jest.Mock).mockClear();
+  });
+
+  function makeGlobalWithRestrictions(allowedOnOffRampCurrencies?: ApiBaseCurrency[]): GlobalState {
+    return {
+      restrictions: { allowedOnOffRampCurrencies },
+      settings: { byAccountId: {} },
+    } as unknown as GlobalState;
+  }
+
+  function dispatchUpdateConfig(global: GlobalState, allowed?: string[]) {
+    getApiUpdateHandler()(global, {}, {
+      type: 'updateConfig',
+      isLimited: false,
+      isCopyStorageEnabled: false,
+      isAppUpdateRequired: false,
+      seasonalTheme: undefined,
+      allowedOnOffRampCurrencies: allowed,
+    } as ApiUpdate);
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    return updatedGlobal as GlobalState;
+  }
+
+  it('normalizes the allowed ramp currencies into upper-case known codes', () => {
+    const updatedGlobal = dispatchUpdateConfig(makeGlobalWithRestrictions(undefined), ['usd', 'rub', 'xyz']);
+
+    expect(updatedGlobal.restrictions.allowedOnOffRampCurrencies).toEqual(['USD', 'RUB']);
+  });
+
+  it('keeps the previous array reference when the list is unchanged', () => {
+    const previous: ApiBaseCurrency[] = ['USD', 'RUB'];
+    const updatedGlobal = dispatchUpdateConfig(makeGlobalWithRestrictions(previous), ['usd', 'rub']);
+
+    expect(updatedGlobal.restrictions.allowedOnOffRampCurrencies).toBe(previous);
+  });
+
+  it('clears the field when the backend omits it', () => {
+    const updatedGlobal = dispatchUpdateConfig(makeGlobalWithRestrictions(['USD']), undefined);
+
+    expect(updatedGlobal.restrictions.allowedOnOffRampCurrencies).toBeUndefined();
+  });
+
+  it('treats a malformed payload as an absent field', () => {
+    const updatedGlobal = dispatchUpdateConfig(makeGlobalWithRestrictions(['USD']), 'rub' as unknown as string[]);
+
+    expect(updatedGlobal.restrictions.allowedOnOffRampCurrencies).toBeUndefined();
   });
 });

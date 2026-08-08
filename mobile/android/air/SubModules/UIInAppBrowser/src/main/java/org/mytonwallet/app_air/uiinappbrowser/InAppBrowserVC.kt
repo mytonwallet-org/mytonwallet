@@ -20,13 +20,13 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
+import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.JavascriptInterface
 import android.webkit.WebViewClient
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -34,15 +34,19 @@ import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
+import java.net.URL
+import java.net.URLEncoder
+import java.util.Locale
+import java.util.regex.Pattern
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WMinimizableBlurHost
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
-import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
-import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uiinappbrowser.helpers.IABDarkModeStyleHelpers
@@ -65,10 +69,6 @@ import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
-import java.net.URL
-import java.net.URLEncoder
-import java.util.Locale
-import java.util.regex.Pattern
 
 const val FETCH_FAV_ICON_URL_JS = """
 (function() {
@@ -176,11 +176,11 @@ private const val ORIGIN_PERMISSION_MICROPHONE = "microphone"
 private const val ORIGIN_PERMISSION_GEOLOCATION = "geolocation"
 
 @SuppressLint("ViewConstructor")
-class InAppBrowserVC(
-    context: Context,
-    tabBarController: ITabsVC?,
-    val config: InAppBrowserConfig
-) : WViewController(context), IInAppBrowser, WalletCore.EventObserver, WMinimizableBlurHost {
+class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: InAppBrowserConfig) :
+    WViewController(context),
+    IInAppBrowser,
+    WalletCore.EventObserver,
+    WMinimizableBlurHost {
 
     private val isMinimizationSupported = tabBarController != null
 
@@ -199,6 +199,7 @@ class InAppBrowserVC(
         topBar.resumeBlurring()
     }
 
+    @Suppress("PropertyName")
     override val TAG = "InAppBrowser"
 
     private var lastTitle: String = config.title ?: URL(config.url).host
@@ -253,7 +254,8 @@ class InAppBrowserVC(
                         webViewScreenShot.visibility = View.GONE
                     }
                 }
-            }).apply {
+            }
+        ).apply {
             updateTitle(lastTitle, animated = false)
             config.thumbnail?.let {
                 setIconUrl(it)
@@ -285,7 +287,9 @@ class InAppBrowserVC(
                     val cookie = CookieManager.getInstance().getCookie(url)
                     if (!cookie.isNullOrEmpty()) addRequestHeader("Cookie", cookie)
 
-                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setNotificationVisibility(
+                        DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                    )
 
                     val filename = URLUtil.guessFileName(url, contentDisposition, mimetype)
                     setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
@@ -301,25 +305,21 @@ class InAppBrowserVC(
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
-            ): Boolean {
-                return shouldOverride(request.url.toString())
-            }
+            ): Boolean = shouldOverride(request.url.toString())
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 if (url != null && handleStartedCustomSchemeNavigation(view, url)) {
                     return
                 }
                 applyTopBarColorInitial()
-                if (config.injectDarkModeStyles)
-                    IABDarkModeStyleHelpers.applyOn(webView)
+                if (config.injectDarkModeStyles) IABDarkModeStyleHelpers.applyOn(webView)
                 injectDappConnectBridge()
                 super.onPageStarted(view, url, favicon)
             }
 
             @Deprecated("Deprecated in Java")
-            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                return shouldOverride(url)
-            }
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+                shouldOverride(url)
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -330,8 +330,7 @@ class InAppBrowserVC(
                 }
                 topBar.updateBackButton(true)
                 // Prev method call may not work sometimes, so let's reset dark mode styles.
-                if (config.injectDarkModeStyles)
-                    IABDarkModeStyleHelpers.applyOn(webView)
+                if (config.injectDarkModeStyles) IABDarkModeStyleHelpers.applyOn(webView)
 
                 if (config.saveInVisitedHistory && !savedInExploreVisitedHistory) {
                     savedInExploreVisitedHistory = true
@@ -344,16 +343,17 @@ class InAppBrowserVC(
                     webView.postDelayed({ setBarColorBasedOnContent() }, 1000)
                 }
             }
-
         })
-        if (config.allowDownloads)
+        if (config.allowDownloads) {
             wv.setDownloadListener { url, _, _, _, _ ->
                 val configUri = config.url.toUriOrNull() ?: return@setDownloadListener
                 val downloadUri = url.toUriOrNull() ?: return@setDownloadListener
-                if (downloadUri.scheme != configUri.scheme || downloadUri.host != configUri.host)
+                if (downloadUri.scheme != configUri.scheme || downloadUri.host != configUri.host) {
                     return@setDownloadListener
+                }
                 window?.startActivityCatching(Intent(Intent.ACTION_VIEW, downloadUri))
             }
+        }
         wv.setBackgroundColor(0)
         wv.setWebChromeClient(object : WebChromeClient() {
             override fun onCreateWindow(
@@ -402,16 +402,14 @@ class InAppBrowserVC(
 
             override fun onReceivedTitle(view: WebView?, title: String?) {
                 super.onReceivedTitle(view, title)
-                if (config.title != null || title == lastTitle || config.options != null)
-                    return
+                if (config.title != null || title == lastTitle || config.options != null) return
                 lastTitle = title ?: URL(config.url).host
                 topBar.updateTitle(lastTitle, animated = true)
             }
 
             override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
                 super.onReceivedIcon(view, icon)
-                if (config.thumbnail == null)
-                    topBar.setIconBitmap(icon)
+                if (config.thumbnail == null) topBar.setIconBitmap(icon)
             }
         })
         wv.alpha = 0f
@@ -433,7 +431,9 @@ class InAppBrowserVC(
                         )
                     }
                 )
-            } else null
+            } else {
+                null
+            }
         } catch (_: Throwable) {
             null
         }
@@ -452,15 +452,14 @@ class InAppBrowserVC(
         return true
     }
 
-    private fun shouldOverride(url: String): Boolean {
-        return when (InAppBrowserUrlRoutingDecision.resolve(url, ::handleInAppBrowserDeeplink)) {
+    private fun shouldOverride(url: String): Boolean =
+        when (InAppBrowserUrlRoutingDecision.resolve(url, ::handleInAppBrowserDeeplink)) {
             InAppBrowserUrlRoutingDecision.ALLOW_WEB_VIEW -> false
             InAppBrowserUrlRoutingDecision.CONSUME -> true
             InAppBrowserUrlRoutingDecision.OPEN_DIAL_INTENT -> openDialIntent(url)
             InAppBrowserUrlRoutingDecision.OPEN_SMS_INTENT -> openSmsIntent(url)
             InAppBrowserUrlRoutingDecision.OPEN_SYSTEM_VIEW_INTENT -> openSystemViewIntent(url)
         }
-    }
 
     private fun injectDappConnectBridge() {
         injectedInterface?.let {
@@ -471,58 +470,51 @@ class InAppBrowserVC(
         }
     }
 
-    private fun handleInAppBrowserDeeplink(url: String, source: DeeplinkOpenSource): Boolean {
-        return WalletContextManager.delegate?.get()?.handleDeeplink(url, source) == true
+    private fun handleInAppBrowserDeeplink(url: String, source: DeeplinkOpenSource): Boolean =
+        WalletContextManager.delegate?.get()?.handleDeeplink(url, source) == true
+
+    private fun openDialIntent(url: String): Boolean = try {
+        val intent = Intent(Intent.ACTION_DIAL)
+        intent.data = url.toUri()
+        window?.startActivity(intent)
+        true
+    } catch (_: android.content.ActivityNotFoundException) {
+        false
     }
 
-    private fun openDialIntent(url: String): Boolean {
-        return try {
-            val intent = Intent(Intent.ACTION_DIAL)
-            intent.data = url.toUri()
-            window?.startActivity(intent)
-            true
-        } catch (_: android.content.ActivityNotFoundException) {
-            false
-        }
+    private fun openSystemViewIntent(url: String): Boolean = try {
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.data = url.toUri()
+        window?.startActivity(intent)
+        true
+    } catch (_: android.content.ActivityNotFoundException) {
+        false
     }
 
-    private fun openSystemViewIntent(url: String): Boolean {
-        return try {
-            val intent = Intent(Intent.ACTION_VIEW)
-            intent.data = url.toUri()
-            window?.startActivity(intent)
-            true
-        } catch (_: android.content.ActivityNotFoundException) {
-            false
-        }
-    }
-
-    private fun openSmsIntent(url: String): Boolean {
-        return try {
-            val intent = Intent(Intent.ACTION_VIEW)
-            val parmIndex = url.indexOf('?')
-            val address = if (parmIndex == -1) {
-                url.substring(4)
-            } else {
-                url.substring(4, parmIndex).also {
-                    val uri = url.toUriOrNull()
-                    val query = uri?.query
-                    if (query != null && query.startsWith("body=")) {
-                        intent.putExtra("sms_body", query.substring(5))
-                    }
+    private fun openSmsIntent(url: String): Boolean = try {
+        val intent = Intent(Intent.ACTION_VIEW)
+        val parmIndex = url.indexOf('?')
+        val address = if (parmIndex == -1) {
+            url.substring(4)
+        } else {
+            url.substring(4, parmIndex).also {
+                val uri = url.toUriOrNull()
+                val query = uri?.query
+                if (query != null && query.startsWith("body=")) {
+                    intent.putExtra("sms_body", query.substring(5))
                 }
             }
-
-            intent.setDataAndType(
-                "sms:$address".toUriOrNull(),
-                "vnd.android-dir/mms-sms"
-            )
-            intent.putExtra("address", address)
-            window?.startActivity(intent)
-            true
-        } catch (_: android.content.ActivityNotFoundException) {
-            false
         }
+
+        intent.setDataAndType(
+            "sms:$address".toUriOrNull(),
+            "vnd.android-dir/mms-sms"
+        )
+        intent.putExtra("address", address)
+        window?.startActivity(intent)
+        true
+    } catch (_: android.content.ActivityNotFoundException) {
+        false
     }
 
     private val webViewContainer = WFrameLayout(context).apply {
@@ -661,8 +653,7 @@ class InAppBrowserVC(
     }
 
     override fun onBackPressed(): Boolean {
-        if (config.forceCloseOnBack)
-            return super.onBackPressed()
+        if (config.forceCloseOnBack) return super.onBackPressed()
         topBar.backPressed()
         return false
     }
@@ -835,16 +826,16 @@ class InAppBrowserVC(
         val permissionsToRequest = LinkedHashSet<String>()
         request.resources.forEach { resource ->
             if (
-                resource == PermissionRequest.RESOURCE_VIDEO_CAPTURE
-                && checkSelfPermission(
+                resource == PermissionRequest.RESOURCE_VIDEO_CAPTURE &&
+                checkSelfPermission(
                     context,
                     Manifest.permission.CAMERA
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
                 permissionsToRequest.add(Manifest.permission.CAMERA)
             } else if (
-                resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE
-                && checkSelfPermission(
+                resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE &&
+                checkSelfPermission(
                     context,
                     Manifest.permission.RECORD_AUDIO
                 ) != PackageManager.PERMISSION_GRANTED

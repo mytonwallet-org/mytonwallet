@@ -21,7 +21,7 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
         _ = await store.reloadCache()
 
         async let displayCurrency = store.displayCurrency()
-        async let tokens = store.tokensDictionary(tryRemote: true)
+        async let tokens = store.tokensDictionary()
         async let rates = store.ratesDictionary()
 
         let selectedSlug = configuration.token.tokenSlug
@@ -43,11 +43,8 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
         var chartData: [(Double, Double)] = []
         var chartCurrency = chartBaseCurrency(for: loadedDisplayCurrency)
         do {
-            let tokenAddress = token.tokenAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let assetIdentifier = tokenAddress.flatMap { $0.isEmpty ? nil : $0 } ?? token.symbol
-            let assetId = "\(token.chain.rawValue):\(assetIdentifier)"
             let loadedChart = try await loadChartData(
-                assetId: assetId,
+                token: token,
                 baseCurrency: chartCurrency,
                 period: configuration.period
             )
@@ -57,10 +54,9 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
             print("loadEntry chartData: \(error)")
         }
 
-        let currencyRate = BaseCurrencyAmount.fromDouble(
-            (token.priceUsd ?? 0) * (loadedRates[chartCurrency.rawValue]?.value ?? chartCurrency.fallbackExchangeRate),
-            chartCurrency
-        )
+        let currentPrice = chartData.last?.1
+            ?? (token.priceUsd ?? 0) * (loadedRates[chartCurrency.rawValue]?.value ?? chartCurrency.fallbackExchangeRate)
+        let currencyRate = BaseCurrencyAmount.fromDouble(currentPrice, chartCurrency)
 
         return TokenWithChartWidgetTimelineEntry(
             date: date,
@@ -73,24 +69,13 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
         )
     }
 
-    private func loadChartData(assetId: String, baseCurrency: MBaseCurrency, period: PricePeriod) async throws -> (data: [(Double, Double)], currency: MBaseCurrency) {
+    private func loadChartData(token: ApiToken, baseCurrency: MBaseCurrency, period: PricePeriod) async throws -> (data: [(Double, Double)], currency: MBaseCurrency) {
         do {
-            return (try await fetchChartData(assetId: assetId, baseCurrency: baseCurrency, period: period), baseCurrency)
+            return (try await WidgetAPI.fetchChart(for: token, baseCurrency: baseCurrency, period: period), baseCurrency)
         } catch {
             guard baseCurrency != .USD else { throw error }
-            return (try await fetchChartData(assetId: assetId, baseCurrency: .USD, period: period), .USD)
+            return (try await WidgetAPI.fetchChart(for: token, baseCurrency: .USD, period: period), .USD)
         }
-    }
-
-    private func fetchChartData(assetId: String, baseCurrency: MBaseCurrency, period: PricePeriod) async throws -> [(Double, Double)] {
-        var components = URLComponents(string: "https://api.mytonwallet.org/prices/chart/\(assetId)")!
-        components.queryItems = [
-            URLQueryItem(name: "base", value: baseCurrency.rawValue),
-            URLQueryItem(name: "period", value: period.rawValue),
-        ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let decoded = try JSONDecoder().decode(ApiHistoryList.self, from: data)
-        return decoded.map { ($0[0], $0[1]) }
     }
 
     private func chartBaseCurrency(for baseCurrency: MBaseCurrency) -> MBaseCurrency {

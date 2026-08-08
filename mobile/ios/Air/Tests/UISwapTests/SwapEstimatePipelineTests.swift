@@ -192,7 +192,7 @@ struct SwapEstimatePipelineTests {
                 sellingToken: token(slug: "ethereum-eth", symbol: "ETH", chain: .ethereum),
                 buyingToken: token(slug: "toncoin", symbol: "TON", chain: .ton),
                 account: account,
-                passcode: "0000"
+                enclaveToken: "test-token"
             )
             #expect(Bool(false), "Expected missing estimate to throw")
         } catch is SdkError {

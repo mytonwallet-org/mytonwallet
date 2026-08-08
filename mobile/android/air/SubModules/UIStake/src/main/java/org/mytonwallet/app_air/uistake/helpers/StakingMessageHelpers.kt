@@ -24,19 +24,24 @@ class StakingMessageHelpers {
                             LocaleController.getStringWithKeyValues(
                                 "\$safe_staking_description2",
                                 listOf(
-                                    Pair("%chain%", MBlockchain.ton.displayName),
+                                    Pair("%chain%", MBlockchain.ton.displayName)
                                 )
                             ) + "\n\n" +
                             LocaleController.getString("\$safe_staking_description3")
 
                     MYCOIN_SLUG ->
-                        (LocaleController.getString("\$safe_staking_description_jetton1") + "\n\n" +
-                            LocaleController.getString("\$safe_staking_description_jetton2"))
+                        (
+                            LocaleController.getString(
+                                "\$safe_staking_description_jetton1"
+                            ) + "\n\n" +
+                                LocaleController.getString("\$safe_staking_description_jetton2")
+                            )
                             .replace("%jvault_link%", "JVault")
 
                     USDE_SLUG ->
                         LocaleController.getString("\$safe_staking_ethena_description1") + "\n\n" +
-                            LocaleController.getString("\$safe_staking_ethena_description2") + "\n\n" +
+                            LocaleController.getString("\$safe_staking_ethena_description2") +
+                            "\n\n" +
                             LocaleController.getString("\$safe_staking_ethena_description3")
 
                     else -> return null

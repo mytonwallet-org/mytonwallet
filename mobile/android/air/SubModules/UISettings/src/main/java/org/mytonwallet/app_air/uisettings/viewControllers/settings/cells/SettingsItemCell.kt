@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.annotation.SuppressLint
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -10,7 +9,9 @@ import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -21,7 +22,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import kotlin.math.roundToInt
 
 interface ISettingsItemCell {
     fun configure(
@@ -40,7 +40,8 @@ class SettingsItemCell(
     textLeadingMargin: Float = 64f,
     private val baseContentHeight: Float = BASE_CONTENT_HEIGHT
 ) : WCell(context),
-    ISettingsItemCell, WThemedView {
+    ISettingsItemCell,
+    WThemedView {
 
     companion object {
         private const val BASE_CONTENT_HEIGHT = 50f
@@ -48,22 +49,18 @@ class SettingsItemCell(
 
         fun contentHeightForItem(
             baseContentHeight: Float = BASE_CONTENT_HEIGHT,
-            isSubtitled: Boolean,
-        ): Int {
-            return (
-                baseContentHeight +
-                    (if (isSubtitled) 10 else 0)
-                ).dp.roundToInt()
-        }
+            isSubtitled: Boolean
+        ): Int = (
+            baseContentHeight +
+                (if (isSubtitled) 10 else 0)
+            ).dp.roundToInt()
 
         fun cellHeightForItem(
             baseContentHeight: Float = BASE_CONTENT_HEIGHT,
             isSubtitled: Boolean,
-            isLast: Boolean,
-        ): Int {
-            return contentHeightForItem(baseContentHeight, isSubtitled) +
-                (if (isLast) ViewConstants.GAP.dp else 0)
-        }
+            isLast: Boolean
+        ): Int = contentHeightForItem(baseContentHeight, isSubtitled) +
+            (if (isLast) ViewConstants.GAP.dp else 0)
     }
 
     private var isFirst = false
@@ -98,9 +95,12 @@ class SettingsItemCell(
             id = generateViewId()
             orientation = LinearLayout.VERTICAL
             addView(titleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(subtitleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                topMargin = 1.dp
-            })
+            addView(
+                subtitleLabel,
+                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    topMargin = 1.dp
+                }
+            )
         }
     }
 
@@ -149,12 +149,13 @@ class SettingsItemCell(
         this.isFirst = isFirst
         this.isLast = isLast
 
-        if (item.icon != null)
-            iconView.setImageDrawable(context.getDrawableCompat(item.icon)?.apply {
-                if (item.hasTintColor)
-                    setTint(WColor.SecondaryText.color)
-            })
-        else {
+        if (item.icon != null) {
+            iconView.setImageDrawable(
+                context.getDrawableCompat(item.icon)?.apply {
+                    if (item.hasTintColor) setTint(WColor.SecondaryText.color)
+                }
+            )
+        } else {
             iconView.setImageDrawable(null)
         }
         titleLabel.text = item.title

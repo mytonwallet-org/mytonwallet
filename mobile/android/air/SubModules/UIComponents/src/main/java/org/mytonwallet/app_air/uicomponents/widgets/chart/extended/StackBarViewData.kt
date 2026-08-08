@@ -4,10 +4,8 @@ import android.graphics.Paint
 import androidx.core.graphics.ColorUtils
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 
-class StackBarViewData(
-    line: ChartData.Line,
-    private val style: ChartStyle,
-) : LineViewData(line, false, style) {
+class StackBarViewData(line: ChartData.Line, private val style: ChartStyle) :
+    LineViewData(line, false, style) {
     val unselectedPaint = Paint()
 
     var blendColor: Int = 0

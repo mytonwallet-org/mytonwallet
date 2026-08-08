@@ -1,4 +1,3 @@
-import WalletCore
 import WalletContext
 
 enum SwapEstimateStateUpdate {

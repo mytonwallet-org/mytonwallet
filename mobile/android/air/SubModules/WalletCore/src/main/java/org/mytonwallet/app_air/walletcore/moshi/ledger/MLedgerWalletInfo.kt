@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.walletcore.moshi.ledger
 
 import com.squareup.moshi.JsonClass
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import java.math.BigInteger
+import org.mytonwallet.app_air.walletcore.models.MAccount
 
 @JsonClass(generateAdapter = true)
 data class MLedgerWalletInfo(

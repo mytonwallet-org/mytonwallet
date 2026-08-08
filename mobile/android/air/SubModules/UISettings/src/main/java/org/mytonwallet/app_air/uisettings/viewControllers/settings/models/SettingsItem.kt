@@ -33,7 +33,7 @@ data class SettingsItem(
         INSTALL_ON_DESKTOP,
         ABOUT_MTW,
         SWITCH_TO_LEGACY,
-        NONE,
+        NONE
     }
 
     override fun equals(other: Any?): Boolean {
@@ -42,7 +42,5 @@ data class SettingsItem(
         return identifier == other.identifier
     }
 
-    override fun hashCode(): Int {
-        return (identifier.toString() + '_' + account?.accountId).hashCode()
-    }
+    override fun hashCode(): Int = (identifier.toString() + '_' + account?.accountId).hashCode()
 }

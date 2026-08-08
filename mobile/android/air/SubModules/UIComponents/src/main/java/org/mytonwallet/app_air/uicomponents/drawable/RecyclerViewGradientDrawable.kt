@@ -12,10 +12,8 @@ import android.graphics.drawable.Drawable
 import android.view.Gravity
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 
-class RecyclerViewGradientDrawable(
-    private val context: Context,
-    private val gravity: Int
-) : Drawable() {
+class RecyclerViewGradientDrawable(private val context: Context, private val gravity: Int) :
+    Drawable() {
     companion object {
         private const val HEIGHT = 25
     }
@@ -42,8 +40,13 @@ class RecyclerViewGradientDrawable(
         paintColor.color = color
         paint.setShader(
             LinearGradient(
-                0f, 0f, 0f, HEIGHT.dp.toFloat(),
-                colors, null, Shader.TileMode.CLAMP
+                0f,
+                0f,
+                0f,
+                HEIGHT.dp.toFloat(),
+                colors,
+                null,
+                Shader.TileMode.CLAMP
             )
         )
     }
@@ -75,12 +78,9 @@ class RecyclerViewGradientDrawable(
     }
 
     override fun setColorFilter(colorFilter: ColorFilter?) {
-
     }
 
-    override fun getOpacity(): Int {
-        return PixelFormat.TRANSPARENT
-    }
+    override fun getOpacity(): Int = PixelFormat.TRANSPARENT
 
     private var left: Int = 0
     private var top: Int = 0

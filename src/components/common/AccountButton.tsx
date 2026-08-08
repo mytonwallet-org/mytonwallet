@@ -1,11 +1,12 @@
 import React, { memo } from '../../lib/teact/teact';
 
-import type { ApiNft } from '../../api/types';
+import type { ApiChain, ApiNft } from '../../api/types';
 import type { Account, AccountType } from '../../global/types';
 
 import { IS_GRAM_WALLET } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
+import { getOrderedAccountChains } from '../../util/chain';
 import { formatAccountAddresses } from '../../util/formatAccountAddress';
 
 import { useCachedImage } from '../../hooks/useCachedImage';
@@ -16,6 +17,7 @@ import styles from './AccountButton.module.scss';
 interface OwnProps {
   accountId: string;
   byChain: Account['byChain'];
+  visibleChains?: ApiChain[];
   title?: string;
   accountType: AccountType;
   isActive?: boolean;
@@ -31,6 +33,7 @@ interface OwnProps {
 function AccountButton({
   accountId,
   byChain,
+  visibleChains,
   title,
   accountType,
   ariaLabel,
@@ -62,7 +65,8 @@ function AccountButton({
     !onClick && styles.account_inactive,
   );
 
-  const formattedAddress = formatAccountAddresses(byChain, 'x-small');
+  const chains = visibleChains ?? getOrderedAccountChains(byChain);
+  const formattedAddress = formatAccountAddresses(byChain, chains, 'x-small');
 
   return (
     <div

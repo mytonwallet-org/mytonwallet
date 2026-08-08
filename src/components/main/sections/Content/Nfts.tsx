@@ -8,12 +8,15 @@ import {
   ANIMATED_STICKER_BIG_SIZE_PX,
   ANIMATED_STICKER_SMALL_SIZE_PX,
   ANIMATION_LEVEL_MIN,
+  IS_GRAM_WALLET,
   NFT_MARKETPLACE_TITLE,
+  NFT_MARKETPLACE_TITLES,
   NFT_MARKETPLACE_URL,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
   TON_NFT_MARKETPLACE_TITLE,
   TON_NFT_MARKETPLACE_URL,
 } from '../../../../config';
+import { getIsNftVisible } from '../../../../global/helpers/nfts';
 import renderText from '../../../../global/helpers/renderText';
 import {
   selectCurrentAccountId,
@@ -42,6 +45,25 @@ import styles from './Nft.module.scss';
 
 const SLIDE_TRANSITION_DURATION_MS = 300;
 
+function getNftEmptyStateMarketplace(isMultichainAccount?: boolean) {
+  if (IS_GRAM_WALLET) {
+    return {
+      title: NFT_MARKETPLACE_TITLES.fragment,
+      url: 'https://fragment.com/',
+    };
+  }
+
+  return isMultichainAccount
+    ? {
+      title: NFT_MARKETPLACE_TITLE,
+      url: NFT_MARKETPLACE_URL,
+    }
+    : {
+      title: TON_NFT_MARKETPLACE_TITLE,
+      url: TON_NFT_MARKETPLACE_URL,
+    };
+}
+
 interface OwnProps {
   isActive?: boolean;
   isWidget?: boolean;
@@ -55,6 +77,7 @@ interface StateProps {
   byAddress?: Record<string, ApiNft>;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
+  areUnverifiedNftsHidden?: boolean;
   isNftBuyingDisabled?: boolean;
   dnsExpiration?: Record<string, number>;
   isViewAccount?: boolean;
@@ -76,6 +99,7 @@ function Nfts({
   isNftBuyingDisabled,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
+  areUnverifiedNftsHidden,
   isViewAccount,
   isMultichainAccount,
   isLoading,
@@ -91,8 +115,7 @@ function Nfts({
   const appTheme = useAppTheme(theme);
 
   const hasSelection = Boolean(selectedNfts?.length);
-  const nftMarketplaceTitle = isMultichainAccount ? NFT_MARKETPLACE_TITLE : TON_NFT_MARKETPLACE_TITLE;
-  const nftMarketplaceUrl = isMultichainAccount ? NFT_MARKETPLACE_URL : TON_NFT_MARKETPLACE_URL;
+  const nftMarketplace = getNftEmptyStateMarketplace(isMultichainAccount);
 
   // In compact mode (`LandscapeWalletOverview`) NFTs are already in global state - no need to fetch
   useEffect(() => {
@@ -138,21 +161,18 @@ function Nfts({
         || (nft.collectionAddress === collection.address && nft.chain === collection.chain)
         || (collection.address === TELEGRAM_GIFTS_SUPER_COLLECTION && nft.isTelegramGift);
 
-      const isVisible = (
-        !nft.isHidden || whitelistedNftAddressesSet.has(nft.address)
-      ) && !blacklistedNftAddressesSet.has(nft.address);
-
-      return matchesCollection && isVisible;
+      return matchesCollection
+        && getIsNftVisible(nft, blacklistedNftAddressesSet, whitelistedNftAddressesSet, areUnverifiedNftsHidden);
     });
   }, [
     byAddress, collection?.address, collection?.chain, orderedAddresses,
-    blacklistedNftAddresses, whitelistedNftAddresses,
+    blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden,
   ]);
 
   const handleNftMarketplaceClick = useLastCallback(() => {
-    void openUrl(nftMarketplaceUrl, {
-      title: nftMarketplaceTitle,
-      subtitle: getHostnameFromUrl(nftMarketplaceUrl),
+    void openUrl(nftMarketplace.url, {
+      title: nftMarketplace.title,
+      subtitle: getHostnameFromUrl(nftMarketplace.url),
     });
   });
 
@@ -182,7 +202,7 @@ function Nfts({
           : fullDescription}
         className="content-centered"
         actionText={!isNftBuyingDisabled
-          ? lang('Open %nft_marketplace%', { nft_marketplace: nftMarketplaceTitle })
+          ? lang('Open %nft_marketplace%', { nft_marketplace: nftMarketplace.title })
           : undefined}
         onActionClick={!isNftBuyingDisabled ? handleNftMarketplaceClick : undefined}
       />
@@ -260,6 +280,7 @@ export default memo(
         byAddress,
         blacklistedNftAddresses,
         whitelistedNftAddresses,
+        areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
         isNftBuyingDisabled,
         dnsExpiration,
         isViewAccount: selectIsCurrentAccountViewMode(global),

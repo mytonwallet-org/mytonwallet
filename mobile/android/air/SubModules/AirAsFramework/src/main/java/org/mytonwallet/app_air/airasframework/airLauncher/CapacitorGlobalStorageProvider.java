@@ -1,10 +1,12 @@
 package org.mytonwallet.app_air.airasframework.airLauncher;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.ViewGroup;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -15,6 +17,7 @@ import androidx.annotation.Nullable;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger;
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider;
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage;
 
@@ -30,46 +33,190 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
     private static final String GLOBAL_STATE_KEY = "mytonwallet-global-state";
+    private static final long INITIAL_LOAD_RETRY_DELAY_MS = 500;
+    private final Context context;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService persistQueue = Executors.newSingleThreadExecutor();
     private final AtomicInteger doNotSynchronize = new AtomicInteger(0);
+    @Nullable
+    private OnReadyCallback onReady;
     private WebView webView;
+    private boolean isWebViewReady = false;
+    private boolean isInitialLoadComplete = false;
+    private boolean isDestroyed = false;
+    private long initialLoadAttempt = 0;
     private volatile boolean isPersisting = false;
     private volatile boolean pendingPersist = false;
-    private long lastPersist = 0;
+    private volatile long lastPersist = 0;
     private volatile JSONObject globalStorageJsonDict = new JSONObject();
 
     public CapacitorGlobalStorageProvider(Context context, final OnReadyCallback onReady) {
-        webView = new WebView(context);
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        webView.setWebViewClient(new CapacitorGlobalStorageWebViewClient(() -> {
-            String script = "(function() { " +
-                "var globalState = localStorage.getItem('" + GLOBAL_STATE_KEY + "'); " +
-                "if (globalState) { return JSON.parse(globalState) || {}; } " +
-                "return {}; })();";
-
-            executeJS(script, result -> {
-                if (result != null) {
-                    try {
-                        globalStorageJsonDict = new JSONObject(result);
-                        onReady.onReady(true);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        onReady.onReady(false);
-                    }
-                } else {
-                    onReady.onReady(false);
-                }
-            });
-        }));
-        webView.loadUrl("https://mytonwallet.local/");
+        this.context = context;
+        this.onReady = onReady;
+        createWebView();
     }
 
-    private void executeJS(String script, ValueCallback<String> callback) {
-        if (webView != null) {
-            webView.evaluateJavascript(script, callback);
+    private void createWebView() {
+        if (isDestroyed)
+            return;
+
+        if (!isInitialLoadComplete)
+            initialLoadAttempt++;
+
+        WebView newWebView;
+        try {
+            newWebView = new WebView(context);
+        } catch (RuntimeException error) {
+            if (isInitialLoadComplete)
+                throw error;
+            handleInitialLoadFailure("createWebView:" + error.getClass().getSimpleName());
+            return;
         }
+        Logger.INSTANCE.d(
+            Logger.LogTag.AIR_APPLICATION,
+            "Storage createWebView: webViewId=" + System.identityHashCode(newWebView) +
+                " isRecovery=" + isInitialLoadComplete +
+                " initialLoadAttempt=" + initialLoadAttempt
+        );
+        webView = newWebView;
+        isWebViewReady = false;
+
+        WebSettings settings = newWebView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        newWebView.setWebViewClient(new CapacitorGlobalStorageWebViewClient(this));
+        newWebView.loadUrl("https://mytonwallet.local/");
+    }
+
+    void onPageFinished(WebView view) {
+        if (view != webView || isWebViewReady)
+            return;
+
+        isWebViewReady = true;
+        Logger.INSTANCE.d(
+            Logger.LogTag.AIR_APPLICATION,
+            "Storage onPageFinished: webViewId=" + System.identityHashCode(view) +
+                " isRecovery=" + isInitialLoadComplete
+        );
+        if (isInitialLoadComplete) {
+            pendingPersist = false;
+            persistChanges(PERSIST_INSTANT);
+            return;
+        }
+
+        String script = "(function() { " +
+            "var globalState = localStorage.getItem('" + GLOBAL_STATE_KEY + "'); " +
+            "if (globalState) { return JSON.parse(globalState) || {}; } " +
+            "return {}; })();";
+
+        boolean didExecute = executeJS(script, result -> {
+            if (isInitialLoadComplete)
+                return;
+            if (result != null) {
+                try {
+                    JSONObject loadedStorage = new JSONObject(result);
+                    globalStorageJsonDict = loadedStorage;
+                    isInitialLoadComplete = true;
+                    notifyReady(true);
+                } catch (Exception e) {
+                    handleInitialLoadFailure(
+                        "parseResult:" + e.getClass().getSimpleName() +
+                            " resultType=" + ("null".equals(result) ? "javascript-null" : "invalid-json")
+                    );
+                }
+            } else {
+                handleInitialLoadFailure("evaluateJavascript:null-result");
+            }
+        });
+        if (!didExecute)
+            handleInitialLoadFailure("evaluateJavascript:not-executed");
+    }
+
+    private void handleInitialLoadFailure(String reason) {
+        if (isDestroyed || isInitialLoadComplete)
+            return;
+
+        Logger.INSTANCE.e(
+            Logger.LogTag.AIR_APPLICATION,
+            "Storage initial load failed: attempt=" + initialLoadAttempt +
+                " reason=" + reason +
+                " retryInMs=" + INITIAL_LOAD_RETRY_DELAY_MS
+        );
+
+        WebView failedWebView = webView;
+        webView = null;
+        isWebViewReady = false;
+        isPersisting = false;
+        pendingPersist = false;
+        if (failedWebView != null)
+            destroyWebView(failedWebView);
+
+        mainHandler.postDelayed(() -> {
+            if (!isDestroyed && !isInitialLoadComplete && webView == null)
+                createWebView();
+        }, INITIAL_LOAD_RETRY_DELAY_MS);
+    }
+
+    private void notifyReady(boolean success) {
+        OnReadyCallback callback = onReady;
+        onReady = null;
+        if (callback != null)
+            callback.onReady(success);
+    }
+
+    boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+        String didCrash = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? Boolean.toString(detail.didCrash()) : "";
+        String rendererPriorityAtExit = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+            ? Integer.toString(detail.rendererPriorityAtExit())
+            : "";
+        boolean isCurrentWebView = view == webView;
+        Logger.INSTANCE.e(
+            Logger.LogTag.AIR_APPLICATION,
+            "Storage onRenderProcessGone: webViewId=" + System.identityHashCode(view) +
+                " didCrash=" + didCrash +
+                " rendererPriorityAtExit=" + rendererPriorityAtExit +
+                " isCurrent=" + isCurrentWebView +
+                " isReady=" + isWebViewReady +
+                " initialLoadComplete=" + isInitialLoadComplete +
+                " isPersisting=" + isPersisting +
+                " pendingPersist=" + pendingPersist
+        );
+        if (isCurrentWebView) {
+            webView = null;
+            isWebViewReady = false;
+            isPersisting = false;
+            pendingPersist = isInitialLoadComplete;
+        }
+        destroyWebView(view);
+        if (isCurrentWebView) {
+            if (isInitialLoadComplete) {
+                mainHandler.post(() -> {
+                    if (webView == null)
+                        createWebView();
+                });
+            } else {
+                handleInitialLoadFailure("renderProcessGone");
+            }
+        }
+        return true;
+    }
+
+    private boolean executeJS(String script, ValueCallback<String> callback) {
+        WebView executingWebView = webView;
+        if (executingWebView == null || !isWebViewReady)
+            return false;
+
+        executingWebView.evaluateJavascript(script, result -> {
+            if (executingWebView == webView && isWebViewReady)
+                callback.onReceiveValue(result);
+        });
+        return true;
+    }
+
+    private void destroyWebView(WebView view) {
+        if (view.getParent() instanceof ViewGroup)
+            ((ViewGroup) view.getParent()).removeView(view);
+        view.destroy();
     }
 
     public synchronized void persistChanges(int mustPersist) {
@@ -98,29 +245,34 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
                 "return false;" +
                 "}})();";
 
-            new Handler(Looper.getMainLooper()).post(() -> executeJS(script, result -> {
-                //Log.d("CapacitorGlobalStorageProvider", "PERSISTING");
-                try {
-                    if ("true".equals(result)) {
-                        Log.d("CapacitorGlobalStorageProvider", "PERSISTED");
+            mainHandler.post(() -> {
+                if (!executeJS(script, result -> {
+                    //Log.d("CapacitorGlobalStorageProvider", "PERSISTING");
+                    try {
+                        if ("true".equals(result)) {
+                            Log.d("CapacitorGlobalStorageProvider", "PERSISTED");
+                            isPersisting = false;
+                            lastPersist = System.currentTimeMillis();
+                            mainHandler.postDelayed(() -> {
+                                if (pendingPersist) {
+                                    pendingPersist = false;
+                                    persistChanges(PERSIST_NORMAL);
+                                }
+                            }, 3000);
+                        } else {
+                            // Retry logic
+                            clearCache();
+                            isPersisting = false;
+                            persistChanges(PERSIST_INSTANT);
+                        }
+                    } catch (Exception e) {
                         isPersisting = false;
-                        lastPersist = System.currentTimeMillis();
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            if (pendingPersist) {
-                                pendingPersist = false;
-                                persistChanges(PERSIST_NORMAL);
-                            }
-                        }, 3000);
-                    } else {
-                        // Retry logic
-                        clearCache();
-                        isPersisting = false;
-                        persistChanges(PERSIST_INSTANT);
                     }
-                } catch (Exception e) {
+                })) {
                     isPersisting = false;
+                    pendingPersist = true;
                 }
-            }));
+            });
         });
     }
 
@@ -319,8 +471,13 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
     }
 
     void onDestroy() {
-        if (webView.getParent() != null)
-            ((ViewGroup) webView.getParent()).removeView(webView);
+        isDestroyed = true;
+        mainHandler.removeCallbacksAndMessages(null);
+        onReady = null;
+        WebView destroyedWebView = webView;
         webView = null;
+        isWebViewReady = false;
+        if (destroyedWebView != null)
+            destroyWebView(destroyedWebView);
     }
 }

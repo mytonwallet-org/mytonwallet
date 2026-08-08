@@ -5,6 +5,7 @@ import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import java.math.BigInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
@@ -26,7 +27,6 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.getStakingHistory
-import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MStakeHistoryItem
@@ -36,9 +36,11 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import java.math.BigInteger
+import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 
-class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserver {
+class EarnViewModel(val tokenSlug: String) :
+    ViewModel(),
+    WalletCore.EventObserver {
 
     companion object {
         fun alias(slug: String) = "EarnViewModel_$slug"
@@ -60,6 +62,8 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             }
             return field
         }
+    val canAddStake: Boolean
+        get() = token?.isEarnAvailable == true
     private val stakedTokenSlug = tokenSlugToStakingSlug(tokenSlug) ?: ""
 
     init {
@@ -161,7 +165,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                 showAddStakeButton = true,
                 showUnstakeButton = stakingState?.shouldShowWithdrawButton ?: false,
                 showBiggerUnstakeButton = stakingState?.isUnstakeRequestAmountUnlocked != true,
-                enableAddStakeButton = getTokenBalance() > BigInteger.ZERO,
+                enableAddStakeButton = canAddStake && getTokenBalance() > BigInteger.ZERO,
                 unclaimedReward = amountToClaim
             )
         )
@@ -192,7 +196,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
     ) {
         if (isLoadingStakingHistory) return
 
-        viewModelScope.launch() {
+        viewModelScope.launch {
             isLoadingStakingHistory = true
             try {
                 when (tokenSlug) {
@@ -200,7 +204,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                         if (!isCheckingLatestChanges) {
                             val result =
                                 WalletCore.getStakingHistory(
-                                    accountId = accountId,
+                                    accountId = accountId
                                     /*page = page,
                                     limit = 100*/
                                 )
@@ -209,17 +213,22 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                                 val distinctResult = result.distinctBy { it.timestamp }
                                 lastStakingHistoryItem = distinctResult.last().toViewItem()
                                 mergeHistory(distinctResult)
-                                //requestStakingHistory(accountId, page + 1)
-                            } else if (viewStateValue().historyListState is HistoryListState.InitialState) {
+                                // requestStakingHistory(accountId, page + 1)
+                            } else if (
+                                viewStateValue().historyListState is
+                                    HistoryListState.InitialState
+                            ) {
                                 _viewState.tryEmit(
-                                    viewStateValue().copy(historyListState = HistoryListState.NoItem)
+                                    viewStateValue().copy(
+                                        historyListState = HistoryListState.NoItem
+                                    )
                                 )
                             }
                             hasLoadedAllStakingHistoryItems = result.isEmpty()
                         } else {
                             val result =
                                 WalletCore.getStakingHistory(
-                                    accountId = accountId,
+                                    accountId = accountId
                                     /*page = 1,
                                     limit = 100*/
                                 )
@@ -326,7 +335,6 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         requestTokenActivitiesForUnstakedItems(fromTimestamp = timeStamp)
     }
 
-
     var lastStakedActivityTimestamp: Long? = null
     private var hasLoadedAllStakedActivityItems = false
     private var isLoadingStakedActivityItems = false
@@ -394,17 +402,21 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
     //
     private val allLoadedOnce: Boolean
         get() {
-            return (lastLoadedPage > 0 &&
-                (lastUnstakedActivityTimestamp != null || hasLoadedAllUnstakedActivityItems) &&
-                (lastStakedActivityTimestamp != null || hasLoadedAllStakedActivityItems))
+            return (
+                lastLoadedPage > 0 &&
+                    (lastUnstakedActivityTimestamp != null || hasLoadedAllUnstakedActivityItems) &&
+                    (lastStakedActivityTimestamp != null || hasLoadedAllStakedActivityItems)
+                )
         }
 
     private suspend fun mergeTransaction(newTransactions: List<MApiTransaction>) =
         historyItemsMutex.withLock {
             val mergedItems = withContext(Dispatchers.Default) {
                 val currentItems = historyItems?.toMutableList() ?: mutableListOf()
+                val transactions =
+                    newTransactions.filterIsInstance<MApiTransaction.Transaction>()
 
-                newItemsLoop@ for (transaction in newTransactions.filterIsInstance<MApiTransaction.Transaction>()) {
+                newItemsLoop@ for (transaction in transactions) {
                     val item =
                         transaction.toViewItem(tokenSlug, stakedTokenSlug)
                             .updateAmountInBaseCurrency()
@@ -415,9 +427,9 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                     var added = false
                     for ((i, historyItem) in currentItems.withIndex()) {
                         if (
-                            historyItem.timestamp == transaction.timestamp
-                            && historyItem::class == item::class
-                            && historyItem.amount == item.amount
+                            historyItem.timestamp == transaction.timestamp &&
+                            historyItem::class == item::class &&
+                            historyItem.amount == item.amount
                         ) {
                             // Is duplicate. This happens when checking for latest changes.
                             continue@newItemsLoop
@@ -447,7 +459,6 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                     )
                 )
             }
-
         }
 
     private suspend fun mergeHistory(newHistoryItems: List<MStakeHistoryItem>) =
@@ -460,9 +471,9 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
 
                     var added = false
                     for ((i, historyItem) in currentItems.withIndex()) {
-                        if (historyItem.timestamp == newHistoryItem.timestamp
-                            && historyItem::class == item::class
-                            && historyItem.amount == item.amount
+                        if (historyItem.timestamp == newHistoryItem.timestamp &&
+                            historyItem::class == item::class &&
+                            historyItem.amount == item.amount
                         ) {
                             // Is duplicate. This happens when checking for latest changes.
                             continue@newItemsLoop
@@ -490,15 +501,15 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                     )
                 )
             }
-
         }
 
     //
-    fun getHistoryItems(): List<EarnItem> {
-        return if (viewStateValue().historyListState is HistoryListState.HasItem) {
+    fun getHistoryItems(): List<EarnItem> =
+        if (viewStateValue().historyListState is HistoryListState.HasItem) {
             (viewStateValue().historyListState as HistoryListState.HasItem).historyItems
-        } else listOf()
-    }
+        } else {
+            listOf()
+        }
 
     fun getTotalProfitFormatted() = viewStateValue().totalProfit
 
@@ -513,17 +524,17 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
     }
 
     //
-    private fun getTokenBalance(): BigInteger {
-        return if (token == null) BigInteger.ZERO
-        else {
-            if (token?.isEarnAvailable == true) {
-                AccountStore.activeAccountId?.let { activeAccountId ->
-                    BalanceStore.getBalances(activeAccountId)?.get(token!!.slug)
-                        ?: BigInteger.valueOf(0)
-                } ?: BigInteger.valueOf(0)
-            } else
-                AccountStore.stakingData?.stakingState(token!!.slug)?.balance
+    private fun getTokenBalance(): BigInteger = if (token == null) {
+        BigInteger.ZERO
+    } else {
+        if (token?.isEarnAvailable == true) {
+            AccountStore.activeAccountId?.let { activeAccountId ->
+                BalanceStore.getBalances(activeAccountId)?.get(token!!.slug)
                     ?: BigInteger.valueOf(0)
+            } ?: BigInteger.valueOf(0)
+        } else {
+            AccountStore.stakingData?.stakingState(token!!.slug)?.balance
+                ?: BigInteger.valueOf(0)
         }
     }
 
@@ -655,7 +666,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             WalletEvent.BalanceChanged -> {
                 _viewState.tryEmit(
                     viewStateValue().copy(
-                        enableAddStakeButton = getTokenBalance() > BigInteger.ZERO
+                        enableAddStakeButton = canAddStake && getTokenBalance() > BigInteger.ZERO
                     )
                 )
             }
@@ -708,7 +719,5 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
 
 class EarnViewModelFactory(private val tokenSlug: String) :
     ViewModelProvider.NewInstanceFactory() {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return EarnViewModel(tokenSlug) as T
-    }
+    override fun <T : ViewModel> create(modelClass: Class<T>): T = EarnViewModel(tokenSlug) as T
 }

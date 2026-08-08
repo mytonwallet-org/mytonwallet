@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
-import java.math.BigDecimal
 import androidx.core.graphics.toColorInt
+import java.math.BigDecimal
 
 object TronConfig : MBlockchainConfig {
 
@@ -22,7 +22,7 @@ object TronConfig : MBlockchainConfig {
     override val displayColor = "#E65850".toColorInt()
     override val qrGradientColors = intArrayOf(
         "#A32F22".toColorInt(),
-        "#9A184A".toColorInt(),
+        "#9A184A".toColorInt()
     )
 
     override val feeCheckAddress = "TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw"
@@ -36,17 +36,13 @@ object TronConfig : MBlockchainConfig {
     override fun isValidAddress(address: String): Boolean =
         Regex("""^T[1-9A-HJ-NP-Za-km-z]{33}$""").matches(address)
 
-    override fun idToTxHash(id: String?): String? =
-        id?.substringBefore(":")
+    override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
-    override fun transactionExplorers() =
-        listOf(MBlockchainExplorer.TRONSCAN)
+    override fun transactionExplorers() = listOf(MBlockchainExplorer.TRONSCAN)
 
-    override fun addressExplorers() =
-        listOf(MBlockchainExplorer.TRONSCAN)
+    override fun addressExplorers() = listOf(MBlockchainExplorer.TRONSCAN)
 
-    override fun tokenExplorer() =
-        MBlockchainExplorer.TRONSCAN
+    override fun tokenExplorer() = MBlockchainExplorer.TRONSCAN
 
     override fun nftExplorer() = null
 }
