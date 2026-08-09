@@ -531,6 +531,8 @@ export interface Account {
   byChain: Partial<Record<ApiChain, AccountChain>>;
   isTemporary?: true;
   isPrivateKeyBased?: true;
+  /** The stored secret of this wallet could not be read during the Enclave migration, so signing is impossible */
+  isRecoveryRequired?: true;
 }
 
 export type AssetPairs = Record<string, {

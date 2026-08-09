@@ -12,7 +12,10 @@ import { formatAccountAddresses } from '../../util/formatAccountAddress';
 import { formatCurrency } from '../../util/formatNumber';
 import isViewAccount from '../../util/isViewAccount';
 
+import useLang from '../../hooks/useLang';
+
 import CustomCardPreview from '../main/modals/accountSelector/CustomCardPreview';
+import IconWithTooltip from '../ui/IconWithTooltip';
 import SensitiveData from '../ui/SensitiveData';
 import WalletAvatar from '../ui/WalletAvatar';
 
@@ -25,6 +28,7 @@ export interface AccountRowInnerProps {
   accountType: AccountType;
   title?: string;
   isTestnet?: boolean;
+  isRecoveryRequired?: true;
   balanceData?: AccountBalance;
   cardBackgroundNft?: ApiNft;
   isSensitiveDataHidden?: true;
@@ -44,6 +48,7 @@ function AccountRowInner({
   accountType,
   title,
   isTestnet,
+  isRecoveryRequired,
   balanceData,
   cardBackgroundNft,
   isSensitiveDataHidden,
@@ -51,6 +56,7 @@ function AccountRowInner({
   avatarClassName,
   avatarUrl,
 }: AccountRowInnerProps) {
+  const lang = useLang();
   const isHardware = accountType === 'hardware';
   const isView = isViewAccount(accountType);
   const chains = visibleChains ?? getOrderedAccountChains(byChain);
@@ -71,6 +77,15 @@ function AccountRowInner({
           <span className={styles.title}>{title}</span>
           {cardBackgroundNft && (
             <CustomCardPreview nft={cardBackgroundNft} className={styles.nftIndicator} />
+          )}
+          {isRecoveryRequired && (
+            <IconWithTooltip
+              type="danger"
+              size="small"
+              message={lang('$enclave_recovery_required_tooltip')}
+              iconClassName={styles.recoveryIcon}
+              canHoverOnTooltip
+            />
           )}
         </div>
         <div className={styles.address}>

@@ -104,6 +104,7 @@ function AccountsListView({
             title,
             byChain,
             type,
+            isRecoveryRequired,
           }], index) => {
             const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
             const isCurrentAccount = accountId === currentAccountId;
@@ -127,6 +128,7 @@ function AccountsListView({
               <AccountWalletItem
                 key={accountId}
                 isTestnet={isTestnet}
+                isRecoveryRequired={isRecoveryRequired}
                 accountId={accountId}
                 byChain={byChain}
                 visibleChains={addressLineChainsByAccountId?.[accountId]}

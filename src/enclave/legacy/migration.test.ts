@@ -1,6 +1,7 @@
 import type { EnclaveSession } from '../../global/types';
 import type { LegacyAccountWithMnemonic } from './migration';
 
+import { PRIVATE_KEY_HEX_LENGTH } from '../../config';
 import { EnclaveError } from '../errors';
 import { migrateToEnclave, migrateToEnclaveBiometric } from './migration';
 
@@ -10,6 +11,7 @@ type BiometricEnclave = Parameters<typeof migrateToEnclaveBiometric>[2];
 const PASSWORD = '123456';
 const OTHER_PASSWORD = 'not-the-one';
 const MNEMONIC = ['angry', 'calm', 'sad'];
+const PRIVATE_KEY = 'a'.repeat(PRIVATE_KEY_HEX_LENGTH);
 const SALT_HEX = '000102030405060708090a0b0c0d0e0f';
 const IV_HEX = '0f0e0d0c0b0a09080706050403020100';
 // The colon-less format reads the IV as the leading 24 hex characters, so it is a 12-byte one
@@ -66,6 +68,10 @@ async function createAccount(accountId: string, password: string): Promise<Legac
   return { accountId, mnemonicEncrypted: await encryptLegacyMnemonic(MNEMONIC, password) };
 }
 
+async function createPrivateKeyAccount(accountId: string, password: string): Promise<LegacyAccountWithMnemonic> {
+  return { accountId, mnemonicEncrypted: await encryptLegacyMnemonic([PRIVATE_KEY], password) };
+}
+
 function createPasscodeEnclave(overrides: Partial<PasscodeEnclave> = {}) {
   return {
     setupAuth: jest.fn(() => Promise.resolve(SESSION)),
@@ -93,7 +99,7 @@ describe('migrateToEnclave', () => {
 
     const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [] });
+    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
     expect(enclave.importSecret).toHaveBeenCalledTimes(2);
     expect(enclave.importSecret).toHaveBeenCalledWith('0-mainnet', MNEMONIC.join(' '), SESSION.token);
     expect(enclave.importSecret).toHaveBeenCalledWith('1-mainnet', MNEMONIC.join(' '), SESSION.token);
@@ -107,33 +113,76 @@ describe('migrateToEnclave', () => {
     expect(outcome).toEqual({ error: 'wrongPassword' });
   });
 
-  // The account that happens to come first carries no special meaning, so its refusal alone must not
-  // be reported as a typo while the password is demonstrably opening the others
-  it('blames the data when the first account is unreadable but a later one opens', async () => {
+  // The account that happens to come first carries no special meaning, so its refusal must not end a
+  // migration that the remaining accounts are ready for
+  it('migrates the later accounts when the first one is unreadable', async () => {
     const accounts = [
       await createAccount('0-mainnet', OTHER_PASSWORD),
       await createAccount('1-mainnet', PASSWORD),
-    ];
-
-    const outcome = await migrateToEnclave(accounts, PASSWORD, false, createPasscodeEnclave());
-
-    expect(outcome).toEqual({ error: 'damagedData' });
-  });
-
-  // Nothing may be written before every account has been read, so that an unreadable one leaves the
-  // profile as it was instead of carrying an auth with no secrets under it
-  it('writes nothing when a later account does not open', async () => {
-    const accounts = [
-      await createAccount('0-mainnet', PASSWORD),
-      await createAccount('1-mainnet', OTHER_PASSWORD),
     ];
     const enclave = createPasscodeEnclave();
 
     const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
 
-    expect(outcome).toEqual({ error: 'damagedData' });
-    expect(enclave.setupAuth).not.toHaveBeenCalled();
-    expect(enclave.importSecret).not.toHaveBeenCalled();
+    expect(outcome).toEqual({
+      session: SESSION,
+      privateKeyAccountIds: [],
+      unreadableAccountIds: ['0-mainnet'],
+    });
+    expect(enclave.importSecret).toHaveBeenCalledTimes(1);
+    expect(enclave.importSecret).toHaveBeenCalledWith('1-mainnet', MNEMONIC.join(' '), SESSION.token);
+  });
+
+  it('names the private key account by id when an earlier account is skipped', async () => {
+    const accounts = [
+      await createAccount('0-mainnet', OTHER_PASSWORD),
+      await createPrivateKeyAccount('1-mainnet', PASSWORD),
+    ];
+    const enclave = createPasscodeEnclave();
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({
+      session: SESSION,
+      privateKeyAccountIds: ['1-mainnet'],
+      unreadableAccountIds: ['0-mainnet'],
+    });
+    expect(enclave.importSecret).toHaveBeenCalledWith('1-mainnet', PRIVATE_KEY, SESSION.token);
+  });
+
+  it('imports the readable accounts and names the one it skipped', async () => {
+    const accounts = [
+      await createAccount('0-mainnet', PASSWORD),
+      await createAccount('1-mainnet', OTHER_PASSWORD),
+      await createAccount('2-mainnet', PASSWORD),
+    ];
+    const enclave = createPasscodeEnclave();
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({
+      session: SESSION,
+      privateKeyAccountIds: [],
+      unreadableAccountIds: ['1-mainnet'],
+    });
+    expect(enclave.importSecret).toHaveBeenCalledTimes(2);
+    expect(enclave.importSecret).toHaveBeenCalledWith('0-mainnet', MNEMONIC.join(' '), SESSION.token);
+    expect(enclave.importSecret).toHaveBeenCalledWith('2-mainnet', MNEMONIC.join(' '), SESSION.token);
+  });
+
+  // The session is spent one usage per import, so counting the stored accounts instead of the imported
+  // ones would leave the budget short of the work and fail the last wallet
+  it('budgets the import session by what it actually imports', async () => {
+    const accounts = [
+      await createAccount('0-mainnet', PASSWORD),
+      await createAccount('1-mainnet', OTHER_PASSWORD),
+      await createAccount('2-mainnet', PASSWORD),
+    ];
+    const enclave = createPasscodeEnclave();
+
+    await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(enclave.authorize).toHaveBeenCalledWith('passcode', false, PASSWORD, 2);
   });
 
   // A lone account leaves the two causes genuinely indistinguishable, and the retryable one is the
@@ -156,6 +205,7 @@ describe('migrateToEnclave', () => {
     await expect(migrateToEnclave(accounts, PASSWORD, false, enclave)).resolves.toEqual({
       session: SESSION,
       privateKeyAccountIds: [],
+      unreadableAccountIds: [],
     });
 
     // A refusal of that format has to read as a wrong password rather than as a storage fault
@@ -230,7 +280,7 @@ describe('migrateToEnclave', () => {
 
     const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [] });
+    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
     expect(enclave.setupAuth).not.toHaveBeenCalled();
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
   });
@@ -243,7 +293,7 @@ describe('migrateToEnclaveBiometric', () => {
 
     const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [] });
+    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
     expect(enclave.importSecret).toHaveBeenCalledTimes(2);
   });
 
@@ -257,7 +307,7 @@ describe('migrateToEnclaveBiometric', () => {
     expect(outcome).toEqual({ error: 'damagedData' });
   });
 
-  it('writes nothing when a later account does not open', async () => {
+  it('imports the readable accounts and names the one it skipped', async () => {
     const accounts = [
       await createAccount('0-mainnet', PASSWORD),
       await createAccount('1-mainnet', OTHER_PASSWORD),
@@ -266,9 +316,27 @@ describe('migrateToEnclaveBiometric', () => {
 
     const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
 
-    expect(outcome).toEqual({ error: 'damagedData' });
-    expect(enclave.setupAuth).not.toHaveBeenCalled();
-    expect(enclave.importSecret).not.toHaveBeenCalled();
+    expect(outcome).toEqual({
+      session: { token: SESSION.token },
+      privateKeyAccountIds: [],
+      unreadableAccountIds: ['1-mainnet'],
+    });
+    expect(enclave.importSecret).toHaveBeenCalledTimes(1);
+    expect(enclave.importSecret).toHaveBeenCalledWith('0-mainnet', MNEMONIC.join(' '), SESSION.token);
+  });
+
+  // This session covers the imports and is then handed to the caller, so a budget counted over stored
+  // rather than imported accounts hands out more reads than the migration accounted for
+  it('budgets the session by what it actually imports plus the caller', async () => {
+    const accounts = [
+      await createAccount('0-mainnet', PASSWORD),
+      await createAccount('1-mainnet', OTHER_PASSWORD),
+    ];
+    const enclave = createBiometricEnclave();
+
+    await migrateToEnclaveBiometric(accounts, PASSWORD, enclave, 3);
+
+    expect(enclave.setupAuth).toHaveBeenCalledWith('biometric', false, 4);
   });
 
   it('reports an earlier half-finished migration as interrupted', async () => {
@@ -299,7 +367,7 @@ describe('migrateToEnclaveBiometric', () => {
 
     const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [] });
+    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
     expect(enclave.setupAuth).not.toHaveBeenCalled();
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
   });

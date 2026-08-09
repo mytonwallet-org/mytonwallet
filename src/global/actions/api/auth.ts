@@ -1392,6 +1392,23 @@ function reduceTypoDiagnosis(reason: MigrationErrorReason): MigrationErrorReason
 }
 
 /**
+ * A migrated profile that left wallets behind is the state support has to recognise, and the account
+ * ids are the only thing that identifies which ones. The mark is what every screen reads to warn that
+ * the wallet cannot sign until its secret is recovered.
+ */
+function markUnreadableAccounts(global: GlobalState, context: string, accountIds: string[]) {
+  if (!accountIds.length) return global;
+
+  logDebugError(context, `Migrated without secrets for accounts: ${accountIds.join(', ')}`);
+
+  for (const accountId of accountIds) {
+    global = updateAccount(global, accountId, { isRecoveryRequired: true });
+  }
+
+  return global;
+}
+
+/**
  * The reduction lives here rather than at the call sites, because an emptied storage is recognised by
  * the very diagnosis it reduces away, and a caller that reduced first would hide it behind the answer
  * that tells the user their data is beyond repair.
@@ -1432,17 +1449,18 @@ addActionHandler('migrateLegacyAuth', async (global, actions, payload: {
     return;
   }
 
-  const { session, privateKeyAccountIds } = migrationOutcome;
+  const { session, privateKeyAccountIds, unreadableAccountIds } = migrationOutcome;
 
   global = getGlobal();
   global = { ...global, authTypes: ['passcode'], enclaveSession: session };
   for (const accountId of privateKeyAccountIds) {
     global = updateAccount(global, accountId, { isPrivateKeyBased: true });
   }
+  global = markUnreadableAccounts(global, 'migrateLegacyAuth', unreadableAccountIds);
   setGlobal(global);
 
   if (SHOULD_CLEANUP_LEGACY_AUTH) {
-    await callApi('cleanupLegacyAuthAfterMigration');
+    await callApi('cleanupLegacyAuthAfterMigration', unreadableAccountIds);
   }
 
   onSuccess(session.token);
@@ -1472,6 +1490,7 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
 
   let session;
   let privateKeyAccountIds: string[] = [];
+  let unreadableAccountIds: string[] = [];
   let authTypes: ('passcode' | 'biometric')[];
 
   if (legacyAuthConfig.kind === 'native-biometrics') {
@@ -1482,7 +1501,7 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
       return;
     }
 
-    ({ session, privateKeyAccountIds } = migrationOutcome);
+    ({ session, privateKeyAccountIds, unreadableAccountIds } = migrationOutcome);
 
     // Add biometric as second auth method (don't replace passcode). The caller is handed the session
     // this mints rather than the one the migration returned, so the budget is declared here
@@ -1502,7 +1521,7 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
       return;
     }
 
-    ({ session, privateKeyAccountIds } = migrationOutcome);
+    ({ session, privateKeyAccountIds, unreadableAccountIds } = migrationOutcome);
     // Legacy WebAuthn/electron-safe-storage users had a random password they don't know.
     // They remain biometric-only after migration. They can add a passcode via Settings > Change Password.
     authTypes = ['biometric'];
@@ -1513,10 +1532,11 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
   for (const accountId of privateKeyAccountIds) {
     global = updateAccount(global, accountId, { isPrivateKeyBased: true });
   }
+  global = markUnreadableAccounts(global, 'migrateLegacyBiometricAuth', unreadableAccountIds);
   setGlobal(global);
 
   if (SHOULD_CLEANUP_LEGACY_AUTH) {
-    await callApi('cleanupLegacyAuthAfterMigration');
+    await callApi('cleanupLegacyAuthAfterMigration', unreadableAccountIds);
   }
 
   onSuccess(session.token);

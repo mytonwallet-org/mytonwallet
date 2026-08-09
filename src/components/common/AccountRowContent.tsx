@@ -21,6 +21,7 @@ export interface AccountRowContentProps {
   accountType: AccountType;
   title?: string;
   isTestnet?: boolean;
+  isRecoveryRequired?: true;
   isSelected?: boolean;
   isDisabled?: boolean;
   balanceData?: AccountBalance;
@@ -43,6 +44,7 @@ function AccountRowContent({
   accountType,
   title,
   isTestnet,
+  isRecoveryRequired,
   isSelected,
   isDisabled,
   balanceData,
@@ -85,6 +87,7 @@ function AccountRowContent({
         accountType={accountType}
         title={title}
         isTestnet={isTestnet}
+        isRecoveryRequired={isRecoveryRequired}
         balanceData={balanceData}
         cardBackgroundNft={cardBackgroundNft}
         isSensitiveDataHidden={isSensitiveDataHidden}
