@@ -40,12 +40,19 @@ interface EnclaveBiometricInterface {
 export interface MigrationResult {
   session: EnclaveSession;
   privateKeyAccountIds: string[];
+  /** Accounts whose stored mnemonic stayed unreadable, so the Enclave holds no secret for them */
+  unreadableAccountIds: string[];
+}
+
+interface ReadableAccount {
+  accountId: string;
+  mnemonic: string[];
 }
 
 /**
- * Why a migration stopped, in the terms the caller has to act on. The first account doubles as the
- * password check, so its failure cannot tell a typo from unreadable data, while a failure on any
- * later account proves the password was right and leaves only the stored ciphertext to blame.
+ * Why a migration stopped, in the terms the caller has to act on. Only a total failure stops one, so
+ * these describe a password that opened nothing: from the passcode screen that is indistinguishable
+ * from a typo, while a password taken from a platform store leaves the stored ciphertext to blame.
  */
 export type MigrationErrorReason =
   | 'wrongPassword'
@@ -92,18 +99,28 @@ function checkIsPrivateKey(mnemonic: string[]): boolean {
 }
 
 /**
- * Whether any account other than the first one opens with this password. A refusal by the first
- * account alone cannot tell a typo from a blob that no longer decrypts, and one account that does
- * open settles it. The extra derivations are spent only on a path that has already failed.
+ * Reads every stored mnemonic, keeping each one paired with its account rather than positional, so
+ * that skipping an unreadable account cannot shift a secret onto the wrong wallet.
+ *
+ * An account that refuses this password is passed over instead of ending the migration: its ciphertext
+ * stays on disk either way, so carrying on without it costs that wallet nothing and spares every other
+ * wallet in the profile.
  */
-async function checkIsPasswordAcceptedElsewhere(accounts: LegacyAccountWithMnemonic[], password: string) {
-  for (const account of accounts.slice(1)) {
-    if (await decryptLegacyMnemonic(account.mnemonicEncrypted, password)) {
-      return true;
+async function readMnemonics(accounts: LegacyAccountWithMnemonic[], password: string) {
+  const readable: ReadableAccount[] = [];
+  const unreadableAccountIds: string[] = [];
+
+  for (const { accountId, mnemonicEncrypted } of accounts) {
+    const mnemonic = await decryptLegacyMnemonic(mnemonicEncrypted, password);
+
+    if (mnemonic) {
+      readable.push({ accountId, mnemonic });
+    } else {
+      unreadableAccountIds.push(accountId);
     }
   }
 
-  return false;
+  return { readable, unreadableAccountIds };
 }
 
 /**
@@ -176,47 +193,22 @@ export async function migrateToEnclave(
 ): Promise<MigrationOutcome> {
   // Every step below stays inside the catch so that a throw is classified rather than surfaced raw
   try {
-    // Validate password by decrypting the first account
-    let existMnemonic: string[] | undefined;
-    if (legacyAccounts.length > 0) {
-      const firstAccount = legacyAccounts[0];
-      existMnemonic = await decryptLegacyMnemonic(firstAccount.mnemonicEncrypted, password);
+    const { readable, unreadableAccountIds } = await readMnemonics(legacyAccounts, password);
 
-      // The first account alone cannot separate a typo from unreadable data, so the rest get asked
-      if (!existMnemonic) {
-        return {
-          error: await checkIsPasswordAcceptedElsewhere(legacyAccounts, password)
-            ? 'damagedData'
-            : 'wrongPassword',
-        };
-      }
+    // A password that opened nothing is far more likely mistyped than facing a profile that is damaged
+    // end to end, and the retryable diagnosis is the only one that does not steer the user towards
+    // wiping wallets that a second attempt would have migrated
+    if (legacyAccounts.length > 0 && !readable.length) {
+      return { error: 'wrongPassword' };
     }
 
-    // Decrypt all mnemonics first to ensure all-or-nothing migration
-    const mnemonics: string[][] = [];
-    const privateKeyAccountIds: string[] = [];
+    const privateKeyAccountIds = readable
+      .filter(({ mnemonic }) => checkIsPrivateKey(mnemonic))
+      .map(({ accountId }) => accountId);
 
-    for (let i = 0; i < legacyAccounts.length; i++) {
-      const mnemonic = i === 0
-        ? existMnemonic! // Reuse already decrypted mnemonic
-        : await decryptLegacyMnemonic(legacyAccounts[i].mnemonicEncrypted, password);
-
-      // The same password just opened the first account, so the password is not what is wrong here
-      if (!mnemonic) {
-        logDebugError('migrateToEnclave', `Failed to decrypt mnemonic for account ${legacyAccounts[i].accountId}`);
-        return { error: 'damagedData' };
-      }
-
-      if (checkIsPrivateKey(mnemonic)) {
-        privateKeyAccountIds.push(legacyAccounts[i].accountId);
-      }
-
-      mnemonics.push(mnemonic);
-    }
-
-    // Held until every mnemonic is in hand, because this is the first step that writes: an account that
-    // turns out to be unreadable then leaves the profile untouched rather than carrying an auth with no
-    // secrets under it, which is a state only a later release could untangle.
+    // Held until every mnemonic is in hand, because this is the first step that writes: reaching it with
+    // nothing readable would leave an auth with no secrets under it, which is a state only a later
+    // release could untangle. The early return above is what rules that out.
     // A retry after a partially imported migration finds the auth already provisioned. Setting it up again
     // would mint a master key over the secrets imported by the previous attempt, so resume instead.
     // The token it yields is discarded, since the imports below run under a session of their own, so
@@ -229,16 +221,18 @@ export async function migrateToEnclave(
       return { error: 'storageFailure' };
     }
 
-    // Scope the import session to exactly as many usages as imports instead of a 5-minute window
-    if (legacyAccounts.length > 0) {
-      const importSession = await enclave.authorize('passcode', false, password, legacyAccounts.length);
+    // Scope the import session to exactly as many usages as imports instead of a 5-minute window. The
+    // budget counts what is actually imported, not what is stored: an unreadable account spends nothing,
+    // and over-counting would hand out a session wider than the work it covers.
+    if (readable.length) {
+      const importSession = await enclave.authorize('passcode', false, password, readable.length);
       if (!importSession) {
         logDebugError('migrateToEnclave', 'Failed to authorize for imports');
         return { error: 'storageFailure' };
       }
 
-      for (let i = 0; i < legacyAccounts.length; i++) {
-        await enclave.importSecret(legacyAccounts[i].accountId, mnemonics[i].join(' '), importSession.token);
+      for (const { accountId, mnemonic } of readable) {
+        await enclave.importSecret(accountId, mnemonic.join(' '), importSession.token);
       }
     }
 
@@ -249,7 +243,7 @@ export async function migrateToEnclave(
     // refusing one more read rather than a dead end
     if (!session) return { error: 'storageFailure' };
 
-    return { session, privateKeyAccountIds };
+    return { session, privateKeyAccountIds, unreadableAccountIds };
   } catch (err: any) {
     logDebugError('migrateToEnclave', err);
     return { error: classifyThrownError(err) };
@@ -269,52 +263,27 @@ export async function migrateToEnclaveBiometric(
 ): Promise<MigrationOutcome> {
   // Every step below stays inside the catch so that a throw is classified rather than surfaced raw
   try {
-    // Validate password by decrypting the first account (if any)
-    let existMnemonic: string[] | undefined;
-    if (legacyAccounts.length > 0) {
-      const firstAccount = legacyAccounts[0];
-      existMnemonic = await decryptLegacyMnemonic(firstAccount.mnemonicEncrypted, legacyPassword);
+    const { readable, unreadableAccountIds } = await readMnemonics(legacyAccounts, legacyPassword);
 
-      // The password came from the biometric store rather than from a keyboard, so a typo is not
-      // among the explanations and there is nothing for the user to retype
-      if (!existMnemonic) {
-        logDebugError('migrateToEnclaveBiometric', 'Failed to decrypt mnemonic with legacy password');
-        return { error: 'damagedData' };
-      }
+    // The password came from the biometric store rather than from a keyboard, so a typo is not among
+    // the explanations and there is nothing for the user to retype
+    if (legacyAccounts.length > 0 && !readable.length) {
+      return { error: 'damagedData' };
     }
 
-    // Decrypt all mnemonics first to ensure all-or-nothing migration
-    const mnemonics: string[][] = [];
-    const privateKeyAccountIds: string[] = [];
+    const privateKeyAccountIds = readable
+      .filter(({ mnemonic }) => checkIsPrivateKey(mnemonic))
+      .map(({ accountId }) => accountId);
 
-    for (let i = 0; i < legacyAccounts.length; i++) {
-      const mnemonic = i === 0
-        ? existMnemonic! // Reuse already decrypted mnemonic
-        : await decryptLegacyMnemonic(legacyAccounts[i].mnemonicEncrypted, legacyPassword);
-
-      if (!mnemonic) {
-        logDebugError(
-          'migrateToEnclaveBiometric',
-          `Failed to decrypt mnemonic for account ${legacyAccounts[i].accountId}`,
-        );
-        return { error: 'damagedData' };
-      }
-
-      if (checkIsPrivateKey(mnemonic)) {
-        privateKeyAccountIds.push(legacyAccounts[i].accountId);
-      }
-
-      mnemonics.push(mnemonic);
-    }
-
-    // Held until every mnemonic is in hand, because this is the first step that writes: an account that
-    // turns out to be unreadable then leaves the profile untouched rather than carrying an auth with no
-    // secrets under it, which is a state only a later release could untangle.
+    // Held until every mnemonic is in hand, because this is the first step that writes: reaching it with
+    // nothing readable would leave an auth with no secrets under it, which is a state only a later
+    // release could untangle. The early return above is what rules that out.
     // Budget: one usage per import plus whatever the caller needs, which receives this very session
-    // and would otherwise get a token that is already spent by the time the migration returns.
+    // and would otherwise get a token that is already spent by the time the migration returns. Imports
+    // are counted over readable accounts alone, since an unreadable one never reaches the enclave.
     // A retry after a partially imported migration finds the auth already provisioned. Setting it up again
     // would mint a master key over the secrets imported by the previous attempt, so resume instead.
-    const sessionUsageCount = legacyAccounts.length + usageCount;
+    const sessionUsageCount = readable.length + usageCount;
     const setupSession = await enclave.isAuthProvisioned('biometric')
       ? await enclave.authorize('biometric', false, undefined, sessionUsageCount)
       : await enclave.setupAuth('biometric', false, sessionUsageCount);
@@ -323,12 +292,11 @@ export async function migrateToEnclaveBiometric(
       return { error: 'storageFailure' };
     }
 
-    // Import all mnemonics only after successful decryption of all accounts
-    for (let i = 0; i < legacyAccounts.length; i++) {
-      await enclave.importSecret(legacyAccounts[i].accountId, mnemonics[i].join(' '), setupSession.token);
+    for (const { accountId, mnemonic } of readable) {
+      await enclave.importSecret(accountId, mnemonic.join(' '), setupSession.token);
     }
 
-    return { session: { token: setupSession.token }, privateKeyAccountIds };
+    return { session: { token: setupSession.token }, privateKeyAccountIds, unreadableAccountIds };
   } catch (err: any) {
     logDebugError('migrateToEnclaveBiometric', err);
     return { error: classifyThrownError(err) };

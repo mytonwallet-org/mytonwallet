@@ -29,23 +29,31 @@ export async function fetchLegacyAccountsWithMnemonic(): Promise<LegacyAccountWi
 }
 
 /**
- * Cleans up legacy mnemonics after successful migration.
- * Removes `mnemonicEncrypted` from all accounts in storage.
+ * Drops the legacy mnemonics the Enclave has taken over. The accounts in `keepAccountIds` handed it
+ * no secret, so their ciphertext is the only copy of those wallets left and outlives the cleanup.
+ * The parameter is required because a caller that forgets it destroys wallets.
  */
-export async function cleanupLegacyAuthAfterMigration(): Promise<void> {
+export async function cleanupLegacyAuthAfterMigration(keepAccountIds: string[]): Promise<void> {
   const accounts = await storage.getItem('accounts') as Record<string, any> | undefined;
   if (!accounts) return;
 
+  // Android hands out the cached object itself, so the stripped copy is built beside it and only
+  // becomes the stored state once the write goes through
+  const nextAccounts: Record<string, any> = {};
   let hasChanges = false;
-  for (const accountId of Object.keys(accounts)) {
-    if (accounts[accountId].mnemonicEncrypted) {
-      delete accounts[accountId].mnemonicEncrypted;
+
+  for (const [accountId, account] of Object.entries(accounts)) {
+    if (account.mnemonicEncrypted && !keepAccountIds.includes(accountId)) {
+      const { mnemonicEncrypted, ...rest } = account;
+      nextAccounts[accountId] = rest;
       hasChanges = true;
+    } else {
+      nextAccounts[accountId] = account;
     }
   }
 
   if (hasChanges) {
-    await storage.setItem('accounts', accounts);
+    await storage.setItem('accounts', nextAccounts);
   }
 }
 

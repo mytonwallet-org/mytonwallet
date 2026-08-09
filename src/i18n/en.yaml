@@ -1031,6 +1031,7 @@ $enclave_migration_damaged_message: |
   This is not a password problem. The stored data of one of your wallets cannot be read, so the update stopped and your other wallets stayed on the previous format.
 
   Do not reinstall the app and do not clear its data: that would erase the wallets that are still intact. Please contact %support_link% and we will help you recover them.
+$enclave_recovery_required_tooltip: Saved data of this wallet cannot be read. Do not clear the app data, and contact support to recover it.
 $enclave_migration_interrupted_title: Update Was Interrupted
 $enclave_migration_interrupted_message: |
   An earlier attempt to update your wallet data stopped halfway, and it cannot be resumed from this screen. Trying again here will not help.

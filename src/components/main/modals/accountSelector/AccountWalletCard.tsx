@@ -21,6 +21,7 @@ import useWindowSize from '../../../../hooks/useWindowSize';
 import useAccountContextMenu from './hooks/useAccountContextMenu';
 
 import DropdownMenu from '../../../ui/DropdownMenu';
+import IconWithTooltip from '../../../ui/IconWithTooltip';
 import MenuBackdrop from '../../../ui/MenuBackdrop';
 import SensitiveData from '../../../ui/SensitiveData';
 import getSensitiveDataMaskSkinFromCardNft from '../../sections/Card/helpers/getSensitiveDataMaskSkinFromCardNft';
@@ -35,6 +36,7 @@ interface OwnProps {
   visibleChains?: ApiChain[];
   accountType: AccountType;
   title?: string;
+  isRecoveryRequired?: true;
   balanceData?: {
     wholePart: string;
     fractionPart?: string;
@@ -59,6 +61,7 @@ function AccountWalletCard({
   visibleChains,
   accountType,
   title,
+  isRecoveryRequired,
   balanceData,
   cardBackgroundNft,
   withContextMenu,
@@ -215,7 +218,20 @@ function AccountWalletCard({
             onClick={handleContextMenu}
           />
         </div>
-        {title && <div className={styles.accountName}>{title}</div>}
+        {title && (
+          <div className={styles.accountName}>
+            {title}
+            {isRecoveryRequired && (
+              <IconWithTooltip
+                type="danger"
+                size="small"
+                message={lang('$enclave_recovery_required_tooltip')}
+                iconClassName={styles.recoveryIcon}
+                canHoverOnTooltip
+              />
+            )}
+          </div>
+        )}
         {withContextMenu && isContextMenuShown && (
           <DropdownMenu
             ref={menuRef}
