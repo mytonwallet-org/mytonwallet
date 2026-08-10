@@ -1737,6 +1737,9 @@ $enclave_migration_damaged_message: |
   这与密码无关。您其中一个钱包的存储数据无法读取，因此更新已停止，其余钱包仍保持先前的格式。
 
   请不要重新安装应用，也不要清除其数据，那会抹掉仍然完好的钱包。请联系 %support_link%，我们会帮您恢复。
+$enclave_recovery_required_tooltip: 该钱包的存储数据无法读取。请不要删除此钱包，也不要清除应用数据，并联系客服以恢复。
+$logout_recovery_required_warning: 该钱包的存储数据无法读取，因此无法显示它的密语。删除会销毁本设备上仅存的副本，没有密语将无法恢复。
+$logout_recovery_required_accounts_warning: "%links% 的存储数据无法读取，因此无法显示密语。删除会销毁这些钱包在本设备上仅存的副本，没有密语将无法恢复。"
 $enclave_migration_interrupted_title: 更新被中断
 $enclave_migration_interrupted_message: |
   先前一次更新钱包数据的尝试中途停止，无法从此页面继续。在这里重试不会有帮助。

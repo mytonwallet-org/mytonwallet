@@ -39,6 +39,7 @@ import { calculateFullBalance } from '../../util/calculateFullBalance';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
+import isViewAccount from '../../util/isViewAccount';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 import { openUrl } from '../../util/openUrl';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
@@ -513,7 +514,10 @@ function Settings({
 
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>
-            {hasPassword && !isViewMode && (
+            {/* Passcode and auto-lock belong to the profile rather than to one wallet, so this section keys off
+                the wallet type instead of the signing gate: a wallet whose secret cannot be read must not lose
+                the only way to reach them when it is the only wallet in the profile. */}
+            {hasPassword && !isViewAccount(accountType) && (
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleSecurityOpen}>
                 <img className={styles.menuIcon} src={securityImg} alt={lang('Security')} />
                 <div className={styles.itemContent}>

@@ -1742,6 +1742,9 @@ $enclave_migration_damaged_message: |
   Sorun parolada değil. Cüzdanlarınızdan birinin kayıtlı verileri okunamıyor, bu yüzden güncelleme durduruldu ve diğer cüzdanlarınız önceki biçiminde kaldı.
 
   Uygulamayı yeniden yüklemeyin ve verilerini temizlemeyin: bu, hâlâ sağlam olan cüzdanları siler. Lütfen %support_link% ile iletişime geçin, onları kurtarmanıza yardımcı olacağız.
+$enclave_recovery_required_tooltip: Bu cüzdanın kayıtlı verileri okunamıyor. Bu cüzdanı silmeyin ve uygulama verilerini temizlemeyin, kurtarmak için destek ile iletişime geçin.
+$logout_recovery_required_warning: Bu cüzdanın kayıtlı verileri okunamıyor, bu yüzden gizli kelimeleri gösterilemiyor. Silmek, bu cihazda kalan tek kopyayı yok eder ve gizli kelimeler olmadan cüzdan kurtarılamaz.
+$logout_recovery_required_accounts_warning: "%links% cüzdanlarının kayıtlı verileri okunamıyor, bu yüzden gizli kelimeler gösterilemiyor. Silmek, bu cihazda kalan tek kopyayı yok eder ve gizli kelimeler olmadan kurtarılamazlar."
 $enclave_migration_interrupted_title: Güncelleme Yarıda Kesildi
 $enclave_migration_interrupted_message: |
   Cüzdan verilerinizi güncellemeye yönelik önceki bir deneme yarıda kaldı ve bu ekrandan sürdürülemiyor. Burada tekrar denemek yardımcı olmaz.

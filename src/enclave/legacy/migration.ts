@@ -40,6 +40,8 @@ interface EnclaveBiometricInterface {
 export interface MigrationResult {
   session: EnclaveSession;
   privateKeyAccountIds: string[];
+  /** Accounts whose secret reached the Enclave, private keys included, so the ciphertext is no longer the only copy */
+  migratedAccountIds: string[];
   /** Accounts whose stored mnemonic stayed unreadable, so the Enclave holds no secret for them */
   unreadableAccountIds: string[];
 }
@@ -243,7 +245,12 @@ export async function migrateToEnclave(
     // refusing one more read rather than a dead end
     if (!session) return { error: 'storageFailure' };
 
-    return { session, privateKeyAccountIds, unreadableAccountIds };
+    return {
+      session,
+      privateKeyAccountIds,
+      migratedAccountIds: readable.map(({ accountId }) => accountId),
+      unreadableAccountIds,
+    };
   } catch (err: any) {
     logDebugError('migrateToEnclave', err);
     return { error: classifyThrownError(err) };
@@ -296,7 +303,12 @@ export async function migrateToEnclaveBiometric(
       await enclave.importSecret(accountId, mnemonic.join(' '), setupSession.token);
     }
 
-    return { session: { token: setupSession.token }, privateKeyAccountIds, unreadableAccountIds };
+    return {
+      session: { token: setupSession.token },
+      privateKeyAccountIds,
+      migratedAccountIds: readable.map(({ accountId }) => accountId),
+      unreadableAccountIds,
+    };
   } catch (err: any) {
     logDebugError('migrateToEnclaveBiometric', err);
     return { error: classifyThrownError(err) };

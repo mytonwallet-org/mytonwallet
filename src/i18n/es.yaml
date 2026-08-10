@@ -1747,6 +1747,9 @@ $enclave_migration_damaged_message: |
   No se trata de la contraseña. Los datos guardados de una de sus billeteras no se pueden leer, por eso la actualización se detuvo y el resto de sus billeteras permaneció en el formato anterior.
 
   No reinstale la aplicación ni borre sus datos: eso eliminaría las billeteras que aún están intactas. Por favor, contacte con %support_link% y le ayudaremos a recuperarlas.
+$enclave_recovery_required_tooltip: Los datos guardados de esta billetera no se pueden leer. No elimine esta billetera ni borre los datos de la aplicación, y contacte con el soporte para recuperarla.
+$logout_recovery_required_warning: Los datos guardados de esta billetera no se pueden leer, por eso no es posible mostrar sus frases secretas. Al eliminarla se destruye la única copia que queda en este dispositivo, y sin las frases secretas no se puede recuperar.
+$logout_recovery_required_accounts_warning: Los datos guardados de %links% no se pueden leer, por eso no es posible mostrar las frases secretas. Al eliminarlas se destruye la única copia de esas billeteras que queda en este dispositivo, y sin las frases secretas no se pueden recuperar.
 $enclave_migration_interrupted_title: La actualización se interrumpió
 $enclave_migration_interrupted_message: |
   Un intento anterior de actualizar los datos de su billetera se detuvo a la mitad y no se puede reanudar desde esta pantalla. Volver a intentarlo aquí no ayudará.

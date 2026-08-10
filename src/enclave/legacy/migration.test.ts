@@ -99,7 +99,12 @@ describe('migrateToEnclave', () => {
 
     const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
+    expect(outcome).toEqual({
+      session: SESSION,
+      privateKeyAccountIds: [],
+      migratedAccountIds: ['0-mainnet', '1-mainnet'],
+      unreadableAccountIds: [],
+    });
     expect(enclave.importSecret).toHaveBeenCalledTimes(2);
     expect(enclave.importSecret).toHaveBeenCalledWith('0-mainnet', MNEMONIC.join(' '), SESSION.token);
     expect(enclave.importSecret).toHaveBeenCalledWith('1-mainnet', MNEMONIC.join(' '), SESSION.token);
@@ -127,6 +132,7 @@ describe('migrateToEnclave', () => {
     expect(outcome).toEqual({
       session: SESSION,
       privateKeyAccountIds: [],
+      migratedAccountIds: ['1-mainnet'],
       unreadableAccountIds: ['0-mainnet'],
     });
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
@@ -145,6 +151,7 @@ describe('migrateToEnclave', () => {
     expect(outcome).toEqual({
       session: SESSION,
       privateKeyAccountIds: ['1-mainnet'],
+      migratedAccountIds: ['1-mainnet'],
       unreadableAccountIds: ['0-mainnet'],
     });
     expect(enclave.importSecret).toHaveBeenCalledWith('1-mainnet', PRIVATE_KEY, SESSION.token);
@@ -163,6 +170,7 @@ describe('migrateToEnclave', () => {
     expect(outcome).toEqual({
       session: SESSION,
       privateKeyAccountIds: [],
+      migratedAccountIds: ['0-mainnet', '2-mainnet'],
       unreadableAccountIds: ['1-mainnet'],
     });
     expect(enclave.importSecret).toHaveBeenCalledTimes(2);
@@ -205,6 +213,7 @@ describe('migrateToEnclave', () => {
     await expect(migrateToEnclave(accounts, PASSWORD, false, enclave)).resolves.toEqual({
       session: SESSION,
       privateKeyAccountIds: [],
+      migratedAccountIds: ['0-mainnet'],
       unreadableAccountIds: [],
     });
 
@@ -280,7 +289,12 @@ describe('migrateToEnclave', () => {
 
     const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
+    expect(outcome).toEqual({
+      session: SESSION,
+      privateKeyAccountIds: [],
+      migratedAccountIds: ['0-mainnet'],
+      unreadableAccountIds: [],
+    });
     expect(enclave.setupAuth).not.toHaveBeenCalled();
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
   });
@@ -293,7 +307,12 @@ describe('migrateToEnclaveBiometric', () => {
 
     const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
+    expect(outcome).toEqual({
+      session: SESSION,
+      privateKeyAccountIds: [],
+      migratedAccountIds: ['0-mainnet', '1-mainnet'],
+      unreadableAccountIds: [],
+    });
     expect(enclave.importSecret).toHaveBeenCalledTimes(2);
   });
 
@@ -319,6 +338,7 @@ describe('migrateToEnclaveBiometric', () => {
     expect(outcome).toEqual({
       session: { token: SESSION.token },
       privateKeyAccountIds: [],
+      migratedAccountIds: ['0-mainnet'],
       unreadableAccountIds: ['1-mainnet'],
     });
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
@@ -367,7 +387,12 @@ describe('migrateToEnclaveBiometric', () => {
 
     const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
 
-    expect(outcome).toEqual({ session: SESSION, privateKeyAccountIds: [], unreadableAccountIds: [] });
+    expect(outcome).toEqual({
+      session: SESSION,
+      privateKeyAccountIds: [],
+      migratedAccountIds: ['0-mainnet'],
+      unreadableAccountIds: [],
+    });
     expect(enclave.setupAuth).not.toHaveBeenCalled();
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
   });
