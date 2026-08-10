@@ -4,7 +4,7 @@ import type { Account, AccountSettings, AccountState, GlobalState, UserToken } f
 
 import { parseAccountId } from '../../util/account';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
-import isViewAccount from '../../util/isViewAccount';
+import isViewAccount, { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import memoize from '../../util/memoize';
 import withCache from '../../util/withCache';
 
@@ -255,9 +255,9 @@ export function selectIsAllowSuspiciousActions(global: GlobalState, accountId: s
 }
 
 export function selectIsCurrentAccountViewMode(global: GlobalState) {
-  const { type } = selectCurrentAccount(global) || {};
+  const account = selectCurrentAccount(global);
 
-  return isViewAccount(type);
+  return account ? getIsViewAccountDisabled(account) : isViewAccount();
 }
 
 export function selectSelectedHardwareAccountsSlow(global: GlobalState): ApiLedgerAccountInfo[] {

@@ -1751,6 +1751,9 @@ $enclave_migration_damaged_message: |
   Es liegt nicht am Passwort. Die gespeicherten Daten einer Ihrer Wallets können nicht gelesen werden, deshalb wurde das Update gestoppt und Ihre übrigen Wallets sind im bisherigen Format geblieben.
 
   Installieren Sie die App nicht neu und löschen Sie ihre Daten nicht: Damit würden die noch intakten Wallets gelöscht. Bitte wenden Sie sich an %support_link%, wir helfen Ihnen bei der Wiederherstellung.
+$enclave_recovery_required_tooltip: Die gespeicherten Daten dieser Wallet können nicht gelesen werden. Löschen Sie diese Wallet nicht und löschen Sie die App-Daten nicht, und wenden Sie sich an den Support, um sie wiederherzustellen.
+$logout_recovery_required_warning: Die gespeicherten Daten dieser Wallet können nicht gelesen werden, deshalb lassen sich ihre Geheimwörter nicht anzeigen. Beim Löschen geht die einzige auf diesem Gerät verbliebene Kopie verloren, und ohne die Geheimwörter lässt sich die Wallet nicht wiederherstellen.
+$logout_recovery_required_accounts_warning: Die gespeicherten Daten von %links% können nicht gelesen werden, deshalb lassen sich die Geheimwörter nicht anzeigen. Beim Löschen geht die einzige auf diesem Gerät verbliebene Kopie dieser Wallets verloren, und ohne die Geheimwörter lassen sie sich nicht wiederherstellen.
 $enclave_migration_interrupted_title: Update wurde unterbrochen
 $enclave_migration_interrupted_message: |
   Ein früherer Versuch, Ihre Wallet-Daten zu aktualisieren, ist auf halbem Weg stehen geblieben und lässt sich von diesem Bildschirm aus nicht fortsetzen. Ein erneuter Versuch hier hilft nicht.

@@ -1779,6 +1779,9 @@ $enclave_migration_damaged_message: |
   Nie chodzi o hasło. Zapisanych danych jednego z Twoich portfeli nie da się odczytać, dlatego aktualizacja została zatrzymana, a pozostałe portfele zostały w poprzednim formacie.
 
   Nie instaluj aplikacji ponownie i nie czyść jej danych: to usunęłoby portfele, które są jeszcze nienaruszone. Skontaktuj się z %support_link%, a pomożemy je odzyskać.
+$enclave_recovery_required_tooltip: Zapisanych danych tego portfela nie da się odczytać. Nie usuwaj tego portfela i nie czyść danych aplikacji, a w sprawie odzyskania skontaktuj się z pomocą techniczną.
+$logout_recovery_required_warning: Zapisanych danych tego portfela nie da się odczytać, więc nie można pokazać jego tajnych słów. Usunięcie niszczy jedyną kopię pozostałą na tym urządzeniu, a bez tajnych słów portfela nie da się odzyskać.
+$logout_recovery_required_accounts_warning: Zapisanych danych %links% nie da się odczytać, więc nie można pokazać tajnych słów. Usunięcie niszczy jedyną kopię tych portfeli pozostałą na tym urządzeniu, a bez tajnych słów nie da się ich odzyskać.
 $enclave_migration_interrupted_title: Aktualizacja została przerwana
 $enclave_migration_interrupted_message: |
   Wcześniejsza próba aktualizacji danych portfela zatrzymała się w połowie i nie można jej wznowić z tego ekranu. Ponowna próba tutaj nie pomoże.

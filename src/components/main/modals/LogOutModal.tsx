@@ -42,6 +42,7 @@ interface StateProps {
   accountStates: Record<string, AccountState>;
   isBackupRequired?: boolean;
   isViewMode: boolean;
+  isRecoveryRequired?: true;
 }
 
 interface LinkAccount {
@@ -57,6 +58,7 @@ function LogOutModal({
   accountStates,
   isBackupRequired,
   isViewMode,
+  isRecoveryRequired,
   isInAppLock,
   onClose,
 }: OwnProps & StateProps) {
@@ -81,6 +83,23 @@ function LogOutModal({
       return acc;
     }, []);
   }, [orderedAccounts, accountStates, accountId, hasManyAccounts]);
+
+  const recoveryRequiredAccounts = useMemo(() => {
+    if (!hasManyAccounts) {
+      return [];
+    }
+
+    return orderedAccounts.reduce<LinkAccount[]>((acc, [id, account]) => {
+      if (id !== accountId && account.isRecoveryRequired) {
+        acc.push({
+          id,
+          title: getAccountTitle(account) ?? '',
+        });
+      }
+
+      return acc;
+    }, []);
+  }, [orderedAccounts, accountId, hasManyAccounts]);
 
   useEffect(() => {
     if (isOpen) {
@@ -107,26 +126,25 @@ function LogOutModal({
     onClose(false);
   });
 
-  function renderAccountLink(account: LinkAccount, idx: number) {
+  function renderAccountLink(account: LinkAccount, idx: number, list: LinkAccount[]) {
     const { id, title } = account;
 
     const fullClassName = buildClassName(
       !isInAppLock && styles.accountLink,
-      idx + 2 === accountsWithoutBackups.length && styles.penultimate,
+      idx + 2 === list.length && styles.penultimate,
     );
 
     if (isInAppLock) {
       return (
-        <span className={fullClassName}>
+        <span key={id} className={fullClassName}>
           <strong>{title}</strong>
         </span>
       );
     }
 
     return (
-      <span className={fullClassName}>
+      <span key={id} className={fullClassName}>
         <a
-          key={id}
           href="#"
           className={styles.accountLink_inner}
           onClick={(e: React.MouseEvent) => {
@@ -159,6 +177,25 @@ function LogOutModal({
     );
   }
 
+  function renderRecoveryRequiredWarning() {
+    return (
+      <p className={modalStyles.text}>
+        <b className={styles.warning}>{lang('Warning!')}</b> {lang('$logout_recovery_required_warning')}
+      </p>
+    );
+  }
+
+  function renderRecoveryRequiredForAccountsWarning() {
+    return (
+      <p className={modalStyles.text}>
+        <b className={styles.warning}>{lang('Warning!')}</b>{' '}
+        {lang('$logout_recovery_required_accounts_warning', {
+          links: <>{recoveryRequiredAccounts.map(renderAccountLink)}</>,
+        })}
+      </p>
+    );
+  }
+
   const shouldRenderWarningForAnotherAccounts = isLogOutFromAllAccounts && accountsWithoutBackups.length > 0;
   const shouldRenderWarningForCurrentAccount = isBackupRequired && !shouldRenderWarningForAnotherAccounts;
 
@@ -171,7 +208,7 @@ function LogOutModal({
       isInAppLock={isInAppLock}
     >
       <p className={buildClassName(modalStyles.text, modalStyles.text_noExtraMargin)}>
-        {renderText(isViewMode
+        {renderText(isViewMode || isRecoveryRequired
           ? lang('$logout_current_wallet_warning')
           : `${lang('$logout_current_wallet_warning')} ${lang('$secret_words_backup_reminder')}`)}
       </p>
@@ -188,6 +225,8 @@ function LogOutModal({
 
       {shouldRenderWarningForCurrentAccount && renderBackupWarning()}
       {shouldRenderWarningForAnotherAccounts && renderBackupForAccountsWarning()}
+      {isRecoveryRequired && renderRecoveryRequiredWarning()}
+      {isLogOutFromAllAccounts && recoveryRequiredAccounts.length > 0 && renderRecoveryRequiredForAccountsWarning()}
 
       <div className={modalStyles.buttons}>
         <Button className={modalStyles.button} onClick={handleClose}>
@@ -221,6 +260,7 @@ export default memo(
       accountStates: global.byAccountId,
       isBackupRequired: targetAccountState?.isBackupRequired,
       isViewMode,
+      isRecoveryRequired: targetAccount?.isRecoveryRequired,
     };
   })(LogOutModal),
 );

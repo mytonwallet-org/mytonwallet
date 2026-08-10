@@ -1728,6 +1728,9 @@ $enclave_migration_damaged_message: |
   這與密碼無關。您其中一個錢包的儲存資料無法讀取，因此更新已停止，其餘錢包仍維持先前的格式。
 
   請不要重新安裝應用程式，也不要清除其資料，那會抹除仍然完好的錢包。請聯絡 %support_link%，我們會協助您復原。
+$enclave_recovery_required_tooltip: 此錢包的儲存資料無法讀取。請不要刪除此錢包，也不要清除應用程式資料，並聯絡客服以復原。
+$logout_recovery_required_warning: 此錢包的儲存資料無法讀取，因此無法顯示它的密語。刪除會銷毀本裝置上僅存的副本，沒有密語將無法復原。
+$logout_recovery_required_accounts_warning: "%links% 的儲存資料無法讀取，因此無法顯示密語。刪除會銷毀這些錢包在本裝置上僅存的副本，沒有密語將無法復原。"
 $enclave_migration_interrupted_title: 更新遭到中斷
 $enclave_migration_interrupted_message: |
   先前一次更新錢包資料的嘗試中途停止，無法從此畫面繼續。在這裡重試不會有幫助。

@@ -1392,6 +1392,21 @@ function reduceTypoDiagnosis(reason: MigrationErrorReason): MigrationErrorReason
 }
 
 /**
+ * The secrets live in the worker storage while the wallet list lives in the global state, and the two are
+ * known to diverge, so an account the list never learned about is passed over here: a mark that has nowhere
+ * to be drawn is not worth throwing away a migration that has already reached the Enclave.
+ */
+function markAccounts(global: GlobalState, accountIds: string[], partial: Partial<Account>) {
+  for (const accountId of accountIds) {
+    if (!selectAccount(global, accountId)) continue;
+
+    global = updateAccount(global, accountId, partial);
+  }
+
+  return global;
+}
+
+/**
  * A migrated profile that left wallets behind is the state support has to recognise, and the account
  * ids are the only thing that identifies which ones. The mark is what every screen reads to warn that
  * the wallet cannot sign until its secret is recovered.
@@ -1401,11 +1416,7 @@ function markUnreadableAccounts(global: GlobalState, context: string, accountIds
 
   logDebugError(context, `Migrated without secrets for accounts: ${accountIds.join(', ')}`);
 
-  for (const accountId of accountIds) {
-    global = updateAccount(global, accountId, { isRecoveryRequired: true });
-  }
-
-  return global;
+  return markAccounts(global, accountIds, { isRecoveryRequired: true });
 }
 
 /**
@@ -1449,18 +1460,16 @@ addActionHandler('migrateLegacyAuth', async (global, actions, payload: {
     return;
   }
 
-  const { session, privateKeyAccountIds, unreadableAccountIds } = migrationOutcome;
+  const { session, privateKeyAccountIds, migratedAccountIds, unreadableAccountIds } = migrationOutcome;
 
   global = getGlobal();
   global = { ...global, authTypes: ['passcode'], enclaveSession: session };
-  for (const accountId of privateKeyAccountIds) {
-    global = updateAccount(global, accountId, { isPrivateKeyBased: true });
-  }
+  global = markAccounts(global, privateKeyAccountIds, { isPrivateKeyBased: true });
   global = markUnreadableAccounts(global, 'migrateLegacyAuth', unreadableAccountIds);
   setGlobal(global);
 
   if (SHOULD_CLEANUP_LEGACY_AUTH) {
-    await callApi('cleanupLegacyAuthAfterMigration', unreadableAccountIds);
+    await callApi('cleanupLegacyAuthAfterMigration', migratedAccountIds);
   }
 
   onSuccess(session.token);
@@ -1490,6 +1499,7 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
 
   let session;
   let privateKeyAccountIds: string[] = [];
+  let migratedAccountIds: string[] = [];
   let unreadableAccountIds: string[] = [];
   let authTypes: ('passcode' | 'biometric')[];
 
@@ -1501,7 +1511,7 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
       return;
     }
 
-    ({ session, privateKeyAccountIds, unreadableAccountIds } = migrationOutcome);
+    ({ session, privateKeyAccountIds, migratedAccountIds, unreadableAccountIds } = migrationOutcome);
 
     // Add biometric as second auth method (don't replace passcode). The caller is handed the session
     // this mints rather than the one the migration returned, so the budget is declared here
@@ -1521,7 +1531,7 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
       return;
     }
 
-    ({ session, privateKeyAccountIds, unreadableAccountIds } = migrationOutcome);
+    ({ session, privateKeyAccountIds, migratedAccountIds, unreadableAccountIds } = migrationOutcome);
     // Legacy WebAuthn/electron-safe-storage users had a random password they don't know.
     // They remain biometric-only after migration. They can add a passcode via Settings > Change Password.
     authTypes = ['biometric'];
@@ -1529,14 +1539,12 @@ addActionHandler('migrateLegacyBiometricAuth', async (global, actions, payload: 
 
   global = getGlobal();
   global = { ...global, authTypes, enclaveSession: session };
-  for (const accountId of privateKeyAccountIds) {
-    global = updateAccount(global, accountId, { isPrivateKeyBased: true });
-  }
+  global = markAccounts(global, privateKeyAccountIds, { isPrivateKeyBased: true });
   global = markUnreadableAccounts(global, 'migrateLegacyBiometricAuth', unreadableAccountIds);
   setGlobal(global);
 
   if (SHOULD_CLEANUP_LEGACY_AUTH) {
-    await callApi('cleanupLegacyAuthAfterMigration', unreadableAccountIds);
+    await callApi('cleanupLegacyAuthAfterMigration', migratedAccountIds);
   }
 
   onSuccess(session.token);
