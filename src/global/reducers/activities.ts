@@ -48,10 +48,14 @@ export function addInitialActivities(
   // If the chain has already been marked as loaded and this update carries no data, skip the work
   // to avoid re-rendering on every retry of a persistently failing chain (per-chain pollings
   // emit empty `initialActivities` on each failed attempt to unblock `waitInitialActivityLoading`).
+  // Exception: an empty update that defines `mainHistoryHasMore` for the first time is a recovery
+  // after a failed attempt - it must be processed, otherwise `isMainHistoryEndReached` can never
+  // become true and an empty wallet keeps the loading spinner forever.
   if (
     areInitialActivitiesLoaded?.[chain]
     && mainActivities.length === 0
     && Object.keys(bySlug).length === 0
+    && (mainHistoryHasMore === undefined || mainHistoryHasMoreByChain?.[chain] !== undefined)
   ) {
     return global;
   }

@@ -194,6 +194,13 @@ function setupActivityPolling(
     throttledUpdate();
   }
 
+  // The balance stream skips uninitialized wallets (`ensureIsPollingNeeded`), so its updates -
+  // the only other trigger of `update()` - never fire for a fresh wallet. Without this initial
+  // load the chain never emits `initialActivities`, and the whole multi-chain feed waits for it.
+  if (newestConfirmedActivityTimestamp === undefined) {
+    update();
+  }
+
   return { update };
 }
 
