@@ -105,6 +105,42 @@ describe('addInitialActivities', () => {
 
     expect(global.byAccountId[ACCOUNT_ID].activities?.idsMain).toEqual(['ton-1000']);
   });
+
+  it('recovers end-of-history when a failed chain later reports an empty history', () => {
+    // A failed initial load emits an empty update without `mainHistoryHasMore`. When the chain
+    // recovers and reports an empty history with `mainHistoryHasMore=false`, that update carries
+    // new information and must not be skipped - otherwise an empty wallet keeps the loading
+    // spinner forever instead of showing the empty state.
+    let global = buildGlobal();
+
+    global = addInitialActivities(global, ACCOUNT_ID, [], {}, 'ton', false);
+    global = addInitialActivities(global, ACCOUNT_ID, [], {}, 'solana', undefined);
+
+    expect(global.byAccountId[ACCOUNT_ID].activities?.idsMain).toEqual([]);
+    expect(global.byAccountId[ACCOUNT_ID].activities?.isMainHistoryEndReached).toBeUndefined();
+
+    global = addInitialActivities(global, ACCOUNT_ID, [], {}, 'solana', false);
+
+    expect(global.byAccountId[ACCOUNT_ID].activities?.isMainHistoryEndReached).toBe(true);
+  });
+
+  it('skips uninformative empty re-emits of an already loaded chain', () => {
+    let global = buildGlobal();
+
+    global = addInitialActivities(global, ACCOUNT_ID, [], {}, 'ton', false);
+    global = addInitialActivities(global, ACCOUNT_ID, [], {}, 'solana', false);
+
+    expect(global.byAccountId[ACCOUNT_ID].activities?.isMainHistoryEndReached).toBe(true);
+
+    const prevGlobal = global;
+    // A failed re-emit (no `mainHistoryHasMore`) must not degrade the reached state
+    global = addInitialActivities(global, ACCOUNT_ID, [], {}, 'solana', undefined);
+    expect(global).toBe(prevGlobal);
+
+    // A repeated successful empty emit carries no new information either
+    global = addInitialActivities(global, ACCOUNT_ID, [], {}, 'solana', false);
+    expect(global).toBe(prevGlobal);
+  });
 });
 
 describe('addPastActivities main feed', () => {

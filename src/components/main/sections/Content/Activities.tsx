@@ -110,6 +110,7 @@ interface ItemPosition {
 }
 
 const FURTHER_SLICE = 30;
+const LOAD_RETRY_INTERVAL = 10000; // 10 sec
 
 const LIST_TOP_PADDING = 0.5; // rem
 const DATE_HEADER_HEIGHT = 2.125; // rem
@@ -261,10 +262,17 @@ function Activities({
 
   // Requests the history when the UI shows a spinner instead of the list.
   // Keeps requesting the history when all the currently loaded activities are hidden.
+  // Retries on an interval, because a failed request finishes silently with no state change -
+  // without a retry the spinner would stay forever (nothing else re-triggers the load).
   useEffect(() => {
-    if (!listItemIds?.length) {
-      loadMore();
+    if (listItemIds?.length) {
+      return undefined;
     }
+
+    loadMore();
+    const intervalId = window.setInterval(loadMore, LOAD_RETRY_INTERVAL);
+
+    return () => window.clearInterval(intervalId);
   }, [slug, allActivityIds, listItemIds, loadMore]);
 
   // Reset scroll and scroll tracking when the tab becomes inactive
