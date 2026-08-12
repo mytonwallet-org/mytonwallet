@@ -265,7 +265,7 @@ function Activities({
   // Retries on an interval, because a failed request finishes silently with no state change -
   // without a retry the spinner would stay forever (nothing else re-triggers the load).
   useEffect(() => {
-    if (listItemIds?.length) {
+    if (listItemIds?.length || isHistoryEndReached) {
       return undefined;
     }
 
@@ -273,7 +273,7 @@ function Activities({
     const intervalId = window.setInterval(loadMore, LOAD_RETRY_INTERVAL);
 
     return () => window.clearInterval(intervalId);
-  }, [slug, allActivityIds, listItemIds, loadMore]);
+  }, [slug, allActivityIds, listItemIds, isHistoryEndReached, loadMore]);
 
   // Reset scroll and scroll tracking when the tab becomes inactive
   useEffect(() => {
