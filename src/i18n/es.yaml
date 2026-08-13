@@ -1021,11 +1021,6 @@ No additional data.: No hay datos adicionales.
 $in_currency: en %currency%
 Rename Wallet: Renombrar monedero
 You can rename this wallet for easier identification.: Puedes renombrar este monedero para identificarlo más fácilmente.
-$storage_cleared_title: Almacenamiento de la aplicación borrado
-$storage_cleared_message: |
-  Los datos de su billetera han sido borrados debido a problemas del navegador o de espacio en disco. Por favor, cierre sesión de todas las billeteras y luego impórtelas manualmente usando sus palabras secretas.
-
-  Si necesita asistencia, por favor contacte a %support_link%.
 Telegram Gifts: Regalos de Telegram
 Collectibles: Coleccionables
 Bluetooth unavailable: Bluetooth no disponible
@@ -1755,10 +1750,5 @@ $enclave_migration_interrupted_message: |
   Un intento anterior de actualizar los datos de su billetera se detuvo a la mitad y no se puede reanudar desde esta pantalla. Volver a intentarlo aquí no ayudará.
 
   No reinstale la aplicación ni borre sus datos: sus billeteras siguen guardadas en este dispositivo. Por favor, contacte con %support_link% y le ayudaremos a completar la actualización.
-$enclave_migration_storage_title: No se pudieron guardar los datos de la billetera
-$enclave_migration_storage_message: |
-  Los datos actualizados de la billetera no se pudieron guardar en este dispositivo. Liberar algo de espacio en disco puede ayudar.
-
-  No reinstale la aplicación ni borre sus datos: sus billeteras siguen guardadas en él. Si esto se repite, por favor contacte con %support_link%.
 Hide Unverified NFTs: Ocultar NFTs No Verificados
 Unverified: No Verificados

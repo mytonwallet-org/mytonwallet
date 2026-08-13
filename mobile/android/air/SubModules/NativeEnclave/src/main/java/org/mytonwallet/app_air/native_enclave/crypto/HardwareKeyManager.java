@@ -1,7 +1,5 @@
 package org.mytonwallet.app_air.native_enclave.crypto;
 
-import android.app.KeyguardManager;
-import android.content.Context;
 import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
@@ -28,8 +26,7 @@ public class HardwareKeyManager {
 
     // --- Data key: automatic encrypt/decrypt (no user auth) ---
 
-    public static String encrypt(Context context, String plaintext) throws Exception {
-        requireDeviceUnlocked(context);
+    public static String encrypt(String plaintext) throws Exception {
         try {
             SecretKey key = getOrCreateDataKey();
             Cipher cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION);
@@ -39,12 +36,11 @@ public class HardwareKeyManager {
             return Base64.encodeToString(iv, Base64.NO_WRAP)
                 + ":" + Base64.encodeToString(ciphertext, Base64.NO_WRAP);
         } catch (Exception e) {
-            throw normalizeCryptoException(context, e);
+            throw normalizeCryptoException(e);
         }
     }
 
-    public static String decrypt(Context context, String encrypted) throws Exception {
-        requireDeviceUnlocked(context);
+    public static String decrypt(String encrypted) throws Exception {
         try {
             String[] parts = encrypted.split(":", 2);
             byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
@@ -54,13 +50,7 @@ public class HardwareKeyManager {
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
             return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw normalizeCryptoException(context, e);
-        }
-    }
-
-    public static void requireDeviceUnlocked(Context context) throws DeviceLockedException {
-        if (isDeviceLocked(context)) {
-            throw new DeviceLockedException();
+            throw normalizeCryptoException(e);
         }
     }
 
@@ -116,17 +106,11 @@ public class HardwareKeyManager {
         return kg.generateKey();
     }
 
-    private static Exception normalizeCryptoException(Context context, Exception exception) {
-        if (isDeviceLocked(context) || requiresUserAuthentication(exception)) {
+    private static Exception normalizeCryptoException(Exception exception) {
+        if (requiresUserAuthentication(exception)) {
             return new DeviceLockedException(exception);
         }
         return exception;
-    }
-
-    private static boolean isDeviceLocked(Context context) {
-        KeyguardManager keyguardManager =
-            (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
-        return keyguardManager != null && keyguardManager.isDeviceLocked();
     }
 
     private static boolean requiresUserAuthentication(Throwable throwable) {

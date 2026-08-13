@@ -13,7 +13,6 @@ import {
 import { parseAccountId } from '../../util/account';
 import chains from '../chains';
 import {
-  fetchStoredAccounts,
   fetchStoredAddress,
 } from '../common/accounts';
 import * as dappPromises from '../common/dappPromises';
@@ -29,20 +28,6 @@ export async function fetchMnemonic(accountId: string, enclaveToken: string) {
 
 export function getMnemonicWordList() {
   return tonWebMnemonic.wordlists.default;
-}
-
-export async function checkWorkerStorageIntegrity(): Promise<boolean> {
-  /*
-    This method is intended to check if the worker storage is corrupted due to known
-    behavior of browsers (at least Chromium-based ones).
-    Several users reported that their storage was corrupted on Android too.
-  */
-  try {
-    const accounts = await fetchStoredAccounts();
-    return !!accounts && typeof accounts === 'object' && Object.keys(accounts).length > 0;
-  } catch {
-    return false;
-  }
 }
 
 export function confirmDappRequest(promiseId: string, enclaveToken?: string) {

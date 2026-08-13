@@ -11,9 +11,12 @@ export {
 export {
   checkIsMigrationFailure,
   decryptLegacyMnemonic,
+  describeThrownError,
   migrateToEnclave,
   migrateToEnclaveBiometric,
   type LegacyAccountWithMnemonic,
-  type MigrationErrorReason,
+  type MigrationErrorCause,
+  type MigrationFailureReason,
   type MigrationOutcome,
+  type MigrationStep,
 } from './migration';

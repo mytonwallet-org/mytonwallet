@@ -5,7 +5,14 @@ import directEnclave from './providers/direct/connector';
 import * as legacyMigration from './legacyMigration';
 
 export type { LegacyAuthConfig } from './legacyMigration';
-export { checkIsMigrationFailure, type MigrationErrorReason, type MigrationOutcome } from './legacy';
+export {
+  checkIsMigrationFailure,
+  describeThrownError,
+  type MigrationErrorCause,
+  type MigrationFailureReason,
+  type MigrationOutcome,
+  type MigrationStep,
+} from './legacy';
 export { getTokenAuthType } from './enclave';
 
 const enclave: typeof EnclaveApi = directEnclave;

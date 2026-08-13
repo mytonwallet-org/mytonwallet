@@ -1024,11 +1024,6 @@ No additional data.: Keine zusätzlichen Daten.
 $in_currency: in %currency%
 Rename Wallet: Wallet umbenennen
 You can rename this wallet for easier identification.: Sie können dieses Wallet zur besseren Erkennung umbenennen.
-$storage_cleared_title: Anwendungsspeicher gelöscht
-$storage_cleared_message: |
-  Ihre Wallet-Daten wurden aufgrund von Browser- oder Speicherplatz-Problemen gelöscht. Bitte loggen Sie sich aus allen Wallets aus und importieren Sie sie dann manuell mit Ihren geheimen Wörtern erneut.
-
-  Wenn Sie Unterstützung benötigen, kontaktieren Sie bitte %support_link%.
 Telegram Gifts: Telegram-Geschenke
 Collectibles: Sammlerstücke
 Bluetooth unavailable: Bluetooth nicht verfügbar
@@ -1759,10 +1754,5 @@ $enclave_migration_interrupted_message: |
   Ein früherer Versuch, Ihre Wallet-Daten zu aktualisieren, ist auf halbem Weg stehen geblieben und lässt sich von diesem Bildschirm aus nicht fortsetzen. Ein erneuter Versuch hier hilft nicht.
 
   Installieren Sie die App nicht neu und löschen Sie ihre Daten nicht: Ihre Wallets sind weiterhin auf diesem Gerät gespeichert. Bitte wenden Sie sich an %support_link%, wir helfen Ihnen, das Update abzuschließen.
-$enclave_migration_storage_title: Wallet-Daten konnten nicht gespeichert werden
-$enclave_migration_storage_message: |
-  Die aktualisierten Wallet-Daten konnten auf diesem Gerät nicht gespeichert werden. Etwas Speicherplatz freizugeben kann helfen.
-
-  Installieren Sie die App nicht neu und löschen Sie ihre Daten nicht: Ihre Wallets sind weiterhin darauf gespeichert. Wenn das wiederholt passiert, wenden Sie sich bitte an %support_link%.
 Hide Unverified NFTs: Ungeprüfte NFTs ausblenden
 Unverified: Ungeprüft

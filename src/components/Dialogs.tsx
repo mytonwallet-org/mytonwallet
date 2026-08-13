@@ -92,13 +92,6 @@ export default memo(withGlobal(
 
 function executeDialogAction(action: DialogAction, dialog: DialogType) {
   switch (action) {
-    case 'signOutAll': {
-      const { signOut } = getActions();
-
-      signOut({ level: 'all' });
-      break;
-    }
-
     case 'openReturnUrl': {
       getActions().closeLoadingOverlay();
       // Close the wake placeholder skeleton (if any) when returning to the dapp.

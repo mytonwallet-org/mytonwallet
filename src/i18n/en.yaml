@@ -1021,11 +1021,6 @@ No additional data.: No additional data.
 $in_currency: in %currency%
 Rename Wallet: Rename Wallet
 You can rename this wallet for easier identification.: You can rename this wallet for easier identification.
-$storage_cleared_title: Application Storage Cleared
-$storage_cleared_message: |
-  Your wallet data has been cleared due to browser-related or disk space issues. Please log out from all wallets and then re-import them manually using your secret words.
-
-  If you need assistance, please contact %support_link%.
 $enclave_migration_damaged_title: Wallet Data Damaged
 $enclave_migration_damaged_message: |
   This is not a password problem. The stored data of one of your wallets cannot be read, so the update stopped and your other wallets stayed on the previous format.
@@ -1039,11 +1034,21 @@ $enclave_migration_interrupted_message: |
   An earlier attempt to update your wallet data stopped halfway, and it cannot be resumed from this screen. Trying again here will not help.
 
   Do not reinstall the app and do not clear its data: your wallets are still stored on this device. Please contact %support_link% and we will help you finish the update.
-$enclave_migration_storage_title: Unable to Save Wallet Data
-$enclave_migration_storage_message: |
-  The updated wallet data could not be saved on this device. Freeing up some disk space may help.
+$enclave_migration_unexpected_title: Update Could Not Be Completed
+$enclave_migration_unexpected_message: |
+  The update to your wallet data stopped on an unexpected error, and the app cannot tell what caused it. Nothing has been deleted: every wallet is still stored on this device.
 
-  Do not reinstall the app and do not clear its data: your wallets are still stored on it. Please contact %support_link% if this keeps happening.
+  Close this message and try again - another attempt cannot harm your wallets. If it keeps stopping, do not reinstall the app and do not clear its data, and send this code to %support_link%: %error_code%
+$enclave_migration_retry_title: Update Did Not Finish
+$enclave_migration_retry_message: |
+  The update to your wallet data stopped before it finished. Nothing has been deleted: every wallet is still stored on this device.
+
+  Close this message and try again - another attempt cannot harm your wallets. If it keeps stopping, do not reinstall the app and do not clear its data, and send this code to %support_link%: %error_code%
+$enclave_migration_storage_full_title: Not Enough Space
+$enclave_migration_storage_full_message: |
+  The update to your wallet data needs more free space than this device has left, so it stopped. Nothing has been deleted: every wallet is still stored on this device.
+
+  Free up some space and open the app again. Do not reinstall the app and do not clear its data: that would erase the wallets that are still intact.
 Telegram Gifts: Telegram Gifts
 Collectibles: Collectibles
 Bluetooth unavailable: Bluetooth unavailable

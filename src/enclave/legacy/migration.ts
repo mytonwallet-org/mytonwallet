@@ -1,8 +1,8 @@
 import type { EnclaveSession } from '../../global/types';
+import type { EnclaveErrorCode } from '../errors';
 
 import { PRIVATE_KEY_HEX_LENGTH } from '../../config';
 import { logDebugError } from '../../util/logs';
-import { EnclaveError } from '../errors';
 
 export interface LegacyAccountWithMnemonic {
   accountId: string;
@@ -10,13 +10,13 @@ export interface LegacyAccountWithMnemonic {
 }
 
 interface EnclavePasscodeInterface {
-  setupAuth: (authType: 'passcode', passcode: string) => Promise<EnclaveSession | undefined>;
+  setupAuth: (authType: 'passcode', passcode: string) => Promise<EnclaveSession>;
   authorize: (
     authType: 'passcode',
     isLong: boolean,
     passcode: string,
     usageCount?: number,
-  ) => Promise<EnclaveSession | undefined>;
+  ) => Promise<EnclaveSession>;
   isAuthProvisioned: (authType: 'passcode') => Promise<boolean>;
   importSecret: (id: string, secret: string, token: string) => Promise<void>;
 }
@@ -26,13 +26,13 @@ interface EnclaveBiometricInterface {
     authType: 'biometric',
     isLong?: boolean,
     usageCount?: number,
-  ) => Promise<EnclaveSession | undefined>;
+  ) => Promise<EnclaveSession>;
   authorize: (
     authType: 'biometric',
     isLong?: boolean,
     passcode?: undefined,
     usageCount?: number,
-  ) => Promise<EnclaveSession | undefined>;
+  ) => Promise<EnclaveSession>;
   isAuthProvisioned: (authType: 'biometric') => Promise<boolean>;
   importSecret: (id: string, secret: string, token: string) => Promise<void>;
 }
@@ -56,14 +56,38 @@ interface ReadableAccount {
  * these describe a password that opened nothing: from the passcode screen that is indistinguishable
  * from a typo, while a password taken from a platform store leaves the stored ciphertext to blame.
  */
-export type MigrationErrorReason =
-  | 'wrongPassword'
-  | 'damagedData'
-  | 'interrupted'
-  | 'storageFailure';
+export type MigrationFailureReason =
+  /** Established: every stored ciphertext refused this password. */
+  | { kind: 'passwordOpenedNothing' }
+  /** Established: a prompt the migration cannot proceed without was dismissed. */
+  | { kind: 'canceled' }
+  /** Established: the device refused a write for want of room, the one storage cause it names. */
+  | { kind: 'storageFull' }
+  /** Established by name, and a second attempt from this screen can clear it. */
+  | { kind: 'retryable'; cause: MigrationErrorCause }
+  /** Established by name, and no attempt from this screen gets past it. */
+  | { kind: 'blocked'; cause: MigrationErrorCause }
+  /** Not established, and saying so is the point. */
+  | { kind: 'unexpected'; cause: MigrationErrorCause };
+
+/** Structured-cloneable on purpose: the migration is reached across the worker bridge */
+export interface MigrationErrorCause {
+  step: MigrationStep;
+  /** The `EnclaveErrorCode` where the enclave named the failure, otherwise the platform error name */
+  name: string;
+  message: string;
+}
+
+/**
+ * Where a migration was when it stopped. The last two lie outside `migrateToEnclave*`, in the handler
+ * that fetches the legacy password and adds the second auth method afterwards - those calls stop a
+ * migration just as squarely, and a stopped migration has to name its step wherever it happened.
+ */
+export type MigrationStep =
+  | 'read' | 'provision' | 'authorize' | 'import' | 'finalSession' | 'legacyPassword' | 'secondAuth';
 
 export interface MigrationFailure {
-  error: MigrationErrorReason;
+  error: MigrationFailureReason;
 }
 
 export type MigrationOutcome = MigrationResult | MigrationFailure;
@@ -86,14 +110,86 @@ export function checkIsMigrationFailure(outcome: MigrationOutcome): outcome is M
   return 'error' in outcome;
 }
 
+const ENCLAVE_ERROR_CODES: ReadonlySet<string> = new Set<EnclaveErrorCode>([
+  'auth_already_configured',
+  'auth_setup_in_progress',
+  'auth_not_configured',
+  'session_expired',
+  'unknown_token',
+  'master_key_missing',
+  'secret_missing',
+]);
+
+/** The names a dismissed platform prompt arrives under, whichever API raised it */
+const CANCELLATION_ERROR_NAMES: ReadonlySet<string> = new Set(['NotAllowedError', 'AbortError']);
+
 /**
- * A retry resumes onto an already provisioned auth of the same type, so this code now escapes only
- * when a master key exists under a different one, which no attempt from the password screen gets past.
+ * Sorts a throw by what it establishes. A cause the thrower named is answered on that name; only a
+ * cause nobody can name from the evidence is carried out as unclassified, which is what the screen
+ * then says out loud. Guessing in either direction misleads: inventing a verdict sends the user after
+ * a problem they do not have, and discarding a name the enclave or the platform already supplied
+ * withholds the one instruction that would help.
  */
-function classifyThrownError(err: unknown): MigrationErrorReason {
-  return err instanceof EnclaveError && err.code === 'auth_already_configured'
-    ? 'interrupted'
-    : 'storageFailure';
+export function describeThrownError(err: unknown, step: MigrationStep): MigrationFailureReason {
+  const cause = buildErrorCause(err, step);
+  const code = getEnclaveErrorCode(err);
+
+  if (code) {
+    return describeEnclaveError(code, cause);
+  }
+
+  if (CANCELLATION_ERROR_NAMES.has(cause.name)) {
+    return { kind: 'canceled' };
+  }
+
+  // The numeric `DOMException.code` is not an `EnclaveErrorCode`, so the name is what carries this
+  if (cause.name === 'QuotaExceededError') {
+    return { kind: 'storageFull' };
+  }
+
+  return { kind: 'unexpected', cause };
+}
+
+/**
+ * Exhaustive on purpose: a code added to `EnclaveErrorCode` stops compiling here until someone says
+ * whether a second attempt from this screen can clear it.
+ */
+function describeEnclaveError(code: EnclaveErrorCode, cause: MigrationErrorCause): MigrationFailureReason {
+  switch (code) {
+    case 'auth_setup_in_progress':
+    case 'session_expired':
+    case 'unknown_token':
+      return { kind: 'retryable', cause };
+
+    case 'auth_already_configured':
+    case 'auth_not_configured':
+    case 'master_key_missing':
+    case 'secret_missing':
+      return { kind: 'blocked', cause };
+  }
+}
+
+function buildErrorCause(err: unknown, step: MigrationStep): MigrationErrorCause {
+  const error = err as { name?: unknown; message?: unknown } | undefined;
+
+  return {
+    step,
+    name: getEnclaveErrorCode(err) ?? (typeof error?.name === 'string' ? error.name : 'Error'),
+    message: typeof error?.message === 'string' ? error.message : String(err),
+  };
+}
+
+/**
+ * Read off the property rather than through `instanceof`: an error that crossed the worker bridge is
+ * rebuilt as a plain `Error` with the code copied and the class lost, and an enclave that ever answers
+ * from the other side would silently stop matching. Membership is what separates a code the enclave
+ * minted from a `code` any platform error may carry - an `ENOENT` or an `UNAVAILABLE` from a native
+ * bridge would otherwise reach support looking like a verdict the enclave had reached.
+ */
+function getEnclaveErrorCode(err: unknown): EnclaveErrorCode | undefined {
+  const code = (err as { code?: unknown } | undefined)?.code;
+
+  return typeof code === 'string' && ENCLAVE_ERROR_CODES.has(code) ? code as EnclaveErrorCode : undefined;
 }
 
 function checkIsPrivateKey(mnemonic: string[]): boolean {
@@ -193,57 +289,54 @@ export async function migrateToEnclave(
   /** Secret reads the operation behind the password entry needs from the session it is handed */
   usageCount?: number,
 ): Promise<MigrationOutcome> {
-  // Every step below stays inside the catch so that a throw is classified rather than surfaced raw
+  // Every step below stays inside the catch so that a throw is described rather than surfaced raw
+  let step: MigrationStep = 'read';
+
   try {
     const { readable, unreadableAccountIds } = await readMnemonics(legacyAccounts, password);
 
     // A password that opened nothing is far more likely mistyped than facing a profile that is damaged
     // end to end, and the retryable diagnosis is the only one that does not steer the user towards
-    // wiping wallets that a second attempt would have migrated
-    if (legacyAccounts.length > 0 && !readable.length) {
-      return { error: 'wrongPassword' };
+    // wiping wallets that a second attempt would have migrated. Nothing readable also covers an empty
+    // account list, which must not reach the write below: it would mint a master key over no secrets
+    // at all, a state only a later release could untangle.
+    if (!readable.length) {
+      return { error: { kind: 'passwordOpenedNothing' } };
     }
 
     const privateKeyAccountIds = readable
       .filter(({ mnemonic }) => checkIsPrivateKey(mnemonic))
       .map(({ accountId }) => accountId);
 
-    // Held until every mnemonic is in hand, because this is the first step that writes: reaching it with
-    // nothing readable would leave an auth with no secrets under it, which is a state only a later
-    // release could untangle. The early return above is what rules that out.
+    // Held until every mnemonic is in hand, because this is the first step that writes.
     // A retry after a partially imported migration finds the auth already provisioned. Setting it up again
     // would mint a master key over the secrets imported by the previous attempt, so resume instead.
-    // The token it yields is discarded, since the imports below run under a session of their own, so
-    // this call only has to prove that the auth is usable.
-    const setupSession = await enclave.isAuthProvisioned('passcode')
-      ? await enclave.authorize('passcode', false, password)
-      : await enclave.setupAuth('passcode', password);
-    if (!setupSession) {
-      logDebugError('migrateToEnclave', 'Failed to setup enclave auth');
-      return { error: 'storageFailure' };
+    // Resuming already derives a key from the password, so that session is the one the imports run
+    // under; deriving a second would cost another PBKDF2 pass over 100 000 iterations for nothing.
+    step = 'provision';
+    const resumedSession = await enclave.isAuthProvisioned('passcode')
+      ? await enclave.authorize('passcode', false, password, readable.length)
+      : undefined;
+
+    if (!resumedSession) {
+      await enclave.setupAuth('passcode', password);
     }
 
     // Scope the import session to exactly as many usages as imports instead of a 5-minute window. The
     // budget counts what is actually imported, not what is stored: an unreadable account spends nothing,
     // and over-counting would hand out a session wider than the work it covers.
-    if (readable.length) {
-      const importSession = await enclave.authorize('passcode', false, password, readable.length);
-      if (!importSession) {
-        logDebugError('migrateToEnclave', 'Failed to authorize for imports');
-        return { error: 'storageFailure' };
-      }
+    step = 'authorize';
+    const importSession = resumedSession ?? await enclave.authorize('passcode', false, password, readable.length);
 
-      for (const { accountId, mnemonic } of readable) {
-        await enclave.importSecret(accountId, mnemonic.join(' '), importSession.token);
-      }
+    step = 'import';
+    for (const { accountId, mnemonic } of readable) {
+      await enclave.importSecret(accountId, mnemonic.join(' '), importSession.token);
     }
 
     // Issue a separate session for the caller, honouring the "remember me" preference and whatever
     // budget the operation behind the password entry declared
+    step = 'finalSession';
     const session = await enclave.authorize('passcode', isLongSession, password, usageCount);
-    // Everything is committed by now and the next attempt resumes onto it, so this is the storage
-    // refusing one more read rather than a dead end
-    if (!session) return { error: 'storageFailure' };
 
     return {
       session,
@@ -253,7 +346,7 @@ export async function migrateToEnclave(
     };
   } catch (err: any) {
     logDebugError('migrateToEnclave', err);
-    return { error: classifyThrownError(err) };
+    return { error: describeThrownError(err, step) };
   }
 }
 
@@ -268,37 +361,38 @@ export async function migrateToEnclaveBiometric(
   /** Secret reads the operation behind the password entry needs from the session it is handed */
   usageCount = 1,
 ): Promise<MigrationOutcome> {
-  // Every step below stays inside the catch so that a throw is classified rather than surfaced raw
+  // Every step below stays inside the catch so that a throw is described rather than surfaced raw
+  let step: MigrationStep = 'read';
+
   try {
     const { readable, unreadableAccountIds } = await readMnemonics(legacyAccounts, legacyPassword);
 
     // The password came from the biometric store rather than from a keyboard, so a typo is not among
-    // the explanations and there is nothing for the user to retype
-    if (legacyAccounts.length > 0 && !readable.length) {
-      return { error: 'damagedData' };
+    // the explanations and there is nothing for the user to retype. Which of the two things to say
+    // is the presenter's to decide, since only it knows where the password came from. Nothing readable
+    // also covers an empty account list, which must not reach the write below: it would mint a master
+    // key over no secrets at all, a state only a later release could untangle.
+    if (!readable.length) {
+      return { error: { kind: 'passwordOpenedNothing' } };
     }
 
     const privateKeyAccountIds = readable
       .filter(({ mnemonic }) => checkIsPrivateKey(mnemonic))
       .map(({ accountId }) => accountId);
 
-    // Held until every mnemonic is in hand, because this is the first step that writes: reaching it with
-    // nothing readable would leave an auth with no secrets under it, which is a state only a later
-    // release could untangle. The early return above is what rules that out.
+    // Held until every mnemonic is in hand, because this is the first step that writes.
     // Budget: one usage per import plus whatever the caller needs, which receives this very session
     // and would otherwise get a token that is already spent by the time the migration returns. Imports
     // are counted over readable accounts alone, since an unreadable one never reaches the enclave.
     // A retry after a partially imported migration finds the auth already provisioned. Setting it up again
     // would mint a master key over the secrets imported by the previous attempt, so resume instead.
     const sessionUsageCount = readable.length + usageCount;
-    const setupSession = await enclave.isAuthProvisioned('biometric')
-      ? await enclave.authorize('biometric', false, undefined, sessionUsageCount)
-      : await enclave.setupAuth('biometric', false, sessionUsageCount);
-    if (!setupSession) {
-      logDebugError('migrateToEnclaveBiometric', 'Failed to setup enclave biometric auth');
-      return { error: 'storageFailure' };
-    }
+    step = 'provision';
+    const setupSession = await (await enclave.isAuthProvisioned('biometric')
+      ? enclave.authorize('biometric', false, undefined, sessionUsageCount)
+      : enclave.setupAuth('biometric', false, sessionUsageCount));
 
+    step = 'import';
     for (const { accountId, mnemonic } of readable) {
       await enclave.importSecret(accountId, mnemonic.join(' '), setupSession.token);
     }
@@ -311,6 +405,6 @@ export async function migrateToEnclaveBiometric(
     };
   } catch (err: any) {
     logDebugError('migrateToEnclaveBiometric', err);
-    return { error: classifyThrownError(err) };
+    return { error: describeThrownError(err, step) };
   }
 }

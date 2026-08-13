@@ -115,7 +115,7 @@ describe('migrateToEnclave', () => {
 
     const outcome = await migrateToEnclave(accounts, OTHER_PASSWORD, false, createPasscodeEnclave());
 
-    expect(outcome).toEqual({ error: 'wrongPassword' });
+    expect(outcome).toEqual({ error: { kind: 'passwordOpenedNothing' } });
   });
 
   // The account that happens to come first carries no special meaning, so its refusal must not end a
@@ -200,7 +200,7 @@ describe('migrateToEnclave', () => {
 
     const outcome = await migrateToEnclave(accounts, OTHER_PASSWORD, false, createPasscodeEnclave());
 
-    expect(outcome).toEqual({ error: 'wrongPassword' });
+    expect(outcome).toEqual({ error: { kind: 'passwordOpenedNothing' } });
   });
 
   it('treats the oldest ciphertext format as a readable mnemonic', async () => {
@@ -219,7 +219,7 @@ describe('migrateToEnclave', () => {
 
     // A refusal of that format has to read as a wrong password rather than as a storage fault
     await expect(migrateToEnclave(accounts, OTHER_PASSWORD, false, enclave)).resolves.toEqual({
-      error: 'wrongPassword',
+      error: { kind: 'passwordOpenedNothing' },
     });
   });
 
@@ -233,52 +233,25 @@ describe('migrateToEnclave', () => {
 
     const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
 
-    expect(outcome).toEqual({ error: 'interrupted' });
+    expect(outcome).toEqual({
+      error: {
+        kind: 'blocked',
+        cause: { step: 'provision', name: 'auth_already_configured', message: 'Enclave: auth is already configured' },
+      },
+    });
   });
 
-  it('reports a refused setup as a storage failure', async () => {
-    const accounts = [await createAccount('0-mainnet', PASSWORD)];
-    const enclave = createPasscodeEnclave({ setupAuth: jest.fn(() => Promise.resolve(undefined)) });
-
-    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
-
-    expect(outcome).toEqual({ error: 'storageFailure' });
-  });
-
-  it('reports a refused import session as a storage failure', async () => {
-    const accounts = [await createAccount('0-mainnet', PASSWORD)];
-    const enclave = createPasscodeEnclave({ authorize: jest.fn(() => Promise.resolve(undefined)) });
-
-    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
-
-    expect(outcome).toEqual({ error: 'storageFailure' });
-  });
-
-  it('reports a rejected import as a storage failure', async () => {
+  it('reports a rejected import as unclassified, carrying what threw', async () => {
     const accounts = [await createAccount('0-mainnet', PASSWORD)];
     const enclave = createPasscodeEnclave({
-      importSecret: jest.fn(() => Promise.reject(new Error('QuotaExceededError'))),
+      importSecret: jest.fn(() => Promise.reject(new Error('boom'))),
     });
 
     const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
 
-    expect(outcome).toEqual({ error: 'storageFailure' });
-  });
-
-  it('reports a missing final session as a storage failure', async () => {
-    const accounts = [await createAccount('0-mainnet', PASSWORD)];
-    let issued = 0;
-    const enclave = createPasscodeEnclave({
-      authorize: jest.fn(() => {
-        issued += 1;
-        return Promise.resolve(issued === 1 ? SESSION : undefined);
-      }),
+    expect(outcome).toEqual({
+      error: { kind: 'unexpected', cause: { step: 'import', name: 'Error', message: 'boom' } },
     });
-
-    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
-
-    expect(enclave.importSecret).toHaveBeenCalledTimes(1);
-    expect(outcome).toEqual({ error: 'storageFailure' });
   });
 
   // Setting the auth up a second time would mint a master key over the secrets the previous attempt
@@ -297,6 +270,126 @@ describe('migrateToEnclave', () => {
     });
     expect(enclave.setupAuth).not.toHaveBeenCalled();
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
+  });
+
+  // Which step stopped is the only thing support can act on, and it has to survive a failure that
+  // happens after everything was already committed
+  it('names the step that stopped, after the secrets were already imported', async () => {
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    let issued = 0;
+    const enclave = createPasscodeEnclave({
+      authorize: jest.fn(() => {
+        issued += 1;
+        return issued === 1 ? Promise.resolve(SESSION) : Promise.reject(new Error('gone'));
+      }),
+    });
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(enclave.importSecret).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({
+      error: { kind: 'unexpected', cause: { step: 'finalSession', name: 'Error', message: 'gone' } },
+    });
+  });
+
+  // An error that crossed the worker bridge is rebuilt as a plain Error with the code copied and the
+  // class lost, so recognising it by `instanceof` would quietly stop working
+  it('recognises an enclave code on an error that lost its class', async () => {
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    const rebuilt = Object.assign(new Error('Enclave: auth is already configured'), {
+      code: 'auth_already_configured',
+    });
+    const enclave = createPasscodeEnclave({ setupAuth: jest.fn(() => Promise.reject(rebuilt)) });
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({
+      error: {
+        kind: 'blocked',
+        cause: { step: 'provision', name: 'auth_already_configured', message: 'Enclave: auth is already configured' },
+      },
+    });
+  });
+
+  // A code the enclave minted is a diagnosis it already reached; the only question left is whether
+  // trying again from this screen can clear the state it names
+  it.each([
+    ['auth_setup_in_progress', 'retryable'],
+    ['session_expired', 'retryable'],
+    ['unknown_token', 'retryable'],
+    ['auth_not_configured', 'blocked'],
+    ['master_key_missing', 'blocked'],
+    ['secret_missing', 'blocked'],
+  ] as const)('answers the %s code as %s', async (code, kind) => {
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    const enclave = createPasscodeEnclave({
+      setupAuth: jest.fn(() => Promise.reject(new EnclaveError(code, 'Enclave: nope'))),
+    });
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({
+      error: { kind, cause: { step: 'provision', name: code, message: 'Enclave: nope' } },
+    });
+  });
+
+  // A `code` is a property any platform error may carry, and only the enclave's own vocabulary
+  // may be presented as an enclave verdict
+  it('does not read a foreign code as an enclave diagnosis', async () => {
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    const foreign = Object.assign(new TypeError('bridge is gone'), { code: 'UNAVAILABLE' });
+    const enclave = createPasscodeEnclave({ setupAuth: jest.fn(() => Promise.reject(foreign)) });
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({
+      error: {
+        kind: 'unexpected',
+        cause: { step: 'provision', name: 'TypeError', message: 'bridge is gone' },
+      },
+    });
+  });
+
+  // Dismissing the prompt is the most common way a migration stops, and it stops nothing else
+  it.each(['NotAllowedError', 'AbortError'])('reports a dismissed prompt (%s) as cancelled', async (name) => {
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    const dismissed = Object.assign(new Error('The operation was not allowed'), { name });
+    const enclave = createPasscodeEnclave({ setupAuth: jest.fn(() => Promise.reject(dismissed)) });
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({ error: { kind: 'canceled' } });
+  });
+
+  // The one storage cause the platform names; its numeric `DOMException.code` is not an enclave code
+  it('recognises a device that ran out of room', async () => {
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    const full = Object.assign(new Error('The quota has been exceeded.'), { name: 'QuotaExceededError', code: 22 });
+    const enclave = createPasscodeEnclave({ importSecret: jest.fn(() => Promise.reject(full)) });
+
+    const outcome = await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({ error: { kind: 'storageFull' } });
+  });
+
+  // The write below would mint a master key protecting no secrets at all
+  it('refuses an empty account list rather than provisioning over nothing', async () => {
+    const enclave = createPasscodeEnclave();
+
+    const outcome = await migrateToEnclave([], PASSWORD, false, enclave);
+
+    expect(outcome).toEqual({ error: { kind: 'passwordOpenedNothing' } });
+    expect(enclave.setupAuth).not.toHaveBeenCalled();
+  });
+
+  it('derives no second key when it resumes onto a provisioned auth', async () => {
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    const enclave = createPasscodeEnclave({ isAuthProvisioned: jest.fn(() => Promise.resolve(true)) });
+
+    await migrateToEnclave(accounts, PASSWORD, false, enclave);
+
+    expect(enclave.setupAuth).not.toHaveBeenCalled();
+    expect(enclave.authorize).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -318,12 +411,12 @@ describe('migrateToEnclaveBiometric', () => {
 
   // Nothing was typed on this path: the password comes out of the platform store, so a mismatch can
   // never be a typo and must not be reported as one
-  it('never blames the password, even when the first account does not open', async () => {
+  it('reports that the stored password opened nothing, without blaming a typo', async () => {
     const accounts = [await createAccount('0-mainnet', PASSWORD)];
 
     const outcome = await migrateToEnclaveBiometric(accounts, OTHER_PASSWORD, createBiometricEnclave());
 
-    expect(outcome).toEqual({ error: 'damagedData' });
+    expect(outcome).toEqual({ error: { kind: 'passwordOpenedNothing' } });
   });
 
   it('imports the readable accounts and names the one it skipped', async () => {
@@ -369,16 +462,21 @@ describe('migrateToEnclaveBiometric', () => {
 
     const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
 
-    expect(outcome).toEqual({ error: 'interrupted' });
+    expect(outcome).toEqual({
+      error: {
+        kind: 'blocked',
+        cause: { step: 'provision', name: 'auth_already_configured', message: 'Enclave: auth is already configured' },
+      },
+    });
   });
 
-  it('reports a refused setup as a storage failure', async () => {
-    const accounts = [await createAccount('0-mainnet', PASSWORD)];
-    const enclave = createBiometricEnclave({ setupAuth: jest.fn(() => Promise.resolve(undefined)) });
+  it('refuses an empty account list rather than provisioning over nothing', async () => {
+    const enclave = createBiometricEnclave();
 
-    const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
+    const outcome = await migrateToEnclaveBiometric([], PASSWORD, enclave);
 
-    expect(outcome).toEqual({ error: 'storageFailure' });
+    expect(outcome).toEqual({ error: { kind: 'passwordOpenedNothing' } });
+    expect(enclave.setupAuth).not.toHaveBeenCalled();
   });
 
   it('resumes onto an auth left provisioned by an earlier attempt', async () => {
@@ -395,5 +493,27 @@ describe('migrateToEnclaveBiometric', () => {
     });
     expect(enclave.setupAuth).not.toHaveBeenCalled();
     expect(enclave.importSecret).toHaveBeenCalledTimes(1);
+  });
+  // The reported failure: an extension had replaced navigator.credentials, and the TypeError that came
+  // back was reported to the user as a device out of disk space
+  it('reports a TypeError from the credentials API as unclassified', async () => {
+    const message = 'undefined is not an object (evaluating \'e.buffer.slice\')';
+    const accounts = [await createAccount('0-mainnet', PASSWORD)];
+    const enclave = createBiometricEnclave({
+      setupAuth: jest.fn(() => Promise.reject(new TypeError(message))),
+    });
+
+    const outcome = await migrateToEnclaveBiometric(accounts, PASSWORD, enclave);
+
+    expect(outcome).toEqual({
+      error: {
+        kind: 'unexpected',
+        cause: {
+          step: 'provision',
+          name: 'TypeError',
+          message,
+        },
+      },
+    });
   });
 });

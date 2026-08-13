@@ -192,14 +192,12 @@ public class EnclaveManager {
 
     public void importSecret(String id, String secret, String token) throws Exception {
         requireCurrentStorageVersion();
-        storage.requireDeviceUnlocked();
         byte[] masterKey = sessionManager.validateSessionAndGetMasterKey(token, true);
         storage.storeSecret(id, encryptForStorage(secret.getBytes(StandardCharsets.UTF_8), masterKey));
     }
 
     public String exportSecret(String id, String token) throws Exception {
         requireCurrentStorageVersion();
-        storage.requireDeviceUnlocked();
         byte[] masterKey = sessionManager.validateSessionAndGetMasterKey(token, true);
         byte[] decrypted = decryptFromStorage(storage.loadSecret(id), masterKey);
         return new String(decrypted, StandardCharsets.UTF_8);
@@ -216,7 +214,6 @@ public class EnclaveManager {
 
     public void sign(String id, String ignoredData, String token) throws Exception {
         requireCurrentStorageVersion();
-        storage.requireDeviceUnlocked();
         sessionManager.validateSessionAndGetMasterKey(token, true);
         if (!storage.hasSecret(id)) {
             throw new Exception("Secret not found: " + id);

@@ -2,6 +2,8 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useEffect, useRef, useState } from '../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
+import type { MigrationErrorPresentation } from '../../global/types';
+
 import {
   AUTO_CONFIRM_DURATION_MINUTES,
   PIN_LENGTH,
@@ -99,16 +101,6 @@ interface StateProps {
 const STICKER_SIZE = 180;
 const APPEAR_ANIMATION_DURATION_MS = 300;
 
-/**
- * The migration failures that no retyping can resolve. They are shown as a dialog rather than as an
- * error under the input, because the input invites another attempt and these need the opposite.
- */
-const MIGRATION_FAILURE_MESSAGE_BY_TITLE: Record<string, string> = {
-  $enclave_migration_damaged_title: '$enclave_migration_damaged_message',
-  $enclave_migration_interrupted_title: '$enclave_migration_interrupted_message',
-  $enclave_migration_storage_title: '$enclave_migration_storage_message',
-};
-
 const [getHandleBiometricsSignal, setHandleBiometricsSignal] = createSignal(Date.now());
 
 export function triggerPasswordFormHandleBiometrics(e?: MouseEvent | KeyboardEvent) {
@@ -118,33 +110,10 @@ export function triggerPasswordFormHandleBiometrics(e?: MouseEvent | KeyboardEve
   setHandleBiometricsSignal(Date.now());
 }
 
-function useStorageClearedDialog(operationType?: OperationType) {
-  const { showDialog } = getActions();
-
-  return useLastCallback(() => {
-    showDialog({
-      title: '$storage_cleared_title',
-      message: getTranslation('$storage_cleared_message', {
-        support_link: (
-          <a href={`https://t.me/${SUPPORT_USERNAME}`} target="_blank" rel="noreferrer">
-            @{SUPPORT_USERNAME}
-          </a>
-        ),
-      }),
-      buttons: {
-        cancel: { title: 'Cancel' },
-        confirm: { title: 'Remove', isDestructive: true, action: 'signOutAll' },
-      },
-      noBackdropClose: true,
-      isInAppLock: operationType === 'unlock',
-    });
-  });
-}
-
 function useMigrationFailureDialog(operationType?: OperationType) {
   const { showDialog } = getActions();
 
-  return useLastCallback((titleKey: string, messageKey: string) => {
+  return useLastCallback((titleKey: string, messageKey: string, errorCode?: string) => {
     showDialog({
       title: titleKey,
       message: getTranslation(messageKey, {
@@ -153,6 +122,7 @@ function useMigrationFailureDialog(operationType?: OperationType) {
             @{SUPPORT_USERNAME}
           </a>
         ),
+        error_code: errorCode,
       }),
       noBackdropClose: true,
       isInAppLock: operationType === 'unlock',
@@ -222,7 +192,6 @@ function PasswordForm({
   // inline error the retry used to be keyed on, which would leave that screen without a single control
   const [hasMigrationFailed, markMigrationFailed, clearMigrationFailure] = useFlag(false);
   const shouldSuggestLogout = useMatchCount(!!error || !!localError, WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION);
-  const showStorageClearedDialog = useStorageClearedDialog(operationType);
   const showMigrationFailureDialog = useMigrationFailureDialog(operationType);
   const isAuthorizingRef = useRef(false);
 
@@ -231,31 +200,30 @@ function PasswordForm({
    * up in the inline error slot on one path while getting the dialog on the other. The inline slot is
    * a single line under the input, which would leave the "do not reinstall" part of the answer unsaid.
    */
-  const handleMigrationError = useLastCallback((errorMessage: string) => {
+  const handleMigrationError = useLastCallback((presentation: MigrationErrorPresentation) => {
     isAuthorizingRef.current = false;
 
-    if (errorMessage === '$storage_cleared_title') {
-      showStorageClearedDialog();
+    if (presentation.kind === 'inline') {
+      setLocalError(presentation.text);
+      onError?.(presentation.text);
       return;
     }
 
-    const migrationMessageKey = MIGRATION_FAILURE_MESSAGE_BY_TITLE[errorMessage];
-    if (migrationMessageKey) {
-      // An earlier attempt may have left "Wrong password" under the input, and leaving it there next to
-      // a dialog that says the password is not the problem contradicts the answer being given. It is
-      // cleared on both sides, because the parent owns a slot of its own that outranks the local one.
-      // The pinpad likewise holds its digits until the value is cleared, so a full pinpad behind the
-      // dialog reads as a frozen screen.
-      setLocalError('');
-      onError?.(undefined);
-      setInputValue('');
-      markMigrationFailed();
-      showMigrationFailureDialog(errorMessage, migrationMessageKey);
-      return;
-    }
+    // An earlier attempt may have left "Wrong password" under the input, and leaving it there next to
+    // an answer that says the password is not the problem contradicts what is being said. It is
+    // cleared on both sides, because the parent owns a slot of its own that outranks the local one.
+    setLocalError('');
+    onError?.(undefined);
+    markMigrationFailed();
 
-    setLocalError(errorMessage);
-    onError?.(errorMessage);
+    // A dismissed prompt is not a failure to report. The mark above is what puts the retry control
+    // back on the biometric screen, which is all this path owes the user.
+    if (presentation.kind === 'silent') return;
+
+    // The pinpad holds its digits until the value is cleared, so a full pinpad behind the dialog
+    // reads as a frozen screen
+    setInputValue('');
+    showMigrationFailureDialog(presentation.titleKey, presentation.messageKey, presentation.errorCode);
   });
 
   // One usage for the operation itself plus the extra usages it asked for

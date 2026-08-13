@@ -5,6 +5,7 @@
  */
 export type EnclaveErrorCode =
   | 'auth_already_configured'
+  | 'auth_setup_in_progress'
   | 'auth_not_configured'
   | 'session_expired'
   | 'unknown_token'
