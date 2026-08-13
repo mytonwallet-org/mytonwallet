@@ -1014,11 +1014,6 @@ No additional data.: 无附加数据。
 $in_currency: 以 %currency%
 Rename Wallet: 重命名钱包
 You can rename this wallet for easier identification.: 您可以重命名该钱包以便于识别。
-$storage_cleared_title: 应用程序存储已清除
-$storage_cleared_message: |
-  您的钱包数据因浏览器或磁盘空间问题而被清除。请从所有钱包中退出登录，然后使用您的助记词手动重新导入。
-
-  如需帮助，请联系%support_link%。
 Telegram Gifts: Telegram 礼物
 Collectibles: 收藏品
 Bluetooth unavailable: 蓝牙不可用
@@ -1745,10 +1740,5 @@ $enclave_migration_interrupted_message: |
   先前一次更新钱包数据的尝试中途停止，无法从此页面继续。在这里重试不会有帮助。
 
   请不要重新安装应用，也不要清除其数据，您的钱包仍存储在本设备上。请联系 %support_link%，我们会帮您完成更新。
-$enclave_migration_storage_title: 无法保存钱包数据
-$enclave_migration_storage_message: |
-  更新后的钱包数据无法保存到本设备。释放一些磁盘空间可能会有帮助。
-
-  请不要重新安装应用，也不要清除其数据，您的钱包仍存储在设备上。如果反复出现，请联系 %support_link%。
 Hide Unverified NFTs: 隐藏未验证的NFT
 Unverified: 未验证

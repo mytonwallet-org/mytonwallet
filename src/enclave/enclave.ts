@@ -57,17 +57,17 @@ export async function setAuths(authTypes?: AuthType[]) {
   }
 }
 
-export function setupAuth(authType: 'passcode', passcode: string): Promise<EnclaveSession | undefined>;
+export function setupAuth(authType: 'passcode', passcode: string): Promise<EnclaveSession>;
 export function setupAuth(
   authType: 'biometric', isLong?: boolean, usageCount?: number,
-): Promise<EnclaveSession | undefined>;
+): Promise<EnclaveSession>;
 export async function setupAuth(
   authType: AuthType, passcodeOrIsLong?: string | boolean, usageCount?: number,
 ) {
   // Raised before the first await, so a second caller is turned away while the storage still looks
   // empty to it - the check below alone would let both through and both would write a master key
   if (isSettingUpAuth) {
-    throw new EnclaveError('auth_already_configured', 'Enclave: an auth setup is already in progress');
+    throw new EnclaveError('auth_setup_in_progress', 'Enclave: an auth setup is already in progress');
   }
 
   isSettingUpAuth = true;
@@ -179,17 +179,24 @@ export function authorize(
 export async function authorize(
   authType: AuthType, isLong?: boolean, passcode?: string, usageCount?: number,
 ) {
-  return safeExecAsync(
-    async () => {
-      const auth = await restoreAuth(authType);
-      if (!auth) throw new EnclaveError('auth_not_configured', `Enclave: no ${authType} auth is configured`);
+  return safeExecAsync(() => authorizeOrThrow(authType, isLong, passcode, usageCount), { shouldIgnoreError: true });
+}
 
-      return auth.type === 'passcode'
-        ? auth.authorize(isLong!, passcode!, usageCount)
-        : auth.authorize(isLong, undefined, usageCount);
-    },
-    { shouldIgnoreError: true },
-  );
+/**
+ * The same authorization, with the reason it failed left intact. `authorize` answers the unlock
+ * screens, which read `undefined` as a refused passcode and have nothing else to say; the migration
+ * has to tell the user what happened, and a missing salt, an unreadable store and a wrong verifier
+ * are not the same answer.
+ */
+export async function authorizeOrThrow(
+  authType: AuthType, isLong?: boolean, passcode?: string, usageCount?: number,
+) {
+  const auth = await restoreAuth(authType);
+  if (!auth) throw new EnclaveError('auth_not_configured', `Enclave: no ${authType} auth is configured`);
+
+  return auth.type === 'passcode'
+    ? auth.authorize(isLong!, passcode!, usageCount)
+    : auth.authorize(isLong, undefined, usageCount);
 }
 
 /**

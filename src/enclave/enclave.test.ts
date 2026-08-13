@@ -65,7 +65,7 @@ describe('enclave', () => {
     const enclave = await loadEnclave(storage);
 
     const setupSession = await enclave.setupAuth('passcode', PASSCODE);
-    await enclave.importSecret(ACCOUNT_ID, SECRET, setupSession!.token);
+    await enclave.importSecret(ACCOUNT_ID, SECRET, setupSession.token);
 
     const readSession = await enclave.authorize('passcode', false, PASSCODE);
 
@@ -77,7 +77,7 @@ describe('enclave', () => {
     const enclave = await loadEnclave(storage);
 
     const setupSession = await enclave.setupAuth('passcode', PASSCODE);
-    await enclave.importSecret(ACCOUNT_ID, SECRET, setupSession!.token);
+    await enclave.importSecret(ACCOUNT_ID, SECRET, setupSession.token);
 
     // A second setup mints a fresh master key and orphans every secret encrypted under the previous one
     const error = await enclave.setupAuth('passcode', PASSCODE).catch((err) => err);
@@ -85,6 +85,9 @@ describe('enclave', () => {
     expect(error.code).toBe('auth_already_configured');
   });
 
+  // The loser of the race is told something a caller can act on: the setup is in flight, so waiting
+  // and retrying works. That is the opposite of finding a master key already minted, and the two are
+  // told apart by their codes rather than sharing one
   it('lets only one of two concurrent setups through', async () => {
     const storage = createMemoryStorage();
     const enclave = await loadEnclave(storage);
@@ -96,7 +99,7 @@ describe('enclave', () => {
 
     expect(first.status).toBe('fulfilled');
     expect(second.status).toBe('rejected');
-    expect((second as PromiseRejectedResult).reason.code).toBe('auth_already_configured');
+    expect((second as PromiseRejectedResult).reason.code).toBe('auth_setup_in_progress');
   });
 
   it('reports a missing secret as a domain error', async () => {
@@ -104,7 +107,7 @@ describe('enclave', () => {
     const enclave = await loadEnclave(storage);
 
     const session = await enclave.setupAuth('passcode', PASSCODE);
-    const error = await enclave.exportSecret(ACCOUNT_ID, session!.token).catch((err) => err);
+    const error = await enclave.exportSecret(ACCOUNT_ID, session.token).catch((err) => err);
 
     expect(error.name).toBe('EnclaveError');
     expect(error.code).toBe('secret_missing');
@@ -116,9 +119,9 @@ describe('enclave', () => {
 
     const session = await enclave.setupAuth('passcode', PASSCODE);
     // The default session carries a single usage, and the import spends it
-    await enclave.importSecret(ACCOUNT_ID, SECRET, session!.token);
+    await enclave.importSecret(ACCOUNT_ID, SECRET, session.token);
 
-    const error = await enclave.exportSecret(ACCOUNT_ID, session!.token).catch((err) => err);
+    const error = await enclave.exportSecret(ACCOUNT_ID, session.token).catch((err) => err);
 
     expect(error.name).toBe('EnclaveError');
     expect(error.code).toBe('session_expired');
@@ -130,7 +133,7 @@ describe('enclave', () => {
     const storage = createMemoryStorage();
     const setupEnclave = await loadEnclave(storage);
     const session = await setupEnclave.setupAuth('passcode', PASSCODE);
-    await setupEnclave.importSecret(ACCOUNT_ID, SECRET, session!.token);
+    await setupEnclave.importSecret(ACCOUNT_ID, SECRET, session.token);
 
     const freshEnclave = await loadEnclave(storage);
     const restoredSession = await freshEnclave.authorize('passcode', false, PASSCODE);
@@ -145,7 +148,7 @@ describe('enclave', () => {
     const storage = createMemoryStorage();
     const setupEnclave = await loadEnclave(storage);
     const session = await setupEnclave.setupAuth('passcode', PASSCODE);
-    await setupEnclave.importSecret(ACCOUNT_ID, SECRET, session!.token);
+    await setupEnclave.importSecret(ACCOUNT_ID, SECRET, session.token);
 
     // The lookup that decides whether an auth exists on disk, held open to keep both callers inside
     // the window where neither has registered anything

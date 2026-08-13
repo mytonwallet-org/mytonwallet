@@ -83,8 +83,8 @@ public class EnclaveStorage {
 
     public void storePasscodeCredential(byte[] salt, String enclaveEncryptedMasterKey) throws Exception {
         String plainBase64 = Base64.encodeToString(salt, Base64.NO_WRAP);
-        String encryptedSalt = HardwareKeyManager.encrypt(context, plainBase64);
-        String encryptedMasterKey = HardwareKeyManager.encrypt(context, enclaveEncryptedMasterKey);
+        String encryptedSalt = HardwareKeyManager.encrypt(plainBase64);
+        String encryptedMasterKey = HardwareKeyManager.encrypt(enclaveEncryptedMasterKey);
         boolean committed = prefs.edit()
             .putString(PREF_SALT, encryptedSalt)
             .putString(MASTER_KEY_PREFIX + AuthType.PASSCODE.key, encryptedMasterKey)
@@ -110,7 +110,7 @@ public class EnclaveStorage {
     // --- Encrypted master key ---
 
     public void storeMasterKey(AuthType authType, String enclaveEncryptedMasterKey) throws Exception {
-        String encrypted = HardwareKeyManager.encrypt(context, enclaveEncryptedMasterKey);
+        String encrypted = HardwareKeyManager.encrypt(enclaveEncryptedMasterKey);
         boolean committed = prefs.edit()
             .putString(MASTER_KEY_PREFIX + authType.key, encrypted)
             .commit();
@@ -134,7 +134,7 @@ public class EnclaveStorage {
     // --- Secrets ---
 
     public void storeSecret(String id, String enclaveEncryptedSecret) throws Exception {
-        String encrypted = HardwareKeyManager.encrypt(context, enclaveEncryptedSecret);
+        String encrypted = HardwareKeyManager.encrypt(enclaveEncryptedSecret);
         boolean committed = prefs.edit().putString(SECRET_PREFIX + id, encrypted).commit();
         if (!committed) {
             throw new Exception("Failed to store secret");
@@ -171,7 +171,7 @@ public class EnclaveStorage {
     public void storeSecretsBatch(List<String[]> idEncryptedPairs) throws Exception {
         SharedPreferences.Editor editor = prefs.edit();
         for (String[] entry : idEncryptedPairs) {
-            editor.putString(SECRET_PREFIX + entry[0], HardwareKeyManager.encrypt(context, entry[1]));
+            editor.putString(SECRET_PREFIX + entry[0], HardwareKeyManager.encrypt(entry[1]));
         }
         boolean committed = editor.commit();
         if (!committed) {
@@ -185,16 +185,12 @@ public class EnclaveStorage {
         prefs.edit().clear().apply();
     }
 
-    public void requireDeviceUnlocked() throws Exception {
-        HardwareKeyManager.requireDeviceUnlocked(context);
-    }
-
     // Encryption
 
     private String loadAndDecrypt(String key) throws Exception {
         String encrypted = prefs.getString(key, null);
         if (encrypted == null) return null;
-        return HardwareKeyManager.decrypt(context, encrypted);
+        return HardwareKeyManager.decrypt(encrypted);
     }
 
     private void remove(String key) {

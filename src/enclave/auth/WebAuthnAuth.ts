@@ -1,14 +1,8 @@
-import type { SecretMethod } from './webAuthn';
+import type { CredentialParams } from './webAuthn';
 
 import * as webAuthn from './webAuthn';
 
 import BaseAuth from './BaseAuth';
-
-interface CredentialParams {
-  credentialId: string;
-  secretMethod: SecretMethod;
-  transports: AuthenticatorTransport[];
-}
 
 const STORAGE_KEY = 'WebAuthnAuth:credentialParams';
 
@@ -17,10 +11,7 @@ export default class WebAuthnAuth extends BaseAuth {
 
   async setup(_passcode?: string, isLong?: boolean, usageCount?: number) {
     try {
-      const { credentialId, secretMethod, transports, secretArrayBuffer: keyMaterial } = await webAuthn.setup();
-
-      const credentialParams = { credentialId, secretMethod, transports };
-      await this.#storeCredentialParams(credentialParams);
+      const keyMaterial = await webAuthn.setup((params) => this.#storeCredentialParams(params));
 
       return this.setupSession(keyMaterial, isLong, usageCount);
     } catch (err: any) {

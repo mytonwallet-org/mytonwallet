@@ -1,6 +1,6 @@
 import type { LegacyAccountWithMnemonic, LegacyAuthConfig, MigrationOutcome } from './legacy';
 
-import { authorize, importSecret, isAuthProvisioned, setupAuth } from './enclave';
+import { authorizeOrThrow, importSecret, isAuthProvisioned, setupAuth } from './enclave';
 import {
   getLegacyBiometricPassword,
   isLegacyBiometricAuth,
@@ -20,7 +20,7 @@ export async function migrateFromLegacy(
 ): Promise<MigrationOutcome> {
   return migrateToEnclave(legacyAccounts, password, isLongSession, {
     setupAuth,
-    authorize,
+    authorize: authorizeOrThrow,
     isAuthProvisioned,
     importSecret,
   }, usageCount);
@@ -36,7 +36,7 @@ export async function migrateFromLegacyBiometric(
 ): Promise<MigrationOutcome> {
   return migrateToEnclaveBiometric(legacyAccounts, legacyPassword, {
     setupAuth,
-    authorize,
+    authorize: authorizeOrThrow,
     isAuthProvisioned,
     importSecret,
   }, usageCount);

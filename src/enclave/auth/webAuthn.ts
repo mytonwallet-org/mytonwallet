@@ -1,6 +1,7 @@
 import { APP_NAME } from '../../config';
 import { bufferFromHex, hexFromArrayBuffer } from '../../util/casting';
 import { randomBytes } from '../../util/random';
+import { toArrayBuffer } from './untrustedBuffer';
 
 declare global {
   interface AuthenticationExtensionsClientInputs {
@@ -24,11 +25,10 @@ declare global {
 
 export type SecretMethod = 'prf' | 'hmacSecret' | 'credBlob' | 'userHandle';
 
-export interface SetupResult {
+export interface CredentialParams {
   credentialId: string;
   transports: AuthenticatorTransport[];
   secretMethod: SecretMethod;
-  secretArrayBuffer: ArrayBuffer;
 }
 
 enum PubkeyAlg {
@@ -44,32 +44,34 @@ const CREDENTIAL_TIMEOUT = 120000;
 const SECRET_SIZE = 32;
 const PRF_SALT = new TextEncoder().encode(APP_NAME);
 
-export async function setup(): Promise<SetupResult> {
+/**
+ * `persistParams` runs before any second prompt, so a credential the authenticator has already
+ * minted is recorded even when the secret never arrives. Handing it in rather than returning it
+ * keeps the order out of the caller's hands.
+ */
+export async function setup(persistParams: (params: CredentialParams) => Promise<void>): Promise<ArrayBuffer> {
   const userHandleSecret = randomBytes(SECRET_SIZE);
   const options = buildCreateCredentialOptions(userHandleSecret);
-  const credential = (await navigator.credentials.create(options)) as PublicKeyCredential;
-  const credentialId = hexFromArrayBuffer(credential.rawId);
-  const transports = credential.response.getTransports?.() ?? [];
+  const credential = requireCredential(await navigator.credentials.create(options), 'Credential');
+  const credentialId = hexFromArrayBuffer(requireArrayBuffer(credential.rawId, 'Credential id'));
+  const transports = credential.response?.getTransports?.() ?? [];
 
-  const extensionResults = credential.getClientExtensionResults();
-  const secretMethod = extensionResults.prf?.enabled
-    ? 'prf'
-    : extensionResults.hmacCreateSecret
-      ? 'hmacSecret'
-      : extensionResults.credBlob
-        ? 'credBlob'
-        : 'userHandle';
-  const secretArrayBuffer = extractSecret(secretMethod, extensionResults, userHandleSecret);
+  const extensionResults = readExtensionResults(credential);
+  const secretMethod = pickSecretMethod(extensionResults);
+  const params = { credentialId, transports, secretMethod };
 
-  return {
-    credentialId,
-    transports,
-    secretMethod,
-    secretArrayBuffer,
-  };
+  await persistParams(params);
+
+  // A registration does not always carry the secret it enables. `prf.enabled` answers whether the
+  // PRF may be used with this credential, not whether it was evaluated now: an authenticator that
+  // cannot evaluate one during registration reports it enabled and returns no output, which the
+  // spec answers with "you could still try evaluating the PRF in an assertion". `hmacGetSecret` and
+  // `getCredBlob` are assertion outputs and are never present at registration at all. Whichever
+  // method is in play, the fallback costs a second prompt, and only for the credentials that need it.
+  return extractSecret(secretMethod, extensionResults, userHandleSecret) ?? authorize(params);
 }
 
-function buildCreateCredentialOptions(userHandleSecret: ArrayBuffer): CredentialCreationOptions {
+function buildCreateCredentialOptions(userHandleSecret: Uint8Array): CredentialCreationOptions {
   const challenge = randomBytes(32);
   const credBlobSecret = randomBytes(SECRET_SIZE);
 
@@ -114,27 +116,25 @@ function buildCreateCredentialOptions(userHandleSecret: ArrayBuffer): Credential
   };
 }
 
-export async function authorize({ credentialId, transports, secretMethod }: {
-  credentialId: string;
-  transports: AuthenticatorTransport[];
-  secretMethod: SecretMethod;
-}) {
-  const signal = new AbortController().signal;
-  const options = buildGetCredentialOptions(credentialId, transports, secretMethod, signal);
-  const assertion = (await navigator.credentials.get(options)) as PublicKeyCredential;
-  if (signal.aborted) throw new Error('Verification canceled');
+export async function authorize({ credentialId, transports, secretMethod }: CredentialParams) {
+  const options = buildGetCredentialOptions(credentialId, transports, secretMethod);
+  const assertion = requireCredential(await navigator.credentials.get(options), 'Assertion');
 
-  const extensionResults = assertion.getClientExtensionResults();
-  const userHandleSecret = (assertion.response as AuthenticatorAssertionResponse)?.userHandle ?? undefined;
+  const extensionResults = readExtensionResults(assertion);
+  const userHandleSecret = toArrayBuffer((assertion.response as AuthenticatorAssertionResponse)?.userHandle);
+  const secret = extractSecret(secretMethod, extensionResults, userHandleSecret);
 
-  return extractSecret(secretMethod, extensionResults, userHandleSecret);
+  if (!secret) {
+    throw new Error(`${SECRET_NAME[secretMethod]} not found`);
+  }
+
+  return secret;
 }
 
 function buildGetCredentialOptions(
   credentialId: string,
   transports: AuthenticatorTransport[],
   secretMethod: SecretMethod,
-  signal: AbortSignal,
 ): CredentialRequestOptions {
   const challenge = randomBytes(32);
 
@@ -168,48 +168,86 @@ function buildGetCredentialOptions(
       }],
       userVerification: 'required',
       extensions,
+      timeout: CREDENTIAL_TIMEOUT,
     },
-    signal,
   };
+}
+
+const SECRET_NAME: Record<SecretMethod, string> = {
+  prf: 'PRF output',
+  hmacSecret: 'HMAC secret',
+  credBlob: 'Cred blob',
+  userHandle: 'User handle',
+};
+
+/**
+ * The PRF is claimed on either signal: `enabled` is the authenticator's answer about the credential,
+ * `results` is an evaluation it already performed, and an implementation that reports one without
+ * the other still supports the method. Reading `enabled` alone would file such a credential under
+ * `userHandle`, which is persisted and governs every later authorization.
+ */
+function pickSecretMethod(extensionResults: AuthenticationExtensionsClientOutputs): SecretMethod {
+  if (extensionResults.prf?.enabled || extensionResults.prf?.results) return 'prf';
+  if (extensionResults.hmacCreateSecret) return 'hmacSecret';
+  if (extensionResults.credBlob) return 'credBlob';
+
+  return 'userHandle';
 }
 
 function extractSecret(
   secretMethod: SecretMethod,
   extensionResults: AuthenticationExtensionsClientOutputs,
-  userHandle?: ArrayBuffer,
+  userHandle?: BufferSource,
+) {
+  const secret = toArrayBuffer(rawSecret(secretMethod, extensionResults, userHandle));
+  return secret?.byteLength ? secret : undefined;
+}
+
+function rawSecret(
+  secretMethod: SecretMethod,
+  extensionResults: AuthenticationExtensionsClientOutputs,
+  userHandle?: BufferSource,
 ) {
   switch (secretMethod) {
     case 'prf':
-      if (!extensionResults.prf?.results?.first) {
-        throw new Error('PRF output not found');
-      }
-      return toArrayBuffer(extensionResults.prf.results.first);
+      return extensionResults.prf?.results?.first;
 
     case 'hmacSecret':
-      if (!extensionResults.hmacGetSecret?.output1) {
-        throw new Error('HMAC secret not found');
-      }
-      return toArrayBuffer(extensionResults.hmacGetSecret.output1);
+      return extensionResults.hmacGetSecret?.output1;
 
     case 'credBlob':
-      if (!extensionResults.getCredBlob) {
-        throw new Error('Cred blob not found');
-      }
-      return toArrayBuffer(extensionResults.getCredBlob);
+      return extensionResults.getCredBlob;
 
     case 'userHandle':
-      if (!userHandle) {
-        throw new Error('User handle not found');
-      }
       return userHandle;
   }
 }
 
-function toArrayBuffer(bufferSource: BufferSource): ArrayBuffer {
-  return bufferSource instanceof ArrayBuffer
-    ? bufferSource
-    : bufferSource.buffer.slice(
-      bufferSource.byteOffset,
-      bufferSource.byteOffset + bufferSource.byteLength,
-    );
+/**
+ * The credential object is as untrusted as the binaries inside it: the same patched API that hands
+ * over a foreign buffer may resolve `null`, which the spec allows, or an object missing the members
+ * read below. Dereferencing one of those raises a bare TypeError with no name for what failed.
+ */
+function requireCredential(value: unknown, name: string): PublicKeyCredential {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${name} not returned`);
+  }
+
+  return value as PublicKeyCredential;
+}
+
+/** An implementation that reports no extension results at all leaves the methods it would have named unclaimed */
+function readExtensionResults(credential: PublicKeyCredential): AuthenticationExtensionsClientOutputs {
+  const results = credential.getClientExtensionResults?.();
+
+  return results && typeof results === 'object' ? results : {};
+}
+
+function requireArrayBuffer(value: unknown, name: string): ArrayBuffer {
+  const buffer = toArrayBuffer(value);
+  if (!buffer?.byteLength) {
+    throw new Error(`${name} not found`);
+  }
+
+  return buffer;
 }

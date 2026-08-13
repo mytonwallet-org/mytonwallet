@@ -1038,11 +1038,6 @@ No additional data.: Brak dodatkowych danych.
 $in_currency: w %currency%
 Rename Wallet: Zmień nazwę portfela
 You can rename this wallet for easier identification.: Możesz zmienić nazwę tego portfela dla łatwiejszej identyfikacji.
-$storage_cleared_title: Pamięć aplikacji została wyczyszczona
-$storage_cleared_message: |
-  Dane portfela zostały wyczyszczone z powodu problemów z przeglądarką lub miejscem na dysku. Proszę wylogować się ze wszystkich portfeli, a następnie ręcznie zaimportować je ponownie, używając swoich sekretnych słów.
-
-  Jeśli potrzebujesz pomocy, skontaktuj się z %support_link%.
 Telegram Gifts: Prezenty Telegram
 Collectibles: Kolekcjonerskie
 Bluetooth unavailable: Bluetooth niedostępne
@@ -1787,10 +1782,5 @@ $enclave_migration_interrupted_message: |
   Wcześniejsza próba aktualizacji danych portfela zatrzymała się w połowie i nie można jej wznowić z tego ekranu. Ponowna próba tutaj nie pomoże.
 
   Nie instaluj aplikacji ponownie i nie czyść jej danych: Twoje portfele nadal są zapisane na tym urządzeniu. Skontaktuj się z %support_link%, a pomożemy dokończyć aktualizację.
-$enclave_migration_storage_title: Nie udało się zapisać danych portfela
-$enclave_migration_storage_message: |
-  Zaktualizowanych danych portfela nie udało się zapisać na tym urządzeniu. Może pomóc zwolnienie miejsca na dysku.
-
-  Nie instaluj aplikacji ponownie i nie czyść jej danych: Twoje portfele nadal są na nim zapisane. Jeśli to się powtarza, skontaktuj się z %support_link%.
 Hide Unverified NFTs: Ukryj niezweryfikowane NFT
 Unverified: Niezweryfikowane

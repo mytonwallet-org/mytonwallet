@@ -111,7 +111,7 @@ export type AnimationLevel = 0 | 1 | 2;
 export type Theme = 'light' | 'dark' | 'system';
 export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
-export type DialogAction = 'signOutAll' | 'openReturnUrl';
+export type DialogAction = 'openReturnUrl';
 export type ToastAction = 'openRenameWallet';
 
 export type DeveloperSettingsUndefinedOverride = '__undefined';
@@ -148,6 +148,17 @@ export type DialogType = {
     cancel?: { title?: string };
   };
 };
+
+/**
+ * How a stopped legacy migration is put to the user. The inline form belongs under the input, next to
+ * the attempt that can be repeated; the dialog form answers a failure the retry cannot help with, and
+ * carries a code for support when the app could not establish a cause.
+ */
+export type MigrationErrorPresentation =
+  /** Nothing to say: the person stopped the migration themselves, and the screen keeps its retry */
+  | { kind: 'silent' }
+  | { kind: 'inline'; text: string }
+  | { kind: 'dialog'; titleKey: string; messageKey: string; errorCode?: string };
 
 export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl' | 'ar' | 'fa';
 export type LanguageSource = 'system' | 'user';
@@ -1272,14 +1283,14 @@ export interface ActionPayloads {
     isLongSession: boolean;
     usageCount?: number;
     onSuccess: (token: string) => void;
-    onError: (error: string) => void;
+    onError: (error: MigrationErrorPresentation) => void;
   };
   migrateLegacyBiometricAuth: {
     legacyAuthConfig: LegacyAuthConfig;
     isLongSession: boolean;
     usageCount?: number;
     onSuccess: (token: string) => void;
-    onError: (error: string) => void;
+    onError: (error: MigrationErrorPresentation) => void;
   };
 
   selectToken: { slug?: string } | undefined;

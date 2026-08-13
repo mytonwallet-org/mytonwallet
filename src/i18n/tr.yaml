@@ -1019,11 +1019,6 @@ No additional data.: Ek veri yok.
 $in_currency: → %currency%
 Rename Wallet: Cüzdanı Yeniden Adlandır
 You can rename this wallet for easier identification.: Bu cüzdanı daha kolay tanımlamak için yeniden adlandırabilirsiniz.
-$storage_cleared_title: Uygulama Depolaması Temizlendi
-$storage_cleared_message: |
-  Cüzdan verileriniz tarayıcı veya disk alanı sorunları nedeniyle temizlenmiştir. Lütfen tüm cüzdanlardan çıkış yapın ve ardından gizli kelimelerinizi kullanarak onları manuel olarak yeniden içe aktarın.
-
-  Yardıma ihtiyacınız varsa, lütfen %support_link% ile iletişime geçin.
 Telegram Gifts: Telegram Hediyeleri
 Collectibles: Koleksiyonlar
 Bluetooth unavailable: Bluetooth kullanılamıyor
@@ -1750,10 +1745,5 @@ $enclave_migration_interrupted_message: |
   Cüzdan verilerinizi güncellemeye yönelik önceki bir deneme yarıda kaldı ve bu ekrandan sürdürülemiyor. Burada tekrar denemek yardımcı olmaz.
 
   Uygulamayı yeniden yüklemeyin ve verilerini temizlemeyin: cüzdanlarınız hâlâ bu cihazda saklanıyor. Lütfen %support_link% ile iletişime geçin, güncellemeyi tamamlamanıza yardımcı olacağız.
-$enclave_migration_storage_title: Cüzdan Verileri Kaydedilemedi
-$enclave_migration_storage_message: |
-  Güncellenen cüzdan verileri bu cihaza kaydedilemedi. Biraz disk alanı boşaltmak yardımcı olabilir.
-
-  Uygulamayı yeniden yüklemeyin ve verilerini temizlemeyin: cüzdanlarınız hâlâ cihazda saklanıyor. Bu durum tekrarlanıyorsa lütfen %support_link% ile iletişime geçin.
 Hide Unverified NFTs: Doğrulanmamış NFT'leri Gizle
 Unverified: Doğrulanmamış
