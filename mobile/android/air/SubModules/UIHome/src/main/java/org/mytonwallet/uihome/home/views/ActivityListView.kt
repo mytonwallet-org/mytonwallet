@@ -1000,6 +1000,7 @@ class ActivityListView<T>(
 
     private fun adjustScrollingPosition(): Boolean {
         val dataSource = dataSource ?: return false
+        if (dataSource.isWideHome) return false
         val scrollOffset = recyclerView.computeVerticalScrollOffset()
         when (dataSource.recyclerViewModeValue()) {
             HomeHeaderView.Mode.Expanded -> {

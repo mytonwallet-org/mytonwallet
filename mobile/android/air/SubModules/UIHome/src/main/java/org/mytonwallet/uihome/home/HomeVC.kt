@@ -96,6 +96,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         get() = window?.isWideLayout == true
 
     private var appliedWideHome: Boolean? = null
+    private var restoreScrollOnAppear = false
 
     override fun wideLayoutChanged() {
         val nowWide = isWideHome
@@ -144,22 +145,21 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             return
         }
         val verticalOffset = currentActivityListView.recyclerView.computeVerticalScrollOffset()
-        if (verticalOffset > 0) {
-            phoneHeaderView.updateScroll(verticalOffset.coerceAtLeast(0), 0f, false)
-        }
+        updateScroll(verticalOffset, null, false)
         if (rvMode != phoneHeaderView.mode) {
             headerModeChanged()
-            return
-        }
-        allActivityListViews.forEach {
-            it.updateHeaderHeights()
-            if (phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) {
-                it.recyclerView.setupOverScroll()
-                it.recyclerView.setMaxOverscrollOffset(
-                    if (phoneHeaderView.canExpandForHeight) phoneHeaderView.diffPx else 0f
-                )
+        } else {
+            allActivityListViews.forEach {
+                it.updateHeaderHeights()
+                if (phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) {
+                    it.recyclerView.setupOverScroll()
+                    it.recyclerView.setMaxOverscrollOffset(
+                        if (phoneHeaderView.canExpandForHeight) phoneHeaderView.diffPx else 0f
+                    )
+                }
             }
         }
+        currentActivityListView.scrollEnded()
     }
 
     private fun swapActionsView(wide: Boolean) {
@@ -687,11 +687,23 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun viewWillAppear() {
         super.viewWillAppear()
+        if (restoreScrollOnAppear) {
+            restoreScrollOnAppear = false
+            if (!isWideHome) {
+                updateScroll(
+                    currentActivityListView.recyclerView.computeVerticalScrollOffset(),
+                    null,
+                    false
+                )
+            }
+        }
         topBlurReversedCornerView.resumeBlurring()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
+        restoreScrollOnAppear = !isWideHome &&
+            currentActivityListView.recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
         phoneHeaderView.viewWillDisappear()
     }
 
@@ -1384,7 +1396,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     override fun accountWillChange(fromHome: Boolean) {
-        configureAccountViews(shouldLoadNewWallets = !fromHome, skipSkeletonOnCache = fromHome)
+        configureAccountViews(
+            shouldLoadNewWallets = !fromHome || isDisappeared,
+            skipSkeletonOnCache = fromHome
+        )
         if (fromHome) {
             updateAccountName(headerView.centerAccount?.name ?: "", true)
         } else {
@@ -1409,9 +1424,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
         setHeaderActionModeClipEnabled(true)
         currentActivityListView.assetsCell?.startSorting()
-        stickyHeaderView.enterActionMode(onResult = { save ->
-            currentActivityListView.assetsCell?.endSorting(save)
-        })
+        stickyHeaderView.enterActionMode(onResult = ::endSorting)
         sortViews()
     }
 

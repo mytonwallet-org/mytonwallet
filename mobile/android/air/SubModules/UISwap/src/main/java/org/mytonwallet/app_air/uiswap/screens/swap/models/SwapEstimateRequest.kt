@@ -5,7 +5,6 @@ import java.math.BigInteger
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
-import org.mytonwallet.app_air.walletcore.models.DIESEL_TOKENS
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
@@ -32,7 +31,6 @@ data class SwapEstimateRequest private constructor(
     val isCex = SwapHelpers.isCex(tokenToSend, tokenToReceive)
 
     val shouldTryDiesel: Boolean
-    val isDiesel: Boolean
 
     init {
         val swapType = SwapType.from(tokenToSend, tokenToReceive, wallet.addressByChain)
@@ -62,9 +60,6 @@ data class SwapEstimateRequest private constructor(
         shouldTryDiesel =
             !isEnoughNative && !tokenToSend.isBlockchainNative &&
             prevEst?.dex?.dieselStatus != MDieselStatus.NOT_AVAILABLE
-        isDiesel = swapType == SwapType.ON_CHAIN && shouldTryDiesel && DIESEL_TOKENS.contains(
-            tokenToSend.tokenAddress
-        )
     }
 
     val estimateRequestDex: MApiSwapEstimateRequest

@@ -615,6 +615,21 @@ public final class _NftStore: Sendable {
         }
     }
 
+    /// Buying an NFT is an explicit intent to own it, so it enters the gallery visible even if its collection
+    /// is untrusted. Applied from the activity, so it does not wait for the `nftReceived` update.
+    public func applyPurchasedNft(accountId: String, nft: ApiNft) {
+        updatesQueue.async { [weak self] in
+            guard let self else { return }
+            received(accountId: accountId, newNfts: [nft], removedNftIds: [])
+            if nft.isHidden == true
+                || nft.isUnverified == true
+                || isHiddenByUser(accountId: accountId, nft: nft)
+            {
+                setHiddenByUser(accountId: accountId, nft: nft, isHidden: false)
+            }
+        }
+    }
+
     public func pruneOwnedMtwCardAddress(accountId: String, nftAddress: String) {
         Task {
             await AssetsAndActivityDataStore.pruneOwnedMtwCardAddress(accountId: accountId, address: nftAddress)

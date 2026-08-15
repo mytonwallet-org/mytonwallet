@@ -686,6 +686,17 @@ object NftStore : IStore {
     fun getCollections(): List<MCollectionTabToShow> =
         getCollectionsFromNfts(nftData?.cachedNfts ?: emptyList())
 
+    fun accountOwnsCollection(
+        accountId: String,
+        address: String?,
+        chain: MBlockchain? = null
+    ): Boolean {
+        if (address == null) return false
+        return getCollections(accountId).any {
+            it.address == address && (chain == null || it.chain == chain.name)
+        }
+    }
+
     fun getCollectionsFromNfts(nfts: List<ApiNft>): List<MCollectionTabToShow> {
         val uniqueCollections = linkedSetOf<MCollectionTabToShow>()
 

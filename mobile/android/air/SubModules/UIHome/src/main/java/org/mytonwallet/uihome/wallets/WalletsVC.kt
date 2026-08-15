@@ -448,6 +448,7 @@ class WalletsVC(
                 (navigationController?.getSystemBars()?.bottom ?: 0)
         }
         updateRecyclerViewInsets()
+        updateBottomViewsYPosition()
     }
 
     fun setLayoutWidth(width: Int) {

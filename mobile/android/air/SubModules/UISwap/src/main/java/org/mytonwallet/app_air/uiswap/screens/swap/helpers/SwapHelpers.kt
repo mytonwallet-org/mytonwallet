@@ -162,11 +162,27 @@ class SwapHelpers {
         }
 
         fun explainApiSwapFee(swapEstimateResponse: SwapEstimateResponse): ExplainedSwapFee =
-            if (swapEstimateResponse.request.isDiesel) {
+            if (shouldSwapBeGasless(swapEstimateResponse)) {
                 explainGaslessSwapFee(swapEstimateResponse)
             } else {
-                explainGasfullSwapFee(swapEstimateResponse)
+                explainGasfullSwapFee(
+                    swapEstimateResponse.fee,
+                    swapEstimateResponse.realFee
+                )
             }
+
+        private fun shouldSwapBeGasless(swapEstimateResponse: SwapEstimateResponse): Boolean {
+            val request = swapEstimateResponse.request
+            val dieselStatus = swapEstimateResponse.dex?.dieselStatus ?: return false
+            val networkFee = swapEstimateResponse.fee ?: return false
+            val nativeBalance = request.wallet.balances[request.nativeTokenToSend.slug]
+                ?: return false
+
+            return swapEstimateResponse.swapType == SwapType.ON_CHAIN &&
+                !request.tokenToSend.isBlockchainNative &&
+                dieselStatus != MDieselStatus.NOT_AVAILABLE &&
+                nativeBalance < networkFee
+        }
 
         private fun explainGaslessSwapFee(
             swapEstimateResponse: SwapEstimateResponse
@@ -206,7 +222,7 @@ class SwapHelpers {
             val fullFee = MFee(
                 precision = if (isExact) MFeePrecision.EXACT else MFeePrecision.LESS_THAN,
                 terms = fullNetworkTerms,
-                nativeSum = fullNetworkTerms.native,
+                nativeSum = swapEstimateResponse.fee,
                 networkTerms = fullNetworkTerms
             )
 
@@ -237,7 +253,7 @@ class SwapHelpers {
                 MFee(
                     precision = if (isExact) MFeePrecision.EXACT else MFeePrecision.APPROXIMATE,
                     terms = realNetworkTerms,
-                    nativeSum = nativeRealBigInt,
+                    nativeSum = swapEstimateResponse.realFee,
                     networkTerms = realNetworkTerms
                 )
             }
@@ -246,7 +262,8 @@ class SwapHelpers {
                 isGasless = true,
                 excessFee = dex.realNetworkFee?.let {
                     CoinUtils.fromDecimal(
-                        BigDecimal(dex.networkFee) - it.toBigDecimal(),
+                        (BigDecimal(dex.networkFee) - it.toBigDecimal())
+                            .coerceAtLeast(BigDecimal.ZERO),
                         swapEstimateResponse.request.nativeTokenToSend.decimals
                     )
                 } ?: BigInteger.ZERO,
@@ -255,36 +272,26 @@ class SwapHelpers {
             )
         }
 
-        private fun explainGasfullSwapFee(
-            swapEstimateResponse: SwapEstimateResponse
+        internal fun explainGasfullSwapFee(
+            networkFee: BigInteger?,
+            realNetworkFee: BigInteger?
         ): ExplainedSwapFee {
-            val dex = swapEstimateResponse.dex ?: return ExplainedSwapFee(isGasless = false)
+            if (networkFee == null) return ExplainedSwapFee(isGasless = false)
 
-            val networkFee = BigDecimal(dex.networkFee)
-            val realNetworkFee = dex.realNetworkFee?.let(::BigDecimal)
             val isExact =
-                realNetworkFee?.let { networkFee.subtract(it).compareTo(BigDecimal.ZERO) == 0 }
+                realNetworkFee?.let { networkFee.subtract(it) == BigInteger.ZERO }
                     ?: false
             val precision = if (isExact) MFeePrecision.EXACT else MFeePrecision.LESS_THAN
 
-            val nativeFeeBigInt = CoinUtils.fromDecimal(
-                networkFee,
-                swapEstimateResponse.request.nativeTokenToSend.decimals
-            ) ?: BigInteger.ZERO
-
-            val realNativeFeeBigInt = realNetworkFee?.let {
-                CoinUtils.fromDecimal(it, swapEstimateResponse.request.nativeTokenToSend.decimals)
-            }
-
             val networkTerms = MFeeTerms(
                 token = null,
-                native = nativeFeeBigInt,
+                native = networkFee,
                 stars = null
             )
 
             val fullTerms = MFeeTerms(
                 token = null,
-                native = nativeFeeBigInt,
+                native = networkFee,
                 stars = null
             )
 
@@ -295,15 +302,15 @@ class SwapHelpers {
                 networkTerms = networkTerms
             )
 
-            val realTerms = realNativeFeeBigInt?.let {
+            val realTerms = realNetworkFee?.let {
                 MFeeTerms(
                     token = fullTerms.token,
-                    native = fullTerms.native?.minus(nativeFeeBigInt - it),
+                    native = it,
                     stars = null
                 )
             }
 
-            val realNetworkTerms = realNativeFeeBigInt?.let {
+            val realNetworkTerms = realNetworkFee?.let {
                 MFeeTerms(
                     token = null,
                     native = it,
@@ -322,7 +329,9 @@ class SwapHelpers {
 
             return ExplainedSwapFee(
                 isGasless = false,
-                excessFee = realNativeFeeBigInt?.let { (nativeFeeBigInt - it) } ?: BigInteger.ZERO,
+                excessFee = realNetworkFee?.let {
+                    (networkFee - it).coerceAtLeast(BigInteger.ZERO)
+                } ?: BigInteger.ZERO,
                 fullFee = fullFee,
                 realFee = realFee
             )

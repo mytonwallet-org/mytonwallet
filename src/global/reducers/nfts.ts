@@ -137,6 +137,17 @@ export function applyIncomingNftFromActivity(
   return global;
 }
 
+// Buying an NFT is an explicit intent to own it, so it stays visible even if its collection is untrusted
+export function whitelistNft(global: GlobalState, accountId: string, nftAddress: string): GlobalState {
+  const { blacklistedNftAddresses = [], whitelistedNftAddresses = [] } = selectAccountState(global, accountId) ?? {};
+  if (whitelistedNftAddresses.includes(nftAddress)) return global;
+
+  return updateAccountState(global, accountId, {
+    blacklistedNftAddresses: blacklistedNftAddresses.filter((address) => address !== nftAddress),
+    whitelistedNftAddresses: [...whitelistedNftAddresses, nftAddress],
+  });
+}
+
 // Mirrors the `nftSent` socket update; `newOwnerAddress` may be `unknown` when applied from an outgoing
 // activity - `updateAccountSettingsBackgroundNft` only rewrites the persisted owner field
 export function applyOutgoingNftFromActivity(

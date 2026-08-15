@@ -20,6 +20,7 @@ import { focusAwareDelay } from '../../../util/focusAwareDelay';
 import { compact, pick } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause, throttle } from '../../../util/schedulers';
+import { shouldEmitNftFullLoadFinal } from './util/nft-polling-guards';
 import { fetchStoredAccount, fetchStoredWallet, updateStoredWallet } from '../../common/accounts';
 import { getLastPageTraceBoundaryId } from '../../common/activities/reconciler/pagination';
 import { getBackendConfigCache, getStakingCommonCache } from '../../common/cache';
@@ -344,7 +345,7 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
           aborted: abortController.signal.aborted,
         });
 
-        if (!abortController.signal.aborted) {
+        if (!abortController.signal.aborted && shouldEmitNftFullLoadFinal(didFail, streamedAddresses.length)) {
           onUpdate({
             type: 'updateNfts',
             accountId,

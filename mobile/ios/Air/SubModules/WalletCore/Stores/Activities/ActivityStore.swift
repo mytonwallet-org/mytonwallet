@@ -191,7 +191,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.shouldHide != true
         }
         updatePoisoningCache(accountId: accountId, activities: visibleUpserts)
-        applyMtwCardsFromActivities(accountId: accountId, activities: visibleUpserts)
+        applyNftsFromActivities(accountId: accountId, activities: visibleUpserts)
         
         if let chain = update.chain {
             setIsInitialActivitiesLoadedTrue(accountId: accountId, chain: chain);
@@ -1046,7 +1046,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         NftStore.shouldHideTransaction(accountId: accountId, transaction: transaction)
     }
 
-    private func applyMtwCardsFromActivities(accountId: String, activities: some Collection<ApiActivity>) {
+    private func applyNftsFromActivities(accountId: String, activities: some Collection<ApiActivity>) {
         for activity in activities {
             guard activity.isConfirmedOrCompleted,
                   !activity.isLocal,
@@ -1064,6 +1064,11 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
                 continue
             }
             NftStore.applyIncomingMtwCard(accountId: accountId, nft: nft)
+            // Buying an NFT is an explicit intent to own it, so it stays visible even if its collection
+            // is untrusted
+            if transaction.type == .nftTrade {
+                NftStore.applyPurchasedNft(accountId: accountId, nft: nft)
+            }
         }
     }
 }

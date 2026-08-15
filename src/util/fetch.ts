@@ -163,11 +163,10 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
         const shouldSkipRetry = shouldSkipRetryFn(message, statusCode);
 
         if (shouldSkipRetry) {
-          // 4xx: host responded with a usable error body - host is alive,
-          // the request was wrong. 5xx/transport/no-status with shouldSkipRetry
-          // (e.g. callBackendPost short-circuits on every non-abort error) is
-          // still a host-health failure even though we're not retrying.
-          if (statusCode !== undefined && statusCode >= 400 && statusCode < 500) {
+          // Host-health verdict: terminal 4xx = alive host, wrong request; anything else
+          // (5xx, transport, 429/408) counts toward tripping the breaker, even when
+          // shouldSkipRetry short-circuits the retry budget.
+          if (isBreakerHealthy4xx(statusCode)) {
             slot.recordSuccess();
           } else {
             slot.recordFailure();
@@ -184,10 +183,8 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
       }
     }
 
-    // Same host-health classification as the in-loop branch above: a 4xx that
-    // exhausted retries still means the host answered and is alive, so it must
-    // not count toward tripping the breaker.
-    if (statusCode !== undefined && statusCode >= 400 && statusCode < 500) {
+    // Same verdict as the in-loop branch: only a terminal 4xx proves the host alive.
+    if (isBreakerHealthy4xx(statusCode)) {
       slot.recordSuccess();
     } else {
       slot.recordFailure();
@@ -257,6 +254,12 @@ export function classifyFetchFailure(statusCode?: number): 'retryable' | 'termin
 
 function isTerminalFailure(_message?: string, statusCode?: number): boolean {
   return classifyFetchFailure(statusCode) === 'terminal';
+}
+
+/** Only a terminal 4xx proves the host healthy; 429/408 are overload signals and verdict as failures. */
+function isBreakerHealthy4xx(statusCode?: number): boolean {
+  return statusCode !== undefined && statusCode >= 400 && statusCode < 500
+    && classifyFetchFailure(statusCode) === 'terminal';
 }
 
 export function isNegativeCacheableStatus(statusCode?: number): boolean {

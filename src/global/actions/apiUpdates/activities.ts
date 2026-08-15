@@ -35,6 +35,7 @@ import {
   replaceCurrentTransferId,
   replacePendingActivities,
   updateAccountState,
+  whitelistNft,
 } from '../../reducers';
 import {
   selectAccountSettings,
@@ -190,6 +191,10 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
 
             if (isNftIncoming) {
               global = applyIncomingNftFromActivity(global, accountId, activity.nft);
+
+              if (activity.type === 'nftTrade') {
+                global = whitelistNft(global, accountId, activity.nft.address);
+              }
 
               // Auto-installing a card is only safe where the card can also be taken off: every removal surface
               // (customization modal, accent picker, the NFT menu's reset action) belongs to the My Wallet brand

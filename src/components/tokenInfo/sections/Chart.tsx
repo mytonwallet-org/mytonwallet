@@ -12,6 +12,7 @@ import buildClassName from '../../../util/buildClassName';
 import { formatChartDate, formatShortDay, formatTime, SECOND } from '../../../util/dateFormat';
 import { formatCurrency, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
 import { vibrate } from '../../../util/haptics';
+import { TIME_RANGES } from '../../../util/portfolio/timeRange';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../../util/swipeController';
 import { IS_IOS } from '../../../util/windowEnvironment';
 
@@ -21,8 +22,9 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useSyncEffect from '../../../hooks/useSyncEffect';
 
 import TimeRangeSelector from '../../common/TimeRangeSelector';
-import Skeleton from '../../ui/Skeleton';
+import Spinner from '../../ui/Spinner';
 import TabList from '../../ui/TabList';
+import Transition from '../../ui/Transition';
 import Plot from './Plot';
 
 import styles from './Chart.module.scss';
@@ -55,6 +57,7 @@ const REFRESH_INTERVAL = 15 * SECOND;
 const NO_SELECTION = -1;
 const PRICE_TAB = 0;
 const NET_WORTH_TAB = 1;
+const LOADING_SLIDE_KEY = 0;
 const AXIS_LABEL_COUNT = 4;
 const PRICE_FRACTION_DIGITS = 2;
 const SELECTED_PRICE_FRACTION_DIGITS = 4;
@@ -86,11 +89,11 @@ function Chart({
   const history = isNetWorthMode ? netWorthHistoryPeriods?.[period] : historyPeriods?.[period];
   const isLoading = !history;
 
-  const refreshHistory = useLastCallback((newPeriod: ApiPriceHistoryPeriod = period) => {
+  const refreshHistory = useLastCallback(() => {
     if (isNetWorthMode) {
-      loadTokenNetWorthHistory({ slug, period: newPeriod, currency: chartCurrency });
+      loadTokenNetWorthHistory({ slug, period, currency: chartCurrency });
     } else {
-      loadPriceHistory({ slug, period: newPeriod, currency: chartCurrency });
+      loadPriceHistory({ slug, period, currency: chartCurrency });
     }
   });
 
@@ -128,9 +131,9 @@ function Chart({
 
   const axisLabels = useMemo(() => buildAxisLabels(lang.code!, period, history), [lang.code, period, history]);
 
+  // The new period reaches the effect above through the global state, which loads the series
   const handlePeriodChange = useLastCallback((newPeriod: ApiPriceHistoryPeriod) => {
     setCurrentTokenPeriod({ period: newPeriod });
-    refreshHistory(newPeriod);
   });
 
   const modeTabs = useMemo<TabWithProperties[]>(() => [
@@ -146,6 +149,11 @@ function Chart({
   // between content tabs and from the swipe back
   const fullClassName = buildClassName(styles.root, 'no-swipe', SWIPE_DISABLED_CLASS_NAME, className);
 
+  // Every swap of the shown series cross-fades, so the key covers both the period and the mode
+  const contentKey = isLoading
+    ? LOADING_SLIDE_KEY
+    : TIME_RANGES.indexOf(period) * 2 + (isNetWorthMode ? 1 : 0) + 1;
+
   return (
     <section className={fullClassName}>
       {canSwitchMode && (
@@ -158,69 +166,69 @@ function Chart({
         />
       )}
 
-      <div className={styles.summary}>
-        <div className={styles.summarySide}>
-          <span className={styles.summaryCaption}>
-            {initialPoint
-              ? formatShortDay(lang.code!, initialPoint[0] * 1000)
-              : isLoading && <Skeleton className={styles.captionSkeleton} />}
-          </span>
-          <span className={styles.summaryValue}>
-            {initialPoint
-              ? formatCurrency(initialPoint[1], currencySymbol, PRICE_FRACTION_DIGITS, true)
-              : isLoading && <Skeleton className={styles.valueSkeleton} />}
-          </span>
-        </div>
+      <Transition name="fade" activeKey={contentKey} shouldRestoreHeight shouldCleanup>
+        <div className={styles.slide}>
+          <div className={styles.summary}>
+            <div className={styles.summarySide}>
+              <span className={styles.summaryCaption}>
+                {initialPoint && formatShortDay(lang.code!, initialPoint[0] * 1000)}
+              </span>
+              <span className={styles.summaryValue}>
+                {initialPoint && formatCurrency(initialPoint[1], currencySymbol, PRICE_FRACTION_DIGITS, true)}
+              </span>
+            </div>
 
-        <div className={buildClassName(styles.summarySide, styles.summarySideEnd)}>
-          <span className={styles.summaryCaption}>
-            {selectedPoint ? formatChartDate(lang.code!, selectedPoint[0] * 1000) : lang('Now')}
-          </span>
-          <span className={styles.summaryValue}>
-            {shownPoint ? (
-              <>
-                {formatCurrency(
-                  shownPoint[1],
-                  currencySymbol,
-                  selectedPoint ? SELECTED_PRICE_FRACTION_DIGITS : PRICE_FRACTION_DIGITS,
-                  true,
-                )}
-                {Boolean(changePercent) && (
-                  <span
-                    className={buildClassName(
-                      styles.change,
-                      changePercent > 0 ? styles.changePositive : styles.changeNegative,
+            <div className={buildClassName(styles.summarySide, styles.summarySideEnd)}>
+              <span className={styles.summaryCaption}>
+                {selectedPoint ? formatChartDate(lang.code!, selectedPoint[0] * 1000) : lang('Now')}
+              </span>
+              <span className={styles.summaryValue}>
+                {shownPoint && (
+                  <>
+                    {formatCurrency(
+                      shownPoint[1],
+                      currencySymbol,
+                      selectedPoint ? SELECTED_PRICE_FRACTION_DIGITS : PRICE_FRACTION_DIGITS,
+                      true,
                     )}
-                  >
-                    {changePercent > 0 ? '↑' : '↓'}&thinsp;{formatPercent(Math.abs(changePercent))}
-                  </span>
+                    {Boolean(changePercent) && (
+                      <span
+                        className={buildClassName(
+                          styles.change,
+                          changePercent > 0 ? styles.changePositive : styles.changeNegative,
+                        )}
+                      >
+                        {changePercent > 0 ? '↑' : '↓'}&thinsp;{formatPercent(Math.abs(changePercent))}
+                      </span>
+                    )}
+                  </>
                 )}
-              </>
-            ) : isLoading && <Skeleton className={styles.valueSkeleton} />}
-          </span>
+              </span>
+            </div>
+          </div>
+
+          {history?.length ? (
+            <Plot
+              prices={history}
+              selectedIndex={selectedIndex}
+              className={styles.plot}
+              onSelectIndex={setSelectedIndex}
+            />
+          ) : isLoading ? (
+            <div className={styles.plotLoading}>
+              <Spinner className={styles.spinner} />
+            </div>
+          ) : (
+            <div className={styles.plotEmpty}>{lang('No price data')}</div>
+          )}
+
+          <div className={styles.axis}>
+            {axisLabels?.map((label, index) => (
+              <span key={index}>{label}</span>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {history?.length ? (
-        <Plot
-          prices={history}
-          selectedIndex={selectedIndex}
-          className={styles.plot}
-          onSelectIndex={setSelectedIndex}
-        />
-      ) : isLoading ? (
-        <Skeleton className={styles.plotSkeleton} />
-      ) : (
-        // The backend knows the asset but has no points for this period (e.g. rarely traded tokens
-        // on short ranges), so a longer period may still chart
-        <div className={styles.plotEmpty}>{lang('No price data')}</div>
-      )}
-
-      <div className={styles.axis}>
-        {axisLabels?.map((label, index) => (
-          <span key={index}>{label}</span>
-        ))}
-      </div>
+      </Transition>
 
       <TimeRangeSelector value={period} isPlain className={styles.timeRange} onChange={handlePeriodChange} />
     </section>

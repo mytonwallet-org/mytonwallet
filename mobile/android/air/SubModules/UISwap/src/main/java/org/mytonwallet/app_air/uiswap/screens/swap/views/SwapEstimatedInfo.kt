@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.MotionEvent
 import android.widget.LinearLayout
-import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.commonViews.AnimatedKeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.feeDetailsDialog.FeeDetailsDialog
 import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
@@ -63,13 +62,13 @@ class SwapEstimatedInfo(
         linearLayout.addView(estMinimumReceived)
 
         estBlockchainFee.setOnClickListener {
-            est?.explainedFee?.takeIf { it.excessFee > BigInteger.ZERO }?.let { explainedFee ->
+            availableFeeDetails?.let { feeDetails ->
                 val tokenToSend = est?.request?.tokenToSend ?: return@let
                 lateinit var dialogRef: WDialog
                 dialogRef = FeeDetailsDialog.create(
                     context,
                     tokenToSend,
-                    explainedFee
+                    feeDetails
                 ) {
                     dialogRef.dismiss()
                 }
@@ -111,21 +110,24 @@ class SwapEstimatedInfo(
     }
 
     var est: SwapEstimateResponse? = null
+    private val availableFeeDetails
+        get() = est?.explainedFee?.networkFeeDetails?.takeIf { it.supportsLegacyDetailsView }
+
     fun setEstimated(est: SwapEstimateResponse?, toToken: IApiToken?) {
         val transactionFee = est?.transactionFeeFmt2
         estBlockchainFee.value = transactionFee
         estBlockchainFee.visibility = if (transactionFee == null) GONE else VISIBLE
-        if ((est?.explainedFee?.excessFee ?: BigInteger.ZERO) > BigInteger.ZERO) {
-            estBlockchainFee.setValueDrawable(
+        this.est = est
+        if (availableFeeDetails != null) {
+            estBlockchainFee.setTitleDrawable(
                 org.mytonwallet.app_air.icons.R.drawable.ic_info_24,
                 0.5f
             )
         } else {
-            estBlockchainFee.setValueDrawable(null)
+            estBlockchainFee.setTitleDrawable(null)
         }
         estPriceImpact.value = est?.priceImpactFmt
         estMinimumReceived.value = est?.minReceivedFmt
-        this.est = est
 
         if (est != null && est.rate.sendAmount > java.math.BigDecimal.ZERO) {
             estRate.setTitleAndValue(

@@ -539,7 +539,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     public func importViewWallet(network: ApiNetwork, addressByChain: [String: String]) async throws -> MAccount {
-        if addressByChain.isEmpty { throw DisplayError(text: "No matching chains") }
+        if addressByChain.isEmpty { throw DisplayError(text: lang("No matching chains")) }
 
         let result = try await Api.importViewAccount(network: network, addressByChain: addressByChain, isTemporary: nil)
         let viewCount = AccountStore.accountsById.values.filter { $0.type == .view }.count

@@ -322,11 +322,9 @@ class StickyHeaderView(
             actionBar = actionBar,
             onSaveTapped = {
                 onResult(true)
-                exitActionMode()
             },
             onCancelTapped = {
                 onResult(false)
-                exitActionMode()
             }
         )
         enterHeaderActionMode(needUpdateStatusView = false)

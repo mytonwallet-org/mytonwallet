@@ -5,6 +5,7 @@ import android.content.Intent
 import android.view.ViewGroup
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
+import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
@@ -310,6 +311,16 @@ abstract class BaseTabsVC(context: Context) :
                         account,
                         token
                     )
+                )
+                return true
+            }
+
+            is WalletEvent.OpenNftCollection -> {
+                val navigationController = mainNavigationController ?: return true
+                CollectionsMenuHelpers.openCollection(
+                    walletEvent.accountId,
+                    walletEvent.nft,
+                    navigationController
                 )
                 return true
             }

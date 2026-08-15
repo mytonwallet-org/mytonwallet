@@ -295,6 +295,13 @@ class ImportViewWalletVC(
                 addressByChain[chain] = address
             }
         }
+        if (addressByChain.isEmpty()) {
+            showAlert(
+                title = LocaleController.getString("Error"),
+                text = LocaleController.getString("No matching chains")
+            )
+            return
+        }
         view.lockView()
         continueButton.isLoading = true
         WalletCore.call(

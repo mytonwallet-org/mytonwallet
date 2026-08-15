@@ -6,6 +6,7 @@ import org.junit.Test
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 
 class SwapHelpersTest {
@@ -191,6 +192,34 @@ class SwapHelpersTest {
         )
 
         assertEquals(BigInteger.ZERO, maxAmount)
+    }
+
+    @Test
+    fun gasfullFeeUsesRealNetworkFeeForDisplay() {
+        val explainedFee = SwapHelpers.explainGasfullSwapFee(
+            networkFee = BigInteger.valueOf(100),
+            realNetworkFee = BigInteger.valueOf(60)
+        )
+
+        assertEquals(BigInteger.valueOf(100), explainedFee.fullFee?.networkTerms?.native)
+        assertEquals(BigInteger.valueOf(60), explainedFee.realFee?.networkTerms?.native)
+        assertEquals(MFeePrecision.LESS_THAN, explainedFee.fullFee?.precision)
+        assertEquals(MFeePrecision.APPROXIMATE, explainedFee.realFee?.precision)
+        assertEquals(BigInteger.valueOf(40), explainedFee.excessFee)
+        assertEquals(true, explainedFee.networkFeeDetails?.supportsLegacyDetailsView)
+    }
+
+    @Test
+    fun exactGasfullFeeDoesNotOfferLegacyDetails() {
+        val explainedFee = SwapHelpers.explainGasfullSwapFee(
+            networkFee = BigInteger.valueOf(100),
+            realNetworkFee = BigInteger.valueOf(100)
+        )
+
+        assertEquals(MFeePrecision.EXACT, explainedFee.fullFee?.precision)
+        assertEquals(MFeePrecision.EXACT, explainedFee.realFee?.precision)
+        assertEquals(BigInteger.ZERO, explainedFee.excessFee)
+        assertEquals(false, explainedFee.networkFeeDetails?.supportsLegacyDetailsView)
     }
 
     private fun calcFromInputs(
