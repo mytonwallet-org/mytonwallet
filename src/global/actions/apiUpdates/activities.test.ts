@@ -382,3 +382,63 @@ describe('apiUpdate activity reconciliation bridge', () => {
     expect(getAccountActivities().byId[authoritative.id]).toBe(authoritative);
   });
 });
+
+describe('NFT trade visibility', () => {
+  // For `nftTrade` the `isIncoming` flag shows the TONCOIN direction, so a purchase looks like an outgoing transfer
+  function makeNftTrade(isBuying: boolean): ApiTransactionActivity {
+    return makeRawReceive({
+      id: 'nft-trade-hash',
+      type: 'nftTrade',
+      isIncoming: !isBuying,
+      nft: {
+        chain: 'ton',
+        interface: 'default',
+        index: 0,
+        address: 'EQAglL_g6q2AhMK_BT9jN1F-8jBlv2pOI30vRkPluU9kcXgV',
+        thumbnail: '',
+        image: '',
+        isOnSale: false,
+        isUnverified: true,
+        metadata: {},
+      },
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (callApi as jest.Mock).mockResolvedValue(undefined);
+    setGlobal(buildGlobal([]));
+  });
+
+  it('whitelists a bought NFT so an unverified collection does not hide it', async () => {
+    const trade = makeNftTrade(true);
+
+    await (getActions().apiUpdate({
+      type: 'newActivities',
+      accountId: ACCOUNT_ID,
+      activities: [trade],
+      pendingActivities: [],
+      chain: 'ton',
+    }) as unknown as Promise<void>);
+
+    const accountState = getGlobal().byAccountId[ACCOUNT_ID];
+    expect(accountState.nfts?.byAddress?.[trade.nft!.address]).toBeDefined();
+    expect(accountState.whitelistedNftAddresses).toEqual([trade.nft!.address]);
+  });
+
+  it('does not whitelist a sold NFT', async () => {
+    const trade = makeNftTrade(false);
+
+    await (getActions().apiUpdate({
+      type: 'newActivities',
+      accountId: ACCOUNT_ID,
+      activities: [trade],
+      pendingActivities: [],
+      chain: 'ton',
+    }) as unknown as Promise<void>);
+
+    const accountState = getGlobal().byAccountId[ACCOUNT_ID];
+    expect(accountState.nfts?.byAddress?.[trade.nft!.address]).toBeUndefined();
+    expect(accountState.whitelistedNftAddresses).toBeUndefined();
+  });
+});

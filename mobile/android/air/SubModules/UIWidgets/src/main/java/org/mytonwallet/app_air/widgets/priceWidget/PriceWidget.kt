@@ -45,6 +45,7 @@ class PriceWidget : AppWidgetProvider() {
         const val DEFAULT_TOKEN_ASSET_ID = "TON"
         const val DEFAULT_TOKEN_SYMBOL = "GRAM"
         const val DEFAULT_COLOR = "#0088cc"
+        private const val TONCOIN_SLUG = "toncoin"
     }
 
     data class Config(
@@ -125,6 +126,7 @@ class PriceWidget : AppWidgetProvider() {
             }
         val tokenSymbol: String?
             get() {
+                if (tokenSlug == TONCOIN_SLUG) return DEFAULT_TOKEN_SYMBOL
                 return token?.optString("symbol") ?: DEFAULT_TOKEN_SYMBOL
             }
         val tokenSlug: String?
@@ -356,7 +358,11 @@ class PriceWidget : AppWidgetProvider() {
         }
         ImageUtils.loadBitmapFromUrl(
             context,
-            config.token?.optString("image", ""),
+            if (config.tokenSlug == TONCOIN_SLUG) {
+                null
+            } else {
+                config.token?.optString("image", "")
+            },
             onBitmapReady = { image ->
                 try {
                     val widgetWidth =
@@ -424,8 +430,15 @@ class PriceWidget : AppWidgetProvider() {
             null
         }
 
-        image?.let {
-            views.setImageViewBitmap(R.id.image_symbol, it)
+        if (config.tokenSlug == TONCOIN_SLUG) {
+            views.setImageViewResource(
+                R.id.image_symbol,
+                org.mytonwallet.app_air.icons.R.drawable.ic_token_gram
+            )
+        } else {
+            image?.let {
+                views.setImageViewBitmap(R.id.image_symbol, it)
+            }
         }
 
         val isCompact = (width ?: 100) <= 200

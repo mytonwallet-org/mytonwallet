@@ -140,17 +140,7 @@ class FeeDetailsContentView(
                     if (LocaleController.isRTL) rightMargin = 3.dp else leftMargin = 3.dp
                 }
             }
-        finalFeeValueLabel.post {
-            val paint = finalFeeValueLabel.paint
-            val textWidth = paint.measureText(finalFeeValueLabel.text.toString()).toInt() + 42.dp
-            if (finalFeeValueLabel.measuredWidth < textWidth) {
-                val multiplier = textWidth / finalFeeValueLabel.measuredWidth.toFloat()
-                finalFeeValueLabel.layoutParams =
-                    (finalFeeValueLabel.layoutParams as LinearLayout.LayoutParams).apply {
-                        weight *= multiplier
-                    }
-            }
-        }
+        feeValuesView.post(::ensureFeeValueLabelsFit)
 
         fillDetailsLabel()
 
@@ -160,6 +150,35 @@ class FeeDetailsContentView(
 
         updateTheme()
     }
+
+    private fun ensureFeeValueLabelsFit() {
+        val finalParams = finalFeeValueLabel.layoutParams as LinearLayout.LayoutParams
+        val excessParams = excessFeeValueLabel.layoutParams as LinearLayout.LayoutParams
+        val availableWidth = feeValuesView.measuredWidth -
+            finalParams.leftMargin - finalParams.rightMargin -
+            excessParams.leftMargin - excessParams.rightMargin
+        if (availableWidth <= 0) return
+
+        val totalWeight = finalParams.weight + excessParams.weight
+        if (totalWeight <= 0f) return
+
+        val finalMinimumWidth = finalFeeValueLabel.requiredSegmentWidth()
+        val excessMinimumWidth = excessFeeValueLabel.requiredSegmentWidth()
+        if (finalMinimumWidth + excessMinimumWidth > availableWidth) return
+
+        val proportionalFinalWidth = availableWidth * finalParams.weight / totalWeight
+        val finalWidth = proportionalFinalWidth.coerceIn(
+            finalMinimumWidth.toFloat(),
+            (availableWidth - excessMinimumWidth).toFloat()
+        )
+        finalFeeValueLabel.layoutParams = finalParams.apply { weight = finalWidth }
+        excessFeeValueLabel.layoutParams = excessParams.apply {
+            weight = availableWidth - finalWidth
+        }
+    }
+
+    private fun WLabel.requiredSegmentWidth(): Int =
+        paint.measureText(text.toString()).toInt() + paddingLeft + paddingRight
 
     override fun updateTheme() {
         finalFeeLabel.setTextColor(WColor.Tint.color)
@@ -184,15 +203,15 @@ class FeeDetailsContentView(
             listOf(nativeToken?.chain?.uppercase() ?: "")
         )
 
-        detailsLabel.text = (if (LocaleController.isRTL) "\u200F" else "") + "${
-            LocaleController.getSpannableStringWithKeyValues(
-                "\$fee_details",
-                listOf(
-                    Pair("%full_fee%", fee.toBoldSpannableStringBuilder()),
-                    Pair("%excess_symbol%", symbol.toBoldSpannableStringBuilder()),
-                    Pair("%chain_name%", chain.toBoldSpannableStringBuilder())
-                )
-            ).trim().toProcessedSpannableStringBuilder()
-        }"
+        detailsLabel.text = LocaleController.getSpannableStringWithKeyValues(
+            "\$fee_details",
+            listOf(
+                Pair("%full_fee%", fee.toBoldSpannableStringBuilder()),
+                Pair("%excess_symbol%", symbol.toBoldSpannableStringBuilder()),
+                Pair("%chain_name%", chain.toBoldSpannableStringBuilder())
+            )
+        ).trim().toProcessedSpannableStringBuilder().apply {
+            if (LocaleController.isRTL) insert(0, "\u200F")
+        }
     }
 }

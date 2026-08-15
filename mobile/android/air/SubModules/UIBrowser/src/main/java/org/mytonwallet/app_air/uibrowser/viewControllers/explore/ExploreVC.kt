@@ -142,14 +142,14 @@ class ExploreVC(context: Context) :
 
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0) return
-                updateBlurViews(recyclerView)
+                val animated = dy != 0
+                if (animated) updateBlurViews(recyclerView)
                 if (recyclerView.computeVerticalScrollOffset() > 40.dp) {
-                    setNavTitle(LocaleController.getString("Explore"))
-                    setTopBlur(true, animated = true)
+                    setNavTitle(LocaleController.getString("Explore"), animated)
+                    setTopBlur(true, animated)
                 } else {
-                    setNavTitle("")
-                    setTopBlur(false, animated = true)
+                    setNavTitle("", animated)
+                    setTopBlur(false, animated)
                 }
             }
         })

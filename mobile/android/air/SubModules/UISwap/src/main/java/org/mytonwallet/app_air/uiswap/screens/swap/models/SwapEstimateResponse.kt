@@ -20,6 +20,7 @@ data class SwapEstimateResponse(
     val dex: MApiSwapEstimateResponse?,
     val cex: MApiSwapCexEstimateResponse?,
     val fee: BigInteger?,
+    val realFee: BigInteger?,
     val error: MBridgeError?
 ) {
     private val fromAmountDec = cex?.fromAmount ?: dex?.fromAmount
@@ -143,24 +144,15 @@ data class SwapEstimateResponse(
 
     val transactionFeeFmt2: String?
         get() {
-            if (request.isCex) {
-                val nativeToken = request.nativeTokenToSend
-
-                return fee?.toString(
-                    decimals = nativeToken.decimals,
-                    currency = nativeToken.symbol ?: "",
-                    currencyDecimals = fee.smartDecimalsCount(nativeToken.decimals),
-                    showPositiveSign = false
-                )
+            val selectedFee = if (hasInsufficientFeeError) {
+                explainedFee.fullFee
             } else {
-                val shouldShowFullFee = hasInsufficientFeeError
-                val selectedFee =
-                    if (shouldShowFullFee) explainedFee.fullFee else explainedFee.realFee
-                return selectedFee?.toString(
-                    request.tokenToSend,
-                    appendNonNative = explainedFee.isGasless
-                )
+                explainedFee.realFee ?: explainedFee.fullFee
             }
+            return selectedFee?.toString(
+                request.tokenToSend,
+                appendNonNative = explainedFee.isGasless
+            )
         }
 
     val shouldShowPriceImpactWarning: Boolean

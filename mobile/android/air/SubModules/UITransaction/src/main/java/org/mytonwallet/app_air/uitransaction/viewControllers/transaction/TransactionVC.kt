@@ -106,6 +106,7 @@ import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 @SuppressLint("ViewConstructor")
@@ -609,9 +610,25 @@ class TransactionVC(
                                     setTextColor(WColor.Tint)
                                     isTinted = true
                                     setOnClickListener {
-                                        val url =
-                                            transaction.nft?.collectionUrl
-                                                ?: return@setOnClickListener
+                                        val nft = transaction.nft ?: return@setOnClickListener
+                                        if (
+                                            NftStore.accountOwnsCollection(
+                                                showingAccountId,
+                                                nft.collectionAddress,
+                                                nft.chain ?: MBlockchain.ton
+                                            )
+                                        ) {
+                                            window?.dismissLastNav {
+                                                WalletCore.notifyEvent(
+                                                    WalletEvent.OpenNftCollection(
+                                                        showingAccountId,
+                                                        nft
+                                                    )
+                                                )
+                                            }
+                                            return@setOnClickListener
+                                        }
+                                        val url = nft.collectionUrl ?: return@setOnClickListener
                                         WalletCore.notifyEvent(
                                             WalletEvent.OpenUrl(url)
                                         )

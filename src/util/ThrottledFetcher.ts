@@ -1,4 +1,6 @@
 import {
+  TONAPIIO_MAINNET_URL,
+  TONAPIIO_TESTNET_URL,
   TONCENTER_MAINNET_URL,
   TONCENTER_TESTNET_URL,
 } from '../config';
@@ -9,12 +11,15 @@ type FetchInput = string | URL | Request;
 type CleanupAbortSignal = AbortSignal & { cleanup?: () => void };
 
 const DEFAULT_TIMEOUT_MS = 30000;
-const TONCENTER_MIN_DELAY_MS = 250;
-const TONCENTER_RETRIES = 6;
-const TONCENTER_FALLBACK_RETRY_AFTER_MS = 5000;
-const TONCENTER_ORIGINS = new Set([
+const PROVIDER_MIN_DELAY_MS = 250;
+const PROVIDER_RETRIES = 6;
+const PROVIDER_FALLBACK_RETRY_AFTER_MS = 5000;
+// Origins throttled per-provider: spaced requests, Retry-After back-pressure on 429.
+const THROTTLED_PROVIDER_ORIGINS = new Set([
   new URL(TONCENTER_MAINNET_URL).origin,
   new URL(TONCENTER_TESTNET_URL).origin,
+  new URL(TONAPIIO_MAINNET_URL).origin,
+  new URL(TONAPIIO_TESTNET_URL).origin,
 ]);
 const throttledFetchers = new Map<string, ThrottledFetcher>();
 
@@ -106,8 +111,8 @@ export function getProviderFetchRetryPolicy(input: FetchInput): ProviderFetchRet
   }
 
   return {
-    retries: TONCENTER_RETRIES,
-    fallbackRetryAfterMs: TONCENTER_FALLBACK_RETRY_AFTER_MS,
+    retries: PROVIDER_RETRIES,
+    fallbackRetryAfterMs: PROVIDER_FALLBACK_RETRY_AFTER_MS,
   };
 }
 
@@ -135,13 +140,13 @@ export function resetThrottledProviderFetchers() {
 }
 
 function shouldThrottleUrl(url: URL) {
-  return TONCENTER_ORIGINS.has(url.origin);
+  return THROTTLED_PROVIDER_ORIGINS.has(url.origin);
 }
 
 function getProviderFetcher(origin: string) {
   let fetcher = throttledFetchers.get(origin);
   if (!fetcher) {
-    fetcher = new ThrottledFetcher(TONCENTER_MIN_DELAY_MS);
+    fetcher = new ThrottledFetcher(PROVIDER_MIN_DELAY_MS);
     throttledFetchers.set(origin, fetcher);
   }
 
@@ -153,13 +158,13 @@ function adjustProviderDelay(origin: string, response: Response) {
     return;
   }
 
-  const retryAfterMs = getRetryAfterMs(response.headers) ?? TONCENTER_FALLBACK_RETRY_AFTER_MS;
+  const retryAfterMs = getRetryAfterMs(response.headers) ?? PROVIDER_FALLBACK_RETRY_AFTER_MS;
   const fetcher = throttledFetchers.get(origin);
   if (!fetcher) {
     return;
   }
 
-  fetcher.delayNextRequest(Math.max(TONCENTER_MIN_DELAY_MS, retryAfterMs));
+  fetcher.delayNextRequest(Math.max(PROVIDER_MIN_DELAY_MS, retryAfterMs));
 }
 
 function getUrl(input: FetchInput): URL | undefined {

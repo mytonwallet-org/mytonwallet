@@ -1048,9 +1048,9 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                 setNewestActivitiesBySlug(accountId)
             }
 
-            // Auto-install MTW card from incoming activity that carries an NFT.
+            // Auto-install MTW card and unhide a bought NFT from an activity that carries an NFT.
             if (eventType == WalletEvent.ReceivedNewActivities.EventType.UPDATE) {
-                applyMtwCardsFromActivities(accountId, filteredActivities)
+                applyNftsFromActivities(accountId, filteredActivities)
             }
 
             // Play notification sound for incoming transactions
@@ -1122,7 +1122,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         }
     }
 
-    private fun applyMtwCardsFromActivities(accountId: String, activities: List<MApiTransaction>) {
+    private fun applyNftsFromActivities(accountId: String, activities: List<MApiTransaction>) {
         val incomingNfts = activities.mapNotNull { activity ->
             if (activity !is MApiTransaction.Transaction) return@mapNotNull null
             if (activity.isPending() || activity.isLocal()) return@mapNotNull null
@@ -1134,12 +1134,17 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             } else {
                 activity.isIncoming
             }
-            if (!isNftIncoming) null else nft
+            if (!isNftIncoming) null else activity.type to nft
         }
         if (incomingNfts.isEmpty()) return
         ensureMainThread {
-            for (nft in incomingNfts) {
+            for ((type, nft) in incomingNfts) {
                 NftStore.applyIncomingMtwCard(accountId, nft)
+                // Buying an NFT is an explicit intent to own it, so it stays visible even if its
+                // collection is untrusted
+                if (type == ApiTransactionType.NFT_TRADE) {
+                    NftStore.showNft(accountId, nft)
+                }
             }
         }
     }

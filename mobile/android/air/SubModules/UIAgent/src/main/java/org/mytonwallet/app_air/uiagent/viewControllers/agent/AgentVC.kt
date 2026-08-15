@@ -197,14 +197,23 @@ class AgentVC(context: Context, initialPrompt: String? = null) :
                 shareScrollPosition()
             }
         })
-        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+        addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            val newWidth = right - left
+            if (newWidth > 0 && newWidth != oldRight - oldLeft) {
+                rvAdapter.updateVisibleCells()
+                restoreSharedScrollPosition()
+                doOnNextLayout {
+                    restoreSharedScrollPosition()
+                }
+            } else if (pinnedMessageId != null) {
+                post { syncPinnedPadding() }
+            }
             pendingSharedScrollPosition?.let { position ->
                 if (restorePendingSharedScrollPosition(position)) {
                     pendingSharedScrollPosition = null
                     shareScrollPosition()
                 }
             }
-            if (pinnedMessageId != null) post { syncPinnedPadding() }
         }
     }
 
@@ -466,14 +475,6 @@ class AgentVC(context: Context, initialPrompt: String? = null) :
         val pinned = pinnedPaddingTarget()
         if (pinned == null) {
             clearPin()
-            return base
-        }
-        if (pinned <= baseChatBottomPadding(stableBottomInset)) {
-            val pinnedIdx = pinnedMessageId?.let { timelineIndexOf(it) } ?: -1
-            val hintsIdx = timelineItems.indexOfLast { it is AgentTimelineItem.Hints }
-            if (pinnedIdx < 0 || hintsIdx <= pinnedIdx) {
-                clearPin()
-            }
             return base
         }
         return maxOf(base, pinned)
@@ -959,6 +960,8 @@ class AgentVC(context: Context, initialPrompt: String? = null) :
             timelineItems = canonical
             scheduleHintsReveal()
             insertHintsItem()
+            refreshIsOnBottom()
+            if (isOnBottom) scrollToBottom()
         }
     }
 

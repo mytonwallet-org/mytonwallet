@@ -355,6 +355,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     private fun applyLayoutForCurrentMode() {
         if (scrollView.layoutParams == null) return
         val centered = isInCenteredWindow
+        val isBottomSheet = navigationController?.isBottomSheet == true
         scrollView.updateLayoutParams {
             height = if (centered) MATCH_CONSTRAINT else window!!.windowView.height
         }
@@ -367,9 +368,10 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 clear(scrollView.id, androidx.constraintlayout.widget.ConstraintSet.TOP)
             }
         }
-        if (centered) {
+        if (!isBottomSheet) {
             titleLinearLayout.translationY = 0f
             navigationBar?.translationY = 0f
+            bottomReversedCornerView?.translationY = 0f
             addNewWalletButton.translationY = 0f
             if (scrollView.paddingTop != 0) scrollView.setPadding(0, 0, 0, 0)
         }

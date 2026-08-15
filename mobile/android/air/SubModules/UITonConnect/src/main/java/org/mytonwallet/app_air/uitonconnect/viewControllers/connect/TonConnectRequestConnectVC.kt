@@ -389,7 +389,6 @@ class TonConnectRequestConnectVC(
                             })
                             return@connectConfirm
                         }
-                        window.dismissLastNav()
                     }
                 )
                 if (!accountHasMfa) {

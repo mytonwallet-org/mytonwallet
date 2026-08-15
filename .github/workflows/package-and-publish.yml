@@ -42,7 +42,11 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # The active run finishes and the newest waiting run supersedes any queued between them, so
+  # frequent pushes cannot starve the pipeline of completed builds. The group deliberately spans
+  # pushes and manual dispatches on a ref (two runs must not publish to the stores concurrently),
+  # so a waiting dispatch can itself be superseded by a later push - re-dispatch if it vanishes
+  cancel-in-progress: false
 
 env:
   # Base of downloadable artifact filenames (dmg/exe/AppImage/apk). The user-visible

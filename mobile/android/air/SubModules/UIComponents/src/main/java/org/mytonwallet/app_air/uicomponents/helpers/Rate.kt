@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.helpers
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
+import org.mytonwallet.app_air.walletbasecontext.utils.insertGroupingSeparator
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 
 data class Rate(val sendAmount: BigDecimal, val receiveAmount: BigDecimal) {
@@ -21,6 +22,7 @@ data class Rate(val sendAmount: BigDecimal, val receiveAmount: BigDecimal) {
             round: Boolean
         ): String {
             val amountFmt = CoinUtils.toDecimalString(amount, decimals, round)
+                .insertGroupingSeparator()
             return symbol?.let { "$amountFmt $it" } ?: amountFmt
         }
 

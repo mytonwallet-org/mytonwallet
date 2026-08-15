@@ -7,12 +7,11 @@
 
 .segment {
   display: flex;
-  flex: 0 0 auto;
+  // Each side takes its share of the row, but never shrinks below its own value
+  flex: var(--segment-share) 1 0;
   align-items: center;
 
-  // Each side owns its share of the row minus its half of the gap
-  width: calc(var(--segment-share) * 100% - 0.125rem);
-  min-width: 0;
+  min-width: max-content;
   padding: 0 0.5rem;
   border-radius: 0.1875rem;
 

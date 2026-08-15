@@ -19,6 +19,11 @@
 # is authoritative: drop a fresh build into docs/ and commit it on ton-wallet's
 # existing master. NEVER rebase the target onto the private dev master.
 #
+# docs/CNAME is the GitHub Pages custom-domain binding for wallet.ton.org: a
+# published tree without it makes GitHub unbind the domain and the site goes
+# down. It is not part of the web build -- section 7 re-emits it on every
+# deploy and refuses to commit a tree without it.
+#
 # The build source must be PUBLISHED on the public mirror and built from a hermetic
 # environment. Both are enforced below (sections 1b and 1c) and independently
 # re-checked on the built artifact (the environment gates in section 3).
@@ -410,8 +415,19 @@ git clean -fdx
 rm -rf docs
 cp -R "$DIST_DIR" docs
 
+# The custom-domain binding lives IN the published tree: GitHub Pages reads
+# docs/CNAME on every build and unbinds wallet.ton.org when the file is
+# absent, taking the site down behind TON's Cloudflare. The file is deploy
+# infrastructure, not build output -- emit it here rather than expect it from
+# $DIST_DIR or the previous tree (the rm -rf above just deleted it). No
+# trailing newline: keeps the file byte-identical across deploys.
+printf 'wallet.ton.org' > docs/CNAME
+
 VERSION="$(node -p "require('$DEV_REPO_ROOT/package.json').version")"
 COMMIT_MSG="[Build] Gram Wallet Web v${VERSION} (source ${SOURCE_BRANCH}@${SOURCE_SHA})"
+
+printf 'wallet.ton.org' | cmp -s - docs/CNAME \
+  || fail "docs/CNAME is missing or wrong -- committing this tree would unbind wallet.ton.org from GitHub Pages."
 
 git add -A
 git commit -m "$COMMIT_MSG"

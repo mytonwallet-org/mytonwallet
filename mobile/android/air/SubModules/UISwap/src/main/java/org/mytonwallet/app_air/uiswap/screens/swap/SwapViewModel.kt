@@ -413,7 +413,8 @@ class SwapViewModel :
     val shouldAuthorizeDiesel: Boolean
         get() {
             _simulatedSwapFlow.value?.let {
-                return it.request.isDiesel && it.dex?.dieselStatus == MDieselStatus.NOT_AUTHORIZED
+                return it.explainedFee.isGasless &&
+                    it.dex?.dieselStatus == MDieselStatus.NOT_AUTHORIZED
             }
             return false
         }
@@ -814,7 +815,7 @@ class SwapViewModel :
 
         val nativeFee = estimated.fee ?: BigInteger.ZERO
         if (nativeFee > state.nativeTokenToSendBalance && state.tokenToSendIsSupported) {
-            if (estimated.request.isDiesel) {
+            if (estimated.explainedFee.isGasless) {
                 if (shouldAuthorizeDiesel) {
                     return ButtonState(
                         ButtonStatus.AuthorizeDiesel,
@@ -866,7 +867,7 @@ class SwapViewModel :
     private suspend fun callEstimate(request: SwapEstimateRequest): SwapEstimateResponse {
         try {
             if (request.isCex) {
-                var firstTransactionFee: BigInteger?
+                var transactionDraft: MApiCheckTransactionDraftResult? = null
                 val needEstFee = request.wallet.isSupportedChain(request.tokenToSend.mBlockchain)
 
                 if (needEstFee) { // Must call even when balance is 0 for proper fee estimation
@@ -882,7 +883,7 @@ class SwapViewModel :
                             BigInteger.ONE
                         }
                     try {
-                        firstTransactionFee = WalletCore.Transfer.checkTransactionDraft(
+                        transactionDraft = WalletCore.Transfer.checkTransactionDraft(
                             request.tokenToSendChain,
                             MApiCheckTransactionDraftOptions(
                                 accountId = request.wallet.accountId,
@@ -897,25 +898,21 @@ class SwapViewModel :
                                 payload = null,
                                 allowGasless = null
                             )
-                        ).fullNativeFee
+                        )
                     } catch (apiError: JSWebViewBridge.ApiError) {
                         // TODO: Restore the strict handling below once all chains have a correct
                         //  feeCheckAddress and the SDK no longer throws on fee-estimation draft checks.
                         /*if (apiError.parsed == MBridgeError.Type.INSUFFICIENT_BALANCE &&
                             apiError.parsedResult is MApiCheckTransactionDraftResult
                         ) {
-                            firstTransactionFee =
-                                (apiError.parsedResult as? MApiCheckTransactionDraftResult)
-                                    ?.fullNativeFee ?: BigInteger.ZERO
+                            transactionDraft =
+                                apiError.parsedResult as MApiCheckTransactionDraftResult
                         } else {
                             throw apiError
                         }*/
-                        firstTransactionFee =
-                            (apiError.parsedResult as? MApiCheckTransactionDraftResult)
-                                ?.fullNativeFee
+                        transactionDraft =
+                            apiError.parsedResult as? MApiCheckTransactionDraftResult
                     }
-                } else {
-                    firstTransactionFee = null
                 }
 
                 val cex = WalletCore.Swap.swapCexEstimate(
@@ -928,6 +925,7 @@ class SwapViewModel :
                         dex = null,
                         cex = null,
                         fee = null,
+                        realFee = null,
                         error = MBridgeError.Type.UNKNOWN
                     )
                 }
@@ -937,6 +935,7 @@ class SwapViewModel :
                         dex = null,
                         cex = null,
                         fee = null,
+                        realFee = null,
                         error = it
                     )
                 }
@@ -944,7 +943,8 @@ class SwapViewModel :
                     request = request,
                     dex = null,
                     cex = cex,
-                    fee = firstTransactionFee,
+                    fee = transactionDraft?.fullNativeFee,
+                    realFee = transactionDraft?.realNativeFee,
                     error = null
                 )
                 return res
@@ -956,11 +956,15 @@ class SwapViewModel :
                     )
                 )
                 val fee = dex.networkFee.toBigInteger(request.nativeTokenToSend.decimals)
+                val realFee = dex.realNetworkFee?.toBigInteger(
+                    request.nativeTokenToSend.decimals
+                )
                 return SwapEstimateResponse(
                     request = request,
                     dex = dex,
                     cex = null,
                     fee = fee,
+                    realFee = realFee,
                     error = null
                 )
             }
@@ -976,6 +980,7 @@ class SwapViewModel :
                 dex = null,
                 cex = null,
                 fee = null,
+                realFee = null,
                 error = apiError.parsed
             )
         }
@@ -1067,14 +1072,14 @@ class SwapViewModel :
                         fromAmount = dex.fromAmount,
                         to = dex.to,
                         toAmount = dex.toAmount,
-                        networkFee = dex.networkFee,
+                        networkFee = dex.realNetworkFee ?: dex.networkFee,
                         swapFee = dex.swapFee,
                         status = MApiSwapHistoryItemStatus.PENDING,
                         transactionIds = MApiSwapTransactionIds(),
                         isCanceled = null,
                         cex = null
                     ),
-                    estimate.request.isDiesel,
+                    estimate.explainedFee.isGasless,
                     build.transaction
                 )
                 submitResult.mfaRequestHash?.let { hash ->
@@ -1119,7 +1124,9 @@ class SwapViewModel :
 
                 // networkFee is only for the sent TON
                 val networkFee = if (tokenToSend.mBlockchain == MBlockchain.ton) {
-                    estimate.fee?.toBigDecimal(9)?.toDouble() ?: 0.0
+                    (estimate.realFee ?: estimate.fee)
+                        ?.toBigDecimal(estimate.request.nativeTokenToSend.decimals)
+                        ?.toDouble() ?: 0.0
                 } else {
                     0.0
                 }

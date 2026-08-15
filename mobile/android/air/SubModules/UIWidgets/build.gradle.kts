@@ -14,6 +14,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.fresco)
     implementation(libs.fresco.middleware)
+    implementation(project("$airSubModulePath:Icons"))
     implementation(project("$airSubModulePath:WalletSDK"))
     implementation(project("$airSubModulePath:WalletBaseContext"))
 }

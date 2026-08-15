@@ -2,6 +2,7 @@ import type { ApiBackendConfig } from '../api/types';
 
 import { DEFAULT_RETRIES } from '../config';
 import { setBackendConfigCache } from '../api/common/cache';
+import { CircuitOpenError } from './circuit-breaker';
 import {
   classifyFetchFailure,
   computeRetryBackoffMs,
@@ -141,5 +142,41 @@ describe('fetchWithRetry negative-verdict cache', () => {
     fetchMock.mockClear();
     await expect(fetchWithRetry(BURN_URL)).rejects.toMatchObject({ statusCode: 503 });
     expect(fetchMock).toHaveBeenCalledTimes(DEFAULT_RETRIES);
+  });
+});
+
+describe('fetchWithRetry breaker classification', () => {
+  const VENDOR_URL = 'https://vendor.example/api/data';
+  const BREAKER_FAILURE_THRESHOLD = 5;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    resetFetchStateForTests();
+    fetchMock = jest.fn();
+    (global as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+    setNegVerdictCacheFlag(false);
+  });
+
+  it('opens the breaker on a sustained 429 storm - a vendor rate limit is a host-health failure', async () => {
+    fetchMock.mockResolvedValue(mockResponse(429, { error: 'rate limit: limit for tier' }));
+
+    for (let i = 0; i < BREAKER_FAILURE_THRESHOLD; i++) {
+      await expect(fetchWithRetry(VENDOR_URL)).rejects.toMatchObject({ statusCode: 429 });
+    }
+
+    const upstreamCalls = fetchMock.mock.calls.length;
+    await expect(fetchWithRetry(VENDOR_URL)).rejects.toBeInstanceOf(CircuitOpenError);
+    expect(fetchMock).toHaveBeenCalledTimes(upstreamCalls);
+  });
+
+  it('never opens the breaker on a deterministic 400 - the host is alive, the request is wrong', async () => {
+    fetchMock.mockResolvedValue(mockResponse(400, { error: 'bad request' }));
+
+    for (let i = 0; i < BREAKER_FAILURE_THRESHOLD + 1; i++) {
+      await expect(fetchWithRetry(VENDOR_URL)).rejects.toMatchObject({ statusCode: 400 });
+    }
+
+    // 400 is terminal (one attempt per call) and healthy - every call reaches upstream.
+    expect(fetchMock).toHaveBeenCalledTimes(BREAKER_FAILURE_THRESHOLD + 1);
   });
 });
