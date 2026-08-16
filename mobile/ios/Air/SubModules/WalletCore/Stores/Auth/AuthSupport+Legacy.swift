@@ -189,9 +189,48 @@ enum AuthSupportLegacy {
         isLong: Bool
     ) async throws -> LegacyMigrationResult? {
         let rawAccounts = try KeychainHelper.loadAccounts() ?? [:]
+        let legacyMnemonicCiphertexts = loadSupplementalLegacySource(
+            key: "mnemonicsEncrypted",
+            emptyValue: [:],
+            load: KeychainHelper.loadLegacyMnemonicCiphertexts(key:)
+        )
+        let backupAccounts = loadSupplementalLegacySource(
+            key: "backup_accounts",
+            emptyValue: [:],
+            load: KeychainHelper.loadAccounts(key:)
+        )
+        let backupMnemonicCiphertexts = loadSupplementalLegacySource(
+            key: "backup_mnemonicsEncrypted",
+            emptyValue: [:],
+            load: KeychainHelper.loadLegacyMnemonicCiphertexts(key:)
+        )
         let manifest = LegacyAccountManifest.build(
-            rawAccounts: rawAccounts,
+            sources: [
+                LegacyCiphertextSource(
+                    name: .accounts,
+                    ciphertextByAccountId: LegacyAccountManifest.ciphertexts(in: rawAccounts)
+                ),
+                LegacyCiphertextSource(
+                    name: .mnemonicsEncrypted,
+                    ciphertextByAccountId: legacyMnemonicCiphertexts
+                ),
+                LegacyCiphertextSource(
+                    name: .backupAccounts,
+                    ciphertextByAccountId: LegacyAccountManifest.ciphertexts(in: backupAccounts)
+                ),
+                LegacyCiphertextSource(
+                    name: .backupMnemonicsEncrypted,
+                    ciphertextByAccountId: backupMnemonicCiphertexts
+                ),
+            ],
             requiredAccountIds: requiredLegacyAccountIds()
+        )
+        logLegacyCiphertextSources(
+            manifest: manifest,
+            rawAccounts: rawAccounts,
+            legacyMnemonicCiphertexts: legacyMnemonicCiphertexts,
+            backupAccounts: backupAccounts,
+            backupMnemonicCiphertexts: backupMnemonicCiphertexts
         )
         guard !manifest.requiredAccountIds.isEmpty else {
             return nil
@@ -217,6 +256,36 @@ enum AuthSupportLegacy {
         } catch {
             throw error
         }
+    }
+
+    private static func loadSupplementalLegacySource<Value>(
+        key: String,
+        emptyValue: Value,
+        load: (String) throws -> Value?
+    ) -> Value {
+        do {
+            return try load(key) ?? emptyValue
+        } catch {
+            legacyLog.fault(
+                "ignoring unreadable supplemental legacy source key=\(key, .public) error=\(error, .public)"
+            )
+            return emptyValue
+        }
+    }
+
+    private static func logLegacyCiphertextSources(
+        manifest: LegacyAccountManifest,
+        rawAccounts: [String: [String: Any]],
+        legacyMnemonicCiphertexts: [String: String],
+        backupAccounts: [String: [String: Any]],
+        backupMnemonicCiphertexts: [String: String]
+    ) {
+        let activeAccountCiphertexts = LegacyAccountManifest.ciphertexts(in: rawAccounts)
+        let backupAccountCiphertexts = LegacyAccountManifest.ciphertexts(in: backupAccounts)
+        let selectedFallbackCount = manifest.sourceByAccountId.values.count { $0 != .accounts }
+        legacyLog.info(
+            "legacy ciphertext sources accounts=\(activeAccountCiphertexts.count) mnemonicsEncrypted=\(legacyMnemonicCiphertexts.count) backupAccounts=\(backupAccountCiphertexts.count) backupMnemonicsEncrypted=\(backupMnemonicCiphertexts.count) selected=\(manifest.ciphertextByAccountId.count) selectedFallback=\(selectedFallbackCount)"
+        )
     }
 
     private static func legacyBiometricPasscode() throws -> String? {
@@ -248,7 +317,7 @@ enum AuthSupportLegacy {
 
         if !migration.recoveryRequiredAccountIds.isEmpty {
             legacyLog.fault(
-                "legacy migration completed with recovery-required accounts missingIds=\(migration.missingLegacyDataAccountIds.sorted(), .public) unreadableIds=\(migration.corruptedLegacyDataAccountIds.sorted(), .public)"
+                "legacy migration committed partially migratedIds=\(migration.migratedRequiredAccountIds.sorted(), .public) recoveryRequiredIds=\(migration.recoveryRequiredAccountIds.sorted(), .public) missingIds=\(migration.missingLegacyDataAccountIds.sorted(), .public) unreadableIds=\(migration.corruptedLegacyDataAccountIds.sorted(), .public)"
             )
             logPreservedLegacySecrets(accountIds: migration.recoveryRequiredAccountIds)
         }

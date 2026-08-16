@@ -671,10 +671,16 @@ Burn NFT: 烧毁NFT
 Burn Collectibles: 销毁收藏品
 Burn: 烧伤
 Private Key: 私钥
-"%amount% NFTs": "%amount% NFT"
+"%amount% NFTs":
+  zeroValue: 无 NFT
+  oneValue: "%1$d 个 NFT"
+  otherValue: "%1$d 个 NFT"
 1 NFT: 1 NFT
 1 NFT Selected: 已选择 1 个 NFT
-"%amount% NFTs Selected": 已选择 %amount% 个 NFT
+"%amount% NFTs Selected":
+  zeroValue: 未选择 NFT
+  oneValue: "已选择 %1$d 个 NFT"
+  otherValue: "已选择 %1$d 个 NFT"
 For sale. Cannot be sent and burned: 出售。 无法发送和烧毁
 Select: 选择
 Send All: 全部发送

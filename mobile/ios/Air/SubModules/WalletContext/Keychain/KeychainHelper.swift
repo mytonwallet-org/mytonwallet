@@ -45,8 +45,8 @@ public struct KeychainHelper {
         try? loadAccounts()
     }
 
-    public static func loadAccounts() throws -> [String: [String: Any]]? {
-        guard let accounts = try KeychainStorageProvider.load(key: "accounts") else {
+    public static func loadAccounts(key: String = "accounts") throws -> [String: [String: Any]]? {
+        guard let accounts = try KeychainStorageProvider.load(key: key) else {
             return nil
         }
         guard let accountsData = accounts.data(using: .utf8),
@@ -57,6 +57,28 @@ public struct KeychainHelper {
             throw KeychainStorageProviderError.invalidValue
         }
         return jsonDictionary
+    }
+
+    public static func loadLegacyMnemonicCiphertexts(
+        key: String = "mnemonicsEncrypted"
+    ) throws -> [String: String]? {
+        guard let stored = try KeychainStorageProvider.load(key: key) else {
+            return nil
+        }
+        guard let data = stored.data(using: .utf8),
+              let jsonDictionary = try JSONSerialization.jsonObject(
+                with: data,
+                options: []
+              ) as? [String: Any] else {
+            throw KeychainStorageProviderError.invalidValue
+        }
+
+        return jsonDictionary.reduce(into: [String: String]()) { result, item in
+            guard let ciphertext = item.value as? String, !ciphertext.isEmpty else {
+                return
+            }
+            result[item.key] = ciphertext
+        }
     }
 
     public static func saveAccounts(_ accounts: [String: [String: Any]]) throws {

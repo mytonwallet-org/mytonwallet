@@ -676,10 +676,16 @@ Burn NFT: เบิร์น NFT
 Burn Collectibles: เบิร์นของสะสม
 Burn: เบิร์น
 Private Key: ไพรเวท คีย์
-"%amount% NFTs": "%amount% NFTs"
+"%amount% NFTs":
+  zeroValue: ไม่มี NFT
+  oneValue: "%1$d NFT"
+  otherValue: "%1$d NFT"
 1 NFT: 1 NFT
 1 NFT Selected: ได้เลือก 1 NFT แล้ว
-"%amount% NFTs Selected": " ได้เลือก %amount% NFTs แล้ว"
+"%amount% NFTs Selected":
+  zeroValue: ยังไม่ได้เลือก NFT
+  oneValue: "ได้เลือก %1$d NFT แล้ว"
+  otherValue: "ได้เลือก %1$d NFT แล้ว"
 For sale. Cannot be sent and burned: สำหรับขายเท่านั้น. ไม่สามารถส่งและเบิร์นได้
 Select: เลือก
 Send All: ส่งทั้งหมด

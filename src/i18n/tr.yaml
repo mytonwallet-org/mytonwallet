@@ -675,10 +675,16 @@ Burn NFT: NFT'yi yaz
 Burn Collectibles: Koleksiyon öğelerini yak
 Burn: Yakmak
 Private Key: Gizli anahtar
-"%amount% NFTs": "%amount% NFT"
+"%amount% NFTs":
+  zeroValue: NFT yok
+  oneValue: "%1$d NFT"
+  otherValue: "%1$d NFT"
 1 NFT: 1 NFT
 1 NFT Selected: 1 NFT Seçildi
-"%amount% NFTs Selected": "%amount% NFT Seçildi"
+"%amount% NFTs Selected":
+  zeroValue: NFT seçilmedi
+  oneValue: "%1$d NFT seçildi"
+  otherValue: "%1$d NFT seçildi"
 For sale. Cannot be sent and burned: Satılık. Gönderilemez ve yakılamaz
 Select: Seçme
 Send All: Hepsini gönder

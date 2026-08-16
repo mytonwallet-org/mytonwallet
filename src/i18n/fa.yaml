@@ -682,10 +682,16 @@ Burn NFT: سوزاندن NFT
 Burn Collectibles: سوزاندن کالکتیبل‌ها
 Burn: سوزاندن
 Private Key: کلید خصوصی
-"%amount% NFTs": "%amount% NFT"
+"%amount% NFTs":
+  zeroValue: بدون NFT
+  oneValue: "%1$d NFT"
+  otherValue: "%1$d NFT"
 1 NFT: ۱ NFT
 1 NFT Selected: ۱ NFT انتخاب شد
-"%amount% NFTs Selected": "%amount% NFT انتخاب شدند"
+"%amount% NFTs Selected":
+  zeroValue: هیچ NFT انتخاب نشد
+  oneValue: "%1$d NFT انتخاب شد"
+  otherValue: "%1$d NFT انتخاب شدند"
 For sale. Cannot be sent and burned: برای فروش. قابل ارسال و سوزاندن نیست
 Select: انتخاب
 Send All: ارسال همه

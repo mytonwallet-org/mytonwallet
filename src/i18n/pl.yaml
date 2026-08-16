@@ -688,10 +688,20 @@ Burn NFT: Spal NFT
 Burn Collectibles: Spal kolekcjonerskie przedmioty
 Burn: Spal
 Private Key: Klucz prywatny
-"%amount% NFTs": "%amount% NFTów"
+"%amount% NFTs":
+  zeroValue: Brak NFT
+  oneValue: "%1$d NFT"
+  fewValue: "%1$d NFT-y"
+  manyValue: "%1$d NFT-ów"
+  otherValue: "%1$d NFT-ów"
 1 NFT: 1 NFT
 1 NFT Selected: 1 NFT wybrany
-"%amount% NFTs Selected": "%amount% NFTów wybranych"
+"%amount% NFTs Selected":
+  zeroValue: Nie wybrano żadnych NFT
+  oneValue: "%1$d NFT wybrany"
+  fewValue: "%1$d NFT-y wybrane"
+  manyValue: "%1$d NFT-ów wybranych"
+  otherValue: "%1$d NFT-ów wybranych"
 For sale. Cannot be sent and burned: Na sprzedaż. Nie można wysłać i spalić
 Select: Wybierz
 Send All: Wyślij wszystko

@@ -110,18 +110,61 @@ end
 
 def update_version_and_build_number
   version = JSON.parse(File.read($package_json_path))["version"]
-  # Build number = GitHub Actions run number plus a fixed offset. GITHUB_RUN_NUMBER is a
-  # per-workflow counter that only ever increases and is never reused (re-runs keep their
-  # number), so the build number stays strictly monotonic. App Store Connect rejects any
-  # upload whose build number is not higher than the highest already uploaded for the app
-  # ACROSS marketing versions, so the number must increase globally, not reset per version.
-  # The offset lifts the counter above build numbers minted by the previous App Store
-  # Connect-lookup scheme. No network call and no per-version scoping left to get wrong.
+  # Build number = the identity of this CI execution plus a fixed offset. What App Store Connect
+  # actually enforces is uniqueness within a version train, not order: a number already uploaded
+  # under the same marketing version is refused as a duplicate, while a number lower than one
+  # already there is accepted as long as nobody has used it. Both repositories that build this app
+  # upload to the same records, on independent run counters, and the publishing one shipped 26.8.0
+  # as build 3684 the day after this one had uploaded 8759 under that same version. So the property
+  # to preserve is that no number is ever offered twice. Within one repository the derivation gives
+  # that outright, by never repeating a (run, attempt) pair. Across the two it does not: they share
+  # this formula, and all that keeps their numbers apart is the distance between the counters, with
+  # the faster one ahead. That is an operational fact, not something the code can hold, so a change
+  # to the offset or the multiplier on either side has to preserve it deliberately. The offset lifts
+  # everything above the numbers minted by the earlier App Store Connect-lookup scheme. No network
+  # call, nothing to get out of date.
   build_offset = 3300
+
+  # The identity is the pair (run, attempt), not the run alone. GITHUB_RUN_NUMBER deliberately
+  # does not change when a run is re-run, so a job that dies after App Store Connect has already
+  # taken the binary — a flake in the steps that follow the upload, a runner shutting down
+  # mid-job — would offer that same build number on every re-run and be refused as a duplicate
+  # forever. GITHUB_RUN_ATTEMPT starts at 1 and increments per re-run; giving it the last digit
+  # lets a re-run mint a number that is fresh and still increasing. Ten attempts is what one
+  # run's decade holds, and an eleventh collides with the next run rather than overtaking it.
+  attempts_per_run = 10
+
+  # The counter is scoped to the workflow's identity and restarts at 1 if the workflow file is
+  # ever renamed; GitHub offers no way to restore it. A restarted counter replays (run, attempt)
+  # pairs that have already been spent, so it derives numbers that were already uploaded and gets
+  # them back refused as duplicates, with nothing in the error naming the rename. Fail here
+  # instead, where the cause is named.
+  run_number_floor = 390
+
   run_number = env_value('GITHUB_RUN_NUMBER')
   UI.user_error!('GITHUB_RUN_NUMBER is not set — the build number can only be derived in CI') if run_number.nil?
-  build_number = run_number.to_i + build_offset
-  UI.message("iOS build number: GITHUB_RUN_NUMBER(#{run_number}) + #{build_offset} = #{build_number}")
+  UI.user_error!("GITHUB_RUN_NUMBER=#{run_number.inspect} is not a bare integer") unless run_number.match?(/\A\d+\z/)
+  if run_number.to_i < run_number_floor
+    UI.user_error!("GITHUB_RUN_NUMBER=#{run_number} is below the known floor of #{run_number_floor}: the " \
+      'workflow run counter has restarted, which is what renaming the workflow file does. The counter ' \
+      'cannot be restored, so recovery takes both edits here: raise build_offset until the ' \
+      'derived build number clears every build number already uploaded, and drop run_number_floor to the ' \
+      'restarted counter. Raising the offset alone leaves this guard firing on every run.')
+  end
+
+  # Required, not defaulted: an absent or empty value would quietly mint the first attempt's build number
+  # again, which is the collision this whole derivation exists to avoid.
+  run_attempt = env_value('GITHUB_RUN_ATTEMPT')
+  UI.user_error!('GITHUB_RUN_ATTEMPT is not set — the build number can only be derived in CI') if run_attempt.nil?
+  UI.user_error!("GITHUB_RUN_ATTEMPT=#{run_attempt.inspect} is not a bare integer") unless run_attempt.match?(/\A\d+\z/)
+  unless (1..attempts_per_run).cover?(run_attempt.to_i)
+    UI.user_error!("GITHUB_RUN_ATTEMPT=#{run_attempt} is outside the #{attempts_per_run} attempts one run's " \
+      'build number can hold; dispatch a fresh run instead of re-running this one again.')
+  end
+
+  build_number = build_offset + run_number.to_i * attempts_per_run + (run_attempt.to_i - 1)
+  UI.message("iOS build number: #{build_offset} + run #{run_number} * #{attempts_per_run} " \
+    "+ (attempt #{run_attempt} - 1) = #{build_number}")
 
   increment_version_number(version_number: version)
   increment_build_number(skip_info_plist: true, build_number: build_number)

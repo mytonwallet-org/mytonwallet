@@ -11,9 +11,22 @@ struct LegacyAccountWithMnemonic {
     let mnemonicEncrypted: String
 }
 
+enum LegacyCiphertextSourceName: String, CaseIterable {
+    case accounts
+    case mnemonicsEncrypted
+    case backupAccounts = "backup_accounts"
+    case backupMnemonicsEncrypted = "backup_mnemonicsEncrypted"
+}
+
+struct LegacyCiphertextSource {
+    let name: LegacyCiphertextSourceName
+    let ciphertextByAccountId: [String: String]
+}
+
 struct LegacyAccountManifest {
     let requiredAccountIds: Set<String>
     let ciphertextByAccountId: [String: String]
+    let sourceByAccountId: [String: LegacyCiphertextSourceName]
 
     var missingRequiredAccountIds: Set<String> {
         requiredAccountIds.subtracting(ciphertextByAccountId.keys)
@@ -31,7 +44,43 @@ struct LegacyAccountManifest {
         rawAccounts: [String: [String: Any]],
         requiredAccountIds: Set<String>
     ) -> LegacyAccountManifest {
-        let ciphertextByAccountId = rawAccounts.reduce(into: [String: String]()) {
+        build(
+            sources: [
+                LegacyCiphertextSource(
+                    name: .accounts,
+                    ciphertextByAccountId: ciphertexts(in: rawAccounts)
+                ),
+            ],
+            requiredAccountIds: requiredAccountIds
+        )
+    }
+
+    static func build(
+        sources: [LegacyCiphertextSource],
+        requiredAccountIds: Set<String>
+    ) -> LegacyAccountManifest {
+        var ciphertextByAccountId: [String: String] = [:]
+        var sourceByAccountId: [String: LegacyCiphertextSourceName] = [:]
+
+        for source in sources {
+            for (accountId, ciphertext) in source.ciphertextByAccountId
+                where ciphertextByAccountId[accountId] == nil && !ciphertext.isEmpty {
+                ciphertextByAccountId[accountId] = ciphertext
+                sourceByAccountId[accountId] = source.name
+            }
+        }
+
+        return LegacyAccountManifest(
+            requiredAccountIds: requiredAccountIds,
+            ciphertextByAccountId: ciphertextByAccountId,
+            sourceByAccountId: sourceByAccountId
+        )
+    }
+
+    static func ciphertexts(
+        in rawAccounts: [String: [String: Any]]
+    ) -> [String: String] {
+        rawAccounts.reduce(into: [String: String]()) {
             result,
             item in
             let (accountId, account) = item
@@ -40,10 +89,6 @@ struct LegacyAccountManifest {
                 result[accountId] = ciphertext
             }
         }
-        return LegacyAccountManifest(
-            requiredAccountIds: requiredAccountIds,
-            ciphertextByAccountId: ciphertextByAccountId
-        )
     }
 
     private func accounts(for accountIds: Set<String>) -> [LegacyAccountWithMnemonic] {
@@ -126,6 +171,10 @@ enum LegacyMigration {
                 isLong: isLong
             )
             let migratedAccountIds = Set(resolution.secrets.map(\.id))
+            logRecoveredFallbackSecrets(
+                manifest: manifest,
+                migratedAccountIds: migratedAccountIds
+            )
             log.info(
                 "legacy migration committed migrated=\(migratedAccountIds.count) migratedRequired=\(resolution.migratedRequiredAccountIds.count) recoveryRequired=\(resolution.recoveryRequiredAccountIds.count)"
             )
@@ -138,7 +187,7 @@ enum LegacyMigration {
                 corruptedLegacyDataAccountIds: resolution.corruptedRequiredAccountIds
             )
         } catch {
-            log.error("migrateToEnclave failed: \(error, .public)")
+            log.fault("migrateToEnclave failed: \(error, .public)")
             throw error
         }
     }
@@ -182,7 +231,7 @@ enum LegacyMigration {
             passcode: passcode
         )
         if !optionalResults.failedAccountIds.isEmpty {
-            log.error(
+            log.fault(
                 "preserving unreadable keychain-only legacy ciphertext count=\(optionalResults.failedAccountIds.count) ids=\(optionalResults.failedAccountIds.sorted(), .public)"
             )
         }
@@ -194,6 +243,30 @@ enum LegacyMigration {
             migratedRequiredAccountIds: migratedRequiredAccountIds,
             missingRequiredAccountIds: missingRequiredAccountIds,
             corruptedRequiredAccountIds: corruptedRequiredAccountIds
+        )
+    }
+
+    private static func logRecoveredFallbackSecrets(
+        manifest: LegacyAccountManifest,
+        migratedAccountIds: Set<String>
+    ) {
+        let recoveredAccounts: [(accountId: String, source: LegacyCiphertextSourceName)] =
+            migratedAccountIds.sorted().compactMap { accountId in
+                guard let source = manifest.sourceByAccountId[accountId], source != .accounts else {
+                    return nil
+                }
+                return (accountId: accountId, source: source)
+            }
+        guard !recoveredAccounts.isEmpty else {
+            return
+        }
+
+        let recoveredAccountIds = Set(recoveredAccounts.map { $0.accountId })
+        let recoveredRequiredAccountIds = recoveredAccountIds.intersection(manifest.requiredAccountIds)
+        let recoveredOptionalAccountIds = recoveredAccountIds.subtracting(manifest.requiredAccountIds)
+        let recoveredSources = recoveredAccounts.map { "\($0.accountId):\($0.source.rawValue)" }
+        log.fault(
+            "legacy mnemonics missing from accounts and recovered from fallback count=\(recoveredAccountIds.count) requiredIds=\(recoveredRequiredAccountIds.sorted(), .public) optionalIds=\(recoveredOptionalAccountIds.sorted(), .public) sources=\(recoveredSources, .public)"
         )
     }
 

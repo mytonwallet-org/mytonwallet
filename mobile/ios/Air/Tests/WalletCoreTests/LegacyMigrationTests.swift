@@ -21,6 +21,102 @@ struct LegacyMigrationTests {
     }
 
     @Test
+    func `merges exact account ids from legacy sources in priority order`() {
+        let manifest = LegacyAccountManifest.build(
+            sources: [
+                LegacyCiphertextSource(
+                    name: .accounts,
+                    ciphertextByAccountId: ["active": "active-ciphertext"]
+                ),
+                LegacyCiphertextSource(
+                    name: .mnemonicsEncrypted,
+                    ciphertextByAccountId: [
+                        "active": "stale-active-ciphertext",
+                        "legacy-map": "legacy-map-ciphertext",
+                    ]
+                ),
+                LegacyCiphertextSource(
+                    name: .backupAccounts,
+                    ciphertextByAccountId: [
+                        "legacy-map": "stale-legacy-map-ciphertext",
+                        "backup-account": "backup-account-ciphertext",
+                    ]
+                ),
+                LegacyCiphertextSource(
+                    name: .backupMnemonicsEncrypted,
+                    ciphertextByAccountId: [
+                        "backup-account": "stale-backup-account-ciphertext",
+                        "backup-map": "backup-map-ciphertext",
+                    ]
+                ),
+            ],
+            requiredAccountIds: ["active", "legacy-map", "backup-account", "backup-map"]
+        )
+
+        #expect(
+            manifest.ciphertextByAccountId == [
+                "active": "active-ciphertext",
+                "legacy-map": "legacy-map-ciphertext",
+                "backup-account": "backup-account-ciphertext",
+                "backup-map": "backup-map-ciphertext",
+            ]
+        )
+        #expect(manifest.sourceByAccountId["active"] == .accounts)
+        #expect(manifest.sourceByAccountId["legacy-map"] == .mnemonicsEncrypted)
+        #expect(manifest.sourceByAccountId["backup-account"] == .backupAccounts)
+        #expect(manifest.sourceByAccountId["backup-map"] == .backupMnemonicsEncrypted)
+    }
+
+    @Test
+    func `does not treat old and current account id formats as aliases`() {
+        let manifest = LegacyAccountManifest.build(
+            sources: [
+                LegacyCiphertextSource(
+                    name: .mnemonicsEncrypted,
+                    ciphertextByAccountId: ["0-mainnet": "ciphertext"]
+                ),
+            ],
+            requiredAccountIds: ["0-ton-mainnet"]
+        )
+
+        #expect(manifest.missingRequiredAccountIds == ["0-ton-mainnet"])
+        #expect(manifest.requiredAccounts.isEmpty)
+        #expect(manifest.optionalAccounts.map(\.accountId) == ["0-mainnet"])
+    }
+
+    @Test
+    func `recovers a required old style account from the top level legacy map`() throws {
+        let manifest = LegacyAccountManifest.build(
+            sources: [
+                LegacyCiphertextSource(
+                    name: .accounts,
+                    ciphertextByAccountId: [:]
+                ),
+                LegacyCiphertextSource(
+                    name: .mnemonicsEncrypted,
+                    ciphertextByAccountId: [
+                        "0-ton-mainnet": try encrypt(
+                            "alpha,beta,gamma",
+                            passcode: "1234",
+                            nonceByte: 11
+                        ),
+                    ]
+                ),
+            ],
+            requiredAccountIds: ["0-ton-mainnet"]
+        )
+
+        let resolution = try LegacyMigration.decryptLegacySecrets(
+            manifest: manifest,
+            passcode: "1234"
+        )
+
+        #expect(manifest.sourceByAccountId["0-ton-mainnet"] == .mnemonicsEncrypted)
+        #expect(resolution.migratedRequiredAccountIds == ["0-ton-mainnet"])
+        #expect(resolution.recoveryRequiredAccountIds.isEmpty)
+    }
+
+    @Test
     func `missing database ciphertext requires recovery after passcode is confirmed`() throws {
         let manifest = LegacyAccountManifest.build(
             rawAccounts: [

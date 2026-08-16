@@ -178,7 +178,7 @@ function NftSelectionHeader({
       </Button>
       <div className={styles.content}>
         <div className={styles.title}>
-          {amount > 1 ? lang('%amount% NFTs Selected', { amount }) : lang('1 NFT Selected')}
+          {lang('%amount% NFTs Selected', amount, 'i')}
         </div>
       </div>
       <div>

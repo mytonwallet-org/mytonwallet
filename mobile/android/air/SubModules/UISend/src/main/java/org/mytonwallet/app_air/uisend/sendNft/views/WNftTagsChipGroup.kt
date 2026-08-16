@@ -166,8 +166,7 @@ class WNftTagsChipGroup(context: Context) : ChipGroup(context) {
     }
 
     private fun remainingText(remainingCount: Int): String =
-        LocaleController.getString("%amount% NFTs")
-            .replace("%amount%", "+$remainingCount")
+        "+${LocaleController.getPlural(remainingCount, "%amount% NFTs")}"
 
     private fun TextPaint.measureTextCeil(text: String): Int = ceil(measureText(text)).toInt()
 

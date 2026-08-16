@@ -671,10 +671,16 @@ Burn NFT: Burn NFT
 Burn Collectibles: Burn Collectibles
 Burn: Burn
 Private Key: Private Key
-"%amount% NFTs": "%amount% NFTs"
+"%amount% NFTs":
+  zeroValue: No NFTs
+  oneValue: "%1$d NFT"
+  otherValue: "%1$d NFTs"
 1 NFT: 1 NFT
 1 NFT Selected: 1 NFT Selected
-"%amount% NFTs Selected": "%amount% NFTs Selected"
+"%amount% NFTs Selected":
+  zeroValue: No NFTs Selected
+  oneValue: "%1$d NFT Selected"
+  otherValue: "%1$d NFTs Selected"
 For sale. Cannot be sent and burned: For sale. Cannot be sent and burned
 Select: Select
 Send All: Send All

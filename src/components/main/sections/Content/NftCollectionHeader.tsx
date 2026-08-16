@@ -294,7 +294,7 @@ function NftCollectionHeader({
       <div className={styles.content}>
         <div className={styles.title}>{collectionName}</div>
         <div className={styles.amount}>
-          {collectionNfts.length > 1 ? lang('%amount% NFTs', { amount: collectionNfts.length }) : lang('1 NFT')}
+          {lang('%amount% NFTs', collectionNfts.length, 'i')}
         </div>
       </div>
 

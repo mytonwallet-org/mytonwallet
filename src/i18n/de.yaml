@@ -680,10 +680,16 @@ Burn NFT: NFT brennen
 Burn Collectibles: Sammlerstücke verbrennen
 Burn: Brennen
 Private Key: Privater Schlüssel
-"%amount% NFTs": "%amount% NFTs"
+"%amount% NFTs":
+  zeroValue: Keine NFTs
+  oneValue: "%1$d NFT"
+  otherValue: "%1$d NFTs"
 1 NFT: 1 NFT
 1 NFT Selected: 1 NFT ausgewählt
-"%amount% NFTs Selected": "%amount% NFT ausgewählt"
+"%amount% NFTs Selected":
+  zeroValue: Keine NFTs ausgewählt
+  oneValue: "%1$d NFT ausgewählt"
+  otherValue: "%1$d NFTs ausgewählt"
 For sale. Cannot be sent and burned: Zu verkaufen. Kann nicht verschickt und verbrannt werden
 Select: Wählen
 Send All: Sende alle

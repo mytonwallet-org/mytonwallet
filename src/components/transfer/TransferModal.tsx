@@ -179,7 +179,7 @@ function TransferModal({
               imageUrl={nfts?.[0]?.thumbnail}
               withChainIcon
               text={isNftTransfer
-                ? (nfts.length > 1 ? lang('%amount% NFTs', { amount: nfts.length }) : nfts[0]?.name || 'NFT')
+                ? (nfts.length > 1 ? lang('%amount% NFTs', nfts.length, 'i') : nfts[0]?.name || 'NFT')
                 : formatCurrency(toDecimal(amount!, decimals), symbol)}
               className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
               secondText={shortenAddress(toAddress!)}
@@ -239,7 +239,7 @@ function TransferModal({
               imageUrl={nfts?.[0]?.thumbnail}
               withChainIcon
               text={isNftTransfer
-                ? (nfts.length > 1 ? lang('%amount% NFTs', { amount: nfts.length }) : nfts[0]?.name || 'NFT')
+                ? (nfts.length > 1 ? lang('%amount% NFTs', nfts.length, 'i') : nfts[0]?.name || 'NFT')
                 : formatCurrency(toDecimal(amount!, decimals), symbol)}
               className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
               secondText={shortenAddress(toAddress!)}
