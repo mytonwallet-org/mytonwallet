@@ -26,6 +26,16 @@ def build_meta_line(version)
   parts.join(' · ')
 end
 
+# fastlane runs the Fastfile's own Ruby from the fastlane folder, but every action from its
+# parent, so a single relative path names two different files depending on who reads it. A path
+# that crosses that boundary - opened here, then handed to an action - is resolved once, against
+# the Android project root, and travels absolute from then on.
+$android_dir = File.expand_path('..', __dir__)
+
+def android_path(relative)
+  File.expand_path(relative, $android_dir)
+end
+
 $variant = env_value('APP_VARIANT', 'mytonwallet').downcase
 $variant_config = {
   'mytonwallet' => {
@@ -50,8 +60,8 @@ $config = $variant_config[$variant]
 $package_name = env_value('ANDROID_PACKAGE_NAME', $config[:package_name])
 $firebase_app_id = env_value('ANDROID_FIREBASE_APP_ID', $config[:firebase_app_id])
 $firebase_groups = env_value('ANDROID_FIREBASE_GROUPS', 'developers,qa,designers')
-$play_json_key_file = env_value('ANDROID_PLAY_JSON_KEY_FILE', './api-key.json')
-$firebase_service_credentials_file = env_value('ANDROID_FIREBASE_SERVICE_CREDENTIALS_FILE', './firebase-service-account.json')
+$play_json_key_file = android_path(env_value('ANDROID_PLAY_JSON_KEY_FILE', './api-key.json'))
+$firebase_service_credentials_file = android_path(env_value('ANDROID_FIREBASE_SERVICE_CREDENTIALS_FILE', './firebase-service-account.json'))
 $beta_gradle_task = env_value('ANDROID_BETA_GRADLE_TASK', $config[:beta_gradle_task])
 $release_gradle_task = env_value('ANDROID_RELEASE_GRADLE_TASK', $config[:release_gradle_task])
 $direct_gradle_task = env_value('ANDROID_DIRECT_GRADLE_TASK', $config[:direct_gradle_task])
@@ -86,27 +96,57 @@ rescue StandardError
   "#{`git log -1 --pretty=%s`.strip}\n\nCommit: #{ENV['GITHUB_SHA']&.slice(0, 7)}"
 end
 
-def play_track_version_code(track)
-  version_codes = google_play_track_version_codes(
-    package_name: $package_name,
-    track: track,
-    json_key: $play_json_key_file,
-  )
+# Google Play owns a version code from the moment it accepts the artifact carrying it, and
+# never gives it back - an upload that no track ever served, or one whose release was later
+# discarded, keeps its code for the lifetime of the app. The tracks report only what is being
+# served, which is a subset, so the artifact library is the sole answer to "which codes are
+# taken". A failure here is a failure to know that, and is left to propagate.
+def play_uploaded_version_codes
+  require 'google/apis/androidpublisher_v3'
+  require 'googleauth'
 
-  version_codes[0] || 0
-rescue StandardError
-  0
+  service = Google::Apis::AndroidpublisherV3::AndroidPublisherService.new
+  service.authorization = File.open($play_json_key_file) do |key_io|
+    Google::Auth::ServiceAccountCredentials.make_creds(
+      json_key_io: key_io,
+      scope: Google::Apis::AndroidpublisherV3::AUTH_ANDROIDPUBLISHER,
+    )
+  end
+
+  # The library is only readable through an edit. This one carries no changes and is never
+  # committed, so it leaves the app untouched.
+  edit = service.insert_edit($package_name)
+
+  begin
+    bundles = service.list_edit_bundles($package_name, edit.id).bundles || []
+    apks = service.list_edit_apks($package_name, edit.id).apks || []
+
+    (bundles + apks).map { |artifact| artifact.version_code.to_i }
+  ensure
+    begin
+      service.delete_edit($package_name, edit.id)
+    rescue StandardError
+      UI.important("Could not drop the read-only Play edit #{edit.id}; an abandoned edit expires on its own")
+    end
+  end
 end
 
+# Beta builds go to Firebase App Distribution and are never uploaded to Play, so their build
+# numbers are known only here. The credentials are absent wherever the pipeline publishes to
+# the stores without distributing betas; anything else is a source of the floor failing, and
+# is left to propagate.
 def firebase_beta_build_number
+  unless File.size?($firebase_service_credentials_file)
+    UI.important("No Firebase credentials in #{$firebase_service_credentials_file}: App Distribution builds do not constrain the version code")
+    return 0
+  end
+
   latest_release = firebase_app_distribution_get_latest_release(
     app: $firebase_app_id,
     service_credentials_file: $firebase_service_credentials_file,
   )
 
   latest_release ? latest_release[:buildVersion].to_i : 0
-rescue StandardError
-  0
 end
 
 def signing_properties
@@ -128,12 +168,20 @@ def write_apk_output_path
   File.write(output_path_file, output_path)
 end
 
-def update_version_and_build_number
-  play_beta_build_number = play_track_version_code("closed-beta")
-  play_production_build_number = play_track_version_code("production")
-  firebase_build_number = firebase_beta_build_number
+# Play reserves a version code the moment it accepts the artifact carrying it - including into
+# an edit that is never committed, and such a code then appears in NO listing: not in the tracks,
+# not in the artifact library. The floor is therefore a lower bound on what is taken, never the
+# whole truth, and the only way to learn that a code is spoken for is to be refused it. `skip`
+# is how a refusal is carried back in: each one raises the floor by one more.
+def update_version_and_build_number(skip: 0)
+  # Every distribution channel the app has ever reached, so the next code clears all of them
+  floor = (play_uploaded_version_codes + [firebase_beta_build_number]).max
+  if floor.zero?
+    UI.user_error!("Neither Google Play nor Firebase App Distribution reports a build of #{$package_name}. " \
+      "A version code derived from that would start at 1, which the store has long since taken.")
+  end
 
-  build_number = [play_beta_build_number, play_production_build_number, firebase_build_number].max + 1
+  build_number = floor + 1 + skip
   version = JSON.parse(File.read("../../../package.json"))["version"]
 
   # RC builds carry the -rc.N ordinal in the version name so they stand out in the Firebase
@@ -144,6 +192,11 @@ def update_version_and_build_number
   android_set_version_code(version_code: build_number)
 end
 
+# How many times a release may be rebuilt one code higher after Play refuses the code as taken.
+# One clean-build-upload cycle costs about six minutes, so the cap is what still fits the job's
+# timeout alongside the build that precedes it; a stuck upload has to fail loudly, not late.
+VERSION_CODE_COLLISION_RETRIES = 2
+
 platform :android do
   desc "Deploy a new Beta Build to the Google Play"
 
@@ -153,7 +206,7 @@ platform :android do
     $gradle_data = File.read("../app/build.gradle")
   end
 
-  $keystore_path = Dir.pwd + "/../android.keystore"
+  $keystore_path = android_path('./android.keystore')
 
   lane :beta do
     update_version_and_build_number
@@ -183,21 +236,42 @@ platform :android do
 
   desc "Release a new version to the Google Play"
   lane :release do
-    update_version_and_build_number
+    # A refused code is the only evidence that it was taken (see `update_version_and_build_number`),
+    # so the refusal has to be survivable rather than fatal. The code is baked into the AAB at build
+    # time, which is why a retry rebuilds instead of re-uploading the same artifact. The cap keeps a
+    # genuinely broken upload - wrong key, missing permission, dead track - from rebuilding forever;
+    # those carry a different class or message and are re-raised on the spot anyway.
+    skip = 0
 
-    gradle(task: "clean")
-    gradle(
-      task: $release_gradle_task,
-      properties: signing_properties
-    )
+    begin
+      update_version_and_build_number(skip: skip)
 
-    upload_to_play_store(
-      package_name: $package_name,
-      json_key: $play_json_key_file,
-      track: "production",
-      skip_upload_apk: true,
-      aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
-    )
+      gradle(task: "clean")
+      gradle(
+        task: $release_gradle_task,
+        properties: signing_properties
+      )
+
+      upload_to_play_store(
+        package_name: $package_name,
+        json_key: $play_json_key_file,
+        track: "production",
+        skip_upload_apk: true,
+        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+      )
+    rescue FastlaneCore::Interface::FastlaneError => e
+      # Narrow on purpose: supply reports the refusal through `user_error!`, while a failed
+      # gradle task raises FastlaneShellError carrying its entire build log, which can hold this
+      # phrase for reasons of its own and would spend every retry rebuilding a broken build.
+      raise unless e.message.include?("has already been used")
+
+      skip += 1
+      raise if skip > VERSION_CODE_COLLISION_RETRIES
+
+      UI.important("Play refused that version code as already used; rebuilding one higher " \
+        "(retry #{skip} of #{VERSION_CODE_COLLISION_RETRIES})")
+      retry
+    end
   end
 
   lane :direct do
