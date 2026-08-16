@@ -731,7 +731,9 @@ jobs:
     needs: detect-changes
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 30
+    # Publishing can rebuild the app when Play refuses a version code it has silently reserved
+    # (see VERSION_CODE_COLLISION_RETRIES), and the direct apk is built in this same job.
+    timeout-minutes: 45
     if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.ios-only != 'true' && needs.detect-changes.outputs.android-variants != '[]'
     strategy:
       fail-fast: false
