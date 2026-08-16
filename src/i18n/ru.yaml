@@ -681,10 +681,20 @@ Burn NFT: Сжечь NFT
 Burn Collectibles: Сжечь NFT
 Burn: Сжечь
 Private Key: Приватный ключ
-"%amount% NFTs": "%amount% NFT"
+"%amount% NFTs":
+  zeroValue: Нет NFT
+  oneValue: "%1$d NFT"
+  fewValue: "%1$d NFT"
+  manyValue: "%1$d NFT"
+  otherValue: "%1$d NFT"
 1 NFT: 1 NFT
 1 NFT Selected: 1 NFT выбран
-"%amount% NFTs Selected": "%amount% NFTs выбрано"
+"%amount% NFTs Selected":
+  zeroValue: NFT не выбраны
+  oneValue: "%1$d NFT выбран"
+  fewValue: "%1$d NFT выбрано"
+  manyValue: "%1$d NFT выбрано"
+  otherValue: "%1$d NFT выбрано"
 For sale. Cannot be sent and burned: На продаже. Нельзя отправить и сжечь
 Select: Выбрать
 Send All: Отправить все

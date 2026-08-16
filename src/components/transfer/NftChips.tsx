@@ -39,7 +39,7 @@ function NftChips({ nfts, className }: OwnProps) {
       {renderedNfts.map(renderNft)}
       {shouldRenderExpander && (
         <button type="button" className={styles.expander} onClick={() => expand()}>
-          +{lang('%amount% NFTs', { amount: nfts.length - LIMIT })}
+          +{lang('%amount% NFTs', nfts.length - LIMIT, 'i')}
         </button>
       )}
     </div>

@@ -666,10 +666,22 @@ Burn NFT: حرق NFT
 Burn Collectibles: حرق المقتنيات
 Burn: يحرق
 Private Key: مفتاح خاص
-"%amount% NFTs": "%amount% NFTs"
+"%amount% NFTs":
+  zeroValue: لا يوجد NFTs
+  oneValue: "%1$d NFT"
+  twoValue: "%1$d NFTs"
+  fewValue: "%1$d NFTs"
+  manyValue: "%1$d NFTs"
+  otherValue: "%1$d NFTs"
 1 NFT: 1 NFT
 1 NFT Selected: تم تحديد 1 NFT
-"%amount% NFTs Selected": "%amount% NFTs تم التحديد"
+"%amount% NFTs Selected":
+  zeroValue: لم يتم تحديد أي NFT
+  oneValue: "تم تحديد %1$d NFT"
+  twoValue: "تم تحديد %1$d NFTs"
+  fewValue: "تم تحديد %1$d NFTs"
+  manyValue: "تم تحديد %1$d NFTs"
+  otherValue: "تم تحديد %1$d NFTs"
 For sale. Cannot be sent and burned: للبيع. لا يمكن إرسالها وحرقها
 Select: يختار
 Send All: أرسل الكل

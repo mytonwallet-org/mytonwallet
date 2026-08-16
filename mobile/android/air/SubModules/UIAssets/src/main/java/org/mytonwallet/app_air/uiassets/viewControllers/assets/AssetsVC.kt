@@ -1811,12 +1811,7 @@ class AssetsVC(
         showAllView.setCounter(assetsVM.nftsCount)
         if (assetsVM.hasLoadedNfts) {
             setNavSubtitle(
-                LocaleController.getStringWithKeyValues(
-                    "%amount% NFTs",
-                    listOf(
-                        Pair("%amount%", assetsVM.nftsCount.toString())
-                    )
-                )
+                LocaleController.getPlural(assetsVM.nftsCount, "%amount% NFTs")
             )
         }
         layoutManager.spanCount = calculateNoOfColumns()

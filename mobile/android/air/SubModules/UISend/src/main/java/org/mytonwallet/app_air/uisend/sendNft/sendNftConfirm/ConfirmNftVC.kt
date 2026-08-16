@@ -760,8 +760,7 @@ class ConfirmNftVC(
                     if (nfts.size == 1) {
                         firstNft.name ?: ""
                     } else {
-                        LocaleController.getString("%amount% NFTs")
-                            .replace("%amount%", nfts.size.toString())
+                        LocaleController.getPlural(nfts.size, "%amount% NFTs")
                     },
                     addressAttr,
                     Content.Rounding.Radius(12f.dp)
