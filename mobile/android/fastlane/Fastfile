@@ -96,59 +96,6 @@ rescue StandardError
   "#{`git log -1 --pretty=%s`.strip}\n\nCommit: #{ENV['GITHUB_SHA']&.slice(0, 7)}"
 end
 
-# Google Play owns a version code from the moment it accepts the artifact carrying it, and
-# never gives it back - an upload that no track ever served, or one whose release was later
-# discarded, keeps its code for the lifetime of the app. The tracks report only what is being
-# served, which is a subset, so the artifact library is the sole answer to "which codes are
-# taken". A failure here is a failure to know that, and is left to propagate.
-def play_uploaded_version_codes
-  require 'google/apis/androidpublisher_v3'
-  require 'googleauth'
-
-  service = Google::Apis::AndroidpublisherV3::AndroidPublisherService.new
-  service.authorization = File.open($play_json_key_file) do |key_io|
-    Google::Auth::ServiceAccountCredentials.make_creds(
-      json_key_io: key_io,
-      scope: Google::Apis::AndroidpublisherV3::AUTH_ANDROIDPUBLISHER,
-    )
-  end
-
-  # The library is only readable through an edit. This one carries no changes and is never
-  # committed, so it leaves the app untouched.
-  edit = service.insert_edit($package_name)
-
-  begin
-    bundles = service.list_edit_bundles($package_name, edit.id).bundles || []
-    apks = service.list_edit_apks($package_name, edit.id).apks || []
-
-    (bundles + apks).map { |artifact| artifact.version_code.to_i }
-  ensure
-    begin
-      service.delete_edit($package_name, edit.id)
-    rescue StandardError
-      UI.important("Could not drop the read-only Play edit #{edit.id}; an abandoned edit expires on its own")
-    end
-  end
-end
-
-# Beta builds go to Firebase App Distribution and are never uploaded to Play, so their build
-# numbers are known only here. The credentials are absent wherever the pipeline publishes to
-# the stores without distributing betas; anything else is a source of the floor failing, and
-# is left to propagate.
-def firebase_beta_build_number
-  unless File.size?($firebase_service_credentials_file)
-    UI.important("No Firebase credentials in #{$firebase_service_credentials_file}: App Distribution builds do not constrain the version code")
-    return 0
-  end
-
-  latest_release = firebase_app_distribution_get_latest_release(
-    app: $firebase_app_id,
-    service_credentials_file: $firebase_service_credentials_file,
-  )
-
-  latest_release ? latest_release[:buildVersion].to_i : 0
-end
-
 def signing_properties
   {
     "android.injected.signing.store.file" => $keystore_path,
@@ -168,21 +115,59 @@ def write_apk_output_path
   File.write(output_path_file, output_path)
 end
 
-# Play reserves a version code the moment it accepts the artifact carrying it - including into
-# an edit that is never committed, and such a code then appears in NO listing: not in the tracks,
-# not in the artifact library. The floor is therefore a lower bound on what is taken, never the
-# whole truth, and the only way to learn that a code is spoken for is to be refused it. `skip`
-# is how a refusal is carried back in: each one raises the floor by one more.
-def update_version_and_build_number(skip: 0)
-  # Every distribution channel the app has ever reached, so the next code clears all of them
-  floor = (play_uploaded_version_codes + [firebase_beta_build_number]).max
-  if floor.zero?
-    UI.user_error!("Neither Google Play nor Firebase App Distribution reports a build of #{$package_name}. " \
-      "A version code derived from that would start at 1, which the store has long since taken.")
+def update_version_and_build_number
+  require 'json'
+
+  version = JSON.parse(File.read("../../../package.json"))["version"]
+
+  # Version code = the identity of this CI execution plus a fixed offset, so it is monotonic by
+  # construction instead of by asking Play what is taken. Play never surrenders a code it has
+  # accepted - including into an edit that is never committed, where the code then appears in NO
+  # listing, neither in the tracks nor in the artifact library - so any floor derived from what
+  # Play reports is a lower bound that eventually collides. Nothing here is looked up, so nothing
+  # can be silently out of date. The offset lifts the series clear of every code the packages have
+  # already used; the highest was 3077, on org.mytonwallet.app.
+  version_code_offset = 4000
+
+  # The identity is the pair (run, attempt), not the run alone. GITHUB_RUN_NUMBER deliberately
+  # does not change when a run is re-run, so a job that dies after Play has already accepted the
+  # upload - a flake in the steps that follow it, a runner shutting down mid-job - would ask for
+  # that same code on every re-run and could never go green again. GITHUB_RUN_ATTEMPT starts at 1
+  # and increments per re-run; giving it the last digit lets a re-run mint a code that is fresh
+  # and still increasing. Ten attempts is what one run's decade holds, and an eleventh collides
+  # with the next run rather than overtaking it.
+  attempts_per_run = 10
+
+  # The counter is scoped to the workflow's identity and restarts at 1 if the workflow file is
+  # ever renamed; GitHub offers no way to restore it. That would hand Play a code below what it
+  # already serves, which Play refuses by complaining that existing users could not upgrade -
+  # unreadable unless you already suspect the rename. Fail here instead, where the cause is named.
+  run_number_floor = 390
+
+  run_number = env_value('GITHUB_RUN_NUMBER')
+  UI.user_error!('GITHUB_RUN_NUMBER is not set - the version code can only be derived in CI') if run_number.nil?
+  UI.user_error!("GITHUB_RUN_NUMBER=#{run_number.inspect} is not a bare integer") unless run_number.match?(/\A\d+\z/)
+  if run_number.to_i < run_number_floor
+    UI.user_error!("GITHUB_RUN_NUMBER=#{run_number} is below the known floor of #{run_number_floor}: the " \
+      'workflow run counter has restarted, which is what renaming the workflow file does. The counter ' \
+      'cannot be restored, so recovery takes both edits here: raise version_code_offset until the ' \
+      'derived version code clears every code Play already holds, and drop run_number_floor to the ' \
+      'restarted counter. Raising the offset alone leaves this guard firing on every run.')
   end
 
-  build_number = floor + 1 + skip
-  version = JSON.parse(File.read("../../../package.json"))["version"]
+  # Required, not defaulted: an absent or empty value would quietly mint the first attempt's version code
+  # again, which is the collision this whole derivation exists to avoid.
+  run_attempt = env_value('GITHUB_RUN_ATTEMPT')
+  UI.user_error!('GITHUB_RUN_ATTEMPT is not set - the version code can only be derived in CI') if run_attempt.nil?
+  UI.user_error!("GITHUB_RUN_ATTEMPT=#{run_attempt.inspect} is not a bare integer") unless run_attempt.match?(/\A\d+\z/)
+  unless (1..attempts_per_run).cover?(run_attempt.to_i)
+    UI.user_error!("GITHUB_RUN_ATTEMPT=#{run_attempt} is outside the #{attempts_per_run} attempts one run's " \
+      'version code can hold; dispatch a fresh run instead of re-running this one again.')
+  end
+
+  build_number = version_code_offset + run_number.to_i * attempts_per_run + (run_attempt.to_i - 1)
+  UI.message("Android version code: #{version_code_offset} + run #{run_number} * #{attempts_per_run} " \
+    "+ (attempt #{run_attempt} - 1) = #{build_number}")
 
   # RC builds carry the -rc.N ordinal in the version name so they stand out in the Firebase
   # list among the daily *.beta builds (the beta flavor still appends its own .beta suffix).
@@ -191,11 +176,6 @@ def update_version_and_build_number(skip: 0)
   android_set_version_name(version_name: version_name)
   android_set_version_code(version_code: build_number)
 end
-
-# How many times a release may be rebuilt one code higher after Play refuses the code as taken.
-# One clean-build-upload cycle costs about six minutes, so the cap is what still fits the job's
-# timeout alongside the build that precedes it; a stuck upload has to fail loudly, not late.
-VERSION_CODE_COLLISION_RETRIES = 2
 
 platform :android do
   desc "Deploy a new Beta Build to the Google Play"
@@ -236,46 +216,57 @@ platform :android do
 
   desc "Release a new version to the Google Play"
   lane :release do
-    # A refused code is the only evidence that it was taken (see `update_version_and_build_number`),
-    # so the refusal has to be survivable rather than fatal. The code is baked into the AAB at build
-    # time, which is why a retry rebuilds instead of re-uploading the same artifact. The cap keeps a
-    # genuinely broken upload - wrong key, missing permission, dead track - from rebuilding forever;
-    # those carry a different class or message and are re-raised on the spot anyway.
-    skip = 0
-
-    begin
-      update_version_and_build_number(skip: skip)
-
-      gradle(task: "clean")
-      gradle(
-        task: $release_gradle_task,
-        properties: signing_properties
-      )
-
-      upload_to_play_store(
-        package_name: $package_name,
-        json_key: $play_json_key_file,
-        track: "production",
-        skip_upload_apk: true,
-        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
-      )
-    rescue FastlaneCore::Interface::FastlaneError => e
-      # Narrow on purpose: supply reports the refusal through `user_error!`, while a failed
-      # gradle task raises FastlaneShellError carrying its entire build log, which can hold this
-      # phrase for reasons of its own and would spend every retry rebuilding a broken build.
-      raise unless e.message.include?("has already been used")
-
-      skip += 1
-      raise if skip > VERSION_CODE_COLLISION_RETRIES
-
-      UI.important("Play refused that version code as already used; rebuilding one higher " \
-        "(retry #{skip} of #{VERSION_CODE_COLLISION_RETRIES})")
-      retry
+    # Validate before the build: a malformed value would otherwise surface only at
+    # upload time, after the whole Gradle build. Play accepts a userFraction strictly
+    # between 0 and 1, and a full rollout is not the fraction 1.0 - it is a `completed`
+    # release carrying no fraction at all. So `full` is its own mode rather than a number,
+    # and a hotfix that has to reach everyone at once still has a way out of the staged path.
+    rollout = env_value("ANDROID_ROLLOUT", "0.1")
+    full_rollout = rollout == "full"
+    rollout_fraction = full_rollout ? nil : Float(rollout, exception: false)
+    if !full_rollout && (rollout_fraction.nil? || rollout_fraction <= 0 || rollout_fraction >= 1)
+      UI.user_error!("ANDROID_ROLLOUT must be `full` or a fraction strictly between 0 and 1, got #{rollout.inspect}")
     end
+
+    update_version_and_build_number
+
+    gradle(task: "clean")
+    gradle(
+      task: $release_gradle_task,
+      properties: signing_properties
+    )
+
+    # Submit as a staged rollout: the percentage is frozen into the release at submit
+    # time and cannot be changed while the change sits approved in the managed-publishing
+    # queue, so a "completed" submit leaves no way to roll out gradually. Increasing the
+    # fraction of a live staged release is a regular post-publish operation.
+    play_store_options = {
+      package_name: $package_name,
+      json_key: $play_json_key_file,
+      track: "production",
+      skip_upload_apk: true,
+      aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    }
+
+    if full_rollout
+      play_store_options[:release_status] = "completed"
+    else
+      play_store_options[:release_status] = "inProgress"
+      play_store_options[:rollout] = rollout_fraction.to_s
+    end
+
+    upload_to_play_store(play_store_options)
   end
 
   lane :direct do
     update_version_and_build_number
+
+    # The version code counts this repository's workflow runs, and the repository that publishes
+    # runs a far slower counter than the one used for day-to-day builds. A prod-flavor APK from
+    # here therefore carries a code the published build cannot exceed, and Android refuses to
+    # install a lower code over a higher one for the same package.
+    UI.important("Direct APK version code is scoped to #{env_value('GITHUB_REPOSITORY', 'this repository')}; " \
+      'a published build installs over it only after an uninstall')
 
     gradle(
       task: $direct_gradle_task,
