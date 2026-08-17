@@ -31,6 +31,11 @@ on:
           - none
           - mytonwallet
           - gram
+      android_rollout:
+        description: "Android rollout: a fraction between 0 and 1, or `full` for everyone at once"
+        required: false
+        type: string
+        default: "0.1"
   push:
     branches:
       - master
@@ -731,9 +736,7 @@ jobs:
     needs: detect-changes
     runs-on: ubuntu-latest
     environment: production
-    # Publishing can rebuild the app when Play refuses a version code it has silently reserved
-    # (see VERSION_CODE_COLLISION_RETRIES), and the direct apk is built in this same job.
-    timeout-minutes: 45
+    timeout-minutes: 30
     if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.ios-only != 'true' && needs.detect-changes.outputs.android-variants != '[]'
     strategy:
       fail-fast: false
@@ -816,6 +819,8 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Empty on a push, where there are no inputs - the lane then falls back to its own default.
+          ANDROID_ROLLOUT: ${{ inputs.android_rollout || vars.ANDROID_ROLLOUT }}
         run: |
           cd mobile/android
 
