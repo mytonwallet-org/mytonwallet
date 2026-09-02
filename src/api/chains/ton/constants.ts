@@ -305,6 +305,12 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     oldHash: 'f216ded2b43d32e2d487db6fa6e4d2387f0ef1d7b53ec1ad85f0b4feb8e4ed62',
     isSwapAllowed: true,
   },
+  // DeDust v2 CPMM pool. Example: https://tonviewer.com/EQDFJ4-4-CXUn7TTt3e1Z7FBpH6lkJRP5mVkGtGd5dHZzGe0
+  dedustV2Cpmm: {
+    name: 'dedustV2Cpmm',
+    hash: '3997a5c1ee8923e93cf3a6a98ea3ef9482c64dd8aea2ba8365689e14d99c760d',
+    isSwapAllowed: true,
+  },
   dedustVaultNative: {
     name: 'dedustVaultNative',
     oldHash: '64a42ad66688097422901ae6188670f0d6292ad3bdb4139289666f24187e86cb',

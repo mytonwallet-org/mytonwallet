@@ -83,7 +83,7 @@ export interface JettonMetadata {
 export type ContractName = ApiTonWalletVersion
   | 'v4R1' | 'highloadV2' | 'multisig' | 'multisigV2' | 'multisigNew'
   | 'nominatorPool' | 'vesting'
-  | 'dedustPool' | 'dedustVaultNative' | 'dedustVaultJetton'
+  | 'dedustPool' | 'dedustV2Cpmm' | 'dedustVaultNative' | 'dedustVaultJetton'
   | 'stonPtonWallet' | 'stonRouter' | 'stonRouterV2_1' | 'stonPoolV2_1'
   | 'stonRouterV2_2' | 'stonRouterV2_2_alt' | 'stonPoolV2_2' | 'stonPtonWalletV2'
   | 'toncoRouter' | 'wrappedToncoTonWallet' | 'dedustVaultNativeV2' | 'omnistonEscrowMinter'
