@@ -23,7 +23,9 @@ class MarketGridItemView(context: Context, private val onTap: (MarketToken) -> U
     WView(context),
     WThemedView {
     private val ripple = WRippleDrawable.create(16f.dp)
-    private val iconView = WCustomImageView(context)
+    private val iconView = WCustomImageView(context).apply {
+        chainSize = 22.dp
+    }
     private val nameLabel = WLabel(context).apply {
         setStyle(13f, WFont.Medium)
         translationY = 1f.dp
@@ -59,7 +61,7 @@ class MarketGridItemView(context: Context, private val onTap: (MarketToken) -> U
 
     fun configure(token: MarketToken) {
         marketToken = token
-        iconView.set(Content.of(token.token, showChain = false))
+        iconView.set(Content.of(token.token, showChain = true))
         nameLabel.text = token.name
         changeLabel.text = token.changeText
         contentDescription = "${token.name}, ${token.changeText}"

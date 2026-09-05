@@ -405,7 +405,7 @@ private struct MarketGridItem: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            MarketTokenIcon(token: token.token, size: 56, shouldShowChain: false)
+            MarketTokenIcon(token: token.token, size: 56, shouldShowChain: true, chainGeometry: .forIcon56)
                 .frame(width: 56, height: 56)
                 .allowsHitTesting(false)
 
@@ -475,7 +475,7 @@ struct MarketTokenRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            MarketTokenIcon(token: token.token, size: 40, shouldShowChain: false)
+            MarketTokenIcon(token: token.token, size: 40, shouldShowChain: true)
                 .frame(width: 40, height: 40)
                 .allowsHitTesting(false)
 
@@ -528,9 +528,10 @@ private struct MarketTokenIcon: UIViewRepresentable {
     let token: ApiToken
     let size: CGFloat
     let shouldShowChain: Bool
+    var chainGeometry: IconAccessoryView.LayoutGeometry? = nil
 
     func makeUIView(context: Context) -> IconView {
-        let iconView = IconView(size: size)
+        let iconView = IconView(size: size, accessoryGeometry: chainGeometry)
         iconView.isUserInteractionEnabled = false
         return iconView
     }

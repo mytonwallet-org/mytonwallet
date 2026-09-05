@@ -1,4 +1,4 @@
-import React, { memo } from '../../../../../lib/teact/teact';
+import React, { memo, useRef } from '../../../../../lib/teact/teact';
 
 import type { ApiChain } from '../../../../../api/types';
 
@@ -23,7 +23,8 @@ interface OwnProps {
   item: AddressMenuItem;
   withDelimiter?: boolean;
   onClick: (e: React.UIEvent<HTMLElement>, item: AddressMenuItem) => void;
-  onMouseEnter?: (e: React.MouseEvent<HTMLElement>, item: AddressMenuItem) => void;
+  onMouseEnter?: (e: React.MouseEvent<HTMLElement>, item: AddressMenuItem, rowEl: HTMLElement) => void;
+  onExplorerMouseEnter?: NoneToVoidFunction;
   onExplorerClick: (e: React.UIEvent<HTMLElement>, item: AddressMenuItem) => void;
 }
 
@@ -35,12 +36,15 @@ function MenuItem({
   withDelimiter,
   onClick,
   onMouseEnter,
+  onExplorerMouseEnter,
   onExplorerClick,
 }: OwnProps) {
+  const rowRef = useRef<HTMLDivElement>();
   const hasDomain = Boolean(item.domain);
 
   return (
     <div
+      ref={rowRef}
       role="button"
       tabIndex={0}
       className={buildClassName(menuStyles.item, styles.chainItem, withDelimiter && menuStyles.delimiter)}
@@ -51,31 +55,38 @@ function MenuItem({
         if (e.code === 'Space') e.preventDefault();
         onClick(e, item);
       }}
-      onMouseEnter={onMouseEnter ? (e: React.MouseEvent<HTMLElement>) => { onMouseEnter(e, item); } : undefined}
     >
-      <img src={item.icon} alt="" className={styles.chainItemLogo} />
-      <div className={styles.chainItemContent}>
-        <span className={styles.chainItemTitle}>{item.title}</span>
-        <span className={styles.chainItemSubtitle}>
-          {hasDomain
-            ? `${shortenDomain(item.domain!, SUBTITLE_DOMAIN_MAX_LENGTH)} ${
-              shortenAddress(item.address, 0, ADDRESS_TAIL_LENGTH)}`
-            : item.shortAddress}
-        </span>
+      <div
+        className={styles.chainItemHoverZone}
+        onMouseEnter={onMouseEnter
+          ? (e: React.MouseEvent<HTMLElement>) => { onMouseEnter(e, item, rowRef.current!); }
+          : undefined}
+      >
+        <img src={item.icon} alt="" className={styles.chainItemLogo} />
+        <div className={styles.chainItemContent}>
+          <span className={styles.chainItemTitle}>{item.title}</span>
+          <span className={styles.chainItemSubtitle}>
+            {hasDomain
+              ? `${shortenDomain(item.domain!, SUBTITLE_DOMAIN_MAX_LENGTH)} ${
+                shortenAddress(item.address, 0, ADDRESS_TAIL_LENGTH)}`
+              : item.shortAddress}
+          </span>
+        </div>
+        <i
+          className={buildClassName(
+            hasDomain ? 'icon-chevron-right' : 'icon-copy',
+            styles.itemActionIcon,
+            hasDomain && styles.itemChevronIcon,
+          )}
+          aria-hidden
+        />
       </div>
-      <i
-        className={buildClassName(
-          hasDomain ? 'icon-chevron-right' : 'icon-copy',
-          styles.itemActionIcon,
-          hasDomain && styles.itemChevronIcon,
-        )}
-        aria-hidden
-      />
       <i
         tabIndex={0}
         role="button"
         className={buildClassName('icon-explorer-small', styles.itemExplorerIcon)}
         aria-label={item.label}
+        onMouseEnter={onExplorerMouseEnter}
         onClick={(e: React.MouseEvent<HTMLElement>) => { onExplorerClick(e, item); }}
         onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {
           if (e.code !== 'Enter' && e.code !== 'Space') return;

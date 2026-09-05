@@ -27,7 +27,7 @@ function TokenRow({ token, onClick }: OwnProps) {
 
   return (
     <button type="button" className={buildClassName(styles.row, styles.interactive)} onClick={handleClick}>
-      <TokenIcon token={apiToken} size="x-large" withChainIcon />
+      <TokenIcon token={apiToken} size="large" withChainIcon />
       <span className={styles.rowText}>
         <span className={styles.rowTitle}>
           {apiToken.symbol}

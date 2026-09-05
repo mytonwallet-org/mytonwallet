@@ -584,7 +584,7 @@ function Token({
         <TokenIcon
           token={token}
           withChainIcon={withChainIcon}
-          className={buildClassName(styles.tokenLogo, !isAvailable && styles.tokenLogoDisabled)}
+          className={!isAvailable ? styles.tokenLogoDisabled : undefined}
         />
 
         <div className={styles.nameContainer}>

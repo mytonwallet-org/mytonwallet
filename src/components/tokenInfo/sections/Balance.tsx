@@ -5,6 +5,7 @@ import type { ApiBaseCurrency } from '../../../api/types';
 import type { UserToken } from '../../../global/types';
 import type { TokenPricePoint } from './Chart';
 
+import { selectCurrentAccountId, selectIsMultichainAccount } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { calcBigChangeValue } from '../../../util/calcChangeValue';
 import { toBig, toDecimal } from '../../../util/decimals';
@@ -28,6 +29,7 @@ interface OwnProps {
 interface StateProps {
   baseCurrency: ApiBaseCurrency;
   isSensitiveDataHidden?: true;
+  isMultichainAccount: boolean;
 }
 
 // The mask sizes match the text they cover: `rows * cellSize` is the line height, `cols * cellSize` the width
@@ -39,7 +41,9 @@ const VALUE_COLS = 14;
 const VALUE_ROWS = 2;
 const VALUE_CELL_SIZE = 10;
 
-function Balance({ token, pricePoint, baseCurrency, isSensitiveDataHidden }: OwnProps & StateProps) {
+function Balance({
+  token, pricePoint, baseCurrency, isSensitiveDataHidden, isMultichainAccount,
+}: OwnProps & StateProps) {
   const amountRef = useRef<HTMLDivElement>();
   const [isFullAmount, showFullAmount, hideFullAmount] = useFlag();
   const { updateFontScale } = useFontScale(amountRef);
@@ -79,7 +83,7 @@ function Balance({ token, pricePoint, baseCurrency, isSensitiveDataHidden }: Own
 
   return (
     <div className={styles.root}>
-      <TokenIcon token={token} size="xx-large" className={styles.icon} />
+      <TokenIcon token={token} size="xx-large" withChainIcon={isMultichainAccount} className={styles.icon} />
 
       <div ref={amountRef} className={styles.amountWrapper}>
         <SensitiveData
@@ -130,6 +134,7 @@ export default memo(
     return {
       baseCurrency: global.settings.baseCurrency,
       isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
+      isMultichainAccount: selectIsMultichainAccount(global, selectCurrentAccountId(global)!),
     };
   })(Balance),
 );

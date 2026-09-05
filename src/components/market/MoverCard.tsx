@@ -32,7 +32,7 @@ function MoverCard({ token, onClick }: OwnProps) {
   return (
     <button type="button" className={buildClassName(styles.card, styles.moverCard)} style={style} onClick={handleClick}>
       {sparkline && <Sparkline points={sparkline} />}
-      <TokenIcon token={apiToken} size="x-large" withChainIcon iconClassName={styles.moverIcon} />
+      <TokenIcon token={apiToken} withChainIcon iconClassName={styles.moverIcon} />
       <span className={styles.moverName}>{name}</span>
       <span className={styles.moverPrice}>
         {priceText}

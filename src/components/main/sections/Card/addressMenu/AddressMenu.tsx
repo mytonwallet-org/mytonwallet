@@ -208,22 +208,30 @@ function AddressMenu({
     handleRowClick(e, item);
   });
 
-  const handleMainRowMouseEnter = useLastCallback((e: React.MouseEvent<HTMLElement>, item: AddressMenuItem) => {
+  const handleMainRowMouseEnter = useLastCallback((
+    e: React.MouseEvent<HTMLElement>,
+    item: AddressMenuItem,
+    rowEl: HTMLElement,
+  ) => {
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
 
     if (item.domain) {
-      openDomainSubMenu(e.currentTarget, item);
+      openDomainSubMenu(rowEl, item);
       closeAllChainsMenu();
     } else {
       scheduleSubMenusClose();
     }
   });
 
-  const handleSubMenuRowMouseEnter = useLastCallback((e: React.MouseEvent<HTMLElement>, item: AddressMenuItem) => {
+  const handleSubMenuRowMouseEnter = useLastCallback((
+    e: React.MouseEvent<HTMLElement>,
+    item: AddressMenuItem,
+    rowEl: HTMLElement,
+  ) => {
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
 
     if (item.domain) {
-      openDomainSubMenu(e.currentTarget, item);
+      openDomainSubMenu(rowEl, item);
     } else {
       scheduleDomainSubMenuClose();
     }
@@ -354,6 +362,7 @@ function AddressMenu({
             withDelimiter={index === 0}
             onClick={handleMainRowClick}
             onMouseEnter={withHover ? handleMainRowMouseEnter : undefined}
+            onExplorerMouseEnter={withHover ? scheduleSubMenusClose : undefined}
             onExplorerClick={handleRowExplorerClick}
           />
         ))}
@@ -406,6 +415,7 @@ function AddressMenu({
               item={item}
               onClick={handleRowClick}
               onMouseEnter={withHover ? handleSubMenuRowMouseEnter : undefined}
+              onExplorerMouseEnter={withHover ? scheduleDomainSubMenuClose : undefined}
               onExplorerClick={handleRowExplorerClick}
             />
           ))}
