@@ -38,7 +38,7 @@ export async function fetchEmulateTrace(
       include_metadata: true,
     }),
     signal,
-  });
+  }, { retries: 1 });
 
   return response.json();
 }

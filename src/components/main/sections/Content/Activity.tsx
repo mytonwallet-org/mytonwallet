@@ -11,6 +11,8 @@ import type {
 } from '../../../../api/types';
 import type { Account, AppTheme, SavedAddress } from '../../../../global/types';
 
+import { getTransactionStakingPool } from '../../../../util/activities';
+
 import Swap, { getSwapHeight } from './Swap';
 import Transaction, { getTransactionHeight } from './Transaction';
 
@@ -27,7 +29,7 @@ interface OwnProps {
   appTheme: AppTheme;
   nftsByAddress: Record<string, ApiNft> | undefined;
   currentAccountId: string;
-  stakingStateBySlug: Record<string, ApiStakingState>;
+  stakingStateByPool: Record<string, ApiStakingState>;
   savedAddresses: SavedAddress[] | undefined;
   accounts: Record<string, Account> | undefined;
   baseCurrency: ApiBaseCurrency;
@@ -49,7 +51,7 @@ export default function Activity({
   appTheme,
   nftsByAddress,
   currentAccountId,
-  stakingStateBySlug,
+  stakingStateByPool,
   savedAddresses,
   accounts,
   baseCurrency,
@@ -75,7 +77,7 @@ export default function Activity({
     );
   } else {
     const doesNftExist = Boolean(activity.nft && nftsByAddress?.[activity.nft.address]);
-    const { annualYield, yieldType } = stakingStateBySlug[activity.slug] ?? {};
+    const { annualYield, yieldType } = stakingStateByPool[getTransactionStakingPool(activity)] ?? {};
 
     return (
       <Transaction

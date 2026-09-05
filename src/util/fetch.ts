@@ -39,10 +39,17 @@ export type QueryParams = Record<string, string | number | boolean | string[] | 
 const MAX_TIMEOUT = 30000; // 30 sec
 const MAX_BACKOFF_MS = 10000; // 10 sec - jitter ceiling for retryable failures
 
-// Deterministic client-error statuses safe to cache and replay: repeating the identical request
-// cannot change the answer. Narrower than the full terminal set on purpose - 401/403 stay
-// terminal (no retry) but are NOT cached, so a transient auth state is never masked for the TTL.
-const NEGATIVE_CACHEABLE_STATUSES = [400, 404, 422];
+// Statuses in which the host ruled on the request itself: it arrived and was answered with a
+// deterministic verdict, so repeating the identical request cannot change the outcome. Narrower than the full
+// terminal set on purpose - 401/403 stay terminal (no retry) but say something about access or
+// about the upstream's own state, not about this request, and they can flip without the request
+// changing at all.
+//
+// Two callers read this, and both need exactly that distinction. The negative-verdict cache
+// replays these answers, so caching a 401 would mask a transient auth state for the whole TTL.
+// The circuit breaker counts these as proof the host is alive, so counting a 401 or a 403 would
+// let an upstream rejecting every request in bulk register as healthy for as long as it lasted.
+const REQUEST_VERDICT_STATUSES = [400, 404, 422];
 
 // The negative-verdict cache is scoped to the evmapi (Zerion) origin - the only path with the
 // deterministic-4xx storm class. Other origins are excluded deliberately: toncenter GETs carry a
@@ -173,9 +180,9 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
         const shouldSkipRetry = shouldSkipRetryFn(message, statusCode);
 
         if (shouldSkipRetry) {
-          // Host-health verdict: terminal 4xx = alive host, wrong request; anything else
-          // (5xx, transport, 429/408) counts toward tripping the breaker, even when
-          // shouldSkipRetry short-circuits the retry budget.
+          // Host-health verdict: a request-verdict status (400/404/422) means an alive host that
+          // ruled against this request; everything else, 401/403 included, counts toward tripping
+          // the breaker, even when shouldSkipRetry short-circuits the retry budget.
           if (isBreakerHealthy4xx(statusCode)) {
             slot.recordSuccess();
           } else {
@@ -197,7 +204,7 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
     }
 
     throwIfAborted(init?.signal);
-    // Same verdict as the in-loop branch: only a terminal 4xx proves the host alive.
+    // Same verdict as the in-loop branch: only a request-verdict status proves the host alive.
     if (isBreakerHealthy4xx(statusCode)) {
       slot.recordSuccess();
     } else {
@@ -258,14 +265,19 @@ function isTerminalFailure(_message?: string, statusCode?: number): boolean {
   return classifyFetchFailure(statusCode) === 'terminal';
 }
 
-/** Only a terminal 4xx proves the host healthy; 429/408 are overload signals and verdict as failures. */
+/**
+ * Whether a status proves the host is alive and serving. Only a deterministic verdict on the
+ * request itself does: 429 and 408 are overload signals, and 401/403 report access or upstream state, which an
+ * upstream can return to everyone at once while being anything but healthy. An unrecognised 4xx
+ * is not read as health either - the cost of that is a breaker opening slightly early, against a
+ * breaker that never opens at all.
+ */
 function isBreakerHealthy4xx(statusCode?: number): boolean {
-  return statusCode !== undefined && statusCode >= 400 && statusCode < 500
-    && classifyFetchFailure(statusCode) === 'terminal';
+  return statusCode !== undefined && REQUEST_VERDICT_STATUSES.includes(statusCode);
 }
 
 export function isNegativeCacheableStatus(statusCode?: number): boolean {
-  return statusCode !== undefined && NEGATIVE_CACHEABLE_STATUSES.includes(statusCode);
+  return statusCode !== undefined && REQUEST_VERDICT_STATUSES.includes(statusCode);
 }
 
 function isEvmApiOrigin(url: string): boolean {

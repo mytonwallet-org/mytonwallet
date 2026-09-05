@@ -1,4 +1,4 @@
-import React, { memo } from '../../../lib/teact/teact';
+import React, { memo, useLayoutEffect, useRef } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../global';
 
 import type { ApiBaseCurrency } from '../../../api/types';
@@ -9,6 +9,10 @@ import buildClassName from '../../../util/buildClassName';
 import { calcBigChangeValue } from '../../../util/calcChangeValue';
 import { toBig, toDecimal } from '../../../util/decimals';
 import { formatCurrency, formatNumber, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
+
+import useFlag from '../../../hooks/useFlag';
+import useFontScale from '../../../hooks/useFontScale';
+import useLastCallback from '../../../hooks/useLastCallback';
 
 import TokenIcon from '../../common/TokenIcon';
 import SensitiveData from '../../ui/SensitiveData';
@@ -26,11 +30,20 @@ interface StateProps {
   isSensitiveDataHidden?: true;
 }
 
-const SENSITIVE_DATA_COLS = 10;
-const SENSITIVE_DATA_ROWS = 2;
-const SENSITIVE_DATA_CELL_SIZE = 10;
+// The mask sizes match the text they cover: `rows * cellSize` is the line height, `cols * cellSize` the width
+const AMOUNT_MIN_COLS = 8;
+const AMOUNT_MAX_COLS = 12;
+const AMOUNT_ROWS = 3;
+const AMOUNT_CELL_SIZE = 13;
+const VALUE_COLS = 14;
+const VALUE_ROWS = 2;
+const VALUE_CELL_SIZE = 10;
 
 function Balance({ token, pricePoint, baseCurrency, isSensitiveDataHidden }: OwnProps & StateProps) {
+  const amountRef = useRef<HTMLDivElement>();
+  const [isFullAmount, showFullAmount, hideFullAmount] = useFlag();
+  const { updateFontScale } = useFontScale(amountRef);
+
   const { amount, decimals, symbol, price, change24h } = token;
   const currencySymbol = getShortCurrencySymbol(baseCurrency);
 
@@ -44,34 +57,58 @@ function Balance({ token, pricePoint, baseCurrency, isSensitiveDataHidden }: Own
     : calcBigChangeValue(valueBig, change24h).toNumber();
   const changePercent = (pricePoint ? pricePoint.price / pricePoint.initialPrice - 1 : change24h) * 100;
 
-  const [wholePart, fractionPart] = formatNumber(toDecimal(amount, decimals)).split('.');
+  const decimalAmount = toDecimal(amount, decimals);
+  const [wholePart, fractionPart] = (isFullAmount
+    ? formatNumber(decimalAmount, decimals, undefined, true)
+    : formatNumber(decimalAmount)
+  ).split('.');
+
+  useLayoutEffect(updateFontScale, [wholePart, fractionPart, symbol, updateFontScale]);
+
+  // The mask reveal takes the first tap, so the full amount comes on the second one, and the third one
+  // returns the mask (the click is handed back to `SensitiveData` by returning a falsy value)
+  const handleAmountClick = useLastCallback(() => {
+    if (isFullAmount) {
+      hideFullAmount();
+      return false;
+    }
+
+    showFullAmount();
+    return true;
+  });
 
   return (
     <div className={styles.root}>
       <TokenIcon token={token} size="xx-large" className={styles.icon} />
 
-      <SensitiveData
-        isActive={isSensitiveDataHidden}
-        align="center"
-        cols={SENSITIVE_DATA_COLS}
-        rows={SENSITIVE_DATA_ROWS}
-        cellSize={SENSITIVE_DATA_CELL_SIZE}
-        className={buildClassName(styles.amount, 'rounded-font')}
-      >
-        {wholePart}
-        <span className={styles.amountSecondary}>
-          {fractionPart && `.${fractionPart}`}
-          {' '}
-          {symbol}
-        </span>
-      </SensitiveData>
+      <div ref={amountRef} className={styles.amountWrapper}>
+        <SensitiveData
+          isActive={isSensitiveDataHidden}
+          align="center"
+          min={AMOUNT_MIN_COLS}
+          max={AMOUNT_MAX_COLS}
+          seed={symbol}
+          rows={AMOUNT_ROWS}
+          cellSize={AMOUNT_CELL_SIZE}
+          className={buildClassName(styles.amount, 'rounded-font')}
+          onClick={handleAmountClick}
+          onContentHidden={hideFullAmount}
+        >
+          {wholePart}
+          <span className={styles.amountSecondary}>
+            {fractionPart && `.${fractionPart}`}
+            {' '}
+            {symbol}
+          </span>
+        </SensitiveData>
+      </div>
 
       <SensitiveData
         isActive={isSensitiveDataHidden}
         align="center"
-        cols={SENSITIVE_DATA_COLS}
-        rows={SENSITIVE_DATA_ROWS}
-        cellSize={SENSITIVE_DATA_CELL_SIZE}
+        cols={VALUE_COLS}
+        rows={VALUE_ROWS}
+        cellSize={VALUE_CELL_SIZE}
         className={styles.value}
       >
         {formatCurrency(valueBig, currencySymbol)}

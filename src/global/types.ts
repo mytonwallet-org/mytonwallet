@@ -42,6 +42,7 @@ import type {
   ApiImportAddressByChain,
   ApiLedgerDriver,
   ApiLedgerWalletInfo,
+  ApiMarketAssetsResponseWithSlug,
   ApiMtwCardType,
   ApiNetwork,
   ApiNft,
@@ -211,6 +212,7 @@ type SignOutLevel = 'account' | 'network' | 'all';
 export enum AppState {
   Auth,
   Main,
+  Market,
   Agent,
   Explore,
   Portfolio,
@@ -460,6 +462,7 @@ export enum ContentTab {
   Nft,
   Settings,
   Portfolio,
+  Market,
 }
 
 export enum MediaType {
@@ -916,6 +919,11 @@ export type GlobalState = {
     sites: ApiSite[];
   };
 
+  // The showcase is localized by the backend, so it carries the language it was loaded in
+  marketData?: ApiMarketAssetsResponseWithSlug & { langCode: LangCode };
+  // The token screen opened from the market, as opposed to the one opened in the wallet
+  marketTokenSlug?: string;
+
   currentDappTransfer: {
     state: TransferState;
     isSse?: boolean;
@@ -1155,6 +1163,7 @@ export type GlobalState = {
   agentMeta?: { messageCount: number; lastTimestamp?: number };
   agentHints?: AgentHint[];
   isExploreOpen?: boolean;
+  isMarketOpen?: boolean;
   isPortfolioOpen?: boolean;
   portfolioReturnTo?: 'settings';
   portfolio?: PortfolioState;
@@ -1457,6 +1466,9 @@ export interface ActionPayloads {
   setAgentHints: { hints: AgentHint[] };
   openExplore: undefined;
   closeExplore: undefined;
+  openMarket: undefined;
+  closeMarket: undefined;
+  openMarketToken: { slug: string };
   openPortfolio: { returnTo?: 'settings' } | undefined;
   closePortfolio: undefined;
   loadPortfolioHistory: { range?: ApiPriceHistoryPeriod } | undefined;
@@ -1491,6 +1503,7 @@ export interface ActionPayloads {
   switchToWallet: undefined;
   switchToAgent: undefined;
   switchToExplore: undefined;
+  switchToMarket: undefined;
   switchToSettings: undefined;
   switchToPortfolio: undefined;
 
@@ -1631,6 +1644,7 @@ export interface ActionPayloads {
   deleteAllDapps: undefined;
   deleteDapp: { url: string; uniqueId: string };
   loadExploreSites: { isLandscape: boolean; langCode: LangCode | undefined };
+  loadMarketAssets: undefined;
   updateDappLastOpenedAt: { url: string };
   updateDappMfaRequestStatus: undefined;
 

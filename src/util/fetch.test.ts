@@ -263,4 +263,17 @@ describe('fetchWithRetry breaker classification', () => {
     // 400 is terminal (one attempt per call) and healthy - every call reaches upstream.
     expect(fetchMock).toHaveBeenCalledTimes(BREAKER_FAILURE_THRESHOLD + 1);
   });
+
+  it.each([403, 401])('opens the breaker on a sustained %s storm - an upstream refusing everyone is not healthy',
+    async (status) => {
+      fetchMock.mockResolvedValue(mockResponse(status, {}));
+
+      for (let i = 0; i < BREAKER_FAILURE_THRESHOLD; i++) {
+        await expect(fetchWithRetry(VENDOR_URL)).rejects.toMatchObject({ statusCode: status });
+      }
+
+      const upstreamCalls = fetchMock.mock.calls.length;
+      await expect(fetchWithRetry(VENDOR_URL)).rejects.toBeInstanceOf(CircuitOpenError);
+      expect(fetchMock).toHaveBeenCalledTimes(upstreamCalls);
+    });
 });

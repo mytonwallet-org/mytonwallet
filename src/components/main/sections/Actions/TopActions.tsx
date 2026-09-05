@@ -8,7 +8,7 @@ import type { StakingStateStatus } from '../../../../util/staking';
 import { ANIMATED_STICKER_ICON_PX } from '../../../../config';
 import {
   selectAccountStakingState,
-  selectAccountStakingStatesBySlug,
+  selectAccountStakingStateForToken,
   selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
@@ -203,8 +203,9 @@ export default memo(
       const accountId = selectCurrentAccountId(global);
       const stakingState = accountId ? selectAccountStakingState(global, accountId) : undefined;
       const currentTokenSlug = selectCurrentAccountState(global)?.currentTokenSlug;
-      const stakingStatesBySlug = accountId ? selectAccountStakingStatesBySlug(global, accountId) : undefined;
-      const currentStakingState = currentTokenSlug !== undefined ? stakingStatesBySlug?.[currentTokenSlug] : undefined;
+      const currentStakingState = accountId && currentTokenSlug !== undefined
+        ? selectAccountStakingStateForToken(global, accountId, currentTokenSlug)
+        : undefined;
       const isEarnHidden = selectIsStakingDisabled(global)
         || (currentTokenSlug !== undefined && !currentStakingState)
         || Boolean(

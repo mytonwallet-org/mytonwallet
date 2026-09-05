@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { StoredDappConnection } from '../../api/dappProtocols/storage';
@@ -18,7 +18,7 @@ import type { Account, SavedAddress, Theme } from '../../global/types';
 import { DEFAULT_CHAIN, TONCOIN, UNKNOWN_TOKEN } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import {
-  selectAccountStakingStatesBySlug,
+  selectAccountStakingStatesByPool,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentDappTransferTotals,
@@ -27,6 +27,7 @@ import {
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { getChainConfig } from '../../util/chain';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
@@ -54,6 +55,7 @@ import styles from './Dapp.module.scss';
 import scamImg from '../../assets/scam.svg';
 
 interface OwnProps {
+  isActive?: boolean;
   onClose?: NoneToVoidFunction;
 }
 
@@ -73,7 +75,7 @@ interface StateProps {
   currencyRates: ApiCurrencyRates;
   nftsByAddress?: Record<string, ApiNft>;
   currentAccountId: string;
-  stakingStateBySlug: Record<string, ApiStakingState>;
+  stakingStateByPool: Record<string, ApiStakingState>;
   savedAddresses?: SavedAddress[];
   accounts?: Record<string, Account>;
   insufficientTokens?: string;
@@ -114,11 +116,12 @@ function DappTransferInitial({
   currencyRates,
   nftsByAddress,
   currentAccountId,
-  stakingStateBySlug,
+  stakingStateByPool,
   savedAddresses,
   accounts,
   insufficientTokens,
   balancesBySlug,
+  isActive,
   onClose,
   chain,
   shouldHideTransfers,
@@ -139,6 +142,13 @@ function DappTransferInitial({
   );
   const isDappLoading = dapp === undefined;
   const hasSufficientBalance = !insufficientTokens;
+  const canSubmit = !isDappLoading && !isLoading && !isScam && hasSufficientBalance;
+
+  useEffect(() => (
+    isActive && canSubmit
+      ? captureKeyboardListeners({ onEnter: () => submitDappTransferConfirm() })
+      : undefined
+  ), [isActive, canSubmit, submitDappTransferConfirm]);
 
   // Placeholder modal (opened by a wake deeplink): warn if the request event never arrives.
   useTimeout(
@@ -189,11 +199,10 @@ function DappTransferInitial({
             <Button className={modalStyles.button} onClick={onClose}>{lang('Cancel')}</Button>
             <Button
               isPrimary
-              isSubmit
               isLoading={isLoading}
               isDisabled={isScam || !hasSufficientBalance}
               className={modalStyles.button}
-              onClick={!isScam && hasSufficientBalance ? submitDappTransferConfirm : undefined}
+              onClick={canSubmit ? submitDappTransferConfirm : undefined}
             >
               {lang('Send')}
             </Button>
@@ -278,7 +287,7 @@ function DappTransferInitial({
         appTheme={appTheme}
         nftsByAddress={nftsByAddress}
         currentAccountId={currentAccountId}
-        stakingStateBySlug={stakingStateBySlug}
+        stakingStateByPool={stakingStateByPool}
         savedAddresses={savedAddresses}
         accounts={accounts}
         baseCurrency={baseCurrency}
@@ -345,7 +354,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     currencyRates: global.currencyRates,
     nftsByAddress: accountState?.nfts?.byAddress,
     currentAccountId: accountId,
-    stakingStateBySlug: selectAccountStakingStatesBySlug(global, accountId),
+    stakingStateByPool: selectAccountStakingStatesByPool(global, accountId),
     savedAddresses: accountState?.savedAddresses,
     accounts,
     insufficientTokens: selectDappTransferInsufficientTokens(global),

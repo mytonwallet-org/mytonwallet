@@ -492,7 +492,9 @@ addActionHandler('checkAppVersion', (global) => {
     .then((version) => {
       version = version.trim();
 
-      if (getIsAppUpdateNeeded(version, APP_VERSION)) {
+      // Strict: surface the banner only when the served version is strictly newer. A host rolled back
+      // below a client already running a newer build must not nag it to "update" to an older version.
+      if (getIsAppUpdateNeeded(version, APP_VERSION, true)) {
         global = getGlobal();
         global = {
           ...global,
@@ -705,6 +707,20 @@ addActionHandler('closeExplore', (global) => {
   return { ...global, isExploreOpen: undefined };
 });
 
+addActionHandler('openMarket', (global) => {
+  return openSection(global, 'market');
+});
+
+addActionHandler('closeMarket', (global) => {
+  return { ...global, isMarketOpen: undefined };
+});
+
+addActionHandler('openMarketToken', (global, actions, { slug }) => {
+  setGlobal({ ...global, marketTokenSlug: slug });
+
+  actions.selectToken({ slug });
+});
+
 addActionHandler('openPortfolio', (global, actions, payload) => {
   return { ...openSection(global, 'portfolio'), portfolioReturnTo: payload?.returnTo };
 });
@@ -762,16 +778,17 @@ addActionHandler('switchAccountAndOpenUrl', async (global, actions, payload) => 
 
 addActionHandler('switchToWallet', (global: GlobalState, actions) => {
   const {
-    areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
+    areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
   } = global;
   const accountState = selectCurrentAccountState(global);
   const areAssetsActive = accountState?.activeContentTab === ContentTab.Assets;
-  const isWalletTabActive = !isAgentOpen && !isExploreOpen && !areSettingsOpen && !isPortfolioOpen;
+  const isWalletTabActive = !isAgentOpen && !isExploreOpen && !isMarketOpen && !areSettingsOpen && !isPortfolioOpen;
 
   setGlobal({ ...global, portfolioReturnTo: undefined });
 
   actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
+  actions.closeMarket(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
   actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
 
@@ -808,6 +825,20 @@ addActionHandler('switchToExplore', (global: GlobalState, actions) => {
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
   actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
   actions.openExplore(undefined, { forceOnHeavyAnimation: true });
+});
+
+addActionHandler('switchToMarket', (global: GlobalState, actions) => {
+  const { isMarketOpen } = global;
+
+  if (isMarketOpen) return;
+
+  setGlobal({ ...global, portfolioReturnTo: undefined });
+
+  actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
+  actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
+  actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
+  actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
+  actions.openMarket(undefined, { forceOnHeavyAnimation: true });
 });
 
 addActionHandler('switchToSettings', (global: GlobalState, actions) => {

@@ -59,7 +59,12 @@ function TokenInfo({ isActive, token }: OwnProps & StateProps) {
 
   return (
     <div ref={rootRef} className={styles.root}>
-      <Header token={renderedToken} isScrolled={isScrolled} onBackClick={closeTokenActivity} />
+      <Header
+        token={renderedToken}
+        isScrolled={isScrolled}
+        className={styles.header}
+        onBackClick={closeTokenActivity}
+      />
 
       <div className={buildClassName(styles.body, 'custom-scroll', SCROLL_CONTAINER_CLASS)} onScroll={handleScroll}>
         <Summary token={renderedToken} className={styles.summary} />

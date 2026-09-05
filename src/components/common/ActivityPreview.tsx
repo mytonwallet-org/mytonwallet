@@ -32,7 +32,7 @@ type OwnProps = {
   appTheme: AppTheme;
   nftsByAddress?: Record<string, ApiNft>;
   currentAccountId: string;
-  stakingStateBySlug: Record<string, ApiStakingState>;
+  stakingStateByPool: Record<string, ApiStakingState>;
   savedAddresses?: SavedAddress[];
   accounts?: Record<string, Account>;
   baseCurrency: ApiBaseCurrency;
@@ -50,7 +50,7 @@ function ActivityPreview({
   appTheme,
   nftsByAddress,
   currentAccountId,
-  stakingStateBySlug,
+  stakingStateByPool,
   savedAddresses,
   accounts,
   baseCurrency,
@@ -88,7 +88,7 @@ function ActivityPreview({
             appTheme={appTheme}
             nftsByAddress={nftsByAddress}
             currentAccountId={currentAccountId}
-            stakingStateBySlug={stakingStateBySlug}
+            stakingStateByPool={stakingStateByPool}
             savedAddresses={savedAddresses}
             accounts={accounts}
             baseCurrency={baseCurrency}

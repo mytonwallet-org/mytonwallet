@@ -25,6 +25,8 @@ import { buildAccountId, parseAccountId } from '../util/account';
 import { getActivityTokenSlugs, getIsActivityPending, getIsTxIdLocal } from '../util/activities';
 import { bigintReviver } from '../util/bigint';
 import { getTokenInfo } from '../util/chain';
+import { sanitizeCurrencyRates } from '../util/currencyRates';
+import { getIsBackendAssetId } from '../util/is-backend-asset-id';
 import isEmptyObject from '../util/isEmptyObject';
 import {
   cloneDeep, extractKey, filterValues, mapValues, omit, pick, pickTruthy, unique,
@@ -139,6 +141,10 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     ...initialState.settings,
     ...cached.settings,
   };
+
+  // Rates are cached verbatim from the backend, so an unusable one outlives the response that
+  // carried it and would break the first render of the session it is restored into.
+  cached.currencyRates = sanitizeCurrencyRates(cached.currencyRates);
 
   if (cached.stateVersion === STATE_VERSION) {
     return;
@@ -698,6 +704,16 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
       if (token.chain === 'ton' && !token.isFromBackend) delete token.image;
     }
     cached.stateVersion = 62;
+  }
+  if (cached.stateVersion === 62) {
+    // Tapping such a card stored a backend id here, and the field outlives the cards: the token
+    // screen renders nothing, and the app reopens on it.
+    for (const state of Object.values(cached.byAccountId ?? {})) {
+      if (state.currentTokenSlug && getIsBackendAssetId(state.currentTokenSlug)) {
+        delete state.currentTokenSlug;
+      }
+    }
+    cached.stateVersion = 63;
   }
   // When adding migration here, increase `STATE_VERSION`
 }

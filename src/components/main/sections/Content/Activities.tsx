@@ -27,7 +27,7 @@ import { getIsTinyOrScamTransaction } from '../../../../global/helpers';
 import {
   selectAccount,
   selectAccounts,
-  selectAccountStakingStatesBySlug,
+  selectAccountStakingStatesByPool,
   selectActivityHistoryIds,
   selectCurrentAccountId,
   selectCurrentAccountSettings,
@@ -95,7 +95,7 @@ type StateProps = {
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
   isSensitiveDataHidden?: true;
-  stakingStateBySlug: Record<string, ApiStakingState>;
+  stakingStateByPool: Record<string, ApiStakingState>;
   nftsByAddress?: Record<string, ApiNft>;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
@@ -147,7 +147,7 @@ function Activities({
   baseCurrency,
   currencyRates,
   isSensitiveDataHidden,
-  stakingStateBySlug,
+  stakingStateByPool,
   nftsByAddress,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
@@ -358,7 +358,7 @@ function Activities({
             isSensitiveDataHidden={isSensitiveDataHidden}
             nftsByAddress={nftsByAddress}
             currentAccountId={currentAccountId}
-            stakingStateBySlug={stakingStateBySlug}
+            stakingStateByPool={stakingStateByPool}
             savedAddresses={savedAddresses}
             withChainIcon={isMultichainAccount}
             accounts={accounts}
@@ -441,7 +441,7 @@ export default memo(
       const accountState = selectCurrentAccountState(global);
       const accountSettings = selectCurrentAccountSettings(global);
       const slug = isWidget ? undefined : accountState?.currentTokenSlug;
-      const stakingStateBySlug = selectAccountStakingStatesBySlug(global, currentAccountId);
+      const stakingStateByPool = selectAccountStakingStatesByPool(global, currentAccountId);
       const { activities } = accountState || {};
       const { byId } = activities || {};
       const { byAddress } = accountState?.nfts || {};
@@ -467,7 +467,7 @@ export default memo(
         theme: global.settings.theme,
         baseCurrency: global.settings.baseCurrency,
         currencyRates: global.currencyRates,
-        stakingStateBySlug,
+        stakingStateByPool,
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         nftsByAddress: byAddress,
         blacklistedNftAddresses: accountState?.blacklistedNftAddresses,
@@ -483,6 +483,8 @@ export default memo(
 
       return stickToFirst((
         isWidget
+        // The token screen shows activities no matter which wallet tab is open
+        || Boolean(accountState?.currentTokenSlug)
         || accountState?.activeContentTab === ContentTab.Activity
         || (accountState?.activeContentTab === ContentTab.Assets && shouldShowSeparateAssetsPanel)
       ) && selectCurrentAccountId(global));

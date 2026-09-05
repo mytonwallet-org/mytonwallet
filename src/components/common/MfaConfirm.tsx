@@ -1,14 +1,16 @@
 import type { TeactNode } from '../../lib/teact/teact';
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useEffect } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
 import { MFA_BOT_URL } from '../../config';
 import { selectCurrentAccount, selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { buildMfaStartParam } from '../../util/mfa';
 import { openSite } from '../explore/helpers/utils';
 
 import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 
 import Button from '../ui/Button';
 import WalletAvatar from '../ui/WalletAvatar';
@@ -18,6 +20,7 @@ import avatarStyles from '../ui/WalletAvatar.module.scss';
 import styles from './MfaConfirm.module.scss';
 
 interface OwnProps {
+  isActive?: boolean;
   onClose: () => void;
   children?: TeactNode;
 
@@ -38,6 +41,7 @@ interface StateProps {
 }
 
 function ConfirmMfa({
+  isActive,
   children,
   accountId,
   accountTitle,
@@ -48,12 +52,16 @@ function ConfirmMfa({
   const lang = useLang();
   const telegramAccountName = mfa.user?.name ?? lang('My Telegram Account');
 
-  const handleSubmit = () => {
+  const handleSubmit = useLastCallback(() => {
     const url = new URL(MFA_BOT_URL);
     url.searchParams.set('startapp', buildMfaStartParam(mfaRequestHash!));
 
     openSite(url.toString(), true);
-  };
+  });
+
+  useEffect(() => (
+    isActive && mfaRequestHash ? captureKeyboardListeners({ onEnter: handleSubmit }) : undefined
+  ), [isActive, mfaRequestHash, handleSubmit]);
 
   return (
     <div className={modalStyles.transitionContent}>

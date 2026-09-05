@@ -9,15 +9,23 @@
   margin-bottom: 0.75rem;
 }
 
+// Holds the width available for the amount, so that the font scale is measured against the section
+// rather than against the mask-sized `SensitiveData` content
+.amountWrapper {
+  width: 100%;
+  text-align: center;
+}
+
 .amount {
-  font-size: 2rem;
+  font-size: calc(2rem * var(--font-size-scale, 1));
   font-weight: 800;
   line-height: 1.1875;
   color: var(--color-black);
+  white-space: nowrap;
 }
 
 .amountSecondary {
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--font-size-scale, 1));
   color: var(--color-gray-2);
 }
 

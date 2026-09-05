@@ -1,5 +1,7 @@
 @use "../../styles/mixins";
 
+@use "../../styles/scssVariables" as v;
+
 .root {
   position: relative;
 
@@ -18,6 +20,12 @@
       padding-top: 2.3125rem;
     }
   }
+
+  @include mixins.respond-above(xs) {
+    // In landscape the screen is a slide of the market and sits on the column background, like in the wallet
+    padding-top: 0;
+    background-color: transparent;
+  }
 }
 
 .body {
@@ -28,10 +36,25 @@
 
   width: 100%;
   padding: 0 0.75rem calc(var(--bottombar-height) + 1rem);
+
+  @include mixins.respond-above(xs) {
+    // The scroll bar sits at the column edge like in the wallet, the content keeps the wallet width below
+    scrollbar-gutter: stable;
+    padding: 0;
+  }
 }
 
 .summary {
   flex-shrink: 0;
+}
+
+.header,
+.summary,
+.activity {
+  @include mixins.respond-above(xs) {
+    max-width: v.$landscapeMainContentMaxWidth;
+    margin-inline-end: 1rem;
+  }
 }
 
 .activity {

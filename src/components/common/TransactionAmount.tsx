@@ -1,4 +1,4 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useLayoutEffect, useRef } from '../../lib/teact/teact';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiTokenWithPrice } from '../../api/types';
 
@@ -7,6 +7,9 @@ import { bigintAbs } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatBaseCurrencyAmount, formatCurrencyExtended } from '../../util/formatNumber';
+
+import useFontScale from '../../hooks/useFontScale';
+import useWindowSize from '../../hooks/useWindowSize';
 
 import SensitiveData from '../ui/SensitiveData';
 
@@ -39,9 +42,17 @@ function TransactionAmount({
   currencyRates,
   onTokenClick,
 }: OwnProps) {
+  const amountRef = useRef<HTMLDivElement>();
+  const { updateFontScale } = useFontScale(amountRef);
+  const { width: windowWidth } = useWindowSize();
+
   const typeClass = isFailed || isScam
     ? styles.operationNegative
     : isIncoming ? styles.operationPositive : undefined;
+
+  useLayoutEffect(updateFontScale, [
+    amount, token?.decimals, token?.symbol, noSign, isIncoming, isSensitiveDataHidden, windowWidth, updateFontScale,
+  ]);
 
   function handleClick() {
     if (onTokenClick && token?.slug) {
@@ -65,8 +76,10 @@ function TransactionAmount({
         align="center"
         cellSize={withStatus ? 17 : 18}
         className={buildClassName(styles.amountSensitiveData, status && styles.withStatus)}
+        contentClassName={styles.amountContent}
       >
         <div
+          ref={amountRef}
           className={buildClassName(
             styles.amount,
             status && styles.withStatus,

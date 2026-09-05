@@ -6,7 +6,8 @@ export type ApiMarketAsset = {
   newBackendId: string;
   name: string;
   symbol: string;
-  chain: ApiChain;
+  /** Any chain the backend knows, including ones this app cannot open; narrowed by `fetchMarketAssets` */
+  chain: string;
   image: string;
   tokenAddress?: string;
   label?: string;
@@ -29,7 +30,8 @@ export type ApiMarketAssetsResponse = {
   sections: ApiMarketSection[];
 };
 
-export type ApiMarketAssetWithSlug = ApiMarketAsset & {
+export type ApiMarketAssetWithSlug = Omit<ApiMarketAsset, 'chain'> & {
+  chain: ApiChain;
   slug: string;
 };
 

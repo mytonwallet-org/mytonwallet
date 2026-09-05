@@ -170,7 +170,6 @@ function BackupModal({
             isActive={isActive}
             mnemonic={mnemonicRef.current as string[]}
             checkIndexes={checkIndexes}
-            buttonLabel={lang('Done')}
             onSubmit={handleCheckMnemonicSubmit}
             onCancel={handleRestartCheckMnemonic}
             onClose={onClose}

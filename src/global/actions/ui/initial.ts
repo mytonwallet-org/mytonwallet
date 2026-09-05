@@ -246,6 +246,10 @@ addActionHandler('selectToken', (global, actions, { slug } = {}) => {
     }
   }
 
+  // The market keeps its token while one stays selected, and follows a switch to another token
+  // made from the token screen, e.g. from an activity modal
+  global = { ...global, marketTokenSlug: slug && global.marketTokenSlug ? slug : undefined };
+
   return updateCurrentAccountState(global, { currentTokenSlug: slug });
 });
 

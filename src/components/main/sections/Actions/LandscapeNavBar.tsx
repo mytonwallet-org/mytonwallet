@@ -27,15 +27,16 @@ interface StateProps {
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isMarketOpen?: boolean;
   theme: Theme;
   accentColorIndex?: number;
 }
 
 function LandscapeNavBar({
-  areSettingsOpen, isAgentOpen, isExploreOpen, theme, accentColorIndex,
+  areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, theme, accentColorIndex,
 }: StateProps) {
   const {
-    switchToWallet, switchToAgent, switchToExplore, switchToSettings,
+    switchToWallet, switchToAgent, switchToExplore, switchToMarket, switchToSettings,
     closeNftCollection, selectToken, setActiveContentTab,
   } = getActions();
 
@@ -44,7 +45,7 @@ function LandscapeNavBar({
   const stickerPaths = ANIMATED_STICKERS_PATHS[appTheme];
   const accentColor = accentColorIndex !== undefined ? ACCENT_COLORS[appTheme][accentColorIndex] : undefined;
 
-  const isWalletActive = !areSettingsOpen && !isAgentOpen && !isExploreOpen;
+  const isWalletActive = !areSettingsOpen && !isAgentOpen && !isExploreOpen && !isMarketOpen;
 
   const handleWalletClick = useLastCallback(() => {
     switchToWallet();
@@ -62,6 +63,14 @@ function LandscapeNavBar({
         previewUrl={isWalletActive ? stickerPaths.preview.iconWalletSolid : stickerPaths.preview.iconWallet}
         accentColor={accentColor}
         onClick={handleWalletClick}
+      />
+      <NavButton
+        isActive={isMarketOpen}
+        label={lang('Market')}
+        tgsUrl={isMarketOpen ? stickerPaths.iconMarketSolid : stickerPaths.iconMarket}
+        previewUrl={isMarketOpen ? stickerPaths.preview.iconMarketSolid : stickerPaths.preview.iconMarket}
+        accentColor={accentColor}
+        onClick={switchToMarket}
       />
       <NavButton
         isActive={isAgentOpen}
@@ -93,12 +102,13 @@ function LandscapeNavBar({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { areSettingsOpen, isAgentOpen, isExploreOpen } = global;
+  const { areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen } = global;
 
   return {
     areSettingsOpen,
     isAgentOpen,
     isExploreOpen,
+    isMarketOpen,
     theme: global.settings.theme,
     accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
   };

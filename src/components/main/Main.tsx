@@ -33,6 +33,7 @@ import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import usePreventPinchZoomGesture from '../../hooks/usePreventPinchZoomGesture';
+import useTimeout from '../../hooks/useTimeout';
 
 import LinkingDomainModal from '../domain/LinkingDomainModal';
 import RenewDomainModal from '../domain/RenewDomainModal';
@@ -84,6 +85,8 @@ type StateProps = {
 
 const UPDATE_SWAPS_INTERVAL_NOT_FOCUSED = 15000; // 15 sec
 const UPDATE_SWAPS_INTERVAL = 3000; // 3 sec
+// Keeps the market request away from the wallet start, yet the showcase is ready by the time the tab is opened
+const MARKET_PRELOAD_DELAY = 5000; // 5 sec
 
 function Main({
   isActive,
@@ -106,6 +109,7 @@ function Main({
     openStakingInfoOrStart,
     changeCurrentStaking,
     loadExploreSites,
+    loadMarketAssets,
     updatePendingSwaps,
   } = getActions();
 
@@ -130,6 +134,8 @@ function Main({
   useEffectOnce(() => {
     loadExploreSites({ isLandscape, langCode: lang.code });
   });
+
+  useTimeout(loadMarketAssets, MARKET_PRELOAD_DELAY);
 
   useInterval(updatePendingSwaps, isFocused ? UPDATE_SWAPS_INTERVAL : UPDATE_SWAPS_INTERVAL_NOT_FOCUSED);
 

@@ -1,10 +1,11 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { GlobalState } from '../../global/types';
 
 import { selectCurrentAccount, selectCurrentAccountId, selectHasMultipleAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
@@ -20,6 +21,10 @@ import DappSkeletonWithContent, { type DappSkeletonRow } from './DappSkeletonWit
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Dapp.module.scss';
 
+interface OwnProps {
+  isActive?: boolean;
+}
+
 type StateProps = Pick<GlobalState['currentDappSignData'], 'dapp' | 'isLoading' | 'payloadToSign'> & {
   currentAccountId?: string;
   accountTitle?: string;
@@ -31,19 +36,27 @@ const skeletonRows: DappSkeletonRow[] = [
 ];
 
 function DappSignDataInitial({
+  isActive,
   dapp,
   isLoading,
   payloadToSign,
   currentAccountId,
   accountTitle,
   hasMultipleAccounts,
-}: StateProps) {
+}: OwnProps & StateProps) {
   const { closeDappSignData, submitDappSignDataConfirm } = getActions();
 
   const lang = useLang();
   const renderingPayloadToSign = useCurrentOrPrev(payloadToSign, true);
 
   const isDappLoading = dapp === undefined;
+  const canSubmit = !isDappLoading && !isLoading;
+
+  useEffect(() => (
+    isActive && canSubmit
+      ? captureKeyboardListeners({ onEnter: () => submitDappSignDataConfirm() })
+      : undefined
+  ), [isActive, canSubmit, submitDappSignDataConfirm]);
 
   function renderContent() {
     return (
@@ -56,7 +69,6 @@ function DappSignDataInitial({
           <Button className={modalStyles.button} onClick={closeDappSignData}>{lang('Cancel')}</Button>
           <Button
             isPrimary
-            isSubmit
             isLoading={isLoading}
             className={modalStyles.button}
             onClick={submitDappSignDataConfirm}
@@ -163,7 +175,7 @@ function DappSignDataInitial({
   );
 }
 
-export default memo(withGlobal((global): StateProps => {
+export default memo(withGlobal<OwnProps>((global): StateProps => {
   const { dapp, isLoading, payloadToSign } = global.currentDappSignData;
 
   return {
