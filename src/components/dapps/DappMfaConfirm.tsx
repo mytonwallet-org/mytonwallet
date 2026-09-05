@@ -39,6 +39,7 @@ function DappMfaConfirm({
     <>
       <ModalHeader onClose={onClose} />
       <MfaConfirm
+        isActive={isActive}
         onClose={onClose}
         mfaRequestHash={mfaRequestHash}
       />

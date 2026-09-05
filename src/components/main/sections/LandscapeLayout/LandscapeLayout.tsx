@@ -8,6 +8,7 @@ import buildClassName from '../../../../util/buildClassName';
 
 import Agent from '../../../agent/AgentRuntime';
 import Explore from '../../../explore/Explore';
+import Market from '../../../market/Market';
 import Portfolio from '../../../portfolio/Portfolio';
 import Settings from '../../../settings/Settings';
 import Transition from '../../../ui/Transition';
@@ -23,11 +24,12 @@ interface StateProps {
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isMarketOpen?: boolean;
   isPortfolioOpen?: boolean;
 }
 
 function LandscapeLayout({
-  onStakedTokenClick, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
+  onStakedTokenClick, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
 }: OwnProps & StateProps) {
   function renderSlide(isActive: boolean, _isFrom: boolean, currentKey: ContentTab) {
     switch (currentKey) {
@@ -41,6 +43,12 @@ function LandscapeLayout({
         return (
           <div className={styles.standaloneWrapper}>
             <Explore isActive={isActive} />
+          </div>
+        );
+      case ContentTab.Market:
+        return (
+          <div className={buildClassName(styles.standaloneWrapper, styles.marketWrapper)}>
+            <Market isActive={isActive} />
           </div>
         );
       case ContentTab.Settings:
@@ -64,6 +72,7 @@ function LandscapeLayout({
     if (areSettingsOpen) return ContentTab.Settings;
     if (isAgentOpen) return ContentTab.Agent;
     if (isExploreOpen) return ContentTab.Explore;
+    if (isMarketOpen) return ContentTab.Market;
     if (isPortfolioOpen) return ContentTab.Portfolio;
 
     return ContentTab.Overview;
@@ -87,11 +96,11 @@ export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
       const {
-        areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
+        areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
       } = global;
 
       return {
-        areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
+        areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

@@ -18,7 +18,7 @@ import type { ApiTransaction } from '../types';
 import { TONCOIN } from '../../config';
 import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../config';
 import {
-  selectAccountStakingStatesBySlug,
+  selectAccountStakingStatesByPool,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectNetworkAccounts,
@@ -60,7 +60,7 @@ interface StateProps {
   currencyRates: ApiCurrencyRates;
   nftsByAddress?: Record<string, ApiNft>;
   currentAccountId?: string;
-  stakingStateBySlug: Record<string, ApiStakingState>;
+  stakingStateByPool: Record<string, ApiStakingState>;
   savedAddresses?: SavedAddress[];
   accounts?: Record<string, Account>;
 }
@@ -90,7 +90,7 @@ function Confirmation({
   currencyRates,
   nftsByAddress,
   currentAccountId,
-  stakingStateBySlug,
+  stakingStateByPool,
   savedAddresses,
   accounts,
   onConfirm,
@@ -239,7 +239,7 @@ function Confirmation({
             appTheme={appTheme}
             nftsByAddress={nftsByAddress}
             currentAccountId={currentAccountId ?? ''}
-            stakingStateBySlug={stakingStateBySlug}
+            stakingStateByPool={stakingStateByPool}
             savedAddresses={savedAddresses}
             accounts={accounts}
             baseCurrency={baseCurrency}
@@ -274,7 +274,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     currencyRates: global.currencyRates,
     nftsByAddress: accountState?.nfts?.byAddress,
     currentAccountId: accountId,
-    stakingStateBySlug: accountId ? selectAccountStakingStatesBySlug(global, accountId) : {},
+    stakingStateByPool: accountId ? selectAccountStakingStatesByPool(global, accountId) : {},
     savedAddresses: accountState?.savedAddresses,
     accounts,
   };

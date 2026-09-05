@@ -62,6 +62,7 @@ import UnhideNftModal from './main/modals/UnhideNftModal';
 import BottomBar from './main/sections/Actions/BottomBar';
 import Toasts from './main/Toasts';
 import WalletRenameModal from './main/WalletRenameModal';
+import Market from './market/Market';
 import MediaViewer from './mediaViewer/MediaViewer';
 import MintCardModal from './mintCard/MintCardModal';
 import Portfolio from './portfolio/Portfolio';
@@ -87,8 +88,10 @@ interface StateProps {
   isCustomizeWalletModalOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isMarketOpen?: boolean;
   isPortfolioOpen?: boolean;
   currentTokenSlug?: string;
+  marketTokenSlug?: string;
   isFullscreen: boolean;
   areSettingsOpen?: boolean;
   theme: Theme;
@@ -97,7 +100,7 @@ interface StateProps {
 }
 
 const APP_STATES_WITH_BOTTOM_BAR = new Set([
-  AppState.Main, AppState.Agent, AppState.Settings, AppState.Explore, AppState.TokenInfo,
+  AppState.Main, AppState.Agent, AppState.Settings, AppState.Explore, AppState.Market, AppState.TokenInfo,
 ]);
 const APP_UPDATE_INTERVAL = (IS_ELECTRON && !IS_LINUX) || IS_ANDROID_DIRECT
   ? 5 * MINUTE
@@ -115,8 +118,10 @@ function App({
   isCustomizeWalletModalOpen,
   isAgentOpen,
   isExploreOpen,
+  isMarketOpen,
   isPortfolioOpen,
   currentTokenSlug,
+  marketTokenSlug,
   isFullscreen,
   areSettingsOpen,
   theme,
@@ -137,7 +142,16 @@ function App({
   const [canPrerenderMain, prerenderMain] = useFlag();
 
   const renderingKey = resolveRenderingKey({
-    isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, currentTokenSlug, isPortrait, appState,
+    isInactive,
+    areSettingsOpen,
+    isAgentOpen,
+    isExploreOpen,
+    isMarketOpen,
+    isPortfolioOpen,
+    currentTokenSlug,
+    marketTokenSlug,
+    isPortrait,
+    appState,
   });
   const withBottomBar = isPortrait && (!IS_EXPLORER || isAppReady) && APP_STATES_WITH_BOTTOM_BAR.has(renderingKey);
   // Screens sharing the bottom bar are sibling tabs, so they cross-fade into each other. The token
@@ -224,6 +238,8 @@ function App({
         return <Agent isActive={isActive} />;
       case AppState.Explore:
         return <Explore isActive={isActive} />;
+      case AppState.Market:
+        return <Market isActive={isActive} />;
       case AppState.Settings:
         return <Settings isActive={isActive} />;
       case AppState.Portfolio:
@@ -308,8 +324,10 @@ export default memo(withGlobal((global): StateProps => {
     isCustomizeWalletModalOpen: global.isCustomizeWalletModalOpen,
     isAgentOpen: global.isAgentOpen,
     isExploreOpen: global.isExploreOpen,
+    isMarketOpen: global.isMarketOpen,
     isPortfolioOpen: global.isPortfolioOpen,
     currentTokenSlug: selectCurrentAccountState(global)?.currentTokenSlug,
+    marketTokenSlug: global.marketTokenSlug,
     areSettingsOpen: global.areSettingsOpen,
     isFullscreen: Boolean(global.isFullscreen),
     theme: global.settings.theme,
@@ -319,14 +337,25 @@ export default memo(withGlobal((global): StateProps => {
 })(App));
 
 function resolveRenderingKey({
-  isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, currentTokenSlug, isPortrait, appState,
+  isInactive,
+  areSettingsOpen,
+  isAgentOpen,
+  isExploreOpen,
+  isMarketOpen,
+  isPortfolioOpen,
+  currentTokenSlug,
+  marketTokenSlug,
+  isPortrait,
+  appState,
 }: {
   isInactive: boolean;
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isMarketOpen?: boolean;
   isPortfolioOpen?: boolean;
   currentTokenSlug?: string;
+  marketTokenSlug?: string;
   isPortrait: boolean;
   appState: AppState;
 }) {
@@ -334,6 +363,11 @@ function resolveRenderingKey({
   if (areSettingsOpen && isPortrait) return AppState.Settings;
   if (isAgentOpen && isPortrait) return AppState.Agent;
   if (isExploreOpen && isPortrait) return AppState.Explore;
+  // A token opened from the market shows on top of the showcase, so the market tab stays selected.
+  // A token opened in the wallet stays behind the market, like behind Explore
+  if (isMarketOpen && isPortrait) {
+    return currentTokenSlug && currentTokenSlug === marketTokenSlug ? AppState.TokenInfo : AppState.Market;
+  }
   if (isPortfolioOpen && isPortrait) return AppState.Portfolio;
   // In landscape the token screen lives inside the main content, next to the wallet overview
   if (currentTokenSlug && isPortrait && appState === AppState.Main) return AppState.TokenInfo;

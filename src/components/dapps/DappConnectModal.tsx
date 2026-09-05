@@ -15,6 +15,7 @@ import {
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
 import isViewAccount from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
@@ -203,6 +204,26 @@ function DappConnectModal({
     return !isCompatible || (!!requiredProof && isViewAccount(account.type));
   });
 
+  const isViewMode = Boolean(
+    selectedAccount
+    && isViewAccount(accounts?.[selectedAccount]?.type)
+    && requiredProof,
+  );
+  const isSelectedAccountCompatible = getIsAccountCompatible(accounts?.[selectedAccount]?.byChain ?? {});
+
+  useEffect(() => {
+    if (state !== DappConnectState.Info || isLoading || isViewMode) return undefined;
+
+    if (isNoCompatibleWallet) {
+      return isCreatingAccount ? undefined : captureKeyboardListeners({ onEnter: handleCreateMultichainWallet });
+    }
+
+    return isSelectedAccountCompatible ? captureKeyboardListeners({ onEnter: handleSubmit }) : undefined;
+  }, [
+    state, isLoading, isViewMode, isNoCompatibleWallet, isCreatingAccount, isSelectedAccountCompatible,
+    handleCreateMultichainWallet, handleSubmit,
+  ]);
+
   const slideSubtitle = useMemo(() => (
     <span className={styles.accountSlideSubtitle}>
       {lang('Wallet to use on %host%', { host: dappHost })}
@@ -217,13 +238,6 @@ function DappConnectModal({
   ), [dapp?.url, dapp?.urlTrustStatus, dappHost, lang]);
 
   function renderDappInfo() {
-    const isViewMode = Boolean(
-      selectedAccount
-      && isViewAccount(accounts?.[selectedAccount]?.type)
-      && requiredProof,
-    );
-    const isSelectedAccountCompatible = getIsAccountCompatible(accounts?.[selectedAccount]?.byChain ?? {});
-
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
         <div className={styles.dappLargePreviewBlock}>

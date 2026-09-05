@@ -15,6 +15,7 @@ import { POPULAR_WALLET_VERSIONS } from '../../config';
 import { generateAccountTitle } from '../../util/account';
 import { getDefaultEnabledSlugs } from '../../util/chain';
 import { getIsDefaultChainDisplayConfiguration } from '../../util/chainDisplay';
+import { sanitizeCurrencyRates } from '../../util/currencyRates';
 import isPartialDeepEqual from '../../util/isPartialDeepEqual';
 import { getChainBySlug } from '../../util/tokens';
 import {
@@ -375,7 +376,7 @@ export function updateRemoveMfa(global: GlobalState, mfaUpdate: Partial<GlobalSt
   } as GlobalState;
 }
 
-export type OpenableSection = 'settings' | 'agent' | 'explore' | 'portfolio';
+export type OpenableSection = 'settings' | 'agent' | 'explore' | 'market' | 'portfolio';
 
 // Settings, Agent, Explore and Portfolio are mutually exclusive full-screen sections.
 // Opening one must close the others - otherwise their flags stack and the lower-priority
@@ -386,6 +387,7 @@ export function openSection(global: GlobalState, section: OpenableSection): Glob
     areSettingsOpen: section === 'settings',
     isAgentOpen: section === 'agent' || undefined,
     isExploreOpen: section === 'explore' || undefined,
+    isMarketOpen: section === 'market' || undefined,
     isPortfolioOpen: section === 'portfolio' || undefined,
   };
 }
@@ -467,7 +469,7 @@ function doesAccountExist(global: GlobalState, accountId: string) {
 export function updateCurrencyRates(global: GlobalState, rates: ApiCurrencyRates): GlobalState {
   return {
     ...global,
-    currencyRates: rates,
+    currencyRates: sanitizeCurrencyRates(rates),
   };
 }
 

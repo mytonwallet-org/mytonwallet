@@ -32,6 +32,27 @@ export function filterStakingStatesByTonStrategy(
   return states;
 }
 
+/**
+ * Answers which position a token slug refers to. TON is the only slug two positions can share:
+ * an account gets a nominators position only when the API builds one for it, so the position's own
+ * presence answers whether this account stakes through nominators - a flag read separately could
+ * contradict it. An active liquid stake still wins the tie, since nominators is the legacy pool.
+ */
+export function pickStakingStateForToken(states: ApiStakingState[], tokenSlug: string) {
+  const matching = states.filter((state) => state.tokenSlug === tokenSlug);
+
+  if (matching.length < 2) {
+    return matching[0];
+  }
+
+  const liquid = matching.find((state) => state.type === 'liquid');
+  if (liquid && getIsActiveStakingState(liquid)) {
+    return liquid;
+  }
+
+  return matching.find((state) => state.type === 'nominators') ?? matching[0];
+}
+
 export function getStakingMinAmount(type?: ApiStakingType) {
   switch (type) {
     case 'nominators':

@@ -257,9 +257,15 @@ export function shouldShowTransactionAddress(transaction: ApiTransactionActivity
   return shouldHide ? [] : ['list', 'modal'];
 }
 
+/** The staking pool a transaction talks to; the counterparty address is the pool for every staking type. */
+export function getTransactionStakingPool({ isIncoming, toAddress, fromAddress }: ApiTransaction) {
+  return isIncoming ? fromAddress : toAddress;
+}
+
 /** "Our" is staking that can be controlled with My Wallet app */
-export function isOurStakingTransaction({ type, isIncoming, toAddress, fromAddress }: ApiTransaction) {
-  return STAKING_TRANSACTION_TYPES.has(type) && ALL_STAKING_POOLS.includes(isIncoming ? fromAddress : toAddress);
+export function isOurStakingTransaction(transaction: ApiTransaction) {
+  return STAKING_TRANSACTION_TYPES.has(transaction.type)
+    && ALL_STAKING_POOLS.includes(getTransactionStakingPool(transaction));
 }
 
 export function shouldShowTransactionAnnualYield(transaction: ApiTransaction) {

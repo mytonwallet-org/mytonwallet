@@ -24,16 +24,23 @@ $amountBottomMargin: 1rem;
   margin-top: -$amountBottomMargin + 0.625rem;
 }
 
+.amountSensitiveData,
+.amountContent,
+.baseCurrencyAmountSensitiveData,
+.amount,
+.baseCurrencyAmount {
+  max-width: 100%;
+}
+
 .amount,
 .baseCurrencyAmount {
   overflow: hidden;
-  max-width: 100%;
   border-radius: var(--border-radius-default);
 }
 
 .amount {
   padding: 0.75rem 1rem;
-  font-size: 3rem;
+  font-size: calc(3rem * var(--font-size-scale, 1));
   font-weight: 600;
 
   @media (prefers-color-scheme: dark) {
@@ -80,7 +87,7 @@ $amountBottomMargin: 1rem;
 
 .amountSymbol,
 .amountFraction {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--font-size-scale, 1));
   font-weight: 700;
 }
 

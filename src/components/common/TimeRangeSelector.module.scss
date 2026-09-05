@@ -23,13 +23,23 @@
 
   .option {
     overflow: hidden;
+
     height: 2rem;
+    padding: 0 0.25rem;
+
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   &::after {
     content: none;
+  }
+
+  @include mixins.respond-above(xs) {
+    // Equal columns keep `Pill` on the tab it tracks
+    grid-auto-columns: minmax(0, 1fr);
+    width: 100%;
+    max-width: 25rem;
   }
 
   @supports (backdrop-filter: blur(16px)) {

@@ -40,7 +40,7 @@ function SwapMfaConfirm({
   return (
     <>
       <ModalHeader onClose={onClose} />
-      <MfaConfirm onClose={onClose} mfaRequestHash={mfaRequestHash}>
+      <MfaConfirm isActive={isActive} onClose={onClose} mfaRequestHash={mfaRequestHash}>
         {children}
       </MfaConfirm>
     </>

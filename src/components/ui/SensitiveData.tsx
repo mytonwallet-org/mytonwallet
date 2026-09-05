@@ -33,6 +33,8 @@ type OwnProps = ColsProps & {
   maskClassName?: string;
   contentClassName?: string;
   children: TeactNode;
+  /** Called on a click that doesn't reveal the mask. Return `true` to consume the click and keep the content shown */
+  onClick?: () => boolean | void;
   onContentHidden?: NoneToVoidFunction;
 };
 
@@ -51,6 +53,7 @@ function SensitiveData({
   maskClassName,
   contentClassName,
   children,
+  onClick,
   onContentHidden,
 }: OwnProps) {
   const resolvedCols = cols ?? getDeterministicRandom(min, max, seed);
@@ -89,16 +92,26 @@ function SensitiveData({
 
   function handleClick(e: React.UIEvent) {
     stopEvent(e);
-    if (!isActive) return;
-
-    setIsShown(!isShown);
     vibrate();
+
+    if (isActive && !isShown) {
+      setIsShown(true);
+      return;
+    }
+
+    if (onClick?.()) return;
+
+    if (isActive) {
+      setIsShown(false);
+    }
   }
+
+  const isInteractive = isActive || Boolean(onClick);
 
   const fullClassName = buildClassName(
     styles.wrapper,
     className,
-    isActive && styles.interactive,
+    isInteractive && styles.interactive,
     styles[align],
   );
   const spoilerClassName = buildClassName(
@@ -122,7 +135,7 @@ function SensitiveData({
     <div
       style={wrapperStyle}
       className={fullClassName}
-      onClick={isActive ? handleClick : undefined}
+      onClick={isInteractive ? handleClick : undefined}
     >
       {shouldRenderSpoiler && (
         <SensitiveDataMask

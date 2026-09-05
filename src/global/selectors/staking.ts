@@ -4,6 +4,7 @@ import type { Account, GlobalState } from '../types';
 import { DEFAULT_NOMINATORS_STAKING_STATE, TONCOIN } from '../../config';
 import { buildCollectionByKey } from '../../util/iteratees';
 import memoize from '../../util/memoize';
+import { pickStakingStateForToken } from '../../util/staking';
 import withCache from '../../util/withCache';
 import { selectAccountState } from './accounts';
 
@@ -20,12 +21,17 @@ export function selectAccountStakingStates(global: GlobalState, accountId: strin
   return selectAccountStakingStatesMemoizedFor(accountId)(global.stakingDefault, stateById);
 }
 
-const selectAccountStakingStatesBySlugMemoizedFor = withCache((accountId: string) => memoize(
-  (stakingStates: ApiStakingState[]) => buildCollectionByKey(stakingStates, 'tokenSlug'),
+const selectAccountStakingStatesByPoolMemoizedFor = withCache((accountId: string) => memoize(
+  (stakingStates: ApiStakingState[]) => buildCollectionByKey(stakingStates, 'pool'),
 ));
 
-export function selectAccountStakingStatesBySlug(global: GlobalState, accountId: string) {
-  return selectAccountStakingStatesBySlugMemoizedFor(accountId)(selectAccountStakingStates(global, accountId));
+/** Keyed by pool because a pool holds one position, while TON's slug is shared by liquid and nominators. */
+export function selectAccountStakingStatesByPool(global: GlobalState, accountId: string) {
+  return selectAccountStakingStatesByPoolMemoizedFor(accountId)(selectAccountStakingStates(global, accountId));
+}
+
+export function selectAccountStakingStateForToken(global: GlobalState, accountId: string, tokenSlug: string) {
+  return pickStakingStateForToken(selectAccountStakingStates(global, accountId), tokenSlug);
 }
 
 export function selectAccountStakingState(global: GlobalState, accountId: string): ApiStakingState {

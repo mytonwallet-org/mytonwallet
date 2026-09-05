@@ -24,6 +24,7 @@ import styles from './Header.module.scss';
 interface OwnProps {
   token: UserToken;
   isScrolled?: boolean;
+  className?: string;
   onBackClick: NoneToVoidFunction;
 }
 
@@ -37,6 +38,7 @@ interface StateProps {
 function Header({
   token,
   isScrolled,
+  className,
   onBackClick,
   details,
   tokenAddress,
@@ -73,7 +75,7 @@ function Header({
   });
 
   return (
-    <div className={buildClassName(styles.root, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
+    <div className={buildClassName(styles.root, className, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
       <Button className={styles.backButton} isSimple isText onClick={onBackClick}>
         <i className={buildClassName(styles.backIcon, 'icon-chevron-left')} aria-hidden />
         <span>{lang('Back')}</span>

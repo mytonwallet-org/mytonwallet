@@ -42,6 +42,10 @@ import iconExploreDark from '../../../assets/lottie/explore_dark.tgs';
 import iconExploreLight from '../../../assets/lottie/explore_light.tgs';
 import iconExploreSolidDark from '../../../assets/lottie/explore_solid_dark.tgs';
 import iconExploreSolidLight from '../../../assets/lottie/explore_solid_light.tgs';
+import iconMarketDark from '../../../assets/lottie/market_dark.tgs';
+import iconMarketLight from '../../../assets/lottie/market_light.tgs';
+import iconMarketSolidDark from '../../../assets/lottie/market_solid_dark.tgs';
+import iconMarketSolidLight from '../../../assets/lottie/market_solid_light.tgs';
 import iconSellDark from '../../../assets/lottie/sell_dark.tgs';
 import iconSellLight from '../../../assets/lottie/sell_light.tgs';
 import iconSendDark from '../../../assets/lottie/send_dark.tgs';
@@ -100,6 +104,10 @@ import iconExplorePreviewDark from '../../../assets/lottiePreview/explore_dark.p
 import iconExplorePreviewLight from '../../../assets/lottiePreview/explore_light.png';
 import iconExploreSolidPreviewDark from '../../../assets/lottiePreview/explore_solid_dark.png';
 import iconExploreSolidPreviewLight from '../../../assets/lottiePreview/explore_solid_light.png';
+import iconMarketPreviewDark from '../../../assets/lottiePreview/market_dark.png';
+import iconMarketPreviewLight from '../../../assets/lottiePreview/market_light.png';
+import iconMarketSolidPreviewDark from '../../../assets/lottiePreview/market_solid_dark.png';
+import iconMarketSolidPreviewLight from '../../../assets/lottiePreview/market_solid_light.png';
 import iconSellPreviewDark from '../../../assets/lottiePreview/sell_dark.png';
 import iconSellPreviewLight from '../../../assets/lottiePreview/sell_light.png';
 import iconSendPreviewDark from '../../../assets/lottiePreview/send_dark.png';
@@ -157,6 +165,8 @@ export const ANIMATED_STICKERS_PATHS = {
     iconEarnPurple: iconEarnLightPurple,
     iconExplore: iconExploreLight,
     iconExploreSolid: iconExploreSolidLight,
+    iconMarket: iconMarketLight,
+    iconMarketSolid: iconMarketSolidLight,
     iconSell: iconSellLight,
     iconSend: iconSendLight,
     iconSettings: iconSettingsLight,
@@ -181,6 +191,8 @@ export const ANIMATED_STICKERS_PATHS = {
       iconEarnPurple: iconEarnPreviewLightPurple,
       iconExplore: iconExplorePreviewLight,
       iconExploreSolid: iconExploreSolidPreviewLight,
+      iconMarket: iconMarketPreviewLight,
+      iconMarketSolid: iconMarketSolidPreviewLight,
       iconSell: iconSellPreviewLight,
       iconSend: iconSendPreviewLight,
       iconSettings: iconSettingsPreviewLight,
@@ -207,6 +219,8 @@ export const ANIMATED_STICKERS_PATHS = {
     iconEarnPurple: iconEarnDarkPurple,
     iconExplore: iconExploreDark,
     iconExploreSolid: iconExploreSolidDark,
+    iconMarket: iconMarketDark,
+    iconMarketSolid: iconMarketSolidDark,
     iconSell: iconSellDark,
     iconSend: iconSendDark,
     iconSettings: iconSettingsDark,
@@ -231,6 +245,8 @@ export const ANIMATED_STICKERS_PATHS = {
       iconEarnPurple: iconEarnPreviewDarkPurple,
       iconExplore: iconExplorePreviewDark,
       iconExploreSolid: iconExploreSolidPreviewDark,
+      iconMarket: iconMarketPreviewDark,
+      iconMarketSolid: iconMarketSolidPreviewDark,
       iconSell: iconSellPreviewDark,
       iconSend: iconSendPreviewDark,
       iconSettings: iconSettingsPreviewDark,

@@ -18,14 +18,13 @@ type OwnProps = {
   isActive?: boolean;
   mnemonic?: string[];
   checkIndexes?: number[];
-  buttonLabel: string;
   onSubmit: NoneToVoidFunction;
   onCancel: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 };
 
 function MnemonicCheck({
-  isActive, mnemonic, checkIndexes, buttonLabel, onCancel, onSubmit, onClose,
+  isActive, mnemonic, checkIndexes, onCancel, onSubmit, onClose,
 }: OwnProps) {
   const lang = useLang();
 
@@ -53,7 +52,6 @@ function MnemonicCheck({
 
         <div className={modalStyles.buttons}>
           <Button onClick={onCancel} className={modalStyles.button}>{lang('Back')}</Button>
-          <Button isPrimary forFormId="check_mnemonic_form" className={modalStyles.button}>{buttonLabel}</Button>
         </div>
       </div>
     </div>

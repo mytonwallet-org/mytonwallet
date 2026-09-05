@@ -30,10 +30,11 @@ interface StateProps {
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isMarketOpen?: boolean;
   accentColorIndex?: number;
 }
 
-type IconKey = 'iconWallet' | 'iconAgent' | 'iconExplore' | 'iconSettings';
+type IconKey = 'iconWallet' | 'iconMarket' | 'iconAgent' | 'iconExplore' | 'iconSettings';
 
 interface TabConfig {
   index: number;
@@ -46,16 +47,17 @@ const ICON_SIZE_PX = 38;
 const ANIMATED_STICKER_SPEED = 2;
 
 const TAB_WALLET = 0;
-const TAB_AGENT = 1;
-const TAB_EXPLORE = 2;
-const TAB_SETTINGS = 3;
+const TAB_MARKET = 1;
+const TAB_AGENT = 2;
+const TAB_EXPLORE = 3;
+const TAB_SETTINGS = 4;
 
-const TAB_COUNT = 4;
+const TAB_COUNT = 5;
 
 function BottomBar({
-  theme, areSettingsOpen, isAgentOpen, isExploreOpen, accentColorIndex,
+  theme, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, accentColorIndex,
 }: StateProps) {
-  const { switchToWallet, switchToAgent, switchToExplore, switchToSettings } = getActions();
+  const { switchToWallet, switchToAgent, switchToExplore, switchToMarket, switchToSettings } = getActions();
 
   const lang = useLang();
   const [isHidden, setIsHidden] = useState(getIsBottomBarHidden());
@@ -69,10 +71,11 @@ function BottomBar({
     });
   });
 
-  const activeIndex = getActiveIndex({ isAgentOpen, isExploreOpen, areSettingsOpen });
+  const activeIndex = getActiveIndex({ isAgentOpen, isExploreOpen, isMarketOpen, areSettingsOpen });
 
   const tabs: TabConfig[] = [
     { index: TAB_WALLET, label: 'Wallet', iconKey: 'iconWallet', onClick: switchToWallet },
+    { index: TAB_MARKET, label: 'Market', iconKey: 'iconMarket', onClick: switchToMarket },
     { index: TAB_AGENT, label: 'Agent', iconKey: 'iconAgent', onClick: switchToAgent },
     { index: TAB_EXPLORE, label: 'Explore', iconKey: 'iconExplore', onClick: switchToExplore },
     { index: TAB_SETTINGS, label: 'Settings', iconKey: 'iconSettings', onClick: switchToSettings },
@@ -132,13 +135,14 @@ function BottomBar({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { areSettingsOpen, isAgentOpen, isExploreOpen } = global;
+  const { areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen } = global;
 
   return {
     theme: global.settings.theme,
     areSettingsOpen,
     isAgentOpen,
     isExploreOpen,
+    isMarketOpen,
     accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
   };
 })(BottomBar));
@@ -184,10 +188,11 @@ const TabButton = memo(({
 });
 
 function getActiveIndex({
-  isAgentOpen, isExploreOpen, areSettingsOpen,
-}: Pick<StateProps, 'isAgentOpen' | 'isExploreOpen' | 'areSettingsOpen'>) {
+  isAgentOpen, isExploreOpen, isMarketOpen, areSettingsOpen,
+}: Pick<StateProps, 'isAgentOpen' | 'isExploreOpen' | 'isMarketOpen' | 'areSettingsOpen'>) {
   if (isAgentOpen) return TAB_AGENT;
   if (isExploreOpen) return TAB_EXPLORE;
+  if (isMarketOpen) return TAB_MARKET;
   if (areSettingsOpen) return TAB_SETTINGS;
 
   return TAB_WALLET;

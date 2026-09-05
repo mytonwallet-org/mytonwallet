@@ -30,10 +30,14 @@ addActionHandler('showTokenActivity', (global, actions, { slug, returnTab }) => 
 });
 
 addActionHandler('closeTokenActivity', (global, actions) => {
-  const { activityReturnContentTab } = selectCurrentAccountState(global) ?? {};
+  const { activeContentTab, activityReturnContentTab } = selectCurrentAccountState(global) ?? {};
 
   actions.selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
-  actions.setActiveContentTab({ tab: activityReturnContentTab ?? ContentTab.Assets });
+
+  // The token screen opened from Market leaves the wallet tab alone, so there is nothing to restore
+  if (activeContentTab === ContentTab.Activity) {
+    actions.setActiveContentTab({ tab: activityReturnContentTab ?? ContentTab.Assets });
+  }
 });
 
 addActionHandler('toggleTokensWithNoCost', (global, actions, { isEnabled }) => {

@@ -8,7 +8,7 @@ export default function getIsAppUpdateNeeded(remoteVersion: string, appVersion: 
   }
 
   if (isStrict) {
-    return sanitizedRemoteVersion.localeCompare(appVersion, undefined, { numeric: true, sensitivity: 'base' }) === 1;
+    return sanitizedRemoteVersion.localeCompare(appVersion, undefined, { numeric: true, sensitivity: 'base' }) > 0;
   }
 
   return sanitizedRemoteVersion !== appVersion;

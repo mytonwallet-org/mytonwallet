@@ -26,8 +26,8 @@ import {
 } from '../../reducers';
 import {
   selectAccountStakingState,
+  selectAccountStakingStateForToken,
   selectAccountStakingStates,
-  selectAccountStakingStatesBySlug,
   selectAccountState,
   selectCurrentAccountId,
   selectIsHardwareAccount,
@@ -52,7 +52,7 @@ addActionHandler('switchStakingAccount', async (global, actions, { accountId, mo
   setGlobal(global);
 
   // Prefer the new account's position for the same token, otherwise any position suitable for the mode
-  const sameTokenState = selectAccountStakingStatesBySlug(global, accountId)[prevTokenSlug];
+  const sameTokenState = selectAccountStakingStateForToken(global, accountId, prevTokenSlug);
 
   function startStakingForAccount() {
     if (sameTokenState) {
@@ -107,7 +107,7 @@ addActionHandler('startStaking', (global, actions, payload) => {
   const requestedState = stakingId
     ? states.find(({ id }) => id === stakingId)
     : tokenSlug
-      ? selectAccountStakingStatesBySlug(global, currentAccountId)[tokenSlug]
+      ? selectAccountStakingStateForToken(global, currentAccountId, tokenSlug)
       : selectAccountStakingState(global, currentAccountId);
   if (
     (stakingId || tokenSlug)
@@ -523,7 +523,7 @@ addActionHandler('openStakingInfoOrStart', (global, actions) => {
   // Prefer the currently viewed token over the last one selected in the modal, when it supports staking
   const currentTokenSlug = selectAccountState(global, currentAccountId)?.currentTokenSlug;
   if (currentTokenSlug && stakingState.tokenSlug !== currentTokenSlug) {
-    const activeTokenStakingState = selectAccountStakingStatesBySlug(global, currentAccountId)[currentTokenSlug];
+    const activeTokenStakingState = selectAccountStakingStateForToken(global, currentAccountId, currentTokenSlug);
     if (activeTokenStakingState) {
       global = updateAccountStaking(global, currentAccountId, { stakingId: activeTokenStakingState.id });
       setGlobal(global);

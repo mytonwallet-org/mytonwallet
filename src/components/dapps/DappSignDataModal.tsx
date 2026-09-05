@@ -83,7 +83,7 @@ function DappSignDataModal({
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: SignDataState) {
     switch (currentKey) {
       case SignDataState.Initial:
-        return <DappSignDataInitial />;
+        return <DappSignDataInitial isActive={isActive} />;
 
       case SignDataState.Password:
         return renderPassword(isActive);

@@ -3,6 +3,7 @@ import './api/auth';
 import './api/wallet';
 import './api/staking';
 import './api/dapps';
+import './api/market';
 import './api/walletConnectPay';
 import './api/swap';
 import './api/tokens';

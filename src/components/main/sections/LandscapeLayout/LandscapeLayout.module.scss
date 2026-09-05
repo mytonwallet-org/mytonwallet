@@ -9,8 +9,13 @@
 .slide {
   display: flex;
   flex-direction: column;
+
   height: 100%;
   min-height: 0;
+
+  // The incoming slide fades in on top of the outgoing one, so it has to cover the whole column -
+  // otherwise the wallet widgets stay visible next to a narrower panel until the animation ends
+  background-color: var(--color-app-background);
 }
 
 .standaloneWrapper {
@@ -27,6 +32,13 @@
   padding-top: var(--app-padding-top);
   padding-bottom: max(var(--safe-area-bottom), 1rem);
   padding-inline-end: 1rem;
+}
+
+// `Market` caps the width of its panels itself, so its token screen spans the whole column like the wallet one
+.marketWrapper {
+  width: 100%;
+  max-width: none;
+  padding-inline-end: 0;
 }
 
 // Portfolio manages its own edge insets: the sticky time-range bar sits flush with the

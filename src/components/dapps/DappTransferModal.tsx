@@ -122,7 +122,7 @@ function DappTransferModal({
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: TransferState) {
     switch (currentKey) {
       case TransferState.Initial:
-        return <DappTransferInitial onClose={closeDappTransfer} />;
+        return <DappTransferInitial isActive={isActive} onClose={closeDappTransfer} />;
 
       case TransferState.Confirm:
         return (
