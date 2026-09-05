@@ -13,7 +13,8 @@
 
 .chainLabel {
   color: var(--color-gray-2);
-  background-color: var(--color-activity-gray-background);
+  // A host on a gray surface sets its own background, so the chip stays visible there
+  background-color: var(--chain-label-background, var(--color-activity-gray-background));
 }
 
 .rwaStockLabel {

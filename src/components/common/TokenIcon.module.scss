@@ -2,8 +2,57 @@
 
 .wrapper {
   --fallback-token-color: var(--color-gray-3);
+  // The chain badge geometry: its size, how far it overhangs the icon's bottom and end edges, and the gap
+  // between the badge and the icon, which is cut out of the icon so the surface behind shows through
+  --chain-icon-size: 1rem;
+  --chain-icon-overhang: 0.125rem;
+  /* stylelint-disable-next-line plugin/whole-pixel */
+  --chain-icon-gap: 0.1rem;
 
   position: relative;
+  // The badge is anchored to the wrapper's end edge, so the wrapper must be exactly as wide as the icon
+  width: max-content;
+
+  @include mixins.is-mobile() {
+    --chain-icon-size: 1.125rem;
+  }
+
+  &.small,
+  &.x-small {
+    --chain-icon-size: 0.6875rem !important;
+    --chain-icon-gap: 0.0625rem !important;
+  }
+
+  &.middle {
+    --chain-icon-size: 0.625rem !important;
+  }
+
+  &.xx-large {
+    --chain-icon-size: 1.375rem !important;
+    --chain-icon-gap: 0.125rem !important;
+  }
+}
+
+.withChainIcon .icon {
+  // The badge center, measured inward from the icon's end and bottom edges
+  --chain-icon-inset: calc(var(--chain-icon-size) / 2 - var(--chain-icon-overhang));
+  --chain-icon-cutout: calc(var(--chain-icon-size) / 2 + var(--chain-icon-gap));
+
+  mask-image: radial-gradient(
+    circle at calc(100% - var(--chain-icon-inset)) calc(100% - var(--chain-icon-inset)),
+    transparent var(--chain-icon-cutout),
+    /* stylelint-disable-next-line plugin/whole-pixel */
+    #000 calc(var(--chain-icon-cutout) + 0.03125rem)
+  );
+
+  :global(html[dir="rtl"]) & {
+    mask-image: radial-gradient(
+      circle at var(--chain-icon-inset) calc(100% - var(--chain-icon-inset)),
+      transparent var(--chain-icon-cutout),
+      /* stylelint-disable-next-line plugin/whole-pixel */
+      #000 calc(var(--chain-icon-cutout) + 0.03125rem)
+    );
+  }
 }
 
 .icon {
@@ -26,12 +75,6 @@
       width: 2.5rem !important;
       height: 2.5rem !important;
     }
-  }
-
-  &.x-large {
-    flex-basis: 2.5rem;
-    width: 2.5rem !important;
-    height: 2.5rem !important;
   }
 
   &.xx-large {
@@ -82,48 +125,12 @@
 
 .blockchainIcon {
   position: absolute;
-  top: 1.4375rem;
-  inset-inline-start: 1.4375rem;
+  bottom: calc(-1 * var(--chain-icon-overhang));
+  inset-inline-end: calc(-1 * var(--chain-icon-overhang));
 
-  width: 1rem;
-  height: 1rem;
+  width: var(--chain-icon-size);
+  height: var(--chain-icon-size);
   border-radius: 50%;
-
-  box-shadow: 0 0 0 0.1rem var(--color-background-first);
-
-  @include mixins.is-mobile() {
-    top: 1.625rem;
-    inset-inline-start: 1.625rem;
-    width: 1.125rem;
-    height: 1.125rem;
-  }
-
-  &.large {
-    @include mixins.is-not-mobile() {
-      top: 1.5rem;
-      inset-inline-start: 1.5rem;
-      width: 1.125rem;
-      height: 1.125rem;
-    }
-  }
-
-  &.small,
-  &.x-small, {
-    top: 0.625rem !important;
-    inset-inline-start: 0.625rem !important;
-
-    width: 0.6875rem !important;
-    height: 0.6875rem !important;
-
-    box-shadow: 0 0 0 0.0625rem var(--color-background-first);
-  }
-
-  &.middle {
-    top: 0.9375rem !important;
-    inset-inline-start: 0.9375rem !important;
-    width: 0.625rem !important;
-    height: 0.625rem !important;
-  }
 }
 
 .circle {

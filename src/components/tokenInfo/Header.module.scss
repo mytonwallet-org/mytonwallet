@@ -47,13 +47,22 @@
 }
 
 .title {
-  overflow: hidden;
+  // The header sits on the window background, so the chain label takes the card surface to stand out
+  --chain-label-background: var(--color-background-first);
 
+  display: flex;
+  align-items: center;
+
+  min-width: 0;
   margin: 0;
 
   font-size: 1.0625rem;
   font-weight: 700;
   color: var(--color-black);
+}
+
+.titleText {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

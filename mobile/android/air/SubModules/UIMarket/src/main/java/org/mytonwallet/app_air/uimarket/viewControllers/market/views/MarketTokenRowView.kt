@@ -79,7 +79,7 @@ class MarketTokenRowView(context: Context, private val onTap: (MarketToken) -> U
     fun configure(token: MarketToken, isLastInSection: Boolean = false) {
         marketToken = token
         background = if (isLastInSection) lastItemRipple else ripple
-        iconView.set(Content.of(token.token, showChain = false))
+        iconView.set(Content.of(token.token, showChain = true))
         symbolLabel.text = token.symbol
         badgeLabel.text = token.token.label
         badgeLabel.isGone = token.token.label.isNullOrBlank()

@@ -10,12 +10,14 @@ import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { compact } from '../../util/iteratees';
 import { openUrl } from '../../util/openUrl';
+import { getIsRwaStockToken, getTokenName } from '../../util/tokens';
 import { getExplorerTokenUrl, isValidUrl } from '../../util/url';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
+import TokenLabel from '../common/TokenLabel';
 import Button from '../ui/Button';
 import DropdownMenu from '../ui/DropdownMenu';
 
@@ -33,6 +35,7 @@ interface StateProps {
   tokenAddress?: string;
   isTestnet?: boolean;
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
+  areTokenNamesLocalized?: boolean;
 }
 
 function Header({
@@ -44,6 +47,7 @@ function Header({
   tokenAddress,
   isTestnet,
   selectedExplorerIds,
+  areTokenNamesLocalized,
 }: OwnProps & StateProps) {
   const lang = useLang();
   const menuButtonRef = useRef<HTMLButtonElement>();
@@ -81,7 +85,10 @@ function Header({
         <span>{lang('Back')}</span>
       </Button>
 
-      <h3 className={styles.title}>{token.name}</h3>
+      <h3 className={styles.title}>
+        <span className={styles.titleText}>{getTokenName(lang, token, areTokenNamesLocalized)}</span>
+        {token.label && <TokenLabel label={token.label} isRwaStock={getIsRwaStockToken(token)} />}
+      </h3>
 
       {Boolean(menuItems.length) && (
         <Button
@@ -140,6 +147,7 @@ export default memo(
       tokenAddress: global.tokenInfo.bySlug[token.slug]?.tokenAddress,
       isTestnet: global.settings.isTestnet,
       selectedExplorerIds: global.settings.selectedExplorerIds,
+      areTokenNamesLocalized: global.settings.areTokenNamesLocalized,
     };
   })(Header),
 );

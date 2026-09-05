@@ -227,9 +227,6 @@
 .tokenIcon {
   margin-block: 0;
   margin-inline: 0 0.625rem;
-  .button:hover > & {
-    --color-background-first: var(--color-interactive-item-hover);
-  }
 }
 
 .vestingIcon,

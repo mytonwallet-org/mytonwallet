@@ -46,14 +46,6 @@
   }
 }
 
-.tokenIcon {
-  --color-background-first: var(--color-input-button-background);
-
-  .button:hover > & {
-    --color-background-first: var(--color-input-button-background-hover);
-  }
-}
-
 .content {
   display: flex;
   align-items: center;

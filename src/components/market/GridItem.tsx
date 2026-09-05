@@ -25,7 +25,7 @@ function GridItem({ token, onClick }: OwnProps) {
 
   return (
     <button type="button" className={buildClassName(styles.gridItem, styles.interactive)} onClick={handleClick}>
-      <TokenIcon token={apiToken} size="xx-large" />
+      <TokenIcon token={apiToken} size="xx-large" withChainIcon />
       <span className={styles.gridItemName}>{name}</span>
       <TokenChange change={change} />
     </button>

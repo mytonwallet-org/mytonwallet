@@ -57,7 +57,6 @@ function SelectTokenButton({
               token={tokenToRender}
               withChainIcon={!noChainIcon}
               size="small"
-              className={styles.tokenIcon}
             />
           )}
           <div className={styles.content}>
