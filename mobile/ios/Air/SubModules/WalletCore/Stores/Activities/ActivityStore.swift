@@ -1139,7 +1139,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             }
             switch activity {
             case .transaction(let tx):
-                if tx.isIncoming,
+                if tx.type != .approval,
+                   tx.isIncoming,
                    Date.now.timeIntervalSince(activity.timestampDate) < TX_AGE_TO_PLAY_SOUND,
                    !(AppStorageHelper.hideTinyTransfers && activity.isTinyOrScamTransaction),
                    !shouldHideBecauseOfNft(accountId: accountId, transaction: tx),

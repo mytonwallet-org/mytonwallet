@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.graphics.Canvas
 import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -19,6 +20,7 @@ import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassCaptureHost
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -37,7 +39,11 @@ open class WNavigationController(
     val window: WWindow,
     val presentationConfig: PresentationConfig = PresentationConfig()
 ) : CoordinatorLayout(window),
-    WThemedView {
+    WThemedView,
+    GlassCaptureHost {
+
+    override fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean =
+        drawChild(canvas, child, drawingTime)
     enum class PresentationStyle {
         // Covers the whole screen; screens beneath are detached while shown.
         ForceFullScreen,

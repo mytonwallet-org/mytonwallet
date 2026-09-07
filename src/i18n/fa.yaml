@@ -128,7 +128,9 @@ Invoice Link Copied: لینک فاکتور کپی شد
 Theme: پوسته
 Language: زبان
 Enable Animations: فعال‌سازی انیمیشن‌ها
+Animations: انیمیشن‌ها
 Enable Seasonal Theming: فعال‌سازی پوسته‌بندی فصلی
+Seasonal Theming: پوسته‌بندی فصلی
 Enable Landscape Mode: فعال‌سازی حالت افقی
 Disable Seasonal Theming: غیرفعال‌سازی پوسته‌بندی فصلی
 You can always enable seasonal theming again in the appearance settings.: همیشه می‌توانید پوسته‌بندی فصلی را دوباره در تنظیمات ظاهر فعال کنید.
@@ -161,6 +163,9 @@ Description Copied: توضیحات کپی شد
 Message Copied: پیام کپی شد
 Sender: فرستنده
 Recipient: گیرنده
+Spender: خرج‌کننده
+Token Approval: تأیید توکن
+Allowance: حد مجاز
 "%chain% Address Copied": "آدرس %chain% کپی شد"
 Repeat: تکرار
 Switch Account: تغییر حساب
@@ -387,8 +392,8 @@ Agree: موافقم
 $swap_action: مبادله
 $swap_activity_title: مبادله
 Swap: مبادله
-You sell: شما می‌فروشید
-You buy: شما می‌خرید
+You Sell: شما می‌فروشید
+You Buy: شما می‌خرید
 Swap Details: جزئیات مبادله
 Blockchain Fee: کارمزد بلاک‌چین
 Included: شامل
@@ -397,7 +402,7 @@ Minimum Received: حداقل دریافتی
 Slippage: لغزش قیمت
 $swap_from_to: مبادله %from% %icon% %to%
 The exchange rate is below market value!: نرخ مبادله %value% کمتر از ارزش بازار است!
-Invalid Pair: جفت‌ارز نامعتبر
+Invalid Pair: مبادله در دسترس نیست
 We do not recommend to perform an exchange, try to specify a lower amount.: انجام این مبادله را توصیه نمی‌کنیم، مبلغ کمتری را امتحان کنید.
 $swap_minimum_received_tooltip1: این کمترین مقدار توکن جدیدی است که از این مبادله دریافت خواهید کرد، با در نظر گرفتن شرایط فعلی بازار، تحمل لغزش قیمت و تأثیر احتمالی قیمت.
 $swap_minimum_received_tooltip2: این یک حداقل مورد انتظار است، اما اگر شرایط در حین پردازش مبادله شما به‌شدت تغییر کند، مبلغ نهایی ممکن است کمتر باشد.
@@ -582,6 +587,16 @@ No Activity: بدون فعالیت
 Fund: واریز
 Buy with Card: خرید با کارت
 Buy with Crypto: خرید با کریپتو
+Add funds to swap: برای مبادله، موجودی اضافه کنید
+Direct swap unavailable: مبادله مستقیم در دسترس نیست
+Swap on an external service: مبادله در یک سرویس خارجی
+Buy with a card or receive crypto to fund this swap.: برای تأمین موجودی این مبادله، با کارت رمزارز بخرید یا رمزارز دریافت کنید.
+Buy crypto or choose another token to sell.: رمزارز بخرید یا توکن دیگری برای فروش انتخاب کنید.
+Your balances are small. Add funds or choose another token to swap.: موجودی‌های شما کم است. موجودی اضافه کنید یا توکن دیگری برای مبادله انتخاب کنید.
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: برای خرید %buy_token%، ابتدا %token% بخرید، سپس آن را با %buy_token% مبادله کنید.
+Open %provider% to swap this pair in the browser.: برای مبادله این جفت در مرورگر، %provider% را باز کنید.
+Buy %token%: خرید %token%
+Open %provider%: باز کردن %provider%
 Cannot load widget: ابزارک بارگذاری نمی‌شود
 Error: خطا
 Explore: کاوش
@@ -1125,7 +1140,7 @@ You don’t have any cards to customize yet: شما هنوز هیچ کارتی �
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: کارت‌های My Wallet می‌توانند برای کیف پول‌ها نصب شوند و در صفحه اصلی و در فهرست کیف پول نمایش داده شوند.
 Get First Card: دریافت اولین کارت
 Palette and Card: پالت و کارت
-Customize the wallet's home screen and color accents the way you like.: صفحه اصلی کیف پول و رنگ‌های تأکیدی را آن‌طور که دوست دارید سفارشی کنید.
+Customize the wallet’s card appearance and color accents the way you like.: ظاهر کارت کیف پول و رنگ‌های تأکیدی را آن‌طور که دوست دارید سفارشی کنید.
 Address doesn't exist: آدرس وجود ندارد
 The address is not a token minter address: این آدرس، آدرس ضرب‌کننده توکن نیست
 $joining_comma: "، "
@@ -1239,8 +1254,16 @@ $agent_consent_debug_reset_footer: هنگام باز کردن تب عامل، ص
 $settings_token_change_threshold: آستانه تغییر %
 $settings_token_change_threshold_description: تغییرات درصدی ۲۴ ساعته کمتر از آستانه انتخاب‌شده را پنهان می‌کند.
 $settings_token_change_threshold_off: خاموش
-$settings_hide_action_buttons: پنهان کردن دکمه‌های عملیات
-$settings_hide_action_buttons_description: ردیف دکمه‌های عملیات را در صفحه کیف پول پنهان می‌کند.
+Blockchain Badges: نشان‌های بلاک‌چین
+$settings_blockchain_badges_description: نمایش نشان بلاک‌چین برای همه توکن‌ها. به‌صورت پیش‌فرض، فقط برای استیبل‌کوین‌ها و سهام توکن‌شده‌ای که در چند بلاک‌چین موجودند نمایش داده می‌شود.
+Show on Card: نمایش روی کارت
+Top Address: آدرس اصلی
+Highest-Balance Address: آدرس با بیشترین موجودی
+3 Highest-Balance Addresses: ۳ آدرس با بیشترین موجودی
+3 Top Addresses: ۳ آدرس برتر
+Action Buttons: دکمه‌های عملیات
+Collectibles Section: بخش کالکتیبل‌ها
+$settings_wallet_card_description: آنچه در کارت کیف پول شما نمایش داده می‌شود و نمایش یا عدم نمایش دکمه‌های عملیات را سفارشی کنید.
 Retry: تلاش دوباره
 $agent_chat_running: در حال اجرا در پس‌زمینه
 $agent_connection_interrupted: اتصال عامل قطع شد. دوباره تلاش کنید.
@@ -2065,7 +2088,9 @@ $chart_week_days: یکشنبه,دوشنبه,سه‌شنبه,چهارشنبه,پ�
 $chart_week_days_short: ۱ش,۲ش,۳ش,۴ش,۵ش,ج,ش
 Select multichain wallet: انتخاب کیف پول چندزنجیره‌ای
 Rounded Corners: گوشه‌های گرد
-Enable Blur: فعال‌سازی محو‌شدگی
+Blur: محو‌شدگی
+Top Tabs: تب‌های بالا
+Liquid Glass: شیشه مایع
 App Font: فونت اپلیکیشن
 Rounded Balance Font: فونت موجودی گرد
 My Wallet Cards NFT: My Wallet Cards NFT

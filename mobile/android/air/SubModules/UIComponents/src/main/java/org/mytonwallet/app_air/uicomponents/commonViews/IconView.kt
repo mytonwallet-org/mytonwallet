@@ -232,6 +232,7 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
 
         ApiTransactionType.CONTRACT_DEPLOY,
         ApiTransactionType.CALL_CONTRACT,
+        ApiTransactionType.APPROVAL,
         ApiTransactionType.DNS_CHANGE_ADDRESS,
         ApiTransactionType.DNS_CHANGE_SITE,
         ApiTransactionType.DNS_CHANGE_SUBDOMAINS,

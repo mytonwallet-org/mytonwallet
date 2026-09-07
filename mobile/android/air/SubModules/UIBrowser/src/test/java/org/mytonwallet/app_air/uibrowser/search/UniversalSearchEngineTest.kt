@@ -182,14 +182,30 @@ class UniversalSearchEngineTest {
     }
 
     @Test
-    fun heldOutranksTrackedOutranksPopularToken() {
+    fun popularOutranksHeldOutranksTrackedToken() {
         val hits = search(
             "tether",
-            token("popular", "TETHER", "Tether", traits = setOf(SearchTrait.POPULAR)),
             token("tracked", "TETHER", "Tether", traits = setOf(SearchTrait.TRACKED)),
-            token("held", "TETHER", "Tether", traits = setOf(SearchTrait.HELD))
+            token("held", "TETHER", "Tether", traits = setOf(SearchTrait.HELD), value = 25.0),
+            token("popular", "TETHER", "Tether", traits = setOf(SearchTrait.POPULAR))
         )
-        assertEquals(listOf("held", "tracked", "popular"), hits.map { it.document.id })
+        assertEquals(listOf("popular", "held", "tracked"), hits.map { it.document.id })
+    }
+
+    @Test
+    fun heldPopularTokenOutranksUnheldPopularToken() {
+        val hits = search(
+            "tether",
+            token("unheld", "TETHER", "Tether", traits = setOf(SearchTrait.POPULAR)),
+            token(
+                "held",
+                "TETHER",
+                "Tether",
+                traits = setOf(SearchTrait.HELD, SearchTrait.POPULAR),
+                value = 25.0
+            )
+        )
+        assertEquals(listOf("held", "unheld"), hits.map { it.document.id })
     }
 
     @Test
@@ -208,16 +224,16 @@ class UniversalSearchEngineTest {
     }
 
     @Test
-    fun actionOutranksSettingAndPopularEntities() {
+    fun actionOutranksSettingAndUnownedEntities() {
         val hits = search(
             "swap",
-            token("popular", "SWAP", "Swap", traits = setOf(SearchTrait.POPULAR)),
+            token("obscure", "SWAP", "Swap"),
             document("dapp", SearchEntityKind.APPLICATION, "Swap"),
             document("settings", SearchEntityKind.SETTING, "Swap"),
             document("action", SearchEntityKind.ACTION, "Swap")
         )
         assertEquals(
-            listOf("action", "settings", "popular", "dapp"),
+            listOf("action", "settings", "dapp", "obscure"),
             hits.map { it.document.id }
         )
     }

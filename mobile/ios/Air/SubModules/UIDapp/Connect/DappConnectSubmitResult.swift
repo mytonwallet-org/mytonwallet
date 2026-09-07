@@ -2,7 +2,7 @@ import WalletContext
 import WalletCore
 
 struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
-    let mfaRequestHash: String?
+    let mfaRequestHash: String? = nil
 
     private let accountId: String
     private let proofSignatures: [String]?
@@ -11,12 +11,10 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     init(
         accountId: String,
         proofSignatures: [String]?,
-        mfaRequestHash: String?,
         resolver: ConnectRequestResolver
     ) {
         self.accountId = accountId
         self.proofSignatures = proofSignatures
-        self.mfaRequestHash = mfaRequestHash
         self.resolver = resolver
     }
 
@@ -32,20 +30,6 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
             return .notCommitted(DisplayError(text: lang("Canceled by the user")))
         case .indeterminate(let error):
             return .indeterminate(error: error, receipt: nil)
-        }
-    }
-
-    func handleMfaConfirmation(accountId _: String, request _: ApiMfaRequest) async throws {
-        switch await resolver.confirm(
-            accountId: accountId,
-            proofSignatures: proofSignatures
-        ) {
-        case .confirmed:
-            return
-        case .cancelled:
-            throw DisplayError(text: lang("Canceled by the user"))
-        case .indeterminate(let error):
-            throw error
         }
     }
 }

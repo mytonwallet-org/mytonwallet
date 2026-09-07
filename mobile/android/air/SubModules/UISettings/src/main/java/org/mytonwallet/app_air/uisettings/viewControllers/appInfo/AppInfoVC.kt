@@ -291,11 +291,6 @@ class AppInfoVC(context: Context) : WViewController(context) {
         }
 
         scrollView.onScrollChange = { y ->
-            if (y > 0) {
-                topReversedCornerView?.resumeBlurring()
-            } else {
-                topReversedCornerView?.pauseBlurring(false)
-            }
             setTopBlur(y > 0, animated = true)
         }
         updateTheme()

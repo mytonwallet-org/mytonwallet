@@ -23,6 +23,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     private var pendingInteractiveSwitchAccountId: String?
     private var pendingScrollTokenID: TokenID?
 
+    public var showAllMenuProvider: (() -> UIMenu?)?
+
     public var onHeightChanged: ((_ animated: Bool) -> Void)?
     private lazy var tokenActions = WalletTokenActions(
         accountContext: $account,
@@ -158,13 +160,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             applyEmptyStateAnimation(to: cell)
         }
         let seeAllRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, Int> { [unowned self] cell, _, tokensCount in
-            let visibleTokensMenu: UIMenu? = switch layoutMode {
-            case .compact:
-                makeVisibleTokensLimitMenu()
-            case .compactLarge, .expanded:
-                nil
-            }
-            cell.configure(tokensCount: tokensCount, menu: visibleTokensMenu)
+            cell.configure(tokensCount: tokensCount, menu: account.isTemporaryView ? nil : showAllMenuProvider?())
             cell.configurationUpdateHandler = { seeAllCell, state in
                 seeAllCell.isHighlighted = state.isHighlighted
             }
@@ -262,16 +258,13 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         snapshot.appendItems(items)
         snapshot.reconfigureItems(items)
 
-        switch walletTokensViewState {
-        case .loaded(let rows, let allTokensCount):
-            if allTokensCount > rows.count {
-                snapshot.appendSections([.seeAll])
-                snapshot.appendItems([.seeAll(tokensCount: allTokensCount)])
+        if layoutMode.isCompact {
+            let allTokensCount: Int = switch walletTokensViewState {
+            case .loaded(_, let count): count
+            case .empty, .placeholders: 0
             }
-        case .empty:
-            break
-        case .placeholders:
-            break
+            snapshot.appendSections([.seeAll])
+            snapshot.appendItems([.seeAll(tokensCount: allTokensCount)])
         }
 
         switch walletTokensViewState {
@@ -402,29 +395,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                 break
             }
         }
-    }
-
-    // MARK: - Token Selection
-
-    private func makeVisibleTokensLimitMenu() -> UIMenu {
-        UIMenu(
-            title: "",
-            options: [.displayInline, .singleSelection],
-            children: [
-                UIDeferredMenuElement.uncached { completion in
-                    let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
-                    let actions = HomeWalletVisibleTokensLimit.allCases.map { limit in
-                        UIAction(
-                            title: limit.title,
-                            state: currentLimit == limit ? .on : .off
-                        ) { _ in
-                            AppStorageHelper.homeWalletVisibleTokensLimit = limit
-                        }
-                    }
-                    completion(actions)
-                }
-            ]
-        )
     }
 
     // MARK: - UICollectionViewDelegate

@@ -28,9 +28,7 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     
     var textColor: UIColor {
         switch style {
-        case .primary:
-            UIColor.white // FIXME: Doesn't work for white theme color
-        case .destructive:
+        case .primary, .destructive:
             .white
         case .compactCapsule:
             .label
@@ -122,7 +120,13 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             labelContent(configuration: configuration)
         }
         .font(Font(WButton.font(for: style)))
-        .foregroundStyle(Color(textColor))
+        .applyModifierConditionally {
+            if style == .primary {
+                $0.foregroundForTintedBackground()
+            } else {
+                $0.foregroundStyle(Color(textColor))
+            }
+        }
         .opacity(isEnabled && isTouching ? 0.5 : 1)
         .frame(height: buttonHeight)
         .applyModifierConditionally {

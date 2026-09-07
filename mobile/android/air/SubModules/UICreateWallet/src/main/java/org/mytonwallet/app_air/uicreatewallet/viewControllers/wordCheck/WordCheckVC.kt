@@ -183,11 +183,6 @@ class WordCheckVC(
 
         val scrollOffsetToShowNav = (WNavigationBar.DEFAULT_HEIGHT + 135).dp
         scrollView.onScrollChange = { y ->
-            if (y > 0) {
-                topReversedCornerView?.resumeBlurring()
-            } else {
-                topReversedCornerView?.pauseBlurring(false)
-            }
             if (y > scrollOffsetToShowNav) {
                 setNavTitle(LocaleController.getString("Let's Check!"))
                 setTopBlur(visible = true, animated = true)

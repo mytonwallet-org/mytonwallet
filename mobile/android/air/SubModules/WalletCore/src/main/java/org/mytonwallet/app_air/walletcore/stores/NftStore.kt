@@ -185,6 +185,16 @@ object NftStore : IStore {
         return entries.contains(nft.address)
     }
 
+    fun getHiddenNftsCount(accountId: String): Int {
+        val nfts = nftData?.takeIf { it.accountId == accountId }?.cachedNfts ?: return 0
+        val areUnverifiedNftsHidden = WGlobalStorage.getAreUnverifiedNftsHidden()
+        return nfts.count { nft ->
+            nft.isHidden == true ||
+                isHiddenByUser(accountId, nft) ||
+                (areUnverifiedNftsHidden && nft.isUnverified == true)
+        }
+    }
+
     fun shouldHide(accountId: String, nft: ApiNft): Boolean {
         val currentData = nftData?.takeIf { it.accountId == accountId }
         val whitelistedNftAddresses = currentData?.whitelistedNftAddresses

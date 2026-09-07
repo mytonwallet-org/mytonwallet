@@ -8,7 +8,7 @@ import { callApi } from '../../../api';
 import { SEC } from '../../../api/constants';
 import { getIsTinyOrScamTransaction } from '../../helpers';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
-import { addPastActivities, updateActivity } from '../../reducers';
+import { addPastActivities, updateActivitiesLoadError, updateActivity } from '../../reducers';
 import {
   selectAccount,
   selectAccountState,
@@ -55,6 +55,11 @@ async function fetchPastActivities(accountId: string, slug?: string) {
     return;
   }
 
+  // Every call is a fresh attempt, including a retry after a failure, so the list goes back to the
+  // loading state instead of keeping the previous failure on screen
+  global = updateActivitiesLoadError(global, accountId, slug, false);
+  setGlobal(global);
+
   let fetchedActivities: ApiActivity[] = [];
   let toTimestamp = selectLastActivityTimestamp(global, accountId, slug);
   let hasMore = true;
@@ -63,6 +68,9 @@ async function fetchPastActivities(accountId: string, slug?: string) {
   while (hasMore) {
     const result = await callApi('fetchPastActivities', accountId, PAST_ACTIVITY_BATCH, slug, toTimestamp);
     if (!result) {
+      // The request failed and the list stays without ids. The flag tells the list apart from one
+      // that is still loading, which would otherwise show a spinner until the screen is reopened.
+      setGlobal(updateActivitiesLoadError(getGlobal(), accountId, slug, true));
       return;
     }
 

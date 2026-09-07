@@ -21,11 +21,11 @@ final class AgentV2ActionExecutor {
                 self?.showUnavailableAction()
                 return
             }
-            self?.perform(resolved)
+            await self?.perform(resolved)
         }
     }
 
-    private func perform(_ resolved: AgentV2Coordinator.ResolvedAction) {
+    private func perform(_ resolved: AgentV2Coordinator.ResolvedAction) async {
         guard AccountStore.account?.id == resolved.accountId,
               AccountStore.accountsById[resolved.accountId] != nil else {
             showUnavailableAction()
@@ -61,7 +61,7 @@ final class AgentV2ActionExecutor {
                   amount.isFinite,
                   amount > 0,
                   let amountSide = action.amountSide else { return }
-            AppActions.showSwap(
+            await AppActions.showSwap(
                 accountContext: accountContext,
                 defaultSellingToken: tokenInSlug,
                 defaultBuyingToken: tokenOutSlug,

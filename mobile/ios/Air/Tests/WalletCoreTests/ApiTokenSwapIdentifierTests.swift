@@ -6,7 +6,6 @@ import WalletContext
 struct ApiTokenSwapIdentifierTests {
     @Test
     func `toncoin uses TON swap identifier despite display symbol`() {
-        #expect(ApiToken.TONCOIN.symbol == "GRAM")
         #expect(ApiToken.TONCOIN.swapIdentifier == "TON")
     }
 

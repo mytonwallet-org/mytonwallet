@@ -776,7 +776,7 @@ class HomeTabletAssetsCell(
             }
             val icon = context.requireDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_expand
-            ).apply {
+            ).mutate().apply {
                 setTint(WColor.SecondaryText.color)
                 setBounds(0, 0, 14.dp, 14.dp)
             }

@@ -7,7 +7,6 @@ import android.widget.FrameLayout
 interface ITabsVC {
     val mainNavigationController: WNavigationController?
     val activeNavigationController: WNavigationController?
-    val pausedBlurViews: Boolean
     val bottomNavigationView: FrameLayout?
     val minimizedBlurRootView: ViewGroup? get() = null
     fun getBottomNavigationHeight(): Int
@@ -21,8 +20,6 @@ interface ITabsVC {
     fun dismissMinimized(animated: Boolean = true)
     fun scrollingUp()
     fun scrollingDown()
-    fun pauseBlurring()
-    fun resumeBlurring()
     fun setSearchText(text: String)
     fun clearSearchFocus()
     fun switchToFirstTab(): Boolean

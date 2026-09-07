@@ -46,6 +46,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MTokenChangeThreshold
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -226,6 +227,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
     private var isFirst = false
     private var isLast = false
     private var isPinned = false
+    private var showChain = false
+    private var changeThreshold: MTokenChangeThreshold? = null
 
     fun configure(
         accountId: String,
@@ -246,6 +249,9 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
             this.tokenBalance?.virtualStakingToken != tokenBalance.virtualStakingToken
         val pinnedChanged = this.isPinned != isPinned
         val token = TokenStore.getToken(tokenBalance.token)
+        val showChain = isMultichain &&
+            (WGlobalStorage.getAreChainBadgesShown() || !token?.label.isNullOrBlank())
+        val changeThreshold = WGlobalStorage.getTokenChangeThreshold()
         val tokenName = token?.let { TokenNameHelper.getTokenName(it, tokenBalance) } ?: ""
         val stakingState = if (token?.isEarnAvailable == true || tokenBalance.isVirtualStakingRow) {
             StakingStore.getStakingState(accountId)?.stakingState(token?.slug)
@@ -256,6 +262,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
             this.tokenBalance == tokenBalance &&
             this.baseCurrency == baseCurrency &&
             !pinnedChanged &&
+            this.showChain == showChain &&
+            this.changeThreshold == changeThreshold &&
             topLeftLabel.text?.toString() == tokenName
         ) {
             updateTheme(forceUpdate = firstChanged || lastChanged)
@@ -278,6 +286,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
         this.baseCurrency = baseCurrency
         this.stakingState = stakingState
         this.isPinned = isPinned
+        this.showChain = showChain
+        this.changeThreshold = changeThreshold
         updateTheme(forceUpdate = firstChanged || lastChanged)
         if (pinnedChanged && !accountChanged) {
             animatePin(isPinned)
@@ -298,7 +308,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
 
         iconView.config(
             tokenBalance,
-            showChain = isMultichain,
+            showChain = showChain,
             showPercentBadge = (
                 tokenBalance.isVirtualStakingRow &&
                     tokenBalance.amountValue > BigInteger.ZERO
@@ -413,6 +423,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
 
         val percentChange = pricedToken.percentChange24h
         val percentChangeText = when {
+            changeThreshold?.shouldShow(percentChange) == false -> ""
             percentChange < 0 -> " -$signSpace${abs(percentChange)}%"
             percentChange > 0 && percentChange.isFinite() -> " +$signSpace$percentChange%"
             else -> ""

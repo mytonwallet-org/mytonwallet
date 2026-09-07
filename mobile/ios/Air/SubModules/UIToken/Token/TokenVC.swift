@@ -505,14 +505,15 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     private func presentSwap(isBuying: Bool) {
-        let counterTokenSlug = currentToken.slug == TONCOIN_SLUG ? TON_USDT_SLUG : TONCOIN_SLUG
-        AppActions.showSwap(
-            accountContext: accountContext,
-            defaultSellingToken: isBuying ? counterTokenSlug : currentToken.slug,
-            defaultBuyingToken: isBuying ? currentToken.slug : counterTokenSlug,
-            defaultSellingAmount: nil,
-            push: nil
-        )
+        Task { [accountContext, currentToken] in
+            await AppActions.showSwap(
+                accountContext: accountContext,
+                defaultSellingToken: isBuying ? nil : currentToken.slug,
+                defaultBuyingToken: isBuying ? currentToken.slug : nil,
+                defaultSellingAmount: nil,
+                push: nil
+            )
+        }
     }
 
     private func updateNavigationHeader() {

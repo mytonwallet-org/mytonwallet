@@ -352,6 +352,19 @@ public class WButton: WBaseButton {
             }
             updateTitleColors()
         }
+        loadingView?.tintColor = loadingIndicatorColor
+    }
+
+    public override func tintColorDidChange() {
+        super.tintColorDidChange()
+        loadingView?.tintColor = loadingIndicatorColor
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            loadingView?.tintColor = loadingIndicatorColor
+        }
     }
 
     private func updateTitleColors() {
@@ -421,7 +434,21 @@ public class WButton: WBaseButton {
     private func createLoadingView() -> WActivityIndicator {
         let indicator = WActivityIndicator()
         indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.tintColor = switch style {
+        indicator.tintColor = loadingIndicatorColor
+        addSubview(indicator)
+        NSLayoutConstraint.activate([
+            indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            indicator.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+        loadingView = indicator
+        return indicator
+    }
+
+    private var loadingIndicatorColor: UIColor {
+        switch style {
+        case .primary:
+            (usesGlassButtonStyling ? tintColor.resolvedColor(with: traitCollection) : accentColor)
+                .foregroundForTintedBackground
         case .secondary, .thickCapsule:
             .tintColor
         case .compactCapsule:
@@ -431,13 +458,6 @@ public class WButton: WBaseButton {
         default:
             .white
         }
-        addSubview(indicator)
-        NSLayoutConstraint.activate([
-            indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            indicator.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
-        loadingView = indicator
-        return indicator
     }
 
     public func apply(config: WButtonConfig) {

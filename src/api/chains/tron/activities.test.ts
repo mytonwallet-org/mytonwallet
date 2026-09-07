@@ -1,8 +1,183 @@
 import type { ApiTransactionActivity } from '../../types';
 
-import { TRX } from '../../../config';
+import { TRC20_USDT_MAINNET, TRX } from '../../../config';
+import { fetchJson } from '../../../util/fetch';
 import { makeMockSwapActivity, makeMockTransactionActivity } from '../../../../tests/mocks';
-import { mergeActivities, parseRawTrxTransaction } from './activities';
+import {
+  getTokenActivitySlice,
+  mergeActivities,
+  parseRawTrxTransaction,
+} from './activities';
+
+jest.mock('../../../util/fetch', () => ({
+  fetchJson: jest.fn(),
+}));
+
+const fetchJsonMock = jest.mocked(fetchJson);
+
+const TEST_TRC20_ADDRESS = 'TBgmsoKF7ZV12dkfHqvpjdui3VxxAoN4q4';
+const TEST_OWNER_ADDRESS = 'TKk2k4trTUSksCiA3k8Aq5WAsUo3b8FCKj';
+const MAX_UINT256_STRING = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+
+describe('getTokenActivitySlice', () => {
+  beforeEach(() => {
+    fetchJsonMock.mockReset();
+  });
+
+  it('keeps unlimited approvals as non-monetary activities', async () => {
+    fetchJsonMock.mockResolvedValue({
+      data: [{
+        transaction_id: 'approval-tx',
+        block_timestamp: 1,
+        from: TEST_OWNER_ADDRESS,
+        to: TEST_TRC20_ADDRESS,
+        type: 'Approval',
+        value: MAX_UINT256_STRING,
+        token_info: {
+          address: TRC20_USDT_MAINNET.tokenAddress,
+        },
+      }],
+    });
+
+    await expect(getTokenActivitySlice(
+      'mainnet',
+      TEST_TRC20_ADDRESS,
+      TRC20_USDT_MAINNET.slug,
+      undefined,
+      undefined,
+      1,
+    )).resolves.toMatchObject({
+      activities: [{
+        id: 'approval-tx',
+        amount: BigInt(MAX_UINT256_STRING),
+        fromAddress: TEST_OWNER_ADDRESS,
+        toAddress: TEST_TRC20_ADDRESS,
+        isIncoming: true,
+        slug: TRC20_USDT_MAINNET.slug,
+        type: 'approval',
+        isApprovalUnlimited: true,
+      }],
+      hasMore: true,
+    });
+  });
+
+  it('keeps finite outgoing approvals unsigned', async () => {
+    fetchJsonMock.mockResolvedValue({
+      data: [{
+        transaction_id: 'approval-tx',
+        block_timestamp: 1,
+        from: TEST_OWNER_ADDRESS,
+        to: TEST_TRC20_ADDRESS,
+        type: 'Approval',
+        value: '1000000',
+        token_info: {
+          address: TRC20_USDT_MAINNET.tokenAddress,
+        },
+      }],
+    });
+
+    await expect(getTokenActivitySlice(
+      'mainnet',
+      TEST_OWNER_ADDRESS,
+      TRC20_USDT_MAINNET.slug,
+    )).resolves.toMatchObject({
+      activities: [{
+        id: 'approval-tx',
+        amount: 1000000n,
+        isIncoming: false,
+        type: 'approval',
+        isApprovalUnlimited: false,
+      }],
+    });
+  });
+
+  it('keeps transfers as token activities', async () => {
+    fetchJsonMock.mockResolvedValue({
+      data: [{
+        transaction_id: 'transfer-tx',
+        block_timestamp: 2,
+        from: TEST_OWNER_ADDRESS,
+        to: TEST_TRC20_ADDRESS,
+        type: 'Transfer',
+        value: '1000000',
+        token_info: {
+          address: TRC20_USDT_MAINNET.tokenAddress,
+        },
+      }],
+    });
+
+    await expect(getTokenActivitySlice(
+      'mainnet',
+      TEST_TRC20_ADDRESS,
+      TRC20_USDT_MAINNET.slug,
+      undefined,
+      undefined,
+      2,
+    )).resolves.toMatchObject({
+      activities: [{
+        id: 'transfer-tx',
+        amount: 1000000n,
+        isIncoming: true,
+        slug: TRC20_USDT_MAINNET.slug,
+      }],
+      hasMore: false,
+    });
+  });
+
+  it('prefers a transfer when the same transaction also emits approvals', async () => {
+    fetchJsonMock.mockResolvedValue({
+      data: [
+        {
+          transaction_id: 'compound-tx',
+          block_timestamp: 3,
+          from: TEST_OWNER_ADDRESS,
+          to: TEST_TRC20_ADDRESS,
+          type: 'Approval',
+          value: '0',
+          token_info: {
+            address: TRC20_USDT_MAINNET.tokenAddress,
+          },
+        },
+        {
+          transaction_id: 'compound-tx',
+          block_timestamp: 3,
+          from: TEST_OWNER_ADDRESS,
+          to: TEST_TRC20_ADDRESS,
+          type: 'Transfer',
+          value: '97435484671',
+          token_info: {
+            address: TRC20_USDT_MAINNET.tokenAddress,
+          },
+        },
+        {
+          transaction_id: 'compound-tx',
+          block_timestamp: 3,
+          from: TEST_OWNER_ADDRESS,
+          to: TEST_TRC20_ADDRESS,
+          type: 'Approval',
+          value: '97435484671',
+          token_info: {
+            address: TRC20_USDT_MAINNET.tokenAddress,
+          },
+        },
+      ],
+    });
+
+    const result = await getTokenActivitySlice(
+      'mainnet',
+      TEST_OWNER_ADDRESS,
+      TRC20_USDT_MAINNET.slug,
+    );
+
+    expect(result.activities).toHaveLength(1);
+    expect(result.activities[0]).toMatchObject({
+      id: 'compound-tx',
+      amount: -97435484671n,
+      isIncoming: false,
+    });
+    expect(result.activities[0]).not.toMatchObject({ type: 'approval' });
+  });
+});
 
 describe('mergeActivities', () => {
   it('merges and sorts activities', () => {
@@ -72,6 +247,33 @@ describe('mergeActivities', () => {
       throw new Error('Expected transaction activity');
     }
     expect(resultTx.fee).toBe(100n);
+  });
+
+  it('prefers a transfer over an approval emitted for another token in the same transaction', () => {
+    const txsBySlug = {
+      'approval-token': [makeMockTransactionActivity({
+        id: 'compound-tx',
+        timestamp: 1,
+        slug: 'approval-token',
+        amount: 0n,
+        type: 'approval',
+      })],
+      'transfer-token': [makeMockTransactionActivity({
+        id: 'compound-tx',
+        timestamp: 1,
+        slug: 'transfer-token',
+        amount: -100n,
+      })],
+    };
+
+    const result = mergeActivities(txsBySlug);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      id: 'compound-tx',
+      slug: 'transfer-token',
+      amount: -100n,
+    });
   });
 });
 

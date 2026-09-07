@@ -252,6 +252,7 @@ let package = Package(
             "UIComponents",
             dependencies: [
                 contextMenuKitDependency,
+                "WReachability",
                 "WalletContext",
                 "WalletCore",
                 .product(name: "Dependencies", package: "swift-dependencies"),
@@ -541,6 +542,7 @@ let package = Package(
             "UISettings",
             dependencies: [
                 "UIComponents",
+                "UIAssets",
                 "WalletCore",
                 "WalletContext",
                 "UIPasscode",
@@ -652,14 +654,6 @@ let package = Package(
             ]
         ),
         airTestTarget(
-            "UniversalSearchPersistenceTests",
-            dependencies: [
-                "UniversalSearchCore",
-                "UniversalSearchPersistence",
-                .product(name: "GRDB", package: "grdb.swift"),
-            ]
-        ),
-        airTestTarget(
             "UniversalSearchWalletCoreTests",
             dependencies: [
                 "UniversalSearchCore",
@@ -672,13 +666,10 @@ let package = Package(
         airTestTarget(
             "UniversalSearchFeatureTests",
             dependencies: [
-                "UIAgent",
-                "UIInAppBrowser",
                 "UIUniversalSearch",
                 "UniversalSearchCore",
                 "UniversalSearchFeature",
                 "UniversalSearchWalletCore",
-                "WalletCore",
                 "WalletCoreTypes",
             ]
         ),
@@ -695,8 +686,6 @@ let package = Package(
                 "WalletCore",
                 "WalletContext",
                 "WalletCoreTypes",
-                .product(name: "GRDB", package: "grdb.swift"),
-                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ]
         ),
         airTestTarget(
@@ -705,7 +694,6 @@ let package = Package(
                 "UISwap",
                 "WalletCore",
                 "WalletContext",
-                "WalletResources",
             ]
         ),
         airTestTarget(
@@ -717,19 +705,9 @@ let package = Package(
             ]
         ),
         airTestTarget(
-            "UIEarnTests",
-            dependencies: [
-                "UIEarn",
-                "WalletCore",
-                "WalletContext",
-            ]
-        ),
-        airTestTarget(
             "UIComponentsTests",
             dependencies: [
-                contextMenuKitDependency,
                 "UIComponents",
-                "WalletResources",
             ]
         ),
         airTestTarget(
@@ -738,7 +716,6 @@ let package = Package(
                 "UIAgent",
                 "WalletCore",
                 "WalletContext",
-                "WalletResources",
             ]
         ),
         airTestTarget(
@@ -752,10 +729,8 @@ let package = Package(
             "UIProtectedActionTests",
             dependencies: [
                 "ProtectedAction",
-                "UIPasscode",
                 "UIProtectedAction",
                 "WalletCore",
-                "WalletResources",
             ]
         ),
         airTestTarget(

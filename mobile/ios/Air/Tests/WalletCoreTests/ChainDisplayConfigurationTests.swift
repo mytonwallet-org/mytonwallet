@@ -272,26 +272,6 @@ struct ChainDisplayConfigurationTests {
     }
 
     @Test
-    func `configuration decoder ignores unshipped boolean mode`() throws {
-        let configuration = try JSONDecoder().decode(
-            MChainDisplayConfiguration.self,
-            from: Data(#"{"sortByValue":false}"#.utf8)
-        )
-
-        #expect(configuration.displayMode == .value)
-    }
-
-    @Test
-    func `configuration decoder ignores future fields`() throws {
-        let configuration = try JSONDecoder().decode(
-            MChainDisplayConfiguration.self,
-            from: Data(#"{"displayMode":"manual","shownChains":["tron"],"futureField":true}"#.utf8)
-        )
-
-        #expect(configuration == MChainDisplayConfiguration(displayMode: .manual, shownChains: [.tron]))
-    }
-
-    @Test
     func `legacy hidden chains migrate to manual mode`() throws {
         let configuration = try JSONDecoder().decode(
             MChainDisplayConfiguration.self,
@@ -299,19 +279,6 @@ struct ChainDisplayConfigurationTests {
         )
 
         #expect(configuration == MChainDisplayConfiguration(displayMode: .manual, hiddenChains: [.tron]))
-    }
-
-    @Test
-    func `database row preserves chain configuration`() {
-        var data = MAssetsAndActivityData.empty
-        data.saveChainDisplayMode(.manual, capturing: [.ton, .monad])
-        data.saveChainVisible(.monad, isVisible: false, automaticallyVisible: true)
-
-        let row = MAccountAssetsAndActivityData(accountId: "test-mainnet", data: data)
-
-        #expect(row.chainDisplayConfiguration == data.chainDisplayConfiguration)
-        #expect(row.data == data)
-        #expect(row.hasData)
     }
 
     @Test

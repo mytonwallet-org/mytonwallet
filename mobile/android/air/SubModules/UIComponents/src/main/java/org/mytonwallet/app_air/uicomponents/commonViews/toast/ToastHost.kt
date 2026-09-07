@@ -66,16 +66,6 @@ class ToastHost(context: Context) : WFrameLayout(context) {
         }
     }
 
-    fun pauseBlurring() {
-        toastView?.pauseBlurring()
-    }
-
-    fun resumeBlurring() {
-        if (activeToast != null && isToastEnabled) {
-            toastView?.resumeBlurring()
-        }
-    }
-
     fun attachBlurRoot(blurRootView: ViewGroup?) {
         if (this.blurRootView === blurRootView) {
             return
@@ -112,8 +102,6 @@ class ToastHost(context: Context) : WFrameLayout(context) {
             scaleX = 0.9f
             scaleY = 0.9f
             translationY = 12f.dp
-            syncShadow()
-            resumeBlurring()
         }
 
         toastView.animate()
@@ -123,11 +111,9 @@ class ToastHost(context: Context) : WFrameLayout(context) {
             .translationY(0f)
             .setDuration(AnimationConstants.QUICK_ANIMATION)
             .setUpdateListener {
-                toastView.syncShadow()
             }
             .setInterpolator(CubicBezierInterpolator.EASE_OUT)
             .withEndAction {
-                toastView.syncShadow()
                 activeToast?.let { toast ->
                     scheduleDismiss(toast.duration)
                 }
@@ -148,13 +134,10 @@ class ToastHost(context: Context) : WFrameLayout(context) {
             .translationY(12f.dp)
             .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
             .setUpdateListener {
-                toastView.syncShadow()
             }
             .setInterpolator(CubicBezierInterpolator.EASE_OUT)
             .withEndAction {
                 toastView.isInvisible = true
-                toastView.syncShadow()
-                toastView.pauseBlurring()
                 if (shouldContinue) {
                     showNextIfPossible()
                 }
@@ -203,8 +186,6 @@ class ToastHost(context: Context) : WFrameLayout(context) {
             animate().cancel()
             isInvisible = true
             alpha = 0f
-            syncShadow()
-            pauseBlurring()
         }
         isInvisible = true
     }

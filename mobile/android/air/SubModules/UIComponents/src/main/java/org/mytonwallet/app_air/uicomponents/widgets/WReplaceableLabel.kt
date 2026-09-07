@@ -59,7 +59,7 @@ class WReplaceableLabel(
 
     private val expandDrawable = context.requireDrawableCompat(
         org.mytonwallet.app_air.icons.R.drawable.ic_expand
-    )
+    ).mutate()
 
     private val selectDelayMs = 1_000L
     private val selectRunnable = Runnable {

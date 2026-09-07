@@ -36,7 +36,7 @@ struct TransactionActivityHeader: View {
     
     @ViewBuilder
     var amountView: some View {
-        let shouldShowSign = amountDisplayMode != .noSign
+        let shouldShowSign = amountDisplayMode == .normal
         let isStake = transaction.type == .stake
         let amountColor: UIColor = isStake ? .air.textPurple : UIColor.label
         let fractionColor: UIColor = isStake ? .air.textPurple : abs(amount.doubleValue) >= 10 ? UIColor.air.secondaryLabel : UIColor.label
@@ -45,22 +45,31 @@ struct TransactionActivityHeader: View {
             onTokenTapped?(token)
         } label: {
             AmountIconRow {
-                let amount = self.amount
-                AmountText(
-                    amount: amount,
-                    format: .init(
-                        preset: .defaultAdaptive,
-                        showPlus: shouldShowSign ? transaction.isIncoming : false,
-                        showMinus: shouldShowSign ? !transaction.isIncoming : false,
-                        roundHalfUp: false
-                    ),
-                    integerFont: .compactRounded(ofSize: 34, weight: .bold),
-                    fractionFont: .compactRounded(ofSize: 28, weight: .bold),
-                    symbolFont: .compactRounded(ofSize: 28, weight: .bold),
-                    integerColor: amountColor,
-                    fractionColor: fractionColor,
-                    symbolColor: symbolColor
-                )
+                Group {
+                    if amountDisplayMode == .approval, transaction.isApprovalUnlimited == true {
+                        unlimitedApprovalAmountText(
+                            amountColor: amountColor,
+                            symbolColor: symbolColor
+                        )
+                    } else {
+                        let amount = self.amount
+                        AmountText(
+                            amount: amount,
+                            format: .init(
+                                preset: .defaultAdaptive,
+                                showPlus: shouldShowSign ? transaction.isIncoming : false,
+                                showMinus: shouldShowSign ? !transaction.isIncoming : false,
+                                roundHalfUp: false
+                            ),
+                            integerFont: .compactRounded(ofSize: 34, weight: .bold),
+                            fractionFont: .compactRounded(ofSize: 28, weight: .bold),
+                            symbolFont: .compactRounded(ofSize: 28, weight: .bold),
+                            integerColor: amountColor,
+                            fractionColor: fractionColor,
+                            symbolColor: symbolColor
+                        )
+                    }
+                }
                 .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
             } icon: {
                 TokenIconView(token: token, accessorySize: 12)
@@ -68,12 +77,26 @@ struct TransactionActivityHeader: View {
         }
         .buttonStyle(.plain)
     }
+
+    private func unlimitedApprovalAmountText(amountColor: UIColor, symbolColor: UIColor) -> Text {
+        let result = NSMutableAttributedString(string: "∞", attributes: [
+            .font: UIFont.compactRounded(ofSize: 34, weight: .bold),
+            .foregroundColor: amountColor,
+        ])
+        result.append(NSAttributedString(string: " \(token.symbol)", attributes: [
+            .font: UIFont.compactRounded(ofSize: 28, weight: .bold),
+            .foregroundColor: symbolColor,
+        ]))
+        return Text(AttributedString(result))
+    }
     
     @ViewBuilder
     var toView: some View {
         if ApiActivity.transaction(transaction).shouldShowTransactionAddress(in: .details) {
             TappableAddressLine(
-                title: transaction.isIncoming ? lang("Received from") : lang("Sent to"),
+                title: transaction.type == .approval
+                    ? (transaction.isIncoming ? lang("Owner") : lang("Spender"))
+                    : (transaction.isIncoming ? lang("Received from") : lang("Sent to")),
                 account: account,
                 model: .fromTransaction(transaction, chain: token.chain, addressKind: .peer)
             )

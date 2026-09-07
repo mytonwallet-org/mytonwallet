@@ -33,6 +33,8 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiReconcileActivityUpdateResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaults
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaultsRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiTokenDetails
@@ -519,6 +521,15 @@ sealed class ApiMethod<T> {
     /* Swap */
 
     object Swap {
+        class ResolveSwapDefaults(request: MApiSwapDefaultsRequest) :
+            ApiMethod<MApiSwapDefaults>() {
+            override val name: String = "resolveSwapDefaults"
+            override val type: Type = MApiSwapDefaults::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .jsObject(request, MApiSwapDefaultsRequest::class.java)
+                .build()
+        }
+
         class SwapEstimate(accountId: String, request: MApiSwapEstimateRequest) :
             ApiMethod<MApiSwapEstimateResponse>() {
             override val name: String = "swapEstimate"
@@ -648,20 +659,6 @@ sealed class ApiMethod<T> {
                 val proofSignatures: List<String>? = null
             )
         }
-
-        class CreateDappConnectMfaRequest(accountId: String, enclaveToken: String?) :
-            ApiMethod<CreateDappConnectMfaRequest.Response>() {
-            override val name: String = "createDappConnectMfaRequest"
-            override val type: Type = Response::class.java
-            override val arguments: String = ArgumentsBuilder()
-                .string(accountId)
-                .apply { enclaveToken?.let { string(it) } }
-                .build()
-
-            @JsonClass(generateAdapter = true)
-            data class Response(val mfaRequestHash: String? = null, val error: String? = null)
-        }
-
         class CancelDappRequest(promiseId: String, reason: String?) : ApiMethod<Unit>() {
             override val name: String = "cancelDappRequest"
             override val type: Type = Unit::class.java

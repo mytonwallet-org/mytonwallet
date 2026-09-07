@@ -181,7 +181,7 @@ function Transaction({
   if (status === 'failed' || type === 'burn') {
     operationColorClass = styles.colorNegative;
     pendingIndicatorColor = 'Red';
-  } else if (isIncoming) {
+  } else if (type !== 'approval' && isIncoming) {
     operationColorClass = styles.colorIn;
     pendingIndicatorColor = 'Green';
   } else if (type === 'stake') {
@@ -291,7 +291,7 @@ function Transaction({
     let iconName: string;
     if (isStaking) {
       iconName = 'icon-earn';
-    } else if (type === 'callContract' || type === 'contractDeploy') {
+    } else if (type === 'callContract' || type === 'contractDeploy' || type === 'approval') {
       iconName = 'icon-cog';
     } else if (isDnsOperation) {
       iconName = buildClassName('rounded-font', styles.dnsIcon);
@@ -332,7 +332,7 @@ function Transaction({
 
   function renderAmount() {
     const amountDisplayMode = getTransactionAmountDisplayMode(transaction);
-    const noSign = amountDisplayMode === 'noSign';
+    const noSign = amountDisplayMode === 'noSign' || amountDisplayMode === 'approval';
 
     if (amountDisplayMode === 'hide') {
       return;
@@ -352,20 +352,23 @@ function Transaction({
           operationColorClass !== styles.colorOut && operationColorClass,
         )}
       >
-        {formatCurrencyExtended(
-          toDecimal(noSign ? bigintAbs(amount) : amount, token?.decimals ?? FRACTION_DIGITS),
-          token?.symbol || UNKNOWN_TOKEN.symbol,
-          noSign,
-          undefined,
-          !isIncoming,
-        )}
+        {amountDisplayMode === 'approval' && transaction.isApprovalUnlimited
+          ? `∞ ${token?.symbol || UNKNOWN_TOKEN.symbol}`
+          : formatCurrencyExtended(
+            toDecimal(noSign ? bigintAbs(amount) : amount, token?.decimals ?? FRACTION_DIGITS),
+            token?.symbol || UNKNOWN_TOKEN.symbol,
+            noSign,
+            undefined,
+            !isIncoming,
+          )}
         {token && <TokenIcon token={token} size="x-small" className={styles.amountTokenIcon} />}
       </SensitiveData>
     );
   }
 
   function renderBaseCurrencyAmount() {
-    if (getTransactionAmountDisplayMode(transaction) === 'hide' || !token) {
+    const amountDisplayMode = getTransactionAmountDisplayMode(transaction);
+    if (amountDisplayMode === 'hide' || amountDisplayMode === 'approval' || !token) {
       return undefined;
     }
 

@@ -486,7 +486,6 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             collapsedHeightExtra = if (experimentalTopTabsEnabled) 51.dp else 0,
             scrollCollapsedContent = experimentalTopTabsEnabled,
             keepCollapsedCardVisibleForStatus = experimentalTopTabsEnabled,
-            showWalletNameInCardFooter = experimentalTopTabsEnabled,
             topInsetExtra = {
                 if (experimentalTopTabsEnabled) {
                     EXPERIMENTAL_TOP_CARD_OFFSET.dp
@@ -807,7 +806,6 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 )
             }
         }
-        topBlurReversedCornerView.resumeBlurring()
     }
 
     override fun viewWillDisappear() {
@@ -827,7 +825,6 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (phoneHeaderView.mode == HomeHeaderView.Mode.Expanded) return
         if (!phoneHeaderView.canExpandForHeight) return
         currentActivityListView.expandingProgrammatically = true
-        topBlurReversedCornerView.pauseBlurring(false)
         topBlurReversedCornerView.isGone = true
         currentActivityListView.recyclerView.scrollToOverScroll(
             (
@@ -891,7 +888,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     // Header view is moved to recycler-view cell whenever user overscroll, to keep over-scroll effect
     private fun moveActionsViewToCell() {
-        if (isWideHome) return
+        if (isWideHome || isActionsRowHiddenBySetting) return
         actionsView.updateActions(headerView.centerAccount ?: homeVM.showingAccount)
         view.clipChildren = true
         view.post {
@@ -913,7 +910,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     // Actions view is moved to parent view, to cross-fade content without effecting this view
     private fun moveActionsViewToParent() {
-        if (isWideHome) return
+        if (isWideHome || isActionsRowHiddenBySetting) return
         actionsView.updateActions(headerView.centerAccount ?: homeVM.showingAccount)
         val actionsCellView = actionsCellView
         if (actionsCellView.parent != view) {
@@ -993,7 +990,6 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (isWideHome) {
             if (dy > 1) {
                 resumeBlurViews()
-                pauseBottomBlurViewsOnBottomEdge()
             } else if (currentActivityListView.recyclerView.scrollState !=
                 RecyclerView.SCROLL_STATE_IDLE
             ) {
@@ -1009,7 +1005,6 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 resumeBlurViews()
                 moveHeaderViewToParent()
             }
-            pauseBottomBlurViewsOnBottomEdge()
         } else {
             val isScrolling =
                 currentActivityListView.recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
@@ -1074,62 +1069,16 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         currentActivityListView.scrollToTop()
     }
 
-    private val pausedBlurViews: Boolean
-        get() {
-            return !topBlurReversedCornerView.isPlaying &&
-                (
-                    bottomReversedCornerView?.let { !it.isPlaying }
-                        ?: navigationController?.tabBarController?.pausedBlurViews
-                        ?: false
-                    )
-        }
-
     override fun pauseBlurViews() {
         if (rvMode == HomeHeaderView.Mode.Expanded ||
             phoneHeaderView.mode == HomeHeaderView.Mode.Expanded
         ) {
-            cancelBottomBlurSettle()
-            if (pausedBlurViews) return
-            topBlurReversedCornerView.pauseBlurring(false)
             topBlurReversedCornerView.isGone = true
-            pauseBottomBlurViews()
         }
     }
-
-    override fun pauseBottomBlurViewsOnBottomEdge() {
-        val recyclerView = currentActivityListView.recyclerView
-        if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE &&
-            !recyclerView.canScrollVertically(1)
-        ) {
-            pauseBottomBlurViewsUntilSettled {
-                currentActivityListView.recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE
-            }
-        } else {
-            cancelBottomBlurSettle()
-        }
-    }
-
-    private val resumedBlurViews: Boolean
-        get() {
-            return topBlurReversedCornerView.isVisible &&
-                topBlurReversedCornerView.isPlaying &&
-                (
-                    bottomReversedCornerView?.isPlaying
-                        ?: navigationController?.tabBarController?.pausedBlurViews?.let { !it }
-                        ?: false
-                    )
-        }
 
     private fun resumeBlurViews() {
-        if (resumedBlurViews) return
         topBlurReversedCornerView.isGone = false
-        topBlurReversedCornerView.resumeBlurring()
-        resumeBottomBlurViews()
-    }
-
-    override fun resumeBottomBlurViews() {
-        bottomReversedCornerView?.resumeBlurring()
-        navigationController?.tabBarController?.resumeBlurring()
     }
 
     override fun onTopItemHorizontalScroll() {
@@ -1585,6 +1534,20 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         phoneHeaderView.updateSeasonalTheme()
     }
 
+    override fun walletCardTopLineChanged() {
+        phoneHeaderView.updateCardFooterTopLine()
+    }
+
+    override fun actionButtonsRowChanged() {
+        if (isWideHome) return
+        allActivityListViews.forEach { it.updateActionsCell() }
+        if (isActionsRowHiddenBySetting) {
+            (actionsCellView.parent as? ViewGroup)?.removeView(actionsCellView)
+        } else {
+            moveActionsViewToCell()
+        }
+    }
+
     override fun accountWillChange(fromHome: Boolean) {
         configureAccountViews(
             shouldLoadNewWallets = !fromHome || isDisappeared,
@@ -1732,8 +1695,13 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun swipeItemsOffset(): Int = swipeItemsOffset
 
+    private val isActionsRowHiddenBySetting: Boolean
+        get() = experimentalTopTabsEnabled &&
+            !isWideHome &&
+            WGlobalStorage.isActionButtonsRowHidden()
+
     override fun activityListReserveActionsCell(): Boolean =
-        headerView.centerAccount?.isViewOnly != true
+        headerView.centerAccount?.isViewOnly != true && !isActionsRowHiddenBySetting
 
     override fun activityListActionsCellHeight(): Int =
         if (isWideHome) TabletHeaderActionsView.HEIGHT.dp else HeaderActionsView.HEIGHT.dp

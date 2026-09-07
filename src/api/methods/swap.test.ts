@@ -11,6 +11,7 @@ import {
   initSwap,
   swapCexCreateTransaction,
   swapCexSubmit,
+  swapEstimate,
   swapSubmit,
 } from './swap';
 
@@ -101,7 +102,8 @@ const { fetchStoredAccount, fetchStoredWallet } = require('../common/accounts') 
 };
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { patchSwapItem, swapGetHistoryItem, swapItemToActivity } = require('../common/swap') as {
+const { getSwapItemSlug, patchSwapItem, swapGetHistoryItem, swapItemToActivity } = require('../common/swap') as {
+  getSwapItemSlug: jest.Mock;
   patchSwapItem: jest.Mock;
   swapGetHistoryItem: jest.Mock;
   swapItemToActivity: jest.Mock;
@@ -160,6 +162,56 @@ const { getBackendConfigCache } = require('../common/cache') as {
 const { ApiServerError } = require('../errors') as {
   ApiServerError: typeof import('../errors').ApiServerError;
 };
+
+describe('swap estimate hints', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fetchStoredAccount.mockResolvedValue({ byChain: { ethereum: { address: '0xwallet' } } });
+    getBackendConfigCache.mockResolvedValue({ swapVersion: 2 });
+    getSwapItemSlug.mockReturnValue('sol');
+  });
+
+  it.each([
+    { type: 'external', providerName: '1inch', url: 'https://example.com/swap?from=eth&to=usdc' },
+  ])('passes through error hints without requiring a TON wallet: $type', async (hint) => {
+    const response = { error: 'Pair not found', hint };
+    const request = { from: 'eth', to: 'ethereum-usdc', fromAmount: '0.1' };
+    callBackendPost.mockResolvedValue(response);
+
+    expect(await swapEstimate('account-mainnet', request)).toBe(response);
+    expect(callBackendPost).toHaveBeenCalledWith('/swap/estimate', {
+      ...request, swapVersion: 2, walletVersion: undefined,
+    }, { isAllowBadRequest: true });
+    expect(fetchStoredWallet).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { error: 'Pair not found' },
+    { route: 'dex', from: 'TON', to: 'USD₮', fromAmount: '1', toAmount: '5' },
+    { route: 'cex', from: 'eth', to: 'sol', fromAmount: '1', toAmount: '5', fromMin: '0.1' },
+  ])('normalizes intermediate hints in SDK responses for every client: %p', async (estimate) => {
+    const response = { ...estimate, hint: { type: 'intermediate', token: 'solana:native' } };
+    callBackendPost.mockResolvedValue(response);
+
+    expect(await swapEstimate('account-mainnet', { from: 'eth', to: 'sol', fromAmount: '1' })).toEqual({
+      ...estimate, hint: { type: 'intermediate', token: 'sol' },
+    });
+    expect(getSwapItemSlug).toHaveBeenCalledWith('solana:native');
+    expect(response.hint.token).toBe('solana:native');
+    expect(fetchStoredWallet).not.toHaveBeenCalled();
+  });
+
+  it('preserves the TON wallet version and an ordinary estimate response', async () => {
+    fetchStoredAccount.mockResolvedValue({ byChain: { ton: { version: 'W5' } } });
+    const response = { route: 'dex', from: 'TON', to: 'USD₮', fromAmount: '1', toAmount: '5' };
+    callBackendPost.mockResolvedValue(response);
+
+    expect(await swapEstimate('account-mainnet', { from: 'TON', to: 'USD₮', fromAmount: '1' })).toBe(response);
+    expect(callBackendPost).toHaveBeenCalledWith('/swap/estimate', expect.objectContaining({
+      walletVersion: 'W5',
+    }), { isAllowBadRequest: true });
+  });
+});
 
 describe('DEX swap submitted identities', () => {
   beforeEach(() => {

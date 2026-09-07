@@ -24,8 +24,9 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.HomeStatusController
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
@@ -120,7 +121,7 @@ class TabletTabsVC(context: Context) :
             }
         )
     }
-    private var pillShadow: PillShadowView? = null
+    private var pillShadow: WGlassView? = null
     private val headerView: HomeHeaderView get() = sidePanel.headerView
     private val contentPanel = WFrameLayout(context)
 
@@ -263,14 +264,13 @@ class TabletTabsVC(context: Context) :
 
         view.addView(contentPanel, ViewGroup.LayoutParams(0, MATCH_PARENT))
         view.addView(sidePanel, ViewGroup.LayoutParams(panelWidth, 0))
-        pillShadow =
-            PillShadowView.attachTo(
-                sidePanel,
-                ViewConstants.BLOCK_RADIUS.dp,
-                drawInFront = true
-            ).also { shadow ->
-                sidePanel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> shadow.sync() }
-            }
+        pillShadow = WGlassView.attachTo(
+            sidePanel,
+            ViewConstants.BLOCK_RADIUS.dp,
+            GlassProviders.shadowOnly(),
+            root = null,
+            drawInFront = true
+        )
         view.addView(resizeHandle, ViewGroup.LayoutParams(RESIZE_HANDLE_WIDTH.dp, 0))
         view.setConstraints {
             startToEnd(contentPanel, sidePanel, -ViewConstants.TABLET_PANELS_OVERLAP_WIDTH)
@@ -291,7 +291,7 @@ class TabletTabsVC(context: Context) :
                 Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             )
         )
-        searchBar.attachShadow()
+        searchBar.attachGlass()
         cachedExploreVC?.let { searchBar.setupBlurWith(it.view) }
         mountActiveTab()
         sidePanel.setSelectedTab(currentTabId)
@@ -395,7 +395,6 @@ class TabletTabsVC(context: Context) :
         if (visible == (searchBar.isVisible)) return
         if (!visible && searchBar.editText.hasFocus()) searchBar.editText.clearFocus()
         searchBar.visibility = if (visible) View.VISIBLE else View.INVISIBLE
-        searchBar.syncShadow()
         activeNavigationController?.insetsUpdated()
     }
 
@@ -503,7 +502,6 @@ class TabletTabsVC(context: Context) :
         val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
         searchBar.translationX = (leadingGutter / 2f) * (if (isRtl) -1f else 1f)
         searchBar.updateWidth()
-        searchBar.syncShadow()
     }
 
     override fun viewWillAppear() {
@@ -531,7 +529,9 @@ class TabletTabsVC(context: Context) :
 
     private fun applyPillShadowBottom() {
         val gradientNav = WGlobalStorage.isGradientNavigationBarActive()
-        pillShadow?.setBottomCornerRadius(if (gradientNav) 0f else ViewConstants.TOOLBAR_RADIUS.dp)
+        val top = ViewConstants.BLOCK_RADIUS.dp
+        val bottom = if (gradientNav) 0f else ViewConstants.TOOLBAR_RADIUS.dp
+        pillShadow?.setRadius(top, top, bottom, bottom)
         pillShadow?.setBottomInset(if (gradientNav) 0f else sidePanel.contentBottomInset.toFloat())
     }
 
@@ -676,10 +676,6 @@ class TabletTabsVC(context: Context) :
     override fun dismissMinimized(animated: Boolean) {}
     override fun scrollingUp() {}
     override fun scrollingDown() {}
-    override val pausedBlurViews: Boolean get() = sidePanel.pausedBlurViews
-    override fun pauseBlurring() {}
-    override fun resumeBlurring() {}
-
     override fun setSearchText(text: String) {
         selectTab(IBottomNavigationView.ID_EXPLORE)
         searchBar.setSearchText(text)

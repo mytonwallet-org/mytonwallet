@@ -10,6 +10,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Path
@@ -42,6 +43,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
+import org.mytonwallet.app_air.uicomponents.glass.GlassCaptureHost
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -54,7 +56,11 @@ import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 open class WView(
     context: Context,
     layoutParams: ViewGroup.LayoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-) : ConstraintLayout(context) {
+) : ConstraintLayout(context),
+    GlassCaptureHost {
+
+    override fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean =
+        drawChild(canvas, child, drawingTime)
     init {
         id = generateViewId()
         this.layoutParams = layoutParams

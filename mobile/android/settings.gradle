@@ -46,6 +46,7 @@ def subModules = [
   "UIWidgetsConfigurations",
   "WalletBaseContext",
   "NativeEnclave",
+  "Blur3",
 ]
 include(airSubModulePath)
 project(airSubModulePath).projectDir = file('air/SubModules')

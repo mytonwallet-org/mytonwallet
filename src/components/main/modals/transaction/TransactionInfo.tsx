@@ -188,6 +188,7 @@ function TransactionInfo({
 
   const isOurStaking = transaction && isOurStakingTransaction(transaction);
   const isOurUnstaking = isOurStaking && transaction?.type === 'unstake';
+  const isApproval = transaction?.type === 'approval';
   const isNftTransfer = Boolean(transaction?.nft);
   const isAnyPending = transaction ? getIsActivityPendingForUser(transaction) : undefined;
   const isTransactionWithPoisoning = transaction && getIsTransactionWithPoisoning(transaction);
@@ -312,7 +313,7 @@ function TransactionInfo({
       && stakingStatus === 'active';
     const buttons: TeactNode[] = [];
 
-    if (!isOurStaking && !isIncoming && !isNftTransfer && onSendClick) {
+    if (!isOurStaking && !isApproval && !isIncoming && !isNftTransfer && onSendClick) {
       buttons.push(
         <Button onClick={onSendClick} className={styles.button}>
           {lang('Repeat')}
@@ -351,7 +352,9 @@ function TransactionInfo({
           amount={amount ?? 0n}
           token={token}
           status={isOurUnstaking && !shouldRenderUnstakeTimer ? lang('Successfully') : undefined}
-          noSign={amountDisplayMode === 'noSign'}
+          noSign={amountDisplayMode === 'noSign' || amountDisplayMode === 'approval'}
+          isApproval={isApproval}
+          isApprovalUnlimited={transaction?.isApprovalUnlimited}
           baseCurrency={baseCurrency}
           currencyRates={currencyRates}
           onTokenClick={onTokenClick}
@@ -367,7 +370,7 @@ function TransactionInfo({
           <>
             {fromAddress && (
               <>
-                <div className={transferStyles.label}>{lang('Sender')}</div>
+                <div className={transferStyles.label}>{lang(isApproval ? 'Owner' : 'Sender')}</div>
                 <InteractiveTextField
                   chain={chain}
                   addressName={senderAddressName}
@@ -380,7 +383,7 @@ function TransactionInfo({
             )}
             {toAddress && (
               <>
-                <div className={transferStyles.label}>{lang('Recipient')}</div>
+                <div className={transferStyles.label}>{lang(isApproval ? 'Spender' : 'Recipient')}</div>
                 <InteractiveTextField
                   chain={chain}
                   addressName={recipientAddressName}
@@ -394,7 +397,9 @@ function TransactionInfo({
           </>
         ) : (
           <>
-            <div className={transferStyles.label}>{lang(isIncoming ? 'Sender' : 'Recipient')}</div>
+            <div className={transferStyles.label}>
+              {lang(isApproval ? (isIncoming ? 'Owner' : 'Spender') : isIncoming ? 'Sender' : 'Recipient')}
+            </div>
             <InteractiveTextField
               chain={chain}
               addressName={addressName}

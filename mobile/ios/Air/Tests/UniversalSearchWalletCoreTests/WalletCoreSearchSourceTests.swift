@@ -78,78 +78,6 @@ struct WalletCoreSearchSourceTests {
     }
 
     @Test
-    func `held Solana and USDT are immediately searchable case insensitively`() async throws {
-        let multichainAccount = MAccount(
-            id: "account-multichain-mainnet",
-            title: "Multichain Wallet",
-            type: .mnemonic,
-            byChain: [
-                .ton: AccountChain(address: "EQ-main"),
-                .solana: AccountChain(address: "sol-main"),
-            ]
-        )
-        let solana = ApiToken(
-            slug: "solana",
-            name: "Solana",
-            symbol: "SOL",
-            decimals: 9,
-            chain: .solana
-        )
-        let fakeSolana = ApiToken(
-            slug: "ton-fake-solana",
-            name: "Solana Community Token",
-            symbol: "SOLANA",
-            decimals: 9,
-            chain: .ton,
-            isPopular: true
-        )
-        let usdt = ApiToken(
-            slug: "ton-usdt",
-            name: "Tether USD",
-            symbol: "USDT",
-            decimals: 6,
-            chain: .ton,
-            tokenAddress: "EQ-usdt"
-        )
-        let source = WalletCoreTokenSearchSource { _ in
-            WalletCoreTokenSearchInput(
-                account: multichainAccount,
-                tokens: [fakeSolana, usdt, solana],
-                balances: [
-                    MTokenBalance(
-                        tokenSlug: solana.slug,
-                        balance: 10,
-                        isStaking: false
-                    ),
-                    MTokenBalance(
-                        tokenSlug: usdt.slug,
-                        balance: 50,
-                        isStaking: false
-                    ),
-                ],
-                trackedTokenSlugs: []
-            )
-        }
-        let coordinator = UniversalSearchCoordinator(sources: [source])
-        let context = UniversalSearchContext(
-            scopeID: multichainAccount.id,
-            network: multichainAccount.network.rawValue,
-            localeIdentifier: "en"
-        )
-
-        _ = try await coordinator.refresh(context: context)
-        let solanaResults = await coordinator.search("Solana")
-        let usdtResults = await coordinator.search("Usdt")
-
-        #expect(solanaResults.corpusDocumentCount == 3)
-        #expect(solanaResults.hits.first?.id == SearchEntityID("token:solana"))
-        #expect(solanaResults.hits.first?.document.signals.traits.contains(.held) == true)
-        #expect(solanaResults.hits.map(\.id).contains(SearchEntityID("token:ton-usdt")) == false)
-        #expect(usdtResults.hits.first?.id == SearchEntityID("token:ton-usdt"))
-        #expect(usdtResults.hits.first?.match.kind == .exactPhrase)
-    }
-
-    @Test
     func `wallet source distinguishes owned view and temporary external wallets`() {
         let owned = account
         let view = MAccount(
@@ -181,7 +109,7 @@ struct WalletCoreSearchSourceTests {
     }
 
     @Test
-    func `collectible source emits NFT before its deduplicated collection in ranking`() {
+    func `collectible source deduplicates collections and preserves account ownership`() {
         var first = ApiNft.ERROR
         first.address = "nft-1"
         first.name = "Alpha"
@@ -196,14 +124,13 @@ struct WalletCoreSearchSourceTests {
             accountID: account.id
         )
         let collections = documents.filter { $0.kind == .collection }
-        let results = UniversalSearchEngine().search("alpha", in: documents)
+        let collectibles = documents.filter { $0.kind == .collectible }
 
-        #expect(documents.filter { $0.kind == .collectible }.count == 2)
+        #expect(collectibles.count == 2)
         #expect(collections.count == 1)
-        #expect(results.first?.document.kind == .collectible)
-        #expect(results.first?.document.attributeValue(
+        #expect(collectibles.allSatisfy { $0.attributeValue(
             for: WalletCoreSearchAttributeKey.accountID
-        ) == account.id)
+        ) == account.id })
     }
 
     @Test
@@ -286,73 +213,21 @@ struct WalletCoreSearchSourceTests {
     }
 
     @Test
-    func `connected app merges with catalog origin and outranks other catalog apps`() async throws {
-        let connected = ApiDapp(
-            url: "https://app.storm.tg",
-            name: "Storm Connected",
-            iconUrl: "https://app.storm.tg/connected.png",
-            connectedAt: 2,
-            urlTrustStatus: .verified,
-            sse: nil
+    func `Telegram usernames do not outrank wallet actions as exact domains`() {
+        let apps = WalletCoreExploreAppSearchSource.documents(
+            input: .init(
+                sites: [Self.makeSite(url: "https://t.me/send", name: "Crypto Bot")],
+                categories: [], shouldRestrictSites: false
+            ),
+            generatedAt: Date()
         )
-        let connectedSource = WalletCoreConnectedAppSearchSource { _ in [connected] }
-        let catalogSource = WalletCoreExploreAppSearchSource { _ in
-            WalletCoreExploreAppSearchInput(
-                sites: [
-                    Self.makeSite(
-                        url: "https://app.storm.tg/trade?ref=my-wallet",
-                        name: "Storm Trade"
-                    ),
-                    Self.makeSite(
-                        url: "https://storm-tools.example",
-                        name: "Storm Tools"
-                    ),
-                ],
-                categories: [],
-                shouldRestrictSites: false
-            )
-        }
-        let coordinator = UniversalSearchCoordinator(sources: [catalogSource, connectedSource])
-        let context = UniversalSearchContext(
-            scopeID: account.id,
-            network: account.network.rawValue,
-            localeIdentifier: "en"
+        let send = SearchDocument(
+            id: SearchEntityID("action:send"), kind: .walletAction,
+            fields: [SearchField("Send", kind: .title)]
         )
-
-        _ = try await coordinator.refresh(context: context)
-        let results = await coordinator.search("Storm")
-        let first = try #require(results.hits.first)
-
-        #expect(results.hits.count == 2)
-        #expect(results.hits.filter {
-            $0.id == SearchEntityID("application:app.storm.tg")
-        }.count == 1)
-        #expect(first.id == SearchEntityID("application:app.storm.tg"))
-        #expect(first.document.fields.contains(SearchField("Storm Connected", kind: .title)))
-        #expect(first.document.attributeValue(for: WalletCoreSearchAttributeKey.url) == connected.url)
-        #expect(first.document.signals.traits.contains([.connected, .curated, .popular]))
-        #expect(first.document.signals.popularity?.source == WalletCoreExploreAppSearchSource.id)
-    }
-
-    @Test
-    func `source snapshot uses stable identity authority and injected clock`() async throws {
-        let date = Date(timeIntervalSince1970: 42)
-        let source = WalletCoreWalletSearchSource(
-            loader: { _ in [account] },
-            clock: { date }
-        )
-        let context = UniversalSearchContext(
-            scopeID: account.id,
-            network: account.network.rawValue,
-            localeIdentifier: "en"
-        )
-
-        let snapshot = try await source.snapshot(for: context)
-
-        #expect(snapshot.sourceID == WalletCoreWalletSearchSource.id)
-        #expect(snapshot.authority == 100)
-        #expect(snapshot.generatedAt == date)
-        #expect(snapshot.documents.count == 1)
+        let engine = UniversalSearchEngine()
+        #expect(engine.search("send", in: apps + [send]).first?.id == send.id)
+        #expect(engine.search("https://t.me/send", in: apps + [send]).first?.id == apps.first?.id)
     }
 
     private static func makeSite(

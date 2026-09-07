@@ -1,3 +1,4 @@
+import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
@@ -21,6 +22,7 @@ import { fromDecimal, toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { explainSwapFee, getMaxSwapAmount, isBalanceSufficientForSwap } from '../../util/fee/swapFee';
 import { vibrate } from '../../util/haptics';
+import { openUrl } from '../../util/openUrl';
 import { findNativeToken, getChainBySlug } from '../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -100,6 +102,7 @@ function SwapInitial({
     currentCexAmlKycPolicyUrl,
     dieselFee,
     maxAmountFromBackend,
+    swapHint,
   },
   tokens,
   isActive,
@@ -118,6 +121,7 @@ function SwapInitial({
     estimateSwap,
     setSwapScreen,
     setSwapCexAddress,
+    setSwapTokenOut,
     authorizeDiesel,
     showToast,
   } = getActions();
@@ -216,6 +220,20 @@ function SwapInitial({
 
   const isPriceImpactError = priceImpact >= MAX_PRICE_IMPACT_VALUE;
   const isCrosschain = swapType !== SwapType.OnChain;
+
+  const intermediateHintToken = useMemo(() => {
+    if (swapHint?.type !== 'intermediate') return undefined;
+
+    return tokens?.find((token) => token.slug === swapHint.token);
+  }, [swapHint, tokens]);
+
+  const handleSwapHintClick = useLastCallback(() => {
+    if (swapHint?.type === 'intermediate' && intermediateHintToken) {
+      setSwapTokenOut({ tokenSlug: intermediateHintToken.slug });
+    } else if (swapHint?.type === 'external') {
+      void openUrl(swapHint.url, { isExternal: true, title: swapHint.providerName });
+    }
+  });
 
   const [isBuyAmountInputDisabled, handleBuyAmountInputClick] = useReverseProhibited(
     isCrosschain,
@@ -443,6 +461,45 @@ function SwapInitial({
     );
   }
 
+  function renderSwapHint() {
+    if (!errorType || !swapHint) {
+      return undefined;
+    }
+
+    let title: TeactNode;
+    let message: TeactNode;
+    let actionTitle: TeactNode;
+
+    if (swapHint.type === 'intermediate') {
+      if (!intermediateHintToken || !tokenOut) return undefined;
+
+      title = lang('Direct swap unavailable');
+      message = lang('To buy %buy_token%, first buy %token%, then swap it for %buy_token%.', {
+        buy_token: tokenOut.symbol,
+        token: intermediateHintToken.symbol,
+      });
+      actionTitle = lang('Buy %token%', { token: intermediateHintToken.symbol });
+    } else {
+      title = lang('Swap on an external service');
+      message = lang('Open %provider% to swap this pair in the browser.', {
+        provider: swapHint.providerName,
+      });
+      actionTitle = lang('Open %provider%', { provider: swapHint.providerName });
+    }
+
+    return (
+      <div className={styles.swapHint}>
+        <div className={styles.swapHintText}>
+          <span className={styles.swapHintTitle}>{title}</span>
+          <span className={styles.swapHintDescription}>{message}</span>
+        </div>
+        <button type="button" className={styles.swapHintAction} onClick={handleSwapHintClick}>
+          {actionTitle}
+        </button>
+      </div>
+    );
+  }
+
   function renderCexProviderInfo() {
     if (!isCrosschain || !currentCexLabel) {
       return undefined;
@@ -514,7 +571,7 @@ function SwapInitial({
             {renderBalance()}
             <RichNumberInput
               id="swap-sell"
-              labelText={lang('You sell')}
+              labelText={lang('You Sell')}
               className={styles.amountInput}
               hasError={hasAmountInError}
               value={amountIn?.toString()}
@@ -537,7 +594,7 @@ function SwapInitial({
           <div ref={inputOutRef} className={styles.inputContainer}>
             <RichNumberInput
               id="swap-buy"
-              labelText={lang('You buy')}
+              labelText={lang('You Buy')}
               className={styles.amountInputBuy}
               value={amountOutValue}
               isLoading={isEstimating && inputSource === SwapInputSource.In}
@@ -557,6 +614,7 @@ function SwapInitial({
         <div className={buildClassName(styles.footerBlock, isStatic && styles.footerBlockStatic)}>
           {renderFee()}
           {renderPriceImpactWarning()}
+          {renderSwapHint()}
           {renderCexProviderInfo()}
 
           <SwapSubmitButton

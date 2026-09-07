@@ -53,6 +53,8 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     
     @AccountContext internal var account: MAccount
         
+    public var showAllMenuProvider: SegmentedControlContextMenuProvider?
+
     public var onScroll: ((CGFloat) -> Void)?
         
     private var collectionView: UICollectionView!
@@ -237,10 +239,10 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             .margins(.all, 0)
             cell.backgroundColor = .clear
         }
-        let actionCellRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, Action> { cell, _, itemIdentifier in
+        let actionCellRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, Action> { [weak self] cell, _, itemIdentifier in
             switch itemIdentifier {
             case .showAll(let title, let count):
-                cell.configureCollectibles(title: title, collectiblesCount: count)
+                cell.configureCollectibles(title: title, collectiblesCount: count, menuProvider: self?.showAllMenuProvider)
             }
             cell.configurationUpdateHandler = { seeAllCell, state in
                 seeAllCell.isHighlighted = state.isHighlighted

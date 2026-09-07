@@ -426,8 +426,6 @@ class LedgerConnectVC(
                 )
             )
         }
-        bottomReversedCornerViewUpsideDown.pauseBlurring()
-
         updateTheme()
 
         initBluetooth()
@@ -1037,11 +1035,6 @@ class LedgerConnectVC(
             }
         bottomReversedCornerViewUpsideDown.visibility = tryAgainButton.visibility
         bottomReversedCornerView?.isGone = bottomReversedCornerViewUpsideDown.isVisible
-        if (bottomReversedCornerViewUpsideDown.isVisible) {
-            bottomReversedCornerViewUpsideDown.resumeBlurring()
-        } else {
-            bottomReversedCornerViewUpsideDown.pauseBlurring()
-        }
         when (state) {
             LedgerManager.ConnectionState.Connecting -> {
                 connectLedgerStep.state =

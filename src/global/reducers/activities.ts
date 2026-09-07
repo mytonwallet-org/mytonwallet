@@ -258,6 +258,48 @@ export function addPastActivities(
   });
 }
 
+/**
+ * Records whether the last past-activity request failed. Without it a failed request is
+ * indistinguishable from one still in flight, and the list shows a spinner that never ends.
+ */
+export function updateActivitiesLoadError(
+  global: GlobalState,
+  accountId: string,
+  tokenSlug: string | undefined, // undefined for main activities
+  hasError: boolean,
+): GlobalState {
+  const { activities } = selectAccountState(global, accountId) || {};
+
+  if (tokenSlug) {
+    if (Boolean(activities?.hasHistoryErrorBySlug?.[tokenSlug]) === hasError) {
+      return global;
+    }
+
+    return updateAccountState(global, accountId, {
+      activities: {
+        byId: {},
+        ...activities,
+        hasHistoryErrorBySlug: {
+          ...activities?.hasHistoryErrorBySlug,
+          [tokenSlug]: hasError,
+        },
+      },
+    });
+  }
+
+  if (Boolean(activities?.hasMainHistoryError) === hasError) {
+    return global;
+  }
+
+  return updateAccountState(global, accountId, {
+    activities: {
+      byId: {},
+      ...activities,
+      hasMainHistoryError: hasError,
+    },
+  });
+}
+
 function groupMainPastIdsByChain(pastActivities: ApiActivity[]) {
   // A swap activity touches multiple chains, but it must be attributed to exactly one of them
   // for boundary computation. Attributing it to all of its chains would push its timestamp into
@@ -290,10 +332,18 @@ function mergeActivitiesByIdPreservingStatusProgress(
 ) {
   const nextById = { ...byId };
   for (const activity of incomingActivities) {
-    nextById[activity.id] = preserveActivityStatusProgress(nextById[activity.id], activity);
+    const existing = nextById[activity.id];
+    if (shouldPreserveApproval(existing, activity)) continue;
+
+    nextById[activity.id] = preserveActivityStatusProgress(existing, activity);
   }
 
   return nextById;
+}
+
+function shouldPreserveApproval(existing: ApiActivity | undefined, incoming: ApiActivity) {
+  return existing?.kind === 'transaction' && existing.type === 'approval'
+    && incoming.kind === 'transaction' && incoming.type === 'callContract';
 }
 
 export function removeActivities(
@@ -420,6 +470,8 @@ export function updateActivity(global: GlobalState, accountId: string, activity:
   if (!byId || !(id in byId)) {
     return global;
   }
+
+  if (shouldPreserveApproval(byId[id], activity)) return global;
 
   return updateAccountState(global, accountId, {
     activities: {

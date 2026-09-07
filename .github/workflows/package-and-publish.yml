@@ -746,7 +746,10 @@ jobs:
     needs: detect-changes
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 30
+    # A cold Gradle cache pushes the gram variant past 30 minutes, and the cache is only written by
+    # setup-gradle's Post step, which a job killed by the cap never reaches - so the cap kept feeding
+    # the cold build that made the job slow. The warm variant finishes the same work in 25.
+    timeout-minutes: 45
     if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.ios-only != 'true' && needs.detect-changes.outputs.android-variants != '[]'
     strategy:
       fail-fast: false

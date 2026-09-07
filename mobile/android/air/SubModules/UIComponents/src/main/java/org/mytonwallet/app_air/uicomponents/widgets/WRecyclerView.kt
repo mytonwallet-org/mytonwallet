@@ -3,10 +3,12 @@ package org.mytonwallet.app_air.uicomponents.widgets
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
 import android.widget.EdgeEffect
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -18,10 +20,16 @@ import me.everything.android.ui.overscroll.VerticalOverScrollBounceEffectDecorat
 import me.everything.android.ui.overscroll.adapters.RecyclerViewOverScrollDecorAdapter
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.glass.GlassCaptureHost
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
-open class WRecyclerView(context: Context) : RecyclerView(context) {
+open class WRecyclerView(context: Context) :
+    RecyclerView(context),
+    GlassCaptureHost {
+
+    override fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean =
+        drawChild(canvas, child, drawingTime)
     init {
         id = generateViewId()
         isVerticalScrollBarEnabled = false

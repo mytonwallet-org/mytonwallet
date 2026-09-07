@@ -166,7 +166,10 @@ final class SwapButtonPresentationController {
 }
 
 @MainActor final class SwapButtonModel {
-    func configuration(for state: SwapButtonState, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration {
+    func configuration(for state: SwapButtonState, sellingToken: ApiToken?, buyingToken: ApiToken?) -> SwapButtonConfiguration {
+        guard let sellingToken, let buyingToken else {
+            return SwapButtonConfiguration(title: .continue, isEnabled: false, showLoading: false)
+        }
         switch state {
         case .invalidPair:
             return SwapButtonConfiguration(
@@ -203,7 +206,11 @@ final class SwapButtonPresentationController {
 }
 
 extension WButton {
-    func configureTitle(sellingToken: ApiToken, buyingToken: ApiToken) {
+    func configureTitle(sellingToken: ApiToken?, buyingToken: ApiToken?) {
+        guard let sellingToken, let buyingToken else {
+            configureTitleContinue()
+            return
+        }
         let sellingSymbol = sellingToken.symbol.leftToRightIsolated
         let buyingSymbol = buyingToken.symbol.leftToRightIsolated
         let chevronPlaceholder = "{{chevron}}"

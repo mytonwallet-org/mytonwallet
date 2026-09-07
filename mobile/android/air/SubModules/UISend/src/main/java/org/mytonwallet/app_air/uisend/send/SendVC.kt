@@ -487,13 +487,8 @@ class SendVC(
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             )
             id = generateViewId()
-            setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            setOnScrollChangeListener { _, _, _, _, _ ->
                 updateBlurViews(scrollView = this)
-                if (scrollY > 0) {
-                    bottomReversedCornerViewUpsideDown.resumeBlurring()
-                } else {
-                    bottomReversedCornerViewUpsideDown.pauseBlurring()
-                }
             }
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
             isVerticalScrollBarEnabled = false

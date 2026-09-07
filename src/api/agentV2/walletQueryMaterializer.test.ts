@@ -643,6 +643,28 @@ describe('wallet query materializer', () => {
     expect(fetchPastActivities.mock.calls.map(([accountId]) => accountId).sort()).toEqual(['main', 'savings']);
   });
 
+  it('projects approvals without treating the allowance as transferred value', async () => {
+    const session = sessionWithHost();
+    const approval = transaction('d'.repeat(64), Date.parse(NOW), 2n ** 256n - 1n);
+    if (approval.kind !== 'transaction') throw new Error('Expected transaction fixture');
+    approval.type = 'approval';
+    const result = await runQuery(session, {
+      ...transactionsArgs('list'), accountSelector: { kind: 'current' },
+    }, {
+      fetchPastActivities: () => Promise.resolve({ activities: [approval], hasMore: false }),
+    });
+
+    expect(result.operation).toBe('transactions.list');
+    if (result.operation !== 'transactions.list') return;
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        transactionType: 'callContract',
+        safeDescription: 'Token approval',
+      }),
+    ]);
+    expect(result.transactions[0]).not.toHaveProperty('quantity');
+  });
+
   it('applies the top-level transaction chain constraint', async () => {
     const session = sessionWithHost();
     const result = await runQuery(session, {

@@ -176,6 +176,10 @@ class TokensVC(
             currentHomeAssetsLimit
         }
 
+    private fun shouldShowAllRow(visibleTokenCount: Int, limit: Int): Boolean = mode == Mode.HOME &&
+        visibleTokenCount > 0 &&
+        (visibleTokenCount > limit || currentHomeAssetsLimit > HOME_ASSETS_TOP_LIMITS.first())
+
     private fun initialHomeHeightFromCache(): Int {
         if (mode != Mode.HOME) return 0
         val cachedData = AccountStore.assetsAndActivityData
@@ -189,7 +193,7 @@ class TokensVC(
         }
         if (visibleTokenCount == 0) return 0
         val initialLimit = calculateEffectiveHomeLimit(visibleTokenCount)
-        val hasMore = visibleTokenCount > initialLimit
+        val hasMore = shouldShowAllRow(visibleTokenCount, initialLimit)
         return (60 * min(visibleTokenCount, initialLimit)).dp +
             (if (hasMore) 56 else 0).dp
     }
@@ -407,7 +411,7 @@ class TokensVC(
                 val limitChanged = effectiveHomeLimit != limit
                 effectiveHomeLimit = limit
                 walletTokens = filteredWalletTokens.toTypedArray()
-                val moreToShow = mode == Mode.HOME && totalVisibleTokensCount > limit
+                val moreToShow = shouldShowAllRow(totalVisibleTokensCount, limit)
                 val moreToShowChanged = thereAreMoreToShow != moreToShow
                 thereAreMoreToShow = moreToShow
                 showAllView.setCounter(totalVisibleTokensCount)

@@ -398,4 +398,59 @@ describe('pending reconciler', () => {
     ]);
     expect(result.patch.replacedIds).toEqual({ [pending.id]: confirmed.id });
   });
+
+  it('retires the local rows of a multi-action trace once the chain has finalized it', () => {
+    // One dapp transaction is emulated into a row per action, all under the same external message hash. The real trace
+    // brings several actions under that hash too, so no row can be paired one to one.
+    const externalMsgHashNorm = 'external-message-hash';
+    const localRows = [0, 1, 2].map((index) => makeTransaction({
+      id: `${externalMsgHashNorm}:${index}:local`,
+      externalMsgHashNorm,
+      status: 'pending',
+    }));
+    const chainRows = [
+      makeTransaction({ id: 'trace-id:100-0', externalMsgHashNorm, status: 'completed' }),
+      makeTransaction({ id: 'trace-id:100-1', externalMsgHashNorm, status: 'completed' }),
+    ];
+
+    const result = reconcileNewActivitiesUpdate('account-1', localRows, chainRows, []);
+
+    expect(result.patch.removeIds).toEqual(expect.arrayContaining(localRows.map(({ id }) => id)));
+    expect(result.patch.upsert).toEqual(chainRows);
+  });
+
+  it('keeps the replacement of a single-action local row that the chain has finalized', () => {
+    // The row is retired here as well, but through its replacement, so the id remapping of an open transaction modal
+    // survives the finalization.
+    const externalMsgHashNorm = 'external-message-hash';
+    const localRow = makeTransaction({
+      id: `${externalMsgHashNorm}:0:local`,
+      externalMsgHashNorm,
+      status: 'pending',
+    });
+    const chainRow = makeTransaction({ id: 'trace-id:100-0', externalMsgHashNorm, status: 'completed' });
+
+    const result = reconcileNewActivitiesUpdate('account-1', [localRow], [chainRow], []);
+
+    expect(result.patch.replacedIds).toEqual({ [localRow.id]: chainRow.id });
+    expect(result.patch.removeIds).toEqual([localRow.id]);
+  });
+
+  it('keeps the local rows while the chain rows of the trace are still pending', () => {
+    // A pending trace can carry fewer actions than the emulation predicted, so it cannot stand in for the whole set.
+    const externalMsgHashNorm = 'external-message-hash';
+    const localRows = [0, 1, 2].map((index) => makeTransaction({
+      id: `${externalMsgHashNorm}:${index}:local`,
+      externalMsgHashNorm,
+      status: 'pending',
+    }));
+    const chainRows = [
+      makeTransaction({ id: 'trace-id:100-0', externalMsgHashNorm, status: 'pending' }),
+      makeTransaction({ id: 'trace-id:100-1', externalMsgHashNorm, status: 'pending' }),
+    ];
+
+    const result = reconcileNewActivitiesUpdate('account-1', localRows, [], chainRows);
+
+    expect(result.patch.removeIds).toEqual([]);
+  });
 });

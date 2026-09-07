@@ -15,8 +15,10 @@ import androidx.core.graphics.withClip
 import androidx.core.view.isGone
 import java.text.NumberFormat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -31,7 +33,11 @@ class MintCardAvailabilityView(context: Context) : FrameLayout(context) {
 
     private val cornerRadius: Float get() = height / 2f
 
-    private val blurView = WBlurryBackgroundView(context, fadeSide = null)
+    private val blurView = WGlassView(context).apply {
+        flavor = GlassFlavor.FROSTED
+        liquidGlass = false
+        setProvider(GlassProviders.plain(Color.WHITE, 26 / 255f))
+    }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE.colorWithAlpha(46)
@@ -94,13 +100,7 @@ class MintCardAvailabilityView(context: Context) : FrameLayout(context) {
     }
 
     fun setupBlur(rootView: ViewGroup) {
-        if (!WGlobalStorage.isBlurEnabled()) {
-            setBackgroundColor(Color.WHITE.colorWithAlpha(26))
-            blurView.isGone = true
-            return
-        }
         blurView.setupWith(rootView)
-        blurView.setOverlayColor(WColor.White, alpha = 26)
     }
 
     fun configure(cardInfo: MCardInfo?) {

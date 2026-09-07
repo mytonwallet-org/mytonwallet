@@ -271,7 +271,7 @@ private struct Background: View {
 
     var body: some View {
         ZStack {
-            Rectangle()
+            TintBackground()
             AngledArea(x: 0.05, radiusMultiplier: 0.9, isRightToLeft: isRightToLeft)
                 .fill(.white)
                 .opacity(0.1)
@@ -282,8 +282,19 @@ private struct Background: View {
                 .fill(.white)
                 .opacity(0.1)
         }
-        .foregroundStyle(.tint)
     }
+}
+
+// UIKit preserves the inherited tint dependency when resolving a derived dynamic color.
+private struct TintBackground: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = UIColor.tintColor.backgroundForWhiteContent
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
 }
 
 private extension Path {

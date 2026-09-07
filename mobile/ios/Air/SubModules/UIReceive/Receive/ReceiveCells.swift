@@ -23,16 +23,34 @@ struct AddressCell: View {
             .lineSpacing(2)
             .multilineTextAlignment(.leading)
 
-        Button {
-            AppActions.showToast(icon: .animatedCopy, message: L10n.chainAddressCopied(chain: chain.title))
-            Haptics.play(.lightTap)
-            UIPasteboard.general.string = address
-        } label: {
-            text
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
+        HStack(spacing: 8) {
+            Button {
+                AppActions.showToast(icon: .animatedCopy, message: L10n.chainAddressCopied(chain: chain.title))
+                Haptics.play(.lightTap)
+                UIPasteboard.general.string = address
+            } label: {
+                text
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(address)
+            .accessibilityHint(lang("Copy Address"))
+
+            Button {
+                AppActions.openInBrowser(ExplorerHelper.addressUrl(chain: chain, address: address))
+            } label: {
+                Image.airBundle("HomeGlobe")
+                    .renderingMode(.template)
+                    .frame(width: 24, height: 24)
+                    .frame(width: 44, height: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.air.tint)
+            .accessibilityLabel(lang("Open in Explorer"))
+            .padding(.trailing, -10)
         }
-        .buttonStyle(.plain)
     }
 }
 

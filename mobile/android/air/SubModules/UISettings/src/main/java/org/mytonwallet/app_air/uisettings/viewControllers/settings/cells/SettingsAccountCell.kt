@@ -3,14 +3,15 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.content.Context
+import android.text.Layout
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
-import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -18,12 +19,12 @@ import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
@@ -48,11 +49,14 @@ class SettingsAccountCell(context: Context) :
     private var isLast = false
 
     companion object {
-        fun heightForItem(isLast: Boolean): Int = (60 + if (isLast) ViewConstants.GAP else 0).dp
+        private const val BADGE_WIDTH = 12
+        private const val BADGE_SPACING = 4
+
+        fun heightForItem(isLast: Boolean): Int = (50 + if (isLast) ViewConstants.GAP else 0).dp
     }
 
     private val iconView: AccountIconView by lazy {
-        AccountIconView(context, AccountIconView.Usage.SelectableItem(16f.dp))
+        AccountIconView(context, AccountIconView.Usage.SelectableItem(14f.dp))
     }
 
     private val titleLabel: WLabel by lazy {
@@ -70,10 +74,10 @@ class SettingsAccountCell(context: Context) :
         CardThumbnailView(context)
     }
 
-    private val addressLabel: WMultichainAddressLabel by lazy {
-        WMultichainAddressLabel(context).apply {
-            setStyle(13f)
-            isSelected = true
+    private val badgesLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(12f)
+            setSingleLine()
         }
     }
 
@@ -102,7 +106,7 @@ class SettingsAccountCell(context: Context) :
     private val contentView = WView(context).apply {
         clipChildren = false
         clipToPadding = false
-        addView(iconView, LayoutParams(43.dp, 43.dp))
+        addView(iconView, LayoutParams(39.dp, 39.dp))
         addView(
             titleLabel,
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
@@ -112,18 +116,18 @@ class SettingsAccountCell(context: Context) :
             LayoutParams(22.dp, 14.dp)
         )
         addView(
-            addressLabel,
-            LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
+            badgesLabel,
+            LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
         addView(trailingContainerView)
 
         setConstraints {
             // Icon
-            toStart(iconView, 10.5f)
+            toStart(iconView, 12f)
             toCenterY(iconView)
 
             // Title
-            toTop(titleLabel, 11f)
+            toCenterY(titleLabel)
             toStart(titleLabel, 64f)
             setHorizontalBias(titleLabel.id, 0f)
             constrainedWidth(titleLabel.id, true)
@@ -133,25 +137,24 @@ class SettingsAccountCell(context: Context) :
             startToEnd(cardThumbnail, titleLabel, 6f)
             setHorizontalBias(cardThumbnail.id, 0f)
 
+            // Badges
+            centerYToCenterY(badgesLabel, titleLabel)
+            startToEnd(badgesLabel, cardThumbnail, 8f)
+            setHorizontalBias(badgesLabel.id, 0f)
+
             // Value
             toCenterY(trailingContainerView)
-            toEnd(trailingContainerView, 16f)
+            toEnd(trailingContainerView, 20f)
             setHorizontalBias(trailingContainerView.id, 1f)
             endToStartPx(cardThumbnail, trailingContainerView, 4.dp)
-
-            // Subtitle
-            topToBottom(addressLabel, titleLabel, 1f)
-            startToStart(addressLabel, titleLabel)
-            endToStart(addressLabel, trailingContainerView, 4f)
-            setHorizontalBias(addressLabel.id, 0f)
-            constrainedWidth(addressLabel.id, true)
+            endToStartPx(badgesLabel, trailingContainerView, 4.dp)
         }
     }
 
     init {
         super.setupViews()
 
-        addView(contentView, LayoutParams(MATCH_PARENT, 64.dp))
+        addView(contentView, LayoutParams(MATCH_PARENT, 50.dp))
         setConstraints {
             toTop(contentView)
             toCenterX(contentView)
@@ -188,12 +191,18 @@ class SettingsAccountCell(context: Context) :
         iconView.config(account)
         cardThumbnail.configure(account)
         titleLabel.text = account.name
+        updateBadges()
 
+        val badgesWidth = if (badgesLabel.text.isNullOrEmpty()) {
+            0
+        } else {
+            6.dp + Layout.getDesiredWidth(badgesLabel.text, badgesLabel.paint).roundToInt()
+        }
         contentView.setConstraints {
-            endToStart(
+            endToStartPx(
                 titleLabel,
                 trailingContainerView,
-                16f + (if (cardThumbnail.isGone) 0f else 22f)
+                16.dp + (if (cardThumbnail.isGone) 0 else 28.dp) + badgesWidth
             )
         }
 
@@ -207,7 +216,6 @@ class SettingsAccountCell(context: Context) :
 
         setOnClickListener { onTap() }
 
-        updateAddressLabel()
         updateTheme()
         if (accountChanged) {
             valueLabel.contentView.text = ""
@@ -236,25 +244,27 @@ class SettingsAccountCell(context: Context) :
         _isDarkThemeApplied = ThemeManager.isDark
 
         titleLabel.setTextColor(WColor.PrimaryText.color)
-        addressLabel.setTextColor(WColor.SecondaryText.color)
         valueLabel.contentView.setTextColor(WColor.SecondaryText.color)
+        updateBadges()
     }
 
     private fun setContentAlpha(alpha: Float) {
         iconView.alpha = alpha
         titleLabel.alpha = alpha
         cardThumbnail.alpha = alpha
-        addressLabel.alpha = alpha
+        badgesLabel.alpha = alpha
         trailingContainerView.alpha = alpha
     }
 
-    private fun updateAddressLabel() {
-        val style = when (account?.accountType) {
-            MAccount.AccountType.VIEW -> WMultichainAddressLabel.cardRowWalletViewStyle
-            MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.cardRowWalletHardwareStyle
-            else -> WMultichainAddressLabel.cardRowWalletStyle
-        }
-        addressLabel.displayAddresses(account, style)
+    private fun updateBadges() {
+        val account = account ?: return
+        badgesLabel.text = SpannableHelpers.accountBadgesSpan(
+            context,
+            account,
+            BADGE_WIDTH.dp,
+            BADGE_SPACING.dp,
+            WColor.SecondaryText.color
+        )
     }
 
     fun notifyBalanceChange() {

@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.helpers
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 class PoisoningCacheHelper {
@@ -36,7 +37,7 @@ class PoisoningCacheHelper {
         }
 
         fun updatePoisoningCache(accountId: String, tx: MApiTransaction) {
-            if (tx is MApiTransaction.Transaction) {
+            if (tx is MApiTransaction.Transaction && tx.type != ApiTransactionType.APPROVAL) {
                 val address = tx.peerAddress
                 val amount = tx.amount
                 val timestamp = tx.timestamp
@@ -52,7 +53,7 @@ class PoisoningCacheHelper {
         }
 
         fun getIsTransactionWithPoisoning(accountId: String, tx: MApiTransaction): Boolean {
-            if (tx is MApiTransaction.Transaction) {
+            if (tx is MApiTransaction.Transaction && tx.type != ApiTransactionType.APPROVAL) {
                 // The sender of an outgoing transaction is the wallet itself, so matching it against the cache
                 // can only ever produce a false positive that hides the user's own transfer.
                 if (!tx.isIncoming) return false

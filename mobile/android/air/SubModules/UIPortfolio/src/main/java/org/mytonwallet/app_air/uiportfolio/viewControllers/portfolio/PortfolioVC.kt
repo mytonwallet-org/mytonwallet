@@ -37,9 +37,9 @@ import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -94,22 +94,12 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private val scrollView = WScrollView(WeakReference(this)).apply {
         overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
         isVerticalScrollBarEnabled = false
-        onScrollStateChange = { state ->
+        onScrollStateChange = { _ ->
             updateBlurViews(this)
-            if (state == WScrollView.SCROLL_STATE_IDLE) {
-                periodSelectorBlurView.pauseBlurring()
-            } else {
-                periodSelectorBlurView.resumeBlurring()
-            }
         }
-        setOnScrollChangeListener { _, _, scrollY, _, _ ->
+        setOnScrollChangeListener { _, _, _, _, _ ->
             updateBlurViews(this)
             clearChartSelections()
-            if (scrollY == 0) {
-                periodSelectorBlurView.pauseBlurring()
-            } else {
-                periodSelectorBlurView.resumeBlurring()
-            }
         }
     }
     private val contentLayout = LinearLayout(context).apply {
@@ -152,12 +142,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         alpha = 0f
     }
     private val periodSelector = createPeriodSelector()
-    private val periodSelectorBlurView = WBlurryBackgroundView(context, fadeSide = null).apply {
-        setOverlayColor(WColor.SearchFieldBackground, 204)
-    }
     private val periodSelectorPill = WFrameLayout(context).apply {
         id = ViewGroup.generateViewId()
-        addView(periodSelectorBlurView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setBackgroundColor(Color.TRANSPARENT, 24f.dp, clipToBounds = true)
         addView(periodSelector, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
@@ -169,7 +155,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         addView(periodSelectorPill, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setOnClickListener {}
     }
-    private var periodSelectorShadow: PillShadowView? = null
+    private var periodSelectorGlass: WGlassView? = null
 
     // While fading placeholders in over the prior content, defer applying the new
     // Loaded state until placeholders are fully opaque so the swap is invisible.
@@ -222,13 +208,14 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             periodSelectorContainer,
             ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, PERIOD_SELECTOR_SECTION_HEIGHT.dp)
         )
-        periodSelectorShadow = PillShadowView.attachTo(periodSelectorPill, 24f.dp).apply {
+        periodSelectorGlass = WGlassView.attachTo(
+            periodSelectorPill,
+            24f.dp,
+            GlassProviders.pill(WColor.SearchFieldBackground),
+            view
+        ).apply {
             (layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.LEFT or Gravity.TOP
         }
-        periodSelectorPill.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            periodSelectorShadow?.sync()
-        }
-        periodSelectorBlurView.setupWith(view)
 
         view.setConstraints {
             topToBottom(scrollView, navigationBar!!)
@@ -299,7 +286,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         periodSelector.updateTheme()
         periodSelector.setBackgroundColor(Color.TRANSPARENT, 24f.dp)
         periodSelector.setSliderColor(WColor.SecondaryBackground.color)
-        periodSelectorBlurView.updateTheme()
+        periodSelectorGlass?.updateTheme()
     }
 
     override fun updateProtectedView() {
@@ -1813,16 +1800,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         private const val PERIOD_SELECTOR_SECTION_HEIGHT = 64
         private const val SENSITIVE_VALUE_MASK = "***"
         private const val TWO_COLUMN_SECTIONS_MIN_WIDTH_DP = 480
-    }
-
-    override fun viewWillAppear() {
-        super.viewWillAppear()
-        periodSelectorBlurView.resumeBlurring()
-    }
-
-    override fun viewWillDisappear() {
-        super.viewWillDisappear()
-        periodSelectorBlurView.pauseBlurring()
     }
 
     override fun onDestroy() {

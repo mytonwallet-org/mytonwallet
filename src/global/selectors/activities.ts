@@ -77,3 +77,12 @@ export function selectActivityHistoryIds(global: GlobalState, accountId: string,
     ? idsBySlug?.[tokenSlug]
     : idsMain;
 }
+
+/** Whether the last activity history request failed. Tells an empty list apart from a failed one. */
+export function selectHasActivityHistoryError(global: GlobalState, accountId: string, tokenSlug?: string) {
+  const { hasMainHistoryError, hasHistoryErrorBySlug } = selectAccountState(global, accountId)?.activities ?? {};
+
+  return tokenSlug
+    ? !!hasHistoryErrorBySlug?.[tokenSlug]
+    : !!hasMainHistoryError;
+}

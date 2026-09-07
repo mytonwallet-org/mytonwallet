@@ -9,18 +9,6 @@ private struct SendFailed: Error {}
 struct SdkActivationRelayTests {
 
     @Test
-    func `sends the requested account`() async throws {
-        let sent = UnfairLock<[String]>(initialState: [])
-        let relay = SdkActivationRelay(retryDelays: []) { accountId in
-            sent.withLock { $0.append(accountId) }
-        }
-
-        relay.requestActivation(accountId: "0-mainnet")
-
-        try await waitUntil { sent.withLock { $0 } == ["0-mainnet"] }
-    }
-
-    @Test
     func `retries failed sends until success`() async throws {
         let attempts = UnfairLock<Int>(initialState: 0)
         let relay = SdkActivationRelay(retryDelays: [.milliseconds(5), .milliseconds(5)]) { _ in

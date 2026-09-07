@@ -66,6 +66,10 @@ $amountBottomMargin: 1rem;
   }
 }
 
+.approval {
+  font-size: calc(2rem * var(--font-size-scale, 1));
+}
+
 .baseCurrencyAmount {
   padding: 0.625rem 0.75rem;
   font-size: 1rem;

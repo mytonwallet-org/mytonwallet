@@ -104,6 +104,8 @@ public struct UniversalSearchResultsPresenter {
             ("collectibles", lang("Collectibles"), [.collectible, .collection]),
             ("apps", lang("Apps"), [.application]),
             ("wallets", lang("Wallets"), [.wallet]),
+            ("actions", lang("Actions"), [.walletAction]),
+            ("settings", lang("Settings"), [.setting]),
             ("recent-chats", lang("Recent Chats"), [.agentChat]),
             ("recent-searches", lang("Recent Searches"), [.webSearchHistory]),
             ("sites", lang("Sites"), [.site]),
@@ -122,6 +124,7 @@ public struct UniversalSearchResultsPresenter {
                 layout: hits.count > Metrics.rowsPerPage
                     ? .paged(rowsPerPage: Metrics.rowsPerPage)
                     : .list,
+                rowHeight: group.id == "actions" ? 52 : 56,
                 showsLeadingSeparator: !isFirstResultSection,
                 items: hits.map(\.result.item)
             ))
@@ -294,6 +297,10 @@ public struct UniversalSearchResultsPresenter {
             lang("Wallet")
         case .agentChat:
             lang("Recent Chat")
+        case .walletAction:
+            lang("Action")
+        case .setting:
+            lang("Settings")
         case .site, .webSearchHistory:
             lang("Recent Search")
         default:
@@ -395,6 +402,8 @@ public struct UniversalSearchResultsPresenter {
         tokenBalanceResolver: TokenBalanceResolver
     ) -> UniversalSearchResolvedResult? {
         switch document.kind {
+        case .walletAction, .setting:
+            resolveAppEntry(document, context: context)
         case .token, .stock:
             resolveToken(
                 document,
@@ -441,6 +450,29 @@ public struct UniversalSearchResultsPresenter {
                 content: .chat(UniversalSearchChatResult(title: title, subtitle: subtitle))
             ),
             route: .agent(query: nil)
+        )
+    }
+
+    private static func resolveAppEntry(
+        _ document: SearchDocument,
+        context: UniversalSearchContext
+    ) -> UniversalSearchResolvedResult? {
+        guard let accountID = context.scopeID,
+              accountID == AccountStore.accountId,
+              let account = AccountStore.accountsById[accountID],
+              let entry = UniversalSearchAppEntries.available(in: .current(account: account))
+                .first(where: { $0.id == document.id.rawValue }),
+              let image = UniversalSearchAppEntryIcon.image(for: entry) else { return nil }
+        return UniversalSearchResolvedResult(
+            item: UniversalSearchItem(
+                id: entry.id,
+                content: .shortcut(UniversalSearchShortcutResult(
+                    icon: UniversalSearchIcon(.init(image: image, shape: .square)),
+                    title: lang(entry.titleKey),
+                    subtitle: entry.subtitleKey.map { lang($0) }
+                ))
+            ),
+            route: entry.route
         )
     }
 
@@ -644,12 +676,13 @@ public struct UniversalSearchResultsPresenter {
         }
 
         let imageURL = document.attributeValue(for: WalletCoreSearchAttributeKey.iconURL)
-            .flatMap(URL.init(string:))
         let host = url.host(percentEncoded: false) ?? url.host ?? urlString
         let item = UniversalSearchItem(
             id: document.id.rawValue,
             content: .app(UniversalSearchAppResult(
-                icon: remoteIcon(url: imageURL, title: title, shape: .roundedSquare),
+                icon: UniversalSearchIcon { iconView in
+                    iconView.config(withDappIconURL: imageURL)
+                },
                 title: title,
                 subtitle: host,
                 showsTelegramBadge: host.hasSuffix(".t.me") || host == "t.me",

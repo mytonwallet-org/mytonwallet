@@ -966,7 +966,9 @@ function projectTransaction(
   activity: ApiActivity,
 ): AgentWalletDataTransactionRowV3 {
   const accountRef = requireAccountRef(snapshot, account);
-  const transactionType = activity.kind === 'swap' ? 'swap' : activity.type ?? 'transfer';
+  const transactionType = activity.kind === 'swap'
+    ? 'swap'
+    : activity.type === 'approval' ? 'callContract' : activity.type ?? 'transfer';
   const direction = activity.kind === 'transaction'
     ? activity.fromAddress === activity.toAddress ? 'self' : activity.isIncoming ? 'incoming' : 'outgoing'
     : 'self';
@@ -1035,7 +1037,12 @@ function transactionPrimaryAmount(
   activity: ApiActivity,
   direction: AgentWalletDataTransactionRowV3['direction'],
 ) {
-  if (activity.kind !== 'transaction' || activity.nft || activity.amount === 0n) return undefined;
+  if (
+    activity.kind !== 'transaction'
+    || activity.type === 'approval'
+    || activity.nft
+    || activity.amount === 0n
+  ) return undefined;
   const asset = resolveAsset(dependencies, account, activity.slug);
   if (!asset) return undefined;
   const absolute = activity.amount < 0n ? -activity.amount : activity.amount;
@@ -1147,6 +1154,7 @@ function buildSafeDescription(
   if (activity.type === 'stake') return 'Stake transaction';
   if (activity.type === 'unstake') return 'Unstake transaction';
   if (activity.type === 'unstakeRequest') return 'Unstake request';
+  if (activity.type === 'approval') return 'Token approval';
   if (isContractTransaction(activity.type)) return 'Contract interaction';
   const asset = resolveAsset(dependencies, account, activity.slug);
   const quantity = asset
@@ -1618,7 +1626,7 @@ function nftAction(activity: Extract<ApiActivity, { kind: 'transaction' }>) {
 }
 
 function isContractTransaction(type: Extract<ApiActivity, { kind: 'transaction' }>['type']) {
-  return type === 'callContract' || type === 'contractDeploy'
+  return type === 'callContract' || type === 'approval' || type === 'contractDeploy'
     || type?.startsWith('dns') || type?.startsWith('liquidity');
 }
 

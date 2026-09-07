@@ -630,21 +630,31 @@ public class ActivityCell: WHighlightCollectionViewCell {
         case .transaction(let transaction):
             if displayMode != .hide, let token = options.transactionToken {
                 let amount = TokenAmount(transaction.amount, token)
-                let color: UIColor = transaction.type == .stake ? .air.textPurple : transaction.isIncoming ? UIColor.air.positiveAmount : UIColor.label
-                let amountString = amount.formatAttributed(
-                    format: .init(
-                        preset: .defaultAdaptive,
-                        showPlus: displayMode == .noSign ? false : true,
-                        showMinus: displayMode == .noSign ? false : true,
-                        roundHalfUp: false
-                    ),
-                    integerFont: WTypography.uiFont(.callout, content: .technical),
-                    fractionFont: WTypography.uiFont(.callout, content: .technical),
-                    symbolFont: WTypography.uiFont(.callout, content: .technical),
-                    integerColor: color,
-                    fractionColor: color,
-                    symbolColor: color
-                )
+                let color: UIColor = transaction.type == .stake
+                    ? .air.textPurple
+                    : transaction.isIncoming && displayMode != .approval ? UIColor.air.positiveAmount : UIColor.label
+                let amountString: NSAttributedString
+                if displayMode == .approval {
+                    amountString = NSAttributedString(string: transaction.formatApprovalAmount(token: token), attributes: [
+                        .font: WTypography.uiFont(.callout, content: .technical),
+                        .foregroundColor: color,
+                    ])
+                } else {
+                    amountString = amount.formatAttributed(
+                        format: .init(
+                            preset: .defaultAdaptive,
+                            showPlus: displayMode == .normal,
+                            showMinus: displayMode == .normal,
+                            roundHalfUp: false
+                        ),
+                        integerFont: WTypography.uiFont(.callout, content: .technical),
+                        fractionFont: WTypography.uiFont(.callout, content: .technical),
+                        symbolFont: WTypography.uiFont(.callout, content: .technical),
+                        integerColor: color,
+                        fractionColor: color,
+                        symbolColor: color
+                    )
+                }
                 amountLabel.attributedText = amountString
                 if displayMode == .hide {
                     amountIcons.setHideMode()
@@ -697,11 +707,12 @@ public class ActivityCell: WHighlightCollectionViewCell {
         amount2Label.textColor = UIColor.air.secondaryLabel
 
         let displayMode = activity.amountDisplayMode
-        amount2Label.isHidden = displayMode == .hide
+        amount2Label.isHidden = displayMode == .hide || displayMode == .approval
 
         switch activity {
         case .transaction(let transaction):
-            if displayMode != .hide, let token = options.transactionToken, let price = token.price {
+            if displayMode != .hide, displayMode != .approval,
+               let token = options.transactionToken, let price = token.price {
                 let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(options.baseCurrency, exchangeRate: price)
                 let color = UIColor.air.secondaryLabel
                 let amountString = amount.formatAttributed(
@@ -742,7 +753,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             let fiatAmountCols = 5 + (amountCols % 6)
             amountContainer.setCols(amountCols)
             amount2Container.setCols(fiatAmountCols)
-            if let tx = activity.transaction, tx.isIncoming, tx.amount > 0, tx.nft == nil {
+            if let tx = activity.transaction, tx.type != .approval, tx.isIncoming, tx.amount > 0, tx.nft == nil {
                 amountContainer.setTheme(.color(UIColor.air.positiveAmount))
             } else {
                 amountContainer.setTheme(.adaptive)

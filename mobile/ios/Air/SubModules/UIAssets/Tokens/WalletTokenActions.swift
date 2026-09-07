@@ -136,14 +136,15 @@ final class WalletTokenActions {
                             icon: .system("arrow.left.arrow.right"),
                             handler: { [weak self] in
                                 guard let self else { return }
-                                let defaultBuying = token.slug == TONCOIN_SLUG ? nil : TONCOIN_SLUG
-                                AppActions.showSwap(
-                                    accountContext: accountContext,
-                                    defaultSellingToken: token.slug,
-                                    defaultBuyingToken: defaultBuying,
-                                    defaultSellingAmount: nil,
-                                    push: nil
-                                )
+                                Task { [accountContext] in
+                                    await AppActions.showSwap(
+                                        accountContext: accountContext,
+                                        defaultSellingToken: token.slug,
+                                        defaultBuyingToken: nil,
+                                        defaultSellingAmount: nil,
+                                        push: nil
+                                    )
+                                }
                             }
                         )
                     ))

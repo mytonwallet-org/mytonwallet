@@ -307,7 +307,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 adjustScrollingPosition()
             } else {
                 heavyAnimationInProgress()
-                if (recyclerView.computeVerticalScrollOffset() == 0) pauseBlurViews()
             }
         }
     }
@@ -611,22 +610,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         skeletonView.applyMask(skeletonViews, skeletonViewsRadius)
     }
 
-    private fun pauseBlurViews() {
-        cancelBottomBlurSettle()
-        topBlurReversedCornerView.pauseBlurring(false)
-        pauseBottomBlurViews()
-    }
-
-    private fun resumeBlurViews() {
-        topBlurReversedCornerView.resumeBlurring()
-        resumeBottomBlurViews()
-    }
-
-    private fun resumeBottomBlurViews() {
-        bottomReversedCornerView?.resumeBlurring()
-        navigationController?.tabBarController?.resumeBlurring()
-    }
-
     private fun onClick(identifier: HeaderActionsView.Identifier) {
         when (identifier) {
             HeaderActionsView.Identifier.RECEIVE -> {
@@ -745,22 +728,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     }
                 }
             }
-            if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE &&
-                !recyclerView.canScrollVertically(1)
-            ) {
-                topBlurReversedCornerView.resumeBlurring()
-                pauseBottomBlurViewsUntilSettled {
-                    recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE
-                }
-            } else {
-                cancelBottomBlurSettle()
-                resumeBlurViews()
-            }
         } else {
-            cancelBottomBlurSettle()
-            if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
-                pauseBlurViews()
-            }
             if (headerView.parent == view && headerCell != null) {
                 view.post {
                     if (headerView.parent == view && headerCell != null) {
@@ -775,9 +743,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                         }
                     }
                 }
-            }
-            if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
-                pauseBlurViews()
             }
         }
     }
@@ -853,7 +818,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     }
 
     private fun onHeightChange(isExpanding: Boolean) {
-        resumeBlurViews()
         rvSkeletonAdapter.notifyItemChanged(0)
         // Handle header height updates when recycler-view scrolled to the end and collapsing the chart
         if (!isExpanding) updateScroll(recyclerView.computeVerticalScrollOffset())

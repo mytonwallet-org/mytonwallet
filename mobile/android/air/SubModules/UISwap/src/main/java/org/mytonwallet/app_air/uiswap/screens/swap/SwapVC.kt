@@ -29,6 +29,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
@@ -49,15 +51,18 @@ import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.SwapReceiveAddressInputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapDetailsVisibility
+import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapHint
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapAssetInputView
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapCexProviderInfoView
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimatedHeader
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimatedInfo
+import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapHintView
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapSwapAssetsButton
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -66,10 +71,13 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.boldSubstring
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -115,6 +123,12 @@ class SwapVC(
         context,
         alertColor = WColor.Red.color
     ).apply {
+        isGone = true
+    }
+    private var currentHint: SwapHint? = null
+    private val hintView = SwapHintView(context) {
+        currentHint?.let(::performHintAction)
+    }.apply {
         isGone = true
     }
 
@@ -247,6 +261,7 @@ class SwapVC(
         )
 
         linearLayout.addView(cexProviderInfoView)
+        linearLayout.addView(hintView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
         view.addView(
             bottomReversedCornerViewUpsideDown,
@@ -381,9 +396,9 @@ class SwapVC(
             cexProviderInfoView.expanded = est?.cex?.providerName != null
             if (est?.shouldShowPriceImpactWarning == true) {
                 alertView.text = priceImpactWarningMessage(est.dex?.impact)
-                animateAlertViewIn()
+                animateIn(alertView, ViewConstants.GAP.dp)
             } else {
-                animateAlertViewOut()
+                animateOut(alertView)
             }
             estLayout.setEstimated(
                 est,
@@ -439,6 +454,16 @@ class SwapVC(
             sendAmount.amountEditText.isLoading.animatedValue = it.tokenToSend.isLoading &&
                 (sendAmount.amountEditText.text?.isNotEmpty() == true)
             sendAmount.amountEditText.isError.animatedValue = it.tokenToSend.isError
+        }
+
+        collectFlow(swapViewModel.hintFlow) { hint ->
+            currentHint = hint
+            if (hint != null) {
+                hintView.configure(hint)
+                animateIn(hintView, 0)
+            } else {
+                animateOut(hintView)
+            }
         }
 
         collectFlow(swapViewModel.eventsFlow, this::onEvent)
@@ -749,16 +774,76 @@ class SwapVC(
         return fullText.boldSubstring(impactValueText)
     }
 
-    private var isShowingAlertView = false
+    private fun performHintAction(hint: SwapHint) {
+        when (hint) {
+            is SwapHint.Receive -> presentReceive(hint.chain)
 
-    private fun animateAlertViewIn() {
-        if (isShowingAlertView) return
-        isShowingAlertView = true
+            is SwapHint.BelowMinimum -> presentReceive(hint.chain)
 
-        alertView.apply {
-            measure(linearLayout.width.exactly, 0.unspecified)
-            val targetHeight = measuredHeight
+            is SwapHint.Intermediate -> {
+                val sellingAsset = swapViewModel.tokenToSendAsset ?: return
+                navigationController?.push(
+                    SwapVC(context, sellingAsset, hint.token, swapViewModel.sellingAmountInput)
+                )
+            }
+
+            is SwapHint.External -> {
+                val w = window ?: return
+                val nav = WNavigationController(w)
+                nav.setRoot(
+                    InAppBrowserVC(
+                        context,
+                        null,
+                        InAppBrowserConfig(url = hint.url, injectDappConnect = true)
+                    )
+                )
+                w.present(nav)
+            }
+        }
+    }
+
+    private fun presentReceive(chain: MBlockchain) {
+        val w = window ?: return
+        val receiveVC = WalletContextManager.delegate?.get()
+            ?.getReceiveVC(chain.name, swapViewModel.tokenToReceive?.slug)
+            as? WViewController ?: return
+        val nav =
+            WNavigationController(w, WNavigationController.PresentationConfig.PreferredFullScreen)
+        nav.setRoot(receiveVC)
+        w.present(nav)
+    }
+
+    private val showingViews = mutableSetOf<View>()
+    private val visibilityAnimators = mutableMapOf<View, Animator>()
+
+    private fun startVisibilityAnimator(view: View, animator: Animator) {
+        visibilityAnimators.remove(view)?.cancel()
+        visibilityAnimators[view] = animator
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                if (visibilityAnimators[view] === animation) visibilityAnimators.remove(view)
+            }
+        })
+        animator.start()
+    }
+
+    private fun animateIn(view: View, topMargin: Int) {
+        if (!showingViews.add(view)) return
+
+        view.apply {
             val lp = layoutParams as ViewGroup.MarginLayoutParams
+            val availableWidth = linearLayout.width
+            if (availableWidth <= 0) {
+                visibilityAnimators.remove(this)?.cancel()
+                lp.height = WRAP_CONTENT
+                lp.topMargin = topMargin
+                layoutParams = lp
+                visibility = View.VISIBLE
+                alpha = 1f
+                return
+            }
+            measure(availableWidth.exactly, 0.unspecified)
+            val targetHeight = measuredHeight
             lp.height = 0
             lp.topMargin = 0
             layoutParams = lp
@@ -770,27 +855,40 @@ class SwapVC(
                 addUpdateListener { anim ->
                     val progress = anim.animatedValue as Float
                     lp.height = (targetHeight * progress).toInt()
-                    lp.topMargin = (ViewConstants.GAP.dp * progress).toInt()
+                    lp.topMargin = (topMargin * progress).toInt()
                     layoutParams = lp
                 }
+                addListener(object : AnimatorListenerAdapter() {
+                    private var isCancelled = false
+
+                    override fun onAnimationCancel(animation: Animator) {
+                        isCancelled = true
+                    }
+
+                    override fun onAnimationEnd(animation: Animator) {
+                        if (isCancelled) return
+                        lp.height = WRAP_CONTENT
+                        lp.topMargin = topMargin
+                        layoutParams = lp
+                    }
+                })
             }
 
             val fadeInAnimator = ObjectAnimator.ofFloat(this, "alpha", 0f, 1f).apply {
                 duration = AnimationConstants.VERY_QUICK_ANIMATION / 2
             }
 
-            AnimatorSet().apply {
-                playSequentially(expandAnimator, fadeInAnimator)
-                start()
-            }
+            startVisibilityAnimator(
+                this,
+                AnimatorSet().apply { playSequentially(expandAnimator, fadeInAnimator) }
+            )
         }
     }
 
-    private fun animateAlertViewOut() {
-        if (!isShowingAlertView) return
-        isShowingAlertView = false
+    private fun animateOut(view: View) {
+        if (!showingViews.remove(view)) return
 
-        alertView.apply {
+        view.apply {
             val initialHeight = measuredHeight
             val lp = layoutParams as ViewGroup.MarginLayoutParams
             val initialMargin = lp.topMargin
@@ -808,7 +906,14 @@ class SwapVC(
                     layoutParams = lp
                 }
                 addListener(object : AnimatorListenerAdapter() {
+                    private var isCancelled = false
+
+                    override fun onAnimationCancel(animation: Animator) {
+                        isCancelled = true
+                    }
+
                     override fun onAnimationEnd(animation: Animator) {
+                        if (isCancelled) return
                         visibility = View.GONE
                         lp.height = WRAP_CONTENT
                         lp.topMargin = 0
@@ -817,10 +922,10 @@ class SwapVC(
                 })
             }
 
-            AnimatorSet().apply {
-                playSequentially(fadeOutAnimator, collapseAnimator)
-                start()
-            }
+            startVisibilityAnimator(
+                this,
+                AnimatorSet().apply { playSequentially(fadeOutAnimator, collapseAnimator) }
+            )
         }
     }
 }

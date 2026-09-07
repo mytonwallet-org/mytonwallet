@@ -163,9 +163,9 @@ class UniversalSearchEngine(
                 if (SearchTrait.CONNECTED in traits) 1500 else 500
 
             SearchEntityKind.TOKEN -> when {
+                SearchTrait.POPULAR in traits -> 1450
                 SearchTrait.HELD in traits -> 1400
                 SearchTrait.TRACKED in traits -> 1300
-                SearchTrait.POPULAR in traits -> 600
                 else -> 450
             }
 

@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.helpers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 class ActivityHelpers {
@@ -22,6 +23,21 @@ class ActivityHelpers {
         fun getActivityTokenSlugs(activity: MApiTransaction): List<String> = when (activity) {
             is MApiTransaction.Swap -> listOf(activity.from, activity.to).distinct()
             is MApiTransaction.Transaction -> listOf(activity.slug)
+        }
+
+        fun selectActivityForCache(
+            existingActivity: MApiTransaction?,
+            incomingActivity: MApiTransaction
+        ): MApiTransaction {
+            if (existingActivity is MApiTransaction.Transaction &&
+                existingActivity.type == ApiTransactionType.APPROVAL &&
+                incomingActivity is MApiTransaction.Transaction &&
+                incomingActivity.type == ApiTransactionType.CALL_CONTRACT &&
+                existingActivity.id == incomingActivity.id
+            ) {
+                return existingActivity
+            }
+            return incomingActivity
         }
 
         fun preserveStatusProgress(

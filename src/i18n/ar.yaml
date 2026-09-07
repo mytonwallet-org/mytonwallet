@@ -125,7 +125,9 @@ Invoice Link Copied: تم نسخ رابط الفاتورة
 Theme: سمة
 Language: لغة
 Enable Animations: تمكين الرسوم المتحركة
+Animations: الرسوم المتحركة
 Enable Seasonal Theming: تمكين السمات الموسمية
+Seasonal Theming: السمات الموسمية
 Enable Landscape Mode: تمكين الوضع الأفقي
 Disable Seasonal Theming: تعطيل السمات الموسمية
 You can always enable seasonal theming again in the appearance settings.: يمكنك دائمًا تمكين السمات الموسمية مرة أخرى في إعدادات المظهر.
@@ -158,6 +160,9 @@ Description Copied: الوصف منسوخ
 Message Copied: تم نسخ الرسالة
 Sender: مرسل
 Recipient: متلقي
+Spender: الجهة المصرح لها
+Token Approval: موافقة الرمز المميز
+Allowance: حد السماح
 "%chain% Address Copied": تم نسخ عنوان %chain%
 Repeat: يكرر
 Switch Account: تبديل الحساب
@@ -388,8 +393,8 @@ Message is encrypted: الرسالة مشفرة
 Agree: يوافق
 $swap_action: تبديل
 Swap: تبديل
-You sell: أنت تبيع
-You buy: تشتري
+You Sell: أنت تبيع
+You Buy: تشتري
 Swap Details: تفاصيل المبادلة
 Blockchain Fee: رسوم البلوكشين
 Included: متضمنة
@@ -398,7 +403,7 @@ Minimum Received: الحد الأدنى المستلم
 Slippage: الانزلاق
 $swap_from_to: قم بتبديل %from% %icon% %to%
 The exchange rate is below market value!: سعر الصرف %value% أقل من القيمة السوقية!
-Invalid Pair: زوج غير صالح
+Invalid Pair: التبديل غير متاح
 We do not recommend to perform an exchange, try to specify a lower amount.: لا ننصح بإجراء عملية تبادل، حاول تحديد مبلغ أقل.
 $swap_minimum_received_tooltip1: هذا هو أقل قدر من الرموز الجديدة التي ستحصل عليها من هذه المبادلة، مع الأخذ في الاعتبار ظروف السوق الحالية، وتحمل الانزلاق، والتأثير المحتمل على السعر.
 $swap_minimum_received_tooltip2: إنه الحد الأدنى المتوقع، ولكن إذا تغيرت الظروف كثيرًا أثناء معالجة المبادلة الخاصة بك، فقد يكون المبلغ النهائي أقل.
@@ -567,6 +572,16 @@ No Activity: لا يوجد نشاط
 Fund: تمويل
 Buy with Card: الشراء بالبطاقة
 Buy with Crypto: الشراء باستخدام التشفير
+Add funds to swap: أضف رصيدًا للتبديل
+Direct swap unavailable: التبديل المباشر غير متاح
+Swap on an external service: التبديل عبر خدمة خارجية
+Buy with a card or receive crypto to fund this swap.: اشترِ عملات مشفرة بالبطاقة أو استلم عملات مشفرة لتوفير رصيد لهذا التبديل.
+Buy crypto or choose another token to sell.: اشترِ عملات مشفرة أو اختر رمزًا آخر للبيع.
+Your balances are small. Add funds or choose another token to swap.: أرصدتك منخفضة. أضف رصيدًا أو اختر رمزًا آخر للتبديل.
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: لشراء %buy_token%، اشترِ %token% أولًا، ثم بدّله مقابل %buy_token%.
+Open %provider% to swap this pair in the browser.: افتح %provider% لتبديل هذا الزوج في المتصفح.
+Buy %token%: شراء %token%
+Open %provider%: فتح %provider%
 Cannot load widget: لا يمكن تحميل القطعة
 Error: خطأ
 Explore: يستكشف
@@ -1106,7 +1121,7 @@ You don’t have any cards to customize yet: ليس لديك أي بطاقات �
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: يمكن تثبيت بطاقات My Wallet للمحافظ وعرضها على الشاشة الرئيسية وفي قائمة المحفظة.
 Get First Card: احصل على البطاقة الأولى
 Palette and Card: لوحة وبطاقة
-Customize the wallet's home screen and color accents the way you like.: قم بتخصيص الشاشة الرئيسية للمحفظة ولون اللمسات بالطريقة التي تريدها.
+Customize the wallet’s card appearance and color accents the way you like.: قم بتخصيص مظهر بطاقة المحفظة ولون اللمسات بالطريقة التي تريدها.
 Address doesn't exist: العنوان غير موجود
 The address is not a token minter address: العنوان ليس عنوانًا مميزًا
 $joining_comma: "، "
@@ -1201,8 +1216,16 @@ $agent_consent_debug_reset_footer: يعرض شاشة موافقة الوكيل �
 $settings_token_change_threshold: حدّ التغيّر %
 $settings_token_change_threshold_description: يخفي تغيّرات النسبة المئوية خلال 24 ساعة التي تقل عن الحد المحدد.
 $settings_token_change_threshold_off: إيقاف
-$settings_hide_action_buttons: إخفاء أزرار الإجراءات
-$settings_hide_action_buttons_description: يخفي صف أزرار الإجراءات في شاشة المحفظة.
+Blockchain Badges: شارات البلوكشين
+$settings_blockchain_badges_description: إظهار شارات البلوكشين لجميع العملات. افتراضيًا، تُعرض فقط للعملات المستقرة والأسهم المرمّزة المتاحة على عدة سلاسل بلوكشين.
+Show on Card: إظهار على البطاقة
+Top Address: العنوان الرئيسي
+Highest-Balance Address: العنوان ذو الرصيد الأعلى
+3 Highest-Balance Addresses: أعلى 3 عناوين من حيث الرصيد
+3 Top Addresses: أعلى 3 عناوين
+Action Buttons: أزرار الإجراءات
+Collectibles Section: قسم المقتنيات
+$settings_wallet_card_description: خصّص ما يظهر على بطاقة محفظتك وما إذا كانت أزرار الإجراءات ستظهر.
 Retry: إعادة المحاولة
 $agent_chat_running: قيد التشغيل في الخلفية
 $agent_connection_interrupted: تم قطع اتصال الوكيل. حاول مرة أخرى.
@@ -2066,7 +2089,9 @@ $chart_week_days: الأحد,الاثنين,الثلاثاء,الأربعاء,ا
 $chart_week_days_short: أحد,اثنين,ثلاثاء,أربعاء,خميس,جمعة,سبت
 Select multichain wallet: اختيار محفظة متعددة السلاسل
 Rounded Corners: زوايا مستديرة
-Enable Blur: تفعيل التمويه
+Blur: التمويه
+Top Tabs: علامات التبويب العلوية
+Liquid Glass: الزجاج السائل
 App Font: خط التطبيق
 Rounded Balance Font: خط الرصيد المستدير
 My Wallet Cards NFT: My Wallet Cards NFT

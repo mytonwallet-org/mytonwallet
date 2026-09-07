@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -45,12 +46,36 @@ class WAgentHintView(
 ) : WFrameLayout(context) {
 
     companion object {
-        private val TITLE_GRADIENT_COLORS = intArrayOf(
+        private val LIGHT_TITLE_GRADIENT_COLORS = intArrayOf(
             0xFF005DAF.toInt(),
             0xFF007BA5.toInt(),
             0xFF7D2EBA.toInt()
         )
+        private val DARK_TITLE_GRADIENT_COLORS = intArrayOf(
+            0xFF6DADE6.toInt(),
+            0xFF5EB6D4.toInt(),
+            0xFFC48CEE.toInt()
+        )
+        private val TITLE_GRADIENT_POSITIONS = floatArrayOf(0f, 0.4f, 1f)
+
+        // Stop alphas (20% / 50% / 20%) scaled by an overall 24% opacity.
+        private val LIGHT_FILL_GRADIENT_COLORS = intArrayOf(
+            0x0C0088FF,
+            0x1F00BEFF,
+            0x0CB656FF
+        )
+
+        // Stop alphas (40% / 60% / 40%) scaled by an overall 24% opacity.
+        private val DARK_FILL_GRADIENT_COLORS = intArrayOf(
+            0x180088FF,
+            0x2500BEFF,
+            0x18B656FF
+        )
+
+        private const val DARK_FADE_COLOR = 0xFF202020.toInt()
     }
+
+    private var titleGradientColors = LIGHT_TITLE_GRADIENT_COLORS
 
     private val titleLabel = WLabel(context)
     private val iconView = AppCompatImageView(context).apply {
@@ -87,21 +112,8 @@ class WAgentHintView(
         titleLabel.ellipsize = TextUtils.TruncateAt.END
         titleLabel.useCustomEmoji = true
         titleLabel.text = title
-        titleLabel.setTextColor(TITLE_GRADIENT_COLORS[0])
-        titleLabel.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
-            val width = (right - left).toFloat()
-            if (width <= 0f) return@addOnLayoutChangeListener
-            val (fromX, toX) = if (LocaleController.isRTL) width to 0f else 0f to width
-            titleLabel.paint.shader = LinearGradient(
-                fromX,
-                0f,
-                toX,
-                0f,
-                TITLE_GRADIENT_COLORS,
-                null,
-                Shader.TileMode.CLAMP
-            )
-            titleLabel.invalidate()
+        titleLabel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            updateTitleShader()
         }
 
         val content = LinearLayout(context).apply {
@@ -169,12 +181,36 @@ class WAgentHintView(
     }
 
     fun updateTheme() {
+        val isDark = ThemeManager.isDark
         bgDrawable.setColor(WColor.ThumbBackground.color.colorWithAlpha(41)) // 16%
-        val backgroundColor = WColor.Background.color
+        val fadeColor = if (isDark) DARK_FADE_COLOR else WColor.Background.color
         bgFadeDrawable.colors = intArrayOf(
-            backgroundColor,
-            backgroundColor.colorWithAlpha(0)
+            fadeColor,
+            fadeColor.colorWithAlpha(0)
         )
+        fillDrawable.setColors(
+            if (isDark) DARK_FILL_GRADIENT_COLORS else LIGHT_FILL_GRADIENT_COLORS
+        )
+        titleGradientColors =
+            if (isDark) DARK_TITLE_GRADIENT_COLORS else LIGHT_TITLE_GRADIENT_COLORS
+        titleLabel.setTextColor(titleGradientColors[0])
+        updateTitleShader()
+    }
+
+    private fun updateTitleShader() {
+        val width = titleLabel.width.toFloat()
+        if (width <= 0f) return
+        val (fromX, toX) = if (LocaleController.isRTL) width to 0f else 0f to width
+        titleLabel.paint.shader = LinearGradient(
+            fromX,
+            0f,
+            toX,
+            0f,
+            titleGradientColors,
+            TITLE_GRADIENT_POSITIONS,
+            Shader.TileMode.CLAMP
+        )
+        titleLabel.invalidate()
     }
 
     fun setTitle(title: CharSequence) {
@@ -190,23 +226,32 @@ class WAgentHintView(
     }
 }
 
-private class GradientFillDrawable(private val cornerRadius: Float, isRtl: Boolean) : Drawable() {
+private class GradientFillDrawable(private val cornerRadius: Float, private val isRtl: Boolean) :
+    Drawable() {
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
 
-    // Stop alphas (20% / 50% / 20%) scaled by an overall 24% opacity.
-    private val colors = intArrayOf(
-        0x0C0088FF, // #0088FF 20% * 24%
-        0x1F00BEFF, // #00BEFF 50% * 24%
-        0x0CB656FF // #B656FF 20% * 24%
-    ).let { if (isRtl) it.reversedArray() else it }
+    private var colors = intArrayOf(0, 0, 0)
 
     private val rectF = RectF()
 
+    fun setColors(colors: IntArray) {
+        val oriented = if (isRtl) colors.reversedArray() else colors
+        if (oriented.contentEquals(this.colors)) return
+        this.colors = oriented
+        updateShader()
+        invalidateSelf()
+    }
+
     override fun onBoundsChange(bounds: Rect) {
         super.onBoundsChange(bounds)
+        updateShader()
+    }
+
+    private fun updateShader() {
+        val bounds = bounds
         fillPaint.shader = if (bounds.isEmpty) {
             null
         } else {
@@ -254,18 +299,18 @@ private class GradientBorderDrawable(
     }
 
     private val colors = intArrayOf(
-        0x990088FF.toInt(),
-        0x9900BEFF.toInt(),
-        0x990088FF.toInt(),
-        0x9900BEFF.toInt(),
-        0x990088FF.toInt(),
-        0x9900BEFF.toInt(),
-        0x99B656FF.toInt(),
-        0x9900BEFF.toInt(),
-        0x990088FF.toInt()
+        0x8000BEFF.toInt(),
+        0x8000BEFF.toInt(),
+        0x800088FF.toInt(),
+        0x80B656FF.toInt(),
+        0x8000BEFF.toInt()
     )
     private val positions = floatArrayOf(
-        0f, 0.13f, 0.25f, 0.38f, 0.50f, 0.63f, 0.75f, 0.88f, 1f
+        0f,
+        0.14425f,
+        0.38464f,
+        0.75f,
+        1f
     )
 
     private val shaderMatrix = Matrix()

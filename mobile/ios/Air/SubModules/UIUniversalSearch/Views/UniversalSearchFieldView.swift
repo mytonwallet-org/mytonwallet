@@ -46,6 +46,7 @@ public enum UniversalSearchFieldPresentation: Equatable, Sendable {
     case homeToolbar
     case compactToolbar
     case search
+    case empty
 }
 
 /// The active Universal Search input and its adjacent close control.
@@ -54,6 +55,11 @@ public enum UniversalSearchFieldPresentation: Equatable, Sendable {
 /// decisions remain the responsibility of its host through `configuration` and callbacks.
 @MainActor
 public final class UniversalSearchFieldView: UIView {
+    private struct PresentationTransition {
+        let source: UniversalSearchFieldPresentation
+        let target: UniversalSearchFieldPresentation
+    }
+
     public var onActivate: (() -> Void)?
     public var onTextChange: ((String) -> Void)?
     public var onReturn: ((String) -> Void)?
@@ -96,8 +102,9 @@ public final class UniversalSearchFieldView: UIView {
     private var storedConfiguration: UniversalSearchFieldConfiguration
     private let fieldView = UniversalSearchFieldCapsuleView()
     private let closeButton = UniversalSearchCloseButton()
-    private let compactActionsClipView = UIView()
-    private let compactActionsView = UIStackView()
+    // Mirrors an owning animator's fraction without rendering anything. The
+    // display link uses it to keep content blur interactive with push/pop.
+    private let transitionProgressView = UIView()
     private let glassContainerView: UIVisualEffectView?
     private let contentView: UIView
     private var closeButtonLeadingConstraint: NSLayoutConstraint!
@@ -105,13 +112,18 @@ public final class UniversalSearchFieldView: UIView {
     private var closeButtonCompactCenterXConstraint: NSLayoutConstraint!
     private var fieldCompactWidthConstraint: NSLayoutConstraint!
     private var compactActionButtons: [String: UniversalSearchToolbarActionButton] = [:]
+    private var compactActionButtonOrder: [UniversalSearchToolbarActionButton] = []
+    private var compactActionConstraints: [NSLayoutConstraint] = []
+    private var emptyBasePresentation: UniversalSearchFieldPresentation = .homeToolbar
+    private var presentationTransition: PresentationTransition?
+    private var transitionDisplayLink: CADisplayLink?
 
     public init(configuration: UniversalSearchFieldConfiguration) {
         storedConfiguration = configuration
 
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             let effect = UIGlassContainerEffect()
-            effect.spacing = 8
+            effect.spacing = 4
             let glassContainerView = UIVisualEffectView(effect: effect)
             self.glassContainerView = glassContainerView
             contentView = glassContainerView.contentView
@@ -150,26 +162,13 @@ public final class UniversalSearchFieldView: UIView {
         fieldView.endEditing()
     }
 
-    public func setCompactActions(
-        _ actions: [SharedBottomToolbarAction],
-        animated: Bool
-    ) {
+    public func setCompactActions(_ actions: [SharedBottomToolbarAction]) {
         guard actions != compactActions else { return }
         compactActions = actions
 
-        let changes = { [self] in
+        UIView.performWithoutAnimation {
             rebuildCompactActions(with: actions)
-            compactActionsView.layoutIfNeeded()
-        }
-        if animated, presentation == .compactToolbar, window != nil {
-            UIView.transition(
-                with: compactActionsView,
-                duration: 0.2,
-                options: [.transitionCrossDissolve, .allowUserInteraction, .beginFromCurrentState],
-                animations: changes
-            )
-        } else {
-            UIView.performWithoutAnimation(changes)
+            layoutIfNeeded()
         }
     }
 
@@ -179,7 +178,7 @@ public final class UniversalSearchFieldView: UIView {
         duration: TimeInterval = 0.4
     ) {
         guard animated else {
-            applyPresentation(presentation, animator: nil, duration: duration)
+            applyStaticPresentation(presentation)
             layoutIfNeeded()
             return
         }
@@ -201,71 +200,257 @@ public final class UniversalSearchFieldView: UIView {
     public func setPresentation(
         _ presentation: UniversalSearchFieldPresentation,
         animator: UIViewPropertyAnimator,
-        duration: TimeInterval = 0.4
+        duration _: TimeInterval = 0.4
     ) {
-        applyPresentation(presentation, animator: animator, duration: duration)
+        preparePresentationTransition(to: presentation)
+        applyPresentation(presentation, animator: animator)
+    }
+
+    /// Stages a presentation change for an externally owned transition, such as
+    /// an interactive navigation push or pop.
+    public func preparePresentationTransition(
+        to presentation: UniversalSearchFieldPresentation
+    ) {
+        guard presentation != self.presentation else { return }
+
+        if presentationTransition != nil {
+            finishPresentationTransition(at: self.presentation)
+        }
+        layoutIfNeeded()
+        updateEmptyBasePresentation(for: presentation)
+
+        presentationTransition = PresentationTransition(
+            source: self.presentation,
+            target: presentation
+        )
+        transitionProgressView.layer.removeAllAnimations()
+        transitionProgressView.alpha = 0
+        let sourceContentPresentation = contentPresentation(for: self.presentation)
+        let targetContentPresentation = contentPresentation(for: presentation)
+        let transitionUsesCompactActions = sourceContentPresentation == .compactToolbar
+            || targetContentPresentation == .compactToolbar
+        setCompactActionsHidden(!transitionUsesCompactActions)
+        setCompactActionsTransform(compactActionsTransform(for: self.presentation))
+        closeButton.prepareTransition(from: sourceContentPresentation)
+        startTrackingTransitionProgress()
+    }
+
+    /// Applies the destination state inside the animation block owned by the
+    /// external transition coordinator.
+    public func applyPreparedPresentationTransition() {
+        guard let presentationTransition else { return }
+        applyPresentation(
+            presentationTransition.target,
+            animator: nil
+        )
     }
 
     private func applyPresentation(
         _ presentation: UniversalSearchFieldPresentation,
-        animator: UIViewPropertyAnimator?,
-        duration: TimeInterval
+        animator: UIViewPropertyAnimator?
     ) {
         guard presentation != self.presentation else { return }
+        let transition = presentationTransition
+        let contentPresentation = contentPresentation(for: presentation)
         self.presentation = presentation
 
-        let isCompact = presentation == .compactToolbar
-        closeButtonLeadingConstraint.constant = presentation == .homeToolbar ? 12 : 8
-        if isCompact {
-            NSLayoutConstraint.deactivate([
-                closeButtonLeadingConstraint,
-                closeButtonTrailingConstraint,
-            ])
-            NSLayoutConstraint.activate([
-                closeButtonCompactCenterXConstraint,
-                fieldCompactWidthConstraint,
-            ])
-        } else {
-            NSLayoutConstraint.deactivate([
-                closeButtonCompactCenterXConstraint,
-                fieldCompactWidthConstraint,
-            ])
-            NSLayoutConstraint.activate([
-                closeButtonLeadingConstraint,
-                closeButtonTrailingConstraint,
-            ])
-        }
-        if IOS_26_MODE_ENABLED,
-           #available(iOS 26, iOSApplicationExtension 26, *),
-           let effect = glassContainerView?.effect as? UIGlassContainerEffect {
-            effect.spacing = presentation == .homeToolbar ? 12 : 8
-        }
-        fieldView.setPresentation(presentation, animator: animator)
+        updatePresentationConstraints(for: contentPresentation)
+        fieldView.setPresentation(contentPresentation, animator: animator)
         closeButton.setPresentation(
-            presentation,
-            animator: animator,
-            duration: duration
+            contentPresentation,
+            animator: animator
         )
 
-        let layoutDirection: CGFloat = effectiveUserInterfaceLayoutDirection == .rightToLeft ? -1 : 1
         let updates = {
-            self.closeButton.alpha = isCompact ? 0 : 1
-            self.closeButton.transform = isCompact
-                ? CGAffineTransform(scaleX: 0.72, y: 0.72)
-                : .identity
-            self.compactActionsClipView.alpha = isCompact ? 1 : 0
-            self.compactActionsClipView.transform = isCompact
-                ? .identity
-                : CGAffineTransform(translationX: layoutDirection * 20, y: 0)
-                    .scaledBy(x: 0.94, y: 0.94)
+            self.transform = self.toolbarTransform(for: presentation)
+            self.setCompactActionsTransform(self.compactActionsTransform(for: presentation))
+            if transition != nil {
+                self.transitionProgressView.alpha = 1
+            }
             self.layoutIfNeeded()
         }
         if let animator {
             animator.addAnimations(updates)
+            animator.addCompletion { [weak self] position in
+                guard let self, let transition else { return }
+                let finalPresentation = position == .end
+                    ? transition.target
+                    : transition.source
+                self.applyStaticPresentation(finalPresentation)
+                self.layoutIfNeeded()
+            }
         } else {
             updates()
         }
+        updateCompactActionsAccessibility(for: presentation)
         updateTrailingButtonAccessibilityLabel()
+        updateEmptyAccessibility(for: presentation)
+    }
+
+    private func applyStaticPresentation(
+        _ presentation: UniversalSearchFieldPresentation
+    ) {
+        updateEmptyBasePresentation(for: presentation)
+        finishPresentationTransition(at: presentation)
+
+        guard presentation != self.presentation else {
+            applyStaticVisualState(for: presentation)
+            return
+        }
+        let contentPresentation = contentPresentation(for: presentation)
+        self.presentation = presentation
+
+        updatePresentationConstraints(for: contentPresentation)
+        fieldView.setPresentation(contentPresentation, animator: nil)
+        applyStaticVisualState(for: presentation)
+        updateTrailingButtonAccessibilityLabel()
+        updateEmptyAccessibility(for: presentation)
+    }
+
+    private func applyStaticVisualState(
+        for presentation: UniversalSearchFieldPresentation
+    ) {
+        let contentPresentation = contentPresentation(for: presentation)
+        transitionProgressView.layer.removeAllAnimations()
+        transitionProgressView.alpha = 0
+        transform = toolbarTransform(for: presentation)
+        setCompactActionsHidden(contentPresentation != .compactToolbar)
+        setCompactActionsTransform(compactActionsTransform(for: presentation))
+        closeButton.applyStaticPresentation(contentPresentation)
+        updateCompactActionsAccessibility(for: presentation)
+        updateEmptyAccessibility(for: presentation)
+    }
+
+    private func updatePresentationConstraints(
+        for presentation: UniversalSearchFieldPresentation
+    ) {
+        closeButtonLeadingConstraint.constant = presentation == .homeToolbar ? 12 : 8
+        if presentation == .compactToolbar {
+            NSLayoutConstraint.deactivate([
+                closeButtonLeadingConstraint,
+                closeButtonTrailingConstraint,
+            ])
+            NSLayoutConstraint.activate([
+                closeButtonCompactCenterXConstraint,
+                fieldCompactWidthConstraint,
+            ])
+        } else {
+            NSLayoutConstraint.deactivate([
+                closeButtonCompactCenterXConstraint,
+                fieldCompactWidthConstraint,
+            ])
+            NSLayoutConstraint.activate([
+                closeButtonLeadingConstraint,
+                closeButtonTrailingConstraint,
+            ])
+        }
+    }
+
+    private func finishPresentationTransition(
+        at presentation: UniversalSearchFieldPresentation
+    ) {
+        stopTrackingTransitionProgress()
+        presentationTransition = nil
+        transitionProgressView.layer.removeAllAnimations()
+        transitionProgressView.alpha = 0
+
+        guard presentation == self.presentation else { return }
+        applyStaticVisualState(for: presentation)
+    }
+
+    private func compactActionsTransform(
+        for presentation: UniversalSearchFieldPresentation
+    ) -> CGAffineTransform {
+        guard contentPresentation(for: presentation) != .compactToolbar else { return .identity }
+        let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .rightToLeft ? -1 : 1
+        return CGAffineTransform(
+            translationX: direction * bounds.width,
+            y: 0
+        )
+    }
+
+    private func contentPresentation(
+        for presentation: UniversalSearchFieldPresentation
+    ) -> UniversalSearchFieldPresentation {
+        presentation == .empty ? emptyBasePresentation : presentation
+    }
+
+    private func updateEmptyBasePresentation(
+        for targetPresentation: UniversalSearchFieldPresentation
+    ) {
+        guard targetPresentation == .empty, presentation != .empty else { return }
+        emptyBasePresentation = contentPresentation(for: presentation)
+    }
+
+    private func toolbarTransform(
+        for presentation: UniversalSearchFieldPresentation
+    ) -> CGAffineTransform {
+        guard presentation == .empty else { return .identity }
+        let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .rightToLeft ? 1 : -1
+        return CGAffineTransform(
+            translationX: direction * (bounds.width + 64),
+            y: 0
+        )
+    }
+
+    private func setCompactActionsTransform(_ transform: CGAffineTransform) {
+        for button in compactActionButtonOrder {
+            button.transform = transform
+        }
+    }
+
+    private func setCompactActionsHidden(_ isHidden: Bool) {
+        for button in compactActionButtonOrder {
+            button.isHidden = isHidden
+        }
+    }
+
+    private func updateCompactActionsAccessibility(
+        for presentation: UniversalSearchFieldPresentation
+    ) {
+        let isCompact = presentation == .compactToolbar
+        for button in compactActionButtonOrder {
+            button.isUserInteractionEnabled = isCompact
+            button.accessibilityElementsHidden = !isCompact
+        }
+    }
+
+    private func updateEmptyAccessibility(
+        for presentation: UniversalSearchFieldPresentation
+    ) {
+        let isEmpty = presentation == .empty
+        isUserInteractionEnabled = !isEmpty
+        accessibilityElementsHidden = isEmpty
+    }
+
+    private func startTrackingTransitionProgress() {
+        stopTrackingTransitionProgress()
+        let displayLink = CADisplayLink(
+            target: self,
+            selector: #selector(updateTransitionProgress)
+        )
+        displayLink.add(to: .main, forMode: .common)
+        transitionDisplayLink = displayLink
+    }
+
+    private func stopTrackingTransitionProgress() {
+        transitionDisplayLink?.invalidate()
+        transitionDisplayLink = nil
+    }
+
+    @objc private func updateTransitionProgress() {
+        guard let transition = presentationTransition else {
+            stopTrackingTransitionProgress()
+            return
+        }
+        guard let opacity = transitionProgressView.layer.presentation()?.opacity else {
+            return
+        }
+        closeButton.setTransitionProgress(
+            min(1, max(0, CGFloat(opacity))),
+            from: contentPresentation(for: transition.source),
+            to: contentPresentation(for: transition.target)
+        )
     }
 
     private func setupLayout() {
@@ -291,18 +476,11 @@ public final class UniversalSearchFieldView: UIView {
 
         fieldView.translatesAutoresizingMaskIntoConstraints = false
         closeButton.translatesAutoresizingMaskIntoConstraints = false
-        compactActionsClipView.translatesAutoresizingMaskIntoConstraints = false
-        compactActionsClipView.clipsToBounds = true
-        compactActionsClipView.alpha = 0
-        compactActionsView.translatesAutoresizingMaskIntoConstraints = false
-        compactActionsView.axis = .horizontal
-        compactActionsView.alignment = .fill
-        compactActionsView.distribution = .fillEqually
-        compactActionsView.spacing = 8
+        transitionProgressView.translatesAutoresizingMaskIntoConstraints = false
+        transitionProgressView.isUserInteractionEnabled = false
         contentView.addSubview(fieldView)
-        contentView.addSubview(compactActionsClipView)
-        compactActionsClipView.addSubview(compactActionsView)
         contentView.addSubview(closeButton)
+        contentView.addSubview(transitionProgressView)
 
         closeButtonLeadingConstraint = closeButton.leadingAnchor.constraint(
             equalTo: fieldView.trailingAnchor,
@@ -326,16 +504,26 @@ public final class UniversalSearchFieldView: UIView {
             closeButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             closeButton.widthAnchor.constraint(equalToConstant: 48),
 
-            compactActionsClipView.leadingAnchor.constraint(equalTo: fieldView.trailingAnchor, constant: 8),
-            compactActionsClipView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            compactActionsClipView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            compactActionsClipView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-
-            compactActionsView.trailingAnchor.constraint(equalTo: compactActionsClipView.trailingAnchor),
-            compactActionsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 56),
-            compactActionsView.topAnchor.constraint(equalTo: compactActionsClipView.topAnchor),
-            compactActionsView.bottomAnchor.constraint(equalTo: compactActionsClipView.bottomAnchor),
+            transitionProgressView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            transitionProgressView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            transitionProgressView.widthAnchor.constraint(equalToConstant: 1),
+            transitionProgressView.heightAnchor.constraint(equalToConstant: 1),
         ])
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        if presentationTransition == nil {
+            transform = toolbarTransform(for: presentation)
+            setCompactActionsTransform(compactActionsTransform(for: presentation))
+        }
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            stopTrackingTransitionProgress()
+        }
     }
 
     private func setupCallbacks() {
@@ -362,6 +550,8 @@ public final class UniversalSearchFieldView: UIView {
                 break
             case .search:
                 onCloseTap?()
+            case .empty:
+                break
             }
         }
     }
@@ -380,13 +570,18 @@ public final class UniversalSearchFieldView: UIView {
             closeButton.buttonAccessibilityLabel = closeAccessibilityLabel
             closeButton.accessibilityElementsHidden = false
             closeButton.isUserInteractionEnabled = true
+        case .empty:
+            closeButton.buttonAccessibilityLabel = nil
+            closeButton.accessibilityElementsHidden = true
+            closeButton.isUserInteractionEnabled = false
         }
     }
 
     private func rebuildCompactActions(with actions: [SharedBottomToolbarAction]) {
-        compactActionsView.arrangedSubviews.forEach {
-            compactActionsView.removeArrangedSubview($0)
-        }
+        NSLayoutConstraint.deactivate(compactActionConstraints)
+        compactActionConstraints.removeAll()
+        compactActionButtonOrder.forEach { $0.removeFromSuperview() }
+        compactActionButtonOrder.removeAll()
 
         let desiredIDs = Set(actions.map(\.id))
         let removedIDs = compactActionButtons.keys.filter { !desiredIDs.contains($0) }
@@ -401,7 +596,39 @@ public final class UniversalSearchFieldView: UIView {
             button.onTap = { [weak self] in
                 self?.onToolbarActionTap?(action.id)
             }
-            compactActionsView.addArrangedSubview(button)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            contentView.insertSubview(button, belowSubview: closeButton)
+            compactActionButtonOrder.append(button)
+        }
+
+        guard let firstButton = compactActionButtonOrder.first else { return }
+        for (index, button) in compactActionButtonOrder.enumerated() {
+            compactActionConstraints.append(contentsOf: [
+                button.topAnchor.constraint(equalTo: contentView.topAnchor),
+                button.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            ])
+            if index == 0 {
+                compactActionConstraints.append(
+                    button.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 56)
+                )
+            } else {
+                let previousButton = compactActionButtonOrder[index - 1]
+                compactActionConstraints.append(contentsOf: [
+                    button.leadingAnchor.constraint(equalTo: previousButton.trailingAnchor, constant: 8),
+                    button.widthAnchor.constraint(equalTo: firstButton.widthAnchor),
+                ])
+            }
+        }
+        compactActionConstraints.append(
+            compactActionButtonOrder.last!.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
+        )
+        NSLayoutConstraint.activate(compactActionConstraints)
+
+        let isCompact = presentation == .compactToolbar
+        setCompactActionsHidden(!isCompact && presentationTransition == nil)
+        updateCompactActionsAccessibility(for: presentation)
+        if presentationTransition == nil {
+            setCompactActionsTransform(compactActionsTransform(for: presentation))
         }
     }
 }
@@ -1267,14 +1494,48 @@ private final class UniversalSearchGradientTextView: UIView {
 }
 
 @MainActor
-private final class UniversalSearchToolbarActionButton: UIButton {
+private final class UniversalSearchToolbarActionButton: UIControl {
     var onTap: (() -> Void)?
 
+    private let glassView = UniversalSearchInteractiveGlassView()
+    private let titleLabel = UILabel()
     private var action: SharedBottomToolbarAction?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+
+        isAccessibilityElement = true
+        accessibilityTraits = .button
+
+        glassView.translatesAutoresizingMaskIntoConstraints = false
+        glassView.isAccessibilityElement = false
+        addSubview(glassView)
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = WButton.capsuleFont
+        titleLabel.textAlignment = .center
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.isUserInteractionEnabled = false
+        glassView.contentView.addSubview(titleLabel)
+
+        NSLayoutConstraint.activate([
+            glassView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            glassView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            glassView.topAnchor.constraint(equalTo: topAnchor),
+            glassView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            titleLabel.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor, constant: 14),
+            titleLabel.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor, constant: -14),
+            titleLabel.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
+            titleLabel.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
+        ])
+
         addTarget(self, action: #selector(tapped), for: .touchUpInside)
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            glassView.addGestureRecognizer(
+                UITapGestureRecognizer(target: self, action: #selector(tapped))
+            )
+        }
     }
 
     @available(*, unavailable)
@@ -1285,45 +1546,30 @@ private final class UniversalSearchToolbarActionButton: UIButton {
     override func tintColorDidChange() {
         super.tintColorDidChange()
         if let action {
-            applyConfiguration(for: action)
+            applyAppearance(for: action)
         }
     }
 
     func configure(with action: SharedBottomToolbarAction) {
         self.action = action
         accessibilityLabel = action.accessibilityLabel
-        applyConfiguration(for: action)
+        applyAppearance(for: action)
     }
 
-    private func applyConfiguration(for action: SharedBottomToolbarAction) {
-        var configuration: UIButton.Configuration
-        if #available(iOS 26, iOSApplicationExtension 26, *), IOS_26_MODE_ENABLED {
-            configuration = .prominentGlass()
-        } else {
-            configuration = .filled()
-        }
-        configuration.title = action.title
-        configuration.cornerStyle = .capsule
-        configuration.titleLineBreakMode = .byTruncatingTail
-        configuration.baseBackgroundColor = switch action.style {
+    private func applyAppearance(for action: SharedBottomToolbarAction) {
+        titleLabel.text = action.title
+        let color: UIColor = switch action.style {
         case .accent: tintColor
         case .positive: .air.positiveAmount
         case .negative: .air.negativeAmount
         }
-        configuration.baseForegroundColor = .white
-        configuration.contentInsets = NSDirectionalEdgeInsets(
-            top: 0,
-            leading: 14,
-            bottom: 0,
-            trailing: 14
-        )
-        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var outgoing = incoming
-            outgoing.font = WButton.capsuleFont
-            outgoing.foregroundColor = .white
-            return outgoing
-        }
-        self.configuration = configuration
+        titleLabel.textColor = color.foregroundForTintedBackground
+        glassView.setGlassTintColor(color, animator: nil)
+    }
+
+    override func accessibilityActivate() -> Bool {
+        onTap?()
+        return true
     }
 
     @objc private func tapped() {
@@ -1337,16 +1583,25 @@ private final class UniversalSearchInteractiveGlassView: UIView {
     var presentationSourceView: UIView { effectView }
 
     private let effectView: UIVisualEffectView
+    private var materialEffect: UIVisualEffect
 
     override init(frame: CGRect) {
+        let materialEffect: UIVisualEffect
+        let effectView: UIVisualEffectView
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             let effect = UIGlassEffect(style: .regular)
             effect.isInteractive = true
-            effectView = UIVisualEffectView(effect: effect)
-            effectView.cornerConfiguration = .corners(radius: 24)
+            materialEffect = effect
+            let configuredEffectView = UIVisualEffectView(effect: effect)
+            configuredEffectView.cornerConfiguration = .capsule()
+            effectView = configuredEffectView
         } else {
-            effectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+            let effect = UIBlurEffect(style: .systemMaterial)
+            materialEffect = effect
+            effectView = UIVisualEffectView(effect: effect)
         }
+        self.materialEffect = materialEffect
+        self.effectView = effectView
         contentView = effectView.contentView
 
         super.init(frame: frame)
@@ -1366,6 +1621,49 @@ private final class UniversalSearchInteractiveGlassView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func setEffectVisible(_ isVisible: Bool) {
+        UIView.performWithoutAnimation {
+            if isVisible {
+                if effectView.effect == nil {
+                    effectView.effect = materialEffect
+                }
+            } else if effectView.effect != nil {
+                effectView.effect = nil
+            }
+        }
+    }
+
+    func setGlassTintColor(
+        _ tintColor: UIColor?,
+        animator: UIViewPropertyAnimator?
+    ) {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            let effect = UIGlassEffect(style: .regular)
+            effect.isInteractive = true
+            effect.tintColor = tintColor
+            materialEffect = effect
+            let updates = {
+                if self.effectView.effect != nil {
+                    self.effectView.effect = effect
+                }
+            }
+            if let animator {
+                animator.addAnimations(updates)
+            } else {
+                UIView.performWithoutAnimation(updates)
+            }
+        } else {
+            let updates = {
+                self.effectView.contentView.backgroundColor = tintColor
+            }
+            if let animator {
+                animator.addAnimations(updates)
+            } else {
+                UIView.performWithoutAnimation(updates)
+            }
+        }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         if !IOS_26_MODE_ENABLED {
@@ -1378,6 +1676,13 @@ private final class UniversalSearchInteractiveGlassView: UIView {
 
 @MainActor
 private final class UniversalSearchCloseButton: UIView {
+    private enum ContentKind {
+        case action
+        case close
+    }
+
+    private static let maximumContentBlurRadius: CGFloat = 10
+
     var onTap: (() -> Void)?
 
     var interactionView: UIView { button }
@@ -1390,8 +1695,10 @@ private final class UniversalSearchCloseButton: UIView {
 
     private let glassView = UniversalSearchInteractiveGlassView()
     private let button = UIButton(type: .system)
-    private let contentReplaceView = BlurReplaceView()
     private let tintOverlayView = UIView()
+    private let actionContentView = WBlurredContentView()
+    private let actionImageView = UIImageView()
+    private let closeContentView = WBlurredContentView()
     private var presentation: UniversalSearchFieldPresentation = .search
 
     override init(frame: CGRect) {
@@ -1406,20 +1713,26 @@ private final class UniversalSearchCloseButton: UIView {
         button.addTarget(self, action: #selector(tapped), for: .touchUpInside)
         glassView.contentView.addSubview(button)
 
+        tintOverlayView.translatesAutoresizingMaskIntoConstraints = false
         tintOverlayView.backgroundColor = tintColor
         tintOverlayView.isUserInteractionEnabled = false
-        tintOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        tintOverlayView.alpha = 0
         tintOverlayView.layer.cornerRadius = 24
         tintOverlayView.layer.cornerCurve = .continuous
-        tintOverlayView.clipsToBounds = true
         glassView.contentView.insertSubview(tintOverlayView, belowSubview: button)
 
-        contentReplaceView.isUserInteractionEnabled = false
-        contentReplaceView.translatesAutoresizingMaskIntoConstraints = false
-        contentReplaceView.maximumBlurRadius = 10
-        glassView.contentView.addSubview(contentReplaceView)
-        contentReplaceView.replaceContent(with: makeContentView(for: .search), animated: false)
+        configure(
+            contentView: actionContentView,
+            imageView: actionImageView,
+            imageName: "UniversalSearchPlus",
+            tintColor: tintColor.foregroundForTintedBackground
+        )
+        configure(
+            contentView: closeContentView,
+            imageName: "UniversalSearchXmark",
+            tintColor: .label
+        )
+        glassView.contentView.addSubview(actionContentView)
+        glassView.contentView.addSubview(closeContentView)
 
         NSLayoutConstraint.activate([
             glassView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -1437,11 +1750,18 @@ private final class UniversalSearchCloseButton: UIView {
             button.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
             button.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
 
-            contentReplaceView.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor),
-            contentReplaceView.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor),
-            contentReplaceView.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
-            contentReplaceView.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
+            actionContentView.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor),
+            actionContentView.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor),
+            actionContentView.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
+            actionContentView.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
+
+            closeContentView.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor),
+            closeContentView.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor),
+            closeContentView.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
+            closeContentView.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
         ])
+
+        applyStaticPresentation(.search)
     }
 
     @available(*, unavailable)
@@ -1452,43 +1772,115 @@ private final class UniversalSearchCloseButton: UIView {
     override func tintColorDidChange() {
         super.tintColorDidChange()
         tintOverlayView.backgroundColor = tintColor
+        actionImageView.tintColor = tintColor.foregroundForTintedBackground
     }
 
     func setPresentation(
         _ presentation: UniversalSearchFieldPresentation,
-        animator: UIViewPropertyAnimator?,
-        duration: TimeInterval
+        animator: UIViewPropertyAnimator?
     ) {
         guard presentation != self.presentation else { return }
         self.presentation = presentation
-        let usesActionAppearance = presentation != .search
-        contentReplaceView.animationDuration = duration
-        contentReplaceView.replaceContent(
-            with: makeContentView(for: presentation),
-            animated: animator != nil
-        )
-        // A tint overlay makes the color transition continuously animatable on
-        // every supported OS. Replacing UIGlassEffect to change its tint would
-        // otherwise produce a discrete jump on iOS 26.
-        let tintAlpha: CGFloat = usesActionAppearance ? 1 : 0
-        guard let animator else {
-            tintOverlayView.alpha = tintAlpha
-            return
+        let updates = {
+            self.applyContentOpacity(for: presentation)
         }
-        animator.addAnimations {
-            self.tintOverlayView.alpha = tintAlpha
+        if let animator {
+            animator.addAnimations(updates)
+        } else {
+            updates()
         }
     }
 
-    private func makeContentView(for presentation: UniversalSearchFieldPresentation) -> UIView {
-        let usesActionAppearance = presentation != .search
-        let imageName = usesActionAppearance ? "UniversalSearchPlus" : "UniversalSearchXmark"
-        let imageView = UIImageView(
-            image: UIImage.airBundle(imageName).withRenderingMode(.alwaysTemplate)
+    func applyStaticPresentation(
+        _ presentation: UniversalSearchFieldPresentation
+    ) {
+        self.presentation = presentation
+        glassView.setEffectVisible(presentation != .compactToolbar)
+        UIView.performWithoutAnimation {
+            applyContentOpacity(for: presentation)
+            actionContentView.blurRadius = blurRadius(
+                for: .action,
+                presentation: presentation
+            )
+            closeContentView.blurRadius = blurRadius(
+                for: .close,
+                presentation: presentation
+            )
+        }
+    }
+
+    func prepareTransition(from presentation: UniversalSearchFieldPresentation) {
+        applyStaticPresentation(presentation)
+        // Re-materializing at the fully overlapped compact frame is visually
+        // neutral and lets the container split the two shapes during a pop.
+        glassView.setEffectVisible(true)
+    }
+
+    func setTransitionProgress(
+        _ progress: CGFloat,
+        from source: UniversalSearchFieldPresentation,
+        to target: UniversalSearchFieldPresentation
+    ) {
+        actionContentView.blurRadius = interpolate(
+            from: blurRadius(for: .action, presentation: source),
+            to: blurRadius(for: .action, presentation: target),
+            progress: progress
         )
-        imageView.tintColor = usesActionAppearance ? .white : .label
+        closeContentView.blurRadius = interpolate(
+            from: blurRadius(for: .close, presentation: source),
+            to: blurRadius(for: .close, presentation: target),
+            progress: progress
+        )
+    }
+
+    private func configure(
+        contentView: WBlurredContentView,
+        imageView: UIImageView = UIImageView(),
+        imageName: String,
+        tintColor: UIColor
+    ) {
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.isUserInteractionEnabled = false
+        imageView.image = UIImage.airBundle(imageName).withRenderingMode(.alwaysTemplate)
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.tintColor = tintColor
         imageView.contentMode = .center
-        return imageView
+        contentView.addSubview(imageView)
+        NSLayoutConstraint.activate([
+            imageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+        ])
+    }
+
+    private func applyContentOpacity(
+        for presentation: UniversalSearchFieldPresentation
+    ) {
+        let showsAction = presentation == .homeToolbar
+        let showsClose = presentation == .search
+        tintOverlayView.alpha = showsAction ? 1 : 0
+        actionContentView.alpha = showsAction ? 1 : 0
+        closeContentView.alpha = showsClose ? 1 : 0
+    }
+
+    private func blurRadius(
+        for kind: ContentKind,
+        presentation: UniversalSearchFieldPresentation
+    ) -> CGFloat {
+        let isVisible = switch kind {
+        case .action: presentation == .homeToolbar
+        case .close: presentation == .search
+        }
+        return isVisible ? 0 : Self.maximumContentBlurRadius
+    }
+
+    private func interpolate(
+        from start: CGFloat,
+        to end: CGFloat,
+        progress: CGFloat
+    ) -> CGFloat {
+        start + (end - start) * progress
     }
 
     @objc private func tapped() {

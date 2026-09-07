@@ -61,6 +61,8 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         case loaded(items: [TokenItem], allTokensCount: Int)
     }
 
+    public var menuProvider: (() -> UIMenu?)?
+
     public let id: String
     public var onStateChange: ((_ hasStructuralChanges: Bool, _ animated: Bool) -> Void)?
     public private(set) var itemIdentifiers: [String] = []
@@ -102,7 +104,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
     private lazy var showAllRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, String> { [weak self] cell, _, _ in
         guard let self else { return }
         cell.baseBackgroundColor = .air.groupedItem
-        cell.configure(tokensCount: allTokensCount, menu: makeVisibleTokensLimitMenu())
+        cell.configure(tokensCount: allTokensCount, menu: menuProvider?())
         cell.configurationUpdateHandler = { showAllCell, state in
             showAllCell.isHighlighted = state.isHighlighted
         }
@@ -137,20 +139,17 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
     }
 
     private func makeItemIdentifiers() -> [String] {
-        switch state {
+        let identifiers: [String] = switch state {
         case .placeholders(let count):
-            return (0..<count).map { ItemIdentifier.placeholder(accountId: accountId, index: $0) }
+            (0..<count).map { ItemIdentifier.placeholder(accountId: accountId, index: $0) }
         case .empty:
-            return [ItemIdentifier.empty(accountId: accountId)]
-        case .loaded(let items, let allTokensCount):
-            var identifiers = items.map {
+            [ItemIdentifier.empty(accountId: accountId)]
+        case .loaded(let items, _):
+            items.map {
                 ItemIdentifier.token(accountId: accountId, tokenID: $0.tokenBalance.tokenID)
             }
-            if allTokensCount > items.count {
-                identifiers.append(ItemIdentifier.showAll(accountId: accountId))
-            }
-            return identifiers
         }
+        return identifiers + [ItemIdentifier.showAll(accountId: accountId)]
     }
 
     public func prepareForUse() {
@@ -266,6 +265,10 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
                 }
             case .tokensChanged, .assetsAndActivityDataUpdated, .homeWalletVisibleTokensLimitChanged:
                 refresh(animated: true)
+            case .accountChanged(let accountId, _):
+                if accountId == self.accountId {
+                    refresh(animated: true)
+                }
             case .balanceChanged(let accountId):
                 if accountId == self.accountId {
                     refresh(animated: true)
@@ -381,24 +384,4 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         }
     }
 
-    private func makeVisibleTokensLimitMenu() -> UIMenu {
-        UIMenu(
-            title: "",
-            options: [.displayInline, .singleSelection],
-            children: [
-                UIDeferredMenuElement.uncached { completion in
-                    let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
-                    let actions = HomeWalletVisibleTokensLimit.allCases.map { limit in
-                        UIAction(
-                            title: limit.title,
-                            state: currentLimit == limit ? .on : .off
-                        ) { _ in
-                            AppStorageHelper.homeWalletVisibleTokensLimit = limit
-                        }
-                    }
-                    completion(actions)
-                }
-            ]
-        )
-    }
 }

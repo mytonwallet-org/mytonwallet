@@ -38,12 +38,12 @@ private final class SubwalletsActionsState: ObservableObject {
     @Published var canAddAllFoundSubwallets = false
 }
 
-final class SubwalletsVC: SettingsBaseVC {
+public final class SubwalletsVC: SettingsBaseVC {
     private let variantChains: [ApiChain]
     private let listViewController: SubwalletsListVC
     private let actionsState: SubwalletsActionsState
 
-    init(enclaveToken: EnclaveToken) {
+    public init(enclaveToken: EnclaveToken) {
         let account = AccountStore.account ?? DUMMY_ACCOUNT
         let accountContext = AccountContext(source: .current)
         let displayChains = accountContext.orderedChains.map(\.0)
@@ -60,11 +60,11 @@ final class SubwalletsVC: SettingsBaseVC {
         super.init(nibName: nil, bundle: nil)
     }
 
-    @MainActor required init?(coder: NSCoder) {
+    @MainActor required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func viewDidLoad() {
+    public override func viewDidLoad() {
         super.viewDidLoad()
 
         navigationItem.title = navigationTitle
@@ -122,7 +122,7 @@ final class SubwalletsVC: SettingsBaseVC {
         return String(format: localized, chain.title)
     }
 
-    override func scrollToTop(animated: Bool) {
+    public override func scrollToTop(animated: Bool) {
         listViewController.scrollToTop(animated: animated)
     }
 }

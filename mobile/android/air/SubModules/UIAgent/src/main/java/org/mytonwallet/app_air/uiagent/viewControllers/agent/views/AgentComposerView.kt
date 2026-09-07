@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent.views
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
@@ -23,11 +24,11 @@ import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.scaleIn
@@ -48,6 +49,9 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
 
     private val inputBackground = WFrameLayout(context)
     var onHeightChanged: (() -> Unit)? = null
+
+    val inputBottomInset: Int
+        get() = paddingBottom + 2 * WGlassView.GLASS_PADDING_DP.dp
 
     private val editText = AppCompatEditText(context).apply {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
@@ -83,9 +87,7 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     private var hintsActive = false
     private var lastHeight = 0
     private var isApplyingEmoji = false
-    private var inputShadow: PillShadowView? = null
-    private var blurView: WBlurryBackgroundView? = null
-    private var isPlayingBlur = true
+    private var inputGlass: WGlassView? = null
 
     init {
         layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -94,7 +96,6 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         clipToPadding = false
 
         inputBackground.minimumHeight = 48.dp
-        syncBlurView()
         inputBackground.addView(
             editText,
             LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
@@ -118,7 +119,12 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         inputBackground.addView(sendButton)
 
         addView(inputBackground, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        inputShadow = PillShadowView.attachTo(inputBackground, 24f.dp)
+        inputGlass = WGlassView.attachTo(
+            inputBackground,
+            24f.dp,
+            GlassProviders.composer(WColor.SearchFieldBackground),
+            blurRootView
+        )
 
         editText.doAfterTextChanged { editable ->
             if (!isApplyingEmoji && editable != null) {
@@ -127,9 +133,6 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
                 isApplyingEmoji = false
             }
             updateSendButtonState()
-        }
-        editText.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            inputShadow?.sync()
         }
 
         hintsButton.setOnClickListener {
@@ -162,7 +165,6 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
-        if (changed) inputShadow?.sync()
         if (height != lastHeight) {
             lastHeight = height
             onHeightChanged?.invoke()
@@ -269,61 +271,16 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         editText.setTextColor(WColor.PrimaryText.color)
         editText.highlightColor = WColor.Tint.color and 0x40FFFFFF
 
-        syncBlurView()
         inputBackground.setBackgroundColor(
-            WColor.SearchFieldBackground.color,
+            Color.TRANSPARENT,
             24f.dp,
             clipToBounds = true
         )
-        blurView?.updateTheme()
+        inputGlass?.updateTheme()
 
         applyHintsButtonTheme()
         hintsRipple.rippleColor = WColor.BackgroundRipple.color
 
         applySendButtonTheme()
-    }
-
-    private fun syncBlurView() {
-        val blurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
-        if (blurEnabled && blurView == null) {
-            blurView = WBlurryBackgroundView(context, fadeSide = null).also {
-                it.setupWith(blurRootView)
-                it.setOverlayColor(WColor.SearchFieldBackground, 204)
-                inputBackground.addView(it, 0, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-            }
-            isPlayingBlur = true
-        } else if (!blurEnabled && blurView != null) {
-            inputBackground.removeView(blurView)
-            blurView = null
-            isPlayingBlur = false
-        }
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        if (blurView != null && !isPlayingBlur) {
-            isPlayingBlur = true
-            blurView?.resumeBlurring()
-        }
-    }
-
-    override fun onDetachedFromWindow() {
-        super.onDetachedFromWindow()
-        if (isPlayingBlur) {
-            isPlayingBlur = false
-            blurView?.pauseBlurring()
-        }
-    }
-
-    fun pauseBlurring() {
-        if (!isPlayingBlur) return
-        isPlayingBlur = false
-        blurView?.pauseBlurring()
-    }
-
-    fun resumeBlurring() {
-        if (isPlayingBlur) return
-        isPlayingBlur = true
-        blurView?.resumeBlurring()
     }
 }

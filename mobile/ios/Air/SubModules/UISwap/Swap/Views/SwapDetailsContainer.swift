@@ -21,7 +21,7 @@ struct SwapDetailsContainer<Content: View>: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .frame(maxHeight: isExpanded ? nil : 44, alignment: .top)
+        .frame(maxHeight: isExpanded ? nil : S.sectionItemHeight, alignment: .top)
         .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius))
         .tint(.accentColor)
         .animation(.spring(duration: isExpanded ? 0.45 : 0.3), value: isExpanded)
@@ -29,7 +29,7 @@ struct SwapDetailsContainer<Content: View>: View {
 
     private var header: some View {
         Button(action: { isExpanded.toggle() }) {
-            InsetCell {
+            InsetCell(horizontalPadding: 16) {
                 HStack {
                     Text(lang("Swap Details"))
                         .textCase(IOS_26_MODE_ENABLED ? nil : .uppercase)
@@ -42,8 +42,7 @@ struct SwapDetailsContainer<Content: View>: View {
                 .tint(.air.secondaryLabel)
                 .foregroundStyle(Color.air.secondaryLabel)
             }
-            .frame(minHeight: 44)
-            .frame(height: 44)
+            .frame(height: S.sectionItemHeight)
             .contentShape(.rect)
         }
         .buttonStyle(InsetButtonStyle())

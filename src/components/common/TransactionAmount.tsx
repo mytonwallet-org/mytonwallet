@@ -23,6 +23,8 @@ interface OwnProps {
   isFailed?: boolean;
   status?: string;
   noSign?: boolean;
+  isApproval?: boolean;
+  isApprovalUnlimited?: boolean;
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
@@ -37,6 +39,8 @@ function TransactionAmount({
   token,
   status,
   noSign = false,
+  isApproval = false,
+  isApprovalUnlimited = false,
   isSensitiveDataHidden,
   baseCurrency,
   currencyRates,
@@ -48,10 +52,11 @@ function TransactionAmount({
 
   const typeClass = isFailed || isScam
     ? styles.operationNegative
-    : isIncoming ? styles.operationPositive : undefined;
+    : isIncoming && !isApproval ? styles.operationPositive : undefined;
 
   useLayoutEffect(updateFontScale, [
-    amount, token?.decimals, token?.symbol, noSign, isIncoming, isSensitiveDataHidden, windowWidth, updateFontScale,
+    amount, token?.decimals, token?.symbol, noSign, isIncoming, isApproval, isApprovalUnlimited,
+    isSensitiveDataHidden, windowWidth, updateFontScale,
   ]);
 
   function handleClick() {
@@ -63,8 +68,9 @@ function TransactionAmount({
   function renderAmount() {
     const { decimals, symbol } = token ?? UNKNOWN_TOKEN;
     const amountString = toDecimal(noSign ? bigintAbs(amount) : amount, decimals);
-    const [wholePart, fractionPart]
-      = formatCurrencyExtended(amountString, '', noSign, decimals, !isIncoming).split('.');
+    const [wholePart, fractionPart] = isApprovalUnlimited
+      ? ['∞']
+      : formatCurrencyExtended(amountString, '', noSign, decimals, !isIncoming).split('.');
     const withStatus = Boolean(status);
     const isClickable = Boolean(onTokenClick && token?.slug);
 
@@ -82,6 +88,7 @@ function TransactionAmount({
           ref={amountRef}
           className={buildClassName(
             styles.amount,
+            isApproval && styles.approval,
             status && styles.withStatus,
             typeClass,
             'rounded-font',
@@ -103,7 +110,7 @@ function TransactionAmount({
   }
 
   function renderBaseCurrencyAmount() {
-    if (!token) {
+    if (!token || isApproval) {
       return undefined;
     }
 

@@ -20,16 +20,26 @@ struct TransactionAddressDisplayTests {
         #expect(!activity.shouldShowTransactionAddress(in: .details))
     }
 
+    @Test
+    func `zero approval keeps its allowance visible`() {
+        let activity = makeActivity(type: .approval, amount: BigInt(0))
+
+        #expect(activity.amountDisplayMode == .approval)
+        #expect(activity.shouldShowTransactionAddress(in: .list))
+        #expect(activity.shouldShowTransactionAddress(in: .details))
+    }
+
     private func makeActivity(
         type: ApiTransactionType?,
-        slug: String = TONCOIN_SLUG
+        slug: String = TONCOIN_SLUG,
+        amount: BigInt = BigInt(1)
     ) -> ApiActivity {
         .transaction(.init(
             id: "transaction-address-display-\(type?.rawValue ?? "transfer")-\(slug)",
             kind: "transaction",
             externalMsgHashNorm: nil,
             timestamp: 0,
-            amount: BigInt(1),
+            amount: amount,
             fromAddress: "from-address",
             toAddress: "to-address",
             comment: nil,

@@ -13,6 +13,7 @@ import UIQRScan
 import UISend
 import UIAssets
 import UISettings
+import UIPasscode
 import UIReceive
 import UIEarn
 import UIHome
@@ -40,6 +41,7 @@ private func isPortfolioHomeURL(_ url: URL) -> Bool {
 private class AppActionsImpl: AppActionsProtocol {
     
     @Dependency(\.sensitiveData) private static var sensitiveData
+    private static var isShowingSwap = false
     private static var rootContainerRouter: any RootContainerRouting {
         let splitRouter = SplitRootContainerRouter()
         if splitRouter.isAvailable {
@@ -127,13 +129,15 @@ private class AppActionsImpl: AppActionsProtocol {
                     AppActions.showError(error: DisplayError(text: lang("Swap is not supported on this account.")))
                     return
                 }
-                AppActions.showSwap(
-                    accountContext: accountContext,
-                    defaultSellingToken: swap.from,
-                    defaultBuyingToken: swap.to,
-                    defaultSellingAmount: swap.fromAmount.value,
-                    push: nil
-                )
+                Task {
+                    await AppActions.showSwap(
+                        accountContext: accountContext,
+                        defaultSellingToken: swap.from,
+                        defaultBuyingToken: swap.to,
+                        defaultSellingAmount: swap.fromAmount.value,
+                        push: nil
+                    )
+                }
             }
         }
         if let presenting = topWViewController()?.presentingViewController {
@@ -668,6 +672,19 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showSettings(section: AppSettingsSection?) {
+        if section == .subwallets {
+            guard let presenter = topViewController() else { return }
+            Task { @MainActor in
+                if let enclaveToken = await UnlockVC.presentAuthAsync(
+                    on: presenter,
+                    sessionKind: .oneShot,
+                    extraAuthUsages: 1
+                ) {
+                    rootContainerRouter.showSettings(path: [SubwalletsVC(enclaveToken: enclaveToken)])
+                }
+            }
+            return
+        }
         if section == .language {
             openAppLanguageSettings()
             return
@@ -715,22 +732,42 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
     
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) {
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) async {
         if accountContext.account.supportsSwap != true {
             AppActions.showError(error: DisplayError(text: lang("Swap is not supported on this account.")))
             return
         }
+        guard !isShowingSwap else { return }
+        isShowingSwap = true
+        defer { isShowingSwap = false }
+
         let isAccountSwitchingAllowed = accountContext.source == .current
         let swapAccountContext = AccountContext(accountId: accountContext.account.id)
+        let request = ApiSwapDefaultsRequest(
+            accountContext: swapAccountContext,
+            tokenIn: defaultSellingToken.flatMap { TokenStore.getToken(slugOrAddress: $0) },
+            tokenOut: defaultBuyingToken.flatMap { TokenStore.getToken(slugOrAddress: $0) }
+        )
+        let defaults: ApiSwapDefaults
+        if let tokenIn = request.tokenIn, let tokenOut = request.tokenOut {
+            defaults = ApiSwapDefaults(tokenIn: tokenIn, tokenOut: tokenOut)
+        } else {
+            defaults = (try? await Api.resolveSwapDefaults(request))
+                ?? ApiSwapDefaults(tokenIn: request.tokenIn, tokenOut: request.tokenOut)
+        }
+        guard !Task.isCancelled else { return }
         let swapVC = SwapVC(
             accountContext: swapAccountContext,
-            defaultSellingToken: defaultSellingToken,
-            defaultBuyingToken: defaultBuyingToken,
+            defaults: defaults,
             defaultSellingAmount: defaultSellingAmount,
             defaultBuyingAmount: defaultBuyingAmount,
             isAccountSwitchingAllowed: isAccountSwitchingAllowed
         )
-        pushIfNeeded(swapVC, push: push)
+        await withCheckedContinuation { continuation in
+            pushIfNeeded(swapVC, push: push) {
+                continuation.resume()
+            }
+        }
     }
     
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) {
@@ -840,6 +877,11 @@ private class AppActionsImpl: AppActionsProtocol {
             return []
         case .appearance:
             return [AppearanceSettingsVC()]
+        case .security:
+            guard AuthSupport.status.requiresAuthorization else { return nil }
+            return [SecurityVC()]
+        case .subwallets:
+            return nil
         case .assets:
             return [AssetsAndActivityVC()]
         case .language:
@@ -890,10 +932,15 @@ private extension URL {
 
 // MARK: - Helpers
 
-@MainActor private func pushIfNeeded(_ vc: UIViewController, push: Bool?) {
+@MainActor private func pushIfNeeded(_ vc: UIViewController, push: Bool?, completion: (() -> Void)? = nil) {
     if push == true, let nc = topWViewController()?.navigationController {
         nc.pushViewController(vc, animated: true)
+        if nc.transitionCoordinator?.animate(alongsideTransition: nil, completion: { _ in completion?() }) != true {
+            completion?()
+        }
+    } else if let presenter = topViewController() {
+        presenter.present(WNavigationController(rootViewController: vc), animated: true, completion: completion)
     } else {
-        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+        completion?()
     }
 }

@@ -72,7 +72,10 @@ enum SplitHomeActionItem: CaseIterable, Hashable, Sendable {
         case .scan: AppActions.scanAndHandleQR(accountContext: accountContext)
         case .sell: AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
         case .send: AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
-        case .swap: AppActions.showSwap(accountContext: accountContext, defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+        case .swap:
+            Task {
+                await AppActions.showSwap(accountContext: accountContext, defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+            }
         }
     }
     

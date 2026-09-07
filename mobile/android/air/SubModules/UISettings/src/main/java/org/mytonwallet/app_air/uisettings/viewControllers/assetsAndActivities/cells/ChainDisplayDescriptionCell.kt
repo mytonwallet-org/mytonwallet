@@ -15,6 +15,7 @@ class ChainDisplayDescriptionCell(context: Context) :
 
     private val label = WLabel(context).apply {
         setStyle(13f, WFont.Regular)
+        setLineHeight(18f)
         setTextColor(WColor.SecondaryText)
     }
 

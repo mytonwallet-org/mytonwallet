@@ -6,7 +6,7 @@ import { SECOND } from '../../../util/dateFormat';
 import isEmptyObject from '../../../util/isEmptyObject';
 import { logDebugError } from '../../../util/logs';
 import { getTronClient } from './util/tronweb';
-import { getTrc20Transactions, parseRawTrc20Transaction, parseRawTrxTransaction } from './activities';
+import { getTrc20Transactions, parseRawTrc20Transactions, parseRawTrxTransaction } from './activities';
 
 /**
  * Fetches transaction/trace info by hash or trace ID for deeplink viewing.
@@ -46,14 +46,16 @@ export async function fetchTransactionById(
       max_timestamp: timestamp + SECOND,
     });
 
-    const matchingTrc20Tx = trc20Transactions.find((tx) => tx.transaction_id === txId);
+    const matchingTrc20Activity = parseRawTrc20Transactions(
+      walletAddress,
+      trc20Transactions.filter((tx) => tx.transaction_id === txId),
+    )[0];
 
-    if (matchingTrc20Tx) {
-      const activity = parseRawTrc20Transaction(walletAddress, matchingTrc20Tx);
-      if (activity.kind === 'transaction') {
-        activity.fee = fee;
+    if (matchingTrc20Activity) {
+      if (matchingTrc20Activity.kind === 'transaction') {
+        matchingTrc20Activity.fee = fee;
       }
-      return [activity];
+      return [matchingTrc20Activity];
     }
 
     const combinedTx = {

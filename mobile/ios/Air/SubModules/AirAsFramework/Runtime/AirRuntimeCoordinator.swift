@@ -394,7 +394,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
                 WalletConnect.shared.handleDeeplink(requestLink, source: source)
 
             case .swap(from: let from, to: let to, amountIn: let amountIn):
-                AppActions.showSwap(accountContext: accountContext, defaultSellingToken: from, defaultBuyingToken: to, defaultSellingAmount: amountIn, push: nil)
+                Task {
+                    await AppActions.showSwap(accountContext: accountContext, defaultSellingToken: from, defaultBuyingToken: to, defaultSellingAmount: amountIn, push: nil)
+                }
 
             case .buyWithCard:
                 AppActions.showBuyWithCard(accountContext: accountContext, chain: nil, push: nil)

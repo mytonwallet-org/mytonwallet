@@ -10,9 +10,10 @@ import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -56,11 +57,9 @@ class ToastView(context: Context) :
         background = actionRipple
     }
 
-    private var blurView: WBlurryBackgroundView? = null
+    private var glassView: WGlassView? = null
     private var blurRootView: ViewGroup? = null
-    private var pillShadowView: PillShadowView? = null
     private var actionListener: (() -> Unit)? = null
-    private var isBlurPlaying = false
 
     init {
         isClickable = true
@@ -117,92 +116,36 @@ class ToastView(context: Context) :
             return
         }
         this.blurRootView = blurRootView
+        glassView?.setupWith(blurRootView)
         updateTheme()
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (pillShadowView == null) {
-            pillShadowView = PillShadowView.attachTo(this, CORNER_RADIUS_DP.dp)
+        if (glassView == null) {
+            glassView = WGlassView.attachTo(
+                this,
+                CORNER_RADIUS_DP.dp,
+                GlassProviders.legacy(WColor.SearchFieldBackground),
+                blurRootView,
+                flavor = GlassFlavor.FROSTED
+            ).apply {
+                liquidGlass = false
+            }
         }
-        syncShadow()
-        resumeBlurring()
     }
 
     override fun onDetachedFromWindow() {
-        pauseBlurring()
         super.onDetachedFromWindow()
     }
 
-    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        super.onLayout(changed, left, top, right, bottom)
-        if (changed) {
-            syncShadow()
-        }
-    }
-
     override fun updateTheme() {
-        val isBlurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
-
         iconView.drawable?.setTint(WColor.PrimaryText.color)
         textLabel.updateTheme()
         actionLabel.updateTheme()
         actionRipple.rippleColor = WColor.TintRipple.color
 
-        setBackgroundColor(
-            if (isBlurEnabled) Color.TRANSPARENT else WColor.SearchFieldBackground.color,
-            CORNER_RADIUS_DP.dp,
-            clipToBounds = true
-        )
-
-        syncBlurView()
-        blurView?.updateTheme()
-    }
-
-    fun pauseBlurring() {
-        if (!isBlurPlaying) {
-            return
-        }
-        isBlurPlaying = false
-        blurView?.pauseBlurring()
-    }
-
-    fun resumeBlurring() {
-        if (isBlurPlaying) {
-            return
-        }
-        isBlurPlaying = true
-        blurView?.resumeBlurring()
-    }
-
-    fun syncShadow() {
-        pillShadowView?.sync()
-    }
-
-    private fun syncBlurView() {
-        val blurRootView = blurRootView
-        val isBlurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
-        var blurView = this.blurView
-        if (isBlurEnabled && blurView == null) {
-            blurView = WBlurryBackgroundView(context, fadeSide = null).also {
-                it.setupWith(blurRootView)
-                it.setOverlayColor(WColor.SearchFieldBackground, 204)
-            }
-            addView(
-                blurView,
-                0,
-                LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            )
-            setConstraints {
-                allEdges(blurView)
-            }
-            if (isBlurPlaying) {
-                blurView.resumeBlurring()
-            }
-            this.blurView = blurView
-        } else if (!isBlurEnabled && blurView != null) {
-            removeView(blurView)
-            this.blurView = null
-        }
+        setBackgroundColor(Color.TRANSPARENT, CORNER_RADIUS_DP.dp, clipToBounds = true)
+        glassView?.updateTheme()
     }
 }

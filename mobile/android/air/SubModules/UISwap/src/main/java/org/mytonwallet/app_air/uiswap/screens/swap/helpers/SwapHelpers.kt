@@ -5,49 +5,16 @@ import java.math.BigInteger
 import java.math.RoundingMode
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.ExplainedSwapFee
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 
-internal data class SwapDefaultTokens(
-    val tokenToSend: MApiSwapAsset?,
-    val tokenToReceive: MApiSwapAsset?
-)
-
 class SwapHelpers {
     companion object {
-        internal fun resolveDefaultTokens(
-            assets: List<MApiSwapAsset>,
-            defaultSendingToken: MApiSwapAsset?,
-            defaultReceivingToken: MApiSwapAsset?
-        ): SwapDefaultTokens {
-            val tokenToSend = defaultSendingToken ?: run {
-                val slug = if (defaultReceivingToken?.slug == TONCOIN_SLUG) {
-                    TON_USDT_SLUG
-                } else {
-                    TONCOIN_SLUG
-                }
-                assets.firstOrNull { it.slug == slug }
-            }
-            val tokenToReceive = defaultReceivingToken ?: run {
-                val slug = if (tokenToSend?.slug == TON_USDT_SLUG) {
-                    TONCOIN_SLUG
-                } else {
-                    TON_USDT_SLUG
-                }
-                assets.firstOrNull { it.slug == slug }
-            }
-
-            return SwapDefaultTokens(tokenToSend, tokenToReceive)
-        }
-
         fun swapType(
             tokenToSend: IApiToken,
             tokenToReceive: IApiToken?,

@@ -57,6 +57,7 @@ import type {
   ApiSwapCexLabel,
   ApiSwapDexLabel,
   ApiSwapDexRouterLabel,
+  ApiSwapHint,
   ApiSwapRoute,
   ApiSwapVersion,
   ApiTokenDetails,
@@ -594,6 +595,10 @@ export interface AccountState {
     newestActivitiesBySlug?: Record<string, ApiActivity>;
     isMainHistoryEndReached?: boolean;
     isHistoryEndReachedBySlug?: Record<string, boolean>;
+    /** True when the last main-feed history request failed and brought no activities */
+    hasMainHistoryError?: boolean;
+    /** The record values follow the same rules as `hasMainHistoryError` */
+    hasHistoryErrorBySlug?: Record<string, boolean>;
     localActivityIds?: string[];
     /** Doesn't include the local activities */
     pendingActivityIds?: Partial<Record<ApiChain, string[]>>;
@@ -896,6 +901,7 @@ export type GlobalState = {
     currentCexPrivacyPolicyUrl?: string;
     currentCexAmlKycPolicyUrl?: string;
     maxAmountFromBackend?: string;
+    swapHint?: ApiSwapHint;
     // Fees. Undefined values mean that these fields are unknown.
     networkFee?: string;
     realNetworkFee?: string;

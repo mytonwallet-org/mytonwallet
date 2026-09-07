@@ -130,7 +130,7 @@ class PriceWidgetConfigurationVC(
                     positioning = WMenuPopup.Positioning.BELOW,
                     windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
                         periodView,
-                        roundRadius = 16f.dp
+                        roundRadius = 18f.dp
                     )
                 )
             }

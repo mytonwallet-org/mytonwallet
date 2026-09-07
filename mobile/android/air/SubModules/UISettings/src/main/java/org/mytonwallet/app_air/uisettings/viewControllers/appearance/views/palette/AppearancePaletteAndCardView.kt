@@ -137,5 +137,6 @@ class AppearancePaletteAndCardView(context: Context) :
         )
         circleDrawable?.setTint(WColor.Tint.color)
         rippleBackground.rippleColor = WColor.BackgroundRipple.color
+        cardThumbnailView.invalidate()
     }
 }

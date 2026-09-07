@@ -29,9 +29,9 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -125,21 +125,9 @@ class MarketVC(context: Context) :
     private val searchTextWatcher = searchEditText.doOnTextChanged { value, _, _, _ ->
         marketVM.search(value?.toString().orEmpty())
     }
-    private val searchBlurryBackgroundView = WBlurryBackgroundView(context, fadeSide = null).apply {
-        setOverlayColor(WColor.SearchFieldBackground, 204)
-    }
-    private var searchShadow: PillShadowView? = null
-    private val searchView = object : WFrameLayout(context) {
-        override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-            super.onLayout(changed, left, top, right, bottom)
-            if (changed) searchShadow?.sync()
-        }
-    }.apply {
+    private var searchGlass: WGlassView? = null
+    private val searchView = WFrameLayout(context).apply {
         setBackgroundColor(Color.TRANSPARENT, SEARCH_HEIGHT.dp / 2f, clipToBounds = true)
-        addView(
-            searchBlurryBackgroundView,
-            FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-        )
         addView(searchEditText, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
     private val collapsedSearchWidth by lazy {
@@ -158,7 +146,6 @@ class MarketVC(context: Context) :
             toCenterX(searchView)
             toBottomPx(searchView, bottom.roundToInt())
         }
-        searchShadow?.sync()
     }
 
     override fun setupViews() {
@@ -178,9 +165,13 @@ class MarketVC(context: Context) :
             toCenterX(searchView)
             toBottomPx(searchView, initialSearchBottom)
         }
-        searchShadow = PillShadowView.attachTo(searchView, SEARCH_HEIGHT.dp / 2f)
+        searchGlass = WGlassView.attachTo(
+            searchView,
+            SEARCH_HEIGHT.dp / 2f,
+            GlassProviders.pill(WColor.SearchFieldBackground),
+            view
+        )
         searchBottomAnimator.forcedValue = initialSearchBottom.toFloat()
-        searchBlurryBackgroundView.setupWith(view)
         updateLocalSearchVisibility()
 
         marketVM.start()
@@ -210,11 +201,10 @@ class MarketVC(context: Context) :
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        searchBlurryBackgroundView.updateTheme()
+        searchGlass?.updateTheme()
         searchEditText.updateTheme()
         searchEditText.highlightColor = WColor.Tint.color.colorWithAlpha(51)
         rvAdapter.updateTheme()
-        searchShadow?.updateTheme()
     }
 
     override fun insetsUpdated() {
@@ -255,7 +245,7 @@ class MarketVC(context: Context) :
     private fun bringSearchToFront() {
         if (!shouldShowLocalSearch) return
         if (view.indexOfChild(searchView) == view.childCount - 1) return
-        searchShadow?.bringToFront()
+        searchGlass?.bringToFront()
         searchView.bringToFront()
     }
 
@@ -265,11 +255,9 @@ class MarketVC(context: Context) :
     private fun updateLocalSearchVisibility() {
         val shouldShow = shouldShowLocalSearch
         if (searchView.isVisible == shouldShow) {
-            searchShadow?.sync()
             return
         }
         searchView.isVisible = shouldShow
-        searchShadow?.sync()
         if (!shouldShow) {
             if (searchEditText.text?.isNotEmpty() == true) searchEditText.setText("")
             if (searchEditText.hasFocus()) {
@@ -281,15 +269,6 @@ class MarketVC(context: Context) :
 
     private fun updateMarketBlurViews(recyclerView: RecyclerView) {
         updateBlurViews(recyclerView)
-        if (recyclerView.computeVerticalScrollOffset() > 1 &&
-            recyclerView.canScrollVertically(1)
-        ) {
-            searchBlurryBackgroundView.resumeBlurring()
-        } else if (recyclerView.scrollState !=
-            RecyclerView.SCROLL_STATE_IDLE
-        ) {
-            searchBlurryBackgroundView.pauseBlurring()
-        }
     }
 
     private fun updateSearchWidth() {
@@ -372,7 +351,7 @@ class MarketVC(context: Context) :
     override fun onDestroy() {
         marketVM.stop()
         searchBottomAnimator.stopAnimation()
-        searchShadow = null
+        searchGlass = null
         searchEditText.removeTextChangedListener(searchTextWatcher)
         searchEditText.setOnEditorActionListener(null)
         recyclerView.removeOnScrollListener(scrollListener)

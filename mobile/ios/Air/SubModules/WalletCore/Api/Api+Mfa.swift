@@ -65,15 +65,6 @@ extension Api {
         }
     }
 
-    public static func createDappConnectMfaRequest(accountId: String, enclaveToken: EnclaveToken?) async throws -> ApiMfaProtectedResult {
-        do {
-            return try await bridge.callApi("createDappConnectMfaRequest", accountId, enclaveToken, decoding: ApiMfaProtectedResult.self)
-        } catch {
-            log.error("createDappConnectMfaRequest failed: \(error, .public)")
-            throw error
-        }
-    }
-
     public static func refreshMfaState(accountId: String, enclaveToken: EnclaveToken?) async throws -> ApiRefreshMfaStateResult {
         do {
             let result = try await bridge.callApi("refreshMfaState", accountId, enclaveToken, decoding: ApiRefreshMfaStateResult.self)

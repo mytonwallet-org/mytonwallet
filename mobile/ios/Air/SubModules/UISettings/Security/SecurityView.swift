@@ -219,16 +219,14 @@ struct SecurityView: View {
     @ViewBuilder
     var autolockSection: some View {
         InsetSection {
-            InsetDetailCell(verticalPadding: 0) {
-                Text(lang("Lock the app after"))
-                    .padding(.vertical, 8)
-            } value: {
-                Color.clear.frame(width: 150, height: 44)
-                    .overlay(alignment: .trailing) {
-                        AutolockPicker(autolockOption: $autolockOption)
-                        .fixedSize()
-                    }
-                
+            InsetPickerCell(
+                lang("Lock the app after"),
+                selection: $autolockOption,
+                value: autolockOption.displayName
+            ) {
+                ForEach(MAutolockOption.allCases) { option in
+                    Text(option.displayName).tag(option)
+                }
             }
         } header: {
             Text(lang("Auto-Lock"))
@@ -263,39 +261,5 @@ struct SecurityView: View {
         } footer: {
             Text(lang("$allow_suspicious_actions_description"))
         }
-    }
-}
-
-
-struct AutolockPicker: View {
-    
-    @Binding var autolockOption: MAutolockOption
-    
-    var body: some View {
-        Menu {
-            ForEach(MAutolockOption.allCases) { option in
-                Button(action: { autolockOption = option }) {
-                    Text(option.displayName)
-                        .lineLimit(1)
-                        .frame(width: 200, alignment: .trailing)
-                        .tag(option)
-                }
-            }
-        } label: {
-            let arrow: Text = Text(Image(systemName: "arrow.up.and.down"))
-                .textStyle(.footnote, content: .technical)
-            (
-                Text(autolockOption.displayName)
-                    .textStyle(.body) +
-                Text(" ")
-                    .textStyle(.body) +
-                arrow
-            )
-                .imageScale(.small)
-                .padding(5)
-                .contentShape(.rect)
-        }
-        .padding(-5)
-        .fixedSize()
     }
 }

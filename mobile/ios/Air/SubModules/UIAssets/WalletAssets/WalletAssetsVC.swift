@@ -47,6 +47,10 @@ import WalletContext
         }
     )
 
+    public var tokensMenu: UIMenu? {
+        tabContextMenuProviders.makeTokensMenu()
+    }
+
     private func makePagerItem(
         tab: DisplayAssetTab,
         viewController: any WSegmentedControllerContent
@@ -55,6 +59,7 @@ import WalletContext
             id: tab.segmentedControlItemId,
             title: tab.segmentedControlTitle,
             contextMenuProvider: tabContextMenuProviders.provider(for: tab),
+            hidesMenuIcon: true,
             isDeletable: tab.isDeletableSegment,
             viewController: viewController
         )
@@ -157,12 +162,19 @@ import WalletContext
         case .nfts:
             return nftsVC!
         case .nftCollectionFilter(let filter):
-            return NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .compact, filter: filter)
+            return makeNftsViewController(filter: filter)
         }
     }
     
+    private func makeNftsViewController(filter: NftCollectionFilter) -> NftsVC {
+        let vc = NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .compact, filter: filter)
+        let tab: DisplayAssetTab = filter == .none ? .nfts : .nftCollectionFilter(filter)
+        vc.showAllMenuProvider = tabContextMenuProviders.provider(for: tab)
+        return vc
+    }
+
     public override func loadView() {
-        let nftsVC = NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .compact, filter: .none)
+        let nftsVC = makeNftsViewController(filter: .none)
         self.nftsVC = nftsVC
         addChild(nftsVC)
         nftsVC.didMove(toParent: self)

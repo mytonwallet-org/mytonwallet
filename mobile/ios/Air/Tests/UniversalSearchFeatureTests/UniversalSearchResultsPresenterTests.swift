@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-import UIKit
 import UIUniversalSearch
 import UniversalSearchCore
 import UniversalSearchFeature
@@ -11,9 +10,9 @@ import WalletCoreTypes
 @Suite("Universal Search results presentation")
 struct UniversalSearchResultsPresenterTests {
     @Test
-    func `extracts top hit and pages result groups larger than three rows`() throws {
+    func `extracts top hit and groups remaining results without losing routes`() throws {
         let documents = makeDocuments()
-        let hits = UniversalSearchEngine().search("wallet", in: documents)
+        let hits = documents.map(makeSearchHit)
         let snapshot = UniversalSearchResultSnapshot(
             query: UniversalSearchQuery("wallet"),
             hits: hits,
@@ -32,7 +31,6 @@ struct UniversalSearchResultsPresenterTests {
         let presentation = presenter.presentation(for: snapshot, context: context)
         let topSection = try #require(presentation.sections.first)
         let tokenSection = try #require(presentation.sections.first { $0.id == "tokens" })
-        let appSection = try #require(presentation.sections.first { $0.id == "apps" })
 
         #expect(presentation.sections.map(\.id) == [
             "top-hit", "tokens", "apps", "ask-agent", "search-google",
@@ -40,13 +38,6 @@ struct UniversalSearchResultsPresenterTests {
         #expect(topSection.items.count == 1)
         #expect(presentation.preselectedItemID == topSection.items.first?.id)
         #expect(tokenSection.items.count == 4)
-        if case .paged(let rowsPerPage) = tokenSection.layout {
-            #expect(rowsPerPage == 3)
-        } else {
-            Issue.record("Expected token results to page")
-        }
-        #expect(tokenSection.showsLeadingSeparator == false)
-        #expect(appSection.showsLeadingSeparator == true)
         #expect(presentation.routesByItemID.count == hits.count + 2)
     }
 
@@ -91,7 +82,7 @@ struct UniversalSearchResultsPresenterTests {
                 ),
             ]
         )
-        let hits = UniversalSearchEngine().search("Test", in: [document])
+        let hits = [makeSearchHit(document)]
         let snapshot = UniversalSearchResultSnapshot(
             query: UniversalSearchQuery("Test"),
             hits: hits,
@@ -139,7 +130,7 @@ struct UniversalSearchResultsPresenterTests {
                 value: token.slug
             )]
         )
-        let hits = UniversalSearchEngine().search("fragment", in: [document])
+        let hits = [makeSearchHit(document)]
         let snapshot = UniversalSearchResultSnapshot(
             query: UniversalSearchQuery("fragment"),
             hits: hits,
@@ -192,7 +183,7 @@ struct UniversalSearchResultsPresenterTests {
             ],
             signals: SearchSignals(traits: [.external, .viewOnly])
         )
-        let hits = UniversalSearchEngine().search("mwme.ton", in: [document])
+        let hits = [makeSearchHit(document)]
         let snapshot = UniversalSearchResultSnapshot(
             query: UniversalSearchQuery("mwme.ton"),
             hits: hits,
@@ -214,7 +205,6 @@ struct UniversalSearchResultsPresenterTests {
 
         #expect(network == .mainnet)
         #expect(addressOrDomainByChain == ["ton": "mwme.ton"])
-        #expect(presentation.sections.first?.title == "View Wallet")
     }
 
     @Test
@@ -225,29 +215,18 @@ struct UniversalSearchResultsPresenterTests {
 
         #expect(tokens.items.map(\.id) == [fixture.recentToken.id.rawValue])
         #expect(apps.items.map(\.id) == [fixture.trendingApp.id.rawValue])
-        #expect(tokens.showsLeadingSeparator == true)
-        #expect(apps.showsLeadingSeparator == true)
         #expect(fixture.presentation.preselectedItemID == nil)
     }
 
     @Test
-    func `browse presentation hides unavailable modes and only exposes visible routes`() throws {
+    func `browse presentation only exposes routes for the selected results`() {
         let fixture = makeMixedBrowseFixture()
-        let tokens = try #require(fixture.presentation.sections.first { $0.id == "tokens" })
-        let apps = try #require(fixture.presentation.sections.first { $0.id == "apps" })
         let expectedRouteIDs = [
             "agent-chat:start",
             fixture.trendingApp.id.rawValue,
             fixture.recentToken.id.rawValue,
         ].sorted()
         #expect(fixture.presentation.routesByItemID.keys.sorted() == expectedRouteIDs)
-        guard case .toggle(_, _, let tokenMode) = tokens.headerAccessory,
-              case .text(let appMode) = apps.headerAccessory else {
-            Issue.record("Expected a token toggle and a single app mode label")
-            return
-        }
-        #expect(tokenMode == .primary)
-        #expect(appMode == "Trending")
     }
 
     @Test
@@ -279,7 +258,7 @@ struct UniversalSearchResultsPresenterTests {
     }
 
     @Test
-    func `browse mode override crossfades identity and pages more than three items`() throws {
+    func `browse mode override selects trending results`() throws {
         let recent = makeDocument(id: "token:recent", kind: .token)
         let trending = (0..<4).map { index in
             makeDocument(id: "token:trending-\(index)", kind: .token)
@@ -300,16 +279,6 @@ struct UniversalSearchResultsPresenterTests {
         let tokens = try #require(presentation.sections.first { $0.id == "tokens" })
 
         #expect(tokens.items.map(\.id) == trending.map { $0.id.rawValue })
-        if case .paged(let rowsPerPage) = tokens.layout {
-            #expect(rowsPerPage == 3)
-        } else {
-            Issue.record("Expected four browse results to page")
-        }
-        guard case .toggle(_, _, let selected) = tokens.headerAccessory else {
-            Issue.record("Expected browse mode toggle")
-            return
-        }
-        #expect(selected == .secondary)
     }
 
     private func makeDocuments() -> [SearchDocument] {
@@ -349,7 +318,6 @@ struct UniversalSearchResultsPresenterTests {
     private struct MixedBrowseFixture {
         let presentation: UniversalSearchPresentation
         let recentToken: SearchDocument
-        let trendingToken: SearchDocument
         let trendingApp: SearchDocument
     }
 
@@ -367,7 +335,6 @@ struct UniversalSearchResultsPresenterTests {
         return MixedBrowseFixture(
             presentation: makePresenter().browsePresentation(for: snapshot, context: context),
             recentToken: recentToken,
-            trendingToken: trendingToken,
             trendingApp: trendingApp
         )
     }

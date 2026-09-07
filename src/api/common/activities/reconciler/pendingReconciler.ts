@@ -83,14 +83,13 @@ export function reconcileNewActivitiesUpdate(
     return preserveActivityStatusProgress(previousByNextId.get(activity.id), activity);
   });
 
-  const terminalizedLocalIds = new Set(getTerminalizedLocalActivityIds(
-    previousActivities,
-    incomingActivities,
-    matchContext,
-  ));
+  const retiredLocalIds = new Set([
+    ...getTerminalizedLocalActivityIds(previousActivities, incomingActivities, matchContext),
+    ...getSupersededLocalTransactionIds(previousActivities, incomingActivities, replacedIds),
+  ]);
   const effectiveReplacedIds = Object.fromEntries(
     Object.entries(replacedIds).filter(([previousId]) => {
-      return !terminalizedLocalIds.has(previousId);
+      return !retiredLocalIds.has(previousId);
     }),
   );
 
@@ -104,11 +103,44 @@ export function reconcileNewActivitiesUpdate(
         ...Object.entries(effectiveReplacedIds)
           .filter(([previousId, nextId]) => previousId !== nextId)
           .map(([previousId]) => previousId),
-        ...terminalizedLocalIds,
+        ...retiredLocalIds,
       ]),
       replacedIds: effectiveReplacedIds,
     },
   };
+}
+
+/**
+ * A local row is this client's prediction of one action of a trace it submitted, and several of them share the trace's
+ * external message hash. That hash cannot pair them with chain actions one to one, so the matcher declines and the rows
+ * have no way back. A finalized trace speaks for the whole message: its action set is complete, so every prediction
+ * still standing under that hash is retired. A row the matcher did pair keeps its replacement instead - that mapping is
+ * what moves an open modal onto the chain row. Swaps stay out: a local swap row is the aggregate view of its legs, and
+ * replacing it with raw legs belongs to the trace reconciler.
+ */
+function getSupersededLocalTransactionIds(
+  previousActivities: readonly ApiActivity[],
+  incomingActivities: readonly ApiActivity[],
+  replacedIds: Record<string, string>,
+) {
+  const finalizedHashes = new Set<string>();
+
+  for (const activity of incomingActivities) {
+    if (activity.status !== 'completed' && activity.status !== 'failed') continue;
+
+    const externalMsgHashNorm = normalizeIdentifier(activity.externalMsgHashNorm);
+    if (externalMsgHashNorm) finalizedHashes.add(externalMsgHashNorm);
+  }
+
+  if (!finalizedHashes.size) return [];
+
+  return previousActivities.filter((activity) => {
+    if (activity.kind !== 'transaction' || parseTxId(activity.id).type !== 'local') return false;
+    if (replacedIds[activity.id]) return false;
+
+    const externalMsgHashNorm = normalizeIdentifier(activity.externalMsgHashNorm);
+    return Boolean(externalMsgHashNorm && finalizedHashes.has(externalMsgHashNorm));
+  }).map(({ id }) => id);
 }
 
 function getTerminalizedLocalActivityIds(

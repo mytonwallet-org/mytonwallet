@@ -204,6 +204,14 @@ public enum ContextMenuVerticalPlacementBehavior: Sendable {
     case screenBottom
 }
 
+/// Tint presets for native menu glass on iOS 26 and later.
+public enum ContextMenuGlassTint: Equatable, Sendable {
+    /// Stronger separation from underlying content: 60% white in light mode, 20% in dark mode.
+    case strong
+    /// The original tint: 10% white in light mode, 2.5% in dark mode.
+    case subtle
+}
+
 public struct ContextMenuStyle: Sendable {
     public var minWidth: CGFloat
     public var maxWidth: CGFloat
@@ -211,6 +219,7 @@ public struct ContextMenuStyle: Sendable {
     public var verticalPlacementBehavior: ContextMenuVerticalPlacementBehavior
     public var sourceSpacing: CGFloat
     public var animationSourceSpacing: CGFloat?
+    public var glassTint: ContextMenuGlassTint
     public var panelCornerRadius: CGFloat
     public var panelInset: CGFloat
     public var listVerticalPadding: CGFloat
@@ -231,6 +240,7 @@ public struct ContextMenuStyle: Sendable {
         verticalPlacementBehavior: ContextMenuVerticalPlacementBehavior = .sourceAttached,
         sourceSpacing: CGFloat = 8.0,
         animationSourceSpacing: CGFloat? = nil,
+        glassTint: ContextMenuGlassTint = .strong,
         panelCornerRadius: CGFloat = 30.0,
         panelInset: CGFloat = 32.0,
         listVerticalPadding: CGFloat = 10.0,
@@ -250,6 +260,7 @@ public struct ContextMenuStyle: Sendable {
         self.verticalPlacementBehavior = verticalPlacementBehavior
         self.sourceSpacing = sourceSpacing
         self.animationSourceSpacing = animationSourceSpacing
+        self.glassTint = glassTint
         self.panelCornerRadius = panelCornerRadius
         self.panelInset = panelInset
         self.listVerticalPadding = listVerticalPadding

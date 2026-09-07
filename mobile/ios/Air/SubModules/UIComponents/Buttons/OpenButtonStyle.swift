@@ -13,6 +13,7 @@ public struct OpenButtonStyle: PrimitiveButtonStyle {
     private let backgroundColor: Color
     private let textStyle: WTextStyle
     private let paddings: CGSize
+    private var usesTintedForeground = false
     
     public enum Size {
         case standard, small
@@ -37,10 +38,22 @@ public struct OpenButtonStyle: PrimitiveButtonStyle {
         }
     }
 
+    public static func tinted(size: Size = .standard) -> OpenButtonStyle {
+        var style = OpenButtonStyle(backgroundColor: .air.tint, size: size)
+        style.usesTintedForeground = true
+        return style
+    }
+
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .textStyle(textStyle)
-            .foregroundStyle(foregroundColor)
+            .applyModifierConditionally {
+                if usesTintedForeground {
+                    $0.foregroundForTintedBackground()
+                } else {
+                    $0.foregroundStyle(foregroundColor)
+                }
+            }
             .padding(.horizontal, paddings.width)
             .padding(.vertical, paddings.height)
             .opacity(isHighlighted ? 0.5 : 1)

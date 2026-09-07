@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.widgets.segmentedController
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.graphics.Canvas
 import android.graphics.Color
 import android.view.MotionEvent
 import android.view.View
@@ -226,7 +227,20 @@ class WSegmentedController(
     private var underTabsView: View? = null
     private var underTabsHeight = 0
     private val blurSourceContainerView: WView by lazy {
-        WView(context).apply {
+        object : WView(context) {
+            override fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+                if (child !== viewPager || child.width >= width || child.width == 0) {
+                    return super.glassDrawChild(canvas, child, drawingTime)
+                }
+                val scale = width / child.width.toFloat()
+                canvas.save()
+                canvas.translate(-(child.left + child.translationX) * scale, 0f)
+                canvas.scale(scale, 1f)
+                val handled = super.glassDrawChild(canvas, child, drawingTime)
+                canvas.restore()
+                return handled
+            }
+        }.apply {
             clipChildren = clipContent
             clipToPadding = clipContent
         }

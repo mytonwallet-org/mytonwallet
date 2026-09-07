@@ -28,8 +28,10 @@ import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.GradientDrawables
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -194,7 +196,7 @@ class HomeActionsSheetVC(
 
     private val contentView = WView(context).apply { id = View.generateViewId() }
 
-    private val blurBackground = WBlurryBackgroundView(context, null, BLUR_RADIUS)
+    private val blurBackground = WGlassView(context).apply { flavor = GlassFlavor.FROSTED }
 
     override fun setupViews() {
         super.setupViews()
@@ -251,7 +253,9 @@ class HomeActionsSheetVC(
             if (floating) ViewConstants.BLOCK_RADIUS.dp else 0f,
             clipToBounds = true
         )
-        blurBackground.setOverlayColor(WColor.Background, BLUR_OVERLAY_ALPHA)
+        blurBackground.setProvider(
+            GlassProviders.plain(WColor.Background, BLUR_OVERLAY_ALPHA / 255f)
+        )
         handleView.setBackgroundColor(
             WColor.SecondaryText.color.colorWithAlpha(90),
             HANDLE_HEIGHT.dp / 2f
@@ -351,7 +355,6 @@ class HomeActionsSheetVC(
         private const val HANDLE_TOP_MARGIN = 13
         private const val GRID_TOP_MARGIN = 24
         private const val BOTTOM_MARGIN = 24
-        private const val BLUR_RADIUS = 25f
         private const val BLUR_OVERLAY_ALPHA = 204
     }
 }

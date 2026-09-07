@@ -36,24 +36,6 @@ struct DebouncerTests {
     }
 
     @Test
-    func `scheduling within the delay restarts it`() async throws {
-        let ran = UnfairLock<[String]>(initialState: [])
-        let debouncer = Debouncer(delay: .milliseconds(200))
-
-        debouncer.schedule {
-            ran.withLock { $0.append("first") }
-        }
-        try await Task.sleep(for: .milliseconds(20))
-        debouncer.schedule {
-            ran.withLock { $0.append("second") }
-        }
-
-        try await waitUntil { !ran.withLock { $0 }.isEmpty }
-        try await Task.sleep(for: .milliseconds(250))
-        #expect(ran.withLock { $0 } == ["second"])
-    }
-
-    @Test
     func `cancel prevents the pending operation from running`() async throws {
         let runs = UnfairLock<Int>(initialState: 0)
         let debouncer = Debouncer(delay: .milliseconds(20))

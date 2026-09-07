@@ -1,7 +1,7 @@
 name: Bump PR approval
 
 # The release bot opens one mechanical pull request per patch - the version bump on master - and a
-# human approval on a four-file diff that `npm version` wrote adds nothing but latency to the
+# human approval on a three-file diff that `npm version` wrote adds nothing but latency to the
 # release. This workflow signs off on exactly that shape of pull request, and the bot merges it with
 # its own token once the approval and the required checks are in - a merge performed by GITHUB_TOKEN
 # would push to master without triggering any of the workflows a master push runs.
@@ -47,7 +47,6 @@ jobs:
             // carries is captured to be compared in full: a line merely containing the title's
             // version would pass both `"postinstall": "sh evil # 26.8.7"` and a bump to 26.8.70.
             const VERSION_FIELD_PATTERN = /^[+-]\s*"version": "(\d+\.\d+\.\d+)",?$/;
-            const BARE_VERSION_PATTERN = /^[+-](\d+\.\d+\.\d+)$/;
             // `npm version` writes a single boilerplate line, with room for a hand-written one.
             const CHANGELOG_MAX_LINES = 5;
 
@@ -79,10 +78,13 @@ jobs:
             // The approval rests entirely on the diff being the mechanical bump: a fixed file set,
             // and every touched line in it being a version line - the one introduced or the one it
             // replaces. A bump smuggling a code change alongside fails one of these.
+            //
+            // The served `version.txt` is absent from this set by design: the webpack build emits it
+            // from the same `package.json` version, so no checked-in copy of it exists for a bump to
+            // touch, and listing it here would decline every bump for being a file short.
             const expectedFiles = new Map([
               ['package.json', { status: 'modified', line: VERSION_FIELD_PATTERN }],
               ['package-lock.json', { status: 'modified', line: VERSION_FIELD_PATTERN }],
-              ['public/version.txt', { status: 'modified', line: BARE_VERSION_PATTERN }],
               [`changelogs/${version}.txt`, { status: 'added' }],
             ]);
 

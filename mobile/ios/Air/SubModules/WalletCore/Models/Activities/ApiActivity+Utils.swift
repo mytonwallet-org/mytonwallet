@@ -37,6 +37,7 @@ public struct TransactionAddressDisplayOptions: OptionSet, Sendable {
 public extension ApiActivity {
     var displayTitle: ApiTransactionTypeTitles {
         let base: ApiTransactionTypeTitles = switch type {
+        case .approval: ["Token Approval", "Token Approval", "Token Approval"]
         case .stake: ["Staked", "Staking", "$stake_action"]
         case .unstake: ["Unstaked", "Unstaking", "$unstake_action"]
         case .unstakeRequest: ["Requested Unstake", "Requesting Unstake", "$request_unstake_action"]
@@ -189,7 +190,7 @@ public extension ApiActivity {
             "ActionReceive"
         case .nftTransferred:
             "ActionSend"
-        case .callContract:
+        case .approval, .callContract:
             "ActionContract"
         case .excess:
             "ActionReceive"
@@ -239,7 +240,7 @@ public extension ApiActivity {
             green
         case .nftTransferred:
             blue
-        case .callContract:
+        case .approval, .callContract:
             gray
         case .excess:
             green
@@ -353,11 +354,15 @@ public extension ApiActivity {
         case hide
         case noSign
         case normal
+        case approval
         case swap
     }
     var amountDisplayMode: AmountDisplayMode {
         switch self {
         case .transaction(let tx):
+            if type == .approval {
+                return .approval
+            }
             let isPlainTransfer = type == nil && tx.nft == nil
             if !isPlainTransfer && tx.amount == 0 {
                 return .hide
@@ -410,5 +415,14 @@ public extension ApiActivity {
     
     var timestampDate: Date {
         Date(timeIntervalSince1970: Double(timestamp) / 1000)
+    }
+}
+
+public extension ApiTransactionActivity {
+    func formatApprovalAmount(token: ApiToken) -> String {
+        if isApprovalUnlimited == true {
+            return "∞ \(token.symbol)"
+        }
+        return TokenAmount(amount, token).formatted(.none, showMinus: false)
     }
 }

@@ -37,10 +37,11 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -402,7 +403,7 @@ class EarnVC(
         setPadding(12.dp, 0, 12.dp, 0)
         gravity = Gravity.CENTER
     }
-    private var claimRewardShadow: PillShadowView? = null
+    private var claimRewardGlass: WGlassView? = null
     private val claimRewardView: WView by lazy {
         WView(context).apply {
             val titleLabel = WLabel(context).apply {
@@ -461,11 +462,12 @@ class EarnVC(
             (navigationController?.bottomInset ?: 0)
         )
         view.addView(claimRewardView, ConstraintLayout.LayoutParams(0, 58.dp))
-        claimRewardShadow =
-            PillShadowView.attachTo(claimRewardView, ViewConstants.BLOCK_RADIUS.dp)
-        claimRewardView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            claimRewardShadow?.sync()
-        }
+        claimRewardGlass = WGlassView.attachTo(
+            claimRewardView,
+            ViewConstants.BLOCK_RADIUS.dp,
+            GlassProviders.shadowOnly(),
+            root = null
+        )
         view.setConstraints {
             allEdges(recyclerView)
             allEdges(skeletonRecyclerView)
@@ -613,7 +615,6 @@ class EarnVC(
                 claimRewardView.visibility = View.VISIBLE
                 claimRewardView.fadeIn()
                 claimRewardView.animate().setUpdateListener {
-                    claimRewardShadow?.sync()
                 }
             }
             rewardLabel.contentView.setAmount(
@@ -636,7 +637,6 @@ class EarnVC(
             )
         } else {
             claimRewardView.visibility = View.GONE
-            claimRewardShadow?.sync()
             recyclerView.setPaddingRelative(
                 ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
                 0,
@@ -933,7 +933,6 @@ class EarnVC(
                 visibilityFraction = animatedValue as Float
                 claimRewardView.alpha = visibilityFraction
                 claimRewardView.translationY = 16.dp * (1 - visibilityFraction)
-                claimRewardShadow?.sync()
             }
             visibilityTarget = 1f
             start()
@@ -951,7 +950,6 @@ class EarnVC(
                 visibilityFraction = animatedValue as Float
                 claimRewardView.alpha = visibilityFraction
                 claimRewardView.translationY = 16.dp * (1 - visibilityFraction)
-                claimRewardShadow?.sync()
             }
             visibilityTarget = 0f
             start()
@@ -970,7 +968,6 @@ class EarnVC(
             onClaimed = {
                 if (!isEthena) {
                     claimRewardView.visibility = View.GONE
-                    claimRewardShadow?.sync()
                 }
             },
             onError = { error ->

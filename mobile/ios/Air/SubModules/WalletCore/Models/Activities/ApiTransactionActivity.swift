@@ -31,6 +31,7 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
     public let isIncoming: Bool
     public let normalizedAddress: String?
     public let type: ApiTransactionType?
+    public let isApprovalUnlimited: Bool?
     public let metadata: ApiAddressInfo?
     public let nft: ApiNft?
     /**
@@ -41,7 +42,7 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
      */
     public var status: ApiTransactionStatus
     
-    public init(id: String, kind: String, shouldHide: Bool? = nil, externalMsgHashNorm: String?, shouldReload: Bool? = nil, shouldLoadDetails: Bool? = nil, extra: BaseActivityExtra? = nil, timestamp: Int64, amount: BigInt, fromAddress: String, toAddress: String?, comment: String?, encryptedComment: String?, fee: BigInt, slug: String, isIncoming: Bool, normalizedAddress: String?, type: ApiTransactionType?, metadata: ApiAddressInfo?, nft: ApiNft?, status: ApiTransactionStatus) {
+    public init(id: String, kind: String, shouldHide: Bool? = nil, externalMsgHashNorm: String?, shouldReload: Bool? = nil, shouldLoadDetails: Bool? = nil, extra: BaseActivityExtra? = nil, timestamp: Int64, amount: BigInt, fromAddress: String, toAddress: String?, comment: String?, encryptedComment: String?, fee: BigInt, slug: String, isIncoming: Bool, normalizedAddress: String?, type: ApiTransactionType?, isApprovalUnlimited: Bool? = nil, metadata: ApiAddressInfo?, nft: ApiNft?, status: ApiTransactionStatus) {
         self.id = id
         self.kind = kind
         self.shouldHide = shouldHide
@@ -60,6 +61,7 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
         self.isIncoming = isIncoming
         self.normalizedAddress = normalizedAddress
         self.type = type
+        self.isApprovalUnlimited = isApprovalUnlimited
         self.metadata = metadata
         self.nft = nft
         self.status = status

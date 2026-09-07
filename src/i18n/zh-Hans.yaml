@@ -127,7 +127,9 @@ Invoice Link Copied: 发票链接已复制
 Theme: 主题
 Language: 语言
 Enable Animations: 启用动画
+Animations: 动画
 Enable Seasonal Theming: 启用季节性主题
+Seasonal Theming: 季节性主题
 Enable Landscape Mode: 启用横屏模式
 Disable Seasonal Theming: 禁用季节性主题
 You can always enable seasonal theming again in the appearance settings.: 您随时可以在外观设置中重新启用季节性主题。
@@ -161,6 +163,9 @@ Description Copied: 描述已复制
 Message Copied: 消息已复制
 Sender: 发送者
 Recipient: 接收者
+Spender: 被授权方
+Token Approval: 代币授权
+Allowance: 授权额度
 "%chain% Address Copied": "%chain% 地址已复制"
 Repeat: 重复
 Switch Account: 切换账户
@@ -390,8 +395,8 @@ Agree: 同意
 $swap_action: 交换
 $swap_activity_title: 交换
 Swap: 交换
-You sell: 您卖出
-You buy: 您购买
+You Sell: 您卖出
+You Buy: 您购买
 Swap Details: 交换详情
 Blockchain Fee: 区块链费用
 Included: 包括
@@ -400,7 +405,7 @@ Minimum Received: 最低接收数量
 Slippage: 下单误差
 $swap_from_to: 兑换 %from% %icon% %to%
 The exchange rate is below market value!: 汇率低于市场价值 %value%！
-Invalid Pair: 无效交易对
+Invalid Pair: 无法交换
 We do not recommend to perform an exchange, try to specify a lower amount.: 我们不建议进行交换，请尝试指定较小的金额。
 $swap_minimum_received_tooltip1: 这是您从此次交换中可能获得的最少新代币数量，考虑了目前市场条件、滑点容忍度和潜在价格影响。
 $swap_minimum_received_tooltip2: 这是预期的最低值，但如果在处理您的交换时条件发生很大变化，最终金额可能会较少。
@@ -584,6 +589,16 @@ No Activity: 无活动
 Fund: 充值
 Buy with Card: 用卡购买
 Buy with Crypto: 用加密货币购买
+Add funds to swap: 充值以进行交换
+Direct swap unavailable: 无法直接交换
+Swap on an external service: 通过第三方服务交换
+Buy with a card or receive crypto to fund this swap.: 用卡购买或接收加密货币，为此次交换充值。
+Buy crypto or choose another token to sell.: 购买加密货币或选择其他代币卖出。
+Your balances are small. Add funds or choose another token to swap.: 您的余额较少。请充值或选择其他代币进行交换。
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: 要购买 %buy_token%，请先购买 %token%，再将其交换为 %buy_token%。
+Open %provider% to swap this pair in the browser.: 打开 %provider%，在浏览器中交换此交易对。
+Buy %token%: 购买 %token%
+Open %provider%: 打开 %provider%
 Cannot load widget: 无法加载小部件
 Explore: 探索
 $lockdown_mode_enabled_title: 锁定模式已启用
@@ -1114,7 +1129,7 @@ You don’t have any cards to customize yet: 您还没有可自定义的卡片�
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: My Wallet 卡片可以安装到钱包中，并显示在主屏幕和钱包列表中。
 Get First Card: 获取第一张卡片
 Palette and Card: 调色板与卡片
-Customize the wallet's home screen and color accents the way you like.: 按照您的喜好自定义钱包主屏幕和颜色。
+Customize the wallet’s card appearance and color accents the way you like.: 按照您的喜好自定义钱包卡片外观和颜色。
 Address doesn't exist: 地址不存在
 The address is not a token minter address: 该地址不是代币铸造者地址
 $joining_comma: 、
@@ -1237,8 +1252,16 @@ $agent_consent_debug_reset_footer: 下次打开助手标签页时再次显示助
 $settings_token_change_threshold: 涨跌幅阈值
 $settings_token_change_threshold_description: 隐藏低于所选阈值的 24 小时涨跌幅。
 $settings_token_change_threshold_off: 关闭
-$settings_hide_action_buttons: 隐藏操作按钮
-$settings_hide_action_buttons_description: 隐藏钱包页面上的操作按钮行。
+Blockchain Badges: 区块链徽章
+$settings_blockchain_badges_description: 为所有代币显示区块链徽章。默认情况下，仅对在多个区块链上可用的稳定币和代币化股票显示。
+Show on Card: 在卡片上显示
+Top Address: 主地址
+Highest-Balance Address: 余额最高的地址
+3 Highest-Balance Addresses: 余额最高的 3 个地址
+3 Top Addresses: 前 3 个地址
+Action Buttons: 操作按钮
+Collectibles Section: 收藏品部分
+$settings_wallet_card_description: 自定义钱包卡片上显示的内容以及是否显示操作按钮。
 Retry: 重试
 $agent_chat_running: 正在后台运行
 $agent_connection_interrupted: 助手连接中断，请重试。
@@ -2095,7 +2118,9 @@ $chart_week_days_short: 周日,周一,周二,周三,周四,周五,周六
 Unsupported Chain: 不支持的网络
 Please upgrade to multichain to use this app.: 请升级到多链钱包以使用此应用。
 Rounded Corners: 圆角
-Enable Blur: 启用模糊
+Blur: 模糊
+Top Tabs: 顶部标签
+Liquid Glass: 液态玻璃
 App Font: 应用字体
 Rounded Balance Font: 圆润余额字体
 My Wallet Cards NFT: My Wallet Cards NFT

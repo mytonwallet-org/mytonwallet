@@ -30,8 +30,6 @@ enum SwapCommand {
 @MainActor protocol SwapInputModelDelegate: AnyObject {
     func swapDataChanged(
         swapSide: SwapSide,
-        selling: TokenAmount,
-        buying: TokenAmount,
         source: SwapInputChangeSource
     )
     func swapCommandRequested(_ command: SwapCommand)
@@ -41,21 +39,45 @@ enum SwapCommand {
 @MainActor final class SwapInputModel {
     
     var sellingAmount: BigInt?
-    @PerceptionIgnored
-    @TokenProvider var sellingToken: ApiToken
+    private var sellingTokenProvider: TokenProvider?
+    var sellingToken: ApiToken? {
+        get { sellingTokenProvider?.token }
+        set {
+            if let newValue {
+                if sellingTokenProvider == nil {
+                    sellingTokenProvider = TokenProvider(tokenSlug: newValue.slug)
+                }
+                sellingTokenProvider?.token = newValue
+            } else {
+                sellingTokenProvider = nil
+            }
+        }
+    }
     
     @PerceptionIgnored
     var isUsingMax: Bool = false
     
     var buyingAmount: BigInt?
-    @PerceptionIgnored
-    @TokenProvider var buyingToken: ApiToken
-    
-    var sellingTokenAmount: TokenAmount {
-        TokenAmount(sellingAmount ?? 0, sellingToken)
+    private var buyingTokenProvider: TokenProvider?
+    var buyingToken: ApiToken? {
+        get { buyingTokenProvider?.token }
+        set {
+            if let newValue {
+                if buyingTokenProvider == nil {
+                    buyingTokenProvider = TokenProvider(tokenSlug: newValue.slug)
+                }
+                buyingTokenProvider?.token = newValue
+            } else {
+                buyingTokenProvider = nil
+            }
+        }
     }
-    var buyingTokenAmount: TokenAmount {
-        TokenAmount(buyingAmount ?? 0, buyingToken)
+    
+    var sellingTokenAmount: TokenAmount? {
+        sellingToken.map { TokenAmount(sellingAmount ?? 0, $0) }
+    }
+    var buyingTokenAmount: TokenAmount? {
+        buyingToken.map { TokenAmount(buyingAmount ?? 0, $0) }
     }
 
     var tokenBalance: BigInt?
@@ -83,9 +105,9 @@ enum SwapCommand {
     @PerceptionIgnored
     @AccountContext var account: MAccount
 
-    init(sellingTokenSlug: String, buyingTokenSlug: String, tokenBalance: BigInt?, accountContext: AccountContext) {
-        self._sellingToken = TokenProvider(tokenSlug: sellingTokenSlug)
-        self._buyingToken = TokenProvider(tokenSlug: buyingTokenSlug)
+    init(sellingTokenSlug: String?, buyingTokenSlug: String?, tokenBalance: BigInt?, accountContext: AccountContext) {
+        self.sellingTokenProvider = sellingTokenSlug.map { TokenProvider(tokenSlug: $0) }
+        self.buyingTokenProvider = buyingTokenSlug.map { TokenProvider(tokenSlug: $0) }
         self.tokenBalance = tokenBalance
         self._account = accountContext
     }
@@ -96,7 +118,7 @@ enum SwapCommand {
         sellingFocused = false
         buyingFocused = false
         sellingAmount = amount
-        updateLocal(amount: amount, token: sellingToken, side: .selling)
+        updateLocal(amount: amount, side: .selling)
         delegate?.swapCommandRequested(.dismissKeyboard)
     }
 
@@ -106,7 +128,8 @@ enum SwapCommand {
         (buyingAmount, sellingAmount, buyingToken, sellingToken) = tmp
         clearBackendMaxAmount()
         refreshTokenBalanceFromAccount()
-        updateLocal(amount: sellingAmount ?? 0, token: sellingToken, side: .selling)
+        let side: SwapSide = sellingToken == nil && buyingToken != nil ? .buying : .selling
+        updateLocal(amount: side == .selling ? sellingAmount : buyingAmount, side: side)
     }
 
     func userTappedTokenPicker(side: SwapSide) {
@@ -122,53 +145,33 @@ enum SwapCommand {
         switch side {
         case .selling:
             sellingAmount = amount
-            updateLocal(amount: amount, token: sellingToken, side: .selling)
+            updateLocal(amount: amount, side: .selling)
         case .buying:
             buyingAmount = amount
-            updateLocal(amount: amount, token: buyingToken, side: .buying)
+            updateLocal(amount: amount, side: .buying)
         }
     }
     
-    private func updateLocal(amount: BigInt?, token: ApiToken, side: SwapSide) {
+    private func updateLocal(amount: BigInt?, side: SwapSide) {
         inputSource = side
         switch side {
         case .selling:
             if amount != maxAmount {
                 self.isUsingMax = false
             }
-            updateRemote(amount: amount, token: token, side: .selling)
+            updateRemote(side: .selling)
         case .buying:
             self.isUsingMax = false
-            updateRemote(amount: amount, token: token, side: .buying)
+            updateRemote(side: .buying)
         }
     }
     
-    private func updateRemote(
-        amount: BigInt?,
-        token: ApiToken,
-        side: SwapSide,
-        source: SwapInputChangeSource = .user
-    ) {
-        switch side {
-        case .selling:
-            delegate?.swapDataChanged(
-                swapSide: .selling,
-                selling: TokenAmount(amount ?? 0, token),
-                buying: buyingTokenAmount,
-                source: source
-            )
-        case .buying:
-            delegate?.swapDataChanged(
-                swapSide: .buying,
-                selling: sellingTokenAmount,
-                buying: TokenAmount(amount ?? 0, token),
-                source: source
-            )
-        }
+    private func updateRemote(side: SwapSide, source: SwapInputChangeSource = .user) {
+        delegate?.swapDataChanged(swapSide: side, source: source)
     }
-    
+
     func refreshTokenBalanceFromAccount() {
-        if account.supports(chain: sellingToken.chain) {
+        if let sellingToken, account.supports(chain: sellingToken.chain) {
             updateTokenBalance($account.balances[sellingToken.slug] ?? 0)
         } else {
             updateTokenBalance(nil)
@@ -197,6 +200,10 @@ enum SwapCommand {
     }
 
     private func recalculateMaxAmount(notifyAmountChange: Bool = true) {
+        guard let sellingToken else {
+            maxAmount = nil
+            return
+        }
         maxAmount = getMaxSwapAmount(.init(
             swapType: swapType,
             tokenBalance: tokenBalance,
@@ -208,8 +215,6 @@ enum SwapCommand {
             sellingAmount = targetAmount
             if notifyAmountChange {
                 updateRemote(
-                    amount: targetAmount,
-                    token: sellingToken,
                     side: .selling,
                     source: .maxAmountRecalculation
                 )
@@ -240,6 +245,7 @@ enum SwapCommand {
     }
 
     func updateWithEstimate(_ swapEstimate: Estimate) {
+        guard let sellingToken, let buyingToken else { return }
         switch swapEstimate.changedFrom {
         case .selling:
             if !buyingFocused {
@@ -271,12 +277,13 @@ enum SwapCommand {
     func userSelectedToken(_ newToken: ApiToken, side: SwapSide) {
         switch side {
         case .selling:
+            let wasEmpty = sellingToken == nil
             if newToken == buyingToken {
                 userTappedReverse()
                 return
             }
             isUsingMax = false
-            let newAmount: BigInt? = if sellingTokenAmount.amount > 0 {
+            let newAmount: BigInt? = if let sellingTokenAmount, sellingTokenAmount.amount > 0 {
                 sellingTokenAmount.switchKeepingDecimalValue(newType: newToken).amount
             } else {
                 nil
@@ -285,13 +292,17 @@ enum SwapCommand {
             sellingToken = newToken
             clearBackendMaxAmount()
             updateTokenBalance($account.balances[newToken.slug])
-            updateLocal(amount: newAmount, token: sellingToken, side: .selling)
+            if wasEmpty, inputSource == .buying {
+                updateLocal(amount: buyingAmount, side: .buying)
+            } else {
+                updateLocal(amount: newAmount, side: .selling)
+            }
         case .buying:
-            if newToken.slug == sellingToken.slug {
+            if newToken.slug == sellingToken?.slug {
                 userTappedReverse()
                 return
             }
-            let newAmount: BigInt? = if buyingTokenAmount.amount > 0 {
+            let newAmount: BigInt? = if let buyingTokenAmount, buyingTokenAmount.amount > 0 {
                 buyingTokenAmount.switchKeepingDecimalValue(newType: newToken).amount
             } else {
                 nil
@@ -300,7 +311,11 @@ enum SwapCommand {
             buyingAmount = newAmount
             if buyingFocused { buyingFocused = false }
             clearBackendMaxAmount()
-            updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)
+            if sellingToken == nil {
+                updateLocal(amount: newAmount, side: .buying)
+            } else {
+                updateLocal(amount: sellingAmount, side: .selling)
+            }
         }
     }
 }

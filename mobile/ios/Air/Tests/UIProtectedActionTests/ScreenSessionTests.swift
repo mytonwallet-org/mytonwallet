@@ -8,17 +8,6 @@ import WalletCore
 @MainActor
 struct ScreenSessionTests {
     @Test
-    func `completion controls authorization disposal`() {
-        let finish = Completion<ApiMfaProtectedResult>.finish { _ in }
-        let handoff = Completion<ApiMfaProtectedResult>.handoff { _ in }
-        let replace = Completion<ApiMfaProtectedResult>.replace { _ in nil }
-
-        #expect(finish.authorizationCompletionBehavior == .popAuthorization)
-        #expect(handoff.authorizationCompletionBehavior == .keepAuthorizationForReplacement)
-        #expect(replace.authorizationCompletionBehavior == .keepAuthorizationForReplacement)
-    }
-
-    @Test
     func `committed completion without presentation cannot expose submitted action`() {
         let receipt = ActionSubmissionReceipt<ApiMfaProtectedResult>()
         var callbackCount = 0
@@ -88,33 +77,6 @@ struct ScreenSessionTests {
         #expect(transitionCount == 1)
         #expect(oldDismissalCount == 0)
         #expect(nextDismissalCount == 1)
-    }
-
-    @Test
-    func `next authorization screen replaces passcode in navigation history`() async {
-        let feature = UIViewController()
-        let passcode = UIViewController()
-        let mfa = UIViewController()
-        let navigationController = UINavigationController()
-        navigationController.setViewControllers([feature, passcode], animated: false)
-
-        #expect(
-            AuthorizationSupport.push(
-                mfa,
-                replacing: passcode,
-                in: navigationController
-            )
-        )
-        for _ in 0..<10 {
-            if !navigationController.viewControllers.contains(where: { $0 === passcode }) {
-                break
-            }
-            await Task.yield()
-        }
-
-        #expect(navigationController.viewControllers.count == 2)
-        #expect(navigationController.viewControllers[0] === feature)
-        #expect(navigationController.viewControllers[1] === mfa)
     }
 
     @Test

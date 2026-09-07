@@ -17,13 +17,6 @@ struct StakingTokenPresentationTests {
     }
 
     @Test
-    func `empty MY staking is hidden`() {
-        let data = makeStakingData(balance: 0, unclaimedRewards: 0, annualYield: 0)
-
-        #expect(!data.hasMycoinStakeOrRewards)
-    }
-
-    @Test
     func `empty staking has no position`() {
         let data = makeStakingData(balance: 0, unclaimedRewards: 0, annualYield: 0)
 

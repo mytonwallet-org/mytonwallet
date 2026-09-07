@@ -8,11 +8,11 @@ import { toDecimal } from '../../../util/decimals';
 import { fetchJson, isNegativeCacheableStatus } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
+import { fetchEvmWallet } from './util/account';
 import { getEvmProvider } from './util/client';
 import { updateTokensMetadataByAddress } from './util/metadata';
 import { getZerionFungibleImplementation, getZerionFungibleTokenSlug } from './util/tokens';
 import { untrackableRegistry } from './util/untrackable';
-import { fetchStoredWallet } from '../../common/accounts';
 import { getIsNegVerdictCacheEnabled } from '../../common/cache';
 import { updateActivityMetadata } from '../../common/helpers';
 import { getTokenBySlug } from '../../common/tokens';
@@ -33,7 +33,7 @@ export async function fetchActivitySlice(
   }: ApiFetchActivitySliceOptions,
 ): Promise<ApiActivity[]> {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, chain);
+  const { address } = await fetchEvmWallet(accountId, chain);
 
   const { activities } = await getTokenActivitySlice(
     chain,
@@ -261,7 +261,7 @@ export async function fetchCrossChainActivitySlice(options: ApiFetchActivitySlic
   } = options;
 
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, 'ethereum');
+  const { address } = await fetchEvmWallet(accountId, 'ethereum');
 
   const { activities } = await getTokenActivitySlice(
     'ethereum', network, address, tokenSlug, toTimestamp, fromTimestamp, limit, true, signal,

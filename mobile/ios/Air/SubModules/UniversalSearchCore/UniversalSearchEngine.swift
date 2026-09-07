@@ -15,7 +15,7 @@ public struct UniversalSearchRankingPolicy: Hashable, Sendable {
         self.selectionCountCap = max(1, selectionCountCap)
     }
 
-    public static let initial = Self(version: "2")
+    public static let initial = Self(version: "3")
 }
 
 public enum SearchRelevanceBand: Int, Hashable, Sendable, Comparable, CustomStringConvertible {
@@ -86,6 +86,9 @@ public struct SearchRankKey: Hashable, Sendable, Comparable {
         if lhsCoverage != rhsCoverage {
             return lhsCoverage < rhsCoverage
         }
+        if lhs.personalPriority != rhs.personalPriority {
+            return lhs.personalPriority < rhs.personalPriority
+        }
         if lhs.hasInteraction != rhs.hasInteraction {
             return !lhs.hasInteraction && rhs.hasInteraction
         }
@@ -94,9 +97,6 @@ public struct SearchRankKey: Hashable, Sendable, Comparable {
         }
         if lhs.lastSelectedAt != rhs.lastSelectedAt {
             return (lhs.lastSelectedAt ?? .distantPast) < (rhs.lastSelectedAt ?? .distantPast)
-        }
-        if lhs.personalPriority != rhs.personalPriority {
-            return lhs.personalPriority < rhs.personalPriority
         }
         if lhs.baseCurrencyValue != rhs.baseCurrencyValue {
             return lhs.baseCurrencyValue < rhs.baseCurrencyValue
@@ -304,22 +304,42 @@ public struct UniversalSearchEngine: Sendable {
 
     private func personalPriority(for document: SearchDocument) -> Int {
         let traits = document.signals.traits
-        if traits.contains(.external) {
+        // Product priorities apply within comparable text relevance; exact identifiers still win.
+        switch document.kind {
+        case .wallet where traits.contains(.external):
+            return 1600
+        case .application where traits.contains(.connected):
+            return 1500
+        case .token where traits.contains(.held), .stock where traits.contains(.held):
+            return 1400
+        case .token where traits.contains(.tracked), .stock where traits.contains(.tracked):
+            return 1300
+        case .collectible:
+            return 1200
+        case .collection:
+            return 1100
+        case .wallet:
+            return traits.contains(.viewOnly) ? 900 : 1000
+        case .walletAction:
+            return 800
+        case .setting:
+            return 700
+        case .token where !traits.intersection([.popular, .trending, .curated]).isEmpty,
+             .stock where !traits.intersection([.popular, .trending, .curated]).isEmpty:
+            return 600
+        case .application:
             return 500
-        }
-        if traits.contains(.connected) {
+        case .site:
             return 400
-        }
-        if traits.contains(.held) {
+        case .webSearchHistory:
             return 300
-        }
-        if traits.contains(.owned) {
+        case .agentChat:
             return 200
-        }
-        if traits.contains(.tracked) || traits.contains(.fromHistory) {
+        case .agentAction:
             return 100
+        default:
+            return 0
         }
-        return 0
     }
 
     private func trustTier(for document: SearchDocument) -> SearchTrustTier {
@@ -341,6 +361,10 @@ public struct UniversalSearchEngine: Sendable {
         switch document.kind {
         case .wallet:
             return 700
+        case .walletAction:
+            return 450
+        case .setting:
+            return 425
         case .collectible:
             return 650
         case .collection:

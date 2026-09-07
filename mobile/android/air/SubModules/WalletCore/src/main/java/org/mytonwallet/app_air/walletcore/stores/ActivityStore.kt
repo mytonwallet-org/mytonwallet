@@ -654,7 +654,11 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         // Build activities dictionary
         val dict = JSONObject()
         for (activity in activities) {
-            dict.put(activity.id, activity.toDictionary())
+            val cachedActivity = ActivityHelpers.selectActivityForCache(
+                getTransaction(accountId, activity.id),
+                activity
+            )
+            dict.put(activity.id, cachedActivity.toDictionary())
         }
 
         // Merge with existing dictionary
@@ -702,8 +706,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
 
             // Add all activities to cache
             for (activity in allActivities) {
-                accountState.cachedTransactions[activity.id] = activity
-                PoisoningCacheHelper.updatePoisoningCache(accountId, activity)
+                updateCachedTransaction(accountId, activity)
             }
 
             // Merge idsMain with cutoff (activities older than cutoff are filtered out)
@@ -1165,6 +1168,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                     NEW_TRANSACTION_THRESHOLD_SECONDS
             activity is MApiTransaction.Transaction &&
                 activity.shouldHide != true &&
+                activity.type != ApiTransactionType.APPROVAL &&
                 activity.isIncoming &&
                 !activity.isPending() &&
                 !notifiedIds.contains(activity.id) &&
@@ -1201,15 +1205,18 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         }
 
     fun updateCachedTransaction(accountId: String, transaction: MApiTransaction) {
-        getOrCreateAccountState(accountId).cachedTransactions[transaction.id] = transaction
-        PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
+        val accountState = getOrCreateAccountState(accountId)
+        val activity = ActivityHelpers.selectActivityForCache(
+            accountState.cachedTransactions[transaction.id],
+            transaction
+        )
+        accountState.cachedTransactions[transaction.id] = activity
+        PoisoningCacheHelper.updatePoisoningCache(accountId, activity)
     }
 
     private fun addCachedTransactions(accountId: String, transactions: Array<MApiTransaction>) {
-        val accountState = getOrCreateAccountState(accountId)
         for (transaction in transactions) {
-            accountState.cachedTransactions[transaction.id] = transaction
-            PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
+            updateCachedTransaction(accountId, transaction)
         }
     }
 

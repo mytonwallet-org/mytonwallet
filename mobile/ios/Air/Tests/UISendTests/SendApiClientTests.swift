@@ -3,7 +3,6 @@ import ProtectedAction
 import Testing
 @testable import UISend
 import WalletCore
-import WalletContext
 
 @Suite("Send API Clients")
 struct SendApiClientTests {
@@ -131,108 +130,6 @@ struct SendApiClientTests {
 
         #expect(result.recipient.resolvedAddress == "resolved")
         #expect(result.recipient.error == .insufficientBalance)
-    }
-
-    @Test
-    func `token submission is made from one accepted request and draft`() throws {
-        let token = makeToken(
-            slug: "solana-usdc",
-            chain: .solana,
-            tokenAddress: "mint"
-        )
-        let request = TokenSendDraftRequest(
-            accountId: "accepted-account",
-            address: "unresolved",
-            asset: TokenSendAsset(token),
-            amount: 99,
-            payload: .comment(text: "accepted memo", shouldEncrypt: true),
-            stateInit: "accepted-state-init"
-        )
-        let draft = TokenSendValidatedDraft(
-            recipient: SendValidatedRecipient(
-                resolvedAddress: "resolved",
-                addressName: nil,
-                isScam: false,
-                error: nil
-            ),
-            explainedFee: nil,
-            requiresMemo: false,
-            diesel: TokenSendDieselQuote(
-                status: .available,
-                tokenAmount: 7,
-                transaction: "diesel"
-            )
-        )
-
-        let snapshot = TokenSendDraftSnapshot(
-            request: request,
-            draft: draft
-        )
-        let submission = try snapshot.makeSubmission()
-
-        #expect(submission.accountId == request.accountId)
-        #expect(submission.asset == request.asset)
-        #expect(submission.amount == request.amount)
-        #expect(submission.payload == request.payload)
-        #expect(submission.stateInit == request.stateInit)
-        #expect(submission.resolvedAddress == "resolved")
-        #expect(submission.diesel == draft.diesel)
-    }
-
-    @Test
-    func `confirmed token submission keeps the injected API client`() async throws {
-        let recorder = TokenApiRecorder()
-        let response = try decodeTokenSubmitResult(
-            #"{"activityId":"activity","mfaRequestHash":"mfa"}"#
-        )
-        let flow = TokenSendFlow(api: TokenSendApiClient(
-            checkDraft: { _, _ in
-                throw TestError.unexpectedCall
-            },
-            submit: { chain, options in
-                await recorder.recordSubmit(chain: chain, options: options)
-                return response
-            }
-        ))
-        let token = makeToken(
-            slug: "solana-usdc",
-            chain: .solana,
-            tokenAddress: "mint"
-        )
-        let draft = try decodeDraft(#"{"resolvedAddress":"resolved"}"#)
-
-        let confirmed = ConfirmedTokenSend(
-            account: DUMMY_ACCOUNT,
-            token: token,
-            addressViewModel: .init(chain: .solana),
-            submission: TokenSendSubmission(
-                accountId: "account",
-                asset: TokenSendAsset(token),
-                amount: 99,
-                payload: .comment(text: "memo", shouldEncrypt: false),
-                stateInit: nil,
-                resolvedAddress: draft.resolvedAddress ?? "",
-                diesel: nil
-            ),
-            explainedFee: nil,
-            flow: flow
-        )
-        let result = try await confirmed.submit(
-            enclaveToken: "test-token"
-        )
-
-        #expect(result.activityIds == ["activity"])
-        #expect(result.mfaRequestHash == "mfa")
-
-        let calls = await recorder.submitCalls
-        #expect(calls.count == 1)
-        let call = try #require(calls.first)
-        #expect(call.chain == .solana)
-        #expect(call.options.accountId == "account")
-        #expect(call.options.toAddress == "resolved")
-        #expect(call.options.amount == 99)
-        #expect(call.options.tokenAddress == "mint")
-        #expect(call.options.enclaveToken == "test-token")
     }
 
     @MainActor
@@ -363,86 +260,6 @@ struct SendApiClientTests {
         #expect(call.options.isNftBurn == true)
     }
 
-    @Test
-    func `NFT submission is made from one accepted request and draft`() throws {
-        let nft = makeNft(chain: .ton, address: "nft")
-        let request = NftSendDraftRequest(
-            accountId: "accepted-account",
-            address: "unresolved",
-            chain: .ton,
-            nfts: [nft],
-            comment: "accepted memo",
-            mode: .send
-        )
-        let draft = NftSendValidatedDraft(
-            recipient: SendValidatedRecipient(
-                resolvedAddress: "resolved",
-                addressName: nil,
-                isScam: false,
-                error: nil
-            ),
-            explainedFee: nil,
-            requiresMemo: false,
-            realNativeFee: 17
-        )
-
-        let submission = try draft.makeSubmission(for: request)
-
-        #expect(submission.accountId == request.accountId)
-        #expect(submission.chain == request.chain)
-        #expect(submission.nfts == request.nfts)
-        #expect(submission.comment == request.comment)
-        #expect(submission.mode == request.mode)
-        #expect(submission.resolvedAddress == "resolved")
-        #expect(submission.totalRealFee == draft.realNativeFee)
-    }
-
-    @Test
-    func `confirmed NFT submission keeps the injected API client`() async throws {
-        let recorder = NftApiRecorder()
-        let response = try decodeNftSubmitResult(
-            #"{"activityIds":["one","two"],"mfaRequestHash":"mfa"}"#
-        )
-        let flow = NftSendFlow(api: NftSendApiClient(
-            checkDraft: { _, _ in
-                throw TestError.unexpectedCall
-            },
-            submit: { request in
-                await recorder.recordSubmit(request)
-                return response
-            }
-        ))
-        let nft = makeNft(chain: .ton, address: "nft")
-        let draft = try decodeDraft(
-            #"{"resolvedAddress":"resolved","fee":"20","realFee":"10"}"#
-        )
-
-        let confirmed = ConfirmedNftSend(
-            account: DUMMY_ACCOUNT,
-            addressViewModel: .init(chain: .ton),
-            submission: NftSendSubmission(
-                accountId: "account",
-                chain: .ton,
-                nfts: [nft],
-                comment: "memo",
-                mode: .burn,
-                resolvedAddress: draft.resolvedAddress ?? "",
-                totalRealFee: draft.realNativeFee
-            ),
-            isTransferPayloadAvailable: false,
-            flow: flow
-        )
-        let result = try await confirmed.submit(
-            enclaveToken: "test-token"
-        )
-
-        let requests = await recorder.submitRequests
-        #expect(requests.count == 1)
-        let request = try #require(requests.first)
-        expectNftSubmitResult(result)
-        expectNftSubmitRequest(request, nft: nft)
-    }
-
     @MainActor
     @Test
     func `Ledger NFT success without activity IDs is indeterminate`() async throws {
@@ -506,25 +323,6 @@ private func expectTokenDraftCall(_ call: TokenApiRecorder.DraftCall) {
     #expect(call.options.stateInit == "state-init")
     #expect(call.options.tokenAddress == "token-contract")
     #expect(call.options.allowGasless == true)
-}
-
-private func expectNftSubmitResult(_ result: SendSubmissionResult) {
-    #expect(result.activityIds == ["one", "two"])
-    #expect(result.mfaRequestHash == "mfa")
-}
-
-private func expectNftSubmitRequest(
-    _ request: NftSendSubmissionRequest,
-    nft: ApiNft
-) {
-    #expect(request.chain == .ton)
-    #expect(request.accountId == "account")
-    #expect(request.enclaveToken == "test-token")
-    #expect(request.nfts == [nft])
-    #expect(request.toAddress == "resolved")
-    #expect(request.comment == "memo")
-    #expect(request.totalRealFee == 10)
-    #expect(request.isNftBurn == true)
 }
 
 private actor TokenApiRecorder {

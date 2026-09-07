@@ -24,6 +24,7 @@ const TRANSACTION_TYPE_TITLES: Partial<Record<ApiTransactionType & keyof any, Tr
   unstake: ['Unstaked', 'Unstaking', '$unstake_action'],
   unstakeRequest: ['Requested Unstake', 'Requesting Unstake', '$request_unstake_action'],
   callContract: ['Called Contract', 'Calling Contract', '$call_contract_action'],
+  approval: ['Token Approval', 'Token Approval', 'Token Approval'],
   excess: ['Excess', 'Excess', 'Excess'],
   contractDeploy: ['Deployed Contract', 'Deploying Contract', '$deploy_contract_action'],
   bounced: ['Bounced', 'Bouncing', '$bounce_action'],
@@ -232,6 +233,10 @@ export function shouldShowTransactionComment(transaction: ApiTransaction) {
 }
 
 export function getTransactionAmountDisplayMode({ type, amount, nft }: ApiTransaction) {
+  if (type === 'approval') {
+    return 'approval';
+  }
+
   const isPlainTransfer = type === undefined && !nft;
   if (!amount && !isPlainTransfer) {
     return 'hide';

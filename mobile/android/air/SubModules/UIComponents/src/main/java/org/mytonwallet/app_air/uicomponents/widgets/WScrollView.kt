@@ -1,19 +1,26 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.annotation.SuppressLint
+import android.graphics.Canvas
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
+import android.view.View
 import android.widget.ScrollView
 import java.lang.ref.WeakReference
 import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassCaptureHost
 
 @SuppressLint("ViewConstructor")
 open class WScrollView(private val viewController: WeakReference<WViewController>) :
-    ScrollView(viewController.get()!!.context) {
+    ScrollView(viewController.get()!!.context),
+    GlassCaptureHost {
+
+    override fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean =
+        drawChild(canvas, child, drawingTime)
 
     companion object {
         const val SCROLL_STATE_IDLE = 0

@@ -87,7 +87,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showSettings(section: AppSettingsSection?)
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?)
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) async
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String])
     static func showToast(_ config: ToastConfig)
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
@@ -143,8 +143,8 @@ public extension AppActionsProtocol {
         )
     }
 
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) {
-        showSwap(
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) async {
+        await showSwap(
             accountContext: accountContext,
             defaultSellingToken: defaultSellingToken,
             defaultBuyingToken: defaultBuyingToken,
@@ -214,7 +214,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showSettings(section: AppSettingsSection?) { }
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) { }
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) async { }
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) { }
     static func showToast(_ config: ToastConfig) { }
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }

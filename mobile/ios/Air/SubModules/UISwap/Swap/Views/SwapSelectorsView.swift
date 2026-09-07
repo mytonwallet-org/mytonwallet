@@ -38,10 +38,10 @@ struct SwapSelectorsView: View {
 fileprivate struct _SwapSelectorsView: View {
     
     @Binding var sellingAmount: BigInt?
-    var sellingToken: ApiToken
+    var sellingToken: ApiToken?
     
     @Binding var buyingAmount: BigInt?
-    var buyingToken: ApiToken
+    var buyingToken: ApiToken?
     
     var tokenBalance: BigInt?
     var maxAmount: BigInt?
@@ -73,65 +73,71 @@ fileprivate struct _SwapSelectorsView: View {
     var body: some View {
         InsetSection(addDividers: false) {
             sellingRow
-                .padding(.vertical, 11)
-                .padding(.top, 3)
+                .padding(.top, IOS_26_MODE_ENABLED ? 16 : 14)
+                .padding(.bottom, IOS_26_MODE_ENABLED ? 17 : 11)
                 .padding(.horizontal, 16)
             divider
+                .frame(height: IOS_26_MODE_ENABLED ? 0 : nil, alignment: .bottom)
             
             buyingRow
-                .padding(.vertical, 11)
-                .padding(.top, 3)
+                .padding(.top, IOS_26_MODE_ENABLED ? 16 : 14)
+                .padding(.bottom, IOS_26_MODE_ENABLED ? 17 : 11)
                 .padding(.horizontal, 16)
             
         } header: {} footer: {}
             .padding(.horizontal, -16)
             .onAppear {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                    sellingFocused = true
+                    sellingFocused = sellingToken != nil
                 }
             }
     }
     
     var sellingRow: some View {
-        VStack(spacing: 11) {
+        VStack(spacing: IOS_26_MODE_ENABLED ? 9 : 11) {
             HStack {
-                Text(lang("You sell"))
+                Text(lang("You Sell"))
                     .foregroundColor(Color.air.secondaryLabel)
                 Spacer()
-                if let buttonAmount = availableSellingAmount {
+                if let buttonAmount = availableSellingAmount, let sellingToken {
                     UseAllButton(
                         amount: DecimalAmount(buttonAmount, sellingToken),
-                        textStyle: .footnote,
+                        textStyle: IOS_26_MODE_ENABLED ? .supporting : .footnote,
                         textScaling: .dynamic,
                         onTap: onUseAll
                     )
                 }
             }
-            .textStyle(.footnote, scaling: .dynamic)
+            .textStyle(IOS_26_MODE_ENABLED ? .bodyStrong : .footnote, scaling: .dynamic)
+            .frame(minHeight: IOS_26_MODE_ENABLED ? 22 : nil)
             TokenAmountEntry(
                 amount: $sellingAmount,
                 token: sellingToken,
                 inBaseCurrency: false,
                 insufficientFunds: insufficientFunds,
                 isValueStale: staleAmountSide == .selling,
+                style: IOS_26_MODE_ENABLED ? .large : .regular,
                 triggerFocused: $sellingFocused,
                 onTokenPickerTapped: onSellingTokenPicker,
                 onInputTapped: {
-                    sellingFocused = true
+                    sellingFocused = sellingToken != nil
                 },
                 onAmountChanged: onSellingAmountChanged
             )
+            .frame(minHeight: IOS_26_MODE_ENABLED ? 42 : nil)
             .padding(8) // increase touch target
             .padding(-8)
         }
     }
     
     var divider: some View {
-        InsetDivider()
-            .padding(.leading, -16)
+        Rectangle()
+            .fill(Color.air.separator)
+            .frame(height: 0.33)
+            .padding(.horizontal, IOS_26_MODE_ENABLED ? 16 : 0)
             .overlay {
                 reverseButton
-                    .offset(y: 2)
+                    .offset(y: IOS_26_MODE_ENABLED ? 0 : 2)
             }
     }
     
@@ -140,8 +146,10 @@ fileprivate struct _SwapSelectorsView: View {
             ZStack {
                 Circle()
                     .fill(Color.air.secondaryFill)
-                    .frame(width: 32, height: 32)
+                    .frame(width: IOS_26_MODE_ENABLED ? 40 : 32, height: IOS_26_MODE_ENABLED ? 40 : 32)
                 Image("ReverserIcon", bundle: AirBundle)
+                    .renderingMode(.template)
+                    .frame(width: 24, height: 24)
             }
             .padding(4)
             .contentShape(.circle)
@@ -150,17 +158,18 @@ fileprivate struct _SwapSelectorsView: View {
     }
     
     var buyingRow: some View {
-        VStack(spacing: 11) {
-            Text(lang("You buy"))
-                .textStyle(.footnote, scaling: .dynamic)
+        VStack(spacing: IOS_26_MODE_ENABLED ? 9 : 11) {
+            Text(lang("You Buy"))
+                .textStyle(IOS_26_MODE_ENABLED ? .bodyStrong : .footnote, scaling: .dynamic)
                 .foregroundColor(Color.air.secondaryLabel)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: IOS_26_MODE_ENABLED ? 22 : nil, alignment: .leading)
             TokenAmountEntry(
                 amount: $buyingAmount,
                 token: buyingToken,
                 inBaseCurrency: false,
                 insufficientFunds: false,
                 isValueStale: staleAmountSide == .buying,
+                style: IOS_26_MODE_ENABLED ? .large : .regular,
                 triggerFocused: $buyingFocused,
                 onTokenPickerTapped: onBuyingTokenPicker,
                 isInputEnabled: !buyingAmountInputDisabled,
@@ -168,11 +177,12 @@ fileprivate struct _SwapSelectorsView: View {
                     if buyingAmountInputDisabled {
                         onBuyingAmountDisabledTap()
                     } else {
-                        buyingFocused = true
+                        buyingFocused = buyingToken != nil
                     }
                 },
                 onAmountChanged: onBuyingAmountChanged
             )
+            .frame(minHeight: IOS_26_MODE_ENABLED ? 42 : nil)
             .padding(8)  // increase touch target
             .padding(.bottom, 10)
             .padding(.bottom, -10)

@@ -30,11 +30,12 @@ import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setConstraints
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.PositionBasedItemDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -231,7 +232,7 @@ class SubWalletsVC(context: Context, private val enclaveToken: String) :
         }
     }
 
-    private var addAllFoundShadow: PillShadowView? = null
+    private var addAllFoundGlass: WGlassView? = null
 
     private val navigationTitle: String
         get() {
@@ -261,11 +262,12 @@ class SubWalletsVC(context: Context, private val enclaveToken: String) :
             addAllFoundSubwalletsButton,
             ViewGroup.LayoutParams(WRAP_CONTENT, 48.dp)
         )
-        addAllFoundShadow =
-            PillShadowView.attachTo(addAllFoundSubwalletsButton, 24f.dp)
-        addAllFoundSubwalletsButton.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            addAllFoundShadow?.sync()
-        }
+        addAllFoundGlass = WGlassView.attachTo(
+            addAllFoundSubwalletsButton,
+            24f.dp,
+            GlassProviders.shadowOnly(),
+            root = null
+        )
         view.addView(
             createSubwalletButton,
             ViewGroup.LayoutParams(MATCH_CONSTRAINT, 50.dp)
@@ -391,7 +393,7 @@ class SubWalletsVC(context: Context, private val enclaveToken: String) :
         if (hasPositiveBalance &&
             !addAllFoundSubwalletsButton.isVisible
         ) {
-            listOfNotNull(addAllFoundSubwalletsButton, addAllFoundShadow).fadeIn()
+            listOfNotNull(addAllFoundSubwalletsButton, addAllFoundGlass).fadeIn()
         }
     }
 

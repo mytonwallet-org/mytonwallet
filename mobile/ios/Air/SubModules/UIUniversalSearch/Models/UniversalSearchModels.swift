@@ -194,6 +194,19 @@ public struct UniversalSearchPrompt {
 }
 
 @MainActor
+public struct UniversalSearchShortcutResult {
+    public let icon: UniversalSearchIcon
+    public let title: String
+    public let subtitle: String?
+
+    public init(icon: UniversalSearchIcon, title: String, subtitle: String? = nil) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+    }
+}
+
+@MainActor
 public struct UniversalSearchItem {
     public enum Content {
         case chat(UniversalSearchChatResult)
@@ -202,6 +215,7 @@ public struct UniversalSearchItem {
         case collection(UniversalSearchCollectionResult)
         case app(UniversalSearchAppResult)
         case wallet(UniversalSearchWalletResult)
+        case shortcut(UniversalSearchShortcutResult)
         case askAgent(query: String)
         case recentSearch(UniversalSearchHistoryResult)
         case site(UniversalSearchSiteResult)

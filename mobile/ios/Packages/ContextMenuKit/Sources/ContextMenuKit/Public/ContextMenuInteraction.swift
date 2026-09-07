@@ -145,6 +145,11 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
     }
 
     @objc private func handleTap() {
+        self.present()
+    }
+
+    /// Presents from the attached view, including when activated by a UIControl or accessibility.
+    public func present() {
         guard self.presentedSession == nil else {
             return
         }

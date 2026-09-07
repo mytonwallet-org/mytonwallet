@@ -12,6 +12,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -34,7 +36,6 @@ class CardThumbnailView(context: Context) : WFrameLayout(context) {
     private val borderPaint: Paint by lazy {
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            color = Color.WHITE
             strokeWidth = 1f.dp
         }
     }
@@ -109,6 +110,7 @@ class CardThumbnailView(context: Context) : WFrameLayout(context) {
 
     private fun drawBorder(canvas: Canvas) {
         if (!showBorder) return
+        borderPaint.color = WColor.Background.color
         val halfStroke = borderPaint.strokeWidth / 2
         rect.set(halfStroke, halfStroke, width - halfStroke, height - halfStroke)
         canvas.drawRoundRect(rect, borderRadius, borderRadius, borderPaint)

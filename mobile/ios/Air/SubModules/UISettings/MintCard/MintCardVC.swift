@@ -59,14 +59,16 @@ public final class MintCardVC: WViewController {
             let missingAmountWithReserve = missingAmount * SWAP_AMOUNT_RESERVE_MULTIPLIER / 100
             let buyingAmount = bigIntToDouble(amount: missingAmountWithReserve, decimals: mycoin.decimals)
             dismiss(animated: true) { [accountContext] in
-                AppActions.showSwap(
-                    accountContext: accountContext,
-                    defaultSellingToken: TONCOIN_SLUG,
-                    defaultBuyingToken: MYCOIN_SLUG,
-                    defaultSellingAmount: nil,
-                    defaultBuyingAmount: buyingAmount,
-                    push: nil
-                )
+                Task {
+                    await AppActions.showSwap(
+                        accountContext: accountContext,
+                        defaultSellingToken: TONCOIN_SLUG,
+                        defaultBuyingToken: MYCOIN_SLUG,
+                        defaultSellingAmount: nil,
+                        defaultBuyingAmount: buyingAmount,
+                        push: nil
+                    )
+                }
             }
             return
         }

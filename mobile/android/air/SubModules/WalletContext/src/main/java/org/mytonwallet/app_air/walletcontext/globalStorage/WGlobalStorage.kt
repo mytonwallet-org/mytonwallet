@@ -16,6 +16,8 @@ import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
+import org.mytonwallet.app_air.walletcontext.models.MTokenChangeThreshold
+import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 
@@ -105,10 +107,15 @@ object WGlobalStorage {
     private const val ARE_ROUNDED_CORNERS_ACTIVE = "settings.roundedCorners"
     private const val IS_GRADIENT_NAVIGATION_BAR_ACTIVE = "settings.gradientNavigationBar"
     private const val IS_BLUR_ENABLED = "settings.blurEnabled"
+    private const val IS_LIQUID_GLASS_ENABLED = "settings.liquidGlassEnabled"
     private const val ARE_TOP_TABS_ENABLED = "settings.topTabs"
+    private const val WALLET_CARD_TOP_LINE = "settings.walletCardTopLine"
+    private const val HIDE_ACTION_BUTTONS_ROW = "settings.hideActionButtonsRow"
     private const val ARE_SOUNDS_ACTIVE = "settings.canPlaySounds"
     private const val HIDE_TINY_TRANSFERS = "settings.areTinyTransfersHidden"
     private const val HIDE_UNVERIFIED_NFTS = "settings.areUnverifiedNftsHidden"
+    private const val ARE_CHAIN_BADGES_SHOWN = "settings.areChainBadgesShown"
+    private const val TOKEN_CHANGE_THRESHOLD = "settings.tokenChangeThreshold"
     private const val HIDE_NO_COST_TOKENS = "settings.areTokensWithNoCostHidden"
     private const val USE_LOCALIZED_TOKEN_NAMES = "settings.useLocalizedTokenNames"
     private const val BASE_CURRENCY = "settings.baseCurrency"
@@ -451,6 +458,28 @@ object WGlobalStorage {
         )
     }
 
+    fun getWalletCardTopLine(): MWalletCardTopLine =
+        MWalletCardTopLine.fromValue(globalStorageProvider.getString(WALLET_CARD_TOP_LINE))
+
+    fun setWalletCardTopLine(topLine: MWalletCardTopLine) {
+        globalStorageProvider.set(
+            WALLET_CARD_TOP_LINE,
+            topLine.value,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun isActionButtonsRowHidden(): Boolean =
+        globalStorageProvider.getBool(HIDE_ACTION_BUTTONS_ROW) ?: false
+
+    fun setIsActionButtonsRowHidden(hidden: Boolean) {
+        globalStorageProvider.set(
+            HIDE_ACTION_BUTTONS_ROW,
+            hidden,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun setIsRoundedBalanceFontActive(active: Boolean) {
         globalStorageProvider.set(
             IS_ROUNDED_BALANCE_FONT_ACTIVE,
@@ -533,6 +562,18 @@ object WGlobalStorage {
         )
     }
 
+    /** Refraction on glass surfaces; only takes effect while blur is enabled. */
+    fun isLiquidGlassEnabled(): Boolean = globalStorageProvider.getBool(IS_LIQUID_GLASS_ENABLED)
+        ?: DevicePerformanceClassifier.isHighClass
+
+    fun setLiquidGlassEnabled(enabled: Boolean) {
+        globalStorageProvider.set(
+            IS_LIQUID_GLASS_ENABLED,
+            enabled,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun getAreSoundsActive(): Boolean = globalStorageProvider.getBool(ARE_SOUNDS_ACTIVE) ?: true
 
     fun setAreSoundsActive(active: Boolean) {
@@ -546,6 +587,28 @@ object WGlobalStorage {
         globalStorageProvider.set(
             HIDE_TINY_TRANSFERS,
             hidden,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getAreChainBadgesShown(): Boolean =
+        globalStorageProvider.getBool(ARE_CHAIN_BADGES_SHOWN) ?: false
+
+    fun setAreChainBadgesShown(shown: Boolean) {
+        globalStorageProvider.set(
+            ARE_CHAIN_BADGES_SHOWN,
+            shown,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getTokenChangeThreshold(): MTokenChangeThreshold =
+        MTokenChangeThreshold.fromValue(globalStorageProvider.getString(TOKEN_CHANGE_THRESHOLD))
+
+    fun setTokenChangeThreshold(threshold: MTokenChangeThreshold) {
+        globalStorageProvider.set(
+            TOKEN_CHANGE_THRESHOLD,
+            threshold.value,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }

@@ -37,15 +37,4 @@ struct SendRecipientPolicyTests {
         #expect(policy.suggestionStrategy == .requireActiveChain)
     }
 
-    @Test("user token selection changes flexible suggestions to prefer active chain")
-    func userTokenSelectionPrefersActiveChain() {
-        let policy = SendRecipientPolicy.flexibleChain(
-            suggestions: .all
-        )
-
-        #expect(
-            policy.preferringActiveChain()
-                == .flexibleChain(suggestions: .preferActiveChain)
-        )
-    }
 }

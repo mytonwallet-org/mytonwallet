@@ -159,6 +159,7 @@ class AssetsAndActivitiesVC(context: Context) :
 
     override fun onDestroy() {
         super.onDestroy()
+        WalletCore.unregisterObserver(this)
         scope.cancel()
     }
 
@@ -328,6 +329,10 @@ class AssetsAndActivitiesVC(context: Context) :
         when (walletEvent) {
             WalletEvent.BaseCurrencyChanged -> {
                 rvAdapter.reloadData()
+            }
+
+            WalletEvent.NftsUpdated -> {
+                rvAdapter.notifyItemChanged(0)
             }
 
             WalletEvent.BalanceChanged,

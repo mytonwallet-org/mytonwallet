@@ -1,5 +1,7 @@
 public enum AppSettingsSection: String, Sendable {
     case appearance
+    case security
+    case subwallets
     case assets
     case language
     case notifications

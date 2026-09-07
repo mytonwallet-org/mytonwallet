@@ -44,6 +44,10 @@ func crosschainAdjustedNativeMaxAmount(
 }
 
 @MainActor struct CrosschainSwapEstimateEngine {
+    var fetchEstimate: (String, ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse = {
+        try await Api.swapEstimate(accountId: $0, request: $1)
+    }
+
     func estimate(
         _ input: SwapEstimateInput,
         changedFrom: SwapSide,
@@ -121,8 +125,11 @@ func crosschainAdjustedNativeMaxAmount(
                 walletVersion: nil,
                 isFromAmountMax: input.isMaxAmount ? true : nil
             )
-            let response = try await Api.swapEstimate(accountId: account.id, request: request)
+            let response = try await fetchEstimate(account.id, request)
             try Task.checkCancellation()
+            if case .error = response {
+                return SwapEstimateResult(changedFrom: input.inputSource, response: response)
+            }
             guard case .cex(var swapEstimate) = response else {
                 throw SdkError.unexpected(message: "Expected CEX swap estimate", context: response)
             }

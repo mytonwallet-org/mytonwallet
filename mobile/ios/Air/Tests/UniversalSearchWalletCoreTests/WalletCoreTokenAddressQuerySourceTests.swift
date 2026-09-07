@@ -51,7 +51,7 @@ struct WalletCoreTokenAddressQuerySourceTests {
     }
 
     @Test
-    func `discovers caches and reuses a token without mutating wallet state`() async throws {
+    func `discovers caches and reuses a token across repeated queries`() async throws {
         let discovered = ApiToken(
             slug: "ton-discovered",
             name: "Discovered Token",
@@ -83,7 +83,7 @@ struct WalletCoreTokenAddressQuerySourceTests {
     }
 
     @Test
-    func `a failed lookup finishes without erasing local results`() async throws {
+    func `a failed lookup finishes without contributing documents`() async throws {
         let recorder = TokenFetchRecorder(result: .failure(TestError.unavailable))
         let source = makeSource(recorder: recorder)
 
@@ -107,12 +107,16 @@ struct WalletCoreTokenAddressQuerySourceTests {
             ))
         }
 
-        while await recorder.callCount == 0 {
+        defer { consumer.cancel() }
+        let lookupDeadline = ContinuousClock.now + .seconds(1)
+        while await recorder.callCount == 0, ContinuousClock.now < lookupDeadline {
             await Task.yield()
         }
+        try #require(await recorder.callCount == 1)
         consumer.cancel()
         _ = try? await consumer.value
-        while await recorder.cancellationCount == 0 {
+        let cancellationDeadline = ContinuousClock.now + .seconds(1)
+        while await recorder.cancellationCount == 0, ContinuousClock.now < cancellationDeadline {
             await Task.yield()
         }
 

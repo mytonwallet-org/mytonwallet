@@ -16,7 +16,12 @@ for sdk in dist-air/mytonwallet-sdk.js dist-air/gramwallet-sdk.js; do
   fi
 done
 
-AGENT_OVERRIDE_VALUE=$(node -r dotenv/config -e 'process.stdout.write(process.env.AGENT_OVERRIDE ?? "v1")')
+# `??` falls back only on an undefined variable, and CI hands these two an empty string instead: a
+# workflow env of `${{ vars.X }}` expands to `""` when the repository does not define the variable,
+# and so does a bare `X=` line in `.env`. The public repository has no AGENT_API_URL, which turned
+# the fallback below into `new URL("")` and took down all three mobile release builds of v26.9.0.
+# `||` treats empty and unset alike, which is what a default here means.
+AGENT_OVERRIDE_VALUE=$(node -r dotenv/config -e 'process.stdout.write(process.env.AGENT_OVERRIDE || "v1")')
 case "$AGENT_OVERRIDE_VALUE" in
   no_override|v1|v2) ;;
   *)
@@ -24,7 +29,7 @@ case "$AGENT_OVERRIDE_VALUE" in
     exit 1
     ;;
 esac
-AGENT_API_BASE_URL=$(node -r dotenv/config -e 'process.stdout.write(process.env.AGENT_API_URL ?? "https://agent.mywallet.io/api")')
+AGENT_API_BASE_URL=$(node -r dotenv/config -e 'process.stdout.write(process.env.AGENT_API_URL || "https://agent.mywallet.io/api")')
 node -e '
 const [override, agentApiBaseUrl] = process.argv.slice(1);
 const url = new URL(agentApiBaseUrl);

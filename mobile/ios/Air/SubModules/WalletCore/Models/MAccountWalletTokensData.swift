@@ -20,10 +20,12 @@ public struct MAccountWalletTokensData: Equatable, Hashable, Sendable {
 
     init(orderedTokenBalances: [MTokenBalance], hiddenTokenBalances: [MTokenBalance]) {
         self.orderedTokenBalancesDict = OrderedDictionary(
-            uniqueKeysWithValues: orderedTokenBalances.map { ($0.tokenID, $0) }
+            orderedTokenBalances.map { ($0.tokenID, $0) },
+            uniquingKeysWith: { _, latest in latest }
         )
         self.hiddenTokenBalancesDict = OrderedDictionary(
-            uniqueKeysWithValues: hiddenTokenBalances.map { ($0.tokenID, $0) }
+            hiddenTokenBalances.map { ($0.tokenID, $0) },
+            uniquingKeysWith: { _, latest in latest }
         )
     }
 }

@@ -33,9 +33,9 @@ extension DisplayAssetTab {
 
     var isDeletableSegment: Bool {
         switch self {
-        case .tokens:
+        case .tokens, .nfts:
             false
-        case .nftCollectionFilter, .nfts:
+        case .nftCollectionFilter:
             true
         }
     }
@@ -70,7 +70,6 @@ public final class WalletAssetsTabContextMenuProviders {
     private let sourceViewProvider: () -> UIView?
     private let onReorder: () -> Void
     private let onSelectTab: ((DisplayAssetTab) -> Void)?
-    private let includesTokenLimitActions: Bool
     private var contextMenuProviders: [DisplayAssetTab: SegmentedControlContextMenuProvider] = [:]
 
     public init(
@@ -78,18 +77,65 @@ public final class WalletAssetsTabContextMenuProviders {
         nftsVCManager: NftsVCManager,
         sourceViewProvider: @escaping () -> UIView?,
         onReorder: @escaping () -> Void,
-        onSelectTab: ((DisplayAssetTab) -> Void)? = nil,
-        includesTokenLimitActions: Bool = true
+        onSelectTab: ((DisplayAssetTab) -> Void)? = nil
     ) {
         self.accountSource = accountSource
         self.nftsVCManager = nftsVCManager
         self.sourceViewProvider = sourceViewProvider
         self.onReorder = onReorder
         self.onSelectTab = onSelectTab
-        self.includesTokenLimitActions = includesTokenLimitActions
     }
 
-    public func provider(for tab: DisplayAssetTab) -> SegmentedControlContextMenuProvider {
+    public func makeTokensMenu(includesVisibleLimit: Bool = true) -> UIMenu? {
+        guard !isTemporaryViewAccount else { return nil }
+        return UIMenu(children: [
+            UIDeferredMenuElement.uncached { [weak self] completion in
+                guard let self, !isTemporaryViewAccount else {
+                    completion([])
+                    return
+                }
+                var groups: [UIMenuElement] = []
+                if includesVisibleLimit {
+                    let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
+                    let choices = HomeWalletVisibleTokensLimit.allCases.map { limit in
+                        UIAction(title: limit.title, state: currentLimit == limit ? .on : .off) { _ in
+                            AppStorageHelper.homeWalletVisibleTokensLimit = limit
+                        }
+                    }
+                    groups.append(UIMenu(options: [.displayInline, .singleSelection], children: choices))
+                }
+                let actions = [
+                    UIAction(title: lang("Add Token"), image: UIImage(systemName: "plus")) { _ in
+                        AppActions.showAddToken()
+                    },
+                    UIAction(title: lang("Manage Assets"), image: .airBundle("MenuManageAssets26")) { _ in
+                        AppActions.showAssetsAndActivity()
+                    }
+                ]
+                groups.append(UIMenu(options: .displayInline, children: actions))
+                if nftsVCManager.isCollectiblesHidden {
+                    let showCollectibles = UIAction(title: lang("Show Collectibles"), image: UIImage(systemName: "pin")) { [weak self] _ in
+                        Task {
+                            try? await self?.nftsVCManager.setCollectiblesHidden(false)
+                            self?.onSelectTab?(.nfts)
+                        }
+                    }
+                    groups.append(UIMenu(options: .displayInline, children: [showCollectibles]))
+                }
+                completion(groups)
+            }
+        ])
+    }
+
+    private var isTemporaryViewAccount: Bool {
+        @Dependency(\.accountStore) var accountStore
+        let accountId = accountStore.resolveAccountId(source: accountSource)
+        return accountStore.get(accountId: accountId).isTemporaryView
+    }
+
+    public func provider(for tab: DisplayAssetTab) -> SegmentedControlContextMenuProvider? {
+        if case .tokens = tab, isTemporaryViewAccount { return nil }
+
         if let provider = contextMenuProviders[tab] {
             return provider
         }
@@ -99,19 +145,12 @@ public final class WalletAssetsTabContextMenuProviders {
         case .tokens:
             configuration = makeTokensMenuConfig(
                 nftsVCManager: nftsVCManager,
-                onReorder: onReorder,
-                onSelectTab: onSelectTab,
-                includesTokenLimitActions: includesTokenLimitActions
+                onSelectTab: onSelectTab
             )
         case .nfts:
             configuration = makeCollectiblesMenuConfig(
                 accountSource: accountSource,
-                onReorder: onReorder,
-                onHide: { [weak nftsVCManager] in
-                    Task {
-                        try? await nftsVCManager?.setCollectiblesHidden(true)
-                    }
-                }
+                onReorder: onReorder
             )
 
         case let .nftCollectionFilter(filter):
@@ -148,8 +187,7 @@ public final class WalletAssetsTabContextMenuProviders {
 @MainActor
 private func makeCollectiblesMenuConfig(
     accountSource: AccountSource,
-    onReorder: @escaping () -> Void,
-    onHide: @escaping () -> Void
+    onReorder: @escaping () -> Void
 ) -> () -> ContextMenuConfiguration {
     return {
         @Dependency(\.accountStore) var accountStore
@@ -310,16 +348,6 @@ private func makeCollectiblesMenuConfig(
         items.append(
             .action(
                 ContextMenuAction(
-                    title: lang("Hide Tab"),
-                    icon: .system("pin.slash"),
-                    handler: onHide
-                )
-            )
-        )
-
-        items.append(
-            .action(
-                ContextMenuAction(
                     title: lang("Reorder Tabs"),
                     icon: .airBundle("MenuReorder26"),
                     handler: onReorder
@@ -391,31 +419,10 @@ private func makeNftCollectionMenuConfig(
 @MainActor
 private func makeTokensMenuConfig(
     nftsVCManager: NftsVCManager,
-    onReorder: @escaping () -> Void,
-    onSelectTab: ((DisplayAssetTab) -> Void)?,
-    includesTokenLimitActions: Bool
+    onSelectTab: ((DisplayAssetTab) -> Void)?
 ) -> () -> ContextMenuConfiguration {
     return { [weak nftsVCManager] in
         var items: [ContextMenuItem] = []
-        if includesTokenLimitActions {
-            let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
-
-            items = HomeWalletVisibleTokensLimit.allCases.map { limit in
-                let icon: ContextMenuIcon? = currentLimit == limit ? (.system("checkmark") ?? .placeholder) : .placeholder
-
-                return .action(
-                    ContextMenuAction(
-                        title: limit.title,
-                        icon: icon,
-                        handler: {
-                            AppStorageHelper.homeWalletVisibleTokensLimit = limit
-                        }
-                    )
-                )
-            }
-            items.append(.separator)
-        }
-
         items.append(
             .action(
                 ContextMenuAction(
@@ -439,18 +446,8 @@ private func makeTokensMenuConfig(
             )
         )
         
-        items.append(.separator)
-        items.append(
-            .action(
-                ContextMenuAction(
-                    title: lang("Reorder Tabs"),
-                    icon: .airBundle("MenuReorder26"),
-                    handler: onReorder
-                )
-            )
-        )
-        
         if nftsVCManager?.isCollectiblesHidden == true {
+            items.append(.separator)
             items.append(
                 .action(
                     ContextMenuAction(

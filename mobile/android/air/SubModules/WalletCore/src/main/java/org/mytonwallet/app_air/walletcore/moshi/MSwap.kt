@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 
+@JsonClass(generateAdapter = true)
 data class MApiSwapAsset(
     override val name: String? = null,
     override val localizedName: String? = null,
@@ -45,6 +46,18 @@ data class MApiSwapAsset(
 }
 
 @JsonClass(generateAdapter = true)
+data class MApiSwapDefaultsRequest(
+    val tokenIn: MApiSwapAsset?,
+    val tokenOut: MApiSwapAsset?,
+    val accountChains: List<String>,
+    val network: String,
+    val balancesUsdBySlug: Map<String, Double>
+)
+
+@JsonClass(generateAdapter = true)
+data class MApiSwapDefaults(val tokenIn: MApiSwapAsset? = null, val tokenOut: MApiSwapAsset? = null)
+
+@JsonClass(generateAdapter = true)
 data class MApiSwapPairAsset(
     val symbol: String,
     val slug: String,
@@ -69,8 +82,20 @@ data class MApiSwapEstimateRequest(
 )
 
 @JsonClass(generateAdapter = true)
+data class MApiSwapHint(
+    val type: String? = null,
+    val token: String? = null,
+    val providerName: String? = null,
+    val url: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class MApiSwapEstimateErrorResponse(val error: String? = null, val hint: MApiSwapHint? = null)
+
+@JsonClass(generateAdapter = true)
 data class MApiSwapEstimateResponse(
     val route: String? = null,
+    val hint: MApiSwapHint? = null,
     val toAmount: BigDecimal,
     val fromAmount: BigDecimal,
     val toMinAmount: BigDecimal,
@@ -127,6 +152,7 @@ data class MApiSwapBuildResponse(
 @JsonClass(generateAdapter = true)
 data class MApiSwapCexEstimateResponse(
     val route: String? = null,
+    val hint: MApiSwapHint? = null,
     val cexLabel: String? = null,
     val providerName: String? = null,
     val termsOfUseUrl: String? = null,

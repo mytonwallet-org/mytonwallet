@@ -116,10 +116,10 @@ class SwapAssetInputView(context: Context) :
     fun setMode(mode: Mode) {
         this.mode = mode
         if (mode == Mode.SELL) {
-            leftTopLabel.text = LocaleController.getString("You sell")
+            leftTopLabel.text = LocaleController.getString("You Sell")
             rightTopButton.visibility = VISIBLE
         } else {
-            leftTopLabel.text = LocaleController.getString("You buy")
+            leftTopLabel.text = LocaleController.getString("You Buy")
             rightTopButton.visibility = GONE
         }
         updateTheme()

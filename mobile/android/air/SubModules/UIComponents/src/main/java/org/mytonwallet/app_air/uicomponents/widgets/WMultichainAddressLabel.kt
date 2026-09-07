@@ -119,7 +119,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         account: MAccount?,
         style: Style,
         keyword: String = "",
-        onlyDisplayedChains: Boolean = true
+        onlyDisplayedChains: Boolean = true,
+        maxAddressesByBalance: Int? = null
     ) {
         if (account == null) {
             displayAddresses(emptyList(), style, keyword)
@@ -136,7 +137,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             byChain.appAddressLineChains(account.accountId),
             style,
             keyword,
-            shouldSortByBalance = false
+            shouldSortByBalance = maxAddressesByBalance != null,
+            maxAddresses = maxAddressesByBalance
         )
     }
 
@@ -161,7 +163,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         byChain: Map<String, AccountChain>,
         style: Style,
         keyword: String = "",
-        shouldSortByBalance: Boolean = true
+        shouldSortByBalance: Boolean = true,
+        maxAddresses: Int? = null
     ) {
         val style = if (network.isTestnet) {
             style.copy(
@@ -188,6 +191,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             } else {
                 entries.toList()
             }
+        }.let { entries ->
+            if (maxAddresses != null) entries.take(maxAddresses) else entries
         }.map { Pair(it.key, it.value) }
         displayAddresses(addresses, style, keyword)
     }
@@ -710,47 +715,6 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         )
 
         val cardRowWalletHardwareStyle: Style = cardRowWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_ledger)
-        )
-
-        // Select wallet card row screen styles
-        val settingsHeaderWalletStyle: Style = Style(
-            singleChainStyle = ChainStyle(
-                displayChainIcon = true,
-                iconMargin = 1.5f.dp.roundToInt(),
-                addressKeepCount = 12,
-                domainKeepCount = 100,
-                domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
-            ),
-            multipleChainStyle = ChainStyle(
-                displayChainIcon = true,
-                iconMargin = 1.5f.dp.roundToInt(),
-                addressKeepCount = 6,
-                domainKeepCount = 12,
-                domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN,
-                domainLetterSpacing = -0.002f
-            ),
-            maxVisibleAddresses = 2,
-            chainIconSize = 12.dp,
-            prefixIconSize = 16.dp,
-            prefixIconMargin = 5.dp,
-            postfixIconSize = Size(0, 0),
-            postfixIconMargin = 0.dp,
-            chainIconResMap = MBlockchain.supportedChains.associate {
-                it.name to (it.symbolIcon ?: 0)
-            },
-            tintChainIcon = true,
-            prefixIconResList = emptyList(),
-            postfixIconResList = emptyList(),
-            delimiter = ",",
-            delimiterWidth = 4.dp
-        )
-
-        val settingsHeaderWalletViewStyle: Style = settingsHeaderWalletStyle.copy(
-            prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_eye)
-        )
-
-        val settingsHeaderWalletHardwareStyle: Style = settingsHeaderWalletStyle.copy(
             prefixIconResList = listOf(org.mytonwallet.app_air.icons.R.drawable.ic_wallet_ledger)
         )
     }

@@ -281,6 +281,7 @@ public enum UniversalSearchFeatureFactory {
     ) -> UniversalSearchCoordinator {
         UniversalSearchCoordinator(
             sources: WalletCoreUniversalSearchFactory.makeSources() + [
+                UniversalSearchAppEntrySource(),
                 UniversalSearchAgentSuggestionSource(),
                 UniversalSearchAgentConversationSource(),
                 UniversalSearchBrowserHistorySource(),

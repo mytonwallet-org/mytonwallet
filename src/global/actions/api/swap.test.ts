@@ -5,7 +5,11 @@ import { SwapInputSource, SwapState } from '../../types';
 import { MYCOIN_MAINNET, TONCOIN, TRX } from '../../../config';
 import { getGlobal, setGlobal } from '../../index';
 import { clearCurrentSwap, updateCurrentSwap } from '../../reducers';
-import { buildSwapBuildRequest, estimateSwapConcurrently, shouldBlockUnsupportedNearIntentsMemo } from './swap';
+import {
+  buildSwapBuildRequest,
+  estimateSwapConcurrently,
+  shouldBlockUnsupportedNearIntentsMemo,
+} from './swap';
 
 describe('estimateSwapConcurrently', () => {
   beforeEach(() => {

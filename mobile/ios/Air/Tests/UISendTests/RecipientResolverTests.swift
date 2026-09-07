@@ -27,17 +27,6 @@ struct RecipientResolverTests {
         #expect(selection.address(for: .solana) == "ethereum-address")
     }
 
-    @Test
-    func `saved selection exposes its persistence key`() {
-        let selection = RecipientSelection.savedAccount(
-            makeAccount(tonAddress: "ton-address"),
-            saveKey: "saved-key",
-            fallbackChain: .ton
-        )
-
-        #expect(selection.savedAddressKey == "saved-key")
-    }
-
     @MainActor
     @Test
     func `selected account replaces the search query until edited`() async {

@@ -5,13 +5,30 @@
 //  Created by nikstar on 31.08.2025.
 //
 
+import Foundation
 
 public enum ApiSwapEstimateResponse: Equatable, Decodable, Sendable {
     case dex(ApiSwapDexEstimateResponse)
     case cex(ApiSwapCexEstimateResponse)
+    case error(ApiSwapEstimateErrorResponse)
+
+    public var hint: ApiSwapHint? {
+        switch self {
+        case .dex(let estimate): estimate.hint
+        case .cex(let estimate): estimate.hint
+        case .error(let response): response.hint
+        }
+    }
+
+    public var isQuote: Bool {
+        switch self {
+        case .dex, .cex: true
+        case .error: false
+        }
+    }
 
     private enum CodingKeys: String, CodingKey {
-        case route
+        case route, error
     }
 
     private enum Route: String, Decodable {
@@ -21,6 +38,10 @@ public enum ApiSwapEstimateResponse: Equatable, Decodable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        if container.contains(.error) {
+            self = .error(try ApiSwapEstimateErrorResponse(from: decoder))
+            return
+        }
         switch try container.decode(Route.self, forKey: .route) {
         case .dex:
             self = .dex(try ApiSwapDexEstimateResponse(from: decoder))
@@ -30,7 +51,15 @@ public enum ApiSwapEstimateResponse: Equatable, Decodable, Sendable {
     }
 }
 
+public struct ApiSwapEstimateErrorResponse: Equatable, Decodable, Sendable, LocalizedError {
+    public var error: String
+    public var hint: ApiSwapHint?
+
+    public var errorDescription: String? { error }
+}
+
 public struct ApiSwapDexEstimateResponse: Equatable, Decodable, Sendable {
+    public var hint: ApiSwapHint?
     public var from: String
     public var to: String
     public var slippage: Double?
@@ -55,6 +84,7 @@ public struct ApiSwapDexEstimateResponse: Equatable, Decodable, Sendable {
     public var dieselFee: MDouble?
     
     public static func ==(lhs: Self, rhs: Self) -> Bool {
+        lhs.hint == rhs.hint &&
         lhs.from == rhs.from &&
         lhs.to == rhs.to &&
         lhs.slippage == rhs.slippage &&

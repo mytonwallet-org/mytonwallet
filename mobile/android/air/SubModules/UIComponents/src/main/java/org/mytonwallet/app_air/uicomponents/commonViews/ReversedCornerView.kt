@@ -8,7 +8,6 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
@@ -22,7 +21,9 @@ import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
@@ -67,7 +68,7 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
         )
     }
 
-    private var blurryBackgroundView: WBlurryBackgroundView? = null
+    private var blurryBackgroundView: WGlassView? = null
 
     var isGradientMode = false
         private set
@@ -115,9 +116,11 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
     }
 
     fun setBlurOverlayColor(overlayColor: WColor, alpha: Int? = null) {
-        val alpha = alpha ?: if (ThemeManager.isDark) 204 else 140
-        blurryBackgroundView?.setOverlayColor(overlayColor, alpha)
-        this.overlayColor = overlayColor.color.colorWithAlpha(alpha)
+        blurryBackgroundView?.setProvider(
+            GlassProviders.plain(overlayColor, alpha?.let { it / 255f })
+        )
+        val solidAlpha = alpha ?: if (ThemeManager.isDark) 204 else 140
+        this.overlayColor = overlayColor.color.colorWithAlpha(solidAlpha)
         if (isGradientMode) {
             rebuildGradientDrawable()
         } else {
@@ -155,6 +158,7 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
                 blurryBackgroundView?.let { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
             }
         }
+        syncBlurView()
         resumeBlurring()
     }
 
@@ -244,7 +248,6 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
     private fun syncBlurView() {
         if (isGradientMode) {
             blurryBackgroundView?.let { blur ->
-                blur.pauseBlurring()
                 (blur.parent as? ViewGroup)?.removeView(blur)
             }
             blurryBackgroundView = null
@@ -260,24 +263,29 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
             WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur &&
                 initialConfig.blurRootView != null
         if (blurEnabled && blurryBackgroundView == null) {
-            blurryBackgroundView =
-                WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
-                    setupWith(initialConfig.blurRootView)
-                    setBackgroundVisible(visible = true, animated = false)
-                }
+            blurryBackgroundView = WGlassView(context).apply {
+                flavor = GlassFlavor.FROSTED
+                fadeSide = WGlassView.FadeSide.BOTTOM
+                style = WGlassView.Style.PANEL
+                setProvider(
+                    GlassProviders.plain(
+                        initialConfig.overrideBackgroundColor ?: WColor.SecondaryBackground
+                    )
+                )
+                setupWith(initialConfig.blurRootView)
+            }
+            setBackgroundVisible(visible = true, animated = false)
             initialConfig.overrideBackgroundColor?.let { overrideBackgroundColor ->
                 setBlurOverlayColor(overrideBackgroundColor)
             }
             if (backgroundView.parent != null) {
                 addView(blurryBackgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
                 if (isPlaying) {
-                    blurryBackgroundView!!.resumeBlurring()
                     backgroundView.isGone = true
                 }
             }
         } else if (!blurEnabled && blurryBackgroundView != null) {
             blurryBackgroundView?.let { blur ->
-                blur.pauseBlurring()
                 if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
             }
             blurryBackgroundView = null
@@ -352,7 +360,6 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
         isPlaying = false
         val blurryBackgroundView = blurryBackgroundView
         blurryBackgroundView?.apply {
-            blurryBackgroundView.pauseBlurring()
             isGone = !keepBlurAsImage
             alpha = if (keepBlurAsImage) 1f else 0f
             backgroundView.isVisible = true
@@ -377,7 +384,6 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
         blurryBackgroundView?.apply {
             alpha = 1f
             visibility = VISIBLE
-            blurryBackgroundView.resumeBlurring()
             backgroundView.isGone = true
         } ?: {
             // No blurs available, show background

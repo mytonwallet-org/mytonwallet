@@ -222,8 +222,7 @@ class TonConnectRequestConnectVC(
                 return@setOnClickListener
             }
 
-            val requiresSigning = update.proof != null ||
-                account.byChain[TON_CHAIN]?.mfa != null
+            val requiresSigning = update.proof != null
             if (account.accountType == MAccount.AccountType.VIEW && requiresSigning) {
                 showAlert(
                     LocaleController.getString("Error"),
@@ -237,7 +236,7 @@ class TonConnectRequestConnectVC(
                 connectConfirm(
                     update.promiseId,
                     enclaveToken = ""
-                ) { success, _ ->
+                ) { success ->
                     buttonView.isLoading = false
                     if (success) {
                         window!!.dismissLastNav()
@@ -246,7 +245,7 @@ class TonConnectRequestConnectVC(
                 return@setOnClickListener
             }
 
-            if (account?.isHardware == true) {
+            if (account.isHardware) {
                 confirmHardware()
             } else {
                 confirmPasscode()
@@ -360,43 +359,16 @@ class TonConnectRequestConnectVC(
                 LocaleController.getString("Confirm")
             ),
             task = { enclaveToken ->
-                val accountHasMfa = AccountStore.accountById(update.accountId)
-                    ?.byChain?.get(TON_CHAIN)?.mfa != null
                 connectConfirm(
                     update.promiseId,
                     enclaveToken,
-                    { success, mfaHash ->
+                    { success ->
                         if (!success) return@connectConfirm
-                        if (mfaHash != null) {
-                            val mfaVC = org.mytonwallet.app_air.uicomponents
-                                .viewControllers.MfaActionConfirmVC(
-                                    context,
-                                    requestHash = mfaHash,
-                                    forceCloseButton = true,
-                                    popupConfirmedActivity = false,
-                                    onConfirmed = { _ ->
-                                        finalizeMfaDappConnect()
-                                    },
-                                    onClosedBeforeFinish = { wasMfaConfirmed, _ ->
-                                        if (wasMfaConfirmed) {
-                                            finalizeMfaDappConnect()
-                                        } else {
-                                            cancelMfaDappConnect()
-                                        }
-                                    }
-                                )
-                            navVC.push(mfaVC, onCompletion = {
-                                navVC.removePrevViewControllerOnly()
-                            })
-                            return@connectConfirm
+                        window.dismissLastNav {
+                            window.dismissLastNav()
                         }
                     }
                 )
-                if (!accountHasMfa) {
-                    window.dismissLastNav {
-                        window.dismissLastNav()
-                    }
-                }
             }
         )
         navVC = WNavigationController(
@@ -411,7 +383,7 @@ class TonConnectRequestConnectVC(
     private fun connectConfirm(
         promiseId: String,
         enclaveToken: String,
-        onCompletion: (success: Boolean, mfaRequestHash: String?) -> Unit
+        onCompletion: (success: Boolean) -> Unit
     ) {
         val update = update ?: return
         isConfirmed = true
@@ -432,33 +404,6 @@ class TonConnectRequestConnectVC(
                     } else {
                         null
                     }
-
-                    val accountMfa = account.byChain[TON_CHAIN]?.mfa
-                    if (accountMfa != null) {
-                        val mfaResult = WalletCore.call(
-                            ApiMethod.DApp.CreateDappConnectMfaRequest(
-                                accountId = account.accountId,
-                                enclaveToken = enclaveToken
-                            )
-                        )
-                        val hash = mfaResult.mfaRequestHash
-                        if (hash == null) {
-                            isConfirmed = false
-                            onCompletion(false, null)
-                            return@launch
-                        }
-                        // Stash proofSignatures + accountId so the MFA confirm path
-                        // can complete the dapp connect once Telegram approval lands.
-                        pendingMfaConnect = PendingMfaConnect(
-                            promiseId = promiseId,
-                            accountId = account.accountId,
-                            proofSignatures = signResult?.signatures,
-                            hash = hash
-                        )
-                        onCompletion(true, hash)
-                        return@launch
-                    }
-
                     WalletCore.call(
                         ApiMethod.DApp.ConfirmDappRequestConnect(
                             promiseId,
@@ -468,12 +413,12 @@ class TonConnectRequestConnectVC(
                             )
                         )
                     )
-                    onCompletion(true, null)
+                    onCompletion(true)
                     returnToDappIfNeeded(promiseId)
                 } catch (err: JSWebViewBridge.ApiError) {
                     Logger.e(Logger.LogTag.TON_CONNECT, "submitConnect: $err")
                     isConfirmed = false
-                    onCompletion(false, null)
+                    onCompletion(false)
                 }
             }
         }
@@ -487,66 +432,11 @@ class TonConnectRequestConnectVC(
             ) { activatedAccount, _ ->
                 val activatedAccount = activatedAccount ?: run {
                     isConfirmed = false
-                    onCompletion(false, null)
+                    onCompletion(false)
                     return@activateAccount
                 }
                 callback(activatedAccount)
             }
-        }
-    }
-
-    private data class PendingMfaConnect(
-        val promiseId: String,
-        val accountId: String,
-        val proofSignatures: List<String>?,
-        val hash: String
-    )
-
-    private var pendingMfaConnect: PendingMfaConnect? = null
-
-    private fun finalizeMfaDappConnect() {
-        val pending = pendingMfaConnect ?: return
-        pendingMfaConnect = null
-        val window = window ?: return
-        window.lifecycleScope.launch {
-            try {
-                WalletCore.call(
-                    ApiMethod.DApp.ConfirmDappRequestConnect(
-                        pending.promiseId,
-                        ApiMethod.DApp.ConfirmDappRequestConnect.Request(
-                            pending.accountId,
-                            pending.proofSignatures
-                        )
-                    )
-                )
-            } catch (err: JSWebViewBridge.ApiError) {
-                Logger.e(Logger.LogTag.TON_CONNECT, "finishConnect: $err")
-                return@launch
-            }
-            navigationController?.let {
-                window.dismissNav(it)
-                returnToDappIfNeeded(pending.promiseId)
-            }
-        }
-    }
-
-    private fun cancelMfaDappConnect() {
-        val pending = pendingMfaConnect ?: return
-        pendingMfaConnect = null
-        val window = window ?: return
-        window.lifecycleScope.launch {
-            try {
-                WalletCore.call(
-                    ApiMethod.DApp.CancelDappRequest(
-                        promiseId = pending.promiseId,
-                        reason = "user reject"
-                    )
-                )
-            } catch (err: JSWebViewBridge.ApiError) {
-                Logger.e(Logger.LogTag.TON_CONNECT, "cancelMfaConnect: $err")
-            }
-            navigationController?.let(window::dismissNav)
-            returnToDappIfNeeded(pending.promiseId)
         }
     }
 
@@ -860,8 +750,7 @@ class TonConnectRequestConnectVC(
         val hasTonWallet = account.tonAddress != null
         if (!hasTonWallet) return false
         val requiresProof = update.proof != null
-        val accountHasMfa = account.byChain[TON_CHAIN]?.mfa != null
-        if (account.isViewOnly && (requiresProof || accountHasMfa)) {
+        if (account.isViewOnly && requiresProof) {
             return false
         }
         return true

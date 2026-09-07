@@ -13,7 +13,9 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -67,7 +69,7 @@ class ReversedCornerViewUpsideDown(
     val cornerHeight: Int
         get() = if (isGradientMode) 0 else ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
 
-    private var blurryBackgroundView: WBlurryBackgroundView? = null
+    private var blurryBackgroundView: WGlassView? = null
 
     private val gradientView: View by lazy {
         View(context).apply {
@@ -86,7 +88,6 @@ class ReversedCornerViewUpsideDown(
         floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
 
     private var showSeparator: Boolean = true
-    var isPlaying = false
     private var lastWidth = -1
     private var lastHeight = -1
 
@@ -113,7 +114,7 @@ class ReversedCornerViewUpsideDown(
     private var configured = false
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        resumeBlurring()
+        attachBackground()
         if (configured) return
         updateTheme()
     }
@@ -213,7 +214,6 @@ class ReversedCornerViewUpsideDown(
     private fun syncBlurView() {
         if (isGradientMode) {
             blurryBackgroundView?.let { blur ->
-                blur.pauseBlurring()
                 if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
             }
             blurryBackgroundView = null
@@ -228,18 +228,18 @@ class ReversedCornerViewUpsideDown(
 
         val blurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
         if (blurEnabled && blurryBackgroundView == null) {
-            blurryBackgroundView =
-                WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
+            blurryBackgroundView = WGlassView(context).apply {
+                flavor = GlassFlavor.FROSTED
+                fadeSide = WGlassView.FadeSide.TOP
+                style = WGlassView.Style.PANEL
+                setProvider(GlassProviders.plain(WColor.SecondaryBackground))
+            }
             if (backgroundView.parent != null) {
                 (backgroundView.parent as ViewGroup).removeView(backgroundView)
             }
-            if (isPlaying) {
-                isPlaying = false
-                resumeBlurring()
-            }
+            attachBackground()
         } else if (!blurEnabled && blurryBackgroundView != null) {
             blurryBackgroundView?.let { blur ->
-                blur.pauseBlurring()
                 if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
             }
             blurryBackgroundView = null
@@ -285,17 +285,7 @@ class ReversedCornerViewUpsideDown(
         pathDirty = true
     }
 
-    fun pauseBlurring() {
-        if (!isPlaying) return
-        isPlaying = false
-        blurryBackgroundView?.pauseBlurring()
-        postInvalidateOnAnimation()
-    }
-
-    fun resumeBlurring() {
-        if (isPlaying) return
-        isPlaying = true
-
+    private fun attachBackground() {
         if (isGradientMode) {
             attachGradientView()
             postInvalidateOnAnimation()
@@ -307,7 +297,6 @@ class ReversedCornerViewUpsideDown(
                 addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT))
                 it.setupWith(blurRootView!!)
             }
-            it.resumeBlurring()
         } ?: run {
             if (backgroundView.parent == null) {
                 addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))

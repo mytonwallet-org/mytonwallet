@@ -522,13 +522,7 @@ abstract class WViewController(val context: Context) :
         }
     }
 
-    open fun onViewAttachedToWindow() {
-        navigationController?.tabBarController?.let { tabBarController ->
-            view.post {
-                tabBarController.resumeBlurring()
-            }
-        }
-    }
+    open fun onViewAttachedToWindow() {}
 
     private fun onViewSetupCompleted() {
         isViewConfigured = true
@@ -553,8 +547,6 @@ abstract class WViewController(val context: Context) :
         isDisappeared = false
         if (pendingThemeChange) notifyThemeChanged()
         if (isViewConfigured) insetsUpdated()
-        topReversedCornerView?.resumeBlurring()
-        bottomReversedCornerView?.resumeBlurring()
         isViewAppearanceAnimationInProgress = true
     }
 
@@ -597,9 +589,6 @@ abstract class WViewController(val context: Context) :
     open fun onDestroy() {
         isDisappeared = true
         isDestroyed = true
-        pendingOverScrollSettle?.let { overScrollSettleHandler.removeCallbacks(it) }
-        pendingOverScrollSettle = null
-        cancelBottomBlurSettle()
         frameMonitor?.stopMonitoring()
         dismissActiveDialogs()
         view.removeAllViews()
@@ -847,7 +836,6 @@ abstract class WViewController(val context: Context) :
 
     private fun removeBottomCornerRadius() {
         val bottomView = bottomReversedCornerView ?: return
-        bottomView.pauseBlurring()
         (bottomView.parent as? ViewGroup)?.removeView(bottomView)
         bottomReversedCornerView = null
     }
@@ -896,115 +884,22 @@ abstract class WViewController(val context: Context) :
         }
     }
 
-    private val overScrollSettleHandler by lazy(LazyThreadSafetyMode.NONE) {
-        Handler(Looper.getMainLooper())
-    }
-    private var pendingOverScrollSettle: Runnable? = null
-
     open fun updateBlurViews(recyclerView: RecyclerView) {
-        updateBlurViewsWithSettle(
-            scrollable = recyclerView,
-            isIdle = { recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE },
-            offset = { recyclerView.computeVerticalScrollOffset() }
-        )
+        updateBlurViews(recyclerView, recyclerView.computeVerticalScrollOffset())
     }
 
     fun updateBlurViews(scrollView: WScrollView) {
-        updateBlurViewsWithSettle(
-            scrollable = scrollView,
-            isIdle = { scrollView.scrollState == WScrollView.SCROLL_STATE_IDLE },
-            offset = { scrollView.scrollY }
-        )
-    }
-
-    private fun updateBlurViewsWithSettle(
-        scrollable: ViewGroup,
-        isIdle: () -> Boolean,
-        offset: () -> Int
-    ) {
-        updateBlurViews(scrollable, offset())
-        pendingOverScrollSettle?.let { overScrollSettleHandler.removeCallbacks(it) }
-        // Re-arms itself until the scrollable is idle: resting at an edge produces no further
-        // scroll events to trigger a resume, and not every screen reports the idle transition.
-        val settle = object : Runnable {
-            override fun run() {
-                if (pendingOverScrollSettle !== this) return
-                if (isIdle()) {
-                    pendingOverScrollSettle = null
-                    updateBlurViews(scrollable, offset().coerceAtLeast(1), ignoreBottomEdge = true)
-                } else {
-                    overScrollSettleHandler.postDelayed(this, OVER_SCROLL_SETTLE_DELAY)
-                }
-            }
-        }
-        pendingOverScrollSettle = settle
-        overScrollSettleHandler.postDelayed(settle, OVER_SCROLL_SETTLE_DELAY)
+        updateBlurViews(scrollView, scrollView.scrollY)
     }
 
     fun updateBlurViews(scrollView: ScrollView) {
         updateBlurViews(scrollView = scrollView, computedOffset = scrollView.scrollY)
     }
 
-    private fun updateBlurViews(
-        scrollView: ViewGroup,
-        computedOffset: Int,
-        ignoreBottomEdge: Boolean = false
-    ) {
+    private fun updateBlurViews(scrollView: ViewGroup, computedOffset: Int) {
         val topOffset =
             if (computedOffset >= 0) computedOffset else computedOffset + scrollView.paddingTop
-        val isOnTop = topOffset <= 0
-        val isOnBottom = !ignoreBottomEdge && !isOnTop && !scrollView.canScrollVertically(1)
-        if (!isOnTop) {
-            topReversedCornerView?.resumeBlurring()
-            topReversedCornerView?.setBlurAlpha((topOffset / 20f.dp).coerceIn(0f, 1f))
-            if (isOnBottom) {
-                pauseBottomBlurViews()
-            } else {
-                bottomReversedCornerView?.resumeBlurring()
-                navigationController?.tabBarController?.resumeBlurring()
-            }
-        } else {
-            topReversedCornerView?.pauseBlurring(false)
-            pauseBottomBlurViews()
-        }
-    }
-
-    protected fun pauseBottomBlurViews() {
-        bottomReversedCornerView?.pauseBlurring()
-        if (navigationController?.tabBarController?.activeNavigationController ==
-            navigationController
-        ) {
-            navigationController?.tabBarController?.pauseBlurring()
-        }
-    }
-
-    private var pendingBottomBlurSettle: Runnable? = null
-
-    // Pauses the bottom blur views and resumes them once the scrollable has been idle for the
-    // settle delay. The check re-arms itself because resting at the bottom edge produces no
-    // further scroll events to trigger a resume.
-    protected fun pauseBottomBlurViewsUntilSettled(isIdle: () -> Boolean) {
-        pauseBottomBlurViews()
-        cancelBottomBlurSettle()
-        val settle = object : Runnable {
-            override fun run() {
-                if (pendingBottomBlurSettle !== this) return
-                if (isIdle()) {
-                    pendingBottomBlurSettle = null
-                    bottomReversedCornerView?.resumeBlurring()
-                    navigationController?.tabBarController?.resumeBlurring()
-                } else {
-                    overScrollSettleHandler.postDelayed(this, OVER_SCROLL_SETTLE_DELAY)
-                }
-            }
-        }
-        pendingBottomBlurSettle = settle
-        overScrollSettleHandler.postDelayed(settle, OVER_SCROLL_SETTLE_DELAY)
-    }
-
-    protected fun cancelBottomBlurSettle() {
-        pendingBottomBlurSettle?.let { overScrollSettleHandler.removeCallbacks(it) }
-        pendingBottomBlurSettle = null
+        topReversedCornerView?.setBlurAlpha((topOffset / 20f.dp).coerceIn(0f, 1f))
     }
 
     // Modal methods

@@ -20,8 +20,9 @@ import { getChainConfig } from '../../../util/chain';
 import { SECOND } from '../../../util/dateFormat';
 import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { logDebugError } from '../../../util/logs';
+import { fetchEvmWallet } from './util/account';
 import { type EvmProvider, getEvmProvider } from './util/client';
-import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
+import { fetchStoredChainAccount } from '../../common/accounts';
 import { bytesToBase64 } from '../../common/utils';
 import { handleServerError } from '../../errors';
 import { isValidAddress } from './address';
@@ -68,7 +69,7 @@ export async function checkTransactionDraft(
 
     result.resolvedAddress = toAddress;
 
-    const { address } = await fetchStoredWallet(accountId, chain);
+    const { address } = await fetchEvmWallet(accountId, chain);
 
     const draftAmount = amount ?? 0n;
 

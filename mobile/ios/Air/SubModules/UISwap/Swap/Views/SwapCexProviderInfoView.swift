@@ -12,13 +12,17 @@ struct SwapCexProviderInfoView: View {
     
     var body: some View {
         InsetSection {
-            InsetCell {
-                VStack(alignment: .leading, spacing: 7) {
+            InsetCell(
+                horizontalPadding: IOS_26_MODE_ENABLED ? 16 : nil,
+                verticalPadding: IOS_26_MODE_ENABLED ? 12 : nil
+            ) {
+                VStack(alignment: .leading, spacing: IOS_26_MODE_ENABLED ? 4 : 7) {
                     header
-                        .padding(.top, 1)
+                        .frame(minHeight: IOS_26_MODE_ENABLED ? 22 : nil, alignment: .leading)
+                        .padding(.top, IOS_26_MODE_ENABLED ? 0 : 1)
                     text
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom, 1)
+                        .padding(.bottom, IOS_26_MODE_ENABLED ? 0 : 1)
                         .environment(\.openURL, OpenURLAction { url in
                             topViewController()?.view.endEditing(true)
                             AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
@@ -34,6 +38,7 @@ struct SwapCexProviderInfoView: View {
     
     var header: some View {
         Text(L10n.crossChainExchangeProvidedByProvider(provider: providerName))
+            .textStyle(IOS_26_MODE_ENABLED ? .subheadlineEmphasized : .body, scaling: .dynamic)
             .foregroundStyle(Color.air.secondaryLabel)
     }
     
@@ -44,7 +49,7 @@ struct SwapCexProviderInfoView: View {
                 .lineSpacing(3)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .textStyle(.footnote, scaling: .dynamic)
-                .padding(.top, 2)
+                .padding(.top, IOS_26_MODE_ENABLED ? 0 : 2)
         }
     }
 

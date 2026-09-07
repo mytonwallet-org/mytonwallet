@@ -28,10 +28,11 @@ import org.mytonwallet.app_air.uicomponents.drawable.WCutoutDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
@@ -53,7 +54,6 @@ class WNavigationPopup(
 ) : INavigationPopup {
 
     companion object {
-        private const val BACKDROP_BLUR_RADIUS = 14f
         private const val BACKGROUND_SCALE = 0.9f
         private const val BACKGROUND_SCRIM_ALPHA = 0.1f
     }
@@ -87,13 +87,17 @@ class WNavigationPopup(
             isClickable = false
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        private var isBlurAutoUpdateEnabled: Boolean? = null
         private var requestedTranslationX = 0f
         private var requestedTranslationY = 0f
         private var isPositionTransitioning = false
 
-        val blurryBackground: WBlurryBackgroundView by lazy {
-            WBlurryBackgroundView(initialPopupView.context, null, 25f)
+        val blurryBackground: WGlassView by lazy {
+            WGlassView(initialPopupView.context).apply {
+                flavor = GlassFlavor.FROSTED
+                liquidGlass = false
+                setRadius(roundRadius)
+                setProvider(GlassProviders.legacy(WColor.Background))
+            }
         }
 
         init {
@@ -173,26 +177,6 @@ class WNavigationPopup(
             dimOverlay.alpha = BACKGROUND_SCRIM_ALPHA * nextProgress
         }
 
-        fun pauseBlurring() {
-            if (isBlurSupported) {
-                isBlurAutoUpdateEnabled = false
-                blurryBackground.pauseBlurring()
-            }
-        }
-
-        fun resumeBlurring() {
-            if (isBlurSupported) {
-                isBlurAutoUpdateEnabled = true
-                blurryBackground.resumeBlurring()
-            }
-        }
-
-        fun setTransitionBlurUpdateEnabled(enabled: Boolean) {
-            if (!isBlurSupported || isBlurAutoUpdateEnabled == enabled) return
-            isBlurAutoUpdateEnabled = enabled
-            blurryBackground.setBlurAutoUpdate(enabled)
-        }
-
         override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
             super.onLayout(changed, left, top, right, bottom)
             dimOverlay.layout(0, 0, measuredWidth, stableHeightProvider())
@@ -223,7 +207,7 @@ class WNavigationPopup(
 
         override fun updateTheme() {
             if (isBlurSupported) {
-                blurryBackground.setOverlayColor(WColor.Background, 204)
+                blurryBackground.updateTheme()
             } else {
                 setBackgroundColor(WColor.Background.color, roundRadius, true)
             }
@@ -237,9 +221,7 @@ class WNavigationPopup(
             }
         }
 
-        fun dispose() {
-            pauseBlurring()
-        }
+        fun dispose() {}
     }
 
     private val contentContainerLayout = PopupSurfaceLayout(
@@ -263,8 +245,12 @@ class WNavigationPopup(
     private var windowBackgroundDrawable: Drawable? = null
     private var blurCutoutPath: Path? = null
     private val blurVisiblePath = Path()
-    private val windowBlurBackground: WBlurryBackgroundView by lazy {
-        WBlurryBackgroundView(initialPopupView.context, null, BACKDROP_BLUR_RADIUS)
+    private val windowBlurBackground: WGlassView by lazy {
+        WGlassView(initialPopupView.context).apply {
+            flavor = GlassFlavor.FROSTED
+            liquidGlass = false
+            setProvider(GlassProviders.plain(WColor.Background, 0f))
+        }
     }
     private val blurBackdropContainer = object : WFrameLayout(initialPopupView.context) {
         override fun dispatchDraw(canvas: Canvas) {
@@ -306,10 +292,6 @@ class WNavigationPopup(
 
     private fun configureBlurBackdrop() {
         windowBlurBackground.post {
-            windowBlurBackground.setBlurEnabled(isBlurSupported)
-            windowBlurBackground.setBlurRadius(BACKDROP_BLUR_RADIUS)
-            windowBlurBackground.setOverlayColor(WColor.Background, 0)
-            windowBlurBackground.resumeBlurring()
             windowBlurBackground.invalidate()
         }
     }
@@ -403,7 +385,7 @@ class WNavigationPopup(
         val originalDimProgress: Float,
         val nextView: WMenuPopupView,
         val surface: PopupSurfaceLayout,
-        val shadow: PillShadowView?,
+        val shadow: WGlassView?,
         val sourceY: Float,
         val targetY: Float,
         val sourceHeight: Int,
@@ -438,26 +420,6 @@ class WNavigationPopup(
         }
     }
 
-    private fun pauseItemTransitionBlurs(activeSurface: PopupSurfaceLayout) {
-        if (!isBlurSupported) return
-        if (contentContainerLayout !== activeSurface) contentContainerLayout.pauseBlurring()
-        expandedItemStates.forEach {
-            if (it.surface !== activeSurface) it.surface.pauseBlurring()
-        }
-        activeSurface.resumeBlurring()
-        if (isBlurBackdropAttached) windowBlurBackground.pauseBlurring()
-    }
-
-    private fun resumeItemTransitionBlurs() {
-        if (!isBlurSupported || isDismissed) return
-        contentContainerLayout.resumeBlurring()
-        expandedItemStates.forEach { it.surface.resumeBlurring() }
-        if (isBlurBackdropAttached) windowBlurBackground.resumeBlurring()
-    }
-
-    private fun shouldThrottleTransitionBlur(surface: PopupSurfaceLayout): Boolean =
-        isBlurSupported && (surface.display?.refreshRate ?: 60f) > 75f
-
     private fun handleOutsideTap() {
         if (isItemTransitioning || isExpandedDismissing) {
             return
@@ -481,14 +443,16 @@ class WNavigationPopup(
         displayProgressListener = listener
     }
 
-    private var pillShadow: PillShadowView? = null
+    private var pillShadow: WGlassView? = null
 
     private fun attachPillShadowIfNeeded() {
         if (!usePillShadow || pillShadow != null) return
-        pillShadow = PillShadowView.attachTo(contentContainerLayout, roundRadius)
-        contentContainerLayout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            pillShadow?.sync()
-        }
+        pillShadow = WGlassView.attachTo(
+            contentContainerLayout,
+            roundRadius,
+            GlassProviders.shadowOnly(),
+            root = null
+        )
     }
 
     fun showAtLocation(x: Int, y: Int, initialHeight: Int = 0, fromTop: Boolean = true) {
@@ -522,7 +486,6 @@ class WNavigationPopup(
             val interpolated = interpolator.getInterpolation(animationFraction)
             updateBackdropProgress(interpolated)
             displayProgressListener?.invoke(animationFraction)
-            pillShadow?.sync()
         }
         PopupHelpers.popupShown(this)
     }
@@ -666,12 +629,14 @@ class WNavigationPopup(
             }
         )
         val foregroundShadow = if (usePillShadow) {
-            PillShadowView.attachTo(foregroundSurface, roundRadius)
+            WGlassView.attachTo(
+                foregroundSurface,
+                roundRadius,
+                GlassProviders.shadowOnly(),
+                root = null
+            )
         } else {
             null
-        }
-        foregroundSurface.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            foregroundShadow?.sync()
         }
 
         val backgroundSurfaces =
@@ -704,13 +669,7 @@ class WNavigationPopup(
         sourceSurface.pivotY =
             contentContainerLayout.translationY - sourceSurface.translationY
 
-        var throttleBlurUpdates = false
-        var blurFrame = 0
-
         fun update(progress: Float) {
-            if (throttleBlurUpdates) {
-                foregroundSurface.setTransitionBlurUpdateEnabled(blurFrame++ % 2 == 0)
-            }
             val easedProgress = itemTransitionInterpolator.getInterpolation(progress)
                 .coerceIn(0f, 1f)
             state.backgroundSurfaces.forEachIndexed { index, surface ->
@@ -742,18 +701,14 @@ class WNavigationPopup(
                 easedProgress,
                 updateAppearance = false
             )
-            pillShadow?.sync()
-            expandedItemStates.forEach { it.shadow?.sync() }
         }
 
         fun finish() {
             update(1f)
             foregroundSurface.layoutParams.height = targetHeight
-            foregroundSurface.setTransitionBlurUpdateEnabled(true)
             nextPopupView.finishExpandingAppearanceAnimation()
             itemTransitionAnimator = null
             isItemTransitioning = false
-            resumeItemTransitionBlurs()
             nextPopupView.unlockView()
             nextPopupView.prepareExpandingSubmenus()
             onCompletion?.invoke()
@@ -774,8 +729,6 @@ class WNavigationPopup(
             itemTransitionAnimator = animator
             foregroundSurface.postOnAnimation {
                 if (itemTransitionAnimator !== animator) return@postOnAnimation
-                pauseItemTransitionBlurs(foregroundSurface)
-                throttleBlurUpdates = shouldThrottleTransitionBlur(foregroundSurface)
                 nextPopupView.startExpandingAppearanceAnimation()
                 animator.start()
             }
@@ -796,13 +749,7 @@ class WNavigationPopup(
         state.nextView.lockView()
         state.nextView.resetExpandingPresentationScroll()
 
-        var throttleBlurUpdates = false
-        var blurFrame = 0
-
         fun update(progress: Float) {
-            if (throttleBlurUpdates) {
-                state.surface.setTransitionBlurUpdateEnabled(blurFrame++ % 2 == 0)
-            }
             val easedProgress = itemTransitionInterpolator.getInterpolation(progress)
                 .coerceIn(0f, 1f)
             state.backgroundSurfaces.forEachIndexed { index, surface ->
@@ -831,8 +778,6 @@ class WNavigationPopup(
                 ).roundToInt()
             )
             state.nextView.setExpandingPresentationProgress(easedProgress)
-            pillShadow?.sync()
-            expandedItemStates.forEach { it.shadow?.sync() }
         }
 
         fun finish() {
@@ -850,14 +795,11 @@ class WNavigationPopup(
             itemTransitionAnimator = null
             isItemTransitioning = false
             state.sourceView.unlockView()
-            resumeItemTransitionBlurs()
             onCompletion?.invoke()
         }
 
         if (animated && WGlobalStorage.getAreAnimationsActive()) {
             isItemTransitioning = true
-            pauseItemTransitionBlurs(state.surface)
-            throttleBlurUpdates = shouldThrottleTransitionBlur(state.surface)
             itemTransitionAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
                 duration = AnimationConstants.VERY_QUICK_ANIMATION
                 interpolator = LinearInterpolator()
@@ -976,8 +918,6 @@ class WNavigationPopup(
             val reversedProgress = 1f - progress
             updateBackdropProgress(reversedProgress)
             displayProgressListener?.invoke(reversedProgress)
-            expandedItemStates.forEach { it.shadow?.sync() }
-            pillShadow?.sync()
         }
 
         fun finish() {
@@ -1026,7 +966,6 @@ class WNavigationPopup(
                 val reversedInterpolated = interpolator.getInterpolation(reversed)
                 updateBackdropProgress(reversedInterpolated)
                 displayProgressListener?.invoke(reversedInterpolated)
-                pillShadow?.sync()
             }
             PopupHelpers.popupDismissed(this@WNavigationPopup)
         }
@@ -1041,7 +980,6 @@ class WNavigationPopup(
 
         (rootContainerLayout.parent as? ViewGroup)?.removeView(rootContainerLayout)
         if (isBlurBackdropAttached) {
-            windowBlurBackground.pauseBlurring()
             (blurBackdropContainer.parent as? ViewGroup)?.removeView(blurBackdropContainer)
             isBlurBackdropAttached = false
         }

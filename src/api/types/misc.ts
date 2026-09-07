@@ -97,7 +97,7 @@ export interface ApiNftSuperCollection {
 
 export type ApiActivityTimestamps = Record<string, number | undefined>;
 export type ApiTransactionType = 'stake' | 'unstake' | 'unstakeRequest'
-  | 'callContract' | 'excess' | 'contractDeploy' | 'bounced'
+  | 'callContract' | 'approval' | 'excess' | 'contractDeploy' | 'bounced'
   | 'mint' | 'burn' | 'auctionBid' | 'nftTrade'
   | 'dnsChangeAddress' | 'dnsChangeSite' | 'dnsChangeSubdomains' | 'dnsChangeStorage' | 'dnsDelete' | 'dnsRenew'
   | 'liquidityDeposit' | 'liquidityWithdraw'
@@ -111,6 +111,7 @@ export interface ApiTransaction extends BaseApiTransaction {
   externalMsgHashNorm?: string;
   shouldHide?: boolean;
   type?: ApiTransactionType;
+  isApprovalUnlimited?: boolean;
   metadata?: ApiTransactionMetadata;
   nft?: ApiNft;
   /**

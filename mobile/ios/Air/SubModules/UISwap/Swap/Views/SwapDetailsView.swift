@@ -8,8 +8,8 @@ import Perception
 @MainActor private let slippageFont = WTypography.uiFont(.amountSecondary, content: .technical)
 
 @MainActor struct SwapDetailsVM {
-    var fromToken: ApiToken { inputModel.sellingToken }
-    var toToken: ApiToken { inputModel.buyingToken }
+    var fromToken: ApiToken? { inputModel.sellingToken }
+    var toToken: ApiToken? { inputModel.buyingToken }
     let swapEstimate: ApiSwapDexEstimateResponse?
     
     private var inputModel: SwapInputModel
@@ -30,7 +30,7 @@ import Perception
         swapEstimate
     }
     var displayExchangeRate: SwapRate? {
-        if let est = displayEstimate {
+        if let est = displayEstimate, let fromToken, let toToken {
             return ExchangeRateHelpers.getSwapRate(
                 fromAmount: est.fromAmount.value,
                 toAmount: est.toAmount.value,
@@ -42,7 +42,7 @@ import Perception
     }
     
     var feeDetails: ExplainedTransferFee? {
-        guard let displayEstimate,
+        guard let displayEstimate, let fromToken,
               let nativeToken = TokenStore.tokens[fromToken.nativeTokenSlug] else {
             return nil
         }
@@ -64,8 +64,8 @@ struct SwapDetailsView: View {
     var model: SwapDetailsVM
     var slippage: BigInt
     var onSlippageCommit: (BigInt) -> Void
-    var sellingToken: ApiToken { model.fromToken }
-    var buyingToken: ApiToken { model.toToken }
+    var sellingToken: ApiToken? { model.fromToken }
+    var buyingToken: ApiToken? { model.toToken }
     var exchangeRate: SwapRate? { model.displayExchangeRate }
     var swapEstimate: ApiSwapDexEstimateResponse? { model.swapEstimate }
     var displayEstimate: ApiSwapDexEstimateResponse? { model.displayEstimate }
@@ -180,7 +180,7 @@ struct SwapDetailsView: View {
     
     @ViewBuilder
     var blockchainFeeRow: some View {
-        if let displayEstimate {
+        if let displayEstimate, let sellingToken {
             let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug]
             let feeDetails = model.feeDetails
             if let nativeToken, let feeDetails {
@@ -242,7 +242,7 @@ struct SwapDetailsView: View {
     
     @ViewBuilder
     var minimumReceivedRow: some View {
-        if let displayEstimate {
+        if let displayEstimate, let buyingToken {
             InsetDetailCell {
                 Text(lang("Minimum Received"))
                     .foregroundStyle(Color.air.secondaryLabel)
