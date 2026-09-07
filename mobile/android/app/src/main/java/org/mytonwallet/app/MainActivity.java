@@ -64,6 +64,11 @@ public class MainActivity extends BaseActivity {
   @Override
   protected void onNewIntent(@NonNull Intent intent) {
     super.onNewIntent(intent);
+    setIntent(intent);
+    AirLauncher airLauncher = AirLauncher.getInstance();
+    if (airLauncher != null) {
+      airLauncher.handle(this, intent);
+    }
   }
 
   private boolean isWebViewAvailable() {

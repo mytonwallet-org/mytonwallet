@@ -13,14 +13,14 @@ struct AddStakeView: View {
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
-            InsetList {
+            InsetList(topPadding: 0) {
                 AmountSection(model: model)
 
                 StakeInfoSection(model: model)
                         .padding(.top, -8)
                         .onTapGesture { model.onBackgroundTapped() }
             }
-            .padding(.top, -8)
+            .backportScrollEdgeEffectHidden(for: .top)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
                     .frame(height: 90)

@@ -59,10 +59,30 @@ sealed class ApiUpdate {
         override val accountId: String,
         override val dapp: ApiDapp,
         val operationChain: String,
-        val payloadToSign: MSignDataPayload
+        val payloadToSign: MSignDataPayload,
+        val parsedPayloadToSign: ParsedSignDataCellPreview? = null
     ) : ApiUpdate(),
         ApiUpdateDappSignRequest {
         override val isDangerous: Boolean = false
+
+        @JsonClass(generateAdapter = true)
+        data class ParsedSignDataCellPreview(
+            val title: String,
+            val hash: String? = null,
+            val bits: Int,
+            val refs: Int,
+            val fields: List<ParsedSignDataCellField>,
+            val error: String? = null,
+            val isParsed: Boolean
+        )
+
+        @JsonClass(generateAdapter = true)
+        data class ParsedSignDataCellField(
+            val label: String,
+            val value: String,
+            val depth: Int,
+            val isMuted: Boolean? = null
+        )
     }
 
     @JsonSealedSubtype("dappConnect")

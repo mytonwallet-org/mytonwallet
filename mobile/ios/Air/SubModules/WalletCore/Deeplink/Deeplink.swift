@@ -13,6 +13,7 @@ public enum Deeplink {
     case sell(Sell)
     case stake
     case portfolio
+    case market
     case url(url: URL, title: String?, injectDappConnect: Bool)
     case transfer
     case receive

@@ -1020,6 +1020,13 @@ Message: ข้อความ
 Binary Data: ข้อมูลไบนารี
 The binary data content is unclear. Sign it only if you trust the service.: เนื้อหาของข้อมูลไบนารีไม่ชัดเจน เซ็นชื่อเฉพาะหากคุณเชื่อใจบริการนี้
 Cell Schema: โครงสร้างเซลล์
+Parsed Cell: เซลล์ที่แยกวิเคราะห์แล้ว
+Cell Metadata: เมตาดาต้าเซลล์
+Bits: บิต
+References: การอ้างอิง
+Hash: แฮช
+Parsing Error: ข้อผิดพลาดในการแยกวิเคราะห์
+Cell Fields: ฟิลด์เซลล์
 Cell Data: ข้อมูลเซลล์
 Sign Data: เซ็นชื่อข้อมูล
 Please confirm signature on your Ledger: กรุณายืนยันลายเซ็นบน Ledger ของคุณ

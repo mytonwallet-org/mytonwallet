@@ -8,11 +8,11 @@ import WalletContext
 private let switchAccountAccountRowVerticalMargin: CGFloat = 10
 private let switchAccountAccountRowContentHeight: CGFloat = 40
 private let switchAccountAccountRowHeight: CGFloat = switchAccountAccountRowContentHeight + switchAccountAccountRowVerticalMargin * 2
-private let switchAccountAccountRowHorizontalPadding: CGFloat = 18
-private let switchAccountMaxAccountsShown: Int = 8
-private let switchAccountMenuWidth: CGFloat = 248
-private let switchAccountSectionLabelTopPadding: CGFloat = 12
-private let switchAccountSectionLabelBottomPadding: CGFloat = 6
+private let switchAccountAccountRowHorizontalPadding: CGFloat = 24
+private let switchAccountMaxAccountsShown: Int = 9
+private let switchAccountMenuWidth: CGFloat = 242
+private let switchAccountSectionLabelTopPadding: CGFloat = 4
+private let switchAccountSectionLabelBottomPadding: CGFloat = 10
 
 @MainActor
 public enum SwitchAccountMenu {
@@ -20,15 +20,14 @@ public enum SwitchAccountMenu {
         let activeAccount = AccountStore.account
         let otherAccounts = AccountStore.orderedAccounts.filter { $0.id != AccountStore.accountId }
         let visibleOtherAccounts = Array(otherAccounts.prefix(switchAccountMaxAccountsShown))
-        let shouldShowAllWalletsRow = otherAccounts.count > visibleOtherAccounts.count
 
         var items: [ContextMenuItem] = [
             .action(
                 ContextMenuAction(
-                    title: lang("Add Wallet"),
-                    icon: .airBundle("AddAccountIcon"),
+                    title: lang("Manage Wallets"),
+                    icon: .system("ellipsis"),
                     handler: {
-                        AppActions.showAddWallet(network: .mainnet)
+                        AppActions.showWalletSettings()
                     }
                 )
             )
@@ -39,10 +38,7 @@ public enum SwitchAccountMenu {
             items.append(.custom(makeCurrentWalletLabelRow()))
             items.append(
                 .custom(
-                    makeAccountRow(
-                        account: activeAccount,
-                        showCurrentAccountHighlight: false
-                    )
+                    makeAccountRow(account: activeAccount)
                 )
             )
             if !visibleOtherAccounts.isEmpty {
@@ -53,30 +49,23 @@ public enum SwitchAccountMenu {
         for account in visibleOtherAccounts {
             items.append(
                 .custom(
-                    makeAccountRow(
-                        account: account,
-                        showCurrentAccountHighlight: true
-                    )
+                    makeAccountRow(account: account)
                 )
             )
         }
 
-        if shouldShowAllWalletsRow {
-            if !visibleOtherAccounts.isEmpty || activeAccount != nil {
-                items.append(.separator)
-            }
-            items.append(
-                .action(
-                    ContextMenuAction(
-                        title: lang("Show All"),
-                        icon: .system("ellipsis"),
-                        handler: {
-                            AppActions.showWalletSettings()
-                        }
-                    )
+        items.append(.separator)
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Add Wallet"),
+                    icon: .system("plus"),
+                    handler: {
+                        AppActions.showAddWallet(network: .mainnet)
+                    }
                 )
             )
-        }
+        )
 
         return ContextMenuConfiguration(
             rootPage: ContextMenuPage(items: items),
@@ -87,6 +76,12 @@ public enum SwitchAccountMenu {
                 maximumHeightRatio: 1.0,
                 sourceSpacing: -32,
                 animationSourceSpacing: 8,
+                panelCornerRadius: 34,
+                rowSideInset: 20,
+                rowVerticalInset: 9.5,
+                iconSideInset: 24,
+                standardIconWidth: 28,
+                separatorHeight: 21,
                 screenInsets: .init(top: 0, left: 16, bottom: 0, right: 16)
             )
         )
@@ -101,6 +96,7 @@ public enum SwitchAccountMenu {
             Text(lang("Current Wallet"))
                 .textStyle(.footnoteEmphasized)
                 .foregroundStyle(Color.air.secondaryLabel)
+                .frame(height: 15)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, switchAccountSectionLabelTopPadding)
                 .padding(.bottom, switchAccountSectionLabelBottomPadding)
@@ -108,10 +104,7 @@ public enum SwitchAccountMenu {
         }
     }
 
-    private static func makeAccountRow(
-        account: MAccount,
-        showCurrentAccountHighlight: Bool
-    ) -> ContextMenuCustomRow {
+    private static func makeAccountRow(account: MAccount) -> ContextMenuCustomRow {
         .swiftUI(
             preferredWidth: switchAccountMenuWidth,
             sizing: .fixed(height: switchAccountAccountRowHeight),
@@ -120,14 +113,9 @@ public enum SwitchAccountMenu {
             })
         ) { _ in
             let accountContext = AccountContext(accountId: account.id)
-            AccountListCell(
-                accountContext: accountContext,
-                isReordering: false,
-                showCurrentAccountHighlight: showCurrentAccountHighlight,
-                showBalance: false
-            )
-            .padding(.horizontal, switchAccountAccountRowHorizontalPadding)
-            .padding(.vertical, switchAccountAccountRowVerticalMargin)
+            AccountMenuCell(accountContext: accountContext)
+                .padding(.horizontal, switchAccountAccountRowHorizontalPadding)
+                .padding(.vertical, switchAccountAccountRowVerticalMargin)
         }
     }
 

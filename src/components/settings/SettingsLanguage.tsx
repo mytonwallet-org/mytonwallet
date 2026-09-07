@@ -1,4 +1,4 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useRef, useState } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type { LangCode } from '../../global/types';
@@ -12,11 +12,10 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
 
+import Spinner from '../ui/Spinner';
 import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
-
-import checkmarkImg from '../../assets/settings/settings_checkmark.svg';
 
 interface OwnProps {
   isActive?: boolean;
@@ -33,33 +32,63 @@ function SettingsLanguage({
     changeLanguage,
   } = getActions();
   const lang = useLang();
+  const [pendingLangCode, setPendingLangCode] = useState<LangCode>();
+  const pendingLangCodeRef = useRef<LangCode>();
 
   useHistoryBack({
     isActive,
     onBack: onBackClick,
   });
 
-  const handleLanguageChange = useLastCallback((newLangCode: LangCode) => {
-    void setLanguage(newLangCode, () => {
+  const handleLanguageChange = useLastCallback(async (newLangCode: LangCode) => {
+    // The state update reaches the callback only on the next render pass, so the ref is what
+    // rejects the clicks made within a single frame
+    if (pendingLangCodeRef.current || newLangCode === langCode) return;
+
+    pendingLangCodeRef.current = newLangCode;
+    setPendingLangCode(newLangCode);
+
+    await setLanguage(newLangCode, () => {
       changeLanguage({ langCode: newLangCode });
     });
+
+    pendingLangCodeRef.current = undefined;
+    setPendingLangCode(undefined);
   });
 
   function renderLanguages() {
-    return LANG_LIST.map(({ name, nativeName, langCode: lc }) => (
-      <div
-        key={lc}
-        className={buildClassName(styles.item, styles.item_lang)}
-        onClick={() => handleLanguageChange(lc)}
-      >
-        <div className={styles.languageInfo}>
-          <span className={styles.languageMain}>{name}</span>
-          <span className={styles.languageNative}>{nativeName}</span>
-        </div>
+    return LANG_LIST.map(({ name, nativeName, langCode: lc }) => {
+      const isPending = pendingLangCode === lc;
 
-        {langCode === lc && <img src={checkmarkImg} alt={name} />}
-      </div>
-    ));
+      return (
+        <div
+          key={lc}
+          className={buildClassName(styles.item, styles.item_lang)}
+          onClick={() => handleLanguageChange(lc)}
+        >
+          <div className={styles.languageInfo}>
+            <span className={styles.languageMain}>{name}</span>
+            <span className={styles.languageNative}>{nativeName}</span>
+          </div>
+
+          {(isPending || langCode === lc) && (
+            <div className={styles.languageStatus}>
+              <Spinner
+                className={buildClassName(styles.languageStatusIcon, !isPending && styles.languageStatusHidden)}
+              />
+              <i
+                className={buildClassName(
+                  'icon-check',
+                  styles.languageStatusIcon,
+                  isPending && styles.languageStatusHidden,
+                )}
+                aria-hidden
+              />
+            </div>
+          )}
+        </div>
+      );
+    });
   }
 
   const { isScrolled, handleScroll: handleContentScroll } = useScrolledState();

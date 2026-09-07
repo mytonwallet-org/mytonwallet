@@ -24,7 +24,7 @@ object EthereumConfig : MBlockchainConfig {
         "#534865".toColorInt()
     )
 
-    override val feeCheckAddress = "0x0000000000000000000000000000000000000000"
+    override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS
 
     override val isCommentSupported = false
     override val isEncryptedCommentSupported = false

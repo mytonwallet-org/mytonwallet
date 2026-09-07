@@ -27,12 +27,16 @@ public struct AccountIcon: View {
     }
     
     var account: MAccount
+    private let size: CGFloat
+    private let initialsFontSize: CGFloat
     @State private var activeAvatarUrl: URL?
     @State private var remoteAvatarState = RemoteAvatarState.idle
     @State private var avatarRetryKey = 0
     
-    public init(account: MAccount) {
+    public init(account: MAccount, size: CGFloat = 40, initialsFontSize: CGFloat = 18) {
         self.account = account
+        self.size = size
+        self.initialsFontSize = initialsFontSize
     }
     
     public var body: some View {
@@ -52,7 +56,7 @@ public struct AccountIcon: View {
             switch content {
             case .initial(let string):
                 Text(verbatim: string)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(.system(size: initialsFontSize, weight: .bold, design: .rounded))
                     .fixedSize()
             case .sixCharacters(let top, let bottom):
                 VStack(spacing: -1.333) {
@@ -84,13 +88,13 @@ public struct AccountIcon: View {
                         remoteAvatarState = .failed(avatarUrl)
                     }
                     .scaledToFill()
-                    .frame(width: 40, height: 40)
+                    .frame(width: size, height: size)
                     .clipShape(Circle())
                     .id("\(avatarUrl.absoluteString):\(requestKey)")
             }
         }
         .foregroundStyle(.white)
-        .frame(width: 40, height: 40)
+        .frame(width: size, height: size)
         .drawingGroup()
         .onAppear {
             setActiveAvatarUrl(account.telegramAvatarUrl)

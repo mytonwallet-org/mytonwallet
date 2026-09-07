@@ -6,6 +6,7 @@ import type { GlobalState } from '../../global/types';
 import { selectCurrentAccount, selectCurrentAccountId, selectHasMultipleAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
+import { getSignDataWarningKinds } from './signDataWarningPolicy';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
@@ -16,6 +17,7 @@ import Eip712TypedDataView from '../ui/Eip712TypedDataView';
 import ModalHeader from '../ui/ModalHeader';
 import Transition from '../ui/Transition';
 import DappInfoWithAccount from './DappInfoWithAccount';
+import DappSignDataCellPreview from './DappSignDataCellPreview';
 import DappSkeletonWithContent, { type DappSkeletonRow } from './DappSkeletonWithContent';
 
 import modalStyles from '../ui/Modal.module.scss';
@@ -25,11 +27,16 @@ interface OwnProps {
   isActive?: boolean;
 }
 
-type StateProps = Pick<GlobalState['currentDappSignData'], 'dapp' | 'isLoading' | 'payloadToSign'> & {
+type StateProps = Pick<
+  GlobalState['currentDappSignData'],
+  'dapp' | 'isLoading' | 'payloadToSign' | 'parsedPayloadToSign'
+> & {
   currentAccountId?: string;
   accountTitle?: string;
   hasMultipleAccounts?: boolean;
 };
+
+type RenderingSignData = Pick<StateProps, 'payloadToSign' | 'parsedPayloadToSign'>;
 
 const skeletonRows: DappSkeletonRow[] = [
   { isLarge: false, hasFee: false },
@@ -40,6 +47,7 @@ function DappSignDataInitial({
   dapp,
   isLoading,
   payloadToSign,
+  parsedPayloadToSign,
   currentAccountId,
   accountTitle,
   hasMultipleAccounts,
@@ -47,7 +55,12 @@ function DappSignDataInitial({
   const { closeDappSignData, submitDappSignDataConfirm } = getActions();
 
   const lang = useLang();
-  const renderingPayloadToSign = useCurrentOrPrev(payloadToSign, true);
+  const renderingSignData = useCurrentOrPrev<RenderingSignData | undefined>(
+    payloadToSign ? { payloadToSign, parsedPayloadToSign } : undefined,
+    true,
+  );
+  const renderingPayloadToSign = renderingSignData?.payloadToSign;
+  const renderingParsedPayloadToSign = renderingSignData?.parsedPayloadToSign;
 
   const isDappLoading = dapp === undefined;
   const canSubmit = !isDappLoading && !isLoading;
@@ -64,6 +77,7 @@ function DappSignDataInitial({
         <DappInfoWithAccount dapp={dapp} />
 
         {renderSignDataByType()}
+        {renderSignDataWarnings()}
 
         <div className={buildClassName(modalStyles.buttons, styles.transferButtons)}>
           <Button className={modalStyles.button} onClick={closeDappSignData}>{lang('Cancel')}</Button>
@@ -104,9 +118,6 @@ function DappSignDataInitial({
             <div className={buildClassName(styles.payloadField, styles.payloadField_expanded)}>
               {bytes}
             </div>
-            <div className={styles.warning}>
-              {lang('The binary data content is unclear. Sign it only if you trust the service.')}
-            </div>
           </>
         );
       }
@@ -125,13 +136,13 @@ function DappSignDataInitial({
               </>
             )}
 
+            {renderingParsedPayloadToSign && (
+              <DappSignDataCellPreview parsedCell={renderingParsedPayloadToSign} />
+            )}
+
             <p className={styles.label}>{lang('Cell Data')}</p>
             <div className={buildClassName(styles.dataField, styles.payloadField, styles.payloadField_expanded)}>
               {cell}
-            </div>
-
-            <div className={styles.warning}>
-              {lang('The binary data content is unclear. Sign it only if you trust the service.')}
             </div>
           </>
         );
@@ -150,6 +161,21 @@ function DappSignDataInitial({
         );
       }
     }
+  }
+
+  function renderSignDataWarnings() {
+    const warnings = getSignDataWarningKinds(renderingPayloadToSign);
+    if (!warnings.length) return undefined;
+
+    return (
+      <div className={styles.signDataWarnings}>
+        {warnings.map((warning) => (
+          <div key={warning} className={styles.warning}>
+            {lang('$signature_warning')}
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -176,12 +202,13 @@ function DappSignDataInitial({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const { dapp, isLoading, payloadToSign } = global.currentDappSignData;
+  const { dapp, isLoading, payloadToSign, parsedPayloadToSign } = global.currentDappSignData;
 
   return {
     dapp,
     isLoading,
     payloadToSign,
+    parsedPayloadToSign,
     currentAccountId: selectCurrentAccountId(global),
     accountTitle: selectCurrentAccount(global)?.title,
     hasMultipleAccounts: selectHasMultipleAccounts(global),

@@ -34,7 +34,7 @@ import {
   TRC20_USDT_TESTNET,
   TRX,
 } from '../config';
-import { EVM_DERIVATION_PATHS } from '../api/chains/evm/constants';
+import { EVM_DERIVATION_PATHS, EVM_FEE_CHECK_ADDRESS } from '../api/chains/evm/constants';
 import { SOLANA_DERIVATION_PATHS } from '../api/chains/solana/constants';
 import { SOLANA_DERIVATION_SPEC, SOLANA_DERIVATION_VERSION } from '../api/chains/solana/derivationConstants';
 import { TON_BIP39_PATH } from '../api/chains/ton/derivationConstants';
@@ -465,7 +465,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: TON_USDT_MAINNET.slug,
       amountIn: '50',
@@ -535,7 +535,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: TON_USDT_MAINNET.slug,
       amountIn: '50',
@@ -601,7 +601,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     usdtSlug: {
       mainnet: BSC_USDT_MAINNET.slug,
       testnet: BSC_USDT_MAINNET.slug,
@@ -659,7 +659,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: POLYGON.slug,
       amountIn: '100',
@@ -721,7 +721,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: ARBITRUM_USDC_MAINNET.slug,
       amountIn: '50',
@@ -787,7 +787,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: MONAD.slug,
       amountIn: '10',
@@ -849,7 +849,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: AVALANCHE.slug,
       amountIn: '0.1',
@@ -911,7 +911,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: TON_USDT_MAINNET.slug,
       amountIn: '50',
@@ -977,7 +977,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
-    feeCheckAddress: '0x0000000000000000000000000000000000000000',
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
     buySwap: {
       tokenInSlug: TON_USDT_MAINNET.slug,
       amountIn: '50',

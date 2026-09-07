@@ -1027,6 +1027,13 @@ Message: Message
 Binary Data: Binary Data
 The binary data content is unclear. Sign it only if you trust the service.: The binary data content is unclear. Sign it only if you trust the service.
 Cell Schema: Cell Schema
+Parsed Cell: Parsed Cell
+Cell Metadata: Cell Metadata
+Bits: Bits
+References: References
+Hash: Hash
+Parsing Error: Parsing Error
+Cell Fields: Cell Fields
 Cell Data: Cell Data
 Sign Data: Sign Data
 EIP-712 typed data: EIP-712 typed data

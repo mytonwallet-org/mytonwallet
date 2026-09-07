@@ -1018,6 +1018,13 @@ Message: 訊息
 Binary Data: 二進位資料
 The binary data content is unclear. Sign it only if you trust the service.: 二進位資料內容不明確。請僅在信任該服務的情況下簽署。
 Cell Schema: 單元結構
+Parsed Cell: 已解析單元
+Cell Metadata: 單元元資料
+Bits: 位元
+References: 引用
+Hash: 雜湊
+Parsing Error: 解析錯誤
+Cell Fields: 單元欄位
 Cell Data: 單元資料
 Sign Data: 簽署資料
 Please confirm signature on your Ledger: 請在您的Ledger上確認簽名

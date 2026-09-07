@@ -240,7 +240,7 @@ public struct ContextMenuStyle: Sendable {
         verticalPlacementBehavior: ContextMenuVerticalPlacementBehavior = .sourceAttached,
         sourceSpacing: CGFloat = 8.0,
         animationSourceSpacing: CGFloat? = nil,
-        glassTint: ContextMenuGlassTint = .strong,
+        glassTint: ContextMenuGlassTint = .subtle,
         panelCornerRadius: CGFloat = 30.0,
         panelInset: CGFloat = 32.0,
         listVerticalPadding: CGFloat = 10.0,

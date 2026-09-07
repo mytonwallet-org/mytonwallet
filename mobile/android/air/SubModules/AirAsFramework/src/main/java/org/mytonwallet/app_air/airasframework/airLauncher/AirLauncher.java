@@ -7,6 +7,9 @@ import android.content.Intent;
 import android.util.Log;
 import android.view.ViewGroup;
 
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource;
+import org.mytonwallet.app_air.walletcore.AttributionDeeplink;
+import org.mytonwallet.app_air.walletcore.ReferrerSanitizerKt;
 import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication;
 import org.mytonwallet.app_air.airasframework.MainWindow;
 import org.mytonwallet.app_air.airasframework.WidgetConfigurationWindow;
@@ -151,7 +154,21 @@ public class AirLauncher {
     }
 
     public boolean handle(Activity currentActivity, Intent intent) {
-        Deeplink deeplink = DeeplinkParser.Companion.parse(intent);
+        AttributionDeeplink attribution = intent.getDataString() != null
+            ? ReferrerSanitizerKt.splitAttributionDeeplink(intent.getDataString()) : null;
+        Intent businessIntent = attribution != null
+            ? new Intent(intent).setData(android.net.Uri.parse(attribution.getUrl())) : intent;
+        Deeplink deeplink = attribution != null && attribution.isGet()
+            ? null : DeeplinkParser.Companion.parse(businessIntent);
+        if (attribution != null) {
+            Deeplink dataDeeplink = businessIntent.getData() != null
+                ? DeeplinkParser.Companion.parse(businessIntent.getData()) : null;
+            attribution.captureIfAdmitted(dataDeeplink, DeeplinkOpenSource.OS_EXTERNAL);
+            if (attribution.isGet()) {
+                if (isOnTheAir && currentActivity != null) bringAirToFront(currentActivity);
+                return true;
+            }
+        }
         if (deeplink == null)
             return false;
         DeeplinkNavigator deeplinkNavigator = SplashVC.Companion.getSharedInstance();

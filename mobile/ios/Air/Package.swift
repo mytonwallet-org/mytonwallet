@@ -747,6 +747,7 @@ let package = Package(
                 "UIToken",
                 "WalletContext",
                 "WalletCore",
+                "WalletResources",
             ]
         ),
         airTestTarget(

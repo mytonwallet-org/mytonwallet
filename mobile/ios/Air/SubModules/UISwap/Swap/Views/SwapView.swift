@@ -53,6 +53,7 @@ struct SwapView: View {
                 .padding(.horizontal, 16)
                 .animation(.snappy, value: swapModel.estimateState.dexEstimate)
             }
+            .backportScrollEdgeEffectHidden(for: .top)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
                     .frame(height: bottomButtonScrollPadding)

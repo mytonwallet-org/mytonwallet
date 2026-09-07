@@ -340,7 +340,7 @@ addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload
 });
 
 addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
-  const { promiseId, dapp, payloadToSign, operationChain } = payload;
+  const { promiseId, dapp, payloadToSign, operationChain, parsedPayloadToSign } = payload;
 
   await apiUpdateDappOperation(
     payload,
@@ -354,6 +354,7 @@ addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
       dapp,
       operationChain,
       payloadToSign,
+      parsedPayloadToSign,
     }),
   );
 

@@ -1029,6 +1029,13 @@ Message: Nachricht
 Binary Data: Binärdaten
 The binary data content is unclear. Sign it only if you trust the service.: Der Inhalt der Binärdaten ist unklar. Signieren Sie nur, wenn Sie dem Dienst vertrauen.
 Cell Schema: Zellenschema
+Parsed Cell: Geparste Zelle
+Cell Metadata: Zellmetadaten
+Bits: Bits
+References: Referenzen
+Hash: Hash
+Parsing Error: Analysefehler
+Cell Fields: Zellfelder
 Cell Data: Zelldaten
 Sign Data: Daten signieren
 Please confirm signature on your Ledger: Bitte bestätigen Sie die Signatur auf Ihrem Ledger

@@ -16,7 +16,7 @@ public func resolveInAppBrowserNavigationUrlRouting(
     shouldOpenInNewPage: Bool
 ) -> InAppBrowserUrlRouting {
     if !isMainFrame {
-        return isWebUrl(url) && !shouldOpenInNewPage ? .allow : .consume
+        return (isWebUrl(url) || isAboutUrl(url)) && !shouldOpenInNewPage ? .allow : .consume
     }
     if isOfframpDeeplink(url) {
         return .consume
@@ -91,4 +91,12 @@ private func isExternalSystemUrl(_ url: URL) -> Bool {
 private func isWebUrl(_ url: URL) -> Bool {
     let scheme = url.scheme?.lowercased()
     return scheme == "http" || scheme == "https"
+}
+
+/// `about:blank` / `about:srcdoc` are the documents WebKit gives every scripted iframe (analytics,
+/// fingerprinting and consent SDKs create them by the dozen). They cannot reach native routing, and
+/// refusing them leaves such frames empty. Other `about:` pages stay refused.
+private func isAboutUrl(_ url: URL) -> Bool {
+    let string = url.absoluteString.lowercased()
+    return string == "about:blank" || string == "about:srcdoc"
 }

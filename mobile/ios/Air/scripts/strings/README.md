@@ -36,6 +36,26 @@ mobile/ios/Air/scripts/strings/.venv/bin/python \
 Do not add positional `%@`, `%d`, or `%1$…` placeholders to YAML. Non-iOS clients keep the named
 placeholder spelling and use the English definition to map existing positional call arguments.
 
+Catalog argument positions follow the interpolation occurrences in the selected Swift default
+value, including repeated placeholders. Public Swift parameter order is independent: a zero plural
+form may mention parameters in a different order or omit them. The importer rejects inconsistent
+argument positions before writing generated files.
+
+Run the regression suite with:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 mobile/ios/Air/scripts/strings/.venv/bin/python -m unittest discover \
+  -s mobile/ios/Air/scripts/strings -p 'test_*.py' -v
+```
+
+CI runs the suite on `macos-26`, matching the iOS release runner. Xcode 26 or newer is required
+to compile the named catalog placeholders; the integration test checks this before compilation.
+It checks every catalog placeholder against the emitted
+Swift interpolation, then uses Xcode and Foundation to compile and format all generated
+functions in all languages. Runtime cases include repeated placeholders, plural counts, and real
+localized domain-expiry date strings. To run the Foundation check on an already booted iOS Simulator,
+set `LOCALIZATION_TEST_SIMULATOR_UDID` to its UDID before running the command above.
+
 ## Scripts
 
 ### `check_localization_completeness.py`

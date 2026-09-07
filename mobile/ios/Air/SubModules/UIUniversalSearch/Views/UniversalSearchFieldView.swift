@@ -1535,6 +1535,8 @@ private final class UniversalSearchToolbarActionButton: UIControl {
             glassView.addGestureRecognizer(
                 UITapGestureRecognizer(target: self, action: #selector(tapped))
             )
+        } else {
+            glassView.isUserInteractionEnabled = false
         }
     }
 
@@ -1695,9 +1697,7 @@ private final class UniversalSearchCloseButton: UIView {
 
     private let glassView = UniversalSearchInteractiveGlassView()
     private let button = UIButton(type: .system)
-    private let tintOverlayView = UIView()
     private let actionContentView = WBlurredContentView()
-    private let actionImageView = UIImageView()
     private let closeContentView = WBlurredContentView()
     private var presentation: UniversalSearchFieldPresentation = .search
 
@@ -1713,23 +1713,13 @@ private final class UniversalSearchCloseButton: UIView {
         button.addTarget(self, action: #selector(tapped), for: .touchUpInside)
         glassView.contentView.addSubview(button)
 
-        tintOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        tintOverlayView.backgroundColor = tintColor
-        tintOverlayView.isUserInteractionEnabled = false
-        tintOverlayView.layer.cornerRadius = 24
-        tintOverlayView.layer.cornerCurve = .continuous
-        glassView.contentView.insertSubview(tintOverlayView, belowSubview: button)
-
         configure(
             contentView: actionContentView,
-            imageView: actionImageView,
-            imageName: "UniversalSearchPlus",
-            tintColor: tintColor.foregroundForTintedBackground
+            imageName: "UniversalSearchPlus"
         )
         configure(
             contentView: closeContentView,
-            imageName: "UniversalSearchXmark",
-            tintColor: .label
+            imageName: "UniversalSearchXmark"
         )
         glassView.contentView.addSubview(actionContentView)
         glassView.contentView.addSubview(closeContentView)
@@ -1739,11 +1729,6 @@ private final class UniversalSearchCloseButton: UIView {
             glassView.trailingAnchor.constraint(equalTo: trailingAnchor),
             glassView.topAnchor.constraint(equalTo: topAnchor),
             glassView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            tintOverlayView.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor),
-            tintOverlayView.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor),
-            tintOverlayView.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
-            tintOverlayView.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
 
             button.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor),
             button.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor),
@@ -1767,12 +1752,6 @@ private final class UniversalSearchCloseButton: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    override func tintColorDidChange() {
-        super.tintColorDidChange()
-        tintOverlayView.backgroundColor = tintColor
-        actionImageView.tintColor = tintColor.foregroundForTintedBackground
     }
 
     func setPresentation(
@@ -1835,15 +1814,14 @@ private final class UniversalSearchCloseButton: UIView {
 
     private func configure(
         contentView: WBlurredContentView,
-        imageView: UIImageView = UIImageView(),
-        imageName: String,
-        tintColor: UIColor
+        imageName: String
     ) {
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentView.isUserInteractionEnabled = false
+        let imageView = UIImageView()
         imageView.image = UIImage.airBundle(imageName).withRenderingMode(.alwaysTemplate)
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.tintColor = tintColor
+        imageView.tintColor = .label
         imageView.contentMode = .center
         contentView.addSubview(imageView)
         NSLayoutConstraint.activate([
@@ -1859,7 +1837,6 @@ private final class UniversalSearchCloseButton: UIView {
     ) {
         let showsAction = presentation == .homeToolbar
         let showsClose = presentation == .search
-        tintOverlayView.alpha = showsAction ? 1 : 0
         actionContentView.alpha = showsAction ? 1 : 0
         closeContentView.alpha = showsClose ? 1 : 0
     }

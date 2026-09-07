@@ -83,6 +83,13 @@ function getBalanceStreamInstance() {
   return MockedBalanceStream.mock.results[0].value as MockedBalanceStreamInstance;
 }
 
+function getNftStreamInstance() {
+  return MockedNftStream.mock.results[0].value as jest.Mocked<{
+    onUpdate: jest.Mock;
+    destroy: jest.Mock;
+  }>;
+}
+
 type ApiUpdatePayload = Parameters<OnApiUpdate>[0];
 type InitialActivitiesUpdate = Extract<ApiUpdatePayload, { type: 'initialActivities' }>;
 
@@ -547,5 +554,85 @@ describe('EVM polling', () => {
       accountId: '0-mainnet',
       activities: [activity],
     }));
+  });
+
+  it('forces balance polling when an NFT arrives on a skipped chain', async () => {
+    mockedGetIsWalletActive.mockResolvedValue(false);
+
+    const onUpdate = jest.fn() as OnApiUpdate;
+    const onUpdatingStatusChange = jest.fn() as OnUpdatingStatusChange;
+    const account = {
+      type: 'view',
+      byChain: { bnb: { address: ADDRESS, index: 0 } },
+    } as ApiAccountWithChain<'bnb'>;
+
+    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    await flushPromises();
+
+    expect(getBalanceStreamInstance().markWalletActiveAndForcePoll).not.toHaveBeenCalled();
+
+    const nftUpdate = getNftStreamInstance().onUpdate.mock.calls[0][0] as (params: {
+      direction: 'receive';
+      nft: ApiNft;
+      nftAddress: string;
+    }) => void;
+    nftUpdate({
+      direction: 'receive',
+      nft: { address: '0xnft' } as ApiNft,
+      nftAddress: '0xnft',
+    });
+    await flushPromises();
+
+    expect(getBalanceStreamInstance().markWalletActiveAndForcePoll).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries the socket-triggered history load when the indexer has not caught up', async () => {
+    jest.useFakeTimers();
+    mockedGetIsWalletActive.mockResolvedValue(false);
+    const activity = {
+      id: '0xfirst',
+      timestamp: 1_773_000_000_000,
+      kind: 'transaction',
+      slug: getChainConfig('bnb').nativeToken.slug,
+    } as ApiActivity;
+    mockedGetTokenActivitySlice
+      .mockResolvedValueOnce({ activities: [], hasMore: false })
+      .mockResolvedValueOnce({ activities: [activity], hasMore: false });
+
+    const onUpdate = jest.fn() as OnApiUpdate;
+    const onUpdatingStatusChange = jest.fn() as OnUpdatingStatusChange;
+    const account = {
+      type: 'view',
+      byChain: { bnb: { address: ADDRESS, index: 0 } },
+    } as ApiAccountWithChain<'bnb'>;
+
+    try {
+      setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+      await jest.advanceTimersByTimeAsync(1);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).not.toHaveBeenCalled();
+
+      const balanceUpdate = getBalanceStreamInstance().onUpdate.mock.calls[0][0] as (
+        balances: Record<string, bigint>,
+        source: 'poll' | 'socket',
+      ) => void;
+      balanceUpdate({ bnb: 1n }, 'socket');
+      await flushPromises();
+
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(2000);
+      await flushPromises();
+
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(2);
+      expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'initialActivities',
+        chain: 'bnb',
+        accountId: '0-mainnet',
+        mainActivities: [activity],
+      }));
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

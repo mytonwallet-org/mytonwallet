@@ -56,3 +56,9 @@ export const EVM_DALEGATOR_ADDRESSES: Record<string, string> = {
 };
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/**
+ * Low 20 bytes of `sha3_256("mytonwallet fee-check address")`. Must hold nothing: OpenZeppelin ERC20s revert on the
+ * zero address, and a funded recipient under-reports the gas of a transfer to a fresh CEX deposit address.
+ */
+export const EVM_FEE_CHECK_ADDRESS = '0x93fa28647b06ab40554d6905e4e9d8e8bb24380c';

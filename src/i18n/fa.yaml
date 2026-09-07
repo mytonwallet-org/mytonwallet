@@ -1026,6 +1026,13 @@ Message: پیام
 Binary Data: داده باینری
 The binary data content is unclear. Sign it only if you trust the service.: محتوای داده باینری مشخص نیست. تنها در صورتی آن را امضا کنید که به سرویس اعتماد دارید.
 Cell Schema: شمای سلول
+Parsed Cell: سلول تجزیه‌شده
+Cell Metadata: فراداده سلول
+Bits: بیت‌ها
+References: ارجاع‌ها
+Hash: هش
+Parsing Error: خطای تجزیه
+Cell Fields: فیلدهای سلول
 Cell Data: داده سلول
 Sign Data: امضای داده
 EIP-712 typed data: داده نوع‌دار EIP-712

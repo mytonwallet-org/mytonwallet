@@ -49,6 +49,7 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
     private lazy var menuInteraction = ContextMenuInteraction(triggers: [.longPress]) { [weak self] _ in
         guard var configuration = self?.menuProvider?.makeConfiguration() else { return nil }
         configuration.backdrop = .none
+        configuration.style.glassTint = .strong
         return configuration
     }
     private var menuButtonWidthConstraint: NSLayoutConstraint!

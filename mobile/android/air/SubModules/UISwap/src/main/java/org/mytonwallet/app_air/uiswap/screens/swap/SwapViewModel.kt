@@ -96,6 +96,23 @@ internal fun SwapInputState.clearingInvalidPair(
     copy(tokenToReceive = null)
 }
 
+internal enum class NativeFeeGate { Unknown, Insufficient, Ok }
+
+/**
+ * A missing fee is a failed estimate the SDK rejects at submit; the button shows an error for it.
+ * Chains the wallet does not send from pay no fee here and always pass.
+ */
+internal fun resolveNativeFeeGate(
+    fee: BigInteger?,
+    nativeBalance: BigInteger,
+    isSourceChainSupported: Boolean
+): NativeFeeGate = when {
+    !isSourceChainSupported -> NativeFeeGate.Ok
+    fee == null -> NativeFeeGate.Unknown
+    fee > nativeBalance -> NativeFeeGate.Insufficient
+    else -> NativeFeeGate.Ok
+}
+
 class SwapViewModel :
     ViewModel(),
     WalletCore.EventObserver {
@@ -932,8 +949,15 @@ class SwapViewModel :
             )
         }
 
-        val nativeFee = estimated.fee ?: BigInteger.ZERO
-        if (nativeFee > state.nativeTokenToSendBalance && state.tokenToSendIsSupported) {
+        val nativeFeeGate = resolveNativeFeeGate(
+            fee = estimated.fee,
+            nativeBalance = state.nativeTokenToSendBalance,
+            isSourceChainSupported = state.tokenToSendIsSupported
+        )
+        if (nativeFeeGate == NativeFeeGate.Unknown) {
+            return ButtonState(ButtonStatus.Error, LocaleController.getString("Error"))
+        }
+        if (nativeFeeGate == NativeFeeGate.Insufficient) {
             if (estimated.explainedFee.isGasless) {
                 if (shouldAuthorizeDiesel) {
                     return ButtonState(
@@ -1022,18 +1046,12 @@ class SwapViewModel :
                             )
                         )
                     } catch (apiError: JSWebViewBridge.ApiError) {
-                        // TODO: Restore the strict handling below once all chains have a correct
-                        //  feeCheckAddress and the SDK no longer throws on fee-estimation draft checks.
-                        /*if (apiError.parsed == MBridgeError.Type.INSUFFICIENT_BALANCE &&
-                            apiError.parsedResult is MApiCheckTransactionDraftResult
-                        ) {
-                            transactionDraft =
-                                apiError.parsedResult as MApiCheckTransactionDraftResult
-                        } else {
-                            throw apiError
-                        }*/
-                        transactionDraft =
-                            apiError.parsedResult as? MApiCheckTransactionDraftResult
+                        // An insufficient-balance draft still carries the fee; other errors leave it
+                        // unknown. The quote is still fetched, so the receive amount stays visible.
+                        val draft = apiError.parsedResult as? MApiCheckTransactionDraftResult
+                        transactionDraft = draft?.takeIf {
+                            apiError.parsed.type == MBridgeError.Type.INSUFFICIENT_BALANCE
+                        }
                     }
                 }
 
@@ -1062,16 +1080,17 @@ class SwapViewModel :
                         hint = cex.hint
                     )
                 }
-                val res = SwapEstimateResponse(
+                // A missing fee on a supported source chain is a failed estimate.
+                val fee = transactionDraft?.fullNativeFee
+                return SwapEstimateResponse(
                     request = request,
                     dex = null,
                     cex = cex,
-                    fee = transactionDraft?.fullNativeFee,
+                    fee = fee,
                     realFee = transactionDraft?.realNativeFee,
-                    error = null,
+                    error = if (needEstFee && fee == null) MBridgeError.Type.UNKNOWN else null,
                     hint = cex.hint
                 )
-                return res
             } else {
                 val dex = WalletCore.call(
                     ApiMethod.Swap.SwapEstimate(

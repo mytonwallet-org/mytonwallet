@@ -9,6 +9,7 @@ import defaultLangPackJson from '../i18n/en.json';
 import * as cacheApi from './cacheApi';
 import { createCallbackManager } from './callbacks';
 import { formatNumber } from './formatNumber';
+import { logDebugError } from './logs';
 import { setNativeDigitsLang } from './nativeDigits';
 import { escapeStringRegexp } from './regex';
 import { DEFAULT_LANG_CODE, IS_ELECTRON } from './windowEnvironment';
@@ -68,7 +69,7 @@ const PLURAL_RULES = {
 };
 const cache = new Map<string, string>();
 let langPack: LangPack | undefined;
-let currentLangCode: string | undefined;
+let currentLangCode: LangCode | undefined;
 
 function createLangFn() {
   return ((key: string, value?: any, format?: 'i', pluralValue?: number) => {
@@ -94,13 +95,11 @@ export let getTranslation: LangFn = createLangFn();
 
 export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunction) {
   const langInfo = LANG_LIST?.find((l) => l.langCode === langCode);
+  const prevLangCode = currentLangCode || DEFAULT_LANG_CODE;
 
   // Apply direction synchronously (the `rtl` flag comes from LANG_LIST, not the langpack) so the
   // first render is already RTL/LTR-correct and does not flash the opposite direction
-  document.documentElement.lang = langCode;
-  document.documentElement.dir = langInfo?.rtl ? 'rtl' : 'ltr';
-  getTranslation.isRtl = Boolean(langInfo?.rtl);
-  setNativeDigitsLang(langCode.replace('-raw', ''));
+  applyDocumentLanguage(langCode);
 
   if (langPack && langCode === currentLangCode) {
     if (callback) {
@@ -113,8 +112,15 @@ export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunct
   let newLangPack = await cacheApi.fetch(LANG_CACHE_NAME, langCode);
 
   if (!newLangPack) {
-    newLangPack = await fetchRemote(langCode);
+    newLangPack = await fetchRemote(langCode).catch((err) => {
+      logDebugError('setLanguage', err);
+      return undefined;
+    });
+
     if (!newLangPack) {
+      // The langpack stays the one that is currently loaded, so the document must match it
+      applyDocumentLanguage(prevLangCode);
+
       return;
     }
   }
@@ -138,6 +144,15 @@ export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunct
   if (IS_ELECTRON) {
     void window.electron?.setBiometricPrompt?.(getTranslation(NATIVE_BIOMETRICS_PROMPT_KEY));
   }
+}
+
+function applyDocumentLanguage(langCode: LangCode) {
+  const langInfo = LANG_LIST?.find((l) => l.langCode === langCode);
+
+  document.documentElement.lang = langCode;
+  document.documentElement.dir = langInfo?.rtl ? 'rtl' : 'ltr';
+  getTranslation.isRtl = Boolean(langInfo?.rtl);
+  setNativeDigitsLang(langCode.replace('-raw', ''));
 }
 
 function getLangCacheVersion() {

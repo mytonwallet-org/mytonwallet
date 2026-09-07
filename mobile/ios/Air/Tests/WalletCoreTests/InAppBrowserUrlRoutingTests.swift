@@ -58,6 +58,19 @@ struct InAppBrowserUrlRoutingTests {
     }
 
     @Test
+    func `subframes may load about: documents`() throws {
+        let blankURL = try #require(URL(string: "about:blank"))
+        let srcdocURL = try #require(URL(string: "about:srcdoc"))
+
+        #expect(resolveInAppBrowserNavigationUrlRouting(blankURL, isMainFrame: false, shouldOpenInNewPage: false) == .allow)
+        #expect(resolveInAppBrowserNavigationUrlRouting(srcdocURL, isMainFrame: false, shouldOpenInNewPage: false) == .allow)
+        #expect(resolveInAppBrowserNavigationUrlRouting(blankURL, isMainFrame: false, shouldOpenInNewPage: true) == .consume)
+
+        let otherAboutURL = try #require(URL(string: "about:preferences"))
+        #expect(resolveInAppBrowserNavigationUrlRouting(otherAboutURL, isMainFrame: false, shouldOpenInNewPage: false) == .consume)
+    }
+
+    @Test
     func `message origin accepts only HTTP and HTTPS`() {
         #expect(resolveInAppBrowserMessageOrigin(scheme: "HTTPS", host: "Example.COM", port: 0) == "https://example.com")
         #expect(resolveInAppBrowserMessageOrigin(scheme: "https", host: "example.com", port: 443) == "https://example.com")

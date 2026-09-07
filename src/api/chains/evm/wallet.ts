@@ -422,6 +422,7 @@ export const getIsWalletActive = withCacheAsync(
     // direction. The nonce also arrives before the probe, so an address it settles never pays for
     // one.
     if (balance > 0n || transactionCount > 0) {
+      inactiveWallets.forget(network, chain, address);
       return true;
     }
 
@@ -465,7 +466,9 @@ export const getIsWalletActive = withCacheAsync(
 
     const isActive = !!response.result.transfers.length;
 
-    if (!isActive) {
+    if (isActive) {
+      inactiveWallets.forget(network, chain, address);
+    } else {
       inactiveWallets.mark(network, chain, address);
     }
 

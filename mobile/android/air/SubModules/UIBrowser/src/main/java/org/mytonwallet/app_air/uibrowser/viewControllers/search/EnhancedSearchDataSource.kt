@@ -5,15 +5,18 @@ import androidx.core.view.isGone
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells.TokenCell
 import org.mytonwallet.app_air.uibrowser.search.AppSearchEntry
+import org.mytonwallet.app_air.uibrowser.search.SearchRelevanceBand
 import org.mytonwallet.app_air.uibrowser.search.SearchResultRanker
 import org.mytonwallet.app_air.uibrowser.search.SearchTarget
 import org.mytonwallet.app_air.uibrowser.search.UniversalSearchHit
+import org.mytonwallet.app_air.uibrowser.search.UniversalSearchQuery
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVM
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.CLEAR_ALL_BUTTON_TAG
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.GAP_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.RECENT_SEARCH_TITLE_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_AGENT_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_APP_ITEM_CELL
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_AGENT_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_APP_ITEM_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_DAPP_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_NFT_CELL
@@ -98,6 +101,7 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
      */
     private var rankedHitsFor: ExploreVM.SearchResult? = null
     private var rankedHits: List<UniversalSearchHit> = emptyList()
+    private var rankedTarget: SearchTarget? = null
 
     override fun onSearchStateChanged() {
         val result = searchResult
@@ -116,8 +120,9 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
         if (rankedHitsFor !== freshResult) {
             rankedHitsFor = freshResult
             rankedHits = freshResult?.let { SearchResultRanker.rank(it) }.orEmpty()
+            rankedTarget = freshResult?.let { promotedTarget(it.keyword, rankedHits) }
         }
-        val target = rankedHits.firstOrNull()?.document?.payload as? SearchTarget
+        val target = rankedTarget
         bestMatchTarget = target
 
         regularWalletMatches = freshResult?.myWallets.orEmpty().let { matches ->
@@ -153,6 +158,21 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
             .filterNot { it.id == promotedEntry?.id }
         regularSettingMatches = freshResult?.settings.orEmpty()
             .filterNot { it.id == promotedEntry?.id }
+    }
+
+    /** A multi-word query is a request unless a hit covers all of its terms. */
+    private fun promotedTarget(keyword: String, hits: List<UniversalSearchHit>): SearchTarget? {
+        val topHit = hits.firstOrNull() ?: return SearchTarget.AskAgent.takeIf {
+            UniversalSearchQuery(keyword).termCount > 1
+        }
+        val rank = topHit.rank
+        val isWeakHit = rank.relevanceBand == SearchRelevanceBand.WEAK ||
+            rank.matchedTermCount < rank.totalTermCount
+        return if (isWeakHit && rank.totalTermCount > 1) {
+            SearchTarget.AskAgent
+        } else {
+            topHit.document.payload as? SearchTarget
+        }
     }
 
     private val hasRecentTokenSuggestions: Boolean
@@ -250,6 +270,8 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
 
             is SearchTarget.App -> searchVC.openAppEntry(target.entry)
 
+            SearchTarget.AskAgent -> searchVC.openAgent(searchQuery)
+
             null -> return BestMatchResult.NOT_FOUND
         }
         return BestMatchResult.OPENED
@@ -321,7 +343,7 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
         }
 
         SECTION_AGENT -> {
-            if (searchQuery.isBlank()) 0 else 3
+            if (searchQuery.isBlank() || bestMatchTarget is SearchTarget.AskAgent) 0 else 3
         }
 
         SECTION_SITES -> {
@@ -345,6 +367,7 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
                     is SearchTarget.Dapp -> SEARCH_BEST_DAPP_CELL
                     is SearchTarget.Collectible -> SEARCH_BEST_NFT_CELL
                     is SearchTarget.App -> SEARCH_BEST_APP_ITEM_CELL
+                    SearchTarget.AskAgent -> SEARCH_BEST_AGENT_CELL
                     null -> SEARCH_BEST_TOKEN_CELL
                 }
 
@@ -555,6 +578,15 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
                         )
                         (bestMatchCell.contentCell as SearchAppItemCell).configure(
                             target.entry,
+                            isLastItem = true,
+                            hasOpaqueBackground = false
+                        )
+                    }
+
+                    SearchTarget.AskAgent -> {
+                        bestMatchCell.configure(LocaleController.getString("Ask Agent"))
+                        (bestMatchCell.contentCell as SearchItemCell).configure(
+                            searchQuery,
                             isLastItem = true,
                             hasOpaqueBackground = false
                         )

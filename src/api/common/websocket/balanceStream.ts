@@ -245,7 +245,11 @@ export class BalanceStream {
 
     this.#fallbackPollingScheduler.onSocketMessage();
 
-    const wasInactive = this.#walletStatus === 'inactive';
+    // Capture before flipping to `active`. `undefined` is the in-flight precheck, `inactive` is a
+    // finished skip: neither has an HTTP snapshot, so the delta is the only fresh source until the
+    // forced poll lands. `=== 'inactive'` alone dropped the first-funds event when it arrived
+    // while `getIsWalletActive` was still running.
+    const shouldApplyWithoutSnapshot = this.#walletStatus !== 'active';
 
     if (this.#walletStatus !== 'active') {
       this.#walletStatus = 'active';
@@ -266,7 +270,7 @@ export class BalanceStream {
 
     // Normally `this.#balances` must contain all balances before applying partial socket deltas.
     // For a wallet just activated by the socket, the delta is the only fresh source until HTTP APIs catch up.
-    if (!chainBalances && !wasInactive) return;
+    if (!chainBalances && !shouldApplyWithoutSnapshot) return;
 
     const tokenAddresses = await splitKnownAndUnknownTokens(newBalances);
 
@@ -284,6 +288,12 @@ export class BalanceStream {
     try {
       this.#loadingListeners.runCallbacks(true);
 
+      // True when a socket/activity wake flipped the stream to active while this precheck was
+      // still in flight. The isInitial cross-chain skip below would otherwise return without
+      // fetching this chain, and a non-standard EVM wallet that just received its first funds
+      // would wait until restart.
+      let wasWokenDuringPrecheck = false;
+
       if (!this.#walletStatus) {
         const isEnsured = await this.#ensureIsPollingNeeded!();
 
@@ -292,6 +302,7 @@ export class BalanceStream {
           this.#walletStatus = 'inactive';
           return;
         }
+        wasWokenDuringPrecheck = !isEnsured;
         this.#walletStatus = 'active';
       }
 
@@ -302,37 +313,39 @@ export class BalanceStream {
       if (isInitial && this.#fetchCrosschainBalancesCb) {
         const config = getChainConfig(this.#chain);
         if (!config.chainStandard || config.chainStandard !== this.#chain) {
-          return;
-        }
+          if (!wasWokenDuringPrecheck) {
+            return;
+          }
+        } else {
+          // Capture the freshness version before awaiting, so a socket delta that arrives during the
+          // fetch is recognised as newer than this snapshot.
+          const pollVersion = ++this.#clock;
+          const crosschainResult
+            = await this.#fetchCrosschainBalancesCb?.(this.#network, this.#address, this.#sendUpdateTokens);
 
-        // Capture the freshness version before awaiting, so a socket delta that arrives during the
-        // fetch is recognised as newer than this snapshot.
-        const pollVersion = ++this.#clock;
-        const crosschainResult
-        = await this.#fetchCrosschainBalancesCb?.(this.#network, this.#address, this.#sendUpdateTokens);
+          if (crosschainResult) {
+            const { balances: crosschainBalances, asOf: crosschainAsOf } = crosschainResult;
+            const knownChains = getSupportedChains();
 
-        if (crosschainResult) {
-          const { balances: crosschainBalances, asOf: crosschainAsOf } = crosschainResult;
-          const knownChains = getSupportedChains();
+            for (const [slug, balance] of Object.entries(crosschainBalances)) {
+              const assetChain = getChainBySlug(slug);
 
-          for (const [slug, balance] of Object.entries(crosschainBalances)) {
-            const assetChain = getChainBySlug(slug);
+              if (!knownChains.includes(assetChain)) {
+                continue;
+              }
 
-            if (!knownChains.includes(assetChain)) {
-              continue;
+              crosschainAssetsByChain.set(assetChain, {
+                ...crosschainAssetsByChain.get(assetChain),
+                [slug]: balance,
+              });
             }
 
-            crosschainAssetsByChain.set(assetChain, {
-              ...crosschainAssetsByChain.get(assetChain),
-              [slug]: balance,
-            });
+            this.#setAllBalances(crosschainBalances, pollVersion, crosschainAsOf);
+            this.#balancesDeferred.resolve();
           }
 
-          this.#setAllBalances(crosschainBalances, pollVersion, crosschainAsOf);
-          this.#balancesDeferred.resolve();
+          return;
         }
-
-        return;
       }
 
       const throttledFetchBalances = this.#loadingConcurrencyLimiter?.wrap(this.#fetchBalancesCb)

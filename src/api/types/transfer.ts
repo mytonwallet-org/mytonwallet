@@ -53,7 +53,7 @@ export interface ApiSubmitGasfullTransferOptions extends ApiTransactionCommonOpt
   /** Required only for mnemonic accounts */
   enclaveToken?: string;
   amount: bigint;
-  /** To cap the fee in TRON transfers */
+  /** To cap the fee in TRON transfers. EVM transfers ignore it and price the real transaction before signing. */
   fee?: bigint;
   noFeeCheck?: boolean;
 }

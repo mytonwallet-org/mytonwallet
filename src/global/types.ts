@@ -20,6 +20,7 @@ import type {
   WcPayPaymentInfo,
   WcPayPaymentOption,
 } from '../api/dappProtocols/adapters/walletConnect/types';
+import type { ApiParsedSignDataCellPreview } from '../api/dappProtocols/signDataCellPreview';
 import type { StoredDappConnection } from '../api/dappProtocols/storage';
 import type { UnifiedSignDataPayload } from '../api/dappProtocols/types';
 import type {
@@ -962,6 +963,7 @@ export type GlobalState = {
     dapp?: StoredDappConnection;
     operationChain?: ApiChain;
     payloadToSign?: UnifiedSignDataPayload;
+    parsedPayloadToSign?: ApiParsedSignDataCellPreview;
     error?: string;
   };
 

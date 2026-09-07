@@ -48,6 +48,10 @@ export class InactiveWalletRegistry {
     }
   }
 
+  forget(network: string, chain: string, address: string): void {
+    this.expiries.delete(buildKey(network, chain, address));
+  }
+
   reset(): void {
     this.expiries.clear();
   }

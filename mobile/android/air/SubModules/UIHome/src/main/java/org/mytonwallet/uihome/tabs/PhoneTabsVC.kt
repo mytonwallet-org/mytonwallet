@@ -85,6 +85,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uimarket.viewControllers.market.MarketVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
@@ -984,6 +985,11 @@ class PhoneTabsVC(context: Context) :
                         )
                 ) {
                     val submittedText = text.toString()
+                    if (submittedText.isBlank()) {
+                        clearFocus()
+                        hideKeyboard()
+                        return@setOnEditorActionListener true
+                    }
                     if (WalletContextManager.delegate?.get()?.handleDeeplink(submittedText) ==
                         true
                     ) {
@@ -1884,6 +1890,19 @@ class PhoneTabsVC(context: Context) :
         bottomNavigationView.selectedItemId = IBottomNavigationView.ID_EXPLORE
         window?.dismissToRoot()
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
+    }
+
+    override fun switchToMarket() {
+        navigationController?.popToRoot(false)
+        if (!AppTabsManager.contains(IBottomNavigationView.ID_MARKET)) {
+            // Market is an optional tab the user may have hidden, and a deeplink must still land
+            // on the screen, so push it onto the current stack instead of selecting a missing tab.
+            window?.dismissToRoot()
+            navigationController?.push(MarketVC(context))
+            return
+        }
+        bottomNavigationView.selectedItemId = IBottomNavigationView.ID_MARKET
+        window?.dismissToRoot()
     }
 
     override fun switchToAgent(prompt: String?, pinnedMessageId: String?): Boolean {

@@ -27,3 +27,5 @@ export * from './other';
 export * from './market';
 export * from './prices';
 export * from './preload';
+
+export { captureInstallAttribution } from './attribution';

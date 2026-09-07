@@ -3,6 +3,9 @@ const babelConfig = require('./babel.config');
 module.exports = {
   setupFilesAfterEnv: ['./tests/init.ts'],
   moduleNameMapper: {
+    // Match the webpack production alias: TL-B preview bundles @ton-community/tlb-runtime
+    // against the app's top-level @ton/core instead of its nested copy.
+    '^@ton/core(.*)$': '<rootDir>/node_modules/@ton/core$1',
     '\\.(css|scss|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|tgs)$':
       '<rootDir>/tests/staticFileMock.js',
   },

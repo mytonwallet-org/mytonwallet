@@ -63,21 +63,34 @@ object InstallReferrerChannel {
     private fun handleResponse(responseCode: Int, client: InstallReferrerClient, webView: WebView) {
         when (responseCode) {
             InstallReferrerClient.InstallReferrerResponse.OK ->
-                deliverChannel(webView, sanitizeReferrer(client.installReferrer.installReferrer))
+                deliverChannel(
+                    webView,
+                    sanitizeInstallAttribution(client.installReferrer.installReferrer)
+                )
 
             // SERVICE_UNAVAILABLE is transient; leave it for the next launch to retry.
             InstallReferrerClient.InstallReferrerResponse.SERVICE_UNAVAILABLE -> Unit
 
             // Any other code is permanent (no Play services, developer or permission error):
             // deliver the fallback bucket so the install is still attributed.
-            else -> deliverChannel(webView, sanitizeReferrer(null))
+            else -> deliverChannel(webView, sanitizeInstallAttribution(null))
         }
     }
 
     // The referrer is untrusted input, so the channel is escaped with
     // JSONObject.quote and NEVER string-interpolated into the evaluated script.
-    private fun deliverChannel(webView: WebView, channel: String) {
-        val script = "window.airBridge?.setInstallChannel(" + JSONObject.quote(channel) + ")"
+    private fun deliverChannel(webView: WebView, attribution: InstallAttribution) {
+        val script = if (attribution.isTechnical) {
+            "window.airBridge?.setInstallChannel(" + JSONObject.quote(attribution.channel) +
+                ",undefined," +
+                (attribution.technicalKind?.let { JSONObject.quote(it) } ?: "undefined") + ")"
+        } else {
+            // Serialize into a quoted JS string; escaping separators also supports pre-ES2019 parsers.
+            val json = JSONObject.quote(attribution.toJson().toString())
+                .replace("\u2028", "\\u2028")
+                .replace("\u2029", "\\u2029")
+            "window.airBridge?.captureInstallAttribution(JSON.parse($json))"
+        }
         webView.post {
             try {
                 webView.evaluateJavascript(script, null)

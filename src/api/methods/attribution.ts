@@ -1,70 +1,140 @@
+import type { InstallAttributionCandidate } from '../../util/installAttribution';
 import type { createStorage } from '../storages';
 import type { ApiInitArgs } from '../types';
 
 import { IS_EXTENSION } from '../../config';
+import { normalizeAttributionCandidate } from '../../util/installAttribution';
 import { callBackendPost } from '../common/backend';
 import { getEnvironment } from '../environment';
+import { getCurrentStorage } from '../storages';
 
-// Mirror the backend slug shape so a malformed or untrusted channel is never POSTed. Any
-// well-formed bucket is claimed; the backend maps unrecognised ones.
-const CHANNEL_FORMAT = /^[a-z0-9_]{1,64}$/;
-
-export function isAllowedChannel(channel: string): boolean {
-  return CHANNEL_FORMAT.test(channel);
+type RuntimeStorage = ReturnType<typeof createStorage>;
+interface AttributionState extends InstallAttributionCandidate {
+  claimed?: boolean;
+  legacy?: boolean;
 }
 
-// clientId rides the X-App-ClientID header (getBackendHeaders), not the body.
-export async function claimAttribution(channel: string, platform: string): Promise<boolean> {
-  const res = await callBackendPost<{ ok: boolean }>('/attribution/claim', { channel, platform });
+export function isAllowedChannel(channel: string): boolean {
+  return /^[a-z0-9_]{1,64}$/.test(channel);
+}
+
+export async function claimAttribution(
+  channel: string, platform: string, referrerDomain?: string, snapshot?: InstallAttributionCandidate,
+): Promise<boolean> {
+  const candidate = normalizeAttributionCandidate(snapshot ?? {
+    channel, attributionKind: referrerDomain ? 'referrer' : 'utm', referrerDomain,
+  });
+  if (!candidate) return false;
+  const res = await callBackendPost<{ ok: boolean }>('/attribution/claim', { ...candidate, platform });
   return Boolean(res?.ok);
 }
 
-let attributionClaimInFlight = false;
-
-// Replay the claim from the stored channel each init until the backend durably accepts; the URL param
-// exists only at first load. Void-ed from init, so the body never rejects into the init flow.
-export async function claimInstallAttribution(
-  args: ApiInitArgs,
-  runtimeStorage: ReturnType<typeof createStorage>,
-) {
-  try {
-    // First-seen capture stays outside the latch: it must run even while a claim is in flight. The
-    // cross-tab race (two tabs, two utm_source, same instant) is accepted.
-    if (args.channel && isAllowedChannel(args.channel) && !(await runtimeStorage.getItem('attributionChannel'))) {
-      await runtimeStorage.setItem('attributionChannel', args.channel);
-    }
-
-    if (attributionClaimInFlight) return;
-    // Reserve synchronously before any await so an interleaving init sees the latch taken and cannot
-    // double-POST; rolled back in `finally`.
-    attributionClaimInFlight = true;
-    try {
-      if (await runtimeStorage.getItem('attributionClaimed')) return;
-      const channel = await runtimeStorage.getItem('attributionChannel');
-      // Re-validate the stored value: a leftover or tampered channel must not 400-loop the endpoint.
-      if (!channel || !isAllowedChannel(channel)) return;
-
-      const env = getEnvironment();
-      const platform = env.isIosApp ? 'ios'
-        : env.isAndroidApp ? 'android'
-          : IS_EXTENSION ? 'extension'
-            : env.isElectron ? 'electron'
-              : 'web';
-      const ok = await claimAttribution(channel, platform);
-      if (ok) await runtimeStorage.setItem('attributionClaimed', '1');
-    } finally {
-      attributionClaimInFlight = false;
-    }
-  } catch {
-    // Storage or network failure: the flag stays unset and the next init replays.
-  }
+function candidateFromArgs(args: ApiInitArgs): InstallAttributionCandidate | undefined {
+  return normalizeAttributionCandidate(args);
 }
 
-// Native Android bridge entry (window.airBridge.setInstallChannel): the Play referrer resolves
-// asynchronously, so it cannot ride the initial `init()` args. Reuses the same claim plumbing.
+async function readState(storage: RuntimeStorage): Promise<AttributionState | undefined> {
+  const state = await storage.getItem('installAttribution') as AttributionState | undefined;
+  if (state) {
+    const candidate = candidateFromArgs(state);
+    return candidate ? { ...candidate, claimed: state.claimed === true } : undefined;
+  }
+  const channel = await storage.getItem('attributionChannel');
+  if (!channel || !isAllowedChannel(channel)) return undefined;
+  // Legacy channels were explicit/native. Never relabel them as overridable referrers.
+  return {
+    channel, attributionKind: 'utm', claimed: Boolean(await storage.getItem('attributionClaimed')), legacy: true,
+  };
+}
+
+// Serialize storage transitions, but never hold this queue over a network request. A later explicit
+// source can replace a referrer while its POST is in flight; that response acknowledges its own value.
+let transitions: Promise<unknown> = Promise.resolve();
+function transition<T>(action: () => Promise<T>): Promise<T> {
+  const result = transitions.then(action, action);
+  transitions = result.catch(() => {});
+  return result;
+}
+const draining = new WeakSet<RuntimeStorage>();
+
+function sameCandidate(a: AttributionState | undefined, b: AttributionState) {
+  return a?.channel === b.channel && a.attributionKind === b.attributionKind && a.referrerDomain === b.referrerDomain
+    && a.utmMedium === b.utmMedium && a.utmCampaign === b.utmCampaign && a.utmContent === b.utmContent;
+}
+
+export async function claimInstallAttribution(args: ApiInitArgs, storage: RuntimeStorage) {
+  try {
+    await persistAttribution(args, storage);
+    if (draining.has(storage)) return;
+    draining.add(storage);
+    try {
+      while (true) {
+        const selected = await transition(() => readState(storage));
+        if (!selected || selected.claimed) return;
+        const env = getEnvironment();
+        const platform = env.isIosApp ? 'ios' : env.isAndroidApp ? 'android'
+          : IS_EXTENSION ? 'extension' : env.isElectron ? 'electron' : 'web';
+        let ok = false;
+        try {
+          ok = selected.legacy
+            ? Boolean((await callBackendPost<{ ok: boolean }>('/attribution/claim', {
+              channel: selected.channel, platform,
+            }))?.ok)
+            : await claimAttribution(selected.channel, platform, selected.referrerDomain, selected);
+        } catch { /* Retain the pending candidate for the next init. */ }
+        const changed = await transition(async () => {
+          const current = await readState(storage);
+          if (!sameCandidate(current, selected)) return true;
+          if (ok) {
+            if (selected.legacy) await storage.setItem('attributionClaimed', '1');
+            else await storage.setItem('installAttribution', { ...selected, claimed: true });
+          }
+          return false;
+        });
+        if (!changed) return;
+      }
+    } finally {
+      draining.delete(storage);
+    }
+  } catch { /* Storage/network failure must not reject into SDK startup. */ }
+}
+
 export async function setInstallChannel(
-  channel: string,
-  runtimeStorage: ReturnType<typeof createStorage>,
+  channel: string, storage: RuntimeStorage, referrerDomain?: string, technicalKind?: 'referral',
 ) {
-  await claimInstallAttribution({ channel }, runtimeStorage);
+  if (technicalKind === 'referral' || (!referrerDomain && ['organic', 'unknown'].includes(channel))) {
+    try {
+      if (await storage.getItem('attributionTechnicalClaimed')) return;
+      const res = await callBackendPost<{ ok: boolean }>('/attribution/claim', {
+        channel: '', platform: 'android', attributionKind: technicalKind ?? 'direct',
+      });
+      if (res?.ok) await storage.setItem('attributionTechnicalClaimed', '1');
+    } catch { /* Retry technical status on the next Play referrer delivery. */ }
+    return;
+  }
+  await claimInstallAttribution({
+    channel, ...(referrerDomain && { attributionKind: 'referrer', referrerDomain }),
+  }, storage);
+}
+
+async function persistAttribution(args: ApiInitArgs, storage: RuntimeStorage) {
+  await transition(async () => {
+    const saved = await readState(storage);
+    const candidate = candidateFromArgs(args);
+    if (candidate && (!saved || (saved.attributionKind === 'referrer' && candidate.attributionKind === 'utm'))) {
+      await storage.setItem('installAttribution', candidate);
+    }
+  });
+}
+
+// Native callers may discard their durable pending value only after SDK storage accepts it.
+export async function acceptInstallAttribution(snapshot: InstallAttributionCandidate, storage: RuntimeStorage) {
+  if (!normalizeAttributionCandidate(snapshot)) throw new Error('Invalid attribution source');
+  await persistAttribution(snapshot, storage);
+  void claimInstallAttribution({}, storage);
+  return true;
+}
+
+export async function captureInstallAttribution(snapshot: InstallAttributionCandidate) {
+  return acceptInstallAttribution(snapshot, getCurrentStorage());
 }

@@ -41,6 +41,8 @@ export type StorageKey = 'accounts'
   // For install attribution
   | 'attributionClaimed'
   | 'attributionChannel'
+  | 'installAttribution'
+  | 'attributionTechnicalClaimed'
   // For extension
   | 'dapps'
   | 'dappMethods:lastAccountId'

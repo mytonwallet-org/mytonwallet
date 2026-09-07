@@ -99,6 +99,7 @@ class SearchVC(
         val SEARCH_BEST_NFT_CELL = WCell.Type(20)
         val SEARCH_APP_ITEM_CELL = WCell.Type(21)
         val SEARCH_BEST_APP_ITEM_CELL = WCell.Type(22)
+        val SEARCH_BEST_AGENT_CELL = WCell.Type(23)
 
         const val SECTION_CHATS = 0
 
@@ -158,6 +159,7 @@ class SearchVC(
                 SEARCH_BEST_NFT_CELL,
                 SEARCH_APP_ITEM_CELL,
                 SEARCH_BEST_APP_ITEM_CELL,
+                SEARCH_BEST_AGENT_CELL,
                 SEARCH_SELECTOR_TITLE_CELL,
                 SEARCH_CHAT_HINT_CELL,
                 SEARCH_RECENT_CHAT_CELL,
@@ -453,7 +455,7 @@ class SearchVC(
         targetNavigationController?.push(TokenVC(context, account, token))
     }
 
-    private fun openAgent(prompt: String) {
+    internal fun openAgent(prompt: String) {
         val navigationController = navigationController ?: return
         if (navigationController.tabBarController?.switchToAgent(prompt) == true) return
         navigationController.push(AgentVC(context, initialPrompt = prompt))
@@ -562,6 +564,16 @@ class SearchVC(
         SEARCH_BEST_APP_ITEM_CELL -> SearchBestMatchCell(
             context,
             SearchAppItemCell(context, onTap = ::openAppEntry)
+        )
+
+        SEARCH_BEST_AGENT_CELL -> SearchBestMatchCell(
+            context,
+            SearchItemCell(
+                context,
+                iconRes = R.drawable.ic_agent_filled,
+                iconColor = WColor.PrimaryText,
+                onTap = { prompt -> openAgent(prompt) }
+            )
         )
 
         SEARCH_SELECTOR_TITLE_CELL -> SearchSelectorHeaderCell(context)

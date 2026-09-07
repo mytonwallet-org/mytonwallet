@@ -308,6 +308,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     case "portfolio":
         return .portfolio
 
+    case "market":
+        return .market
+
     case "settings":
         let pathComponents = url.pathComponents.filter { $0 != "/" }
         if let section = pathComponents.first?.nilIfEmpty {
@@ -489,4 +492,65 @@ public extension Deeplink {
             self.depositWalletAddressTag = depositWalletAddressTag
         }
     }
+}
+
+struct InstallAttributionSnapshot: Codable, Equatable, Sendable {
+    var channel: String
+    var attributionKind: String
+    var referrerDomain: String?
+    var utmMedium: String?
+    var utmCampaign: String?
+    var utmContent: String?
+}
+
+struct AttributedDeeplink {
+    var url: URL
+    var snapshot: InstallAttributionSnapshot?
+    var isGet: Bool = false
+}
+
+// Keep the original encoded business query: nested protocol URLs must not be re-encoded.
+func splitAttributionDeeplink(_ url: URL) -> AttributedDeeplink {
+    let scheme = url.scheme?.lowercased() ?? ""
+    let isSelf = compatibleSelfProtocolSchemes.contains(scheme)
+        || (["http", "https"].contains(scheme) && compatibleSelfUniversalHosts.contains(url.host?.lowercased() ?? ""))
+    guard isSelf, let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+        return AttributedDeeplink(url: url)
+    }
+    let marketingKeys: Set<String> = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "attribution_referrer"]
+    var parameters: [String: String] = [:]
+    let parts = (components.percentEncodedQuery ?? "").split(separator: "&", omittingEmptySubsequences: false)
+    let business = parts.filter { part in
+        let pair = part.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let first = pair.first else { return true }
+        let key = String(first).replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? ""
+        guard marketingKeys.contains(key) else { return true }
+        if parameters[key] == nil, pair.count == 2 {
+            parameters[key] = String(pair[1]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding
+        }
+        return false
+    }.joined(separator: "&")
+    var snapshot: InstallAttributionSnapshot?
+    let source = parameters["utm_source"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+    if source.range(of: "^[a-z0-9_]{1,30}$", options: .regularExpression) != nil {
+        func detail(_ key: String) -> String? {
+            guard let raw = parameters[key], !raw.unicodeScalars.contains(where: { $0.value < 32 || (127...159).contains($0.value) }) else { return nil }
+            let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !text.isEmpty && text.utf8.count <= 128 ? text : nil
+        }
+        snapshot = InstallAttributionSnapshot(channel: source, attributionKind: "utm", utmMedium: detail("utm_medium"), utmCampaign: detail("utm_campaign"), utmContent: detail("utm_content"))
+    } else if let rawDomain = parameters["attribution_referrer"] {
+        let domain = rawDomain.lowercased().hasSuffix(".") ? String(rawDomain.lowercased().dropLast()) : rawDomain.lowercased()
+        let owned = ["mywallet.io", "mytonwallet.io", "mytonwallet.org", "mytonwallet.app", "my.tt"]
+        if domain.utf8.count <= 253,
+           !domain.unicodeScalars.contains(where: { $0.value < 32 || (127...159).contains($0.value) }),
+           domain.range(of: "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$", options: .regularExpression) == (domain.startIndex..<domain.endIndex),
+           !owned.contains(where: { domain == $0 || domain.hasSuffix("." + $0) }) {
+            snapshot = InstallAttributionSnapshot(channel: "", attributionKind: "referrer", referrerDomain: domain)
+        }
+    }
+    var cleaned = components
+    cleaned.percentEncodedQuery = business.isEmpty ? nil : business
+    let path = compatibleSelfProtocolSchemes.contains(scheme) ? "/\(url.host ?? "")\(url.path)" : url.path
+    return AttributedDeeplink(url: cleaned.url ?? url, snapshot: snapshot, isGet: path == "/get" || path.hasPrefix("/get/"))
 }
